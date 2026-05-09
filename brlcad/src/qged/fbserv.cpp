@@ -41,6 +41,7 @@
 #include "./fbserv.h"
 #include "qtcad/QgGL.h"
 #include "qtcad/QgSW.h"
+#include <QElapsedTimer>
 
 void
 QFBSocket::client_handler()
@@ -316,12 +317,25 @@ QFBIPCSocket::ipc_handler()
     int got_real_eof = 0;
     int got_error = 0;
     int data_read = 0;
-    /* Bound the drain loop to avoid an unbounded burst monopolising the
-     * event loop; subsequent activations will pick up any remainder. */
-    for (int iter = 0; iter < 64; ++iter) {
+    size_t bytes_drained = 0;
+    QElapsedTimer drain_timer;
+    drain_timer.start();
+    /* Adaptive burst draining:
+     *  - stop if we spend too long in one notifier callback (UI fairness)
+     *  - or if we have already drained a large burst of data
+     *  - with an absolute iteration cap as a final guardrail. */
+    const qint64 time_budget_ms = 4;
+    const size_t bytes_budget = 512 * 1024;
+    const int iter_cap = 256;
+    for (int iter = 0; iter < iter_cap; ++iter) {
+	int inend_before = pkc->pkc_inend;
 	int r = pkg_suckin(pkc);
 	if (r > 0) {
 	    data_read = 1;
+	    if (pkc->pkc_inend > inend_before)
+		bytes_drained += (size_t)(pkc->pkc_inend - inend_before);
+	    if (bytes_drained >= bytes_budget || drain_timer.hasExpired(time_budget_ms))
+		break;
 	    continue;
 	}
 	if (r < 0) {
@@ -438,4 +452,3 @@ qdm_close_ipc_client_handler(struct fbserv_obj *fbsp, int i)
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

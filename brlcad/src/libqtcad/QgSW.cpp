@@ -105,7 +105,18 @@ QgSW::~QgSW()
 void QgSW::need_update()
 {
     QTCAD_SLOT("QgSW::need_update", 1);
+    if (!dmp)
+	return;
     dm_set_dirty(dmp, 1);
+    if (fb_update_queued)
+	return;
+    fb_update_queued = true;
+    QMetaObject::invokeMethod(this, "queued_update", Qt::QueuedConnection);
+}
+
+void QgSW::queued_update()
+{
+    fb_update_queued = false;
     update();
 }
 

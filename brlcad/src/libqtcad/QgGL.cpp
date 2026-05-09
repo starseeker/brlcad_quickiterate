@@ -219,6 +219,15 @@ void QgGL::need_update()
     if (!dmp)
 	return;
     dm_set_dirty(dmp, 1);
+    if (fb_update_queued)
+	return;
+    fb_update_queued = true;
+    QMetaObject::invokeMethod(this, "queued_update", Qt::QueuedConnection);
+}
+
+void QgGL::queued_update()
+{
+    fb_update_queued = false;
     update();
 }
 

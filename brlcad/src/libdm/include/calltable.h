@@ -250,6 +250,20 @@ struct fb_impl {
         size_t l;
     } u1, u2, u3, u4, u5, u6;
     /**
+     * @brief Dirty rectangle tracking for incremental framebuffer refresh.
+     *
+     * When if_dirty is non-zero, the dirty bounds are inclusive pixel indices
+     * [if_dirty_xmin, if_dirty_xmax] x [if_dirty_ymin, if_dirty_ymax].
+     * Callers must clamp these values to the current fb dimensions before use.
+     * The bounds are accumulated by fb_write/fb_writerect-style operations and
+     * consumed by dm_draw_objs() to avoid full-frame fb_refresh calls.
+     */
+    int if_dirty;
+    int if_dirty_xmin;
+    int if_dirty_ymin;
+    int if_dirty_xmax;
+    int if_dirty_ymax;
+    /**
      * @brief Reference count of fbserv clients currently streaming to this fb.
      *
      * Maintained by libdm/fbserv.c (fbs_new_client / drop_client).  When

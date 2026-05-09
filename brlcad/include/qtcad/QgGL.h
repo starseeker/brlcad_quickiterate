@@ -82,6 +82,7 @@ class QTCAD_EXPORT QgGL : public QOpenGLWidget, protected QOpenGLFunctions
 
     public slots:
 	void need_update();
+	void queued_update();
         void set_lmouse_move_default(int);
 
     protected:
@@ -108,6 +109,7 @@ class QTCAD_EXPORT QgGL : public QOpenGLWidget, protected QOpenGLFunctions
 	int y_prev = -INT_MAX;
 	double x_press_pos = -INT_MAX;
 	double y_press_pos = -INT_MAX;
+	bool fb_update_queued = false;
 
 	struct bview *local_v = NULL;
 };
@@ -122,4 +124,3 @@ class QTCAD_EXPORT QgGL : public QOpenGLWidget, protected QOpenGLFunctions
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

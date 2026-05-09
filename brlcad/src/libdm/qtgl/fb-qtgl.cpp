@@ -83,6 +83,10 @@ struct qtglinfo {
     short mi_cmap_flag;		/* enabled when there is a non-linear map in memory */
 
     int mi_memwidth;            /* width of scanline in if_mem */
+    unsigned int fb_tex;        /* texture id for texture-backed blit path */
+    int fb_tex_width;           /* texture storage width */
+    int fb_tex_height;          /* texture storage height */
+    int fb_use_texture;         /* runtime toggle for texture blit path */
 
     int alive;
 };
@@ -93,6 +97,81 @@ struct qtglinfo {
 #define CMR(x) ((struct fb_cmap *)((x)->i->if_cmap))->cmr
 #define CMG(x) ((struct fb_cmap *)((x)->i->if_cmap))->cmg
 #define CMB(x) ((struct fb_cmap *)((x)->i->if_cmap))->cmb
+
+static int
+_qtgl_texture_enabled(void)
+{
+    const char *ev = getenv("BRLCAD_QTGL_FB_TEXTURE");
+    if (!ev || !ev[0])
+	return 1; /* Phase C default */
+    if (!strcmp(ev, "0") || !strcmp(ev, "false") ||
+	!strcmp(ev, "False") || !strcmp(ev, "off") ||
+	!strcmp(ev, "OFF"))
+	return 0;
+    return 1;
+}
+
+static void
+qtgl_xmit_texture(struct fb *ifp, int ybase, int nlines, int xbase, int npix)
+{
+    struct qtglinfo *qi = QTGL(ifp);
+    GLfloat s0, s1, t0, t1;
+
+    if (!qi->fb_use_texture)
+	return;
+    if (ifp->i->if_xzoom != 1 || ifp->i->if_yzoom != 1)
+	return; /* preserve legacy zoom semantics */
+    if (ifp->i->if_mem == NULL || ifp->i->if_width <= 0 || ifp->i->if_height <= 0)
+	return;
+
+    if (qi->fb_tex == 0) {
+	glGenTextures(1, &qi->fb_tex);
+	glBindTexture(GL_TEXTURE_2D, qi->fb_tex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	qi->fb_tex_width = 0;
+	qi->fb_tex_height = 0;
+    } else {
+	glBindTexture(GL_TEXTURE_2D, qi->fb_tex);
+    }
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    if (qi->fb_tex_width != ifp->i->if_width || qi->fb_tex_height != ifp->i->if_height) {
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, qi->mi_memwidth);
+	glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+	glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ifp->i->if_width, ifp->i->if_height, 0,
+		     GL_BGRA_EXT, GL_UNSIGNED_BYTE, (const GLvoid *)ifp->i->if_mem);
+	qi->fb_tex_width = ifp->i->if_width;
+	qi->fb_tex_height = ifp->i->if_height;
+    } else {
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, qi->mi_memwidth);
+	glPixelStorei(GL_UNPACK_SKIP_PIXELS, xbase);
+	glPixelStorei(GL_UNPACK_SKIP_ROWS, ybase);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, xbase, ybase, npix, nlines,
+			GL_BGRA_EXT, GL_UNSIGNED_BYTE, (const GLvoid *)ifp->i->if_mem);
+    }
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+    glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+
+    s0 = ((GLfloat)xbase) / ((GLfloat)ifp->i->if_width);
+    s1 = ((GLfloat)(xbase + npix)) / ((GLfloat)ifp->i->if_width);
+    t0 = ((GLfloat)ybase) / ((GLfloat)ifp->i->if_height);
+    t1 = ((GLfloat)(ybase + nlines)) / ((GLfloat)ifp->i->if_height);
+
+    glEnable(GL_TEXTURE_2D);
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glBegin(GL_QUADS);
+    glTexCoord2f(s0, t0); glVertex2i(xbase, ybase);
+    glTexCoord2f(s1, t0); glVertex2i(xbase + npix, ybase);
+    glTexCoord2f(s1, t1); glVertex2i(xbase + npix, ybase + nlines);
+    glTexCoord2f(s0, t1); glVertex2i(xbase, ybase + nlines);
+    glEnd();
+    glDisable(GL_TEXTURE_2D);
+}
 
 
 static void
@@ -120,6 +199,13 @@ qtgl_xmit_scanlines(struct fb *ifp, int ybase, int nlines, int xbase, int npix)
 	npix = clp->xpixmax - xbase + 1;
     if ((ybase + nlines - 1) > clp->ypixmax)
 	nlines = clp->ypixmax - ybase + 1;
+    if (npix <= 0 || nlines <= 0)
+	return;
+
+    if (!sw_cmap && QTGL(ifp)->fb_use_texture) {
+	qtgl_xmit_texture(ifp, ybase, nlines, xbase, npix);
+	return;
+    }
 
     if (sw_cmap) {
 	/* Software colormap each line as it's transmitted */
@@ -192,6 +278,8 @@ qtgl_getmem(struct fb *ifp)
 	 * only malloc as much memory as is needed.
 	 */
 	QTGL(ifp)->mi_memwidth = ifp->i->if_width;
+	QTGL(ifp)->fb_tex_width = 0;
+	QTGL(ifp)->fb_tex_height = 0;
 	pixsize = ifp->i->if_height * ifp->i->if_width * sizeof(struct fb_pixel);
 	size = pixsize + sizeof(struct fb_cmap);
 
@@ -348,6 +436,7 @@ qtgl_open_existing(struct fb *ifp, int width, int height, struct fb_platform_spe
     }
 
     ifp->i->dmp = (struct dm *)fb_p->data;
+    QTGL(ifp)->fb_use_texture = _qtgl_texture_enabled();
 
     if (ifp->i->dmp) {
 	ifp->i->dmp->i->fbp = ifp;
@@ -507,6 +596,15 @@ qtgl_free(struct fb *ifp)
     if (ifp->i->if_mem != NULL) {
 	/* free up memory associated with image */
 	(void)free(ifp->i->if_mem);
+    }
+
+    if (ifp->i->dmp)
+	dm_make_current(ifp->i->dmp);
+    if (QTGL(ifp)->fb_tex) {
+	glDeleteTextures(1, &QTGL(ifp)->fb_tex);
+	QTGL(ifp)->fb_tex = 0;
+	QTGL(ifp)->fb_tex_width = 0;
+	QTGL(ifp)->fb_tex_height = 0;
     }
 
     if (QTGLL(ifp) != NULL) {
@@ -1029,6 +1127,11 @@ struct fb_impl qtgl_interface_impl =
     {0}, /* u4 */
     {0}, /* u5 */
     {0},  /* u6 */
+    0,    /* if_dirty */
+    0,    /* if_dirty_xmin */
+    0,    /* if_dirty_ymin */
+    0,    /* if_dirty_xmax */
+    0,    /* if_dirty_ymax */
     0     /* if_active_clients */
 };
 
@@ -1061,4 +1164,3 @@ COMPILER_DLLEXPORT const struct fb_plugin *fb_plugin_info(void)
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-
