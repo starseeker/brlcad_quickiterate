@@ -1768,12 +1768,17 @@ _ged_rt_output_handler2(void *clientData, int type)
 
     struct ged *gedp = rrtp->gedp;
 
-    /* Get data from rt */
-    if (rrtp->stderr_active && (count = bu_process_read_n(rrtp->p, BU_PROCESS_STDERR, RT_MAXLINE, (char *)line)) <= 0) {
+    if (type == -1) {
 	read_failed_stderr = 1;
-    }
-    if (rrtp->stdout_active && (count = bu_process_read_n(rrtp->p, BU_PROCESS_STDOUT, RT_MAXLINE, (char *)line)) <= 0) {
 	read_failed_stdout = 1;
+    } else {
+	/* Get data from rt */
+	if (rrtp->stderr_active && (count = bu_process_read_n(rrtp->p, BU_PROCESS_STDERR, RT_MAXLINE, (char *)line)) <= 0) {
+	    read_failed_stderr = 1;
+	}
+	if (rrtp->stdout_active && (count = bu_process_read_n(rrtp->p, BU_PROCESS_STDOUT, RT_MAXLINE, (char *)line)) <= 0) {
+	    read_failed_stdout = 1;
+	}
     }
 
     if (read_failed_stderr || read_failed_stdout) {
