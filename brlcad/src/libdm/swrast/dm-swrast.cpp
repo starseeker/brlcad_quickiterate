@@ -266,6 +266,8 @@ swrast_open(void *ctx, void *UNUSED(interp), int argc, const char **argv)
     mvars->fastfog = 1;
     mvars->fogdensity = 1.0;
     mvars->lighting_on = 1;
+    mvars->fast_wireframe = 1;
+    mvars->fast_wireframe_active = 1;
     mvars->zbuffer_on = 1;
     mvars->zclipping_on = 0;
     mvars->bound = 1.0;
@@ -761,4 +763,3 @@ COMPILER_DLLEXPORT const struct dm_plugin *dm_plugin_info(void)
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-
