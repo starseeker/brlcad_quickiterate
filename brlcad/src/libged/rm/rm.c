@@ -100,7 +100,7 @@ _rm_comb_has_children(struct db_i *dbip, struct directory *dp)
 static int
 _rm_delete_object(struct ged *gedp, struct directory *dp)
 {
-    _dl_eraseAllNamesFromDisplay(gedp, dp->d_namep, 0);
+    bsg_view_obj_erase_by_name(gedp, dp->d_namep);
 
     if (db_delete(gedp->dbip, dp) != 0 || db_dirdelete(gedp->dbip, dp) != 0) {
 	bu_vls_printf(gedp->ged_result_str,
@@ -121,6 +121,9 @@ _rm_remove_from_comb(struct ged *gedp, struct directory *parent_dp, const char *
     struct rt_db_internal intern;
     struct rt_comb_internal *comb;
     struct bu_vls path = BU_VLS_INIT_ZERO;
+    struct db_full_path dfp;
+
+    db_full_path_init(&dfp);
 
     if (rt_db_get_internal(&intern, parent_dp, gedp->dbip, (fastf_t *)NULL) < 0) {
 	bu_vls_printf(gedp->ged_result_str,
@@ -140,7 +143,9 @@ _rm_remove_from_comb(struct ged *gedp, struct directory *parent_dp, const char *
     }
 
     bu_vls_printf(&path, "%s/%s", parent_dp->d_namep, child_name);
-    _dl_eraseAllPathsFromDisplay(gedp, bu_vls_cstr(&path), 0);
+    if (db_string_to_path(&dfp, gedp->dbip, bu_vls_cstr(&path)) == 0)
+	bsg_view_obj_erase_all_dbpaths(gedp, &dfp);
+    db_free_full_path(&dfp);
     bu_vls_free(&path);
 
     if (rt_db_put_internal(parent_dp, gedp->dbip, &intern) < 0) {
