@@ -346,7 +346,6 @@ swrast_open(void *ctx, void *UNUSED(interp), int argc, const char **argv)
 static int
 swrast_drawString2D(struct dm *dmp, const char *str, fastf_t ix, fastf_t iy, int UNUSED(size), int use_aspect)
 {
-    struct gl_vars *mvars = (struct gl_vars *)dmp->i->m_vars;
     struct swrast_vars *privars = (struct swrast_vars *)dmp->i->dm_vars.priv_vars;
     if (dmp->i->dm_debugLevel)
 	bu_log("swrast_drawString2D()\n");
@@ -408,15 +407,10 @@ swrast_drawString2D(struct dm *dmp, const char *str, fastf_t ix, fastf_t iy, int
 	// Restore previous projection matrix
 	glPopMatrix();
 
-	// Restore view matrix (changed by glOrtho call)
-	glPopMatrix();
-
 	// Put us back in whatever mode we were in before starting the text draw
 	glMatrixMode(mm);
 
 	if (!blend_state) glDisable(GL_BLEND);
-
-	glOrtho(-mvars->i.xlim_view, mvars->i.xlim_view, -mvars->i.ylim_view, mvars->i.ylim_view, dmp->i->dm_clipmin[2], dmp->i->dm_clipmax[2]);
     }
     return BRLCAD_OK;
 }
@@ -479,9 +473,7 @@ swrast_String2DBBox(struct dm *dmp, vect2d_t *bmin, vect2d_t *bmax, const char *
 	//bu_log("%s bounds: min(%f,%f) max(%f,%f)\n", str, bounds[0], bounds[1], bounds[2], bounds[3]);
 	//bu_log("%s width %d\n", str, width);
 
-	// Done with text, put matrices back
-	glPopMatrix();
-	glMatrixMode(GL_PROJECTION);
+	// Done with text, restore projection matrix
 	glPopMatrix();
 
 	if (bmin)
