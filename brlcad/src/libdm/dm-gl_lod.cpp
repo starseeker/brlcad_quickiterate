@@ -143,21 +143,21 @@ clip_line_to_win(int *x0, int *y0, int *x1, int *y1, int w, int h)
 	int x;
 	int y;
 	if (c & TOP) {
-	    int yden = safe_denominator(*y1 - *y0);
+	    int y_denominator = safe_denominator(*y1 - *y0);
 	    y = h - 1;
-	    x = *x0 + (*x1 - *x0) * (y - *y0) / yden;
+	    x = *x0 + (*x1 - *x0) * (y - *y0) / y_denominator;
 	} else if (c & BOTTOM) {
-	    int yden = safe_denominator(*y1 - *y0);
+	    int y_denominator = safe_denominator(*y1 - *y0);
 	    y = 0;
-	    x = *x0 + (*x1 - *x0) * (y - *y0) / yden;
+	    x = *x0 + (*x1 - *x0) * (y - *y0) / y_denominator;
 	} else if (c & RIGHT) {
-	    int xden = safe_denominator(*x1 - *x0);
+	    int x_denominator = safe_denominator(*x1 - *x0);
 	    x = w - 1;
-	    y = *y0 + (*y1 - *y0) * (x - *x0) / xden;
+	    y = *y0 + (*y1 - *y0) * (x - *x0) / x_denominator;
 	} else {
-	    int xden = safe_denominator(*x1 - *x0);
+	    int x_denominator = safe_denominator(*x1 - *x0);
 	    x = 0;
-	    y = *y0 + (*y1 - *y0) * (x - *x0) / xden;
+	    y = *y0 + (*y1 - *y0) * (x - *x0) / x_denominator;
 	}
 
 	if (c == c0) {
@@ -758,26 +758,26 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
     // "Standard" vlist object drawing
     if (bu_list_len(&s->s_vlist)) {
 	if (gl_swrast_wireframe_obj(dmp, s)) {
-	    if (gl_swrast_database_wireframe(dmp, s)) {
-		lightingWasEnabled = glIsEnabled(GL_LIGHTING);
-		if (lightingWasEnabled) {
-		    unsigned char *fg = dm_get_fg(dmp);
-		    glDisable(GL_LIGHTING);
-		    glColor3ub((GLubyte)fg[0], (GLubyte)fg[1], (GLubyte)fg[2]);
-		}
-		int fast_ret = swrast_drawVList_fast(dmp, (struct bv_vlist *)&s->s_vlist);
-		if (lightingWasEnabled)
-		    glEnable(GL_LIGHTING);
-		if (fast_ret == BRLCAD_OK)
-		    return BRLCAD_OK;
-	    }
-
+	    /* Swrast wireframes should render as flat, unlit lines whether the
+	     * fast path or the fallback GL path draws them. */
 	    lightingWasEnabled = glIsEnabled(GL_LIGHTING);
 	    if (lightingWasEnabled) {
 		unsigned char *fg = dm_get_fg(dmp);
 		glDisable(GL_LIGHTING);
 		glColor3ub((GLubyte)fg[0], (GLubyte)fg[1], (GLubyte)fg[2]);
 		restoreLighting = 1;
+	    }
+	    if (gl_swrast_database_wireframe(dmp, s)) {
+		int fast_ret = swrast_drawVList_fast(dmp, (struct bv_vlist *)&s->s_vlist);
+		if (fast_ret == BRLCAD_OK) {
+		    if (restoreLighting)
+			glEnable(GL_LIGHTING);
+		    return BRLCAD_OK;
+		}
+		if (restoreLighting) {
+		    glEnable(GL_LIGHTING);
+		    restoreLighting = 0;
+		}
 	    }
 	    glGetIntegerv(GL_SHADE_MODEL, &originalShadeModel);
 	    if (originalShadeModel != GL_FLAT) {
