@@ -110,12 +110,18 @@ swrast_draw_line_rgba(struct swrast_vars_fast *pv, int w, int h, int x0, int y0,
     }
 }
 
+static inline int
+swrast_clip_denominator(int d)
+{
+    return d ? d : 1;
+}
+
 static int
 clip_line_to_win(int *x0, int *y0, int *x1, int *y1, int w, int h)
 {
     enum { LEFT = 1, RIGHT = 2, BOTTOM = 4, TOP = 8 };
 
-    auto code = [w, h](int x, int y) {
+    auto compute_outcode = [w, h](int x, int y) {
 	int c = 0;
 	if (x < 0) c |= LEFT;
 	else if (x >= w) c |= RIGHT;
@@ -124,36 +130,29 @@ clip_line_to_win(int *x0, int *y0, int *x1, int *y1, int w, int h)
 	return c;
     };
 
-    int c0 = code(*x0, *y0);
-    int c1 = code(*x1, *y1);
+    int c0 = compute_outcode(*x0, *y0);
+    int c1 = compute_outcode(*x1, *y1);
     while (1) {
 	if (!(c0 | c1)) return 1;
 	if (c0 & c1) return 0;
 
 	int c = c0 ? c0 : c1;
-	int x = 0, y = 0;
+	int x;
+	int y;
 	if (c & TOP) {
-	    int yden = *y1 - *y0;
-	    if (!yden)
-		yden = 1;
+	    int yden = swrast_clip_denominator(*y1 - *y0);
 	    y = h - 1;
 	    x = *x0 + (*x1 - *x0) * (y - *y0) / yden;
 	} else if (c & BOTTOM) {
-	    int yden = *y1 - *y0;
-	    if (!yden)
-		yden = 1;
+	    int yden = swrast_clip_denominator(*y1 - *y0);
 	    y = 0;
 	    x = *x0 + (*x1 - *x0) * (y - *y0) / yden;
 	} else if (c & RIGHT) {
-	    int xden = *x1 - *x0;
-	    if (!xden)
-		xden = 1;
+	    int xden = swrast_clip_denominator(*x1 - *x0);
 	    x = w - 1;
 	    y = *y0 + (*y1 - *y0) * (x - *x0) / xden;
 	} else {
-	    int xden = *x1 - *x0;
-	    if (!xden)
-		xden = 1;
+	    int xden = swrast_clip_denominator(*x1 - *x0);
 	    x = 0;
 	    y = *y0 + (*y1 - *y0) * (x - *x0) / xden;
 	}
@@ -161,11 +160,11 @@ clip_line_to_win(int *x0, int *y0, int *x1, int *y1, int w, int h)
 	if (c == c0) {
 	    *x0 = x;
 	    *y0 = y;
-	    c0 = code(*x0, *y0);
+	    c0 = compute_outcode(*x0, *y0);
 	} else {
 	    *x1 = x;
 	    *y1 = y;
-	    c1 = code(*x1, *y1);
+	    c1 = compute_outcode(*x1, *y1);
 	}
     }
 }
