@@ -45,6 +45,19 @@ extern "C" {
 #define QTGL_ZMIN -2048
 #define QTGL_ZMAX 2047
 
+namespace {
+QSize
+qtcad_render_size(const QWidget *w)
+{
+    if (!w)
+	return QSize();
+
+    qreal dpr = w->devicePixelRatioF();
+    return QSize(qMax(1, qCeil(w->width() * dpr)),
+		 qMax(1, qCeil(w->height() * dpr)));
+}
+}
+
 QgGL::QgGL(QWidget *parent, struct fb *fbp)
     : QOpenGLWidget(parent), ifp(fbp)
 {
@@ -185,10 +198,11 @@ void QgGL::resizeEvent(QResizeEvent *e)
     if (!dmp || !v)
 
                return;
-    dm_set_width(dmp, width());
-    dm_set_height(dmp, height());
-    v->gv_width = width();
-    v->gv_height = height();
+    QSize rsize = qtcad_render_size(this);
+    dm_set_width(dmp, rsize.width());
+    dm_set_height(dmp, rsize.height());
+    v->gv_width = rsize.width();
+    v->gv_height = rsize.height();
     dm_configure_win(dmp, 0);
     if (ifp) {
 	fb_configure_window(ifp, v->gv_width, v->gv_height);

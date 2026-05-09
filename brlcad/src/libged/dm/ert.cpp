@@ -123,8 +123,12 @@ ged_ert_core(struct ged *gedp, int argc, const char *argv[])
     }
     args.push_back(std::string("-M"));
 
-    int width = dm_get_width(dmp);
-    int height = dm_get_height(dmp);
+    int width = fb_getwidth(fbp);
+    int height = fb_getheight(fbp);
+    if (width <= 0 || height <= 0) {
+	width = dm_get_width(dmp);
+	height = dm_get_height(dmp);
+    }
 
     args.push_back(std::string("-w"));
     args.push_back(std::to_string(width));
@@ -225,4 +229,3 @@ ged_ert_core(struct ged *gedp, int argc, const char *argv[])
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

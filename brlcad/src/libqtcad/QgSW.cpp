@@ -50,6 +50,19 @@ extern "C" {
  * Dark but not black, so the yellow wireframe is clearly visible. */
 #define QTSW_SCREENSHOT_BG_GREY 40
 
+namespace {
+QSize
+qtcad_render_size(const QWidget *w)
+{
+    if (!w)
+	return QSize();
+
+    qreal dpr = w->devicePixelRatioF();
+    return QSize(qMax(1, qCeil(w->width() * dpr)),
+		 qMax(1, qCeil(w->height() * dpr)));
+}
+}
+
 QgSW::QgSW(QWidget *parent, struct fb *fbp)
     : QWidget(parent), ifp(fbp)
 {
@@ -111,8 +124,9 @@ void QgSW::paintEvent(QPaintEvent *e)
 
 	if (!dmp) {
 	    // swrast will need to know the window size
-	    v->gv_width = width();
-	    v->gv_height = height();
+	    QSize rsize = qtcad_render_size(this);
+	    v->gv_width = rsize.width();
+	    v->gv_height = rsize.height();
 
 	    // Do the standard libdm attach to get our rendering backend.
 	    const char *acmd = "attach";
@@ -181,10 +195,11 @@ void QgSW::paintEvent(QPaintEvent *e)
 	return;
     }
     QImage image(dm_image, dm_get_width(dmp), dm_get_height(dmp), QImage::Format_RGBX8888);
+    image.setDevicePixelRatio(devicePixelRatioF());
     QPainter painter(this);
     painter.translate(0, height());
     painter.scale(1.0, -1.0);
-    painter.drawImage(QRect(0, 0, width(), height()), image);
+    painter.drawImage(QPoint(0, 0), image);
     QWidget::paintEvent(e);
 }
 
@@ -192,10 +207,11 @@ void QgSW::resizeEvent(QResizeEvent *e)
 {
     QWidget::resizeEvent(e);
     if (dmp && v) {
-	dm_set_width(dmp, width());
-	dm_set_height(dmp, height());
-	v->gv_width = width();
-	v->gv_height = height();
+	QSize rsize = qtcad_render_size(this);
+	dm_set_width(dmp, rsize.width());
+	dm_set_height(dmp, rsize.height());
+	v->gv_width = rsize.width();
+	v->gv_height = rsize.height();
 	dm_configure_win(dmp, 0);
 	if (ifp) {
 	    fb_configure_window(ifp, v->gv_width, v->gv_height);
