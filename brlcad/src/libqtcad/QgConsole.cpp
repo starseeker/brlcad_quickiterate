@@ -618,6 +618,22 @@ void QgConsole::detach(struct ged_subprocess *p, int t)
 	gdata = l->data;
 	listeners.erase(l_it);
 	delete l;
+
+	// Clear the stream-active flag for the stream that just retired.
+	// This is done on the GUI thread (here) rather than in
+	// qt_delete_io_handler's worker-thread path so that libged sees
+	// the stream go inactive only after the listener has actually
+	// been torn down on the GUI side.  This is also the consistent
+	// place to do it for both the synchronous and queued paths into
+	// detach (qt_delete_io_handler now calls into us only via the
+	// queued is_finished signal when invoked from a worker thread).
+	if (process) {
+	    switch (t) {
+		case (int)BU_PROCESS_STDIN:  process->stdin_active  = 0; break;
+		case (int)BU_PROCESS_STDOUT: process->stdout_active = 0; break;
+		case (int)BU_PROCESS_STDERR: process->stderr_active = 0; break;
+	    }
+	}
     }
 
     if (process) {
