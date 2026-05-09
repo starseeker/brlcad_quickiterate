@@ -109,7 +109,9 @@ qtgl_configureWin(struct dm *dmp, int UNUSED(force))
 	return BRLCAD_ERROR;
     }
 
-    gl_reshape(dmp, privars->qw->width(), privars->qw->height());
+    int width = qMax(1, qCeil(privars->qw->width() * privars->qw->devicePixelRatioF()));
+    int height = qMax(1, qCeil(privars->qw->height() * privars->qw->devicePixelRatioF()));
+    gl_reshape(dmp, width, height);
 
     /* this is where font information is set up, if not already done */
     if (!privars->fs) {
@@ -708,4 +710,3 @@ COMPILER_DLLEXPORT const struct dm_plugin *dm_plugin_info(void)
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-
