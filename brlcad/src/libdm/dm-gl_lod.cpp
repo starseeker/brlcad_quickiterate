@@ -114,11 +114,14 @@ swrast_draw_line_rgba(struct swrast_vars_fast *pv, int w, int h, int x0, int y0,
 }
 
 static inline int
-safe_denominator(int d)
+nonzero_or_one(int d)
 {
     return d ? d : 1;
 }
 
+/* Clip a screen-space line to the current swrast buffer using
+ * Cohen-Sutherland outcodes.  Returns 1 when any portion of the line is
+ * visible and updates the endpoints in-place; returns 0 when fully rejected. */
 static int
 clip_line_to_win(int *x0, int *y0, int *x1, int *y1, int w, int h)
 {
@@ -143,19 +146,19 @@ clip_line_to_win(int *x0, int *y0, int *x1, int *y1, int w, int h)
 	int x;
 	int y;
 	if (c & TOP) {
-	    int y_denominator = safe_denominator(*y1 - *y0);
+	    int y_denominator = nonzero_or_one(*y1 - *y0);
 	    y = h - 1;
 	    x = *x0 + (*x1 - *x0) * (y - *y0) / y_denominator;
 	} else if (c & BOTTOM) {
-	    int y_denominator = safe_denominator(*y1 - *y0);
+	    int y_denominator = nonzero_or_one(*y1 - *y0);
 	    y = 0;
 	    x = *x0 + (*x1 - *x0) * (y - *y0) / y_denominator;
 	} else if (c & RIGHT) {
-	    int x_denominator = safe_denominator(*x1 - *x0);
+	    int x_denominator = nonzero_or_one(*x1 - *x0);
 	    x = w - 1;
 	    y = *y0 + (*y1 - *y0) * (x - *x0) / x_denominator;
 	} else {
-	    int x_denominator = safe_denominator(*x1 - *x0);
+	    int x_denominator = nonzero_or_one(*x1 - *x0);
 	    x = 0;
 	    y = *y0 + (*y1 - *y0) * (x - *x0) / x_denominator;
 	}
@@ -172,6 +175,10 @@ clip_line_to_win(int *x0, int *y0, int *x1, int *y1, int w, int h)
     }
 }
 
+/* Fast swrast wireframe rendering path for database-object vlists.  It draws
+ * transformed line segments directly into the OSMesa RGBA buffer and bypasses
+ * the OpenGL vlist/display-list path; callers fall back to dm_draw_vlist when
+ * this routine cannot use the swrast private buffer. */
 static int
 swrast_drawVList_fast(struct dm *dmp, struct bv_vlist *vp)
 {
@@ -769,14 +776,12 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 	    }
 	    if (gl_swrast_database_wireframe(dmp, s)) {
 		int fast_ret = swrast_drawVList_fast(dmp, (struct bv_vlist *)&s->s_vlist);
-		if (fast_ret == BRLCAD_OK) {
-		    if (restoreLighting)
-			glEnable(GL_LIGHTING);
-		    return BRLCAD_OK;
-		}
 		if (restoreLighting) {
 		    glEnable(GL_LIGHTING);
 		    restoreLighting = 0;
+		}
+		if (fast_ret == BRLCAD_OK) {
+		    return BRLCAD_OK;
 		}
 	    }
 	    glGetIntegerv(GL_SHADE_MODEL, &originalShadeModel);

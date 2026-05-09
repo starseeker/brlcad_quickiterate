@@ -1659,6 +1659,21 @@ void gl_fog_hook(const struct bu_structparse *sdp,
     dm_generic_hook(sdp, name, base, value, data);
 }
 
+void
+gl_update_fast_wireframe_active(struct dm *dmp)
+{
+    if (!dmp || !dmp->i->m_vars)
+	return;
+
+    struct gl_vars *mvars = (struct gl_vars *)dmp->i->m_vars;
+    mvars->fast_wireframe_active = 0;
+    if (!dm_get_dm_name(dmp))
+	return;
+
+    if (mvars->fast_wireframe && BU_STR_EQUAL(dm_get_dm_name(dmp), "swrast"))
+	mvars->fast_wireframe_active = 1;
+}
+
 static void
 gl_fast_wireframe_hook(const struct bu_structparse *sdp,
 	const char *name,
@@ -1670,13 +1685,7 @@ gl_fast_wireframe_hook(const struct bu_structparse *sdp,
     struct dm *dmp = mvars->this_dm;
 
     dm_generic_hook(sdp, name, base, value, data);
-
-    mvars->fast_wireframe_active = 0;
-    if (!dmp || !dm_get_dm_name(dmp))
-	return;
-
-    if (mvars->fast_wireframe && BU_STR_EQUAL(dm_get_dm_name(dmp), "swrast"))
-	mvars->fast_wireframe_active = 1;
+    gl_update_fast_wireframe_active(dmp);
 }
 
 

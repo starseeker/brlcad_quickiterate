@@ -267,7 +267,7 @@ swrast_open(void *ctx, void *UNUSED(interp), int argc, const char **argv)
     mvars->fogdensity = 1.0;
     mvars->lighting_on = 1;
     mvars->fast_wireframe = 1;
-    mvars->fast_wireframe_active = 1;
+    gl_update_fast_wireframe_active(dmp);
     mvars->zbuffer_on = 1;
     mvars->zclipping_on = 0;
     mvars->bound = 1.0;
