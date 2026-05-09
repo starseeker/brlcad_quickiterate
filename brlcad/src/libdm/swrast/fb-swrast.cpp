@@ -401,7 +401,7 @@ fb_swrast_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
     FB_CK_FB(ifp->i);
 
     qi->win_width = qi->vp_width = width;
-    qi->win_height = qi->vp_width = height;
+    qi->win_height = qi->vp_height = height;
 
 #ifdef SWRAST_QT
     qi->qapp = new QApplication(qi->ac, qi->av);

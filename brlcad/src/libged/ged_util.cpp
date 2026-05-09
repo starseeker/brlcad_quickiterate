@@ -1776,6 +1776,27 @@ _ged_rt_finalize(struct ged_subprocess *rrtp)
     else
 	bu_log("Raytrace complete.\n");
 
+    /* Phase A2 (ert reliability): drop any IPC fbserv client(s) attached
+     * to this ged's fbserv now that rt has exited.  Without this, the
+     * close of the rt-side IPC pipe is only observed asynchronously
+     * (next QSocketNotifier::activated edge), which can leave
+     * if_active_clients > 0 across this ert boundary — defeating the
+     * deferred-resize finalization in libdm's drop_client and
+     * potentially racing with the next ert's fbs_open_ipc.  In qged,
+     * IPC fbserv clients are created exclusively by libged/dm/ert.cpp
+     * via fbs_open_ipc(), so it is safe to drop every IPC slot here.
+     * fbs_drop_client invokes the registered close handler, which uses
+     * deleteLater() in qged for safe async tear-down on the GUI
+     * thread (see comment above _ged_rt_finalize). */
+    if (gedp->ged_fbs) {
+	for (int ci = 0; ci < MAX_CLIENTS; ++ci) {
+	    if (gedp->ged_fbs->fbs_clients[ci].fbsc_fd != 0 &&
+		gedp->ged_fbs->fbs_clients[ci].fbsc_is_ipc) {
+		fbs_drop_client(gedp->ged_fbs, ci);
+	    }
+	}
+    }
+
     if (gedp->i->ged_gdp->gd_rtCmdNotify != (void (*)(int))0)
 	gedp->i->ged_gdp->gd_rtCmdNotify(aborted);
 

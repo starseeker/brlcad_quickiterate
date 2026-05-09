@@ -81,6 +81,29 @@ drop_client(struct fbserv_obj *fbsp, int sub)
 	if (fbsp->fbs_fbp && fbsp->fbs_fbp->i &&
 	    fbsp->fbs_fbp->i->if_active_clients > 0)
 	    fbsp->fbs_fbp->i->if_active_clients--;
+	/* Phase A2 (ert reliability): when the lock has just been
+	 * released (count == 0), finalize any window resize that was
+	 * deferred while a client was streaming.  swrast/qtgl
+	 * configureWindow only updated vp_width/vp_height while the
+	 * lock was held, leaving if_width/if_height (and if_mem) at
+	 * their old values.  Re-driving fb_configure_window with the
+	 * dm's current dimensions takes the unlocked branch and
+	 * properly reallocs if_mem, resets if_xcenter/if_ycenter,
+	 * and runs fb_clipper.  Must run BEFORE the close handler
+	 * (which may deleteLater() the toolkit channel object) and
+	 * AFTER the decrement so the unlocked branch is taken. */
+	if (fbsp->fbs_fbp && fbsp->fbs_fbp->i &&
+	    fbsp->fbs_fbp->i->if_active_clients == 0 &&
+	    fbsp->fbs_fbp->i->dmp) {
+	    struct dm *dmp = fbsp->fbs_fbp->i->dmp;
+	    int dw = dm_get_width(dmp);
+	    int dh = dm_get_height(dmp);
+	    if (dw > 0 && dh > 0 &&
+		(dw != fbsp->fbs_fbp->i->if_width ||
+		 dh != fbsp->fbs_fbp->i->if_height)) {
+		fb_configure_window(fbsp->fbs_fbp, dw, dh);
+	    }
+	}
 	/* Use the IPC-specific close handler if the client was opened via IPC
 	 * and the caller registered one; otherwise fall back to the generic
 	 * TCP close handler. */
