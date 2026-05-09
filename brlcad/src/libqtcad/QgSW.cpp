@@ -185,6 +185,10 @@ void QgSW::paintEvent(QPaintEvent *e)
 
     matp_t mat = v->gv_model2view;
     dm_loadmatrix(dmp, mat, 0);
+    bu_log("QgSW::paintEvent: pre-draw gv=(%d,%d) dm=(%d,%d) dpr=%.3g widget=(%d,%d)\n",
+	   v->gv_width, v->gv_height,
+	   dm_get_width(dmp), dm_get_height(dmp),
+	   (double)devicePixelRatioF(), width(), height());
     dm_draw_begin(dmp);
     dm_draw_objs(v, draw_custom, draw_udata);
     dm_draw_end(dmp);
@@ -208,10 +212,15 @@ void QgSW::resizeEvent(QResizeEvent *e)
     QWidget::resizeEvent(e);
     if (dmp && v) {
 	QSize rsize = qtcad_render_size(this);
+	bu_log("QgSW::resizeEvent: logical=(%d,%d) physical/render=(%d,%d) dpr=%.3g\n",
+	       width(), height(), rsize.width(), rsize.height(),
+	       (double)devicePixelRatioF());
 	dm_set_width(dmp, rsize.width());
 	dm_set_height(dmp, rsize.height());
 	v->gv_width = rsize.width();
 	v->gv_height = rsize.height();
+	bu_log("QgSW::resizeEvent: gv_width=%d gv_height=%d dm_w=%d dm_h=%d (after set)\n",
+	       v->gv_width, v->gv_height, dm_get_width(dmp), dm_get_height(dmp));
 	dm_configure_win(dmp, 0);
 	if (ifp) {
 	    fb_configure_window(ifp, v->gv_width, v->gv_height);
@@ -230,6 +239,8 @@ void QgSW::keyPressEvent(QKeyEvent *k) {
 
     // Let bv know what the current view width and height are, in
     // case the dx/dy mouse translations need that information
+    bu_log("QgSW::keyPressEvent: setting gv to logical (%d,%d) was (%d,%d) dm=(%d,%d)\n",
+	   width(), height(), v->gv_width, v->gv_height, dm_get_width(dmp), dm_get_height(dmp));
     v->gv_width = width();
     v->gv_height = height();
 
@@ -251,6 +262,8 @@ void QgSW::mousePressEvent(QMouseEvent *e) {
 
     // Let bv know what the current view width and height are, in
     // case the dx/dy mouse translations need that information
+    bu_log("QgSW::mousePressEvent: setting gv to logical (%d,%d) was (%d,%d) dm=(%d,%d)\n",
+	   width(), height(), v->gv_width, v->gv_height, dm_get_width(dmp), dm_get_height(dmp));
     v->gv_width = width();
     v->gv_height = height();
 
@@ -302,6 +315,8 @@ void QgSW::mouseMoveEvent(QMouseEvent *e)
 
     // Let bv know what the current view width and height are, in
     // case the dx/dy mouse translations need that information
+    bu_log("QgSW::mouseMoveEvent: setting gv to logical (%d,%d) was (%d,%d) dm=(%d,%d)\n",
+	   width(), height(), v->gv_width, v->gv_height, dm_get_width(dmp), dm_get_height(dmp));
     v->gv_width = width();
     v->gv_height = height();
 
@@ -335,6 +350,8 @@ void QgSW::wheelEvent(QWheelEvent *e) {
 
     // Let bv know what the current view width and height are, in
     // case the dx/dy mouse translations need that information
+    bu_log("QgSW::wheelEvent: setting gv to logical (%d,%d) was (%d,%d) dm=(%d,%d)\n",
+	   width(), height(), v->gv_width, v->gv_height, dm_get_width(dmp), dm_get_height(dmp));
     v->gv_width = width();
     v->gv_height = height();
 

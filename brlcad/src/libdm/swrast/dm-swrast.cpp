@@ -85,6 +85,17 @@ swrast_makeCurrent(struct dm *dmp)
     if (dmp->i->dm_debugLevel)
 	bu_log("swrast_makeCurrent()\n");
 
+    /* DIM-DBG: log whenever OSMesa context dimensions might differ from dm dims */
+    if (pv->v->gv_width != dmp->i->dm_width || pv->v->gv_height != dmp->i->dm_height) {
+	bu_log("swrast_makeCurrent: MISMATCH gv=(%d,%d) dm=(%d,%d) - OSMesa will use gv dims\n",
+	       pv->v->gv_width, pv->v->gv_height,
+	       dmp->i->dm_width, dmp->i->dm_height);
+    } else {
+	bu_log("swrast_makeCurrent: gv=(%d,%d) dm=(%d,%d) [OK]\n",
+	       pv->v->gv_width, pv->v->gv_height,
+	       dmp->i->dm_width, dmp->i->dm_height);
+    }
+
     if (!OSMesaMakeCurrent(pv->ctx, pv->os_b, GL_UNSIGNED_BYTE, pv->v->gv_width, pv->v->gv_height)) {
 	bu_log("OSMesaMakeCurrent failed!\n");
 	return BRLCAD_ERROR;
@@ -112,6 +123,9 @@ swrast_configureWin(struct dm *dmp, int UNUSED(force))
 
     int width = pv->v->gv_width;
     int height = pv->v->gv_height;
+
+    bu_log("swrast_configureWin: gv=(%d,%d) dm_current=(%d,%d)\n",
+	   width, height, dmp->i->dm_width, dmp->i->dm_height);
 
     if (!width || !height) {
 	bu_log("swrast_configureWin: Zero sized window\n");
@@ -584,6 +598,17 @@ swrast_getDisplayImage(struct dm *dmp, unsigned char **image, int flip, int alph
 	    if (!OSMesaMakeCurrent(saved_ctx, saved_buf, GL_UNSIGNED_BYTE, saved_width, saved_height))
 		bu_log("swrast_getDisplayImage: context restore failed after read error\n");
 	return BRLCAD_ERROR;
+    }
+
+    /* DIM-DBG: log whenever the OSMesa buffer dimensions differ from what dm expects */
+    if (cbwidth != width || cbheight != height) {
+	bu_log("swrast_getDisplayImage: DIM MISMATCH: dm=(%d,%d) OSMesa_buf=(%d,%d) gv=(%d,%d)\n",
+	       width, height, (int)cbwidth, (int)cbheight,
+	       pv->v ? pv->v->gv_width : -1,
+	       pv->v ? pv->v->gv_height : -1);
+    } else {
+	bu_log("swrast_getDisplayImage: dm=(%d,%d) OSMesa_buf=(%d,%d) [OK]\n",
+	       width, height, (int)cbwidth, (int)cbheight);
     }
 
     /* cbuf is RGBA unsigned byte, row-major from bottom-left */

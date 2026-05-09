@@ -1766,6 +1766,8 @@ _ged_rt_finalize(struct ged_subprocess *rrtp)
 
     /* Either EOF has been sent or there was a read error;
      * there is no need to block indefinitely. */
+    bu_log("_ged_rt_finalize: waiting for rt pid=%d (timeout=120s)\n",
+	   rrtp->p ? bu_process_pid(rrtp->p) : -1);
     int retcode = bu_process_wait_n(&rrtp->p, 120);
     int aborted = (retcode == ERROR_PROCESS_ABORTED);
 
@@ -1792,6 +1794,8 @@ _ged_rt_finalize(struct ged_subprocess *rrtp)
 	for (int ci = 0; ci < MAX_CLIENTS; ++ci) {
 	    if (gedp->ged_fbs->fbs_clients[ci].fbsc_fd != 0 &&
 		gedp->ged_fbs->fbs_clients[ci].fbsc_is_ipc) {
+		bu_log("_ged_rt_finalize: dropping IPC client slot %d fd=%d\n",
+		       ci, gedp->ged_fbs->fbs_clients[ci].fbsc_fd);
 		fbs_drop_client(gedp->ged_fbs, ci);
 	    }
 	}

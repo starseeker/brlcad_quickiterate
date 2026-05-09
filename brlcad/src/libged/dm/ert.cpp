@@ -204,12 +204,19 @@ ged_ert_core(struct ged *gedp, int argc, const char *argv[])
 	if (addr_env) {
 	    /* addr_env is "PKG_ADDR=pipe:4,7" — strip the "KEY=" prefix */
 	    const char *eq = strchr(addr_env, '=');
-	    if (eq)
+	    if (eq) {
+		bu_log("ert: setting PKG_ADDR='%s' for rt subprocess\n", eq + 1);
 		bu_setenv(PKG_ADDR_ENVVAR, eq + 1, 1);
+	    }
+	} else {
+	    bu_log("ert: WARNING fbs_ipc_child_addr_env returned NULL - rt will not find IPC channel\n");
 	}
     }
 
+    bu_log("ert: calling _ged_run_rt (using_ipc=%d fb_size=%dx%d)\n",
+	   using_ipc, fb_getwidth(fbp), fb_getheight(fbp));
     ret = _ged_run_rt(gedp, gd_rt_cmd_len, (const char **)gd_rt_cmd, (argc - i), &(argv[i]), 0, &rt_pid, clbk, u2);
+    bu_log("ert: _ged_run_rt returned %d rt_pid=%d\n", ret, rt_pid);
 
     if (using_ipc)
 	bu_setenv(PKG_ADDR_ENVVAR, "", 1); /* clear parent's env copy */

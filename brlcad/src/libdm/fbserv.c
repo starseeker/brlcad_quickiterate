@@ -98,6 +98,11 @@ drop_client(struct fbserv_obj *fbsp, int sub)
 	    struct dm *dmp = fbsp->fbs_fbp->i->dmp;
 	    int dw = dm_get_width(dmp);
 	    int dh = dm_get_height(dmp);
+	    bu_log("drop_client: sub=%d dm=(%d,%d) if=(%d,%d)%s\n",
+		   sub, dw, dh,
+		   fbsp->fbs_fbp->i->if_width, fbsp->fbs_fbp->i->if_height,
+		   (dw > 0 && dh > 0 && (dw != fbsp->fbs_fbp->i->if_width || dh != fbsp->fbs_fbp->i->if_height))
+		   ? " => calling fb_configure_window" : " => no resize needed");
 	    if (dw > 0 && dh > 0 &&
 		(dw != fbsp->fbs_fbp->i->if_width ||
 		 dh != fbsp->fbs_fbp->i->if_height)) {
@@ -1226,6 +1231,11 @@ fbs_open_ipc(struct fbserv_obj *fbsp)
     if (pkg_move_high_fd(ce, 64) != 0)
 	bu_log("fbs_open_ipc: pkg_move_high_fd failed; fd may be swept\n");
 
+    bu_log("fbs_open_ipc: pe rfd=%d wfd=%d  ce rfd=%d wfd=%d  ce_addr='%s'\n",
+	   pkg_get_read_fd(pe), pkg_get_write_fd(pe),
+	   pkg_get_read_fd(ce), pkg_get_write_fd(ce),
+	   pkg_child_addr_env(ce) ? pkg_child_addr_env(ce) : "(null)");
+
     pc = pe;
 
     /* Find an empty client slot and register the pre-connected pkg_conn.
@@ -1271,9 +1281,15 @@ fbs_open_ipc(struct fbserv_obj *fbsp)
 
     /* Store the child end so fbs_ipc_child_addr_env() can retrieve it, and
      * so fbs_close() can close it when the session ends.                    */
-    if (fbsp->fbs_listener.fbsl_ipc_child)
+    if (fbsp->fbs_listener.fbsl_ipc_child) {
+	bu_log("fbs_open_ipc: closing old ipc_child rfd=%d wfd=%d\n",
+	       pkg_get_read_fd(fbsp->fbs_listener.fbsl_ipc_child),
+	       pkg_get_write_fd(fbsp->fbs_listener.fbsl_ipc_child));
 	pkg_close(fbsp->fbs_listener.fbsl_ipc_child);
+    }
     fbsp->fbs_listener.fbsl_ipc_child = ce;
+    bu_log("fbs_open_ipc: new ipc_child stored (rfd=%d wfd=%d) slot=%d effective_fd=%d\n",
+	   pkg_get_read_fd(ce), pkg_get_write_fd(ce), i, effective_fd);
 
 #ifndef _WIN32
     /* Phase C1 (ert reliability): make the parent's read+write fds

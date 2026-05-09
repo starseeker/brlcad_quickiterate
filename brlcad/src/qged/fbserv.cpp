@@ -354,6 +354,8 @@ QFBIPCSocket::ipc_handler()
      * deleteLater() — meaning `this` remains valid through the rest of
      * this slot but is destroyed at the next event-loop iteration. */
     if (got_real_eof || got_error) {
+	bu_log("QFBIPCSocket::ipc_handler: ind=%d got_real_eof=%d got_error=%d data_read=%d -> dropping client\n",
+	       ind, got_real_eof, got_error, data_read);
 	fbs_drop_client(fbsp, ind);
 	return;
     }

@@ -182,6 +182,9 @@ swrast_getmem(struct fb *ifp)
 	pixsize = ifp->i->if_height * ifp->i->if_width * sizeof(struct fb_pixel);
 	size = pixsize + sizeof(struct fb_cmap);
 
+	bu_log("swrast_getmem: allocating if_mem for if_size=(%d,%d) pixsize=%d\n",
+	       ifp->i->if_width, ifp->i->if_height, size);
+
 	if (!sp) {
 	    sp = (char *)calloc(1, size);
 	} else {
@@ -281,11 +284,18 @@ swrast_configureWindow(struct fb *ifp, int width, int height)
      * Instead, just record the new viewport size — the OpenGL composite
      * in paintGL/paintEvent stretches the existing fb image to fit. */
     if (ifp->i->if_active_clients > 0) {
+	bu_log("swrast_configureWindow: DEFERRED (active_clients=%d) vp=(%d,%d) if=(%d,%d)\n",
+	       ifp->i->if_active_clients, width, height,
+	       ifp->i->if_width, ifp->i->if_height);
 	SWRAST(ifp)->vp_width = width;
 	SWRAST(ifp)->vp_height = height;
 	dm_make_current(ifp->i->dmp);
 	return 0;
     }
+
+    bu_log("swrast_configureWindow: FULL path w=%d h=%d if_was=(%d,%d) win_was=(%d,%d)\n",
+	   width, height, ifp->i->if_width, ifp->i->if_height,
+	   SWRAST(ifp)->win_width, SWRAST(ifp)->win_height);
 
     SWRAST(ifp)->vp_width = width;
     SWRAST(ifp)->vp_height = height;

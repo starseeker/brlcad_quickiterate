@@ -225,6 +225,8 @@ int gl_reshape(struct dm *dmp, int width, int height)
 
     struct gl_vars *mvars = (struct gl_vars *)dmp->i->m_vars;
 
+    bu_log("gl_reshape: setting dm=(%d,%d) was=(%d,%d), glViewport will be (0,0,%d,%d)\n",
+	   width, height, dmp->i->dm_width, dmp->i->dm_height, width, height);
     dmp->i->dm_height = height;
     dmp->i->dm_width = width;
     dmp->i->dm_aspect = (fastf_t)dmp->i->dm_width / (fastf_t)dmp->i->dm_height;
