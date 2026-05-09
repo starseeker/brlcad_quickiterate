@@ -76,19 +76,19 @@ gl_swrast_wireframe_obj(struct dm *dmp, struct bv_scene_obj *s)
 }
 
 static inline void
-swrast_put_pixel_rgba(struct swrast_vars_fast *pv, int w, int h, int x, int y, const unsigned char *fg)
+swrast_put_pixel_rgba(struct swrast_vars_fast *pv, int w, int h, int x, int y, const unsigned char *rgba_color)
 {
     if (!pv || !pv->os_b || x < 0 || y < 0 || x >= w || y >= h)
 	return;
     unsigned char *pix = ((unsigned char *)pv->os_b) + (((h - 1 - y) * w + x) * 4);
-    pix[0] = fg[0];
-    pix[1] = fg[1];
-    pix[2] = fg[2];
+    pix[0] = rgba_color[0];
+    pix[1] = rgba_color[1];
+    pix[2] = rgba_color[2];
     pix[3] = 255;
 }
 
 static void
-swrast_draw_line_rgba(struct swrast_vars_fast *pv, int w, int h, int x0, int y0, int x1, int y1, const unsigned char *fg)
+swrast_draw_line_rgba(struct swrast_vars_fast *pv, int w, int h, int x0, int y0, int x1, int y1, const unsigned char *rgba_color)
 {
     int dx = abs(x1 - x0);
     int sx = x0 < x1 ? 1 : -1;
@@ -98,7 +98,7 @@ swrast_draw_line_rgba(struct swrast_vars_fast *pv, int w, int h, int x0, int y0,
     int e2;
 
     for (;;) {
-	swrast_put_pixel_rgba(pv, w, h, x0, y0, fg);
+	swrast_put_pixel_rgba(pv, w, h, x0, y0, rgba_color);
 	if (x0 == x1 && y0 == y1)
 	    break;
 	e2 = 2 * err;
@@ -114,7 +114,7 @@ swrast_draw_line_rgba(struct swrast_vars_fast *pv, int w, int h, int x0, int y0,
 }
 
 static inline int
-nonzero_or_one(int d)
+nonzero_fallback_one(int d)
 {
     return d ? d : 1;
 }
@@ -146,19 +146,19 @@ clip_line_to_win(int *x0, int *y0, int *x1, int *y1, int w, int h)
 	int x;
 	int y;
 	if (c & TOP) {
-	    int y_denominator = nonzero_or_one(*y1 - *y0);
+	    int y_denominator = nonzero_fallback_one(*y1 - *y0);
 	    y = h - 1;
 	    x = *x0 + (*x1 - *x0) * (y - *y0) / y_denominator;
 	} else if (c & BOTTOM) {
-	    int y_denominator = nonzero_or_one(*y1 - *y0);
+	    int y_denominator = nonzero_fallback_one(*y1 - *y0);
 	    y = 0;
 	    x = *x0 + (*x1 - *x0) * (y - *y0) / y_denominator;
 	} else if (c & RIGHT) {
-	    int x_denominator = nonzero_or_one(*x1 - *x0);
+	    int x_denominator = nonzero_fallback_one(*x1 - *x0);
 	    x = w - 1;
 	    y = *y0 + (*y1 - *y0) * (x - *x0) / x_denominator;
 	} else {
-	    int x_denominator = nonzero_or_one(*x1 - *x0);
+	    int x_denominator = nonzero_fallback_one(*x1 - *x0);
 	    x = 0;
 	    y = *y0 + (*y1 - *y0) * (x - *x0) / x_denominator;
 	}
@@ -180,7 +180,7 @@ clip_line_to_win(int *x0, int *y0, int *x1, int *y1, int w, int h)
  * the OpenGL vlist/display-list path; callers fall back to dm_draw_vlist when
  * this routine cannot use the swrast private buffer. */
 static int
-swrast_drawVList_fast(struct dm *dmp, struct bv_vlist *vp)
+swrast_draw_vlist_fast(struct dm *dmp, struct bv_vlist *vp)
 {
     if (!dmp || !vp)
 	return BRLCAD_ERROR;
@@ -775,7 +775,7 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 		restoreLighting = 1;
 	    }
 	    if (gl_swrast_database_wireframe(dmp, s)) {
-		int fast_ret = swrast_drawVList_fast(dmp, (struct bv_vlist *)&s->s_vlist);
+		int fast_ret = swrast_draw_vlist_fast(dmp, (struct bv_vlist *)&s->s_vlist);
 		if (restoreLighting) {
 		    glEnable(GL_LIGHTING);
 		    restoreLighting = 0;
