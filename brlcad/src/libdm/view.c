@@ -712,14 +712,36 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
 	struct fb *fbp = dm_get_fb(dmp);
 	int rw = dm_get_width(dmp);
 	int rh = dm_get_height(dmp);
+	int dxmin = 0, dymin = 0, dxmax = -1, dymax = -1;
 	if (fbp) {
 	    int fbw = fb_getwidth(fbp);
 	    int fbh = fb_getheight(fbp);
 	    if (fbw > 0 && fbw < rw) rw = fbw;
 	    if (fbh > 0 && fbh < rh) rh = fbh;
+	    (void)fb_dirty_consume(fbp, &dxmin, &dymin, &dxmax, &dymax);
 	}
-	if (rw > 0 && rh > 0)
-	    fb_refresh(fbp, 0, 0, rw, rh);
+	if (rw > 0 && rh > 0 && dxmax >= dxmin && dymax >= dymin) {
+	    int xmin = dxmin;
+	    int ymin = dymin;
+	    int xmax = dxmax;
+	    int ymax = dymax;
+	    if (xmin < 0) xmin = 0;
+	    if (ymin < 0) ymin = 0;
+	    if (xmax > rw - 1) xmax = rw - 1;
+	    if (ymax > rh - 1) ymax = rh - 1;
+	    if (xmin <= xmax && ymin <= ymax) {
+		int refresh_width;
+		int refresh_height;
+		/*
+		 * Bounds above are clamped/validated to the visible fb area.
+		 * Dirty bounds are inclusive pixel indices, so width/height
+		 * are computed as +1 from max-min.
+		 */
+		refresh_width = xmax - xmin + 1;
+		refresh_height = ymax - ymin + 1;
+		fb_refresh(fbp, xmin, ymin, refresh_width, refresh_height);
+	    }
+	}
 	if (zbuff_restore)
 	    dm_set_zbuffer(dmp, 1);
 	if (v->gv_s->gv_fb_mode == 1) {
