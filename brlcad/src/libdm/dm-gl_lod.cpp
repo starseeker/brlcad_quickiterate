@@ -40,16 +40,257 @@ extern "C" {
 #include "./include/private.h"
 }
 
+struct swrast_vars_fast {
+    struct bview *v;
+    void *ctx;
+    void *os_b;
+};
+
+static const fastf_t GL_SWRAST_PERSPECTIVE_DELTA_FACTOR = 0.0001;
+static const int GL_SWRAST_GED_COORD_SCALE = 2047;
+
 static int
 gl_swrast_database_wireframe(struct dm *dmp, struct bv_scene_obj *s)
 {
-    if (!dmp || !s || !dm_get_dm_name(dmp) || !BU_STR_EQUAL(dm_get_dm_name(dmp), "swrast"))
+    if (!dmp || !s)
+	return 0;
+
+    struct gl_vars *mvars = (struct gl_vars *)dmp->i->m_vars;
+    if (!mvars || !mvars->fast_wireframe_active)
 	return 0;
 
     if (!(s->s_type_flags & BV_DB_OBJS))
 	return 0;
 
     return (s->s_os->s_dmode == 0 || s->s_os->s_dmode == 3);
+}
+
+static int
+gl_swrast_wireframe_obj(struct dm *dmp, struct bv_scene_obj *s)
+{
+    if (!dmp || !s || !dm_get_dm_name(dmp) || !BU_STR_EQUAL(dm_get_dm_name(dmp), "swrast"))
+	return 0;
+    if (!(s->s_type_flags & BV_DB_OBJS))
+	return 0;
+    return (s->s_os->s_dmode == 0 || s->s_os->s_dmode == 3);
+}
+
+static inline void
+swrast_put_pixel_rgba(struct swrast_vars_fast *pv, int w, int h, int x, int y, const unsigned char *rgba_color)
+{
+    if (!pv || !pv->os_b || x < 0 || y < 0 || x >= w || y >= h)
+	return;
+    unsigned char *pix = ((unsigned char *)pv->os_b) + (((h - 1 - y) * w + x) * 4);
+    pix[0] = rgba_color[0];
+    pix[1] = rgba_color[1];
+    pix[2] = rgba_color[2];
+    pix[3] = 255;
+}
+
+static void
+swrast_draw_line_rgba(struct swrast_vars_fast *pv, int w, int h, int x0, int y0, int x1, int y1, const unsigned char *rgba_color)
+{
+    int dx = abs(x1 - x0);
+    int sx = x0 < x1 ? 1 : -1;
+    int dy = -abs(y1 - y0);
+    int sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy;
+    int e2;
+
+    for (;;) {
+	swrast_put_pixel_rgba(pv, w, h, x0, y0, rgba_color);
+	if (x0 == x1 && y0 == y1)
+	    break;
+	e2 = 2 * err;
+	if (e2 >= dy) {
+	    err += dy;
+	    x0 += sx;
+	}
+	if (e2 <= dx) {
+	    err += dx;
+	    y0 += sy;
+	}
+    }
+}
+
+static inline int
+nonzero_fallback_one(int d)
+{
+    return d ? d : 1;
+}
+
+/* Clip a screen-space line to the current swrast buffer using
+ * Cohen-Sutherland outcodes.  Returns 1 when any portion of the line is
+ * visible and updates the endpoints in-place; returns 0 when fully rejected. */
+static int
+clip_line_to_win(int *x0, int *y0, int *x1, int *y1, int w, int h)
+{
+    enum { LEFT = 1, RIGHT = 2, BOTTOM = 4, TOP = 8 };
+
+    auto compute_outcode = [w, h](int x, int y) {
+	int c = 0;
+	if (x < 0) c |= LEFT;
+	else if (x >= w) c |= RIGHT;
+	if (y < 0) c |= BOTTOM;
+	else if (y >= h) c |= TOP;
+	return c;
+    };
+
+    int c0 = compute_outcode(*x0, *y0);
+    int c1 = compute_outcode(*x1, *y1);
+    while (true) {
+	if (!(c0 | c1)) return 1;
+	if (c0 & c1) return 0;
+
+	int c = c0 ? c0 : c1;
+	int x;
+	int y;
+	if (c & TOP) {
+	    int y_denominator = nonzero_fallback_one(*y1 - *y0);
+	    y = h - 1;
+	    x = *x0 + (*x1 - *x0) * (y - *y0) / y_denominator;
+	} else if (c & BOTTOM) {
+	    int y_denominator = nonzero_fallback_one(*y1 - *y0);
+	    y = 0;
+	    x = *x0 + (*x1 - *x0) * (y - *y0) / y_denominator;
+	} else if (c & RIGHT) {
+	    int x_denominator = nonzero_fallback_one(*x1 - *x0);
+	    x = w - 1;
+	    y = *y0 + (*y1 - *y0) * (x - *x0) / x_denominator;
+	} else {
+	    int x_denominator = nonzero_fallback_one(*x1 - *x0);
+	    x = 0;
+	    y = *y0 + (*y1 - *y0) * (x - *x0) / x_denominator;
+	}
+
+	if (c == c0) {
+	    *x0 = x;
+	    *y0 = y;
+	    c0 = compute_outcode(*x0, *y0);
+	} else {
+	    *x1 = x;
+	    *y1 = y;
+	    c1 = compute_outcode(*x1, *y1);
+	}
+    }
+}
+
+/* Fast swrast wireframe rendering path for database-object vlists.  It draws
+ * transformed line segments directly into the OSMesa RGBA buffer and bypasses
+ * the OpenGL vlist/display-list path; callers fall back to dm_draw_vlist when
+ * this routine cannot use the swrast private buffer. */
+static int
+swrast_draw_vlist_fast(struct dm *dmp, struct bv_vlist *vp)
+{
+    if (!dmp || !vp)
+	return BRLCAD_ERROR;
+
+    struct swrast_vars_fast *pv = (struct swrast_vars_fast *)dmp->i->dm_vars.priv_vars;
+    if (!pv || !pv->os_b || !pv->v)
+	return BRLCAD_ERROR;
+
+    int w = dmp->i->dm_width;
+    int h = dmp->i->dm_height;
+    if (w <= 0 || h <= 0)
+	return BRLCAD_ERROR;
+
+    fastf_t *xmat = pv->v->gv_model2view;
+    point_t lpnt, pnt;
+    int have_lpnt = 0;
+    point_t *pt_prev = NULL;
+    fastf_t dist_prev = 1.0;
+    fastf_t delta = xmat[15] * GL_SWRAST_PERSPECTIVE_DELTA_FACTOR;
+    if (delta < 0.0)
+	delta = -delta;
+    if (delta < SQRT_SMALL_FASTF)
+	delta = SQRT_SMALL_FASTF;
+
+    const unsigned char *fg = dmp->i->dm_fg;
+    struct bv_vlist *tvp;
+    for (BU_LIST_FOR(tvp, bv_vlist, &vp->l)) {
+	int *cmd = tvp->cmd;
+	point_t *pt = tvp->pt;
+	for (size_t i = 0; i < tvp->nused; i++, cmd++, pt++) {
+	    switch (*cmd) {
+		case BV_VLIST_MODEL_MAT:
+		    xmat = pv->v->gv_model2view;
+		    continue;
+		case BV_VLIST_DISPLAY_MAT:
+		    xmat = pv->v->gv_model2view;
+		    continue;
+		case BV_VLIST_POLY_START:
+		case BV_VLIST_POLY_VERTNORM:
+		case BV_VLIST_TRI_START:
+		case BV_VLIST_TRI_VERTNORM:
+		    continue;
+		case BV_VLIST_POLY_MOVE:
+		case BV_VLIST_LINE_MOVE:
+		case BV_VLIST_TRI_MOVE: {
+		    if (dmp->i->dm_perspective > 0) {
+			fastf_t dist = VDOT(*pt, &xmat[12]) + xmat[15];
+			if (dist <= 0.0) {
+			    pt_prev = pt;
+			    dist_prev = dist;
+			    continue;
+			}
+			dist_prev = dist;
+			pt_prev = pt;
+		    }
+		    MAT4X3PNT(lpnt, xmat, *pt);
+		    lpnt[0] *= GL_SWRAST_GED_COORD_SCALE;
+		    lpnt[1] *= GL_SWRAST_GED_COORD_SCALE * dmp->i->dm_aspect;
+		    have_lpnt = 1;
+		    continue;
+		}
+		case BV_VLIST_POLY_DRAW:
+		case BV_VLIST_POLY_END:
+		case BV_VLIST_LINE_DRAW:
+		case BV_VLIST_TRI_DRAW:
+		case BV_VLIST_TRI_END: {
+		    if (!have_lpnt)
+			continue;
+		    if (dmp->i->dm_perspective > 0) {
+			fastf_t dist = VDOT(*pt, &xmat[12]) + xmat[15];
+			if (dist <= 0.0 && dist_prev <= 0.0) {
+			    dist_prev = dist;
+			    pt_prev = pt;
+			    continue;
+			}
+			if (dist <= 0.0 && pt_prev) {
+			    vect_t diff;
+			    point_t tmp_pt;
+			    fastf_t alpha = (dist_prev - delta) / (dist_prev - dist);
+			    VSUB2(diff, *pt, *pt_prev);
+			    VJOIN1(tmp_pt, *pt_prev, alpha, diff);
+			    MAT4X3PNT(pnt, xmat, tmp_pt);
+			} else {
+			    MAT4X3PNT(pnt, xmat, *pt);
+			}
+			dist_prev = dist;
+			pt_prev = pt;
+		    } else {
+			MAT4X3PNT(pnt, xmat, *pt);
+		    }
+		    pnt[0] *= GL_SWRAST_GED_COORD_SCALE;
+		    pnt[1] *= GL_SWRAST_GED_COORD_SCALE * dmp->i->dm_aspect;
+
+		    int x0 = GED_TO_Xx(dmp, lpnt[0]);
+		    int y0 = GED_TO_Xy(dmp, lpnt[1]);
+		    int x1 = GED_TO_Xx(dmp, pnt[0]);
+		    int y1 = GED_TO_Xy(dmp, pnt[1]);
+		    if (clip_line_to_win(&x0, &y0, &x1, &y1, w, h)) {
+			swrast_draw_line_rgba(pv, w, h, x0, y0, x1, y1, fg);
+		    }
+		    VMOVE(lpnt, pnt);
+		    continue;
+		}
+		default:
+		    continue;
+	    }
+	}
+    }
+
+    return BRLCAD_OK;
 }
 
 /* ---------------------------------------------------------------------
@@ -513,6 +754,8 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 {
     GLint originalShadeModel = 0;
     int restoreShadeModel = 0;
+    GLboolean lightingWasEnabled = GL_FALSE;
+    int restoreLighting = 0;
 
     if (s->mesh_obj && s->draw_data) {
 	struct bv_mesh_lod *lod = (struct bv_mesh_lod *)s->draw_data;
@@ -521,7 +764,26 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 
     // "Standard" vlist object drawing
     if (bu_list_len(&s->s_vlist)) {
-	if (gl_swrast_database_wireframe(dmp, s)) {
+	if (gl_swrast_wireframe_obj(dmp, s)) {
+	    /* Swrast wireframes should render as flat, unlit lines whether the
+	     * fast path or the fallback GL path draws them. */
+	    lightingWasEnabled = glIsEnabled(GL_LIGHTING);
+	    if (lightingWasEnabled) {
+		unsigned char *fg = dm_get_fg(dmp);
+		glDisable(GL_LIGHTING);
+		glColor3ub((GLubyte)fg[0], (GLubyte)fg[1], (GLubyte)fg[2]);
+		restoreLighting = 1;
+	    }
+	    if (gl_swrast_database_wireframe(dmp, s)) {
+		int fast_ret = swrast_draw_vlist_fast(dmp, (struct bv_vlist *)&s->s_vlist);
+		if (restoreLighting) {
+		    glEnable(GL_LIGHTING);
+		    restoreLighting = 0;
+		}
+		if (fast_ret == BRLCAD_OK) {
+		    return BRLCAD_OK;
+		}
+	    }
 	    glGetIntegerv(GL_SHADE_MODEL, &originalShadeModel);
 	    if (originalShadeModel != GL_FLAT) {
 		glShadeModel(GL_FLAT);
@@ -586,6 +848,8 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 	}
 	if (restoreShadeModel)
 	    glShadeModel((GLenum)originalShadeModel);
+	if (restoreLighting)
+	    glEnable(GL_LIGHTING);
 	return BRLCAD_OK;
     }
 

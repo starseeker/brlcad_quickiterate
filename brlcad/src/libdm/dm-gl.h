@@ -114,6 +114,8 @@ struct gl_vars {
     int zclipping_on;
     int zbuffer_on;
     int lighting_on;
+    int fast_wireframe;
+    int fast_wireframe_active;
     int transparency_on;
     int fastfog;
     double fogdensity;
@@ -135,6 +137,7 @@ DMGL_EXPORT extern void gl_debug_print(struct dm *dmp, const char *title, int lv
 
 DMGL_EXPORT extern struct bu_structparse gl_vparse[];
 
+DMGL_EXPORT extern void gl_update_fast_wireframe_active(struct dm *dmp);
 DMGL_EXPORT extern void glvars_init(struct dm *dmp);
 
 DMGL_EXPORT extern int drawLine2D(struct dm *dmp, fastf_t X1, fastf_t Y1, fastf_t X2, fastf_t Y2, const char *log_bu);

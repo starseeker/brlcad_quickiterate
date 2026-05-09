@@ -138,6 +138,8 @@ void glvars_init(struct dm *dmp)
     /* Unless the app tells us different, assume OpenGL based
      * displays are capable of transparency */
     mvars->transparency_on = 1;
+    mvars->fast_wireframe = 0;
+    mvars->fast_wireframe_active = 0;
 }
 
 void gl_fogHint(struct dm *dmp, int fastfog)
@@ -1657,12 +1659,42 @@ void gl_fog_hook(const struct bu_structparse *sdp,
     dm_generic_hook(sdp, name, base, value, data);
 }
 
+void
+gl_update_fast_wireframe_active(struct dm *dmp)
+{
+    if (!dmp || !dmp->i->m_vars)
+	return;
+
+    struct gl_vars *mvars = (struct gl_vars *)dmp->i->m_vars;
+    mvars->fast_wireframe_active = 0;
+    if (!dm_get_dm_name(dmp))
+	return;
+
+    if (mvars->fast_wireframe && BU_STR_EQUAL(dm_get_dm_name(dmp), "swrast"))
+	mvars->fast_wireframe_active = 1;
+}
+
+static void
+gl_fast_wireframe_hook(const struct bu_structparse *sdp,
+	const char *name,
+	void *base,
+	const char *value,
+	void *data)
+{
+    struct gl_vars *mvars = (struct gl_vars *)base;
+    struct dm *dmp = mvars->this_dm;
+
+    dm_generic_hook(sdp, name, base, value, data);
+    gl_update_fast_wireframe_active(dmp);
+}
+
 
 struct bu_structparse gl_vparse[] = {
     {"%d",  1, "depthcue",         gl_MV_O(cueing_on),       gl_colorchange, NULL, NULL },
     {"%d",  1, "zclip",            gl_MV_O(zclipping_on),    gl_zclip_hook, NULL, NULL },
     {"%d",  1, "zbuffer",          gl_MV_O(zbuffer_on),      gl_zbuffer_hook, NULL, NULL },
     {"%d",  1, "lighting",         gl_MV_O(lighting_on),     gl_lighting_hook, NULL, NULL },
+    {"%d",  1, "fast_wireframe",   gl_MV_O(fast_wireframe),  gl_fast_wireframe_hook, NULL, NULL },
     {"%d",  1, "transparency",     gl_MV_O(transparency_on), gl_transparency_hook, NULL, NULL },
     {"%d",  1, "fastfog",          gl_MV_O(fastfog),         gl_fog_hook, NULL, NULL },
     {"%g",  1, "density",          gl_MV_O(fogdensity),      dm_generic_hook, NULL, NULL },
