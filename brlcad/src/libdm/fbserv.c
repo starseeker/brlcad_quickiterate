@@ -76,6 +76,11 @@ drop_client(struct fbserv_obj *fbsp, int sub)
     }
 
     if (fbsp->fbs_clients[sub].fbsc_fd != 0) {
+	/* Phase A1 (ert reliability): release the framebuffer-dimension
+	 * lock now that this client is no longer streaming. */
+	if (fbsp->fbs_fbp && fbsp->fbs_fbp->i &&
+	    fbsp->fbs_fbp->i->if_active_clients > 0)
+	    fbsp->fbs_fbp->i->if_active_clients--;
 	/* Use the IPC-specific close handler if the client was opened via IPC
 	 * and the caller registered one; otherwise fall back to the generic
 	 * TCP close handler. */
@@ -1137,6 +1142,11 @@ fbs_new_client(struct fbserv_obj *fbsp, struct pkg_conn *pcp, void *data)
 	fbsp->fbs_clients[i].fbsc_auth_ok = 0;
 	fbsp->fbs_clients[i].fbsc_pending_drop = 0;
 	fbs_setup_socket(pkg_get_read_fd(pcp));
+	/* Phase A1 (ert reliability): mark the framebuffer as having an
+	 * active streaming client so its dimensions won't be mutated under
+	 * the client's feet by GUI events (e.g. window resize). */
+	if (fbsp->fbs_fbp && fbsp->fbs_fbp->i)
+	    fbsp->fbs_fbp->i->if_active_clients++;
 
 	/* Point pkc_server_data at the fbserv_client so handlers can
 	 * reach back to the fbserv_obj (needed for auth checks). */
@@ -1214,6 +1224,9 @@ fbs_open_ipc(struct fbserv_obj *fbsp)
 	fbsp->fbs_clients[i].fbsc_pending_drop = 0;
 	fbsp->fbs_clients[i].fbsc_is_ipc  = 1;
 	pc->pkc_server_data = (void *)&fbsp->fbs_clients[i];
+	/* Phase A1 (ert reliability): mark the fb dimension lock active. */
+	if (fbsp->fbs_fbp && fbsp->fbs_fbp->i)
+	    fbsp->fbs_fbp->i->if_active_clients++;
 
 	/* Call the IPC-specific open handler if one is registered, otherwise
 	 * fall back to the generic TCP client handler.  Callers that use the

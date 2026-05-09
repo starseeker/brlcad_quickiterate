@@ -286,6 +286,17 @@ qtgl_configureWindow(struct fb *ifp, int width, int height)
     if (!QTGL(ifp)->mi_memwidth)
 	getmem = 1;
 
+    /* Phase A1 (ert reliability): see comment in swrast_configureWindow.
+     * Defer canvas resize / if_mem realloc while any fbserv client is
+     * streaming; just track the new viewport and return.  The wireframe
+     * compositor stretches the existing fb image to the new vp size. */
+    if (ifp->i->if_active_clients > 0) {
+	QTGL(ifp)->vp_width = width;
+	QTGL(ifp)->vp_height = height;
+	dm_make_current(ifp->i->dmp);
+	return 0;
+    }
+
     QTGL(ifp)->vp_width = width;
     QTGL(ifp)->vp_height = height;
 
@@ -1017,7 +1028,8 @@ struct fb_impl qtgl_interface_impl =
     {0}, /* u3 */
     {0}, /* u4 */
     {0}, /* u5 */
-    {0}  /* u6 */
+    {0},  /* u6 */
+    0     /* if_active_clients */
 };
 
 extern "C" {

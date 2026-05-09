@@ -249,6 +249,22 @@ struct fb_impl {
         char *p;
         size_t l;
     } u1, u2, u3, u4, u5, u6;
+    /**
+     * @brief Reference count of fbserv clients currently streaming to this fb.
+     *
+     * Maintained by libdm/fbserv.c (fbs_new_client / drop_client).  When
+     * non-zero, the fb dimensions (if_width/if_height) are "locked" — any
+     * attempt to mutate them via fb_configure_window (e.g. on a Qt widget
+     * resize) is deferred until the streaming client(s) disconnect.  This
+     * prevents an in-flight rt subprocess from having its scanline width
+     * silently change underneath it, which produces tiled / distorted
+     * "ghost copies" of the raytrace output in the framebuffer image.
+     *
+     * Placed at the end of the struct so the per-backend aggregate
+     * initialisers for `struct fb_impl` (if_remote.c, if_stack.c, …)
+     * default-initialise this counter to 0 without needing edits.
+     */
+    int if_active_clients;
 };
 
 

@@ -82,10 +82,20 @@ ged_ert_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     // If the framebuffer is not displayed, enable it in underlay mode so the
-    // output is visible.  TODO - we can support a -Q option or some such to
-    // suppress this behavior, but since the fb isn't up in default usage the
-    // behavior of ert is a bit too cryptic without doing this...
-    if (!gedp->ged_gvp->gv_s->gv_fb_mode)
+    // output is visible.
+    //
+    // Phase B1 (ert reliability) — gv_fb_mode lifecycle contract:
+    //   * `ert` deliberately leaves gv_fb_mode set after the rt subprocess
+    //     exits.  This is intentional so the user can keep the just-rendered
+    //     image visible underneath the 3D wireframe (the common interactive
+    //     "render → review → tweak view → re-render" workflow).
+    //   * To clear the lingering raytrace overlay and return to a plain 3D
+    //     view, the user runs `fbclear -m` (clears if_mem AND resets
+    //     gv_fb_mode = 0) — see src/libged/fbclear/fbclear.c.
+    //   * Programmatic callers that need to restore the prior fb_mode
+    //     should snapshot it before invoking ert and write it back after.
+    int prior_fb_mode = gedp->ged_gvp->gv_s->gv_fb_mode;
+    if (!prior_fb_mode)
 	gedp->ged_gvp->gv_s->gv_fb_mode = 2;
 
     // Have a framebuffer to target and objects to raytrace.  Next we need a
