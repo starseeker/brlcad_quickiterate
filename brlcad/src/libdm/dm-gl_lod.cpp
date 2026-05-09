@@ -46,6 +46,9 @@ struct swrast_vars_fast {
     void *os_b;
 };
 
+static const fastf_t SWRAST_PERSPECTIVE_DELTA_FACTOR = 0.0001;
+static const int SWRAST_GED_COORD_SCALE = 2047;
+
 static int
 gl_swrast_database_wireframe(struct dm *dmp, struct bv_scene_obj *s)
 {
@@ -111,7 +114,7 @@ swrast_draw_line_rgba(struct swrast_vars_fast *pv, int w, int h, int x0, int y0,
 }
 
 static inline int
-swrast_clip_denominator(int d)
+safe_denominator(int d)
 {
     return d ? d : 1;
 }
@@ -132,7 +135,7 @@ clip_line_to_win(int *x0, int *y0, int *x1, int *y1, int w, int h)
 
     int c0 = compute_outcode(*x0, *y0);
     int c1 = compute_outcode(*x1, *y1);
-    while (1) {
+    while (true) {
 	if (!(c0 | c1)) return 1;
 	if (c0 & c1) return 0;
 
@@ -140,19 +143,19 @@ clip_line_to_win(int *x0, int *y0, int *x1, int *y1, int w, int h)
 	int x;
 	int y;
 	if (c & TOP) {
-	    int yden = swrast_clip_denominator(*y1 - *y0);
+	    int yden = safe_denominator(*y1 - *y0);
 	    y = h - 1;
 	    x = *x0 + (*x1 - *x0) * (y - *y0) / yden;
 	} else if (c & BOTTOM) {
-	    int yden = swrast_clip_denominator(*y1 - *y0);
+	    int yden = safe_denominator(*y1 - *y0);
 	    y = 0;
 	    x = *x0 + (*x1 - *x0) * (y - *y0) / yden;
 	} else if (c & RIGHT) {
-	    int xden = swrast_clip_denominator(*x1 - *x0);
+	    int xden = safe_denominator(*x1 - *x0);
 	    x = w - 1;
 	    y = *y0 + (*y1 - *y0) * (x - *x0) / xden;
 	} else {
-	    int xden = swrast_clip_denominator(*x1 - *x0);
+	    int xden = safe_denominator(*x1 - *x0);
 	    x = 0;
 	    y = *y0 + (*y1 - *y0) * (x - *x0) / xden;
 	}
@@ -189,7 +192,7 @@ swrast_drawVList_fast(struct dm *dmp, struct bv_vlist *vp)
     int have_lpnt = 0;
     point_t *pt_prev = NULL;
     fastf_t dist_prev = 1.0;
-    fastf_t delta = xmat[15] * 0.0001;
+    fastf_t delta = xmat[15] * SWRAST_PERSPECTIVE_DELTA_FACTOR;
     if (delta < 0.0)
 	delta = -delta;
     if (delta < SQRT_SMALL_FASTF)
@@ -227,8 +230,8 @@ swrast_drawVList_fast(struct dm *dmp, struct bv_vlist *vp)
 			pt_prev = pt;
 		    }
 		    MAT4X3PNT(lpnt, xmat, *pt);
-		    lpnt[0] *= 2047;
-		    lpnt[1] *= 2047 * dmp->i->dm_aspect;
+		    lpnt[0] *= SWRAST_GED_COORD_SCALE;
+		    lpnt[1] *= SWRAST_GED_COORD_SCALE * dmp->i->dm_aspect;
 		    have_lpnt = 1;
 		    continue;
 		}
@@ -261,8 +264,8 @@ swrast_drawVList_fast(struct dm *dmp, struct bv_vlist *vp)
 		    } else {
 			MAT4X3PNT(pnt, xmat, *pt);
 		    }
-		    pnt[0] *= 2047;
-		    pnt[1] *= 2047 * dmp->i->dm_aspect;
+		    pnt[0] *= SWRAST_GED_COORD_SCALE;
+		    pnt[1] *= SWRAST_GED_COORD_SCALE * dmp->i->dm_aspect;
 
 		    int x0 = GED_TO_Xx(dmp, lpnt[0]);
 		    int y0 = GED_TO_Xy(dmp, lpnt[1]);
