@@ -52,36 +52,18 @@ struct ged_rtcheck {
     int draw_read_failed;
 };
 
+/* Finalize an rtcheck subprocess: wait, free the vlblock, free the
+ * ged_subprocess and ged_rtcheck.  This MUST be called on the GUI
+ * (main) thread for asynchronous hosts (qged) — see _ged_rt_finalize
+ * for the rationale.
+ */
 static void
-rtcheck_handler_cleanup(struct ged_rtcheck *rtcp, int type)
+_ged_rtcheck_finalize(struct ged_rtcheck *rtcp)
 {
     struct ged_subprocess *p = rtcp->rrtp;
     struct ged *gedp = p->gedp;
-    bu_log("handler cleanup: %d\n", type);
 
-    /* Done watching for output, undo subprocess I/O hooks. */
-    if (type != -1 && gedp->ged_delete_io_handler) {
-
-	if (p->stdin_active || p->stdout_active || p->stderr_active) {
-	    // If anyone else is still listening, we're not done yet.
-	    if (p->stdin_active) {
-		(*gedp->ged_delete_io_handler)(p, BU_PROCESS_STDIN);
-		return;
-	    }
-	    if (p->stdout_active) {
-		(*gedp->ged_delete_io_handler)(p, BU_PROCESS_STDOUT);
-		return;
-	    }
-	    if (p->stderr_active) {
-		(*gedp->ged_delete_io_handler)(p, BU_PROCESS_STDERR);
-		return;
-	    }
-	}
-
-	return;
-    }
-
-    bu_log("doing cleanup: %d\n", type);
+    bu_log("doing cleanup\n");
 
     bu_process_file_close(p->p, BU_PROCESS_STDOUT);
     /* wait for the forked process */
@@ -93,6 +75,52 @@ rtcheck_handler_cleanup(struct ged_rtcheck *rtcp, int type)
     BU_PUT(p, struct ged_subprocess);
     bv_vlblock_free(rtcp->vbp);
     BU_PUT(rtcp, struct ged_rtcheck);
+}
+
+static void
+rtcheck_handler_cleanup(struct ged_rtcheck *rtcp, int type)
+{
+    struct ged_subprocess *p = rtcp->rrtp;
+    struct ged *gedp = p->gedp;
+    bu_log("handler cleanup: %d\n", type);
+
+    /* type == -1 is the canonical "all stream listeners gone, finalize
+     * on the GUI thread" entry, dispatched by qged's QgConsole::detach.
+     */
+    if (type == -1) {
+	_ged_rtcheck_finalize(rtcp);
+	return;
+    }
+
+    /* Done watching for output on this stream — detach this stream's
+     * listener.  Do not try to drive the other streams' listeners from
+     * here; each stream's worker-thread invocation will reach this
+     * function for its own EOF.
+     *
+     * For synchronous hosts (tclcad/gsh) ged_delete_io_handler clears
+     * the corresponding stdXXX_active flag inline, so by the time we
+     * return all streams may already be inactive and we can finalize
+     * synchronously on the main thread.  For asynchronous hosts (qged)
+     * ged_delete_io_handler only disconnects the QSocketNotifier; the
+     * stream-active flag is cleared later, on the GUI thread, by
+     * QgConsole::detach, which then re-enters us with type == -1.
+     */
+    if (gedp->ged_delete_io_handler) {
+	(*gedp->ged_delete_io_handler)(p, (bu_process_io_t)type);
+    } else {
+	switch (type) {
+	    case BU_PROCESS_STDIN:  p->stdin_active  = 0; break;
+	    case BU_PROCESS_STDOUT: p->stdout_active = 0; break;
+	    case BU_PROCESS_STDERR: p->stderr_active = 0; break;
+	}
+    }
+
+    /* If all streams are now inactive synchronously (no async
+     * delete_io_handler in effect), finalize here.  Otherwise the
+     * type == -1 re-entry will finalize on the GUI thread.
+     */
+    if (!p->stdin_active && !p->stdout_active && !p->stderr_active)
+	_ged_rtcheck_finalize(rtcp);
 }
 
 static void

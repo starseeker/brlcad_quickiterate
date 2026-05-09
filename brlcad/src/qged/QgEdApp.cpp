@@ -29,6 +29,7 @@
 #include <QFile>
 #include <QPlainTextEdit>
 #include <QTextStream>
+#include <QThread>
 #include "bu/malloc.h"
 #include "bu/file.h"
 #include "qtcad/QgGeomImport.h"
@@ -103,50 +104,62 @@ qt_create_io_handler(struct ged_subprocess *p, bu_process_io_t t, ged_io_func_t 
 extern "C" void
 qt_delete_io_handler(struct ged_subprocess *p, bu_process_io_t t)
 {
-    if (!p) return;
+    if (!p || !p->gedp || !p->gedp->ged_io_data) return;
 
     QgEdApp *ca = (QgEdApp *)p->gedp->ged_io_data;
     QgConsole *c = ca->w->console;
 
-    // Since these callbacks are invoked from the listener, we can't call
-    // the listener destructors directly.  We instead call a routine that
-    // emits a single that will notify the console widget it's time to
-    // detach the listener.
-    switch (t) {
-	case BU_PROCESS_STDIN:
-	    bu_log("stdin\n");
-	    if (p->stdin_active && c->listeners.find(std::make_pair(p, t)) != c->listeners.end()) {
-		c->listeners[std::make_pair(p, t)]->m_notifier->disconnect();
-		c->listeners[std::make_pair(p, t)]->on_finished();
-	    }
-	    p->stdin_active = 0;
-	    break;
-	case BU_PROCESS_STDOUT:
-	    if (p->stdout_active && c->listeners.find(std::make_pair(p, t)) != c->listeners.end()) {
-		c->listeners[std::make_pair(p, t)]->m_notifier->disconnect();
-		c->listeners[std::make_pair(p, t)]->on_finished();
-		bu_log("stdout: %d\n", p->stdout_active);
-	    }
-	    p->stdout_active = 0;
-	    break;
-	case BU_PROCESS_STDERR:
-	    if (p->stderr_active && c->listeners.find(std::make_pair(p, t)) != c->listeners.end()) {
-		c->listeners[std::make_pair(p, t)]->m_notifier->disconnect();
-		c->listeners[std::make_pair(p, t)]->on_finished();
-		bu_log("stderr: %d\n", p->stderr_active);
-	    }
-	    p->stderr_active = 0;
-	    break;
-    }
+    auto it = c->listeners.find(std::make_pair(p, (int)t));
+    if (it == c->listeners.end())
+	return;
+    QConsoleListener *l = it->second;
 
-    // All communication has ceased between the app and the subprocess,
-    // time to call the end callback (if any)
-    if (!p->stdin_active && !p->stdout_active && !p->stderr_active) {
-	if (p->end_clbk)
-	    p->end_clbk(0, NULL, NULL, p->end_clbk_data);
-    }
+    // Stop the QSocketNotifier from firing again on the worker thread
+    // *immediately*.  This must happen on whatever thread we are called
+    // from so that no further activated() lambda invocations land in
+    // the libged callback after we return.
+    l->m_notifier->disconnect();
 
-    emit ca->view_update(QG_VIEW_REFRESH);
+    // Two callers reach this code:
+    //
+    //  1. The GUI thread (e.g. ged_close, or QgConsole::detach finishing
+    //     up a queued is_finished signal).  We can finish synchronously.
+    //
+    //  2. The QConsoleListener::m_thread worker thread, via
+    //     _ged_rt_output_handler2 dispatched from the QSocketNotifier
+    //     activated() lambda.  Anything touching Qt widgets (including
+    //     the per-subprocess end_clbk, which in qged drives QAction
+    //     icon state) MUST happen on the GUI thread.  So we hop back
+    //     by emitting the queued is_finished signal and let
+    //     QgConsole::detach do the real teardown over there.
+    //
+    // We never fire p->end_clbk here.  end_clbk is fired by libged
+    // (_ged_rt_output_handler2 with type == -1) from the GUI thread
+    // when QgConsole::detach observes the last listener has gone away.
+    if (QThread::currentThread() == c->thread()) {
+	// GUI thread: tear the listener down directly.  Do *not* fire the
+	// libged callback with type == -1 here; that path is owned by
+	// QgConsole::detach (it is the one that knows whether all streams
+	// for the subprocess have been retired).  However, in the
+	// synchronous (GUI-thread) case we also do not want a stale
+	// queued is_finished to arrive later and re-enter detach for an
+	// already-removed listener, so erase it now.
+	c->listeners.erase(it);
+	switch (t) {
+	    case BU_PROCESS_STDIN:  p->stdin_active  = 0; break;
+	    case BU_PROCESS_STDOUT: p->stdout_active = 0; break;
+	    case BU_PROCESS_STDERR: p->stderr_active = 0; break;
+	}
+	delete l;
+    } else {
+	// Worker thread: hop back to GUI thread.  on_finished() emits
+	// the queued is_finished signal which is connected to
+	// QgConsole::detach.  detach() will erase the listener, clear
+	// the stream-active flag for this stream, and (once all streams
+	// for the subprocess are retired) re-enter the libged callback
+	// with type == -1 so it can finalize on the GUI thread.
+	l->on_finished();
+    }
 }
 
 

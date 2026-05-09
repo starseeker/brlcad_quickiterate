@@ -1751,12 +1751,47 @@ _ged_rt_set_eye_model(struct ged *gedp,
     }
 }
 
+/* Finalize an rt subprocess: wait for it, fire notify/end_clbk, and
+ * release the ged_subprocess struct.  This MUST be called on the GUI
+ * (main) thread for hosts that use a worker-thread IO listener (qged),
+ * because rrtp->end_clbk typically mutates Qt widgets (e.g. toolbar
+ * actions in QgViewCtrl).  For synchronous hosts (tclcad/gsh) the
+ * caller is already on the main thread, so this is a no-op distinction
+ * there.
+ */
+static void
+_ged_rt_finalize(struct ged_subprocess *rrtp)
+{
+    struct ged *gedp = rrtp->gedp;
+
+    /* Either EOF has been sent or there was a read error;
+     * there is no need to block indefinitely. */
+    int retcode = bu_process_wait_n(&rrtp->p, 120);
+    int aborted = (retcode == ERROR_PROCESS_ABORTED);
+
+    if (aborted)
+	bu_log("Raytrace aborted.\n");
+    else if (retcode)
+	bu_log("Raytrace failed.\n");
+    else
+	bu_log("Raytrace complete.\n");
+
+    if (gedp->i->ged_gdp->gd_rtCmdNotify != (void (*)(int))0)
+	gedp->i->ged_gdp->gd_rtCmdNotify(aborted);
+
+    if (rrtp->end_clbk)
+	rrtp->end_clbk(0, NULL, &aborted, rrtp->end_clbk_data);
+
+    /* free rrtp */
+    bu_ptbl_rm(&gedp->ged_subp, (long *)rrtp);
+    BU_PUT(rrtp, struct ged_subprocess);
+}
+
 void
 _ged_rt_output_handler2(void *clientData, int type)
 {
     struct ged_subprocess *rrtp = (struct ged_subprocess *)clientData;
     int count = 0;
-    int retcode = 0;
     int read_failed_stderr = 0;
     int read_failed_stdout = 0;
     char line[RT_MAXLINE+1] = {0};
@@ -1768,6 +1803,16 @@ _ged_rt_output_handler2(void *clientData, int type)
 
     struct ged *gedp = rrtp->gedp;
 
+    /* type == -1 is the canonical "finalize on the GUI thread" entry,
+     * dispatched by hosts (qged's QgConsole::detach) once all per-stream
+     * listeners for this subprocess have been retired.  Just finalize and
+     * return; do not attempt any more reads.
+     */
+    if (type == -1) {
+	_ged_rt_finalize(rrtp);
+	return;
+    }
+
     /* Get data from rt */
     if (rrtp->stderr_active && (count = bu_process_read_n(rrtp->p, BU_PROCESS_STDERR, RT_MAXLINE, (char *)line)) <= 0) {
 	read_failed_stderr = 1;
@@ -1777,49 +1822,36 @@ _ged_rt_output_handler2(void *clientData, int type)
     }
 
     if (read_failed_stderr || read_failed_stdout) {
-	/* Done watching for output, undo subprocess I/O hooks. */
-	if (type != -1 && gedp->ged_delete_io_handler) {
-
-	    if (rrtp->stdin_active || rrtp->stdout_active || rrtp->stderr_active) {
-		// If anyone else is still listening, we're not done yet.
-		if (rrtp->stdin_active) {
-		    (*gedp->ged_delete_io_handler)(rrtp, BU_PROCESS_STDIN);
-		    return;
-		}
-		if (rrtp->stdout_active) {
-		    (*gedp->ged_delete_io_handler)(rrtp, BU_PROCESS_STDOUT);
-		    return;
-		}
-		if (rrtp->stderr_active) {
-		    (*gedp->ged_delete_io_handler)(rrtp, BU_PROCESS_STDERR);
-		    return;
-		}
-	    }
-
-	    return;
+	/* Done watching for output on whichever stream just hit EOF /
+	 * a read error.  Detach that single stream listener; do *not*
+	 * touch any other stream's listener here (each stream's worker
+	 * thread will handle its own EOF in turn).
+	 *
+	 * For synchronous hosts (tclcad/gsh) ged_delete_io_handler
+	 * clears the stream-active flag inline before returning, so by
+	 * the time control returns here all streams may already be
+	 * inactive and we can finalize on the spot (we are on the main
+	 * thread).  For asynchronous hosts (qged) ged_delete_io_handler
+	 * only disconnects the QSocketNotifier; the stream-active flag
+	 * is cleared later, on the GUI thread, by QgConsole::detach,
+	 * which then re-enters this function with type == -1 to
+	 * finalize.  In that case we must NOT finalize here, because we
+	 * are running on a worker thread.
+	 */
+	if (gedp->ged_delete_io_handler) {
+	    bu_process_io_t failed = read_failed_stderr ? BU_PROCESS_STDERR : BU_PROCESS_STDOUT;
+	    (*gedp->ged_delete_io_handler)(rrtp, failed);
+	} else {
+	    if (read_failed_stderr) rrtp->stderr_active = 0;
+	    if (read_failed_stdout) rrtp->stdout_active = 0;
 	}
 
-	/* Either EOF has been sent or there was a read error.
-	 * there is no need to block indefinitely */
-	retcode = bu_process_wait_n(&rrtp->p, 120);
-	int aborted = (retcode == ERROR_PROCESS_ABORTED);
-
-	if (aborted)
-	    bu_log("Raytrace aborted.\n");
-	else if (retcode)
-	    bu_log("Raytrace failed.\n");
-	else
-	    bu_log("Raytrace complete.\n");
-
-	if (gedp->i->ged_gdp->gd_rtCmdNotify != (void (*)(int))0)
-	    gedp->i->ged_gdp->gd_rtCmdNotify(aborted);
-
-	if (rrtp->end_clbk)
-	    rrtp->end_clbk(0, NULL, &aborted, rrtp->end_clbk_data);
-
-	/* free rrtp */
-	bu_ptbl_rm(&gedp->ged_subp, (long *)rrtp);
-	BU_PUT(rrtp, struct ged_subprocess);
+	/* If all streams are now inactive synchronously (no async
+	 * delete_io_handler in effect), finalize here.  Otherwise the
+	 * type == -1 re-entry will finalize on the GUI thread.
+	 */
+	if (!rrtp->stdin_active && !rrtp->stdout_active && !rrtp->stderr_active)
+	    _ged_rt_finalize(rrtp);
 
 	return;
     }
