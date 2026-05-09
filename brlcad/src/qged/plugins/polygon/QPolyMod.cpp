@@ -40,7 +40,7 @@ struct _qpolymod_poly_collect {
     std::vector<struct bv_scene_obj *> *polys;
     struct bv_scene_obj *exclude;
 };
-extern "C" static int
+extern "C" int
 _qpolymod_poly_collect_cb(struct bv_scene_obj *obj, void *data)
 {
     struct _qpolymod_poly_collect *s = (struct _qpolymod_poly_collect *)data;
@@ -53,7 +53,7 @@ _qpolymod_poly_collect_cb(struct bv_scene_obj *obj, void *data)
 struct _qpolymod_clear_pts {
     bool *draw_change;
 };
-extern "C" static int
+extern "C" int
 _qpolymod_clear_pts_cb(struct bv_scene_obj *obj, void *data)
 {
     if (!(obj->s_type_flags & BV_POLYGONS))
@@ -75,7 +75,7 @@ struct _qpolymod_snap_collect {
     struct bv_scene_obj *exclude;
     struct bu_ptbl *snap_objs;
 };
-extern "C" static int
+extern "C" int
 _qpolymod_snap_collect_cb(struct bv_scene_obj *obj, void *data)
 {
     struct _qpolymod_snap_collect *s = (struct _qpolymod_snap_collect *)data;
