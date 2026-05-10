@@ -203,9 +203,12 @@ test_basic_accessors(void)
     bsg_node *shape = bsg_shape_create(v);
     if (!root || !shape) FAIL("create nodes");
 
-    bsg_node_set_kind(shape, BSG_NODE_SHAPE | BSG_PAYLOAD_VLIST);
+    bsg_node_set_kind(shape, BSG_NODE_SHAPE);
     if (!bsg_node_has_kind(shape, BSG_NODE_SHAPE)) FAIL("has_kind(shape)");
-    if (!(bsg_node_kind(shape) & BSG_PAYLOAD_VLIST)) FAIL("kind payload bit");
+
+    bsg_node_set_payload_type(shape, BSG_PAYLOAD_VLIST);
+    if (bsg_node_get_payload_type(shape) != BSG_PAYLOAD_VLIST)
+	FAIL("payload round-trip");
 
     bsg_node_set_name(shape, "shape-a");
     if (!bsg_node_name(shape) || !BU_STR_EQUAL(bsg_node_name(shape), "shape-a"))
@@ -258,7 +261,10 @@ test_children_and_transform(void)
     setmat[10] = 4.0;
     bsg_node_transform_set(xf, setmat);
     bsg_transform_get_matrix(xf, got);
-    if (memcmp(setmat, got, sizeof(mat_t)) != 0) FAIL("transform round-trip");
+    for (size_t i = 0; i < 16; i++) {
+	if (!NEAR_EQUAL(setmat[i], got[i], SMALL_FASTF))
+	    FAIL("transform round-trip");
+    }
 
     bsg_shape_destroy(child);
     bsg_transform_destroy(xf);

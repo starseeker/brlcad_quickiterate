@@ -206,7 +206,11 @@ bsg_node_set_force_draw(bsg_node *n, int force_draw)
 void
 bsg_node_transform_get(const bsg_node *n, mat_t out)
 {
-    if (!n || !out)
+    if (!out)
+	return;
+
+    MAT_IDN(out);
+    if (!n)
 	return;
 
     MAT_COPY(out, ((const struct bv_scene_obj *)n)->s_mat);

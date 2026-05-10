@@ -53,9 +53,9 @@ typedef enum {
     BSG_FIELD_BOUNDS     = 9,  /**< @brief bmin/bmax/have_bbox */
     BSG_FIELD_USER_DATA  = 10, /**< @brief s_i_data */
     BSG_FIELD_PAYLOAD    = 11, /**< @brief payload bits in s_type_flags */
-    BSG_FIELD_MATERIAL   = 12, /**< @brief reserved material side-car/storage */
-    BSG_FIELD_APPEARANCE = 13, /**< @brief reserved appearance side-car/storage */
-    BSG_FIELD_SELECTION  = 14  /**< @brief reserved selection state */
+    BSG_FIELD_MATERIAL   = 12, /**< @brief reserved for Phase 3 material storage */
+    BSG_FIELD_APPEARANCE = 13, /**< @brief reserved for Phase 3 appearance storage */
+    BSG_FIELD_SELECTION  = 14  /**< @brief reserved for Phase 6 selection state */
 } bsg_field_id_t;
 
 /**
