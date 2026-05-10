@@ -193,6 +193,7 @@ test_null_safety(void)
     return 0;
 }
 
+
 static int
 test_basic_accessors(void)
 {
