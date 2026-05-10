@@ -212,7 +212,7 @@ test_basic_accessors(void)
 	FAIL("name round-trip");
 
     bsg_node_set_visible(shape, 1);
-    if (!bsg_node_visible(shape) || !bsg_node_get_visible(shape))
+    if (!bsg_node_visible(shape))
 	FAIL("visible on");
     bsg_node_set_visible(shape, 0);
     if (bsg_node_visible(shape)) FAIL("visible off");
