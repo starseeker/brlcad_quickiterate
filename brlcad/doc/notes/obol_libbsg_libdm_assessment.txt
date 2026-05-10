@@ -1,0 +1,709 @@
+Obol, libbsg, and libdm Assessment
+==================================
+
+Purpose
+-------
+This note evaluates whether Obol is a practical target for BRL-CAD drawing
+modernization, specifically whether libbsg data can be instantiated in Obol and
+whether that path can eventually replace libdm.
+
+Short answer
+------------
+Obol looks promising as an optional renderer and scene backend under the modern
+BSG drawing stack. It does not look like a practical drop-in replacement for
+libdm today.
+
+If libbsg and libbv are allowed to evolve, the best path becomes clearer:
+continue moving BRL-CAD's own drawing model toward the useful parts of the
+Open Inventor/Obol conceptual framework first, then target Obol from that
+cleaner model later. That means adding real BSG concepts for node identity,
+material/appearance, lights, selection, payloads, and actions inside BRL-CAD
+before adding Obol as another dependency in the active drawing path.
+
+The recommended direction is:
+
+1. Keep BSG as BRL-CAD's canonical in-process scene representation.
+2. Evolve BSG/libbv internals toward a cleaner Inventor-like model without
+   exposing Obol types or requiring Obol at first.
+3. Build an Obol adapter that consumes BSG and produces either normal Inventor
+   nodes or Obol's CAD assembly node.
+4. Prove that adapter first in an offscreen/headless path.
+5. If the adapter is successful, add an optional Obol-backed display path behind
+   the libdm API or behind selected Qt/MGED front-end code.
+6. Retire libdm pieces only after parity gates prove the Obol path can preserve
+   framebuffer, faceplate, selection, view-scope, LoD, and scripted refresh
+   behavior.
+
+This should be treated as an incremental replacement of libdm's rendering and
+device responsibilities, not as a wholesale replacement of the drawing model.
+The mdraw branch has already moved the important drawing model ownership into
+BSG; Obol should leverage that fact instead of bypassing it.
+
+
+Current BRL-CAD Drawing Stack
+-----------------------------
+
+The key architectural fact in this branch is that BSG is now the authoritative
+drawn-scene representation.
+
+Evidence in the tree:
+
+- `src/libged/bsg_ged_draw.c:20-42` documents the drawn set as a BSG group tree:
+  `gd_draw_root` contains per-path groups and `BSG_NODE_SHAPE` leaves. The BSG
+  tree is explicitly the sole rendering and iteration index.
+- `include/bsg/defines.h:54-106` defines the BSG node and payload taxonomy:
+  group, shape, LoD, vlist, transform, sensor, view-scope, and payload bits for
+  vlist, CSG, mesh, BRep, and overlay.
+- `include/bsg/defines.h:109-118` makes `bsg_node` and `bsg_shape` aliases for
+  `struct bv_scene_obj`. This makes BSG cheap to graft onto existing BRL-CAD
+  draw objects, but it also means BSG is not a clean standalone Open Inventor
+  data model.
+- `src/libdm/view.c:674-797` shows `dm_draw_objs()` as the central render path:
+  framebuffer first, then model/projection matrix setup, BSG LoD update,
+  transparent and opaque traversal, and finally HUD/faceplate drawing.
+- `src/libdm/view.c:562-652` shows BSG traversal handling view-scope nodes,
+  deprecated bridge nodes, LoD nodes, transform nodes, and shape dispatch.
+- `src/libdm/view.c:397-536` shows per-object draw policy: visibility,
+  transparency pass filtering, size culling, color/highlight selection, line
+  attributes, edit-matrix substitution, backend object draw dispatch, frame
+  revision stamping, arrows, axes, and labels.
+- `doc/notes/drawing_stack_modernization.txt:53-76` summarizes that DB-backed
+  drawing, LoD, and view-only objects have largely converged on BSG, while some
+  Tcl/Archer compatibility work remains.
+
+libdm is therefore no longer the only place where drawing semantics live, but it
+still owns too many operational responsibilities to remove abruptly.
+
+
+What libdm Still Provides
+-------------------------
+
+libdm is not just a GL wrapper. A replacement has to preserve a broad C API and
+several historical contracts.
+
+Important responsibilities:
+
+- Public display-manager API and state live in `include/dm.h`. The API includes
+  backend discovery/opening, Tcl/Tk path/interpreter hooks, dimensions, dirty
+  flags, colors, zbuffer/zclip/transparency, drawing primitives, matrix loading,
+  display image readback, framebuffer access, and display-list calls
+  (`include/dm.h:160-373`).
+- `src/libdm/include/calltable.h:74-185` defines the private `dm_impl` vtable
+  and instance state. It is a large device ABI covering open/close, draw
+  begin/end, HUD, matrices, text, 2D/3D primitives, vlist/object draw, colors,
+  line attributes, window config, lighting, zbuffer, transparency, display
+  lists, image readback, events, framebuffer open, flush/sync, and display-list
+  sharing.
+- `src/libdm/include/calltable.h:187-268` defines the embedded framebuffer ABI,
+  including pixel IO, colormaps, cursor, rect IO, configure/refresh/poll, and
+  active-client tracking for fbserv.
+- `include/dm.h:290-335` adds a newer renderer-backend contract for per-shape
+  resources (`dm_backend_ops`). This is useful for an Obol experiment because it
+  is the intended seam for future render backends.
+- `include/dm.h:338-347` still exposes display-list calls because MGED and
+  libtclcad depend on them, even though the comments say display lists should
+  eventually become implementation detail.
+- `src/libdm/dm_plugins.cpp:112-131` encodes backend policy for legacy apps:
+  `wgl`, `ogl`, then `X`; Qt-oriented backends are deliberately not default
+  because they need a Qt widget context; `swrast` is hidden unless requested.
+- `src/libdm/view.c:700-729` draws the framebuffer as the first layer, disables
+  zbuffer while refreshing it, clamps the refresh area, and supports framebuffer
+  overlay-only mode.
+
+Major consumers still depend on these contracts:
+
+- MGED attaches display managers with `dm_open`, registers Tk events, opens an
+  embedded framebuffer, and refreshes through `dm_draw_objs` plus legacy MGED
+  orchestration.
+- libtclcad/Archer commands mutate GED/BSG state and expect synchronous refresh
+  behavior.
+- QGED/libqtcad open `qtgl` or `swrast`, draw through `dm_draw_objs`, and use
+  `dm_get_display_image` for software-widget blits.
+- libged framebuffer commands, screengrab, ERT, and fbserv use `dm_get_fb` and
+  framebuffer behavior directly.
+
+Implication: replacing libdm means replacing a display/device/framebuffer/event
+facade, not just swapping one rendering traversal for another.
+
+
+What libbsg Gives Us
+--------------------
+
+BSG is conceptually close enough to Open Inventor to make an Obol adapter
+reasonable, but the alignment is conceptual rather than type-level.
+
+Good matches:
+
+- `BSG_NODE_GROUP` maps naturally to `SoGroup` or `SoSeparator`.
+- `BSG_NODE_SHAPE` maps naturally to `SoShape` subclasses or to entries in an
+  aggregate CAD assembly.
+- `BSG_NODE_TRANSFORM` maps naturally to `SoTransform` or `SoMatrixTransform`.
+- `BSG_NODE_LOD` maps to Obol/Inventor LoD concepts or to Obol CAD LoD data.
+- `BSG_NODE_VIEW_SCOPE` maps to a filter/switch node or to per-view adapter
+  selection.
+- BSG fields and sensors are deliberately Inventor-like.
+
+Important mismatches:
+
+- BSG nodes are `bv_scene_obj` instances, not independent Inventor nodes. That
+  is efficient for BRL-CAD, but an Obol adapter needs to translate fields and
+  lifetime rules.
+- BSG material state is mostly flattened into shape color, object settings, draw
+  mode, line style, and material-revision bookkeeping. There is no BSG material
+  node equivalent to `SoMaterial`.
+- Lighting is display-manager state (`dm_set_light`, zbuffer, zclip), not a BSG
+  light-node model.
+- Selection/highlight is mostly `s_iflag == UP`, BSG sensors, and front-end
+  state. There is no first-class BSG selection set matching `SoSelection`.
+- Identity is path strings, directory pointers, `db_full_path`, and parent
+  chains. Obol CAD uses explicit deterministic 128-bit part and instance IDs.
+- Wireframe geometry is mostly `bv_vlist` command streams. Obol CAD wants wire
+  polylines and optional triangle meshes.
+
+The existing Obol hook is only a placeholder:
+
+- `include/bsg/obol_node.h:20-30` says Obol integration is a future phase.
+- `include/bsg/obol_node.h:42-52` reserves a magic number and an empty
+  placeholder struct, but there is no active Obol-backed BSG node yet.
+
+Implication: BSG can feed Obol, but the first integration should be an adapter
+that reads BSG and maintains Obol-side cached objects. It should not require
+internal BRL-CAD callers to abandon BSG.
+
+
+Internal BSG Convergence Option
+-------------------------------
+
+If libbsg and libbv are not fixed compatibility targets, an internal convergence
+phase should happen before serious Obol integration. This is likely the most
+practical way to reduce eventual Obol adapter complexity.
+
+The current `bv_scene_obj` is a good transition object, but it is not a clean
+long-term scene node. `include/bv/defines.h:233-394` shows one struct carrying
+node identity, names, application path data, transforms, view context, geometry
+payloads, backend caches, bounds, visibility/highlight state, colors, material
+revision stamps, dashed-line flags, arrow flags, adaptive-plotting snapshots,
+object settings, old settings, children, parent pointers, free-list ownership,
+object-table ownership, draw data, and user data. That made the BSG migration
+cheap, but it also makes a future Obol target more complicated than necessary.
+
+The existing material and selection state also points toward a cleanup:
+
+- `include/bv/defines.h:133-154` stores draw mode, transparency, color override,
+  RGB color, line width, arrow dimensions, and subtraction-solid display policy
+  in `bv_obj_settings` rather than in first-class material/style objects.
+- `include/bsg/field.h:43-50` currently tracks only a small set of fields:
+  flag, color, visibility, transform, and children.
+- `include/bsg/sensor.h:20-28` has the right Inventor-like idea, but the current
+  sensor registry is simple and global.
+- `include/rt/view.h:59-132` has tentative primitive selection types, while
+  `include/ged/defines.h:203-204` still carries old GED selection containers.
+  Selection is therefore not yet unified at the BSG scene level.
+
+Recommended internal direction:
+
+- Do not clone Obol's public API mechanically. Adopt concepts where they map to
+  BRL-CAD semantics, but keep BRL-CAD naming, ownership, C ABI needs, database
+  path identity, and analytic-geometry requirements in control.
+- Make BSG the conceptual API and treat `bv_scene_obj` as implementation storage
+  or a compatibility carrier during migration.
+- Add clean BSG-level types for the concepts that are currently implicit in
+  `bv_scene_obj` fields.
+
+Candidate BSG concepts:
+
+- `bsg_node`: a real node abstraction with kind, stable identity, parent/child
+  relations, fields, notifications, and optional implementation payload.
+- `bsg_group`, `bsg_shape`, `bsg_transform`, `bsg_lod`, and `bsg_view_scope`:
+  typed node wrappers or concrete node structs rather than flag-only meanings.
+- `bsg_material`: diffuse/base color, transparency, and material-source metadata
+  currently split across `s_color`, `s_color_rev`, `s_old`, and `s_os`.
+- `bsg_appearance` or `bsg_style`: draw mode, line width, dash policy,
+  point/line rendering policy, depth policy, and hidden-line or shaded-mode
+  hints. In Open Inventor terms, not all of this belongs in `SoMaterial`; BRL-CAD
+  should avoid overloading material with draw-style state.
+- `bsg_light`: directional, point, spot, and ambient light data. The current
+  `dm_set_light` boolean can become a compatibility setting that enables a
+  default BSG light setup.
+- `bsg_camera` or `bsg_view`: an explicit bridge from `bview` matrices and
+  viewport dimensions to a scene-camera concept. This should be introduced
+  carefully because `bview` already owns important CAD view semantics.
+- `bsg_selection`: a scene-level selection set with policies, callbacks, path
+  identity, and optional sub-primitive details. This can absorb illumination
+  (`s_iflag == UP`), GED old selection hashes, QGED selection sets, and future
+  Obol `SoSelection`/`SoCADDetail` results.
+- `bsg_payload`: explicit geometry payload objects for vlist wireframes, wire
+  polylines, meshes, BReps, CSG references, image/framebuffer layers, and
+  overlays. Payloads should carry revision counters so renderers can cache
+  cleanly.
+- `bsg_action`: traversal/action interfaces for render, pick, bounding box,
+  search, write/export, and scene collection. This mirrors the useful Inventor
+  action pattern without forcing Obol into the core.
+
+This internal convergence would make Obol targeting simpler because the adapter
+would map one clean BRL-CAD concept to one Obol concept instead of reverse
+engineering policy from many `bv_scene_obj` fields.
+
+Suggested internal migration order:
+
+1. Add BSG accessors and opaque conceptual APIs over current storage.
+   Keep `bv_scene_obj` as the backing object, but stop adding new direct field
+   users. Expand `bsg_field_id_t` and sensors as needed.
+2. Introduce `bsg_material` and `bsg_appearance` while keeping them backed by
+   `s_color` and `bv_obj_settings` initially. Switch `dm_draw_objs()` to read
+   through BSG accessors.
+3. Introduce stable BSG identity for parts and instances. Derive IDs from
+   database paths, parent/child names, occurrence indices, and boolean operation
+   where available. This should be done before an Obol CAD assembly adapter.
+4. Move geometry into explicit `bsg_payload` containers. Keep vlist payloads as
+   the first supported payload, then add wire-polyline and mesh payloads where
+   producers can supply them cleanly.
+5. Introduce `bsg_selection` and migrate illumination/highlight first. Then map
+   GED/QGED selection stores and primitive sub-selection into it.
+6. Introduce BSG light and camera/view abstractions as compatibility layers over
+   current `dm` and `bview` state.
+7. Once those concepts exist, build the Obol adapter against BSG concepts rather
+   than against raw `bv_scene_obj` fields.
+
+The advantage of this approach is that every phase has value even if Obol never
+becomes the primary renderer. BRL-CAD gets a cleaner drawing API, less implicit
+state, better cache invalidation, and a more testable selection/material model.
+Obol then becomes a natural backend target rather than the forcing function for
+all refactoring.
+
+
+What Obol Brings
+----------------
+
+Obol offers capabilities that map well to BRL-CAD's future needs.
+
+Core scene graph:
+
+- `obol/README.md:8-18` describes Obol as a smaller Open Inventor 2.1-derived
+  scene display and interaction library, not strict Coin compatibility.
+- Obol provides standard Inventor nodes, fields, actions, cameras, materials,
+  selection, picking, and event routing.
+
+Context and backend model:
+
+- `obol/include/Inventor/SoDB.h:165-287` defines `SoDB::ContextManager`, an
+  application-supplied context abstraction with GL context lifecycle methods and
+  an optional `renderScene()` hook that can fill a pixel buffer without OpenGL.
+- `obol/include/Inventor/SoDB.h:300-317` exposes an OSMesa context-manager
+  factory.
+- `obol/README.md:22-28` says Obol can use system OpenGL, software OSMesa
+  OpenGL 2.0 plus extensions, and other backends via examples.
+- `obol/docs/BACKEND_SURVEY.md:86-100` documents the OSMesa target as OpenGL
+  2.0 plus key extensions and says `SoGLRenderAction`, render managers, and
+  offscreen rendering work with OSMesa.
+- `obol/docs/BACKEND_SURVEY.md:17-76` documents non-GL capable scene traversal,
+  callbacks, primitive generation, and picking.
+
+Offscreen rendering and image output:
+
+- `obol/include/Inventor/SoOffscreenRenderer.h:56-83` describes offscreen
+  rendering to an image buffer, RGB, PostScript, or registered image writers.
+- `obol/include/Inventor/SoOffscreenRenderer.h:93-153` exposes constructors,
+  render calls, buffer access, file output, GL capability checks, and per-renderer
+  context-manager assignment.
+
+Non-GL/raytracing hooks:
+
+- `obol/include/Inventor/SoSceneCollector.h:36-110` extracts triangles, lights,
+  and overlays for non-GL backends.
+- `obol/include/Inventor/SoDB.h:275-286` lets a context manager render a scene
+  directly into a caller-provided pixel buffer and skip the GL pipeline.
+- NanoRT, Embree, and Vulkan managers exist as worked test/example utilities,
+  but they should be treated as prototypes until promoted into installed API.
+
+CAD assembly support:
+
+- `obol/include/obol/cad/SoCADAssembly.h:36-50` defines `SoCADAssembly` as a
+  compiled CAD assembly node for 20k to 10M instances, explicitly avoiding
+  per-node traversal.
+- `obol/include/obol/cad/SoCADAssembly.h:98-149` defines wire polylines and
+  optional triangle meshes as part geometry.
+- `obol/include/obol/cad/SoCADAssembly.h:155-182` defines per-instance part,
+  transform, parent, child name, occurrence, boolean operation, and style data.
+- `obol/include/obol/cad/SoCADAssembly.h:258-359` exposes part/instance upsert,
+  fast transform/style updates, selected and hidden instance sets, queries, LoD
+  queries, and render tier reporting.
+- `obol/docs/cad_assembly_renderer.md:13-31` explains why conventional Inventor
+  scene traversal does not scale for CAD-scale assemblies and why Obol uses a
+  flat instance/frame-plan design.
+
+Implication: Obol's strongest fit is not a one-to-one BSG-node mirror. Its best
+CAD path is a compiled aggregate node fed from BSG/GED path data.
+
+
+Feasibility Assessment
+----------------------
+
+1. Directly replace libdm with Obol: low to moderate feasibility.
+
+This would be a major rewrite. Obol is a C++17 scene graph and rendering
+library; libdm is a C-facing display manager, framebuffer, event, and plugin
+facade. A direct replacement would need to emulate large parts of `dm.h`,
+including Tk and Qt integration, framebuffer/fbserv behavior, immediate 2D/3D
+draw calls, display image readback, display-list semantics, dirty/event hooks,
+and legacy default backend policy.
+
+This is not advisable as a first project because it risks destabilizing MGED,
+Archer/libtclcad, QGED, libged framebuffer commands, and existing draw tests.
+
+2. Add an Obol-backed libdm backend: moderate feasibility.
+
+This is plausible, especially because `dm_backend_ops` is already the intended
+per-shape backend seam. However, it is still not a clean first step. libdm calls
+are immediate and procedural; Obol wants a scene graph or CAD assembly updated
+over time and rendered as a unit. A `dm-obol` backend would need to translate
+libdm primitive calls into Obol nodes or draw batches, preserve HUD/faceplate
+semantics, and decide when the Obol scene is rendered to the display or
+offscreen buffer.
+
+This can become useful after a BSG-to-Obol adapter exists.
+
+3. Build Obol as a BSG renderer/adapter: moderate to high feasibility.
+
+This is the best Obol-facing target once the BSG model is ready. The mdraw
+branch already made BSG the canonical draw tree. Obol can be fed from that tree
+without requiring most BRL-CAD code to change. The adapter can start with
+offscreen rendering, use OSMesa for the self-contained path, and later support
+Qt or MGED integration.
+
+For small/simple scenes, the adapter can generate normal Inventor-style nodes.
+For CAD-scale scenes, it should prefer `SoCADAssembly`: group repeated geometry
+into parts, convert BSG vlist wireframe to `WireRep`, use existing full-path and
+group data to derive deterministic instance records, and map BRL-CAD colors,
+transparency, line widths, and visibility into Obol instance style and hidden or
+selected sets.
+
+4. First evolve BSG/libbv toward Obol-like concepts, then target Obol: high
+   feasibility and best advisability.
+
+This is the revised preferred route if internal APIs are allowed to change. It
+lets BRL-CAD pay down its own scene-model debt first: material state becomes a
+real object, selection becomes a BSG-level set instead of scattered highlight and
+front-end state, lights become scene data instead of display-manager toggles,
+payloads carry revisions and explicit geometry kinds, and node identity becomes
+stable enough for CAD assembly instances. Once that is done, the Obol adapter is
+mostly concept mapping rather than policy reconstruction.
+
+This route also reduces risk. Each refactor can be validated against the current
+libdm/swrast path before Obol is involved, and the resulting cleanup improves
+BRL-CAD even if Obol remains optional.
+
+
+Practicality and Advisability
+-----------------------------
+
+Recommended position: pursue internal BSG/libbv convergence first, then pursue
+Obol as the renderer experiment. Do not plan an immediate libdm removal.
+
+Reasons to pursue:
+
+- BSG is already close enough to Inventor concepts to make an adapter natural.
+- Obol targets OpenGL 2.0 plus OSMesa, preserving BRL-CAD's valuable headless and
+  self-contained software rendering story.
+- Obol has offscreen rendering and context management that could replace several
+  fragile device-specific libdm paths over time.
+- Obol has a CAD-specific aggregate model (`SoCADAssembly`) that is a better
+  long-term target than per-object OpenGL display lists.
+- Obol's picking, selection, camera, material, action, and scene-collection
+  APIs are stronger foundations than libdm's current procedural surface.
+- The `renderScene()` and `SoSceneCollector` hooks create a clean route for
+  future raytracing or Vulkan-backed experiments without rewriting BRL-CAD's
+  scene ownership model.
+
+Reasons not to jump directly:
+
+- libdm still carries framebuffer/fbserv behavior that user workflows and tests
+  depend on.
+- Existing front ends expect synchronous command-refresh behavior.
+- Obol is C++17 and BRL-CAD's public drawing API is largely C.
+- Obol's non-GL backends are promising but not yet equivalent production
+  replacements for the current GL/OSMesa paths.
+- BSG lacks explicit material, light, selection-set, stable ID, and part-library
+  data. Those can be derived, but the derivation needs careful invalidation and
+  test coverage.
+- A naive one-Obol-node-per-BSG-shape mirror could reproduce Inventor's scaling
+  weaknesses and miss the point of `SoCADAssembly`.
+
+Advisability conclusion:
+
+Use Obol as the next rendering experiment and likely long-term rendering core.
+Keep libdm as the compatibility facade until the Obol path proves it can satisfy
+all current draw-stack contracts. The best end state may be a much thinner
+`dm.h` compatibility layer over Obol/BSG plus specialized framebuffer services,
+not necessarily total removal of every libdm-facing API at once.
+
+
+Recommended Architecture
+------------------------
+
+The preferred architecture is layered:
+
+1. GED/libbv/libbsg remain the source of truth for BRL-CAD draw state.
+2. BSG grows first-class concepts for node identity, material/appearance,
+   lights, selection, payloads, and actions. During migration these can be
+   backed by `bv_scene_obj`, but new code should depend on BSG APIs rather than
+   raw `bv_scene_obj` fields.
+3. A new adapter, probably built as a separate library or optional component,
+   translates BSG roots into Obol scene state.
+4. The adapter owns Obol-side caches and invalidation keyed by BSG object,
+   full path, material revision, geometry revision, and view-scope state.
+5. Rendering can happen offscreen first through `SoOffscreenRenderer` and an
+   OSMesa `ContextManager`.
+6. A later `dm-obol` or Qt widget path can wrap the adapter behind existing
+   `dm.h` calls.
+
+The adapter should support two output modes:
+
+- General Inventor mode: useful for early correctness, overlays, view-only
+  objects, labels, and small scenes.
+- CAD assembly mode: useful for DB-backed geometry at BRL-CAD scale, using
+  `SoCADAssembly` for wireframe, shaded mesh, picking, LoD, selected instances,
+  and hidden instances.
+
+The adapter should not require existing BRL-CAD drawing producers to emit Obol
+objects directly. That would undo the mdraw consolidation around BSG.
+
+
+Mapping Strategy
+----------------
+
+BSG to Obol general mapping:
+
+- BSG root/group -> `SoSeparator` or `SoGroup`.
+- BSG transform -> `SoMatrixTransform`.
+- BSG shape with vlist -> `SoLineSet` or a custom Obol shape built from vlist
+  command streams.
+- BSG mesh payload -> `SoIndexedFaceSet` or `SoCADAssembly::TriMesh`.
+- BSG LoD -> Obol `SoLOD`/`SoLevelOfDetail` for small scenes, or Obol CAD LoD
+  data for `SoCADAssembly`.
+- BSG view-scope -> adapter-side inclusion filter or `SoSwitch`.
+- BSG color/object settings -> `SoMaterial`, draw style, line width, or
+  `InstanceStyle`.
+- BSG highlight (`s_iflag == UP`) -> Obol selected instance set or explicit
+  material override.
+- BSG hidden/down flag -> Obol hidden instance set or adapter omission.
+- Faceplate/HUD -> standard Obol 2D text/line overlay nodes at first; later a
+  direct overlay layer if performance or pixel parity requires it.
+- Framebuffer image -> background/image layer equivalent, preserving libdm's
+  underlay/overlay mode semantics.
+
+BSG to Obol CAD assembly mapping:
+
+- Part identity: derive from canonical database object identity plus geometry
+  generation revision. Avoid treating every path instance as a unique part.
+- Instance identity: derive from BSG/GED full path, parent instance ID, child
+  name, sibling occurrence index, and boolean operation when known. This matches
+  Obol's `InstanceRecord` model.
+- Wire geometry: translate `bv_vlist` move/draw commands into `WirePolyline`
+  records. Preserve stable edge IDs only if a reliable BRL-CAD source exists;
+  otherwise use 0 initially.
+- Shaded geometry: use existing mesh/LoD payloads where available. Do not block
+  initial wireframe work on complete shaded conversion.
+- Style: map `s_color`, color override, transparency, and line width to
+  `InstanceStyle` and Obol material state.
+- Selection/edit: map selected/illuminated BSG objects to selected instances;
+  for edit tools that need direct manipulation, materialize selected instances
+  as explicit nodes and hide their aggregate entries, following Obol's documented
+  `setHiddenInstances()` pattern.
+
+
+Implementation Plan
+-------------------
+
+Phase 0: Define the internal convergence boundary
+
+- Decide that new drawing concepts enter BRL-CAD as BSG/libbv concepts first,
+  not as Obol concepts. Obol remains a later backend target.
+- Define which current `bv_scene_obj` fields are storage details and which BSG
+  accessors should become the public conceptual API.
+- Add deprecation comments for new direct field use where practical. Do not try
+  to hide the struct in one step; use accessors and typed wrappers first.
+- Identify ABI-break opportunities for moving fields out of `bv_scene_obj` and
+  `bv_obj_settings` into BSG-owned objects.
+
+Phase 1: Add BSG material, appearance, identity, and payload APIs
+
+- Introduce `bsg_material` for color/transparency/material source metadata and
+  revision tracking.
+- Introduce `bsg_appearance` or `bsg_style` for draw mode, line width, dash,
+  hidden-line, point/line, and depth-policy state.
+- Introduce stable BSG part and instance identity helpers derived from database
+  path traversal and occurrence information.
+- Introduce explicit payload wrappers for vlist geometry first, with room for
+  wire-polyline, mesh, BRep, and CSG payloads.
+- Update `dm_draw_objs()` and BSG traversal to consume these concepts via
+  accessors while preserving existing behavior.
+
+Phase 2: Add BSG selection, light, camera/view, and action APIs
+
+- Add `bsg_selection` as the scene-level selection/illumination/highlight model.
+- Migrate `s_iflag == UP` illumination into compatibility accessors backed by
+  `bsg_selection`.
+- Add BSG light nodes or light objects, initially mapping the current `dm` light
+  toggle to a default light setup.
+- Add a camera/view bridge that exposes `bview` matrices and viewport data in a
+  renderer-neutral way.
+- Add BSG action interfaces for render, pick, bounding box, search, and scene
+  collection. Keep existing traversal available until actions cover it.
+
+Phase 3: Define the Obol integration boundary
+
+- Decide whether the first code lives in `src/libbsg`, a new optional
+  `src/libbsg_obol`, or an experimental `src/libdm/obol` backend. Prefer a
+  separate optional adapter first to avoid introducing Obol into libbsg's core C
+  ABI immediately.
+- Add a build option such as `BRLCAD_ENABLE_OBOL_VIEWER` or
+  `BRLCAD_ENABLE_OBOL_DM` that is off by default during the experiment.
+- Treat `include/bsg/obol_node.h` as a placeholder until the adapter proves
+  useful. Do not expose Obol types in stable C headers prematurely.
+- Define adapter ownership rules: BSG owns source scene data; adapter owns Obol
+  nodes, CAD assembly objects, context managers, and caches.
+
+Phase 4: Build a headless BSG-to-Obol proof of concept
+
+- Traverse a `bview::bsg_root` and build an Obol scene in memory.
+- Start with wireframe DB geometry and view-only vlist objects.
+- Convert BSG vlist data into Obol line geometry or `SoCADAssembly::WireRep`.
+- Set an Obol camera from `bview` matrices and viewport size.
+- Render with `SoOffscreenRenderer` and Obol's OSMesa context manager.
+- Export image buffers without opening MGED, Archer, or QGED windows.
+- Use small GED draw tests as fixtures: basic drawing, BSG parity, MGED BSG,
+  and Tcl adornment BSG.
+
+Phase 5: Establish correctness gates
+
+- Add non-invasive test utilities that render the same BSG scene through
+  current swrast/libdm and through Obol offscreen.
+- Compare image dimensions, non-empty pixels, basic color behavior, view-scope
+  visibility, independent-view behavior, and highlight/edit matrix behavior.
+- Run and preserve the existing draw tests listed in
+  `doc/notes/drawing_stack_modernization.txt:36-50`.
+- Prioritize these paths: `ged_test_bsg_parity`, `ged_test_bsg_quad_parity`,
+  `ged_test_mged_bsg`, `ged_test_mged_shaded_mode_bsg`,
+  `ged_test_drawing_faceplate`, `ged_test_view_independent`, and
+  `ged_test_tcl_adornment_bsg`.
+
+Phase 6: Add Obol CAD assembly mode
+
+- Group BSG shapes into Obol parts and instances instead of generating one Obol
+  shape per BSG leaf.
+- Implement deterministic part and instance ID derivation.
+- Add cache invalidation for geometry, material/color revision, transform,
+  visibility, and selection state.
+- Implement fast style and transform updates using Obol's update APIs.
+- Validate large assembly behavior against current libdm/swrast rendering.
+- Keep general Inventor-node mode for overlays and non-DB view objects until a
+  better aggregate representation exists for them.
+
+Phase 7: Prototype an interactive Qt path
+
+- Use QGED/libqtcad as the first interactive front end because it already owns a
+  Qt context and has clean signal/update boundaries.
+- Either add an Obol widget alongside existing `QgGL`/`QgSW`, or add an optional
+  Obol render path selected by application settings.
+- Preserve `BViewState` redraw semantics and `view_update` ordering.
+- Do not remove `qtgl` or `swrast` yet; use them as parity baselines.
+
+Phase 8: Prototype a libdm-compatible Obol backend
+
+- Add a `dm-obol` backend only after the adapter can render representative BSG
+  scenes correctly.
+- Implement the `dm_impl` methods needed by `dm_draw_objs`: draw begin/end,
+  HUD begin/end, matrix/projection loading, text, 2D/3D lines and points,
+  vlist/object drawing, foreground/background colors, zbuffer/transparency,
+  image readback, reshape, and framebuffer open/refresh behavior.
+- Use `dm_backend_ops` for per-shape cache invalidation and release.
+- Treat display-list calls as compatibility no-ops or cache-generation hints
+  unless a caller requires stronger semantics.
+- Keep `dm_draw_objs()` as the common traversal initially. If Obol CAD assembly
+  rendering needs whole-scene batching, add an explicit whole-scene backend hook
+  rather than overloading per-shape draw calls.
+
+Phase 9: Address framebuffer and fbserv parity
+
+- Preserve `dm_get_fb` lazy-open behavior.
+- Implement framebuffer-underlay and overlay-only modes exactly enough for GED,
+  MGED, libtclcad, and QGED tests.
+- Preserve image readback orientation and alpha behavior expected by
+  `dm_get_display_image` and screengrab code.
+- Validate ERT, fbclear, pix2fb/png2fb, framebuffer faceplate tests, and QGED
+  fbserv update behavior.
+
+Phase 10: Add picking and selection experiments
+
+- Use Obol `SoRayPickAction`, `SoSelection`, and `SoCADDetail` for prototype
+  selection.
+- Map pick results back to `db_full_path` and BSG objects.
+- Compare behavior with existing selection, illumination, and edit-matrix paths.
+- Do not replace BRL-CAD selection semantics until path identity, boolean-op
+  identity, and view-scope ownership are stable.
+
+Phase 11: Explore raytracing and Vulkan backends
+
+- Treat this as a follow-on, not a prerequisite for Obol adoption.
+- Use `SoSceneCollector` and `ContextManager::renderScene()` as the integration
+  hooks.
+- For BRL-CAD-native raytracing, consider a context manager that renders from
+  BRL-CAD database/BSG identity directly rather than forcing all analytic CSG
+  through triangle collection.
+- Promote NanoRT/Embree/Vulkan context-manager code from examples/tests into
+  supported API only after the GL/OSMesa path is stable.
+
+Phase 12: Decide on libdm retirement scope
+
+- Once Obol passes parity for QGED, MGED, libtclcad/Archer, framebuffer, and
+  draw tests, decide which libdm pieces can be retired.
+- Likely early removals: backend-specific GL display-list machinery and some
+  direct OpenGL drawing code.
+- Likely long-lived compatibility pieces: `dm.h` facade, framebuffer/fbserv API,
+  legacy Tcl/Tk entry points, and image readback functions.
+- Only remove default legacy backends after Obol has proven stable on platforms
+  where `wgl`, `ogl`, `X`, `qtgl`, and `swrast` currently matter.
+
+
+Key Risks
+---------
+
+- Scope creep: replacing libdm can easily become replacing the front ends,
+  framebuffer protocol, and drawing model. Keep the first milestone offscreen
+  and BSG-fed.
+- Concept drift: adopting Obol-like ideas internally should not become an
+  unbounded rewrite or a line-for-line clone of Obol. Each new BSG concept needs
+  a specific BRL-CAD use case and a compatibility path from current state.
+- Dual source of truth: during internal convergence, avoid keeping material,
+  selection, transform, or payload state live in both old fields and new BSG
+  objects without a single owner and synchronization rule.
+- Cache invalidation: Obol-side state must track BSG geometry, material,
+  transform, visibility, LoD, and selection changes without stale rendering.
+- Identity mismatch: Obol CAD wants stable part and instance IDs; BSG currently
+  exposes path-derived identity and object pointers. A deterministic ID policy
+  must be designed and tested.
+- Pixel parity: BRL-CAD tests and users rely on faceplate, framebuffer, color,
+  zbuffer, line style, and transparency details.
+- Performance trap: a naive one-node-per-shape Obol scene may not improve on
+  libdm for large CAD scenes. Use `SoCADAssembly` for DB-backed geometry early.
+- Backend maturity: Obol's GL/OSMesa/offscreen path is the mature target. Vulkan
+  and raytracing examples are valuable, but not yet a replacement guarantee.
+- Public ABI: exposing C++ Obol types through stable BRL-CAD C headers would
+  create avoidable ABI and dependency problems. Keep the first adapter internal.
+
+
+Decision Recommendation
+-----------------------
+
+Proceed with an internal BSG/libbv convergence effort first, then an Obol
+evaluation framed as a BSG-to-Obol renderer and future libdm thinning effort.
+
+Do not attempt a direct libdm replacement first, and do not make Obol the forcing
+function for BRL-CAD's own scene-model cleanup. The practical path is to evolve
+BSG toward explicit material, appearance, light, selection, payload, identity,
+and action concepts; make Obol consume that cleaned-up BSG scene; prove offscreen
+parity; then expose it through QGED and an optional libdm backend. If those
+stages succeed, libdm can be reduced to a compatibility facade and framebuffer
+service layer over a more modern renderer. If they do not, BRL-CAD still keeps a
+cleaner internal drawing stack and does not destabilize existing consumers.

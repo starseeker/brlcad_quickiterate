@@ -1,0 +1,1227 @@
+BSG Enhancement Plan
+====================
+
+Purpose
+-------
+This document is the actionable roadmap for evolving libbsg and libbv from the
+current `bv_scene_obj`-backed transitional model into a mature BRL-CAD scene
+graph API. The end state is a libbsg-centered drawing stack where BRL-CAD
+consumer libraries and applications use BSG concepts directly instead of
+reaching into raw libbv scene-object fields.
+
+This plan is intended to guide staged AI execution. Each phase is designed to be
+small enough to implement, test, and review independently while still moving
+toward the final architecture.
+
+
+Executive Summary
+-----------------
+The mdraw branch already achieved the most important architectural pivot:
+drawn scene ownership is centered on a BSG tree. The remaining work is to make
+BSG a complete scene graph API rather than a flag/accessor layer over
+`struct bv_scene_obj`.
+
+The target direction is:
+
+1. Keep the current BSG tree and tests stable.
+2. Add BSG-level conceptual APIs over current storage first.
+3. Migrate renderers and producers to those APIs.
+4. Introduce first-class material, appearance, payload, identity, selection,
+   light, camera/view, and action concepts.
+5. Move raw `bv_scene_obj` fields behind BSG accessors.
+6. Eventually invert or replace storage so `bsg_node` is the primary object and
+   libbv is no longer the public owner of scene nodes.
+7. Retarget BRL-CAD consumers so libged, libdm, libtclcad, MGED, QGED, and
+   supporting libraries operate on BSG concepts.
+
+The plan intentionally does not require Obol. It borrows useful Open Inventor
+and Obol concepts, but keeps BRL-CAD's C APIs, database path semantics,
+analytic geometry needs, and existing tests in control.
+
+
+Current Baseline
+----------------
+Important current facts from the codebase:
+
+- `include/bsg/defines.h` typedefs `bsg_node` and `bsg_shape` to
+  `struct bv_scene_obj`. This made the BSG transition cheap, but also leaves BSG
+  tied to libbv storage.
+- `include/bv/defines.h` has `struct bv_scene_obj` carrying node identity,
+  path data, transforms, view context, geometry, backend cache handles, bounds,
+  visibility, highlight state, colors, material revision stamps, line style,
+  arrows, adaptive plotting snapshots, object settings, children, parent,
+  allocation-pool ownership, object-table ownership, draw data, and user data.
+- `include/bv/defines.h` has `struct bv_obj_settings` carrying draw mode,
+  transparency, color override, color, line width, arrow dimensions, and
+  subtraction visualization policy.
+- `include/bsg/field.h` has a small SoField-like field notification API, but it
+  currently covers only flag, color, visibility, transform, and children.
+- `include/bsg/sensor.h` has a useful Inventor-like FieldSensor/NodeSensor idea,
+  but it is currently a simple global registry.
+- `include/bsg/node_group.h`, `node_shape.h`, `node_transform.h`, `lod_ops.h`,
+  `view_scope.h`, `payload.h`, and `visit.h` provide the beginning of typed BSG
+  concepts.
+- `src/libged/bsg_ged_draw.c` makes `gd_draw_root` the authoritative DB draw
+  tree and aliases it into `bview::gv_draw_root` and `bview::bsg_root`.
+- `src/libdm/view.c` performs the main rendering traversal, reading many raw
+  `bv_scene_obj` fields directly.
+- `include/bv/util.h` still exposes `bv_obj_create`, `bv_obj_get`,
+  `bv_obj_get_unregistered`, `bv_view_obj_*`, and raw `struct bv_scene_obj *`
+  APIs to consumers.
+- `include/bv/defines.h` already states that `gv_selected` is not implemented,
+  while GED and RT still have older tentative selection containers.
+
+The immediate engineering goal is not to remove `bv_scene_obj` all at once. The
+goal is to stop new code from depending on its raw fields, then migrate existing
+code behind BSG accessors and concepts.
+
+
+End State
+---------
+The final desired BSG state has these properties:
+
+- `bsg_node` is the primary scene object API. Consumers use BSG functions and
+  typed concepts rather than raw `bv_scene_obj` fields.
+- libbv remains responsible for view math, vlist primitives, low-level CAD view
+  utilities, and compatibility, but not for owning public scene graph semantics.
+- BSG nodes have typed kinds: root, group, shape, transform, LoD, view-scope,
+  sensor, light, camera/view, overlay, and image/framebuffer layer where needed.
+- BSG nodes have explicit identity: node ID, optional part ID, optional instance
+  ID, source path, and revision information.
+- Shape geometry is attached through explicit payloads, not inferred from
+  `s_vlist`, `s_i_data`, `draw_data`, or type flags alone.
+- Material and appearance are separate concepts. Material describes visual
+  surface/color properties. Appearance describes drawing style: wireframe,
+  shaded, hidden-line, line width, dash policy, depth policy, point/line policy,
+  and overlay behavior.
+- Selection is a first-class scene-level BSG object with callbacks, policies,
+  sub-primitive details, and compatibility mapping from legacy illumination.
+- Lights are scene data, not just a display-manager boolean.
+- Camera/view state is available through renderer-neutral BSG accessors derived
+  from `bview`.
+- Rendering, picking, bounding-box calculation, search, scene collection, and
+  export are expressed as BSG actions or action-like traversal APIs.
+- libdm and future render backends consume BSG actions and payloads. They do not
+  decode `bv_scene_obj` policy fields directly.
+- MGED, Archer/libtclcad, QGED/libqtcad, libged commands, and tests use BSG
+  APIs for scene content, view-only objects, selection, material, appearance,
+  and payload edits.
+- Raw `bv_scene_obj` field access outside libbsg/libbv compatibility code is
+  eliminated or formally marked as temporary compatibility debt.
+
+
+Execution Rules
+---------------
+Use these rules for every implementation stage:
+
+- Preserve existing behavior first. New BSG concepts should initially be backed
+  by existing storage where possible.
+- Prefer accessor migration before storage migration. Do not combine a new API,
+  a storage rewrite, and a consumer migration in one patch unless the scope is
+  very small.
+- Keep compatibility wrappers until all consumers are migrated and tests prove
+  parity.
+- Add tests in the same phase that adds a concept.
+- Run at least the libbsg tests and targeted libged draw tests after any change
+  in this stack.
+- Do not expose Obol C++ types through BRL-CAD C headers.
+- Do not create long-lived dual sources of truth. If old and new fields coexist,
+  define the owner and synchronization direction explicitly.
+- Do not move libdm framebuffer behavior into BSG until image/framebuffer layer
+  semantics are designed and tested.
+- Do not make public ABI-breaking struct changes until the phase explicitly
+  calls for an ABI break.
+
+
+Core Test Set
+-------------
+Run these tests frequently while working in this area:
+
+- `libbsg_vlist_null`
+- `libbsg_vlist_0`
+- `libbsg_vlist_1`
+- `libbsg_vlist_5`
+- `libbsg_vlist_18`
+- `libbsg_vlist_100`
+- `libbsg_arb8`
+- `libbsg_scene_graph`
+- `libbsg_phase6`
+- `libbsg_lod_node`
+- `libbsg_view_scope`
+- `ged_test_bsg_view_obj`
+- `ged_test_drawing_basic`
+- `ged_test_drawing_faceplate`
+- `ged_test_drawing_lod`
+- `ged_test_bsg_parity`
+- `ged_test_bsg_quad_parity`
+- `ged_test_mged_bsg`
+- `ged_test_mged_shaded_mode_bsg`
+- `ged_test_tcl_adornment_bsg`
+- `ged_test_view_independent`
+- `ged_test_view_command`
+
+Use narrower test subsets inside a phase, but a phase is not complete until the
+relevant subset passes and no known parity regression remains.
+
+
+Concept Ownership Map
+---------------------
+The following map defines where current state should land.
+
+Current `bv_scene_obj` fields and target BSG concepts:
+
+- `s_type_flags` -> `bsg_node_kind`, payload kind, and compatibility flags.
+- `s_name`, `s_path`, `dp`, `s_u_data` -> `bsg_identity` and source metadata.
+- `parent`, `children` -> BSG child API and traversal/action APIs.
+- `s_mat` -> `bsg_transform` field or transform node data.
+- `s_v` -> view-scope owner or source view metadata, not render policy.
+- `s_i_data`, `draw_data` -> typed payload data or node-private implementation.
+- `s_update_callback`, `s_free_callback` -> typed payload lifecycle callbacks.
+- `s_vlist`, `s_vlen` -> `bsg_payload_vlist`.
+- `s_backend` -> renderer cache owned by backend API, later keyed by payload
+  revision instead of raw object mutation.
+- `s_size`, `s_csize`, `s_center`, `bmin`, `bmax`, `have_bbox`,
+  `s_bbox_cached` -> BSG bounds cache and bbox action.
+- `s_flag`, `s_force_draw` -> BSG visibility and draw policy.
+- `s_iflag` -> `bsg_selection` or compatibility highlight state.
+- `s_color`, `s_color_rev` -> `bsg_material` and material revision.
+- `s_soldash`, `s_arrow`, arrow dimensions -> `bsg_appearance` or overlay
+  payload style.
+- `adaptive_wireframe`, `view_scale`, `bot_threshold`, `curve_scale`,
+  `point_scale`, `csg_obj`, `mesh_obj` -> LoD policy payload and view metrics.
+- `s_os`, `s_local_os`, `s_inherit_settings`, `s_old` -> BSG material,
+  appearance, inheritance, and compatibility state.
+- `vlfree`, `free_scene_obj`, `otbl` -> storage/allocation compatibility,
+  not public BSG semantics.
+
+Current `bv_obj_settings` fields and target BSG concepts:
+
+- `s_dmode` -> `bsg_appearance.draw_mode`.
+- `mixed_modes` -> appearance or producer policy.
+- `transparency` -> material alpha or appearance transparency override.
+- `color_override`, `color` -> material binding or explicit color override.
+- `s_line_width` -> appearance line width.
+- `s_arrow_tip_length`, `s_arrow_tip_width` -> arrow/overlay appearance.
+- `draw_solid_lines_only`, `draw_non_subtract_only` -> CAD boolean display
+  policy in appearance or draw policy.
+
+
+Target Header Layout
+--------------------
+The exact filenames can evolve, but this is the intended public shape:
+
+- `include/bsg/node.h`: generic node API, kind, naming, parent/child,
+  visibility, transforms, revisions, source metadata.
+- `include/bsg/identity.h`: node, part, and instance identity APIs.
+- `include/bsg/material.h`: material definitions, bindings, inheritance,
+  revision tracking.
+- `include/bsg/appearance.h`: draw style, line style, depth policy, hidden-line,
+  boolean display policy.
+- `include/bsg/payload.h`: expanded payload base API and payload lifecycle.
+- `include/bsg/payload_vlist.h`: vlist payload accessors and conversion helpers.
+- `include/bsg/payload_wire.h`: wire-polyline payload APIs.
+- `include/bsg/payload_mesh.h`: triangle mesh payload APIs.
+- `include/bsg/selection.h`: scene selection sets, entries, policies,
+  notifications, sub-primitive details.
+- `include/bsg/light.h`: light node/object definitions.
+- `include/bsg/camera.h`: renderer-neutral camera/view description derived from
+  `bview`.
+- `include/bsg/action.h`: action/traversal interfaces.
+- `include/bsg/render.h`: renderer-facing callbacks and scene render contract.
+- `include/bsg/compat.h`: temporary compatibility helpers for old
+  `bv_scene_obj` and `bv_obj_settings` storage.
+
+Do not include all new headers from `include/bsg.h` immediately if that would
+destabilize builds. Add them to the umbrella header when their APIs are stable.
+
+
+Phase 0: Baseline and Guardrails
+--------------------------------
+Objective:
+Establish a safe baseline before changing APIs.
+
+Design rules:
+
+- No behavior change.
+- No ABI-breaking struct changes.
+- Add inventories, comments, tests, and small helper APIs only.
+
+Tasks:
+
+1. Create a raw-field usage inventory.
+   Search `src` and `include` for direct use of important fields:
+   `s_type_flags`, `s_name`, `s_path`, `dp`, `s_mat`, `s_v`, `s_i_data`,
+   `s_vlist`, `s_backend`, `s_flag`, `s_force_draw`, `s_iflag`, `s_color`,
+   `s_color_rev`, `s_soldash`, `s_arrow`, `s_os`, `s_local_os`, `children`,
+   and `parent`.
+   Record the inventory in `doc/notes/bsg_raw_field_inventory.txt` or in this
+   file if the list is small enough.
+2. Add comments to `include/bv/defines.h` stating that new scene-graph code
+   should use BSG APIs, not direct `bv_scene_obj` fields.
+3. Add a short `include/bsg/README`-style comment or documentation block saying
+   BSG is the intended scene API and libbv storage is transitional.
+4. Confirm baseline tests pass before work begins.
+5. Add a temporary CI or developer checklist entry listing the core test set.
+
+Acceptance criteria:
+
+- No code behavior changes.
+- Raw-field usage inventory exists.
+- Baseline tests pass or known failures are documented.
+
+
+Phase 1: Generic BSG Node API Over Current Storage
+--------------------------------------------------
+Objective:
+Make BSG the preferred API for basic node operations while still using
+`bv_scene_obj` as backing storage.
+
+Design:
+
+- Add `include/bsg/node.h` and `src/libbsg/node.c`.
+- Keep `typedef struct bv_scene_obj bsg_node` for now.
+- Provide accessors that wrap existing fields and fire field notifications.
+- Expand field IDs before adding new concepts.
+
+Proposed API surface:
+
+- `bsg_node_kind(const bsg_node *n)`
+- `bsg_node_has_kind(const bsg_node *n, unsigned long long kind)`
+- `bsg_node_set_kind(bsg_node *n, unsigned long long kind)`
+- `bsg_node_name(const bsg_node *n)`
+- `bsg_node_set_name(bsg_node *n, const char *name)`
+- `bsg_node_parent(const bsg_node *n)`
+- `bsg_node_child_count(const bsg_node *n)`
+- `bsg_node_child(const bsg_node *n, size_t idx)`
+- `bsg_node_add_child(bsg_node *parent, bsg_node *child)`
+- `bsg_node_remove_child(bsg_node *parent, bsg_node *child)`
+- `bsg_node_visible(const bsg_node *n)`
+- `bsg_node_set_visible(bsg_node *n, int visible)`
+- `bsg_node_force_draw(const bsg_node *n)`
+- `bsg_node_set_force_draw(bsg_node *n, int force_draw)`
+- `bsg_node_transform_get(const bsg_node *n, mat_t out)`
+- `bsg_node_transform_set(bsg_node *n, const mat_t mat)`
+- `bsg_node_user_data_get(const bsg_node *n)`
+- `bsg_node_user_data_set(bsg_node *n, void *data)`
+- `bsg_node_bounds_get(const bsg_node *n, point_t bmin, point_t bmax)`
+- `bsg_node_bounds_set(bsg_node *n, const point_t bmin, const point_t bmax)`
+- `bsg_node_mark_stale(bsg_node *n)`
+
+Field ID additions:
+
+- `BSG_FIELD_NAME`
+- `BSG_FIELD_KIND`
+- `BSG_FIELD_FORCE_DRAW`
+- `BSG_FIELD_BOUNDS`
+- `BSG_FIELD_USER_DATA`
+- `BSG_FIELD_PAYLOAD`
+- `BSG_FIELD_MATERIAL`
+- `BSG_FIELD_APPEARANCE`
+- `BSG_FIELD_SELECTION`
+
+Tasks:
+
+1. Add `node.h` and `node.c` wrappers.
+2. Implement wrappers by reading/writing the existing `bv_scene_obj` fields.
+3. Route existing `bsg_group_add_child`, `bsg_group_remove_child`,
+   `bsg_transform_set_matrix`, and visibility helpers through the new generic
+   API where possible.
+4. Update `src/libbsg/CMakeLists.txt` and `cmakefiles` list.
+5. Add `test_bsg_node.c` covering null safety, kind, name, children, parent,
+   visible, force draw, transform, bounds, and field notifications.
+6. Add tests to `src/libbsg/tests/CMakeLists.txt`.
+
+Initial consumer migration:
+
+- Update libbsg implementation files to use `bsg_node_*` accessors where
+  straightforward.
+- Do not yet migrate libdm/libged large call sites unless the changes are very
+  small.
+
+Acceptance criteria:
+
+- New node API tests pass.
+- Existing libbsg tests pass.
+- No behavior change in draw tests.
+
+
+Phase 2: BSG Identity and Revisions
+-----------------------------------
+Objective:
+Add stable identity and revision concepts before material, payload, selection,
+and Obol/CAD assembly mapping need them.
+
+Design:
+
+- Identity must handle BRL-CAD database paths and view-only objects.
+- Use explicit structs rather than string-only identity.
+- Do not require UUID persistence at first.
+- Support deterministic IDs derived from path traversal.
+- Support part IDs and instance IDs separately.
+
+Proposed types:
+
+- `struct bsg_node_id`
+- `struct bsg_part_id`
+- `struct bsg_instance_id`
+- `struct bsg_source_path`
+- `struct bsg_identity`
+
+Proposed fields:
+
+- Node ID: unique within a BSG tree/session.
+- Part ID: canonical source geometry identity, usually a database object or
+  primitive geometry source.
+- Instance ID: path occurrence identity, including parent, child name,
+  occurrence index, and boolean operation when known.
+- Source kind: DB object, view object, overlay, framebuffer image, generated
+  tool geometry, or anonymous.
+- Source path string and optional `db_full_path` owned by the producer.
+- Revision counters for structure, material, appearance, payload, transform,
+  selection, and bounds.
+
+Proposed API surface:
+
+- `bsg_identity_init(struct bsg_identity *id)`
+- `bsg_node_identity_get(const bsg_node *n, struct bsg_identity *out)`
+- `bsg_node_identity_set(bsg_node *n, const struct bsg_identity *id)`
+- `bsg_identity_from_db_path(...)`
+- `bsg_identity_from_view_obj(...)`
+- `bsg_identity_part_id(...)`
+- `bsg_identity_instance_id(...)`
+- `bsg_node_revision(const bsg_node *n, int rev_kind)`
+- `bsg_node_bump_revision(bsg_node *n, int rev_kind)`
+
+Storage plan:
+
+- Initially store identity in `s_i_data` only for node types that do not already
+  use it, or in a small side-car attached to a new BSG private map keyed by
+  `bsg_node *`.
+- Prefer a side-car if `s_i_data` conflicts with LoD payloads, labels, polygon
+  data, or GED `ged_bv_data`.
+- Long term, identity belongs in the real `bsg_node` storage.
+
+Tasks:
+
+1. Add `identity.h` and `identity.c` or `identity.cpp`.
+2. Add minimal hash/equality helpers for IDs.
+3. Add identity side-car storage if needed.
+4. Add identity creation in `bsg_scene_root_create` and GED draw-root creation.
+5. Add identity creation for DB-backed shape leaves in libged draw code.
+6. Add identity creation for view-only objects in `bv_view_obj_create` wrappers.
+7. Add tests for deterministic path-derived identity.
+
+Consumer migration:
+
+- Update BSG draw-tree lookups that currently rely on `s_name`, `dp`, and
+  parent chains to prefer identity helpers where available.
+- Keep existing path lookup APIs working.
+
+Acceptance criteria:
+
+- Identity tests pass.
+- Drawing, erase, redraw, independent view, and view object tests pass.
+- No required caller has to understand the identity storage mechanism.
+
+
+Phase 3: BSG Material and Appearance
+------------------------------------
+Objective:
+Separate material from draw style and migrate implicit color/display state into
+first-class BSG concepts.
+
+Design:
+
+- Material is not draw mode. Keep surface/color properties separate from line
+  width, dash, hidden-line, and CAD boolean display policy.
+- Material should be usable by GL, software, raytracing, and future Obol
+  adapters.
+- Appearance should describe how to draw a shape in a particular viewport mode.
+- Existing `s_color`, `s_color_rev`, `s_os`, `s_old`, and global DM defaults
+  remain compatibility storage until consumers are migrated.
+
+Proposed `bsg_material` fields:
+
+- Base/diffuse color RGBA.
+- Ambient/specular/emissive placeholders, initially optional.
+- Transparency/alpha.
+- Source kind: explicit override, database material table, attribute-derived,
+  inherited, default geometry color.
+- Material revision.
+- Optional material name or database material reference.
+
+Proposed `bsg_appearance` fields:
+
+- Draw mode: wireframe, shaded, shaded-with-edges, hidden-line, points, overlay.
+- Line width.
+- Line style: solid, dashed, subtraction-dash policy.
+- Point size.
+- Depth policy: normal, always-on-top, no-depth-write, HUD, framebuffer layer.
+- Boolean display policy: show subtract, hide subtract, solid-only.
+- Arrow style for current arrow view objects.
+- Inheritance flag.
+
+Proposed API surface:
+
+- `bsg_material_init(struct bsg_material *m)`
+- `bsg_material_set_rgba(struct bsg_material *m, ...)`
+- `bsg_node_material_get(const bsg_node *n, struct bsg_material *out)`
+- `bsg_node_material_set(bsg_node *n, const struct bsg_material *m)`
+- `bsg_node_material_resolve(const bsg_node *n, const struct bsg_material *parent, struct bsg_material *out)`
+- `bsg_appearance_init(struct bsg_appearance *a)`
+- `bsg_node_appearance_get(const bsg_node *n, struct bsg_appearance *out)`
+- `bsg_node_appearance_set(bsg_node *n, const struct bsg_appearance *a)`
+- `bsg_node_appearance_resolve(...)`
+- Compatibility helpers:
+  `bsg_material_from_legacy_obj`, `bsg_material_to_legacy_obj`,
+  `bsg_appearance_from_legacy_obj_settings`,
+  `bsg_appearance_to_legacy_obj_settings`.
+
+Tasks:
+
+1. Add `material.h/.c` and `appearance.h/.c`.
+2. Add tests that map material/appearance to and from current `s_color` and
+   `bv_obj_settings` storage.
+3. Modify `bv_view_obj_set_color` and `bv_view_obj_set_line_width` to call the
+   BSG material/appearance APIs and then update compatibility fields.
+4. Modify `dm_draw_scene_obj` color and line-width resolution to use BSG
+   material/appearance accessors first, falling back to legacy fields.
+5. Modify libged material refresh code to set `bsg_material` and bump material
+   revisions.
+6. Keep `s_color` and `s_os` in sync during the transition.
+
+Consumer migration:
+
+- Migrate direct `s_color` reads in libdm labels/arrows/axes drawing to
+  `bsg_node_material_get` or resolved material.
+- Migrate direct `s_os->s_line_width`, `s_os->transparency`, and `s_os->s_dmode`
+  reads in libdm and GL backend to appearance accessors.
+- Migrate libtclcad adornment getters/setters to BSG material/appearance APIs.
+- Update tests that assert direct fields to assert through BSG accessors.
+
+Acceptance criteria:
+
+- Existing pixel tests remain stable.
+- Material revision behavior remains correct for `mater`, `color`, and redraw.
+- No consumer has to inspect `bv_obj_settings` to get draw mode, transparency,
+  color override, or line width unless explicitly marked compatibility code.
+
+
+Phase 4: BSG Payloads and Geometry Containers
+---------------------------------------------
+Objective:
+Make shape geometry explicit and revisioned.
+
+Design:
+
+- The payload API should be the only renderer-facing source of geometry.
+- Vlist remains the first-class wireframe payload during migration.
+- Mesh, wire-polyline, BRep reference, CSG reference, overlay, and image payloads
+  can be added incrementally.
+- Payloads need revision counters for renderer caches.
+
+Proposed payload base:
+
+- Payload type.
+- Payload revision.
+- Bounds revision.
+- Lifecycle callbacks: free, clone/copy optional, update optional.
+- Source pointer or owned data.
+
+Payload types:
+
+- `BSG_PAYLOAD_VLIST`: existing `bv_vlist` command stream.
+- `BSG_PAYLOAD_WIRE`: polyline representation suitable for CAD assembly and
+  non-OpenGL collection.
+- `BSG_PAYLOAD_MESH`: triangle vertices, normals, indices, and optional LoD
+  index sets.
+- `BSG_PAYLOAD_BREP_REF`: reference to BRep source data plus tessellation hooks.
+- `BSG_PAYLOAD_CSG_REF`: reference to database object and plotting/raytrace
+  hooks.
+- `BSG_PAYLOAD_OVERLAY`: overlay primitives currently represented as view-only
+  objects.
+- `BSG_PAYLOAD_IMAGE`: framebuffer/image layer payload.
+
+Proposed API surface:
+
+- `bsg_payload_create(type)`
+- `bsg_payload_destroy(payload)`
+- `bsg_node_payload_get(const bsg_node *n)`
+- `bsg_node_payload_set(bsg_node *n, struct bsg_payload *p)`
+- `bsg_payload_type(const struct bsg_payload *p)`
+- `bsg_payload_revision(const struct bsg_payload *p)`
+- `bsg_payload_bump_revision(struct bsg_payload *p)`
+- `bsg_payload_bounds(...)`
+- Vlist-specific:
+  `bsg_payload_vlist_from_node`, `bsg_payload_vlist_set`,
+  `bsg_payload_vlist_head`, `bsg_payload_vlist_count`.
+- Wire-specific:
+  `bsg_payload_wire_from_vlist`, `bsg_payload_wire_polyline_count`,
+  `bsg_payload_wire_polyline_get`.
+- Mesh-specific:
+  `bsg_payload_mesh_set`, `bsg_payload_mesh_get`, `bsg_payload_mesh_lod_get`.
+
+Tasks:
+
+1. Expand `include/bsg/payload.h` or split payload headers.
+2. Add a vlist payload wrapper backed by current `s_vlist` initially.
+3. Add payload revision bumps to vlist setters, shape creation, and stale logic.
+4. Add wire-polyline conversion from `bv_vlist` move/draw commands.
+5. Add mesh payload wrapper around existing `bv_mesh_lod` where available.
+6. Update GL backend to use payload accessors for vlist and mesh draw.
+7. Update `dm_draw_scene_obj` and helper adornment drawing to use payload APIs.
+8. Add tests for vlist payload, wire conversion, payload revision, and bounds.
+
+Consumer migration:
+
+- Migrate tests and producers that add to `s_vlist` directly to use payload
+  helpers, starting with libbsg tests and new code.
+- Migrate libged draw path to attach vlist payloads when creating shapes.
+- Migrate libtclcad adornment sync helpers to create payloads through BSG APIs.
+- Leave compatibility macros or helpers for `BV_ADD_VLIST` during transition.
+
+Acceptance criteria:
+
+- Existing vlist rendering remains unchanged.
+- Payload revision invalidates backend caches.
+- A BSG shape can expose wire geometry without raw `s_vlist` inspection.
+- Initial wire-polyline conversion is good enough for Obol/CAD assembly tests.
+
+
+Phase 5: BSG Bounds, Search, and Traversal Actions
+--------------------------------------------------
+Objective:
+Move bbox/search/traversal semantics into BSG actions before adding more complex
+render and pick actions.
+
+Design:
+
+- Start with simple action structs and callbacks; do not over-engineer.
+- Actions should be backend-independent.
+- Existing `bsg_visit` remains valid, but action APIs provide stateful traversal.
+
+Proposed action types:
+
+- `bsg_action`: base traversal state, stop/continue result, error state.
+- `bsg_bbox_action`: computes aggregate bounds with transform awareness.
+- `bsg_search_action`: finds nodes by name, ID, kind, payload, material, or
+  source path.
+- `bsg_collect_action`: collects renderable shape records for later renderers.
+
+Proposed API surface:
+
+- `bsg_action_apply(struct bsg_action *a, bsg_node *root)`
+- `bsg_bbox_action_init(...)`
+- `bsg_bbox_action_result(...)`
+- `bsg_search_action_init(...)`
+- `bsg_search_action_add_*_criteria(...)`
+- `bsg_collect_action_init(...)`
+- `bsg_collect_action_shapes(...)`
+
+Tasks:
+
+1. Add `action.h/.c` and `bounds.h/.c` if separate files are clearer.
+2. Implement bbox action using payload bounds and transform stack.
+3. Replace or wrap `bsg_subtree_bbox` and related bbox helpers with the action.
+4. Implement search action and migrate BSG internal child/path lookup where
+   useful.
+5. Add tests for transformed bounds, view-scope filtering, LoD level selection,
+   and search criteria.
+
+Consumer migration:
+
+- Migrate libbv `bv_scene_obj_bound` and DB object visits to BSG action helpers
+  where behavior matches.
+- Migrate QGED and libged code that walks BSG manually for search-like behavior
+  to the search action in small steps.
+
+Acceptance criteria:
+
+- Bounds results match current draw/autoview behavior.
+- Search action can replace at least one current manual tree walk.
+- No render behavior change.
+
+
+Phase 6: BSG Selection
+----------------------
+Objective:
+Make selection and illumination a BSG-level concept.
+
+Design:
+
+- Selection must support whole objects, path instances, and sub-primitives.
+- Selection must support multiple named sets: active, hover, edit, option,
+  application-specific sets.
+- Current `s_iflag == UP` illumination becomes compatibility output from the
+  active/edit selection set, not the authoritative state.
+- Selection should have notifications so front ends can update tree views,
+  attribute panels, and highlight rendering.
+
+Proposed types:
+
+- `struct bsg_selection_set`
+- `struct bsg_selection_entry`
+- `struct bsg_pick_detail`
+- `enum bsg_selection_policy`: single, toggle, append, remove, replace.
+- `enum bsg_selection_kind`: node, instance, part, edge, face, vertex, point,
+  primitive-specific.
+
+Selection entry fields:
+
+- Node pointer if available.
+- Node ID, part ID, instance ID.
+- Source path.
+- Sub-primitive kind and indices.
+- Pick point and depth if selected by pick.
+- Application tag.
+
+Proposed API surface:
+
+- `bsg_selection_set_create(const char *name)`
+- `bsg_selection_set_destroy(...)`
+- `bsg_selection_clear(...)`
+- `bsg_selection_add(...)`
+- `bsg_selection_remove(...)`
+- `bsg_selection_contains(...)`
+- `bsg_selection_visit(...)`
+- `bsg_selection_apply_policy(...)`
+- `bsg_scene_selection_get(root, name, create)`
+- `bsg_node_set_selected(root, node, set_name, selected)`
+- `bsg_node_is_selected(root, node, set_name)`
+- Compatibility:
+  `bsg_selection_sync_illum_flags(root)` and
+  `bsg_selection_from_illum_flags(root)`.
+
+Tasks:
+
+1. Add `selection.h/.c` and tests.
+2. Add selection storage to scene root context or a side-car keyed by root.
+3. Add active/edit selection set creation when BSG root is created.
+4. Modify GED illumination helpers to update BSG selection first and then sync
+   `s_iflag` for compatibility.
+5. Modify `dm_draw_scene_obj` highlight decision to query BSG selection first,
+   falling back to `s_iflag`.
+6. Migrate old GED selection containers where practical, starting with simple
+   whole-object selection.
+7. Add QGED selection bridge that maps selected model/tree items to BSG
+   selection entries.
+8. Add tests for illumination, selection add/remove, selection render highlight,
+   independent views, and sub-primitive placeholder behavior.
+
+Consumer migration:
+
+- libged: `bsg_view_obj_set_illum`, `bsg_view_obj_illum`, and selection commands.
+- libdm: highlight/render checks.
+- QGED: selection plugin and model/tree selection synchronization.
+- MGED/libtclcad: illumination/edit paths.
+- RT primitive selection: add bridge but keep primitive-specific internals until
+  fully mapped.
+
+Acceptance criteria:
+
+- Existing illumination tests pass.
+- Selecting and clearing a BSG node updates render highlight without callers
+  writing `s_iflag` directly.
+- Old `s_iflag` paths still work during compatibility window.
+
+
+Phase 7: BSG Lights and Camera/View Description
+-----------------------------------------------
+Objective:
+Move renderer-relevant light and camera data out of libdm assumptions and into
+renderer-neutral BSG concepts.
+
+Design:
+
+- `bview` remains the owner of BRL-CAD view manipulation state.
+- BSG camera/view APIs expose a render-ready snapshot derived from `bview`.
+- Lights are scene or view-scoped BSG objects.
+- The existing `dm_set_light` boolean remains a compatibility control that
+  enables a default light setup.
+
+Proposed camera/view snapshot:
+
+- Viewport width/height/aspect.
+- Orthographic or perspective mode.
+- Model-to-view and view-to-model matrices.
+- Projection matrix.
+- Eye point, look direction, up/right vectors where derivable.
+- Near/far or zclip policy.
+- Base/local scale data needed for CAD overlays.
+
+Proposed light fields:
+
+- Light kind: ambient, directional, point, spot.
+- Color and intensity.
+- Position or direction.
+- View-scoped or scene-scoped flag.
+- Enabled flag.
+
+Tasks:
+
+1. Add `camera.h/.c` with snapshot API from `struct bview`.
+2. Add tests verifying camera snapshot values against known `bview` matrices.
+3. Add `light.h/.c` with default light helpers.
+4. Modify libdm render setup to query a default BSG light set where available.
+5. Keep `dm_get_light` and `dm_set_light` working by mapping to the default BSG
+   light state or by leaving compatibility until render action phase.
+6. Add tests for default light enable/disable behavior using existing shaded
+   mode tests.
+
+Consumer migration:
+
+- libdm shaded mode setup.
+- QGED and MGED view setup where lighting/perspective state is passed to dm.
+- Future Obol adapter can consume BSG camera/light snapshots directly.
+
+Acceptance criteria:
+
+- Existing shaded-mode tests pass.
+- A renderer can obtain camera and default light data without reading `dm_impl`
+  internals.
+
+
+Phase 8: Render Action and Renderer Contract
+--------------------------------------------
+Objective:
+Move common render traversal semantics out of libdm-specific code and into a
+BSG renderer contract while preserving libdm behavior.
+
+Design:
+
+- Do not remove `dm_draw_objs` immediately.
+- Extract traversal policy into BSG action helpers first.
+- libdm can remain the first renderer implementation of the BSG render action.
+- Whole-scene renderers need a whole-scene hook, not only per-shape callbacks.
+
+Render action responsibilities:
+
+- Frame revision bump policy.
+- Framebuffer/image-layer ordering hook.
+- Camera/projection setup through renderer callbacks.
+- LoD update before traversal.
+- View-scope filtering.
+- Transform stack.
+- Material/appearance resolution.
+- Selection/highlight resolution.
+- Transparent/opaque pass classification.
+- Payload dispatch.
+- Shape draw callback.
+- HUD/faceplate/overlay pass hook.
+
+Proposed API surface:
+
+- `struct bsg_render_action`
+- `struct bsg_renderer_ops`
+- `bsg_render_action_init(...)`
+- `bsg_render_action_apply(...)`
+- `bsg_renderer_ops`: begin_frame, end_frame, set_camera, push_transform,
+  pop_transform, set_material, set_appearance, draw_payload, draw_overlay,
+  draw_image_layer, begin_hud, end_hud, set_depth_mask, query_capability.
+
+Tasks:
+
+1. Add `render.h/.c` and a minimal render action that delegates to existing
+   libdm callbacks.
+2. Move BSG traversal logic from `src/libdm/view.c` into BSG render helpers in
+   stages, or add BSG helpers called by `dm_draw_objs` without creating a
+   libbsg-to-libdm dependency.
+3. If a dependency cycle appears, keep the action type in libbsg but implement
+   the libdm renderer ops in libdm.
+4. Preserve transparent two-pass behavior.
+5. Preserve `s_drawn_rev` behavior through BSG node draw revision accessors.
+6. Add tests that compare old `dm_draw_objs` behavior to render action behavior
+   through the existing swrast path.
+
+Consumer migration:
+
+- libdm: `dm_draw_objs`, `_bsg_view_traverse_impl`, `_dm_draw_scene_obj_internal`.
+- GL backend: per-payload draw instead of raw scene-object decode.
+- Tests: update structural assumptions where direct fields are no longer the
+  preferred check.
+
+Acceptance criteria:
+
+- Existing draw pixel tests pass.
+- `dm_draw_objs` is implemented mostly as setup plus `bsg_render_action_apply`
+  or equivalent helpers.
+- Renderer code no longer needs to directly know every raw `bv_scene_obj` field
+  involved in material, appearance, selection, and payload resolution.
+
+
+Phase 9: Overlay, Faceplate, and Image Layer Model
+--------------------------------------------------
+Objective:
+Bring faceplate/HUD and framebuffer/image-layer concepts into the BSG model
+where doing so is useful, without breaking libdm framebuffer semantics.
+
+Design:
+
+- BSG 3D scene objects and HUD faceplate elements are not the same thing.
+- Keep faceplate settings in `bview_settings` while introducing renderable BSG
+  overlay/image-layer descriptions.
+- Framebuffer behavior has strict compatibility requirements; migrate last and
+  test heavily.
+
+Proposed concepts:
+
+- `bsg_overlay`: 2D/HUD lines, text, scale, ADC, grid, axes, labels where
+  appropriate.
+- `bsg_image_layer`: framebuffer/image source, layer mode, dimensions,
+  orientation, alpha, and visibility.
+- `bsg_depth_policy`: normal scene, HUD, no-depth-test, depth-read-only,
+  depth-write-off.
+
+Tasks:
+
+1. Audit `dm_draw_faceplate` and all faceplate helpers.
+2. Define which elements should remain direct `bview_settings` and which should
+   become BSG overlay payloads.
+3. Add overlay payload APIs for HUD text/lines where they match current needs.
+4. Add image layer payload API, initially just enough to describe the current
+   framebuffer underlay/overlay modes.
+5. Update render action to draw image layers before scene or as overlay-only
+   according to current `gv_fb_mode` semantics.
+6. Add or update faceplate and framebuffer tests.
+
+Consumer migration:
+
+- libdm faceplate drawing.
+- libtclcad adornments already migrated to BSG view-scope objects can move to
+  overlay/image payloads only if the semantics match.
+- QGED framebuffer/fbserv update paths should remain compatible until image
+  layer behavior is proven.
+
+Acceptance criteria:
+
+- `ged_test_drawing_faceplate` passes.
+- Framebuffer tests involving `png2fb`, `fbclear`, and overlay/underlay pass.
+- No regression in MGED/QGED framebuffer update behavior.
+
+
+Phase 10: Storage Split and ABI Break Preparation
+-------------------------------------------------
+Objective:
+Prepare to make `bsg_node` independent from raw `bv_scene_obj` storage.
+
+Design:
+
+- This phase should not begin until phases 1-9 have migrated most consumers to
+  BSG accessors.
+- Decide whether to embed a `bsg_node_core` inside `bv_scene_obj`, make
+  `bv_scene_obj` wrap `bsg_node`, or replace `bv_scene_obj` with `bsg_node` and
+  keep compatibility typedefs for one release cycle.
+
+Recommended transition:
+
+1. Add `struct bsg_node_core` with stable fields: magic, kind, name, parent,
+   children, identity, material, appearance, payload, selection flags, revisions,
+   private implementation pointer.
+2. Embed `bsg_node_core` in `bv_scene_obj` temporarily.
+3. Change BSG accessors to operate on `bsg_node_core` first.
+4. Move fields one group at a time from `bv_scene_obj` into `bsg_node_core` or
+   side-car data.
+5. At an ABI break, make `struct bsg_node` real and move compatibility into
+   libbv.
+
+Tasks:
+
+1. Add `bsg_node_core` privately or publicly depending on ABI decision.
+2. Add compile-time assertions or tests confirming compatibility wrappers still
+   work.
+3. Move one field family at a time: children/parent, name/kind, material,
+   appearance, payload, identity, bounds.
+4. Update allocation and free paths in libbv and libbsg.
+5. Update free-list and view-set handling so storage ownership is explicit.
+6. Remove or hide fields from public headers only at the planned ABI break.
+
+Consumer migration:
+
+- Any remaining raw field users must be migrated or explicitly isolated in
+  compatibility code.
+- Public headers should stop encouraging `struct bv_scene_obj` field access.
+
+Acceptance criteria:
+
+- All core drawing tests pass after each field-family move.
+- New BSG node storage can be allocated, linked, traversed, and freed without
+  depending on libbv object tables.
+- Compatibility consumers still compile during the transition window.
+
+
+Phase 11: Consumer Migration Sweep
+----------------------------------
+Objective:
+Retarget BRL-CAD libraries and applications away from raw libbv scene objects
+and toward BSG concepts.
+
+This phase should be performed as many small sweeps rather than one large patch.
+
+libbsg:
+
+- Use BSG accessors internally.
+- Keep direct storage access only in compatibility implementation files.
+- Expand tests for every new concept.
+
+libbv:
+
+- Retain view math, vlist utilities, polygon helpers, snapping, and view-set
+  compatibility.
+- Move scene-object conceptual functions to libbsg or wrap BSG APIs.
+- Mark `bv_obj_get`, `bv_obj_get_unregistered`, `bv_obj_get_child`, and direct
+  object-table APIs as compatibility where possible.
+- Move `bv_view_obj_*` APIs to BSG names or provide BSG equivalents first, then
+  compatibility wrappers.
+
+libged:
+
+- Draw/erase/redraw should create and mutate BSG nodes, identity, material,
+  appearance, and payloads directly.
+- Material refresh should update `bsg_material` revisions.
+- Illumination and selection should use `bsg_selection`.
+- Group/path APIs should prefer BSG identity and source path helpers.
+- Tests should assert through BSG APIs, not raw fields.
+
+libdm:
+
+- Rendering should consume BSG render action records, material, appearance,
+  payload, selection, camera, lights, overlay, and image layers.
+- Backends should cache by payload/material/appearance revisions, not raw object
+  mutation assumptions.
+- Keep framebuffer and `dm.h` compatibility until a separate libdm retirement
+  effort is ready.
+
+libtclcad and Archer:
+
+- Tcl adornment sync helpers should create BSG overlay/view-scope payloads and
+  set material/appearance through BSG APIs.
+- `gv_tcl` drawing mirrors should disappear or become editing scratch only.
+- Tcl getters should read BSG state through public APIs.
+
+MGED:
+
+- Attach/refresh code can keep libdm compatibility, but edit highlight and
+  drawn-object counting should use BSG selection and draw revision APIs.
+- Predictor/temporary drawing should use BSG overlay or render action hooks
+  where possible.
+
+QGED/libqtcad:
+
+- Selection plugins should populate `bsg_selection`.
+- Polygon/edit tools should find and mutate BSG payloads and appearance through
+  BSG APIs.
+- QGED view update/redraw should remain behavior-compatible while using BSG
+  concepts under the hood.
+
+librt/libged primitive selection:
+
+- Keep primitive-specific selection internals, but wrap results in
+  `bsg_selection_entry` when they affect scene selection or highlighting.
+
+Tests:
+
+- Replace direct raw-field assertions in tests with BSG API assertions.
+- Keep a small compatibility test that verifies old fields are synchronized
+  during the transition window.
+
+Acceptance criteria:
+
+- No production consumer outside libbsg/libbv compatibility code directly uses
+  raw scene-object fields for material, appearance, payload, selection,
+  visibility, transform, parent/child, or identity.
+- All listed drawing tests pass.
+- Remaining direct field usage is documented and scheduled for removal.
+
+
+Phase 12: Deprecation and Removal
+---------------------------------
+Objective:
+Remove transitional compatibility once consumers are migrated.
+
+Tasks:
+
+1. Remove public encouragement of `bv_scene_obj` field access.
+2. Move `struct bv_scene_obj` definition out of public headers if feasible, or
+   reduce it to an opaque compatibility handle.
+3. Remove deprecated BSG flags that have real typed replacements, keeping only
+   ABI aliases where unavoidable.
+4. Remove old GED selection hashes after all selection consumers use BSG.
+5. Remove `gv_selected` placeholder or replace it with BSG selection storage.
+6. Remove stale `bv_obj_settings` use after material/appearance migration.
+7. Remove direct display-list assumptions from public scene-object APIs.
+8. Update public docs and man pages for view object, draw, erase, selection, and
+   material behavior.
+
+Acceptance criteria:
+
+- BSG is the documented public scene graph API.
+- libbv no longer exposes public scene-object internals as the primary way to
+  work with drawn objects.
+- Consumer code compiles and passes tests without compatibility-only direct
+  field access.
+
+
+Phase 13: Renderer and Obol Readiness Gate
+------------------------------------------
+Objective:
+Confirm the enhanced BSG model is ready for optional Obol targeting or any other
+renderer backend.
+
+Readiness checklist:
+
+- Node tree is accessible through BSG APIs only.
+- Material and appearance are explicit.
+- Payloads expose vlist, wire, and mesh data with revisions.
+- Identity provides part and instance IDs for DB-backed geometry.
+- Selection can represent whole-object and sub-primitive choices.
+- Camera and lights are available as renderer-neutral snapshots.
+- Render action can collect all data needed by a renderer without libdm-specific
+  field reads.
+- Image/overlay layer semantics are defined enough for framebuffer and faceplate
+  parity.
+- Tests cover draw, erase, redraw, faceplate, framebuffer, selection, LoD,
+  independent views, shaded mode, and view-object lifecycle.
+
+Only after this gate should a serious Obol adapter be built. At that point the
+adapter should map clean BSG concepts to Obol concepts rather than translating
+raw BRL-CAD compatibility fields.
+
+
+AI Execution Template
+---------------------
+For each implementation stage, use this template in the task prompt:
+
+1. Scope: name the phase and the smallest coherent API or migration unit.
+2. Files: list the expected headers, source files, and tests.
+3. Compatibility: state which old fields must remain synchronized.
+4. Consumers: list exactly which caller set is being migrated in this stage.
+5. Tests: list required test targets for this stage.
+6. Acceptance: state the observable behavior and API requirements.
+7. Non-goals: state what should not be changed in this stage.
+
+Example stage prompt:
+
+```
+Implement Phase 3, Stage A: add bsg_material over current storage.
+
+Files: include/bsg/material.h, src/libbsg/material.c,
+src/libbsg/CMakeLists.txt, src/libbsg/tests/test_material.c,
+src/libbsg/tests/CMakeLists.txt.
+
+Compatibility: bsg_node_material_set must update s_color, s_color_rev, and
+s_os->transparency enough for current dm_draw_objs behavior to remain unchanged.
+
+Consumers: migrate only bv_view_obj_set_color and add tests. Do not touch libdm
+render traversal in this stage.
+
+Tests: libbsg material test, libbsg_phase6, ged_test_tcl_adornment_bsg.
+
+Acceptance: setting material through BSG accessors is visible through legacy
+fields and through BSG getters; old tests still pass.
+
+Non-goals: no ABI break, no Obol integration, no storage split.
+```
+
+
+Suggested Phase Breakdown for AI Work
+-------------------------------------
+Use these smaller stages rather than asking an AI agent to implement a full
+phase at once.
+
+Phase 1 stages:
+
+- 1A: Add `bsg/node.h` null-safe accessors and tests for kind/name/visibility.
+- 1B: Add child/parent accessors and migrate libbsg group helpers.
+- 1C: Add transform/bounds/user-data accessors and tests.
+- 1D: Expand field IDs and sensor tests.
+
+Phase 2 stages:
+
+- 2A: Add ID structs, init/equality/hash helpers, and tests.
+- 2B: Add side-car storage and node identity get/set.
+- 2C: Add DB path identity derivation in libged draw creation.
+- 2D: Add view-object identity derivation in libbv/BSG view-object creation.
+
+Phase 3 stages:
+
+- 3A: Add `bsg_material` and compatibility mapping tests.
+- 3B: Migrate view-object color setters/getters to BSG material.
+- 3C: Add `bsg_appearance` and compatibility mapping tests.
+- 3D: Migrate line width, draw mode, transparency reads in libdm to accessors.
+- 3E: Migrate libged material refresh to BSG material revisions.
+
+Phase 4 stages:
+
+- 4A: Add payload base and vlist wrapper over `s_vlist`.
+- 4B: Migrate BSG shape vlist setter and tests to payload API.
+- 4C: Add wire-polyline conversion and tests.
+- 4D: Add mesh payload wrapper for existing mesh LoD data.
+- 4E: Migrate GL backend draw paths to payload accessors.
+
+Phase 5 stages:
+
+- 5A: Add bbox action over payload bounds.
+- 5B: Add search action and migrate one manual search call site.
+- 5C: Add collect action for renderable shape records.
+
+Phase 6 stages:
+
+- 6A: Add selection set structs and unit tests.
+- 6B: Add scene-root selection storage.
+- 6C: Migrate illumination helpers to selection-backed compatibility.
+- 6D: Migrate libdm highlight checks to selection accessors.
+- 6E: Bridge QGED and GED selection paths.
+
+Phase 7 stages:
+
+- 7A: Add camera snapshot from `bview` and tests.
+- 7B: Add light data model and default light helpers.
+- 7C: Bridge `dm_set_light` compatibility to BSG light state.
+
+Phase 8 stages:
+
+- 8A: Add renderer ops structs and a no-op/test renderer.
+- 8B: Move view-scope/LoD/transform traversal into BSG render helper.
+- 8C: Move material/appearance/selection resolution into render helper.
+- 8D: Adapt libdm `dm_draw_objs` to the render helper.
+
+Phase 9 stages:
+
+- 9A: Add overlay payload basics.
+- 9B: Add image layer payload basics.
+- 9C: Preserve faceplate tests through render action overlay hooks.
+- 9D: Preserve framebuffer tests through image layer hooks.
+
+Phase 10 stages:
+
+- 10A: Add `bsg_node_core` behind current storage.
+- 10B: Move name/kind/parent/children accessors to node core.
+- 10C: Move material/appearance/payload pointers to node core.
+- 10D: Move identity/revision/bounds to node core.
+- 10E: Plan and execute ABI break if approved.
+
+Phase 11 stages:
+
+- 11A: libbsg internal direct-field sweep.
+- 11B: libged draw/erase/redraw sweep.
+- 11C: libdm render/backend sweep.
+- 11D: libtclcad/Archer adornment and getter/setter sweep.
+- 11E: QGED/libqtcad selection/edit/polygon sweep.
+- 11F: MGED edit/highlight/refresh sweep.
+- 11G: tests direct-field assertion sweep.
+
+
+Completion Definition
+---------------------
+This enhancement effort is complete when:
+
+- New BRL-CAD drawing code can be written entirely against libbsg scene graph
+  concepts.
+- Existing BRL-CAD drawing consumers no longer depend on raw libbv
+  `bv_scene_obj` internals for scene semantics.
+- libbv remains useful but is no longer the public scene graph API.
+- libdm renders through BSG concepts and can be thinned or replaced in a later
+  effort without rediscovering material, payload, selection, identity, camera,
+  and overlay policy.
+- The enhanced BSG model is sufficient to target Obol, a new GL renderer, a
+  raytracing backend, or another renderer without rewriting BRL-CAD producers.
