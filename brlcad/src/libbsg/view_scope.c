@@ -33,6 +33,7 @@
 #include "bv/defines.h"
 #include "bv/util.h"
 #include "bsg/defines.h"
+#include "bsg/node.h"
 #include "bsg/view_scope.h"
 
 
@@ -46,8 +47,8 @@ bsg_view_scope_create(struct bview *v)
     if (!s)
 	return NULL;
 
-    s->s_type_flags = BSG_NODE_VIEW_SCOPE;
-    s->s_flag       = UP;
+    bsg_node_set_kind((bsg_node *)s, BSG_NODE_VIEW_SCOPE);
+    bsg_node_set_visible((bsg_node *)s, 1);
     /* s_v is already set by bv_obj_create to v; make the ownership explicit. */
     s->s_v          = v;
 
@@ -62,7 +63,7 @@ bsg_view_scope_visible(bsg_node *node, struct bview *v)
 	return 0;
 
     struct bv_scene_obj *s = (struct bv_scene_obj *)node;
-    if (!(s->s_type_flags & BSG_NODE_VIEW_SCOPE))
+    if (!bsg_node_has_kind(node, BSG_NODE_VIEW_SCOPE))
 	return 0;
 
     /* NULL owner means "shared" — visible to every view. */

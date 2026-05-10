@@ -30,6 +30,7 @@
 #include "bv/defines.h"
 #include "bv/util.h"
 #include "bsg/defines.h"
+#include "bsg/node.h"
 #include "bsg/node_group.h"
 
 
@@ -43,8 +44,8 @@ bsg_group_create(struct bview *v)
     if (!g)
 	return NULL;
 
-    g->s_type_flags = BSG_NODE_GROUP;
-    g->s_flag = UP;
+    bsg_node_set_kind((bsg_node *)g, BSG_NODE_GROUP);
+    bsg_node_set_visible((bsg_node *)g, 1);
     return (bsg_node *)g;
 }
 
@@ -55,16 +56,7 @@ bsg_group_add_child(bsg_node *group, bsg_node *child)
     if (!group || !child)
 	return;
 
-    struct bv_scene_obj *g = (struct bv_scene_obj *)group;
-    struct bv_scene_obj *c = (struct bv_scene_obj *)child;
-
-    /* Avoid duplicates */
-    for (size_t i = 0; i < BU_PTBL_LEN(&g->children); i++) {
-	if ((struct bv_scene_obj *)BU_PTBL_GET(&g->children, i) == c)
-	    return;
-    }
-
-    bu_ptbl_ins(&g->children, (long *)c);
+    bsg_node_add_child(group, child);
 }
 
 
@@ -74,10 +66,7 @@ bsg_group_remove_child(bsg_node *group, bsg_node *child)
     if (!group || !child)
 	return;
 
-    struct bv_scene_obj *g = (struct bv_scene_obj *)group;
-    struct bv_scene_obj *c = (struct bv_scene_obj *)child;
-
-    bu_ptbl_rm(&g->children, (const long *)c);
+    bsg_node_remove_child(group, child);
 }
 
 
