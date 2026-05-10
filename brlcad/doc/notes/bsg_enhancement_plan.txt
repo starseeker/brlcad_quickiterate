@@ -1225,3 +1225,63 @@ This enhancement effort is complete when:
   and overlay policy.
 - The enhanced BSG model is sufficient to target Obol, a new GL renderer, a
   raytracing backend, or another renderer without rewriting BRL-CAD producers.
+
+
+Current Implementation Snapshot (2026-05-10)
+--------------------------------------------
+This section records what is already present in the tree so future sessions can
+start from current reality rather than the idealized phase text above.
+
+What is complete or substantially complete:
+
+- Phase 1 generic node API is implemented in `include/bsg/node.h` and
+  `src/libbsg/node.c` with dedicated tests in
+  `src/libbsg/tests/test_bsg_node.c`.
+- Phase 1 field-ID expansion is present in `include/bsg/field.h`
+  (`BSG_FIELD_NAME`, `BSG_FIELD_KIND`, `BSG_FIELD_FORCE_DRAW`,
+  `BSG_FIELD_BOUNDS`, `BSG_FIELD_USER_DATA`, `BSG_FIELD_PAYLOAD`,
+  `BSG_FIELD_MATERIAL`, `BSG_FIELD_APPEARANCE`, `BSG_FIELD_SELECTION`).
+- A payload-type API and pre-render dispatch hook are present in
+  `include/bsg/payload.h` and `src/libbsg/payload.c` (payload bits + update
+  callback dispatch over current storage).
+
+What is partially complete:
+
+- Phase 4 has initial payload groundwork (type tagging and dispatch), but does
+  not yet have the fuller typed payload object model, vlist payload wrappers,
+  wire conversion APIs, mesh payload APIs, or payload revision lifecycle
+  described in this plan.
+
+What is not yet implemented in this roadmap:
+
+- Phase 2 identity/revision API (`identity.h/.c`).
+- Phase 3 material/appearance API (`material.h/.c`, `appearance.h/.c`).
+- Phase 5 action layer (`action.h/.c`, bbox/search/collect actions).
+- Phase 6 selection set model.
+- Phase 7 camera/light snapshots.
+- Phase 8 render action/renderer contract.
+- Phase 9 overlay/image-layer model in the form described here.
+- Phase 10 storage split preparations (`bsg_node_core` path).
+- Phase 11 broad consumer sweeps under this specific API plan.
+- Phases 12-13 deprecation and readiness gate execution.
+
+
+Immediate Next-Session Stage Prompts
+------------------------------------
+Use these as concrete "small-unit" prompts for the next work sessions.
+
+1. Phase 2A (recommended next):
+   Add `bsg_identity` ID structs and init/equality/hash helpers with unit tests
+   only. Do not migrate consumers yet.
+
+2. Phase 2B:
+   Add identity side-car storage and `bsg_node_identity_get/set` APIs with null
+   safety and deterministic behavior tests.
+
+3. Phase 2C:
+   Add DB-path-derived identity assignment in libged draw-root/shape creation
+   paths while preserving existing draw behavior.
+
+4. Phase 3A:
+   Add `bsg_material` with compatibility mapping helpers and unit tests, without
+   touching libdm traversal.
