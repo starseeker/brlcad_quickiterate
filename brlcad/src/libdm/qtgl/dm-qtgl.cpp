@@ -105,7 +105,6 @@ qtgl_configureWin(struct dm *dmp, int UNUSED(force))
     gl_debug_print(dmp, "qtgl_configureWin", dmp->i->dm_debugLevel);
 
     if (!privars || !privars->qw) {
-	bu_log("qtgl_configureWin: Couldn't make context current\n");
 	return BRLCAD_ERROR;
     }
 
@@ -117,7 +116,6 @@ qtgl_configureWin(struct dm *dmp, int UNUSED(force))
     if (!privars->fs) {
 	privars->fs = glfonsCreate(512, 512, FONS_ZERO_TOPLEFT);
 	if (privars->fs == NULL) {
-	    bu_log("dm-qtgl: Failed to create font stash");
 	    return BRLCAD_ERROR;
 	}
 	privars->fontNormal = FONS_INVALID;

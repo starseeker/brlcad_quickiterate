@@ -670,6 +670,14 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
     // We have the dmp - let the view know
     target_view->dmp = dmp;
 
+    /* Record the framebuffer device corresponding to this active DM type so
+     * libged rt can launch a matching standalone fb window without querying
+     * libdm directly at rt execution time. */
+    if (BU_STR_EQUAL(argv[0], "swrast")) ged_rt_fb_set(gedp, "/dev/swrast");
+    if (BU_STR_EQUAL(argv[0], "qtgl")) ged_rt_fb_set(gedp, "/dev/qtgl");
+    if (BU_STR_EQUAL(argv[0], "ogl")) ged_rt_fb_set(gedp, "/dev/ogl");
+    if (BU_STR_EQUAL(argv[0], "wgl")) ged_rt_fb_set(gedp, "/dev/wgl");
+
     bu_vls_free(&dm_name);
     bu_vls_free(&view_name);
 

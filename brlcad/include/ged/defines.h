@@ -354,7 +354,6 @@ GED_EXPORT extern int ged_clbk_exec(
 GED_EXPORT extern void ged_dm_ctx_set(struct ged *gedp, const char *dm_type, void *ctx);
 GED_EXPORT extern void *ged_dm_ctx_get(struct ged *gedp, const char *dm_type);
 
-
 /* accessor functions for ged_results - calling
  * applications should not work directly with the
  * internals of ged_results, which are not guaranteed

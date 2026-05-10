@@ -1,8 +1,6 @@
 #  ************ libdm tests *************
 
 brlcad_addexec(dm_test dm_test.c "libdm;libbu" TEST)
-brlcad_addexec(test_fb_dirty_rect test_fb_dirty_rect.c "libdm;libbu" TEST)
-brlcad_add_test(NAME fb_dirty_rect COMMAND test_fb_dirty_rect)
 
 # dm_dlist_sensor register/fire/clear
 brlcad_addexec(test_dm_dlist_sensor test_dlist_sensor.c "libdm;libbv;libbu" TEST)
@@ -27,7 +25,6 @@ endif()
 cmakefiles(CMakeLists.txt)
 cmakefiles(
   dm_test.c
-  test_fb_dirty_rect.c
   test_dlist_sensor.c
   tcl_img.cpp
   tcl_tevent.cpp

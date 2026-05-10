@@ -76,28 +76,25 @@ static int
 swrast_makeCurrent(struct dm *dmp)
 {
     struct swrast_vars *pv = (struct swrast_vars *)dmp->i->dm_vars.priv_vars;
+    int width, height;
 
     if (!pv || !pv->ctx || !pv->v) {
-	bu_log("swrast_configureWin: Couldn't make context current\n");
+	fprintf(stderr, "swrast_configureWin: Couldn't make context current\n");
 	return BRLCAD_ERROR;
     }
 
     if (dmp->i->dm_debugLevel)
-	bu_log("swrast_makeCurrent()\n");
+	fprintf(stderr, "swrast_makeCurrent()\n");
 
-    /* DIM-DBG: log whenever OSMesa context dimensions might differ from dm dims */
-    if (pv->v->gv_width != dmp->i->dm_width || pv->v->gv_height != dmp->i->dm_height) {
-	bu_log("swrast_makeCurrent: MISMATCH gv=(%d,%d) dm=(%d,%d) - OSMesa will use gv dims\n",
-	       pv->v->gv_width, pv->v->gv_height,
-	       dmp->i->dm_width, dmp->i->dm_height);
-    } else {
-	bu_log("swrast_makeCurrent: gv=(%d,%d) dm=(%d,%d) [OK]\n",
-	       pv->v->gv_width, pv->v->gv_height,
-	       dmp->i->dm_width, dmp->i->dm_height);
-    }
+    width = (dmp->i->dm_width > 0) ? dmp->i->dm_width : ((pv->v->gv_width > 0) ? pv->v->gv_width : 512);
+    height = (dmp->i->dm_height > 0) ? dmp->i->dm_height : ((pv->v->gv_height > 0) ? pv->v->gv_height : 512);
+    dmp->i->dm_width = width;
+    dmp->i->dm_height = height;
+    pv->v->gv_width = width;
+    pv->v->gv_height = height;
 
-    if (!OSMesaMakeCurrent(pv->ctx, pv->os_b, GL_UNSIGNED_BYTE, pv->v->gv_width, pv->v->gv_height)) {
-	bu_log("OSMesaMakeCurrent failed!\n");
+    if (!OSMesaMakeCurrent(pv->ctx, pv->os_b, GL_UNSIGNED_BYTE, width, height)) {
+	fprintf(stderr, "OSMesaMakeCurrent failed!\n");
 	return BRLCAD_ERROR;
     }
 
@@ -117,18 +114,19 @@ swrast_configureWin(struct dm *dmp, int UNUSED(force))
     struct swrast_vars *pv = (struct swrast_vars *)dmp->i->dm_vars.priv_vars;
 
     if (!pv || !pv->ctx || !pv->v) {
-	bu_log("swrast_configureWin: Couldn't make context current\n");
+	fprintf(stderr, "swrast_configureWin: Couldn't make context current\n");
 	return BRLCAD_ERROR;
     }
 
-    int width = pv->v->gv_width;
-    int height = pv->v->gv_height;
-
-    bu_log("swrast_configureWin: gv=(%d,%d) dm_current=(%d,%d)\n",
-	   width, height, dmp->i->dm_width, dmp->i->dm_height);
+    int width = (dmp->i->dm_width > 0) ? dmp->i->dm_width : ((pv->v->gv_width > 0) ? pv->v->gv_width : 512);
+    int height = (dmp->i->dm_height > 0) ? dmp->i->dm_height : ((pv->v->gv_height > 0) ? pv->v->gv_height : 512);
+    dmp->i->dm_width = width;
+    dmp->i->dm_height = height;
+    pv->v->gv_width = width;
+    pv->v->gv_height = height;
 
     if (!width || !height) {
-	bu_log("swrast_configureWin: Zero sized window\n");
+	fprintf(stderr, "swrast_configureWin: Zero sized window\n");
 	return BRLCAD_ERROR;
     }
 
@@ -137,12 +135,12 @@ swrast_configureWin(struct dm *dmp, int UNUSED(force))
     // (textures, etc.), not just the current dm image.
     pv->os_b = bu_realloc(pv->os_b, 4096 * 4096 * sizeof(GLubyte)*4, "OSMesa rendering buffer");
     if (!pv->os_b) {
-	bu_log("swrast_configureWin: render buffer allocation failed\n");
+	fprintf(stderr, "swrast_configureWin: render buffer allocation failed\n");
 	return BRLCAD_ERROR;
     }
 
     if (!OSMesaMakeCurrent(pv->ctx, pv->os_b, GL_UNSIGNED_BYTE, width, height)) {
-	bu_log("OSMesaMakeCurrent failed!\n");
+	fprintf(stderr, "OSMesaMakeCurrent failed!\n");
 	return BRLCAD_ERROR;
     }
 
@@ -152,7 +150,7 @@ swrast_configureWin(struct dm *dmp, int UNUSED(force))
     if (!pv->fs) {
 	pv->fs = glfonsCreate(512, 512, FONS_ZERO_TOPLEFT);
 	if (pv->fs == NULL) {
-	    bu_log("dm-swrast: Failed to create font stash");
+	    fprintf(stderr, "dm-swrast: Failed to create font stash");
 	    return BRLCAD_ERROR;
 	}
 	pv->fontNormal = FONS_INVALID;
@@ -230,11 +228,13 @@ swrast_open(void *ctx, void *UNUSED(interp), int argc, const char **argv)
     privars->ctx = OSMesaCreateContextExt(OSMESA_RGBA, 16, 0, 0, NULL);
     int width = (!privars->v->gv_width) ? 512 : privars->v->gv_width;
     int height = (!privars->v->gv_height) ? 512 : privars->v->gv_height;
+    dmp->i->dm_width = width;
+    dmp->i->dm_height = height;
     privars->v->gv_width = width;
     privars->v->gv_height = height;
     privars->os_b = bu_realloc(privars->os_b, width * height * sizeof(GLubyte)*4, "OSMesa rendering buffer");
     if (!OSMesaMakeCurrent(privars->ctx, privars->os_b, GL_UNSIGNED_BYTE, width, height)) {
-	bu_log("OSMesaMakeCurrent failed!\n");
+	fprintf(stderr, "OSMesaMakeCurrent failed!\n");
 	bu_free(dmp->i->dm_vars.pub_vars, "swrast_open: dmp->i->dm_vars.pub_vars");
 	bu_free(dmp, "swrast_open: dmp");
 	return DM_NULL;
@@ -348,7 +348,7 @@ swrast_drawString2D(struct dm *dmp, const char *str, fastf_t ix, fastf_t iy, int
 {
     struct swrast_vars *privars = (struct swrast_vars *)dmp->i->dm_vars.priv_vars;
     if (dmp->i->dm_debugLevel)
-	bu_log("swrast_drawString2D()\n");
+	fprintf(stderr, "swrast_drawString2D()\n");
 
     // If the positions are out of range on the positive side, just don't draw -
     // text will go to the right and not be visible
@@ -420,7 +420,7 @@ swrast_String2DBBox(struct dm *dmp, vect2d_t *bmin, vect2d_t *bmax, const char *
 {
     struct swrast_vars *privars = (struct swrast_vars *)dmp->i->dm_vars.priv_vars;
     if (dmp->i->dm_debugLevel)
-	bu_log("qtgl_drawString2D()\n");
+	fprintf(stderr, "qtgl_drawString2D()\n");
 
     // If the positions are out of range on the positive side, just don't draw -
     // text will go to the right and not be visible
@@ -547,7 +547,7 @@ swrast_getDisplayImage(struct dm *dmp, unsigned char **image, int flip, int alph
 {
     struct swrast_vars *pv = (struct swrast_vars *)dmp->i->dm_vars.priv_vars;
     if (!pv || !pv->ctx) {
-	bu_log("swrast_getDisplayImage: no context\n");
+	fprintf(stderr, "swrast_getDisplayImage: no context\n");
 	*image = NULL;
 	return BRLCAD_ERROR;
     }
@@ -564,12 +564,12 @@ swrast_getDisplayImage(struct dm *dmp, unsigned char **image, int flip, int alph
 	if (OSMesaGetColorBuffer(saved_ctx, &saved_width, &saved_height, &saved_format, &saved_buf) && saved_buf)
 	    need_restore = true;
 	else
-	    bu_log("swrast_getDisplayImage: could not save current context buffer; context will not be restored\n");
+	    fprintf(stderr, "swrast_getDisplayImage: could not save current context buffer; context will not be restored\n");
     }
 
     /* Ensure this OSMesa context is current before reading its buffer */
     if (dm_make_current(dmp) != BRLCAD_OK) {
-	bu_log("swrast_getDisplayImage: dm_make_current failed\n");
+	fprintf(stderr, "swrast_getDisplayImage: dm_make_current failed\n");
 	*image = NULL;
 	return BRLCAD_ERROR;
     }
@@ -584,22 +584,22 @@ swrast_getDisplayImage(struct dm *dmp, unsigned char **image, int flip, int alph
     GLint cbwidth, cbheight, bitsperchannel;
     void *cbuf = NULL;
     if (!OSMesaGetColorBuffer(pv->ctx, &cbwidth, &cbheight, &bitsperchannel, &cbuf) || !cbuf) {
-	bu_log("swrast_getDisplayImage: OSMesaGetColorBuffer failed\n");
+	fprintf(stderr, "swrast_getDisplayImage: OSMesaGetColorBuffer failed\n");
 	*image = NULL;
 	if (need_restore)
 	    if (!OSMesaMakeCurrent(saved_ctx, saved_buf, GL_UNSIGNED_BYTE, saved_width, saved_height))
-		bu_log("swrast_getDisplayImage: context restore failed after read error\n");
+		fprintf(stderr, "swrast_getDisplayImage: context restore failed after read error\n");
 	return BRLCAD_ERROR;
     }
 
     /* DIM-DBG: log whenever the OSMesa buffer dimensions differ from what dm expects */
     if (cbwidth != width || cbheight != height) {
-	bu_log("swrast_getDisplayImage: DIM MISMATCH: dm=(%d,%d) OSMesa_buf=(%d,%d) gv=(%d,%d)\n",
+	fprintf(stderr, "swrast_getDisplayImage: DIM MISMATCH: dm=(%d,%d) OSMesa_buf=(%d,%d) gv=(%d,%d)\n",
 	       width, height, (int)cbwidth, (int)cbheight,
 	       pv->v ? pv->v->gv_width : -1,
 	       pv->v ? pv->v->gv_height : -1);
     } else {
-	bu_log("swrast_getDisplayImage: dm=(%d,%d) OSMesa_buf=(%d,%d) [OK]\n",
+	fprintf(stderr, "swrast_getDisplayImage: dm=(%d,%d) OSMesa_buf=(%d,%d) [OK]\n",
 	       width, height, (int)cbwidth, (int)cbheight);
     }
 
@@ -627,7 +627,7 @@ swrast_getDisplayImage(struct dm *dmp, unsigned char **image, int flip, int alph
     /* Restore the previously active OSMesa context */
     if (need_restore)
 	if (!OSMesaMakeCurrent(saved_ctx, saved_buf, GL_UNSIGNED_BYTE, saved_width, saved_height))
-	    bu_log("swrast_getDisplayImage: context restore failed\n");
+	    fprintf(stderr, "swrast_getDisplayImage: context restore failed\n");
 
     return BRLCAD_OK;
 }

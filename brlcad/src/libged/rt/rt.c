@@ -90,9 +90,13 @@ ged_rt_core(struct ged *gedp, int argc, const char *argv[])
     *vp++ = rt;
 
     if (gedp->dbi_state) {
+	ged_rt_fb_refresh(gedp);
+	const char *fbdev = ged_rt_fb_get(gedp);
+	if (!fbdev)
+	    fbdev = "/dev/ogl";
+
 	*vp++ = "-F";
-	// TODO - look up dm type for this...
-	*vp++ = "/dev/qtgl";
+	*vp++ = (char *)fbdev;
     }
 
     *vp++ = "-M";

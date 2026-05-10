@@ -451,8 +451,6 @@ DM_EXPORT extern int fb_free(struct fb *ifp);
 DM_EXPORT extern int fb_clear(struct fb *ifp, unsigned char *pp);
 DM_EXPORT extern ssize_t fb_read(struct fb *ifp, int x, int y, unsigned char *pp, size_t count);
 DM_EXPORT extern ssize_t fb_write(struct fb *ifp, int x, int y, const unsigned char *pp, size_t count);
-DM_EXPORT extern void fb_dirty_reset(struct fb *ifp);
-DM_EXPORT extern int fb_dirty_consume(struct fb *ifp, int *xmin, int *ymin, int *xmax, int *ymax);
 DM_EXPORT extern int fb_rmap(struct fb *ifp, ColorMap *cmap);
 DM_EXPORT extern int fb_wmap(struct fb *ifp, const ColorMap *cmap);
 DM_EXPORT extern int fb_view(struct fb *ifp, int xcenter, int ycenter, int xzoom, int yzoom);

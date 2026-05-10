@@ -163,6 +163,17 @@ void QgGL::paintGL()
     if (!m_init || !dmp || !v)
 	return;
 
+    QSize rsize = qtcad_render_size(this);
+    if (dm_get_width(dmp) != rsize.width() || dm_get_height(dmp) != rsize.height()) {
+	dm_set_width(dmp, rsize.width());
+	dm_set_height(dmp, rsize.height());
+	dm_configure_win(dmp, 0);
+	if (ifp)
+	    fb_configure_window(ifp, rsize.width(), rsize.height());
+    }
+    v->gv_width = dm_get_width(dmp);
+    v->gv_height = dm_get_height(dmp);
+
     // Re-draw the background to clear any previous drawing
     unsigned char *dm_bg1;
     unsigned char *dm_bg2;
@@ -240,8 +251,9 @@ void QgGL::keyPressEvent(QKeyEvent *k) {
 
     // Let bv know what the current view width and height are, in
     // case the dx/dy mouse translations need that information
-    v->gv_width = width();
-    v->gv_height = height();
+    QSize rsize = qtcad_render_size(this);
+    v->gv_width = rsize.width();
+    v->gv_height = rsize.height();
 
     if (CADkeyPressEvent(v, x_prev, y_prev, k)) {
 	dm_set_dirty(dmp, 1);
@@ -254,6 +266,12 @@ void QgGL::keyPressEvent(QKeyEvent *k) {
 
 void QgGL::mousePressEvent(QMouseEvent *e) {
 
+    if (ifp && fb_get_standalone(ifp) && e->button() == Qt::RightButton) {
+	if (window())
+	    window()->close();
+	return;
+    }
+
     if (!dmp || !v || !current || !use_default_mousebindings) {
 	QOpenGLWidget::mousePressEvent(e);
 	return;
@@ -261,8 +279,9 @@ void QgGL::mousePressEvent(QMouseEvent *e) {
 
     // Let bv know what the current view width and height are, in
     // case the dx/dy mouse translations need that information
-    v->gv_width = width();
-    v->gv_height = height();
+    QSize rsize = qtcad_render_size(this);
+    v->gv_width = rsize.width();
+    v->gv_height = rsize.height();
 
     if (CADmousePressEvent(v, x_prev, y_prev, e)) {
 	dm_set_dirty(dmp, 1);
@@ -312,8 +331,9 @@ void QgGL::mouseMoveEvent(QMouseEvent *e)
 
     // Let bv know what the current view width and height are, in
     // case the dx/dy mouse translations need that information
-    v->gv_width = width();
-    v->gv_height = height();
+    QSize rsize = qtcad_render_size(this);
+    v->gv_width = rsize.width();
+    v->gv_height = rsize.height();
 
     int mret = CADmouseMoveEvent(v, x_prev, y_prev, e, lmouse_mode);
     if (mret > 0) {
@@ -345,8 +365,9 @@ void QgGL::wheelEvent(QWheelEvent *e) {
 
     // Let bv know what the current view width and height are, in
     // case the dx/dy mouse translations need that information
-    v->gv_width = width();
-    v->gv_height = height();
+    QSize rsize = qtcad_render_size(this);
+    v->gv_width = rsize.width();
+    v->gv_height = rsize.height();
 
     if (CADwheelEvent(v, e)) {
 	dm_set_dirty(dmp, 1);

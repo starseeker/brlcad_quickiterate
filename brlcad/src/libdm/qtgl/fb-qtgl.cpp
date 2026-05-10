@@ -66,6 +66,7 @@ extern struct fb qtgl_interface;
 }
 
 #include <QApplication>
+#include <QtGlobal>
 #include "qtglwin.h"
 
 struct qtglinfo {
@@ -439,6 +440,7 @@ qtgl_open_existing(struct fb *ifp, int width, int height, struct fb_platform_spe
 
     ifp->i->dmp = (struct dm *)fb_p->data;
     QTGL(ifp)->fb_use_texture = _qtgl_texture_enabled();
+    QTGL(ifp)->alive = 1;
 
     if (ifp->i->dmp) {
 	ifp->i->dmp->i->fbp = ifp;
@@ -501,10 +503,16 @@ fb_qtgl_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
     QSurfaceFormat::setDefaultFormat(fmt);
 
     qi->mw = new QgGLWin(ifp);
-    qi->mw->canvas->setFixedSize(width, height);
+    {
+	qreal dpr = qi->mw->canvas->devicePixelRatioF();
+	int lw = qMax(1, qCeil(((qreal)width) / dpr));
+	int lh = qMax(1, qCeil(((qreal)height) / dpr));
+	qi->mw->canvas->setFixedSize(lw, lh);
+    }
     qi->mw->adjustSize();
     qi->mw->setFixedSize(qi->mw->size());
     qi->mw->show();
+    qi->qapp->processEvents();
 
     // Do the standard libdm attach to get our rendering backend.
     const char *acmd = "attach";
@@ -563,8 +571,9 @@ fb_qtgl_close(struct fb *ifp)
 }
 
 int
-qtgl_close_existing(struct fb *UNUSED(ifp))
+qtgl_close_existing(struct fb *ifp)
 {
+    QTGL(ifp)->alive = 0;
     return 0;
 }
 
@@ -574,6 +583,8 @@ qtgl_close_existing(struct fb *UNUSED(ifp))
 static int
 qtgl_poll(struct fb *ifp)
 {
+    if (QTGL(ifp)->qapp)
+	QTGL(ifp)->qapp->processEvents();
     qtgl_do_event(ifp);
 
     if (QTGL(ifp)->alive)
@@ -1130,11 +1141,6 @@ struct fb_impl qtgl_interface_impl =
     {0}, /* u4 */
     {0}, /* u5 */
     {0},  /* u6 */
-    0,    /* if_dirty */
-    0,    /* if_dirty_xmin */
-    0,    /* if_dirty_ymin */
-    0,    /* if_dirty_xmax */
-    0,    /* if_dirty_ymax */
     0     /* if_active_clients */
 };
 

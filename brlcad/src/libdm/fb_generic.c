@@ -33,7 +33,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
 
 #ifdef HAVE_STRINGS_H
 # include <strings.h>
@@ -54,73 +53,6 @@
 #include "./include/private.h"
 #include "icv.h"
 #include "dm.h"
-
-static void
-_fb_dirty_mark(struct fb *ifp, int x, int y, int w, int h)
-{
-    int xmin, ymin, xmax, ymax;
-
-    if (!ifp || !ifp->i || w <= 0 || h <= 0)
-	return;
-    if (ifp->i->if_width <= 0 || ifp->i->if_height <= 0)
-	return;
-
-    xmin = x;
-    ymin = y;
-    xmax = x + w - 1;
-    ymax = y + h - 1;
-
-    if (xmin < 0) xmin = 0;
-    if (ymin < 0) ymin = 0;
-    if (xmax > ifp->i->if_width - 1) xmax = ifp->i->if_width - 1;
-    if (ymax > ifp->i->if_height - 1) ymax = ifp->i->if_height - 1;
-
-    if (xmin > xmax || ymin > ymax)
-	return;
-
-    if (!ifp->i->if_dirty) {
-	ifp->i->if_dirty = 1;
-	ifp->i->if_dirty_xmin = xmin;
-	ifp->i->if_dirty_ymin = ymin;
-	ifp->i->if_dirty_xmax = xmax;
-	ifp->i->if_dirty_ymax = ymax;
-	return;
-    }
-
-    if (xmin < ifp->i->if_dirty_xmin) ifp->i->if_dirty_xmin = xmin;
-    if (ymin < ifp->i->if_dirty_ymin) ifp->i->if_dirty_ymin = ymin;
-    if (xmax > ifp->i->if_dirty_xmax) ifp->i->if_dirty_xmax = xmax;
-    if (ymax > ifp->i->if_dirty_ymax) ifp->i->if_dirty_ymax = ymax;
-}
-
-void
-fb_dirty_reset(struct fb *ifp)
-{
-    if (!ifp || !ifp->i)
-	return;
-    ifp->i->if_dirty = 0;
-    ifp->i->if_dirty_xmin = 0;
-    ifp->i->if_dirty_ymin = 0;
-    ifp->i->if_dirty_xmax = 0;
-    ifp->i->if_dirty_ymax = 0;
-}
-
-int
-fb_dirty_consume(struct fb *ifp, int *xmin, int *ymin, int *xmax, int *ymax)
-{
-    if (!ifp || !ifp->i || !xmin || !ymin || !xmax || !ymax)
-	return 0;
-    if (!ifp->i->if_dirty)
-	return 0;
-
-    *xmin = ifp->i->if_dirty_xmin;
-    *ymin = ifp->i->if_dirty_ymin;
-    *xmax = ifp->i->if_dirty_xmax;
-    *ymax = ifp->i->if_dirty_ymax;
-    fb_dirty_reset(ifp);
-    return 1;
-}
-
 
 struct fb *fb_get(void)
 {
@@ -175,8 +107,6 @@ fb_setup_existing(struct fb *ifp, int width, int height, struct fb_platform_spec
     if (!ifp)
 	return;
     if (ifp->i->if_open_existing) ifp->i->if_open_existing(ifp, width, height, fb_p);
-    fb_dirty_reset(ifp);
-    _fb_dirty_mark(ifp, 0, 0, ifp->i->if_width, ifp->i->if_height);
 }
 
 struct fb *
@@ -208,8 +138,6 @@ fb_configure_window(struct fb *ifp, int width, int height)
 	return 0;
     }
     ret = ifp->i->if_configure_window(ifp, width, height);
-    if (ret >= 0)
-	_fb_dirty_mark(ifp, 0, 0, ifp->i->if_width, ifp->i->if_height);
     return ret;
 }
 
@@ -345,13 +273,9 @@ int fb_free(struct fb *ifp)
 }
 int fb_clear(struct fb *ifp, unsigned char *pp)
 {
-    int ret;
     if (!ifp)
 	return 0;
-    ret = (*ifp->i->if_clear)(ifp, pp);
-    if (ret >= 0)
-	_fb_dirty_mark(ifp, 0, 0, ifp->i->if_width, ifp->i->if_height);
-    return ret;
+    return (*ifp->i->if_clear)(ifp, pp);
 }
 ssize_t fb_read(struct fb *ifp, int x, int y, unsigned char *pp, size_t count)
 {
@@ -361,16 +285,9 @@ ssize_t fb_read(struct fb *ifp, int x, int y, unsigned char *pp, size_t count)
 }
 ssize_t fb_write(struct fb *ifp, int x, int y, const unsigned char *pp, size_t count)
 {
-    ssize_t ret;
-    int dcount;
     if (!ifp)
 	return 0;
-    ret = (*ifp->i->if_write)(ifp, x, y, pp, count);
-    if (ret > 0) {
-	dcount = (ret > INT_MAX) ? INT_MAX : (int)ret;
-	_fb_dirty_mark(ifp, x, y, dcount, 1);
-    }
-    return ret;
+    return (*ifp->i->if_write)(ifp, x, y, pp, count);
 }
 int fb_rmap(struct fb *ifp, ColorMap *cmap)
 {
@@ -386,13 +303,9 @@ int fb_wmap(struct fb *ifp, const ColorMap *cmap)
 }
 int fb_view(struct fb *ifp, int xcenter, int ycenter, int xzoom, int yzoom)
 {
-    int ret;
     if (!ifp)
 	return 0;
-    ret = (*ifp->i->if_view)(ifp, xcenter, ycenter, xzoom, yzoom);
-    if (ret == 0)
-	_fb_dirty_mark(ifp, 0, 0, ifp->i->if_width, ifp->i->if_height);
-    return ret;
+    return (*ifp->i->if_view)(ifp, xcenter, ycenter, xzoom, yzoom);
 }
 int fb_getview(struct fb *ifp, int *xcenter, int *ycenter, int *xzoom, int *yzoom)
 {
@@ -426,13 +339,9 @@ int fb_readrect(struct fb *ifp, int xmin, int ymin, int width, int height, unsig
 }
 int fb_writerect(struct fb *ifp, int xmin, int ymin, int width, int height, const unsigned char *pp)
 {
-    int ret;
     if (!ifp)
 	return 0;
-    ret = (*ifp->i->if_writerect)(ifp, xmin, ymin, width, height, pp);
-    if (ret > 0)
-	_fb_dirty_mark(ifp, xmin, ymin, width, height);
-    return ret;
+    return (*ifp->i->if_writerect)(ifp, xmin, ymin, width, height, pp);
 }
 int fb_bwreadrect(struct fb *ifp, int xmin, int ymin, int width, int height, unsigned char *pp)
 {
@@ -442,13 +351,9 @@ int fb_bwreadrect(struct fb *ifp, int xmin, int ymin, int width, int height, uns
 }
 int fb_bwwriterect(struct fb *ifp, int xmin, int ymin, int width, int height, const unsigned char *pp)
 {
-    int ret;
     if (!ifp)
 	return 0;
-    ret = (*ifp->i->if_bwwriterect)(ifp, xmin, ymin, width, height, pp);
-    if (ret > 0)
-	_fb_dirty_mark(ifp, xmin, ymin, width, height);
-    return ret;
+    return (*ifp->i->if_bwwriterect)(ifp, xmin, ymin, width, height, pp);
 }
 
 

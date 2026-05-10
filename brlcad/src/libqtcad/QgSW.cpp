@@ -189,6 +189,17 @@ void QgSW::paintEvent(QPaintEvent *e)
     if (!m_init || !dmp)
 	return;
 
+    QSize rsize = qtcad_render_size(this);
+    if (dm_get_width(dmp) != rsize.width() || dm_get_height(dmp) != rsize.height()) {
+	dm_set_width(dmp, rsize.width());
+	dm_set_height(dmp, rsize.height());
+	dm_configure_win(dmp, 0);
+	if (ifp)
+	    fb_configure_window(ifp, rsize.width(), rsize.height());
+    }
+    v->gv_width = dm_get_width(dmp);
+    v->gv_height = dm_get_height(dmp);
+
     unsigned char *dm_bg1;
     unsigned char *dm_bg2;
     dm_get_bg(&dm_bg1, &dm_bg2, dmp);
@@ -250,10 +261,11 @@ void QgSW::keyPressEvent(QKeyEvent *k) {
 
     // Let bv know what the current view width and height are, in
     // case the dx/dy mouse translations need that information
-    bu_log("QgSW::keyPressEvent: setting gv to logical (%d,%d) was (%d,%d) dm=(%d,%d)\n",
-	   width(), height(), v->gv_width, v->gv_height, dm_get_width(dmp), dm_get_height(dmp));
-    v->gv_width = width();
-    v->gv_height = height();
+    QSize rsize = qtcad_render_size(this);
+    bu_log("QgSW::keyPressEvent: setting gv to render (%d,%d) was (%d,%d) dm=(%d,%d)\n",
+	   rsize.width(), rsize.height(), v->gv_width, v->gv_height, dm_get_width(dmp), dm_get_height(dmp));
+    v->gv_width = rsize.width();
+    v->gv_height = rsize.height();
 
     if (CADkeyPressEvent(v, x_prev, y_prev, k)) {
 	dm_set_dirty(dmp, 1);
@@ -266,6 +278,12 @@ void QgSW::keyPressEvent(QKeyEvent *k) {
 
 void QgSW::mousePressEvent(QMouseEvent *e) {
 
+    if (ifp && fb_get_standalone(ifp) && e->button() == Qt::RightButton) {
+	if (window())
+	    window()->close();
+	return;
+    }
+
     if (!dmp || !v || !current || !use_default_mousebindings) {
 	QWidget::mousePressEvent(e);
 	return;
@@ -273,10 +291,11 @@ void QgSW::mousePressEvent(QMouseEvent *e) {
 
     // Let bv know what the current view width and height are, in
     // case the dx/dy mouse translations need that information
-    bu_log("QgSW::mousePressEvent: setting gv to logical (%d,%d) was (%d,%d) dm=(%d,%d)\n",
-	   width(), height(), v->gv_width, v->gv_height, dm_get_width(dmp), dm_get_height(dmp));
-    v->gv_width = width();
-    v->gv_height = height();
+    QSize rsize = qtcad_render_size(this);
+    bu_log("QgSW::mousePressEvent: setting gv to render (%d,%d) was (%d,%d) dm=(%d,%d)\n",
+	   rsize.width(), rsize.height(), v->gv_width, v->gv_height, dm_get_width(dmp), dm_get_height(dmp));
+    v->gv_width = rsize.width();
+    v->gv_height = rsize.height();
 
     if (CADmousePressEvent(v, x_prev, y_prev, e)) {
 	dm_set_dirty(dmp, 1);
@@ -326,10 +345,11 @@ void QgSW::mouseMoveEvent(QMouseEvent *e)
 
     // Let bv know what the current view width and height are, in
     // case the dx/dy mouse translations need that information
-    bu_log("QgSW::mouseMoveEvent: setting gv to logical (%d,%d) was (%d,%d) dm=(%d,%d)\n",
-	   width(), height(), v->gv_width, v->gv_height, dm_get_width(dmp), dm_get_height(dmp));
-    v->gv_width = width();
-    v->gv_height = height();
+    QSize rsize = qtcad_render_size(this);
+    bu_log("QgSW::mouseMoveEvent: setting gv to render (%d,%d) was (%d,%d) dm=(%d,%d)\n",
+	   rsize.width(), rsize.height(), v->gv_width, v->gv_height, dm_get_width(dmp), dm_get_height(dmp));
+    v->gv_width = rsize.width();
+    v->gv_height = rsize.height();
 
     int mret = CADmouseMoveEvent(v, x_prev, y_prev, e, lmouse_mode);
     if (mret > 0) {
@@ -361,10 +381,11 @@ void QgSW::wheelEvent(QWheelEvent *e) {
 
     // Let bv know what the current view width and height are, in
     // case the dx/dy mouse translations need that information
-    bu_log("QgSW::wheelEvent: setting gv to logical (%d,%d) was (%d,%d) dm=(%d,%d)\n",
-	   width(), height(), v->gv_width, v->gv_height, dm_get_width(dmp), dm_get_height(dmp));
-    v->gv_width = width();
-    v->gv_height = height();
+    QSize rsize = qtcad_render_size(this);
+    bu_log("QgSW::wheelEvent: setting gv to render (%d,%d) was (%d,%d) dm=(%d,%d)\n",
+	   rsize.width(), rsize.height(), v->gv_width, v->gv_height, dm_get_width(dmp), dm_get_height(dmp));
+    v->gv_width = rsize.width();
+    v->gv_height = rsize.height();
 
     if (CADwheelEvent(v, e)) {
 	dm_set_dirty(dmp, 1);

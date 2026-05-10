@@ -138,6 +138,7 @@ class Ged_Internal {
 	std::stack<std::string> exec_stack;
 
 	std::map<std::string, void *> dm_map;
+	std::string rt_fb_dev;
 
 	// Persisting state between loadview and preview
 	// commands and subcommands.
@@ -229,6 +230,11 @@ struct ged_callback_state {
 GED_EXPORT extern void ged_refresh_cb(struct ged *);
 GED_EXPORT extern void ged_output_handler_cb(struct ged *, char *);
 GED_EXPORT extern void ged_io_handler_cb(struct ged *, void *, int);
+
+/* Internal cache of preferred rt framebuffer backend based on active DM. */
+extern void ged_rt_fb_set(struct ged *gedp, const char *fb_dev);
+extern const char *ged_rt_fb_get(struct ged *gedp);
+extern void ged_rt_fb_refresh(struct ged *gedp);
 
 /* Data for tree walk */
 struct draw_data_t {

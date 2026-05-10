@@ -494,11 +494,6 @@ struct fb_impl stk_interface_impl =  {
     {0}, /* u4 */
     {0}, /* u5 */
     {0},  /* u6 */
-    0,    /* if_dirty */
-    0,    /* if_dirty_xmin */
-    0,    /* if_dirty_ymin */
-    0,    /* if_dirty_xmax */
-    0,    /* if_dirty_ymax */
     0     /* if_active_clients */
 };
 

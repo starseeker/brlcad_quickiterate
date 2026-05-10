@@ -51,6 +51,7 @@ extern struct fb swrast_interface;
 // core swrast logic, and we should always be able to replace the Qt dm here
 // with any other dm backend to achieve the same results.
 #include <QApplication>
+#include <QtGlobal>
 #include "swrastwin.h"
 #endif
 
@@ -182,7 +183,7 @@ swrast_getmem(struct fb *ifp)
 	pixsize = ifp->i->if_height * ifp->i->if_width * sizeof(struct fb_pixel);
 	size = pixsize + sizeof(struct fb_cmap);
 
-	bu_log("swrast_getmem: allocating if_mem for if_size=(%d,%d) pixsize=%d\n",
+	fprintf(stderr, "swrast_getmem: allocating if_mem for if_size=(%d,%d) pixsize=%d\n",
 	       ifp->i->if_width, ifp->i->if_height, size);
 
 	if (!sp) {
@@ -284,7 +285,7 @@ swrast_configureWindow(struct fb *ifp, int width, int height)
      * Instead, just record the new viewport size — the OpenGL composite
      * in paintGL/paintEvent stretches the existing fb image to fit. */
     if (ifp->i->if_active_clients > 0) {
-	bu_log("swrast_configureWindow: DEFERRED (active_clients=%d) vp=(%d,%d) if=(%d,%d)\n",
+	fprintf(stderr, "swrast_configureWindow: DEFERRED (active_clients=%d) vp=(%d,%d) if=(%d,%d)\n",
 	       ifp->i->if_active_clients, width, height,
 	       ifp->i->if_width, ifp->i->if_height);
 	SWRAST(ifp)->vp_width = width;
@@ -293,7 +294,7 @@ swrast_configureWindow(struct fb *ifp, int width, int height)
 	return 0;
     }
 
-    bu_log("swrast_configureWindow: FULL path w=%d h=%d if_was=(%d,%d) win_was=(%d,%d)\n",
+    fprintf(stderr, "swrast_configureWindow: FULL path w=%d h=%d if_was=(%d,%d) win_was=(%d,%d)\n",
 	   width, height, ifp->i->if_width, ifp->i->if_height,
 	   SWRAST(ifp)->win_width, SWRAST(ifp)->win_height);
 
@@ -358,6 +359,7 @@ swrast_open_existing(struct fb *ifp, int width, int height, struct fb_platform_s
     }
 
     ifp->i->dmp = (struct dm *)fb_p->data;
+    SWRAST(ifp)->alive = 1;
 
     if (ifp->i->dmp) {
 	ifp->i->dmp->i->fbp = ifp;
@@ -424,10 +426,18 @@ fb_swrast_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
     qi->mw->canvas->v->gv_height = height;
 
 
-    qi->mw->canvas->setFixedSize(width, height);
+    {
+	qreal dpr = qi->mw->canvas->devicePixelRatioF();
+	int lw = qMax(1, qCeil(((qreal)width) / dpr));
+	int lh = qMax(1, qCeil(((qreal)height) / dpr));
+	qi->mw->canvas->setFixedSize(lw, lh);
+	qi->mw->canvas->v->gv_width = width;
+	qi->mw->canvas->v->gv_height = height;
+    }
     qi->mw->adjustSize();
     qi->mw->setFixedSize(qi->mw->size());
     qi->mw->show();
+    qi->qapp->processEvents();
 
     // Do the standard libdm attach to get our rendering backend.
     const char *acmd = "attach";
@@ -507,6 +517,10 @@ swrast_close_existing(struct fb *ifp)
 static int
 swrast_poll(struct fb *ifp)
 {
+#ifdef SWRAST_QT
+    if (SWRAST(ifp)->qapp)
+	SWRAST(ifp)->qapp->processEvents();
+#endif
     swrast_do_event(ifp);
 
     if (SWRAST(ifp)->alive)
@@ -1052,11 +1066,6 @@ struct fb_impl swrast_interface_impl =
     {0}, /* u4 */
     {0}, /* u5 */
     {0},  /* u6 */
-    0,    /* if_dirty */
-    0,    /* if_dirty_xmin */
-    0,    /* if_dirty_ymin */
-    0,    /* if_dirty_xmax */
-    0,    /* if_dirty_ymax */
     0     /* if_active_clients */
 };
 

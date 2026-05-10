@@ -46,6 +46,7 @@
 #include "raytrace.h"
 #include "bv/lod.h"
 #include "bv/plot3.h"
+#include "dm.h"
 
 #include "bv/defines.h"
 #include "bsg/util.h"
@@ -566,6 +567,49 @@ ged_dm_ctx_get(struct ged *gedp, const char *dm_type)
     return gedip->dm_map[dm];
 }
 
+void
+ged_rt_fb_set(struct ged *gedp, const char *fb_dev)
+{
+    if (!gedp)
+	return;
+
+    GED_CK_MAGIC(gedp);
+    Ged_Internal *gedip = gedp->i->i;
+    gedip->rt_fb_dev = (fb_dev) ? std::string(fb_dev) : std::string();
+}
+
+const char *
+ged_rt_fb_get(struct ged *gedp)
+{
+    if (!gedp)
+	return NULL;
+
+    GED_CK_MAGIC(gedp);
+    Ged_Internal *gedip = gedp->i->i;
+    if (gedip->rt_fb_dev.empty())
+	return NULL;
+    return gedip->rt_fb_dev.c_str();
+}
+
+void
+ged_rt_fb_refresh(struct ged *gedp)
+{
+    const char *dm_name = NULL;
+
+    if (!gedp || !gedp->ged_gvp || !gedp->ged_gvp->dmp)
+	return;
+
+    GED_CK_MAGIC(gedp);
+    dm_name = dm_get_dm_name((struct dm *)gedp->ged_gvp->dmp);
+    if (!dm_name)
+	return;
+
+    if (BU_STR_EQUAL(dm_name, "swrast")) { ged_rt_fb_set(gedp, "/dev/swrast"); return; }
+    if (BU_STR_EQUAL(dm_name, "qtgl")) { ged_rt_fb_set(gedp, "/dev/qtgl"); return; }
+    if (BU_STR_EQUAL(dm_name, "ogl")) { ged_rt_fb_set(gedp, "/dev/ogl"); return; }
+    if (BU_STR_EQUAL(dm_name, "wgl")) { ged_rt_fb_set(gedp, "/dev/wgl"); return; }
+}
+
 // Local Variables:
 // tab-width: 8
 // mode: C++
@@ -574,4 +618,3 @@ ged_dm_ctx_get(struct ged *gedp, const char *dm_type)
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-
