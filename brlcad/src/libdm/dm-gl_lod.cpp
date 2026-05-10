@@ -358,21 +358,20 @@ gl_backend_handle_get(struct bv_scene_obj *s, bool create)
  * for group-style scene objects, matching the legacy dlist_free_callback
  * walk.  Safe to call when no backend handle is attached. */
 static void
-gl_backend_handle_release(struct bv_scene_obj *s)
+gl_backend_handle_release(struct bv_scene_obj *s, int enqueue_delete)
 {
     if (!s)
 	return;
-    for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	struct bv_scene_group *cg = (struct bv_scene_group *)BU_PTBL_GET(&s->children, i);
-	gl_backend_handle_release(cg);
-    }
+    /* Do not recurse into children here.  Backend release is triggered per
+     * object by higher-level scene teardown paths (e.g. bv_obj_put on each
+     * leaf).  Recursing from a parent can double-release child backend state,
+     * leading to stale GL list IDs reaching glDeleteLists. */
     if (s->s_backend && s->s_backend->type_tag == BV_BACKEND_GL) {
 	struct gl_backend_handle *h = (struct gl_backend_handle *)s->s_backend->handle;
 	if (h) {
-	    if (h->dlist) {
-		glDeleteLists(h->dlist, 1);
-		h->dlist = 0;
-	    }
+	    if (enqueue_delete && h->dlist && s->s_v && s->s_v->dmp)
+		gl_dlist_delete_enqueue((struct dm *)s->s_v->dmp, h->dlist);
+	    h->dlist = 0;
 	    BU_PUT(h, struct gl_backend_handle);
 	    s->s_backend->handle = NULL;
 	}
@@ -386,7 +385,7 @@ static void
 gl_backend_release_obj(struct dm *dmp, struct bv_scene_obj *s)
 {
     (void)dmp;
-    gl_backend_handle_release(s);
+    gl_backend_handle_release(s, 1);
 }
 
 /* bv_obj_backend::free — also fired indirectly by
@@ -394,7 +393,10 @@ gl_backend_release_obj(struct dm *dmp, struct bv_scene_obj *s)
 static void
 gl_backend_release_obj_free(struct bv_scene_obj *s)
 {
-    gl_backend_handle_release(s);
+	/* Called from generic scene-teardown paths where owning dm/m_vars may
+	 * already be partially torn down.  Avoid touching dm-owned delete queues.
+	 */
+	gl_backend_handle_release(s, 0);
 }
 
 extern "C" int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s);
@@ -756,6 +758,8 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
     int restoreShadeModel = 0;
     GLboolean lightingWasEnabled = GL_FALSE;
     int restoreLighting = 0;
+
+    gl_dlist_delete_flush(dmp);
 
     if (s->mesh_obj && s->draw_data) {
 	struct bv_mesh_lod *lod = (struct bv_mesh_lod *)s->draw_data;

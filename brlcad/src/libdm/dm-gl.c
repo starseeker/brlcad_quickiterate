@@ -28,6 +28,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <math.h>
 #include <string.h>
 #include "vmath.h"
@@ -1506,6 +1507,7 @@ int gl_get_internal(struct dm *dmp)
 	mvars = (struct gl_vars *)dmp->i->m_vars;
 	mvars->this_dm = dmp;
 	bu_vls_init(&(mvars->log));
+	BU_PTBL_INIT(&mvars->pending_dlist_deletes);
     }
     return 0;
 }
@@ -1516,9 +1518,39 @@ int gl_put_internal(struct dm *dmp)
     if (dmp->i->m_vars) {
 	mvars = (struct gl_vars *)dmp->i->m_vars;
 	bu_vls_free(&(mvars->log));
+	bu_ptbl_free(&mvars->pending_dlist_deletes);
 	BU_PUT(dmp->i->m_vars, struct gl_vars);
     }
     return 0;
+}
+
+void
+gl_dlist_delete_enqueue(struct dm *dmp, unsigned int list)
+{
+    struct gl_vars *mvars = NULL;
+    if (!dmp || !dmp->i || !dmp->i->m_vars || !list)
+	return;
+    mvars = (struct gl_vars *)dmp->i->m_vars;
+    if (!BU_PTBL_IS_INITIALIZED(&mvars->pending_dlist_deletes))
+	return;
+    bu_ptbl_ins(&mvars->pending_dlist_deletes, (long *)(uintptr_t)list);
+}
+
+void
+gl_dlist_delete_flush(struct dm *dmp)
+{
+    struct gl_vars *mvars = NULL;
+    if (!dmp || !dmp->i || !dmp->i->m_vars)
+	return;
+    mvars = (struct gl_vars *)dmp->i->m_vars;
+    if (!BU_PTBL_IS_INITIALIZED(&mvars->pending_dlist_deletes))
+	return;
+    for (size_t i = 0; i < BU_PTBL_LEN(&mvars->pending_dlist_deletes); i++) {
+	GLuint list = (GLuint)(uintptr_t)BU_PTBL_GET(&mvars->pending_dlist_deletes, i);
+	if (list)
+	    glDeleteLists(list, 1);
+    }
+    bu_ptbl_reset(&mvars->pending_dlist_deletes);
 }
 
 void gl_colorchange(const struct bu_structparse *sdp,

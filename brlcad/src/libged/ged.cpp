@@ -51,7 +51,6 @@
 #include "bv/defines.h"
 #include "bsg/util.h"
 #include "ged/bsg_ged_draw.h"
-
 #include "./ged_private.h"
 #include "./dbi.h"
 #include "./include/plugin.h"
@@ -567,7 +566,7 @@ ged_dm_ctx_get(struct ged *gedp, const char *dm_type)
     return gedip->dm_map[dm];
 }
 
-void
+extern "C" GED_EXPORT void
 ged_rt_fb_set(struct ged *gedp, const char *fb_dev)
 {
     if (!gedp)
@@ -578,7 +577,7 @@ ged_rt_fb_set(struct ged *gedp, const char *fb_dev)
     gedip->rt_fb_dev = (fb_dev) ? std::string(fb_dev) : std::string();
 }
 
-const char *
+extern "C" GED_EXPORT const char *
 ged_rt_fb_get(struct ged *gedp)
 {
     if (!gedp)
@@ -591,7 +590,7 @@ ged_rt_fb_get(struct ged *gedp)
     return gedip->rt_fb_dev.c_str();
 }
 
-void
+extern "C" GED_EXPORT void
 ged_rt_fb_refresh(struct ged *gedp)
 {
     const char *dm_name = NULL;

@@ -127,6 +127,7 @@ struct gl_vars {
     double bound;
     int boundFlag;
     struct gl_internal_vars i;
+    struct bu_ptbl pending_dlist_deletes;
 };
 
 
@@ -159,6 +160,8 @@ DMGL_EXPORT extern int gl_drawPoints3D(struct dm *dmp, int npoints, point_t *poi
 DMGL_EXPORT extern int gl_drawVList(struct dm *dmp, struct bv_vlist *vp);
 DMGL_EXPORT extern int gl_drawVListHiddenLine(struct dm *dmp, struct bv_vlist *vp);
 DMGL_EXPORT extern int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s);
+DMGL_EXPORT extern void gl_dlist_delete_enqueue(struct dm *dmp, unsigned int list);
+DMGL_EXPORT extern void gl_dlist_delete_flush(struct dm *dmp);
 
 /* Phase 11 (drawing_stack_modernization): renderer-backend contract for the
  * GL family of display managers (dm-gl, dm-qtgl, dm-glx, dm-wgl, dm-swrast).

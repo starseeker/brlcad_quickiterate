@@ -232,9 +232,9 @@ GED_EXPORT extern void ged_output_handler_cb(struct ged *, char *);
 GED_EXPORT extern void ged_io_handler_cb(struct ged *, void *, int);
 
 /* Internal cache of preferred rt framebuffer backend based on active DM. */
-extern void ged_rt_fb_set(struct ged *gedp, const char *fb_dev);
-extern const char *ged_rt_fb_get(struct ged *gedp);
-extern void ged_rt_fb_refresh(struct ged *gedp);
+GED_EXPORT extern void ged_rt_fb_set(struct ged *gedp, const char *fb_dev);
+GED_EXPORT extern const char *ged_rt_fb_get(struct ged *gedp);
+GED_EXPORT extern void ged_rt_fb_refresh(struct ged *gedp);
 
 /* Data for tree walk */
 struct draw_data_t {
