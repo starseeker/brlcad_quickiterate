@@ -33,6 +33,7 @@
 
 #include "bsg/defines.h"
 #include "bsg/lod.h"
+#include "bsg/node.h"
 #include "bsg/obol_node.h"
 #include "bsg/scene_set.h"
 #include "bsg/util.h"

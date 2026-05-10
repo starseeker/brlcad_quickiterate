@@ -33,6 +33,7 @@
 #include "bv/defines.h"
 #include "bsg/defines.h"
 #include "bsg/field.h"
+#include "bsg/node.h"
 #include "bsg/sensor.h"
 
 
@@ -117,10 +118,7 @@ bsg_node_set_visible(bsg_node *n, int on)
 int
 bsg_node_get_visible(const bsg_node *n)
 {
-    if (!n)
-	return 0;
-
-    return ((const struct bv_scene_obj *)n)->s_flag == UP;
+    return bsg_node_visible(n);
 }
 
 /*

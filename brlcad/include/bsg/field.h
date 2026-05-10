@@ -46,7 +46,16 @@ typedef enum {
     BSG_FIELD_COLOR      = 2,  /**< @brief s_color[3] */
     BSG_FIELD_VISIBILITY = 3,  /**< @brief alias for s_flag UP/DOWN */
     BSG_FIELD_TRANSFORM  = 4,  /**< @brief s_mat */
-    BSG_FIELD_CHILDREN   = 5   /**< @brief children ptbl modified */
+    BSG_FIELD_CHILDREN   = 5,  /**< @brief children ptbl modified */
+    BSG_FIELD_NAME       = 6,  /**< @brief s_name */
+    BSG_FIELD_KIND       = 7,  /**< @brief s_type_flags */
+    BSG_FIELD_FORCE_DRAW = 8,  /**< @brief s_force_draw */
+    BSG_FIELD_BOUNDS     = 9,  /**< @brief bmin/bmax/have_bbox */
+    BSG_FIELD_USER_DATA  = 10, /**< @brief s_i_data */
+    BSG_FIELD_PAYLOAD    = 11, /**< @brief payload bits in s_type_flags */
+    BSG_FIELD_MATERIAL   = 12, /**< @brief reserved material side-car/storage */
+    BSG_FIELD_APPEARANCE = 13, /**< @brief reserved appearance side-car/storage */
+    BSG_FIELD_SELECTION  = 14  /**< @brief reserved selection state */
 } bsg_field_id_t;
 
 /**

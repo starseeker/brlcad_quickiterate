@@ -31,6 +31,7 @@
 #include "bv/util.h"
 #include "bv/vlist.h"
 #include "bsg/defines.h"
+#include "bsg/node.h"
 #include "bsg/node_shape.h"
 
 
@@ -44,8 +45,8 @@ bsg_shape_create(struct bview *v)
     if (!s)
 	return NULL;
 
-    s->s_type_flags = BSG_NODE_SHAPE;
-    s->s_flag = UP;
+    bsg_node_set_kind((bsg_node *)s, BSG_NODE_SHAPE);
+    bsg_node_set_visible((bsg_node *)s, 1);
     return (bsg_node *)s;
 }
 

@@ -30,6 +30,7 @@
 #include "bv/defines.h"
 #include "bv/util.h"
 #include "bsg/defines.h"
+#include "bsg/node.h"
 #include "bsg/node_transform.h"
 
 
@@ -43,8 +44,8 @@ bsg_transform_create(struct bview *v)
     if (!t)
 	return NULL;
 
-    t->s_type_flags = BSG_NODE_TRANSFORM;
-    t->s_flag = UP;
+    bsg_node_set_kind((bsg_node *)t, BSG_NODE_TRANSFORM);
+    bsg_node_set_visible((bsg_node *)t, 1);
     MAT_IDN(t->s_mat);
     return (bsg_node *)t;
 }
@@ -53,20 +54,14 @@ bsg_transform_create(struct bview *v)
 void
 bsg_transform_set_matrix(bsg_node *transform, const mat_t mat)
 {
-    if (!transform || !mat)
-	return;
-
-    MAT_COPY(((struct bv_scene_obj *)transform)->s_mat, mat);
+    bsg_node_transform_set(transform, mat);
 }
 
 
 void
 bsg_transform_get_matrix(const bsg_node *transform, mat_t mat)
 {
-    if (!transform || !mat)
-	return;
-
-    MAT_COPY(mat, ((const struct bv_scene_obj *)transform)->s_mat);
+    bsg_node_transform_get(transform, mat);
 }
 
 

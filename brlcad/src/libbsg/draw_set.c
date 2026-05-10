@@ -45,6 +45,7 @@
 #include "bsg/defines.h"
 #include "bsg/draw_ctx.h"
 #include "bsg/draw_set.h"
+#include "bsg/node.h"
 #include "bsg_private.h"
 
 
@@ -75,10 +76,10 @@ bsg_draw_tree_depth(const bsg_node *g)
 	return 0;
 
     int depth = 0;
-    const struct bv_scene_obj *cur = (const struct bv_scene_obj *)g;
-    while (cur->parent) {
+    const bsg_node *cur = g;
+    while (bsg_node_parent(cur)) {
 	depth++;
-	cur = (const struct bv_scene_obj *)cur->parent;
+	cur = bsg_node_parent(cur);
     }
     return depth;
 }
@@ -90,14 +91,12 @@ bsg_group_find_child(bsg_node *parent, const char *name)
     if (!parent || !name)
 	return NULL;
 
-    struct bv_scene_obj *p = (struct bv_scene_obj *)parent;
-    for (size_t i = 0; i < BU_PTBL_LEN(&p->children); i++) {
-	struct bv_scene_obj *c =
-	    (struct bv_scene_obj *)BU_PTBL_GET(&p->children, i);
+    for (size_t i = 0; i < bsg_node_child_count(parent); i++) {
+	struct bv_scene_obj *c = (struct bv_scene_obj *)bsg_node_child(parent, i);
 	if (!c)
 	    continue;
-	if ((c->s_type_flags & BSG_NODE_GROUP) &&
-	    BU_STR_EQUAL(name, bu_vls_cstr(&c->s_name)))
+	if (bsg_node_has_kind((bsg_node *)c, BSG_NODE_GROUP) &&
+	    BU_STR_EQUAL(name, bsg_node_name((bsg_node *)c)))
 	    return (bsg_node *)c;
     }
     return NULL;
@@ -120,20 +119,17 @@ bsg_group_ensure_child(bsg_node *parent, struct bview *v,
     if (!v)
 	return NULL;
 
-    struct bv_scene_obj *p = (struct bv_scene_obj *)parent;
-
     /* Allocate a new GROUP node through libbv. */
     struct bv_scene_obj *child = bv_obj_create(v, BV_CHILD_OBJS);
     if (!child)
 	return NULL;
 
-    child->s_type_flags = (unsigned long long)BSG_NODE_GROUP;
-    child->s_flag       = UP;
-    child->s_iflag      = DOWN;
-    child->dp           = dp_hint;
-    child->parent       = parent;
-    bu_vls_sprintf(&child->s_name, "%s", name);
-    bu_ptbl_ins(&p->children, (long *)child);
+    bsg_node_set_kind((bsg_node *)child, BSG_NODE_GROUP);
+    bsg_node_set_visible((bsg_node *)child, 1);
+    child->s_iflag = DOWN;
+    child->dp = dp_hint;
+    bsg_node_set_name((bsg_node *)child, name);
+    bsg_node_add_child(parent, (bsg_node *)child);
 
     /* Phase 9.1: a new child invalidates the parent chain's cached
      * aggregate bbox.  The new group itself is leaf-empty so its own

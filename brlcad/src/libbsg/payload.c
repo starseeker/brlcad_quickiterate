@@ -34,6 +34,8 @@
 
 #include "bv/defines.h"
 #include "bsg/defines.h"
+#include "bsg/field.h"
+#include "bsg/node.h"
 #include "bsg/payload.h"
 
 
@@ -46,8 +48,9 @@ bsg_node_set_payload_type(bsg_node *node, unsigned long long payload_flags)
     struct bv_scene_obj *s = (struct bv_scene_obj *)node;
 
     /* Replace only the payload bits — preserve all other type flags */
-    s->s_type_flags = (s->s_type_flags & ~BSG_PAYLOAD_MASK) |
+    s->s_type_flags = (bsg_node_kind(node) & ~BSG_PAYLOAD_MASK) |
 		      (payload_flags & BSG_PAYLOAD_MASK);
+    bsg_node_field_touch(node, BSG_FIELD_PAYLOAD);
 }
 
 
@@ -57,7 +60,7 @@ bsg_node_get_payload_type(const bsg_node *node)
     if (!node)
 	return 0;
 
-    return ((const struct bv_scene_obj *)node)->s_type_flags & BSG_PAYLOAD_MASK;
+    return bsg_node_kind(node) & BSG_PAYLOAD_MASK;
 }
 
 
