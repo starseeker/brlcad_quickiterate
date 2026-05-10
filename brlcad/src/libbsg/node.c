@@ -135,7 +135,6 @@ bsg_node_add_child(bsg_node *parent, bsg_node *child)
 
     for (size_t i = 0; i < BU_PTBL_LEN(&p->children); i++) {
 	if ((struct bv_scene_obj *)BU_PTBL_GET(&p->children, i) == c) {
-	    c->parent = p;
 	    return;
 	}
     }
