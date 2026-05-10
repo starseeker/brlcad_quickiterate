@@ -192,9 +192,12 @@ bsg_node_force_draw(const bsg_node *n)
 }
 
 
-/* Set whether a node should draw even when inherited visibility rules would
- * otherwise suppress it.  Stores 0/1 in s_force_draw and fires
- * BSG_FIELD_FORCE_DRAW notifications. */
+/**
+ * @brief Set whether a node should draw even when inherited visibility rules
+ * would otherwise suppress it.
+ *
+ * Stores 0/1 in s_force_draw and fires BSG_FIELD_FORCE_DRAW notifications.
+ */
 void
 bsg_node_set_force_draw(bsg_node *n, int force_draw)
 {

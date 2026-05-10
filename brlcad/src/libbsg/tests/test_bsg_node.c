@@ -75,7 +75,7 @@ field_cb(bsg_node *UNUSED(n), bsg_field_id_t fid, void *UNUSED(data))
 }
 
 static void
-reset_field_cb(void)
+reset_field_callback_state(void)
 {
     s_field_hits = 0;
     s_last_field = BSG_FIELD_UNKNOWN;
@@ -85,7 +85,7 @@ static int
 expect_field_fire(bsg_node *root, bsg_node *target, bsg_field_id_t fid,
 		  void (*op)(bsg_node *, void *), void *data)
 {
-    reset_field_cb();
+    reset_field_callback_state();
     bsg_node *sensor = bsg_field_sensor_create(root, target, fid, field_cb, NULL);
     if (!sensor)
 	return 0;
