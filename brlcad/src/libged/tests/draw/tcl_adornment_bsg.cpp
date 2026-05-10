@@ -86,12 +86,25 @@ main(int ac, char *av[])
      * Open a headless GED session.                                        *
      * ------------------------------------------------------------------ */
     struct bu_vls fname = BU_VLS_INIT_ZERO;
+    struct bu_vls moss = BU_VLS_INIT_ZERO;
     bu_vls_sprintf(&fname, "%s/tcl_adornment_bsg_tmp.g", av[1]);
+    bu_vls_sprintf(&moss, "%s/moss.g", av[1]);
     {
-	/* Create a minimal .g file if needed */
-	std::ofstream tmpg(bu_vls_cstr(&fname));
+	/* This test is headless, but ged_open still requires a valid .g file. */
+	std::ifstream orig(bu_vls_cstr(&moss), std::ios::binary);
+	std::ofstream tmpg(bu_vls_cstr(&fname), std::ios::binary);
+	if (!orig.good() || !tmpg.good()) {
+	    bu_log("failed to prepare tmp db: %s\n", bu_vls_cstr(&fname));
+	    bu_vls_free(&moss);
+	    bu_vls_free(&fname);
+	    return 1;
+	}
+	tmpg << orig.rdbuf();
+	orig.close();
+	tmpg.close();
     }
     struct ged *gedp = ged_open("db", bu_vls_cstr(&fname), 1);
+    bu_vls_free(&moss);
     bu_vls_free(&fname);
     if (!gedp) {
 	bu_log("ged_open failed\n");
@@ -143,9 +156,9 @@ main(int ac, char *av[])
     bv_view_obj_set_color(obj, 255, 128, 0);
     bv_view_obj_set_line_width(obj, 2);
     bv_view_obj_set_visible(obj, 1);
-    ASSERT(obj->s_os->color_override != 0);
+    ASSERT(obj->s_color[0] == 255 && obj->s_color[1] == 128 && obj->s_color[2] == 0);
     ASSERT(obj->s_os->s_line_width == 2);
-    ASSERT(obj->s_flag == UP);
+    ASSERT(obj->s_force_draw == 1);
 
     /* ------------------------------------------------------------------ *
      * [5] visit: bv_view_obj_visit with BV_VIEW_OBJ_SCOPE_LOCAL must    *
@@ -177,7 +190,7 @@ main(int ac, char *av[])
     bu_log("[7] bv_view_obj_remove...\n");
     {
 	int r = bv_view_obj_remove(v, tname);
-	ASSERT(r == 0);
+	ASSERT(r == 1);
 	struct bv_scene_obj *gone = bv_view_obj_find(v, tname);
 	ASSERT(gone == NULL);
     }
