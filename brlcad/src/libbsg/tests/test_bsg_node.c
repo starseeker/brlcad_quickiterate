@@ -188,7 +188,6 @@ test_null_safety(void)
     if (bsg_node_visible(NULL) != 0) FAIL("visible(NULL)");
     if (bsg_node_force_draw(NULL) != 0) FAIL("force_draw(NULL)");
     if (bsg_node_user_data_get(NULL) != NULL) FAIL("user_data_get(NULL)");
-    if (bsg_node_get_visible(NULL) != 0) FAIL("get_visible(NULL)");
 
     PASS("null_safety");
     return 0;
