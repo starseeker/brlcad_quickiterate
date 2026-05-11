@@ -53,11 +53,13 @@
 #include "bv/plot3.h"
 #include "bg/clip.h"
 #include "bsg/defines.h"
+#include "bsg/appearance.h"
 #include "bsg/draw_ctx.h"
 #include "bsg/draw_set.h"
 #include "bsg/field.h"
 #include "bsg/identity.h"
 #include "bsg/lod_ops.h"
+#include "bsg/material.h"
 #include "bsg/overlay.h"
 #include "bsg/sensor.h"
 #include "bsg/visit.h"
@@ -999,8 +1001,21 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     sp->s_os->transparency   = transparency;
     sp->s_os->s_dmode        = dmode;
 
-    if (csoltab)
+    struct bsg_material m;
+    bsg_material_from_legacy_obj((const bsg_node *)sp, &m);
+    m.revision = (uint64_t)sp->s_color_rev;
+    bsg_node_material_set((bsg_node *)sp, &m);
+
+    struct bsg_appearance a;
+    bsg_appearance_from_legacy_obj_settings((const bsg_node *)sp, &a);
+    bsg_node_appearance_set((bsg_node *)sp, &a);
+
+    if (csoltab) {
         color_soltab(gedp->dbip, sp);
+        bsg_material_from_legacy_obj((const bsg_node *)sp, &m);
+        m.revision = (uint64_t)sp->s_color_rev;
+        bsg_node_material_set((bsg_node *)sp, &m);
+    }
 
     return 0;
 }
@@ -1203,7 +1218,10 @@ _color_solid_cb(bsg_node *n, void *ud)
         return 1;
 
     color_soltab(ctx->dbip, sp);
-    sp->s_color_rev = (uint32_t)ctx->mater_rev;
+    struct bsg_material m;
+    bsg_material_from_legacy_obj((const bsg_node *)sp, &m);
+    m.revision = ctx->mater_rev;
+    bsg_node_material_set((bsg_node *)sp, &m);
     return 1;
 }
 

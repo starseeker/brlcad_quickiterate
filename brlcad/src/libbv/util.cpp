@@ -49,6 +49,8 @@
 #define BV_INDEPENDENT_SCOPE_NAME "_independent_db_scope"
 
 static bv_view_obj_identity_hook_t _bv_view_obj_identity_hook = NULL;
+static bv_view_obj_color_hook_t _bv_view_obj_color_hook = NULL;
+static bv_view_obj_line_width_hook_t _bv_view_obj_line_width_hook = NULL;
 
 static const char *
 _bv_vname(struct bview *v)
@@ -1600,6 +1602,18 @@ bv_view_obj_identity_hook_set(bv_view_obj_identity_hook_t hook)
     _bv_view_obj_identity_hook = hook;
 }
 
+void
+bv_view_obj_color_hook_set(bv_view_obj_color_hook_t hook)
+{
+    _bv_view_obj_color_hook = hook;
+}
+
+void
+bv_view_obj_line_width_hook_set(bv_view_obj_line_width_hook_t hook)
+{
+    _bv_view_obj_line_width_hook = hook;
+}
+
 static int
 _bv_view_obj_name_ordinal(struct bv_scene_obj *scope, const char *name)
 {
@@ -1951,9 +1965,15 @@ bv_view_obj_set_color(struct bv_scene_obj *s, int r, int g, int b)
 {
     if (!s)
 	return;
-    s->s_color[0] = (unsigned char)_bv_clamp_byte(r);
-    s->s_color[1] = (unsigned char)_bv_clamp_byte(g);
-    s->s_color[2] = (unsigned char)_bv_clamp_byte(b);
+    unsigned char cr = (unsigned char)_bv_clamp_byte(r);
+    unsigned char cg = (unsigned char)_bv_clamp_byte(g);
+    unsigned char cb = (unsigned char)_bv_clamp_byte(b);
+    int handled = (_bv_view_obj_color_hook) ? _bv_view_obj_color_hook(s, cr, cg, cb) : 0;
+    if (!handled) {
+	s->s_color[0] = cr;
+	s->s_color[1] = cg;
+	s->s_color[2] = cb;
+    }
     s->s_changed++;
     bv_obj_stale(s);
 }
@@ -1965,11 +1985,14 @@ bv_view_obj_set_line_width(struct bv_scene_obj *s, int line_width)
 	return;
     if (line_width < 0)
 	line_width = 0;
-    /* By convention bv_obj_reset() sets s_os = &s->s_local_os, but other
-     * code paths in this file defensively fall back to s_local_os when
-     * s_os is unset; do the same here. */
-    struct bv_obj_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
-    os->s_line_width = line_width;
+    int handled = (_bv_view_obj_line_width_hook) ? _bv_view_obj_line_width_hook(s, line_width) : 0;
+    if (!handled) {
+	/* By convention bv_obj_reset() sets s_os = &s->s_local_os, but other
+	 * code paths in this file defensively fall back to s_local_os when
+	 * s_os is unset; do the same here. */
+	struct bv_obj_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
+	os->s_line_width = line_width;
+    }
     s->s_changed++;
     bv_obj_stale(s);
 }

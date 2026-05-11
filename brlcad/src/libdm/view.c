@@ -28,6 +28,8 @@
 #include "bv/defines.h"
 #include "bv/lod.h"
 #include "bv/util.h"
+#include "bsg/appearance.h"
+#include "bsg/material.h"
 #include "bsg/util.h"
 #include "bsg/defines.h"
 #include "bsg/lod.h"
@@ -414,14 +416,20 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	return;
 
     int do_force_draw = (force_draw || s->s_force_draw) ? 1 : 0;
+    struct bsg_material material;
+    struct bsg_appearance appearance;
+    int have_material = bsg_node_material_get((const bsg_node *)s, &material);
+    int have_appearance = bsg_node_appearance_get((const bsg_node *)s, &appearance);
+    fastf_t obj_transparency = have_appearance ? appearance.transparency :
+	(have_material ? material.transparency : s->s_os->transparency);
 
     /* Phase 1 (BSG render contract): transparency-pass filter.  Note we
      * *do* still recurse into children — a non-leaf scene-obj may have
      * children with different transparency than the parent. */
     int pass_skip = 0;
-    if (transparency_pass == 1 && s->s_os->transparency < 1.0)
+    if (transparency_pass == 1 && obj_transparency < 1.0)
 	pass_skip = 1;
-    if (transparency_pass == 2 && ZERO(s->s_os->transparency - 1.0))
+    if (transparency_pass == 2 && ZERO(obj_transparency - 1.0))
 	pass_skip = 1;
 
     /* Phase 5 (BSG render contract): bound-flag size-based culling — skip
@@ -452,13 +460,19 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	dm_set_fg(dmp, obj_settings->color[0], obj_settings->color[1], obj_settings->color[2], 0, obj_settings->transparency);
     } else {
 	if (s->s_iflag == UP) {
-	    dm_set_fg(dmp, 255, 255, 255, 0, s->s_os->transparency);
+	    dm_set_fg(dmp, 255, 255, 255, 0, obj_transparency);
+	} else if (have_material) {
+	    if (material.use_override_color) {
+		dm_set_fg(dmp, material.override_rgb[0], material.override_rgb[1], material.override_rgb[2], 0, obj_transparency);
+	    } else if (material.use_geometry_default_color) {
+		unsigned char *gdc = dm_get_geometry_default_color(dmp);
+		dm_set_fg(dmp, gdc[0], gdc[1], gdc[2], 0, obj_transparency);
+	    } else {
+		dm_set_fg(dmp, material.rgba[0], material.rgba[1], material.rgba[2], 0, obj_transparency);
+	    }
 	} else if (s->s_os->color_override) {
 	    dm_set_fg(dmp, s->s_os->color[0], s->s_os->color[1], s->s_os->color[2], 0, s->s_os->transparency);
 	} else if (s->s_old.s_cflag) {
-	    /* Phase 4 (BSG render contract): legacy "use the dm's geometry
-	     * default colour" behaviour — drives objects that asked for it
-	     * via dl_add_path/solid_set_color_info. */
 	    unsigned char *gdc = dm_get_geometry_default_color(dmp);
 	    dm_set_fg(dmp, gdc[0], gdc[1], gdc[2], 0, s->s_os->transparency);
 	} else {
@@ -469,10 +483,11 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
     /* Phase 4 (BSG render contract): line-width fallback.  When the
      * per-object override is zero (or negative), use the dm's current
      * global linewidth so `set linewidth` propagates through. */
-    int lw = s->s_os->s_line_width;
+    int lw = have_appearance ? appearance.line_width : s->s_os->s_line_width;
     if (lw <= 0)
 	lw = dm_get_linewidth(dmp);
-    dm_set_line_attr(dmp, lw, s->s_soldash);
+    int soldash = have_appearance ? ((appearance.line_style == BSG_APPEARANCE_LINE_DASHED) ? 1 : 0) : s->s_soldash;
+    dm_set_line_attr(dmp, lw, soldash);
 
     /* Phase 6 (BSG render contract): if this object is illuminated (edit
      * mode) and the view carries an edit-mode matrix override,
