@@ -32,6 +32,7 @@
 #include "bsg/camera.h"
 #include "bsg/light.h"
 #include "bsg/material.h"
+#include "bsg/render.h"
 #include "bsg/selection.h"
 #include "bsg/util.h"
 #include "bsg/defines.h"
@@ -690,6 +691,129 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
     }
 }
 
+/* ======================================================================
+ * Phase 8D: libdm renderer ops for bsg_render_action
+ *
+ * These callbacks implement bsg_renderer_ops for the dm display manager
+ * backend.  The renderer_data pointer is the struct dm * for the active
+ * display manager.  bsg_render_action_apply() handles the BSG structural
+ * traversal (view-scope, LoD, transform, two-pass transparency); each
+ * callback here performs the corresponding dm_* operation.
+ * ====================================================================== */
+
+static void
+_dm_rop_push_transform(void *data, const mat_t new_xform, const mat_t old_xform)
+{
+    (void)old_xform;
+    dm_loadmatrix((struct dm *)data, (fastf_t *)new_xform, 0);
+}
+
+static void
+_dm_rop_pop_transform(void *data, const mat_t restored_xform)
+{
+    dm_loadmatrix((struct dm *)data, (fastf_t *)restored_xform, 0);
+}
+
+static void
+_dm_rop_set_material(void *data, bsg_node *node,
+		     const struct bsg_material *mat, int have_material,
+		     int is_highlighted, fastf_t transparency)
+{
+    struct dm *dmp = (struct dm *)data;
+    struct bv_scene_obj *s = (struct bv_scene_obj *)node;
+
+    if (is_highlighted) {
+	dm_set_fg(dmp, 255, 255, 255, 0, transparency);
+    } else if (have_material) {
+	if (mat->use_override_color) {
+	    dm_set_fg(dmp, mat->override_rgb[0], mat->override_rgb[1],
+		      mat->override_rgb[2], 0, transparency);
+	} else if (mat->use_geometry_default_color) {
+	    unsigned char *gdc = dm_get_geometry_default_color(dmp);
+	    dm_set_fg(dmp, gdc[0], gdc[1], gdc[2], 0, transparency);
+	} else {
+	    dm_set_fg(dmp, mat->rgba[0], mat->rgba[1], mat->rgba[2],
+		      0, transparency);
+	}
+    } else if (s->s_os->color_override) {
+	dm_set_fg(dmp, s->s_os->color[0], s->s_os->color[1],
+		  s->s_os->color[2], 0, s->s_os->transparency);
+    } else if (s->s_old.s_cflag) {
+	unsigned char *gdc = dm_get_geometry_default_color(dmp);
+	dm_set_fg(dmp, gdc[0], gdc[1], gdc[2], 0, s->s_os->transparency);
+    } else {
+	dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2],
+		  0, s->s_os->transparency);
+    }
+}
+
+static void
+_dm_rop_set_appearance(void *data, bsg_node *node,
+		       const struct bsg_appearance *app, int have_appearance)
+{
+    struct dm *dmp = (struct dm *)data;
+    struct bv_scene_obj *s = (struct bv_scene_obj *)node;
+    int lw = have_appearance ? app->line_width : s->s_os->s_line_width;
+    if (lw <= 0)
+	lw = dm_get_linewidth(dmp);
+    int soldash = have_appearance
+	? ((app->line_style == BSG_APPEARANCE_LINE_DASHED) ? 1 : 0)
+	: s->s_soldash;
+    dm_set_line_attr(dmp, lw, soldash);
+}
+
+static void
+_dm_rop_draw_payload(void *data, bsg_node *bnode, struct bview *v,
+		     const mat_t world_xform, int pass)
+{
+    /* Delegate to the existing internal draw function which handles child
+     * shapes, bounds culling, edit-matrix swaps, dm_backend_draw_obj,
+     * the frame generation stamp, and post-draw decorations.
+     *
+     * set_material and set_appearance have already been called by the
+     * render action so the dm color/line state is primed for this node.
+     * _dm_draw_scene_obj_internal re-primes it after drawing children
+     * (which reset the state), ensuring the top-level node is drawn with
+     * the correct colour.  This redundancy is a known Phase 11 cleanup. */
+    struct dm *dmp = (struct dm *)data;
+    struct bv_scene_obj *s = (struct bv_scene_obj *)bnode;
+    _dm_draw_scene_obj_internal(dmp, s, v,
+				s->s_force_draw,
+				(s->s_inherit_settings) ? s->s_os : NULL,
+				pass, world_xform);
+}
+
+static void
+_dm_rop_set_depth_mask(void *data, int on)
+{
+    (void)dm_set_depth_mask((struct dm *)data, on);
+}
+
+static int
+_dm_rop_query_capability(void *data, int cap)
+{
+    struct dm *dmp = (struct dm *)data;
+    if (cap == BSG_RENDERER_CAP_TRANSPARENCY)
+	return dm_get_transparency(dmp);
+    if (cap == BSG_RENDERER_CAP_DEPTH_MASK)
+	return 1;
+    return 0;
+}
+
+static const struct bsg_renderer_ops _dm_renderer_ops = {
+    NULL,                       /* begin_frame   */
+    NULL,                       /* end_frame     */
+    NULL,                       /* set_camera    */
+    _dm_rop_push_transform,
+    _dm_rop_pop_transform,
+    _dm_rop_set_material,
+    _dm_rop_set_appearance,
+    _dm_rop_draw_payload,
+    NULL,                       /* draw_overlay  */
+    _dm_rop_set_depth_mask,
+    _dm_rop_query_capability
+};
+
 void
 bsg_view_traverse(struct bview *v, void *root)
 {
@@ -801,6 +925,12 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
     // VIEW_REF proxy mechanism (Phase V2) has been removed; the BSG traversal
     // below is the sole render path for both DB and view-only objects.
     //
+    // Phase 8D: bsg_render_action_apply() replaces the direct
+    // _bsg_view_traverse_impl() calls.  The render action handles BSG
+    // structural traversal (view-scope, LoD, transform), material/appearance/
+    // selection resolution, and two-pass transparency internally via the
+    // _dm_renderer_ops callback table defined above.
+    //
     // When bsg_root is NULL (view not yet associated with a GED draw tree,
     // e.g. before the first draw command) there is no renderable content and
     // the block is skipped.
@@ -813,22 +943,13 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
 	 * until Phase L3 migrates producers). */
 	bsg_lod_update((bsg_node *)v->bsg_root, v);
 
-	/* Phase 1 (BSG render contract): two-pass transparency render.
-	 * Opaque first with depth writes on, then transparent with depth
-	 * writes off.  When the dm doesn't support / want transparency
-	 * sorting, fall back to a single all-objects pass. */
-	if (dm_get_transparency(dmp)) {
-	    /* Opaque pass */
-	    _bsg_view_traverse_impl(v, v->bsg_root, /*transparency_pass=*/1, NULL);
-	    /* disable depth writes for the transparent pass so back-to-front
-	     * blending doesn't stomp the opaque depth buffer */
-	    (void)dm_set_depth_mask(dmp, 0);
-	    _bsg_view_traverse_impl(v, v->bsg_root, /*transparency_pass=*/2, NULL);
-	    (void)dm_set_depth_mask(dmp, 1);
-	} else {
-	    _bsg_view_traverse_impl(v, v->bsg_root, /*transparency_pass=*/0, NULL);
-	}
-
+	/* Phase 8D: use the BSG render action.  Two-pass transparency and
+	 * depth-mask toggling are managed inside bsg_render_action_apply via
+	 * the query_capability / set_depth_mask ops in _dm_renderer_ops. */
+	struct bsg_render_action ra;
+	bsg_render_action_init(&ra, &_dm_renderer_ops, dmp);
+	bsg_render_action_set_view(&ra, v);
+	bsg_render_action_apply(&ra, (bsg_node *)v->bsg_root);
     }
 
     // Done with perspective/orthogonal drawing
