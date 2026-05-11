@@ -1,5 +1,6 @@
 set(
   bsg_headers
+  action.h
   defines.h
   draw_ctx.h
   draw_set.h

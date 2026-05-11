@@ -53,6 +53,7 @@
 #include "bv/view_sets.h"
 
 #include "bsg/defines.h"
+#include "bsg/action.h"
 #include "bsg/appearance.h"
 #include "bsg/identity.h"
 #include "bsg/material.h"
@@ -166,16 +167,16 @@ bsg_view_find_by_type(bsg_node *root, unsigned long long flags)
     if (!root || !flags)
 	return NULL;
 
-    struct bv_scene_obj *r = (struct bv_scene_obj *)root;
-    for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
-	struct bv_scene_obj *child =
-	    (struct bv_scene_obj *)BU_PTBL_GET(&r->children, i);
-	if (!child)
-	    continue;
-	if ((child->s_type_flags & flags) == flags)
-	    return (bsg_node *)child;
-    }
-    return NULL;
+    struct bsg_search_action search;
+    bsg_search_action_init(&search);
+    bsg_search_action_add_kind_criteria(&search, flags);
+    bsg_search_action_add_parent_criteria(&search, root);
+    bsg_search_action_set_max_results(&search, 1);
+    bsg_action_apply(&search.base, root);
+
+    bsg_node *match = bsg_search_action_result_node(&search, 0);
+    bsg_search_action_reset(&search);
+    return match;
 }
 
 
