@@ -310,7 +310,7 @@ bsg_erase_nested_subpath(bsg_node *parent_node,
 		    (struct bv_scene_obj *)BU_PTBL_GET(&cur->children, j);
 		if (!(c->s_type_flags & BSG_NODE_SHAPE))
 		    continue;
-		if (!match_fn || match_fn(c->s_u_data, match_ctx))
+		if (!match_fn || match_fn((const bsg_node *)c, c->s_u_data, match_ctx))
 		    bu_ptbl_ins(&snap, (long *)c);
 	    }
 	    for (size_t j = 0; j < BU_PTBL_LEN(&snap); j++) {

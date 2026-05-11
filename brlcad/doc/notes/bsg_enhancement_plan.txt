@@ -460,12 +460,13 @@ Tasks:
 5. [DONE] Add identity creation for DB-backed shape leaves in libged draw code.
 6. [DONE] Add identity creation for view-only objects in `bv_view_obj_create` wrappers.
 7. [DONE] Add tests for deterministic path-derived identity.
+8. [DONE] Migrate erase-path leaf matching consumers to prefer identity helpers.
 
 Consumer migration:
 
-- Update BSG draw-tree lookups that currently rely on `s_name`, `dp`, and
-  parent chains to prefer identity helpers where available.
-- Keep existing path lookup APIs working.
+- [DONE] Update BSG draw-tree lookups that currently rely on `s_name`, `dp`,
+  and parent chains to prefer identity helpers where available.
+- [DONE] Keep existing path lookup APIs working.
 
 Acceptance criteria:
 
@@ -1191,6 +1192,8 @@ Phase 2 stages:
 - 2B: [DONE] Add side-car storage and node identity get/set.
 - 2C: [DONE] Add draw-root + DB-path identity derivation in libged/libbsg draw creation.
 - 2D: [DONE] Add view-object identity derivation in libbv/BSG view-object creation.
+- 2E: [DONE] Migrate erase-path leaf matching to identity-first lookup with
+  compatibility fallback and regression tests.
 
 Phase 3 stages:
 
@@ -1315,6 +1318,12 @@ What is complete or substantially complete:
     `src/libbsg/tests/test_scene_graph.c` cover deterministic path-derived
     identity, revision counters, draw-root identity assignment, and
     view-object identity derivation.
+  - `src/libged/bsg_ged_draw.c` now performs identity-first matching when
+    erasing leaf shapes by db path, with fallback to legacy `s_fullpath`
+    comparisons for compatibility.
+  - `src/libged/tests/draw/bsg_view_obj.cpp` validates identity-first erase
+    behavior by removing a target shape's compatibility `s_fullpath` metadata
+    and asserting `erase_by_dbpath` still removes it.
 
 What is partially complete:
 

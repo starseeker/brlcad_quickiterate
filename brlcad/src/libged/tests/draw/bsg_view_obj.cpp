@@ -353,6 +353,39 @@ main(int ac, char *av[])
 	/* Note: erase_all_dbpaths matches subset paths, so should clear
 	 * everything that has all.g as a prefix component. */
 	ASSERT(dl_count(gedp) <= before2);
+
+	/* Identity-preferred erase matching: even if legacy per-shape
+	 * s_fullpath metadata is missing, erase_by_dbpath should still match
+	 * via the shape's BSG identity and remove the target solid. */
+	{
+	    const char *dav[3] = {"draw", "all.g", NULL};
+	    ged_exec(gedp, 2, dav);
+
+	    int before3 = bsg_view_obj_solid_count(gedp);
+	    ASSERT(before3 > 0);
+	    struct bv_scene_obj *sp = bsg_view_obj_first_solid(gedp);
+	    ASSERT(sp != NULL);
+	    ASSERT(sp->s_u_data != NULL);
+	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	    ASSERT(bdata->s_fullpath.fp_len > 0);
+
+	    struct db_full_path target;
+	    db_full_path_init(&target);
+	    db_dup_full_path(&target, &bdata->s_fullpath);
+
+	    /* Remove compatibility path metadata from the target shape. */
+	    db_free_full_path(&bdata->s_fullpath);
+	    db_full_path_init(&bdata->s_fullpath);
+
+	    bsg_view_obj_erase_by_dbpath(gedp, &target);
+	    int after3 = bsg_view_obj_solid_count(gedp);
+	    if (after3 >= before3 && bsg_view_obj_solid_index(gedp, sp) >= 0) {
+		db_free_full_path(&bdata->s_fullpath);
+		db_dup_full_path(&bdata->s_fullpath, &target);
+	    }
+	    ASSERT(after3 < before3);
+	    db_free_full_path(&target);
+	}
     }
 
     /* ---------------------------------------------------------------- *
