@@ -35,6 +35,7 @@
 #include "bsg/lod_ops.h"
 #include "bsg/material.h"
 #include "bsg/node.h"
+#include "bsg/payload.h"
 #include "bsg/render.h"
 #include "bsg/selection.h"
 #include "bsg/view_scope.h"
@@ -53,6 +54,7 @@ const struct bsg_renderer_ops bsg_renderer_noop = {
     NULL, /* set_appearance */
     NULL, /* draw_payload  */
     NULL, /* draw_overlay  */
+    NULL, /* draw_image_layer */
     NULL, /* set_depth_mask */
     NULL  /* query_capability */
 };
@@ -87,6 +89,7 @@ _bsg_render_traverse(struct bsg_render_action *ra,
     const struct bsg_renderer_ops *ops = ra->ops;
     void *data = ra->renderer_data;
     struct bview *v = ra->view;
+    unsigned long long pflags = 0;
 
     /* Skip non-drawable structural meta-nodes. */
     if (node->s_type_flags & BSG_NODE_SENSOR)
@@ -139,6 +142,20 @@ _bsg_render_traverse(struct bsg_render_action *ra,
 
 	if (ops->pop_transform)
 	    ops->pop_transform(data, parent_xform);
+	return;
+    }
+
+    /* Phase 9A: overlay payload hook.  Overlay payloads are rendered once
+     * (single pass or opaque pass) through draw_overlay when available. */
+    pflags = bsg_node_get_payload_type((const bsg_node *)node);
+    if (pflags & BSG_PAYLOAD_OVERLAY) {
+	if (pass != BSG_RENDER_PASS_TRANSPARENT) {
+	    if (ops->draw_overlay) {
+		ops->draw_overlay(data, (bsg_node *)node, v);
+	    } else if (ops->draw_payload) {
+		ops->draw_payload(data, (bsg_node *)node, v, parent_xform, pass);
+	    }
+	}
 	return;
     }
 
@@ -226,6 +243,12 @@ bsg_render_action_apply(struct bsg_render_action *ra, bsg_node *root)
     if (ops->begin_frame)
 	ops->begin_frame(data, v);
 
+    /* Phase 9B/9D: framebuffer/image-layer hook before scene traversal.
+     * Renderers may return 0 to skip scene drawing (overlay-only mode). */
+    int do_scene = 1;
+    if (ops->draw_image_layer)
+	do_scene = ops->draw_image_layer(data, root, v);
+
     /* Use gv_model2view as the initial accumulated transform so that
      * transform-node matrix computations start from the correct base,
      * matching the behaviour of _bsg_view_traverse_impl in libdm. */
@@ -241,7 +264,7 @@ bsg_render_action_apply(struct bsg_render_action *ra, bsg_node *root)
 	? ops->query_capability(data, BSG_RENDERER_CAP_TRANSPARENCY)
 	: 0;
 
-    if (has_transparency) {
+    if (do_scene && has_transparency) {
 	/* --- Opaque pass: draw objects with transparency == 1.0 --- */
 	for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
 	    struct bv_scene_obj *c =
@@ -264,7 +287,7 @@ bsg_render_action_apply(struct bsg_render_action *ra, bsg_node *root)
 	if (ops->set_depth_mask)
 	    ops->set_depth_mask(data, 1);
 
-    } else {
+    } else if (do_scene) {
 	/* Single-pass: all objects regardless of transparency. */
 	for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
 	    struct bv_scene_obj *c =

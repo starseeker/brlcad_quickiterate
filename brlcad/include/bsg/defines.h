@@ -149,17 +149,19 @@ __BEGIN_DECLS
  *   bit  35:    BSG_NODE_VIEW_SCOPE
  *   bits 36-38: BSG_SENSOR_* sub-type flags (defined in sensor.h)
  *   bit  39:    BSG_NODE_VIEW_REF
- *   bits 40-44: BSG_PAYLOAD_* payload type flags (this block)
+ *   bits 40-44: BSG_PAYLOAD_* payload type flags (vlist/csg/mesh/brep/overlay)
  *   bit  45:    BSG_NODE_VIEW_BRIDGE
+ *   bit  46:    BSG_PAYLOAD_IMAGE
  */
 #define BSG_PAYLOAD_VLIST   0x10000000000ULL  /**< @brief raw bv_vlist payload (bit 40) */
 #define BSG_PAYLOAD_CSG     0x20000000000ULL  /**< @brief CSG wireframe payload (bit 41) */
 #define BSG_PAYLOAD_MESH    0x40000000000ULL  /**< @brief BoT LoD mesh payload (bit 42) */
 #define BSG_PAYLOAD_BREP    0x80000000000ULL  /**< @brief BRep payload (bit 43) */
 #define BSG_PAYLOAD_OVERLAY 0x100000000000ULL /**< @brief HUD overlay element (bit 44) */
+#define BSG_PAYLOAD_IMAGE   0x400000000000ULL /**< @brief framebuffer/image layer (bit 46) */
 
 /** Mask covering all payload bits */
-#define BSG_PAYLOAD_MASK    0x1F0000000000ULL
+#define BSG_PAYLOAD_MASK    0x5F0000000000ULL
 
 /**
  * bsg_node is a layout-compatible alias for struct bv_scene_obj.

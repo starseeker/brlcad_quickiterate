@@ -30,6 +30,7 @@
  *   Test 6: two-pass transparency (query_capability path)
  *   Test 7: BSG_NODE_SENSOR nodes are skipped
  *   Test 8: bsg_node_drawn_rev get/set accessors
+ *   Test 9: overlay/image-layer hooks
  */
 
 #include "common.h"
@@ -44,6 +45,7 @@
 #include "bsg/node.h"
 #include "bsg/node_shape.h"
 #include "bsg/node_transform.h"
+#include "bsg/payload.h"
 #include "bsg/render.h"
 #include "bsg/util.h"
 #include "bsg/view_scope.h"
@@ -97,6 +99,9 @@ struct count_ctx {
     int set_material_count;
     int set_appearance_count;
     int draw_payload_count;
+    int draw_overlay_count;
+    int draw_image_layer_count;
+    int draw_image_continue;
     int push_transform_count;
     int pop_transform_count;
     int set_depth_mask_count;
@@ -138,6 +143,20 @@ static void cnt_draw_payload(void *d, bsg_node *n, struct bview *v,
     ((struct count_ctx *)d)->draw_payload_count++;
 }
 
+static void cnt_draw_overlay(void *d, bsg_node *n, struct bview *v)
+{
+    (void)n; (void)v;
+    ((struct count_ctx *)d)->draw_overlay_count++;
+}
+
+static int cnt_draw_image_layer(void *d, bsg_node *root, struct bview *v)
+{
+    struct count_ctx *c = (struct count_ctx *)d;
+    (void)root; (void)v;
+    c->draw_image_layer_count++;
+    return c->draw_image_continue;
+}
+
 static void cnt_push_transform(void *d, const mat_t nw, const mat_t ow)
 {
     (void)nw; (void)ow;
@@ -172,7 +191,8 @@ static const struct bsg_renderer_ops counting_ops = {
     cnt_set_material,
     cnt_set_appearance,
     cnt_draw_payload,
-    NULL,             /* draw_overlay */
+    cnt_draw_overlay,
+    cnt_draw_image_layer,
     cnt_set_depth_mask,
     cnt_query_capability
 };
@@ -182,6 +202,7 @@ count_ctx_init(struct count_ctx *c, int cap_return)
 {
     memset(c, 0, sizeof(*c));
     c->query_cap_return = cap_return;
+    c->draw_image_continue = 1;
 }
 
 
@@ -584,6 +605,77 @@ test_drawn_rev_accessors(void)
     return 0;
 }
 
+/* Test 9: overlay payload hook and image-layer traversal gate */
+static int
+test_overlay_image_layer_hooks(void)
+{
+    printf("Test 9: overlay/image-layer hooks\n");
+
+    struct bview *v = make_view();
+    if (!v)
+	FAIL("make_view");
+
+    bsg_node *root = bsg_scene_root_create(v);
+    if (!root) {
+	free_view(v);
+	FAIL("root");
+    }
+
+    bsg_node *overlay = make_shape_node(v, "overlay_shape");
+    bsg_node *shape = make_shape_node(v, "scene_shape");
+    if (!overlay || !shape) {
+	bsg_scene_root_destroy(root); free_view(v);
+	FAIL("shape nodes");
+    }
+    bsg_node_set_payload_type(overlay, BSG_PAYLOAD_OVERLAY);
+    bsg_node_add_child(root, overlay);
+    bsg_node_add_child(root, shape);
+
+    {
+	struct count_ctx ctx;
+	count_ctx_init(&ctx, 0);
+	struct bsg_render_action ra;
+	bsg_render_action_init(&ra, &counting_ops, &ctx);
+	bsg_render_action_apply(&ra, root);
+
+	if (ctx.draw_image_layer_count != 1) {
+	    bsg_scene_root_destroy(root); free_view(v);
+	    FAIL("expected draw_image_layer once");
+	}
+	if (ctx.draw_overlay_count != 1) {
+	    bsg_scene_root_destroy(root); free_view(v);
+	    FAIL("expected draw_overlay once");
+	}
+	if (ctx.draw_payload_count != 1) {
+	    bsg_scene_root_destroy(root); free_view(v);
+	    FAIL("expected only non-overlay shape via draw_payload");
+	}
+    }
+
+    {
+	struct count_ctx ctx;
+	count_ctx_init(&ctx, 0);
+	ctx.draw_image_continue = 0; /* image-layer callback skips scene */
+	struct bsg_render_action ra;
+	bsg_render_action_init(&ra, &counting_ops, &ctx);
+	bsg_render_action_apply(&ra, root);
+
+	if (ctx.draw_image_layer_count != 1) {
+	    bsg_scene_root_destroy(root); free_view(v);
+	    FAIL("expected draw_image_layer once when skipping scene");
+	}
+	if (ctx.draw_overlay_count != 0 || ctx.draw_payload_count != 0) {
+	    bsg_scene_root_destroy(root); free_view(v);
+	    FAIL("scene traversal should be skipped when draw_image_layer returns 0");
+	}
+    }
+
+    bsg_scene_root_destroy(root);
+    free_view(v);
+    PASS("overlay/image-layer hooks");
+    return 0;
+}
+
 
 /* ------------------------------------------------------------------ */
 /* main                                                                 */
@@ -605,12 +697,13 @@ main(int argc, char *argv[])
     fail += test_two_pass_transparency();
     fail += test_sensor_skip();
     fail += test_drawn_rev_accessors();
+    fail += test_overlay_image_layer_hooks();
 
     if (fail) {
 	printf("FAILED: %d test(s)\n", fail);
 	return 1;
     }
-    printf("All Phase 8 render action tests passed.\n");
+    printf("All Phase 8/9 render action tests passed.\n");
     return 0;
 }
 

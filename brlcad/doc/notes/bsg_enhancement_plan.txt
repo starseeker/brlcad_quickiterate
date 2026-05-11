@@ -907,8 +907,8 @@ Acceptance criteria:
   involved in material, appearance, selection, and payload resolution.
 
 
-Phase 9: Overlay, Faceplate, and Image Layer Model
---------------------------------------------------
+Phase 9: Overlay, Faceplate, and Image Layer Model  [DONE]
+-----------------------------------------------------------
 Objective:
 Bring faceplate/HUD and framebuffer/image-layer concepts into the BSG model
 where doing so is useful, without breaking libdm framebuffer semantics.
@@ -1247,10 +1247,10 @@ Phase 8 stages:
 
 Phase 9 stages:
 
-- 9A: Add overlay payload basics.
-- 9B: Add image layer payload basics.
-- 9C: Preserve faceplate tests through render action overlay hooks.
-- 9D: Preserve framebuffer tests through image layer hooks.
+- 9A: [DONE] Add overlay payload basics.
+- 9B: [DONE] Add image layer payload basics.
+- 9C: [DONE] Preserve faceplate tests through render action overlay hooks.
+- 9D: [DONE] Preserve framebuffer tests through image layer hooks.
 
 Phase 10 stages:
 
@@ -1447,20 +1447,34 @@ What is complete or substantially complete:
     `draw_payload`) is a known Phase 11C cleanup item.
   - `include/bsg/render.h` added to the `bsg_headers` install list; `camera.h`
     and `light.h` also added (they were present but absent from the list).
-  - Unit coverage: `src/libbsg/tests/test_render.c` with 8 tests covering
+  - Unit coverage: `src/libbsg/tests/test_render.c` with 9 tests covering
     null-safety/init, no-op renderer, counting renderer (begin/end/3-payload
     calls), view-scope filtering (va vs vb), transform push/pop, two-pass
-    transparency (4 payload calls + depth-mask sequence), sensor skip, and
-    `bsg_node_drawn_rev` accessors.  All 19 libbsg tests pass.
+    transparency (4 payload calls + depth-mask sequence), sensor skip,
+    `bsg_node_drawn_rev` accessors, and overlay/image-layer hook behavior.
+    All 19 libbsg tests pass.
+- Phase 9 overlay/image-layer model is implemented:
+  - `include/bsg/defines.h` adds `BSG_PAYLOAD_IMAGE` and expands
+    `BSG_PAYLOAD_MASK`; `src/libbsg/payload.c` now maps
+    `BSG_PAYLOAD_TYPE_IMAGE` to/from payload flags.
+  - `include/bsg/render.h` and `src/libbsg/render.c` add the
+    `draw_image_layer` renderer hook (with traversal-gate return) and route
+    `BSG_PAYLOAD_OVERLAY` nodes through `draw_overlay`.
+  - `src/libdm/view.c` adds a dm render context plus `_dm_rop_draw_image_layer`
+    that preserves framebuffer underlay/overlay behavior (`gv_fb_mode`,
+    including overlay-only scene skip) and `_dm_rop_draw_overlay` for overlay
+    payload nodes.
+  - `src/libbsg/tests/test_render.c` adds overlay/image-layer hook coverage
+    (callback invocation and scene-skip behavior) in addition to prior Phase 8
+    traversal tests.
 
 What is partially complete:
 
-- No open partial items are currently tracked for Phases 1-8.
+- No open partial items are currently tracked for Phases 1-9.
 
 What is not yet implemented in this roadmap:
 
 - Phase 6F: Full BSelectState → BSG selection migration (GED selection containers).
-- Phase 9 overlay/image-layer model in the form described here.
 - Phase 10 storage split preparations (`bsg_node_core` path).
 - Phase 11 broad consumer sweeps under this specific API plan.
 - Phases 12-13 deprecation and readiness gate execution.
@@ -1470,15 +1484,14 @@ Immediate Next-Session Stage Prompts
 ------------------------------------
 Use these as concrete "small-unit" prompts for the next work sessions.
 
-1. Phase 9A (recommended next):
-   Add overlay payload basics — BSG overlay node draw hook through
-   the render action's `draw_overlay` callback.
+1. Phase 10A (recommended next):
+   Add `bsg_node_core` scaffolding behind current storage.
 
-2. Phase 9B:
-   Add image layer payload basics for framebuffer / FBO-backed layers.
+2. Phase 10B:
+   Move name/kind/parent/children accessors to node-core storage.
 
-3. Phase 9C:
-   Preserve faceplate tests through render action overlay hooks.
+3. Phase 10C:
+   Move material/appearance/payload pointers to node-core storage.
 
-4. Phase 9D:
-   Preserve framebuffer tests through image layer hooks.
+4. Phase 10D:
+   Move identity/revision/bounds to node-core storage.

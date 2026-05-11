@@ -165,6 +165,15 @@ struct bsg_renderer_ops {
     void (*draw_overlay)(void *renderer_data, bsg_node *node, struct bview *v);
 
     /**
+     * Optional: draw framebuffer / image layers before scene traversal.
+     *
+     * Called once per bsg_render_action_apply() invocation.  Return non-zero
+     * to continue with normal scene traversal, or 0 to skip scene traversal
+     * (for example, framebuffer-overlay-only mode).
+     */
+    int (*draw_image_layer)(void *renderer_data, bsg_node *root, struct bview *v);
+
+    /**
      * Set the depth-write mask.
      * @param on  non-zero to enable depth writes; 0 to disable.
      * Called by bsg_render_action_apply between the opaque and transparent
