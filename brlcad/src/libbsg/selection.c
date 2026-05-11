@@ -429,8 +429,7 @@ bsg_selection_sync_illum_flags(bsg_node *root)
 	bsg_scene_selection_get(root, "active", 0);
     if (!ss) {
 	/* No "active" set: clear all flags. */
-	struct _sync_illum_ctx no_sel_ctx = {0};
-	no_sel_ctx.clear_all = 1;
+	struct _sync_illum_ctx no_sel_ctx = {.clear_all = 1, .active_ss = NULL};
 	bsg_visit(root, 0, _sync_illum_cb, &no_sel_ctx);
 	return;
     }
