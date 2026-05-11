@@ -201,6 +201,13 @@ _write_empty_bot(struct db_i *dbip, const char *bot_name, int verbosity)
     (void)_ged_facetize_write_bot(dbip, ebot, bot_name, verbosity);
 }
 
+static void
+_clear_variant_plan(struct _ged_facetize_state *s)
+{
+    delete (FacetizeVariantPlan *)s->variant_plan;
+    s->variant_plan = NULL;
+}
+
 /* returns 1 on pass, 0 on mismatch, -1 on unavailable/skip */
 static int
 _validate_csg_vs_bot(struct db_i *csg_dbip, const char *obj_name, struct db_i *bot_dbip, const char *bot_name, double sa_tol_pct, double vol_tol_pct, double *sa_err_pct, double *vol_err_pct);
@@ -509,6 +516,10 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
     int vcnt_p2_topoflip  = 0; /* P2: Crofton-zero/few after perturb (perturb shifted topology) */
     int vcnt_p2_warn      = 0; /* P2 persistent validation mismatch */
     int vcnt_unavail      = 0; /* validation unavailable (metric/prep failure) */
+    int vcnt_adjusted_instances = 0;
+    int vcnt_sub_variants = 0;
+    int vcnt_perturb_fallbacks = 0;
+    int vcnt_tess_failures = 0;
     std::set<std::string> inspect_regions;
 
     /* Used the libged tolerances */
@@ -659,35 +670,6 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 
     // We need all the solids converted
     if (!s->make_nmg && !s->nmg_booleval) {
-	/* Instance-aware adjust planning pass: walk each *region* root to
-	 * find every leaf that appears in both union and subtract roles, create
-	 * perturbed CSG copies in the working .g *before* tessellation so that
-	 * the adjusted variants are triangulated from their original CSG
-	 * parameter definitions.  The plan is stored on the state so that
-	 * _booltree_leaf_tess can substitute the correct variant BoT during
-	 * each per-region booleval.
-	 *
-	 * We deliberately walk from the region roots (ar) rather than from the
-	 * top-level input objects (dpa).  The per-region booleval also starts
-	 * each db_walk_tree from the region root, so the path strings that
-	 * db_path_to_string() produces during booleval (e.g.
-	 * "/r.wind9/s.wind9.i") match the keys recorded here.  Walking from
-	 * dpa would produce longer keys (e.g.
-	 * "/havoc/havoc_front/.../r.wind9/s.wind9.i") that never match.
-	 *
-	 * Skip when --no-perturb is set. */
-	if (!s->no_perturb) {
-	    size_t nregions = BU_PTBL_LEN(ar);
-	    struct directory **rdpa = (struct directory **)bu_calloc(
-		nregions + 1, sizeof(struct directory *), "rdpa");
-	    for (size_t ri = 0; ri < nregions; ri++)
-		rdpa[ri] = (struct directory *)BU_PTBL_GET(ar, ri);
-	    FacetizeVariantPlan *vplan =
-		_ged_facetize_build_variant_plan(s, (int)nregions, rdpa);
-	    bu_free(rdpa, "rdpa");
-	    s->variant_plan = (void *)vplan;
-	}
-
 	if (_ged_facetize_leaves_tri(s, dbip, as)) {
 	    if (s->verbosity >= 0) {
 		bu_log("regions.cpp:%d Failed to tessellate all solids - aborting.\n", __LINE__);
@@ -805,8 +787,6 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
     if (s->verbosity == 0)
 	facetize_log(s, 0, "Evaluating %zu roots...\n", eval_total);
 
-    FacetizeVariantPlan *vplan = (FacetizeVariantPlan *)s->variant_plan;
-    bool variant_meshes_ready = false;
     /* Region mode starts with the baseline BoT path and only enables/tessellates
      * variants if Pass 1 validation says a perturb retry is needed. */
     if (!s->make_nmg && !s->nmg_booleval && !s->no_perturb)
@@ -899,49 +879,57 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 		    facetize_log(s, 1, "FACETIZE: %s CSG vs BoT MISMATCH (SA_err=%.2f%% VOL_err=%.2f%%) - triggering perturb\n",
 			    dpw[0]->d_namep, sa_err_pct, vol_err_pct);
 		    bool reopened_wdb = false;
-		    if (vplan && !variant_meshes_ready) {
-			if (!vplan->variant_names.empty())
-			    _ged_facetize_tessellate_variant_names(s, vplan);
-			variant_meshes_ready = true;
+		    /* Region retries intentionally use a fresh plan scoped to the
+		     * failed root so passing regions do not create perturb variants. */
+		    _clear_variant_plan(s);
+		    FacetizeVariantPlan *region_vplan =
+			_ged_facetize_build_variant_plan(s, 1, dpw);
+		    if (region_vplan) {
+			s->variant_plan = (void *)region_vplan;
+			vcnt_adjusted_instances += region_vplan->n_adjusted_instances;
+			vcnt_sub_variants += region_vplan->n_sub_variants;
+			vcnt_perturb_fallbacks += region_vplan->n_perturb_fallbacks;
+			if (!region_vplan->variant_names.empty())
+			    _ged_facetize_tessellate_variant_names(s, region_vplan);
+			vcnt_tess_failures += region_vplan->n_variant_tess_failures;
 			reopened_wdb = true;
 		    }
-		    if (reopened_wdb) {
-			db_close(wdbip);
-			wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
-			if (!wdbip) {
-			    bret = BRLCAD_ERROR;
-			    break;
+		    if (region_vplan) {
+			if (reopened_wdb) {
+			    db_close(wdbip);
+			    wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
+			    if (!wdbip) {
+				bret = BRLCAD_ERROR;
+				break;
+			    }
+			    db_dirbuild(wdbip);
+			    db_update_nref(wdbip);
+			    wwdbp = wdb_dbopen(wdbip, RT_WDB_TYPE_DB_DEFAULT);
 			}
-			db_dirbuild(wdbip);
-			db_update_nref(wdbip);
-			wwdbp = wdb_dbopen(wdbip, RT_WDB_TYPE_DB_DEFAULT);
-		    }
 
-		    s->use_variant_plan = 1;
-		    struct directory *od = db_lookup(wdbip, bu_vls_cstr(&bname), LOOKUP_QUIET);
-		    if (od != RT_DIR_NULL) {
-			db_delete(wdbip, od);
-			db_dirdelete(wdbip, od);
-		    }
-		    char *obj_name_retry = bu_strdup(dpw[0]->d_namep);
-		    bret = _ged_facetize_booleval_tri(s, wdbip, wwdbp, 1, (const char **)&obj_name_retry, bu_vls_cstr(&bname), vlfree, 1, i+1, -1);
-		    bu_free(obj_name_retry, "obj_name_retry");
-		    s->use_variant_plan = 0;
+			s->use_variant_plan = 1;
+			struct directory *od = db_lookup(wdbip, bu_vls_cstr(&bname), LOOKUP_QUIET);
+			if (od != RT_DIR_NULL) {
+			    db_delete(wdbip, od);
+			    db_dirdelete(wdbip, od);
+			}
+			char *obj_name_retry = bu_strdup(dpw[0]->d_namep);
+			bret = _ged_facetize_booleval_tri(s, wdbip, wwdbp, 1, (const char **)&obj_name_retry, bu_vls_cstr(&bname), vlfree, 1, i+1, -1);
+			bu_free(obj_name_retry, "obj_name_retry");
+			s->use_variant_plan = 0;
 
-		    if (bret == BRLCAD_OK) {
-			double sa_err2 = -1.0, vol_err2 = -1.0;
+			if (bret == BRLCAD_OK) {
+			    double sa_err2 = -1.0, vol_err2 = -1.0;
 			/* Compare the perturbed BoT (exact bg_trimesh metrics)
 			 * against a Crofton raytrace of the perturbed CSG: build
 			 * a fresh in-memory db whose leaves are ft_perturb-
 			 * generated parametric CSG copies from s->dbip (the
-			 * exact same factor stored in vplan->variant_recs).
+			 * exact same factor stored in region_vplan->variant_recs).
 			 * Fall back to the original-CSG reference if the db
-			 * cannot be built (e.g. no vplan or all primitives lack
+			 * cannot be built (e.g. no region_vplan or all primitives lack
 			 * ft_perturb support). */
-			struct db_i *perturb_dbip = NULL;
-			if (vplan)
-			    perturb_dbip = _create_perturbed_csg_db(
-				s->dbip, dpw[0]->d_namep, vplan);
+			struct db_i *perturb_dbip = _create_perturbed_csg_db(
+			    s->dbip, dpw[0]->d_namep, region_vplan);
 			struct db_i *csg_ref_dbip =
 			    perturb_dbip ? perturb_dbip : s->dbip;
 			int vret2 = _validate_csg_vs_bot(
@@ -989,7 +977,14 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 			    if (s->verbosity > 0)
 				bu_log("FACETIZE: validation unavailable after perturb retry for %s\n", dpw[0]->d_namep);
 			}
+			}
+		    } else {
+			vcnt_unavail++;
+			inspect_regions.insert(std::string(dpw[0]->d_namep) + " (perturb plan unavailable)");
+			if (s->verbosity > 0)
+			    bu_log("FACETIZE: perturb plan unavailable for %s\n", dpw[0]->d_namep);
 		    }
+		    _clear_variant_plan(s);
 		}
 		if (vret < 0) {
 		    vcnt_unavail++;
@@ -1229,19 +1224,14 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
     /* Done importing stuff - update nref. */
     db_update_nref(dbip);
 
-    /* Print variant-plan summary and clean up (Manifold path only). */
-    if (s->variant_plan) {
-	FacetizeVariantPlan *vp = (FacetizeVariantPlan *)s->variant_plan;
-	if (vp->n_adjusted_instances > 0) {
-	    facetize_log(s, 0, "FACETIZE: variant summary: %d adjusted instance(s) "
-		   "(%d subtractive), %d fallback(s), %d tess failure(s)\n",
-		   vp->n_adjusted_instances,
-		   vp->n_sub_variants,
-		   vp->n_perturb_fallbacks,
-		   vp->n_variant_tess_failures);
-	}
-	delete vp;
-	s->variant_plan = NULL;
+    /* Print aggregate variant-plan summary and clean up (Manifold path only). */
+    if (vcnt_adjusted_instances > 0) {
+	facetize_log(s, 0, "FACETIZE: variant summary: %d adjusted instance(s) "
+	       "(%d subtractive), %d fallback(s), %d tess failure(s)\n",
+	       vcnt_adjusted_instances,
+	       vcnt_sub_variants,
+	       vcnt_perturb_fallbacks,
+	       vcnt_tess_failures);
     }
 
     bu_ptbl_free(ar);
