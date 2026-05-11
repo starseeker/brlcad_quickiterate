@@ -379,6 +379,9 @@ main(int ac, char *av[])
 
 	    bsg_view_obj_erase_by_dbpath(gedp, &target);
 	    int after3 = bsg_view_obj_solid_count(gedp);
+	    /* ASSERT() records failures without aborting this test process, so
+	     * restore the compatibility path metadata if erase did not remove
+	     * the target shape to keep later checks stable. */
 	    if (after3 >= before3 && bsg_view_obj_solid_index(gedp, sp) >= 0) {
 		db_free_full_path(&bdata->s_fullpath);
 		db_dup_full_path(&bdata->s_fullpath, &target);

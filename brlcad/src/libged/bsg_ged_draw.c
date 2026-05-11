@@ -596,6 +596,9 @@ _sg_path_match_cb(const bsg_node *shape, void *shape_u_data, void *match_ctx)
 
     struct _sg_path_match_ctx *ctx = (struct _sg_path_match_ctx *)match_ctx;
     struct bsg_identity sid;
+    /* Identity-first: when both the target subpath hash and node identity are
+     * available, match by identity.  If either side is unavailable (zero hash
+     * or no side-car identity), fall back to legacy db_full_path matching. */
     if (ctx->subpath_id.node_id.value
         && bsg_node_identity_get(shape, &sid)
         && bsg_node_id_equal(&sid.node_id, &ctx->subpath_id.node_id))
