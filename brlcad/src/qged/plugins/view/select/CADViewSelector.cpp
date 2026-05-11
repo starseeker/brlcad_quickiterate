@@ -36,6 +36,8 @@
 #include "bg/aabb_ray.h"
 #include "bg/plane.h"
 
+#include "bsg/selection.h"
+
 #include "../../../../libged/dbi.h"
 
 #include "qtcad/QgSelectFilter.h"
@@ -243,6 +245,17 @@ CADViewSelector::select_objs()
     bu_vls_free(&dpath);
     ss->characterize();
     ss->draw_sync();
+
+    /* Phase 6E: bridge to BSG "active" selection set so BSG consumers
+     * (e.g. bsg_node_is_selected) see the same set as BSelectState. */
+    if (gedp->ged_gvp && gedp->ged_gvp->bsg_root) {
+	bsg_node *broot = (bsg_node *)gedp->ged_gvp->bsg_root;
+	for (size_t i = 0; i < BU_PTBL_LEN(&cf->selected_set); i++) {
+	    struct bv_scene_obj *s =
+		(struct bv_scene_obj *)BU_PTBL_GET(&cf->selected_set, i);
+	    bsg_node_set_selected(broot, (bsg_node *)s, "active", 1);
+	}
+    }
 }
 
 void
@@ -268,6 +281,16 @@ CADViewSelector::deselect_objs()
     bu_vls_free(&dpath);
     ss->characterize();
     ss->draw_sync();
+
+    /* Phase 6E: mirror deselection in the BSG "active" selection set. */
+    if (gedp->ged_gvp && gedp->ged_gvp->bsg_root) {
+	bsg_node *broot = (bsg_node *)gedp->ged_gvp->bsg_root;
+	for (size_t i = 0; i < BU_PTBL_LEN(&cf->selected_set); i++) {
+	    struct bv_scene_obj *s =
+		(struct bv_scene_obj *)BU_PTBL_GET(&cf->selected_set, i);
+	    bsg_node_set_selected(broot, (bsg_node *)s, "active", 0);
+	}
+    }
 }
 
 

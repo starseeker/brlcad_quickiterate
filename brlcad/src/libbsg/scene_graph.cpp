@@ -57,6 +57,7 @@
 #include "bsg/appearance.h"
 #include "bsg/identity.h"
 #include "bsg/material.h"
+#include "bsg/selection.h"
 #include "bsg/util.h"
 #include "bsg/visit.h"
 #include "bsg/scene_set.h"
@@ -130,7 +131,15 @@ bsg_scene_root_create(struct bview *v)
 
     _bsg_scene_root_identity_assign((struct bv_scene_obj *)v->gv_draw_root);
     v->bsg_root = v->gv_draw_root;
-    return (bsg_node *)v->bsg_root;
+
+    /* Phase 6B: eagerly create the "active" and "edit" selection sets so
+     * that bsg_scene_selection_get(..., 0) reliably returns them for any
+     * scene root created through this path. */
+    bsg_node *broot = (bsg_node *)v->bsg_root;
+    (void)bsg_scene_selection_get(broot, "active", 1);
+    (void)bsg_scene_selection_get(broot, "edit",   1);
+
+    return broot;
 }
 
 

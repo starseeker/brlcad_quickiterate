@@ -63,6 +63,7 @@
 #include "bsg/node.h"
 #include "bsg/overlay.h"
 #include "bsg/payload.h"
+#include "bsg/selection.h"
 #include "bsg/sensor.h"
 #include "bsg/visit.h"
 
@@ -1182,10 +1183,20 @@ _sg_set_illum(struct ged *gedp, struct bv_scene_obj *sp)
         return;
     }
 
-    if (old)
+    if (old) {
         old->s_iflag = DOWN;
-    if (sp)
+        /* Phase 6C: mirror s_iflag change in the BSG "active" selection set. */
+        if (gdp->gd_draw_root)
+            bsg_node_set_selected((bsg_node *)gdp->gd_draw_root,
+                                  (bsg_node *)old, "active", 0);
+    }
+    if (sp) {
         sp->s_iflag = UP;
+        /* Phase 6C: mirror s_iflag change in the BSG "active" selection set. */
+        if (gdp->gd_draw_root)
+            bsg_node_set_selected((bsg_node *)gdp->gd_draw_root,
+                                  (bsg_node *)sp, "active", 1);
+    }
 
     /* Tear down any previously-registered NodeSensor. */
     if (gdp->gd_illum_sensor) {
