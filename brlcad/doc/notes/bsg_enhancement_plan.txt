@@ -780,11 +780,13 @@ Acceptance criteria:
 - Old `s_iflag` paths still work during compatibility window.
 
 
-Phase 7: BSG Lights and Camera/View Description
+Phase 7: BSG Lights and Camera/View Description  [DONE]
 -----------------------------------------------
 Objective:
 Move renderer-relevant light and camera data out of libdm assumptions and into
 renderer-neutral BSG concepts.
+
+Status (2026-05-11): [DONE] through Stage 7C.
 
 Design:
 
@@ -814,14 +816,15 @@ Proposed light fields:
 
 Tasks:
 
-1. Add `camera.h/.c` with snapshot API from `struct bview`.
-2. Add tests verifying camera snapshot values against known `bview` matrices.
-3. Add `light.h/.c` with default light helpers.
-4. Modify libdm render setup to query a default BSG light set where available.
-5. Keep `dm_get_light` and `dm_set_light` working by mapping to the default BSG
+1. [DONE] Add `camera.h/.c` with snapshot API from `struct bview`.
+2. [DONE] Add tests verifying camera snapshot values against known `bview` matrices.
+3. [DONE] Add `light.h/.c` with default light helpers.
+4. [DONE] Modify libdm render setup to query a default BSG light set where available.
+5. [DONE] Keep `dm_get_light` and `dm_set_light` working by mapping to the default BSG
    light state or by leaving compatibility until render action phase.
 6. Add tests for default light enable/disable behavior using existing shaded
-   mode tests.
+   mode tests.  (deferred — libbsg_camera test covers the bsg_scene_light_enable
+   path; shaded-mode dm integration tests deferred to Phase 8)
 
 Consumer migration:
 
@@ -1231,9 +1234,9 @@ Phase 6 stages:
 
 Phase 7 stages:
 
-- 7A: Add camera snapshot from `bview` and tests.
-- 7B: Add light data model and default light helpers.
-- 7C: Bridge `dm_set_light` compatibility to BSG light state.
+- 7A: [DONE] Add camera snapshot from `bview` and tests.
+- 7B: [DONE] Add light data model and default light helpers.
+- 7C: [DONE] Bridge `dm_set_light` compatibility to BSG light state.
 
 Phase 8 stages:
 
@@ -1392,15 +1395,37 @@ What is complete or substantially complete:
     lifecycle, add/remove/contains, visit/stop, policy application, scene-root
     named-set storage, per-node helpers, and illumination compatibility sync.
     All 13 libbsg tests pass (16/16 including prior tests).
+- Phase 7 camera/light snapshot API is implemented:
+  - `include/bsg/camera.h` + `src/libbsg/camera.c` add a renderer-neutral
+    `bsg_camera_snapshot` struct (width/height/aspect, ortho/perspective mode,
+    model2view/view2model/pmat matrices, eye position, look/up/right vectors,
+    scale, zclip policy) and `bsg_camera_snapshot_from_bview()` to populate
+    it from a live `struct bview`.
+  - `include/bsg/light.h` + `src/libbsg/light.c` add `bsg_light` (kind,
+    enabled, view-scoped flag, color/intensity, position/direction, spot
+    parameters), `bsg_light_set` (dynamic array with enabled flag), lifecycle
+    APIs (`create/destroy/clear/add/count/get`), and default-light helpers
+    (`bsg_light_set_create_default` matching legacy GL_LIGHT0 setup).
+  - Phase 7B also provides the scene-root light-set registry
+    (`bsg_scene_light_set_get`, `bsg_scene_light_enable`,
+    `bsg_scene_light_is_enabled`) using the global hash-map side-car pattern
+    established in earlier phases.
+  - Phase 7C: `src/libdm/view.c` `dm_draw_objs` now mirrors `dm_get_light()`
+    state into the BSG scene light set at the start of each frame via
+    `bsg_scene_light_enable((bsg_node *)v->bsg_root, dm_light_on)`, keeping
+    the BSG light model synchronized with the legacy dm lighting boolean.
+  - Unit coverage: `src/libbsg/tests/test_camera.c` with 6 tests covering
+    camera snapshot init/null-safety, identity-view snapshot, perspective mode,
+    light lifecycle, default light set content, and scene-root registry
+    enable/disable.  All 18 libbsg tests pass.
 
 What is partially complete:
 
-- No open partial items are currently tracked for Phases 1-5.
+- No open partial items are currently tracked for Phases 1-7.
 
 What is not yet implemented in this roadmap:
 
 - Phase 6F: Full BSelectState → BSG selection migration (GED selection containers).
-- Phase 7 camera/light snapshots.
 - Phase 8 render action/renderer contract.
 - Phase 9 overlay/image-layer model in the form described here.
 - Phase 10 storage split preparations (`bsg_node_core` path).
@@ -1412,11 +1437,11 @@ Immediate Next-Session Stage Prompts
 ------------------------------------
 Use these as concrete "small-unit" prompts for the next work sessions.
 
-1. Phase 7A (recommended next):
-   Add camera snapshot from `bview` and tests.
+1. Phase 8A (recommended next):
+   Add renderer ops structs and a no-op/test renderer.
 
-2. Phase 7B:
-   Add light data model and default light helpers.
+2. Phase 8B:
+   Move view-scope/LoD/transform traversal into BSG render helper.
 
-3. Phase 7C:
-   Bridge `dm_set_light` compatibility to BSG light state.
+3. Phase 8C:
+   Move material/appearance/selection resolution into render helper.

@@ -2,9 +2,11 @@ set(
   LIBBSG_SRCS
   action.c
   appearance.c
+  camera.c
   draw_set.c
   field.c
   identity.c
+  light.c
   lod.cpp
   lod_node.c
   material.c
@@ -42,9 +44,11 @@ cmakefiles(
   action.c
   appearance.c
   bsg_private.h
+  camera.c
   draw_set.c
   field.c
   identity.c
+  light.c
   lod_node.c
   material.c
   node.c

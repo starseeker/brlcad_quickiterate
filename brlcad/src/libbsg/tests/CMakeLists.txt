@@ -8,6 +8,7 @@ brlcad_addexec(test_bsg_material test_material.c "libbsg;libbv;libbu" TEST)
 brlcad_addexec(test_bsg_payload test_payload.c "libbsg;libbv;libbu" TEST)
 brlcad_addexec(test_bsg_action test_action.c "libbsg;libbv;libbu" TEST)
 brlcad_addexec(test_bsg_selection test_selection.c "libbsg;libbv;libbu" TEST)
+brlcad_addexec(test_bsg_camera test_camera.c "libbsg;libbv;libbu" TEST)
 
 #
 # bsg_vlist_cmd_cnt tests
@@ -29,6 +30,7 @@ brlcad_add_test(NAME libbsg_material COMMAND test_bsg_material)
 brlcad_add_test(NAME libbsg_payload COMMAND test_bsg_payload)
 brlcad_add_test(NAME libbsg_action COMMAND test_bsg_action)
 brlcad_add_test(NAME libbsg_selection COMMAND test_bsg_selection)
+brlcad_add_test(NAME libbsg_camera COMMAND test_bsg_camera)
 
 #
 # Phase 4: scene-graph lifecycle (create/sync/destroy/find/sensor_fire)
@@ -58,6 +60,7 @@ cmakefiles(
   CMakeLists.txt
   test_arb8.c
   test_bsg_node.c
+  test_camera.c
   test_identity.c
   test_material.c
   test_payload.c
