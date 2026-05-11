@@ -563,6 +563,8 @@ Phase 4: BSG Payloads and Geometry Containers
 Objective:
 Make shape geometry explicit and revisioned.
 
+Status (2026-05-11): [DONE] through Stage 4E.
+
 Design:
 
 - The payload API should be the only renderer-facing source of geometry.
@@ -614,14 +616,14 @@ Proposed API surface:
 
 Tasks:
 
-1. Expand `include/bsg/payload.h` or split payload headers.
-2. Add a vlist payload wrapper backed by current `s_vlist` initially.
-3. Add payload revision bumps to vlist setters, shape creation, and stale logic.
-4. Add wire-polyline conversion from `bv_vlist` move/draw commands.
-5. Add mesh payload wrapper around existing `bv_mesh_lod` where available.
-6. Update GL backend to use payload accessors for vlist and mesh draw.
-7. Update `dm_draw_scene_obj` and helper adornment drawing to use payload APIs.
-8. Add tests for vlist payload, wire conversion, payload revision, and bounds.
+1. [DONE] Expand `include/bsg/payload.h` or split payload headers.
+2. [DONE] Add a vlist payload wrapper backed by current `s_vlist` initially.
+3. [DONE] Add payload revision bumps to vlist setters, shape creation, and stale logic.
+4. [DONE] Add wire-polyline conversion from `bv_vlist` move/draw commands.
+5. [DONE] Add mesh payload wrapper around existing `bv_mesh_lod` where available.
+6. [DONE] Update GL backend to use payload accessors for vlist and mesh draw.
+7. [DONE] Update `dm_draw_scene_obj` and helper adornment drawing to use payload APIs.
+8. [DONE] Add tests for vlist payload, wire conversion, payload revision, and bounds.
 
 Consumer migration:
 
@@ -1205,11 +1207,11 @@ Phase 3 stages:
 
 Phase 4 stages:
 
-- 4A: Add payload base and vlist wrapper over `s_vlist`.
-- 4B: Migrate BSG shape vlist setter and tests to payload API.
-- 4C: Add wire-polyline conversion and tests.
-- 4D: Add mesh payload wrapper for existing mesh LoD data.
-- 4E: Migrate GL backend draw paths to payload accessors.
+- 4A: [DONE] Add payload base and vlist wrapper over `s_vlist`.
+- 4B: [DONE] Migrate BSG shape vlist setter and tests to payload API.
+- 4C: [DONE] Add wire-polyline conversion and tests.
+- 4D: [DONE] Add mesh payload wrapper for existing mesh LoD data.
+- 4E: [DONE] Migrate GL backend draw paths to payload accessors.
 
 Phase 5 stages:
 
@@ -1294,9 +1296,22 @@ What is complete or substantially complete:
   (`BSG_FIELD_NAME`, `BSG_FIELD_KIND`, `BSG_FIELD_FORCE_DRAW`,
   `BSG_FIELD_BOUNDS`, `BSG_FIELD_USER_DATA`, `BSG_FIELD_PAYLOAD`,
   `BSG_FIELD_MATERIAL`, `BSG_FIELD_APPEARANCE`, `BSG_FIELD_SELECTION`).
-- A payload-type API and pre-render dispatch hook are present in
-  `include/bsg/payload.h` and `src/libbsg/payload.c` (payload bits + update
-  callback dispatch over current storage).
+- Phase 4 payload/container API is implemented:
+  - `include/bsg/payload.h` + `src/libbsg/payload.c` now provide a typed payload
+    base (`type`, `revision`, `bounds_revision`, optional lifecycle callbacks),
+    side-car payload attachment (`bsg_node_payload_get/set`), vlist wrappers,
+    wire-polyline conversion, mesh payload wrappers, payload bounds helpers, and
+    legacy payload dispatch hooks.
+  - `src/libbsg/node_shape.c` routes `bsg_shape_set_vlist` through
+    `bsg_payload_vlist_from_node` + `bsg_payload_vlist_set`.
+  - `src/libdm/dm-gl_lod.cpp` resolves mesh and vlist geometry through payload
+    accessors first (with legacy fallback), and `src/libdm/view.c` adornment
+    helpers (for arrows) now consume vlist payload accessors.
+  - `src/libged/draw/draw.c` and `src/libged/bsg_ged_draw.c` attach/touch vlist
+    payloads when mutating shape vlist data and keep payload revisions/stale
+    signaling synchronized.
+  - Unit coverage is in `src/libbsg/tests/test_payload.c` and the libbsg test
+    suite (`libbsg_payload` via `ctest -R '^libbsg_'`).
 - Phase 2 identity/revision API is implemented through Stage 2D:
   - `include/bsg/identity.h` and `src/libbsg/identity.c` provide:
     - `bsg_node_id`, `bsg_part_id`, `bsg_instance_id`, `bsg_identity` structs
@@ -1345,10 +1360,7 @@ What is complete or substantially complete:
 
 What is partially complete:
 
-- Phase 4 has initial payload groundwork (type tagging and dispatch), but does
-  not yet have the fuller typed payload object model, vlist payload wrappers,
-  wire conversion APIs, mesh payload APIs, or payload revision lifecycle
-  described in this plan.
+- No open partial items are currently tracked for Phases 1-4.
 
 What is not yet implemented in this roadmap:
 
@@ -1366,12 +1378,12 @@ Immediate Next-Session Stage Prompts
 ------------------------------------
 Use these as concrete "small-unit" prompts for the next work sessions.
 
-1. Phase 4A (recommended next):
-   Expand `include/bsg/payload.h` with a proper payload base struct (type,
-   revision, bounds revision, lifecycle callbacks) and vlist payload wrappers.
+1. Phase 5A (recommended next):
+   Add a bbox action over payload bounds and transform stack, and migrate one
+   existing bbox helper path to use it.
 
-2. Phase 4B:
-   Migrate BSG shape vlist setter and related tests to the typed payload API.
+2. Phase 5B:
+   Add a search action API and migrate one manual BSG tree walk call site.
 
-3. Phase 4C:
-   Add wire-polyline conversion helpers and tests for payload-backed rendering.
+3. Phase 5C:
+   Add collect-action shape records for renderer-facing traversal output.
