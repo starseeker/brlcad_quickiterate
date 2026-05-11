@@ -1,5 +1,6 @@
 set(
   LIBBSG_SRCS
+  action.c
   appearance.c
   draw_set.c
   field.c
@@ -37,6 +38,7 @@ add_subdirectory(tests)
 
 cmakefiles(
   CMakeLists.txt
+  action.c
   appearance.c
   bsg_private.h
   draw_set.c

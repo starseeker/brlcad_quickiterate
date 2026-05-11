@@ -647,6 +647,8 @@ Objective:
 Move bbox/search/traversal semantics into BSG actions before adding more complex
 render and pick actions.
 
+Status (2026-05-11): [DONE] through Stage 5C.
+
 Design:
 
 - Start with simple action structs and callbacks; do not over-engineer.
@@ -673,12 +675,12 @@ Proposed API surface:
 
 Tasks:
 
-1. Add `action.h/.c` and `bounds.h/.c` if separate files are clearer.
-2. Implement bbox action using payload bounds and transform stack.
-3. Replace or wrap `bsg_subtree_bbox` and related bbox helpers with the action.
-4. Implement search action and migrate BSG internal child/path lookup where
+1. [DONE] Add `action.h/.c` and `bounds.h/.c` if separate files are clearer.
+2. [DONE] Implement bbox action using payload bounds and transform stack.
+3. [DONE] Replace or wrap `bsg_subtree_bbox` and related bbox helpers with the action.
+4. [DONE] Implement search action and migrate BSG internal child/path lookup where
    useful.
-5. Add tests for transformed bounds, view-scope filtering, LoD level selection,
+5. [DONE] Add tests for transformed bounds, view-scope filtering, LoD level selection,
    and search criteria.
 
 Consumer migration:
@@ -1215,9 +1217,9 @@ Phase 4 stages:
 
 Phase 5 stages:
 
-- 5A: Add bbox action over payload bounds.
-- 5B: Add search action and migrate one manual search call site.
-- 5C: Add collect action for renderable shape records.
+- 5A: [DONE] Add bbox action over payload bounds.
+- 5B: [DONE] Add search action and migrate one manual search call site.
+- 5C: [DONE] Add collect action for renderable shape records.
 
 Phase 6 stages:
 
@@ -1357,14 +1359,24 @@ What is complete or substantially complete:
     `bsg_node_material_set`.
   - Unit coverage includes `src/libbsg/tests/test_material.c` and updated
     `src/libged/tests/draw/tcl_adornment_bsg.cpp` assertions for BSG accessors.
+- Phase 5 action/traversal API is implemented:
+  - `include/bsg/action.h` + `src/libbsg/action.c` add the base action,
+    bbox action, search action, and collect action APIs with transform-aware
+    traversal, view-scope filtering, and LoD-aware descent.
+  - `src/libbsg/draw_set.c` now routes `bsg_subtree_bbox` through
+    `bsg_bbox_action`.
+  - `src/libbsg/scene_graph.cpp` now routes `bsg_view_find_by_type` through
+    `bsg_search_action` with direct-child depth filtering.
+  - Unit coverage includes `src/libbsg/tests/test_action.c` for transformed
+    payload bounds, view-scope filtering, LoD level selection, search criteria,
+    and collect output records.
 
 What is partially complete:
 
-- No open partial items are currently tracked for Phases 1-4.
+- No open partial items are currently tracked for Phases 1-5.
 
 What is not yet implemented in this roadmap:
 
-- Phase 5 action layer (`action.h/.c`, bbox/search/collect actions).
 - Phase 6 selection set model.
 - Phase 7 camera/light snapshots.
 - Phase 8 render action/renderer contract.
@@ -1378,12 +1390,11 @@ Immediate Next-Session Stage Prompts
 ------------------------------------
 Use these as concrete "small-unit" prompts for the next work sessions.
 
-1. Phase 5A (recommended next):
-   Add a bbox action over payload bounds and transform stack, and migrate one
-   existing bbox helper path to use it.
+1. Phase 6A (recommended next):
+   Add selection set structs and unit tests.
 
-2. Phase 5B:
-   Add a search action API and migrate one manual BSG tree walk call site.
+2. Phase 6B:
+   Add scene-root selection storage.
 
-3. Phase 5C:
-   Add collect-action shape records for renderer-facing traversal output.
+3. Phase 6C:
+   Migrate illumination helpers to selection-backed compatibility.
