@@ -204,9 +204,6 @@ _write_empty_bot(struct db_i *dbip, const char *bot_name, int verbosity)
 static void
 _clear_variant_plan(struct _ged_facetize_state *s)
 {
-    if (!s->variant_plan)
-	return;
-
     delete (FacetizeVariantPlan *)s->variant_plan;
     s->variant_plan = NULL;
 }
@@ -897,12 +894,7 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 			vcnt_tess_failures += region_vplan->n_variant_tess_failures;
 			reopened_wdb = true;
 		    }
-		    if (!region_vplan) {
-			vcnt_unavail++;
-			inspect_regions.insert(std::string(dpw[0]->d_namep) + " (perturb plan unavailable)");
-			if (s->verbosity > 0)
-			    bu_log("FACETIZE: perturb plan unavailable for %s\n", dpw[0]->d_namep);
-		    } else {
+		    if (region_vplan) {
 			if (reopened_wdb) {
 			    db_close(wdbip);
 			    wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
@@ -936,10 +928,8 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 			 * Fall back to the original-CSG reference if the db
 			 * cannot be built (e.g. no region_vplan or all primitives lack
 			 * ft_perturb support). */
-			struct db_i *perturb_dbip = NULL;
-			if (region_vplan)
-			    perturb_dbip = _create_perturbed_csg_db(
-				s->dbip, dpw[0]->d_namep, region_vplan);
+			struct db_i *perturb_dbip = _create_perturbed_csg_db(
+			    s->dbip, dpw[0]->d_namep, region_vplan);
 			struct db_i *csg_ref_dbip =
 			    perturb_dbip ? perturb_dbip : s->dbip;
 			int vret2 = _validate_csg_vs_bot(
@@ -988,6 +978,11 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 				bu_log("FACETIZE: validation unavailable after perturb retry for %s\n", dpw[0]->d_namep);
 			}
 			}
+		    } else {
+			vcnt_unavail++;
+			inspect_regions.insert(std::string(dpw[0]->d_namep) + " (perturb plan unavailable)");
+			if (s->verbosity > 0)
+			    bu_log("FACETIZE: perturb plan unavailable for %s\n", dpw[0]->d_namep);
 		    }
 		    _clear_variant_plan(s);
 		}
