@@ -91,10 +91,13 @@ tkswrast_log(const char *fmt, ...)
 }
 
 static unsigned long
-tkswrast_black_pixel(Tcl_Interp *interp, Tk_Window tkwin)
+tkswrast_black_pixel(Tk_Window tkwin)
 {
-    XColor *black = Tk_GetColor(interp, tkwin, Tk_GetUid("black"));
-    return black ? black->pixel : 0;
+#ifdef TKSWRAST_X11
+    return BlackPixelOfScreen(Tk_Screen(tkwin));
+#else
+    return 0;
+#endif
 }
 
 static void
@@ -513,7 +516,7 @@ tkswrast_open(void *ctx, void *vinterp, int argc, const char **argv)
 	    }
 	}
     }
-    Tk_SetWindowBackground(tv->xtkwin, tkswrast_black_pixel(interp, tv->xtkwin));
+    Tk_SetWindowBackground(tv->xtkwin, tkswrast_black_pixel(tv->xtkwin));
     Tk_MakeWindowExist(tv->xtkwin);
 
     tkswrast_safe_image_name(&tv->photo_name, bu_vls_addr(&dmp->i->dm_pathName));
