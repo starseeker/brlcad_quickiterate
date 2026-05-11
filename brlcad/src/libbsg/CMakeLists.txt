@@ -2,6 +2,7 @@ set(
   LIBBSG_SRCS
   draw_set.c
   field.c
+  identity.c
   lod.cpp
   lod_node.c
   node.c
@@ -37,6 +38,7 @@ cmakefiles(
   bsg_private.h
   draw_set.c
   field.c
+  identity.c
   lod_node.c
   node.c
   node_group.c
