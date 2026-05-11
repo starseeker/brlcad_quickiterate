@@ -112,7 +112,7 @@ return 1;
 	}
     }
 
-    /* Internal traversal still uses bv_scene_obj while Phase 10E keeps bsg_node typedef-backed. */
+    /* Internal traversal still uses bv_scene_obj while deferred Phase 10E keeps bsg_node typedef-backed. */
     if (bsg_node_has_kind((bsg_node *)node, BSG_NODE_LOD)) {
 int nlevels = bsg_lod_node_level_count((bsg_node *)node);
 if (nlevels <= 0)

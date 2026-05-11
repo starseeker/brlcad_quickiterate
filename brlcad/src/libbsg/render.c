@@ -169,6 +169,7 @@ _bsg_render_traverse(struct bsg_render_action *ra,
     struct bsg_appearance legacy_app;
     int have_mat = bsg_node_material_get(node, &mat);
     int have_app = bsg_node_appearance_get(node, &app);
+    /* Preserve legacy transparency fallback when no explicit BSG appearance/material is set. */
     bsg_appearance_from_legacy_obj_settings(node, &legacy_app);
     /* Transparency precedence is explicit: appearance > material > legacy. */
     fastf_t obj_transparency = legacy_app.transparency;
