@@ -453,13 +453,13 @@ Storage plan:
 
 Tasks:
 
-1. Add `identity.h` and `identity.c` or `identity.cpp`.
-2. Add minimal hash/equality helpers for IDs.
-3. Add identity side-car storage if needed.
-4. Add identity creation in `bsg_scene_root_create` and GED draw-root creation.
-5. Add identity creation for DB-backed shape leaves in libged draw code.
-6. Add identity creation for view-only objects in `bv_view_obj_create` wrappers.
-7. Add tests for deterministic path-derived identity.
+1. [DONE] Add `identity.h` and `identity.c` or `identity.cpp`.
+2. [DONE] Add minimal hash/equality helpers for IDs.
+3. [DONE] Add identity side-car storage if needed.
+4. [DONE] Add identity creation in `bsg_scene_root_create` and GED draw-root creation.
+5. [DONE] Add identity creation for DB-backed shape leaves in libged draw code.
+6. [PENDING] Add identity creation for view-only objects in `bv_view_obj_create` wrappers.
+7. [DONE] Add tests for deterministic path-derived identity.
 
 Consumer migration:
 
@@ -1187,10 +1187,10 @@ Phase 1 stages:
 
 Phase 2 stages:
 
-- 2A: Add ID structs, init/equality/hash helpers, and tests.
-- 2B: Add side-car storage and node identity get/set.
-- 2C: Add DB path identity derivation in libged draw creation.
-- 2D: Add view-object identity derivation in libbv/BSG view-object creation.
+- 2A: [DONE] Add ID structs, init/equality/hash helpers, and tests.
+- 2B: [DONE] Add side-car storage and node identity get/set.
+- 2C: [DONE] Add draw-root + DB-path identity derivation in libged/libbsg draw creation.
+- 2D: [PENDING] Add view-object identity derivation in libbv/BSG view-object creation.
 
 Phase 3 stages:
 
@@ -1277,7 +1277,7 @@ This enhancement effort is complete when:
   raytracing backend, or another renderer without rewriting BRL-CAD producers.
 
 
-Current Implementation Snapshot (2026-05-10)
+Current Implementation Snapshot (2026-05-11)
 --------------------------------------------
 This section records what is already present in the tree so future sessions can
 start from current reality rather than the idealized phase text above.
@@ -1294,9 +1294,30 @@ What is complete or substantially complete:
 - A payload-type API and pre-render dispatch hook are present in
   `include/bsg/payload.h` and `src/libbsg/payload.c` (payload bits + update
   callback dispatch over current storage).
+- Phase 2 identity/revision API is mostly implemented:
+  - `include/bsg/identity.h` and `src/libbsg/identity.c` provide:
+    - `bsg_node_id`, `bsg_part_id`, `bsg_instance_id`, `bsg_identity` structs
+      with init/equality/hash helpers (Phase 2A).
+    - Side-car identity storage with `bsg_node_identity_get/set/clear` and
+      `bsg_identity_from_path_str` (Phase 2B).
+    - Revision counters for material, payload, transform, bounds, structure,
+      appearance, and selection.
+  - Root identity is assigned in both draw-root creation entry points:
+    `src/libbsg/scene_graph.cpp` (`bsg_scene_root_create`) and
+    `src/libged/bsg_ged_draw.c` (`_sg_root`).
+  - DB-path-derived identity is assigned in both draw-leaf entry points in
+    `src/libged/draw/draw.c` (`dl_add_path` and
+    `append_solid_to_display_list`) (Phase 2C).
+  - Unit tests in `src/libbsg/tests/test_identity.c` and
+    `src/libbsg/tests/test_scene_graph.c` cover deterministic path-derived
+    identity, revision counters, and draw-root identity assignment.
 
 What is partially complete:
 
+- Phase 2 still lacks Stage 2D: view-object identity derivation in
+  `bv_view_obj_create` wrappers.  Root identity, draw-leaf identity, and the
+  current revision API are in place, but view-only object creation still does
+  not populate BSG identity side-car state.
 - Phase 4 has initial payload groundwork (type tagging and dispatch), but does
   not yet have the fuller typed payload object model, vlist payload wrappers,
   wire conversion APIs, mesh payload APIs, or payload revision lifecycle
@@ -1304,20 +1325,6 @@ What is partially complete:
 
 What is not yet implemented in this roadmap:
 
-- Phase 2 identity/revision API is implemented:
-  - `include/bsg/identity.h` and `src/libbsg/identity.c` provide:
-    - `bsg_node_id`, `bsg_part_id`, `bsg_instance_id`, `bsg_identity` structs
-      with init/equality/hash helpers (Phase 2A).
-    - Side-car identity storage with `bsg_node_identity_get/set/clear` and
-      `bsg_identity_from_path_str` (Phase 2B).
-    - DB-path-derived identity is assigned in both draw entry points
-      in `src/libged/draw/draw.c` (`dl_add_path` and
-      `append_solid_to_display_list`) (Phase 2C).
-  - Unit tests in `src/libbsg/tests/test_identity.c` (5 test groups) registered
-    as `libbsg_identity`.
-  - Revision sub-API implemented in `identity.h/.c`:
-    `bsg_node_revision` and `bsg_node_bump_revision` for material, payload,
-    transform, and bounds revision kinds (Phase 2 follow-up).
 - Phase 3 material/appearance API (`material.h/.c`, `appearance.h/.c`).
 - Phase 5 action layer (`action.h/.c`, bbox/search/collect actions).
 - Phase 6 selection set model.
@@ -1333,14 +1340,19 @@ Immediate Next-Session Stage Prompts
 ------------------------------------
 Use these as concrete "small-unit" prompts for the next work sessions.
 
-1. Phase 3A (recommended next):
+1. Phase 2D (recommended next):
+   Add view-object identity derivation in `bv_view_obj_create` wrappers without
+   introducing a libbv -> libbsg dependency cycle; cover shared-vs-local view
+   objects in tests and update this roadmap when complete.
+
+2. Phase 3A:
    Add `bsg_material` with compatibility mapping helpers and unit tests, without
    touching libdm traversal.
 
-2. Phase 3B:
+3. Phase 3B:
    Add `bsg_appearance` with draw-mode, line-width, and transparency fields.
    Map to/from `bv_obj_settings` with compatibility helpers and tests.
 
-3. Phase 4A:
+4. Phase 4A:
    Expand `include/bsg/payload.h` with a proper payload base struct (type,
    revision, bounds revision, lifecycle callbacks) and vlist payload wrappers.

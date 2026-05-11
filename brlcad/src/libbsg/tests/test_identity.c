@@ -308,6 +308,22 @@ test_node_revisions(void)
 	FAIL("payload bump #1");
     if (bsg_node_revision(na, BSG_NODE_REV_TRANSFORM) != 0)
 	FAIL("transform remains 0");
+    if (bsg_node_bump_revision(na, BSG_NODE_REV_BOUNDS) != 1)
+	FAIL("bounds bump #1");
+    if (bsg_node_bump_revision(na, BSG_NODE_REV_STRUCTURE) != 1)
+	FAIL("structure bump #1");
+    if (bsg_node_bump_revision(na, BSG_NODE_REV_APPEARANCE) != 1)
+	FAIL("appearance bump #1");
+    if (bsg_node_bump_revision(na, BSG_NODE_REV_SELECTION) != 1)
+	FAIL("selection bump #1");
+    if (bsg_node_revision(na, BSG_NODE_REV_BOUNDS) != 1)
+	FAIL("bounds rev 1");
+    if (bsg_node_revision(na, BSG_NODE_REV_STRUCTURE) != 1)
+	FAIL("structure rev 1");
+    if (bsg_node_revision(na, BSG_NODE_REV_APPEARANCE) != 1)
+	FAIL("appearance rev 1");
+    if (bsg_node_revision(na, BSG_NODE_REV_SELECTION) != 1)
+	FAIL("selection rev 1");
 
     /* independent per-node */
     if (bsg_node_revision(nb, BSG_NODE_REV_MATERIAL) != 0)
@@ -331,6 +347,14 @@ test_node_revisions(void)
 	FAIL("material rev reset after clear");
     if (bsg_node_revision(na, BSG_NODE_REV_PAYLOAD) != 0)
 	FAIL("payload rev reset after clear");
+    if (bsg_node_revision(na, BSG_NODE_REV_BOUNDS) != 0)
+	FAIL("bounds rev reset after clear");
+    if (bsg_node_revision(na, BSG_NODE_REV_STRUCTURE) != 0)
+	FAIL("structure rev reset after clear");
+    if (bsg_node_revision(na, BSG_NODE_REV_APPEARANCE) != 0)
+	FAIL("appearance rev reset after clear");
+    if (bsg_node_revision(na, BSG_NODE_REV_SELECTION) != 0)
+	FAIL("selection rev reset after clear");
 
     /* NULL safety */
     if (bsg_node_revision(NULL, BSG_NODE_REV_MATERIAL) != 0)

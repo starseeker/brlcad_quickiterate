@@ -56,6 +56,7 @@
 #include "bsg/draw_ctx.h"
 #include "bsg/draw_set.h"
 #include "bsg/field.h"
+#include "bsg/identity.h"
 #include "bsg/lod_ops.h"
 #include "bsg/overlay.h"
 #include "bsg/sensor.h"
@@ -322,8 +323,12 @@ ged_lod_adaptive_toggle_sync(struct bv_scene_obj *lod, struct bview *v, int adap
 static struct bv_scene_obj *
 _sg_root(struct ged *gedp)
 {
+    struct bsg_identity id;
+
     if (gedp->i->ged_gdp->gd_draw_root) {
 	struct bview *v = gedp->ged_gvp;
+	bsg_identity_from_path_str(&id, "_draw_root", BSG_SOURCE_GENERATED);
+	bsg_node_identity_set((bsg_node *)gedp->i->ged_gdp->gd_draw_root, &id);
 	if (v) {
 	    /* Phase F aliasing: bsg_root and gv_draw_root intentionally point to
 	     * the same shared draw-tree root for the active GED view. */
@@ -364,6 +369,8 @@ _sg_root(struct ged *gedp)
      * bsg_scene_root_sync rebuild is needed. */
     v->gv_draw_root = root;
     v->bsg_root = root;
+    bsg_identity_from_path_str(&id, "_draw_root", BSG_SOURCE_GENERATED);
+    bsg_node_identity_set((bsg_node *)root, &id);
 
     return root;
 }

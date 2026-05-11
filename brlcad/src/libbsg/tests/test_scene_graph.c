@@ -57,6 +57,7 @@
 #include "bv/defines.h"
 #include "bv/util.h"
 #include "bsg/defines.h"
+#include "bsg/identity.h"
 #include "bsg/util.h"
 
 static int g_fail = 0;
@@ -107,6 +108,7 @@ static void
 test_create_alias(void)
 {
     bu_log("=== Test 1: create_alias ===\n");
+    struct bsg_identity id_no_root, id_with_root;
 
     /* Without a draw root: standalone libbsg consumers get a minimal root. */
     struct bview *v = make_view();
@@ -114,8 +116,14 @@ test_create_alias(void)
     BSGCHECK(root != NULL,     "bsg_scene_root_create(no draw root) creates root");
     BSGCHECK(v->bsg_root == root, "view->bsg_root is set when no draw root");
     BSGCHECK(v->gv_draw_root == root, "view->gv_draw_root is set when no draw root");
+    BSGCHECK(bsg_node_identity_get(root, &id_no_root) == 1,
+	     "scene root identity assigned for standalone root");
+    BSGCHECK(id_no_root.node_id.value != 0, "scene root identity node_id is non-zero");
+    BSGCHECK(id_no_root.source_kind == BSG_SOURCE_GENERATED,
+	     "scene root identity source_kind is generated");
     bsg_scene_root_destroy(root);
     v->gv_draw_root = NULL;
+    bsg_node_identity_clear(root);
     bv_obj_put((struct bv_scene_obj *)root);
 
     /* Set up a fake draw root and re-run */
@@ -127,6 +135,12 @@ test_create_alias(void)
     BSGCHECK(v->bsg_root == root,        "view->bsg_root == returned root");
     BSGCHECK(v->bsg_root == v->gv_draw_root,
 	     "bsg_root is an alias for gv_draw_root (Phase F)");
+    BSGCHECK(bsg_node_identity_get(root, &id_with_root) == 1,
+	     "scene root identity assigned for existing draw root");
+    BSGCHECK(id_with_root.node_id.value == id_no_root.node_id.value,
+	     "scene root identity is stable across creation paths");
+    BSGCHECK(id_with_root.source_kind == BSG_SOURCE_GENERATED,
+	     "existing draw root identity source_kind is generated");
 
     /* Destroy: clears bsg_root but does NOT free the node */
     bsg_scene_root_destroy(root);
@@ -139,6 +153,7 @@ test_create_alias(void)
     /* Clean up the fake draw root manually (bsg_scene_root_destroy does not
      * free it, as it is owned by the draw-tree lifecycle). */
     v->gv_draw_root = NULL;
+    bsg_node_identity_clear((bsg_node *)dr);
     bv_obj_put(dr);
     free_view(v);
 }
@@ -175,6 +190,7 @@ test_sync_noop(void)
 
     bsg_scene_root_destroy(root);
     v->gv_draw_root = NULL;
+    bsg_node_identity_clear((bsg_node *)dr);
     bv_obj_put(dr);
     free_view(v);
 }
@@ -220,6 +236,7 @@ test_find_by_type(void)
      * objects here — let free_view() sweep the pool. */
     bsg_scene_root_destroy(root);
     v->gv_draw_root = NULL;
+    bsg_node_identity_clear(root);
     free_view(v);
 }
 
@@ -275,6 +292,7 @@ test_sensor_fire(void)
      * pointer; free_view handles the pool sweep. */
     bsg_scene_root_destroy(root);
     v->gv_draw_root = NULL;
+    bsg_node_identity_clear(root);
     free_view(v);
 }
 
