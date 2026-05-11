@@ -357,6 +357,18 @@ struct bv_view_obj_opts {
 /* C99/C++ aggregate initializer for bv_view_obj_opts. */
 #define BV_VIEW_OBJ_OPTS_INIT {0, 0}
 
+/* Optional hook for assigning identity metadata when a view-only object is
+ * created via bv_view_obj_create().  This lets higher layers (e.g. libbsg)
+ * derive BSG identity without introducing a libbv->libbsg dependency. */
+typedef void (*bv_view_obj_identity_hook_t)(struct bv_scene_obj *obj,
+					    struct bview *v,
+					    struct bv_scene_obj *scope,
+					    const char *name,
+					    int local,
+					    int name_ordinal);
+BV_EXPORT void
+bv_view_obj_identity_hook_set(bv_view_obj_identity_hook_t hook);
+
 BV_EXPORT struct bv_scene_obj *
 bv_view_obj_create(struct bview *v, const char *name, unsigned long long type_flags, const struct bv_view_obj_opts *opts);
 BV_EXPORT struct bv_scene_obj *

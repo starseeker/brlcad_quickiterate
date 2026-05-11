@@ -53,9 +53,26 @@
 #include "bv/view_sets.h"
 
 #include "bsg/defines.h"
+#include "bsg/identity.h"
 #include "bsg/util.h"
 #include "bsg/visit.h"
 #include "bsg/scene_set.h"
+
+/* ---------------------------------------------------------------------- */
+/* Helpers                                                                  */
+/* ---------------------------------------------------------------------- */
+
+static void
+_bsg_scene_root_identity_assign(struct bv_scene_obj *root)
+{
+    struct bsg_identity id;
+
+    if (!root)
+	return;
+
+    bsg_identity_from_path_str(&id, "_draw_root", BSG_SOURCE_GENERATED);
+    bsg_node_identity_set((bsg_node *)root, &id);
+}
 
 /* ---------------------------------------------------------------------- */
 /* Public API                                                               */
@@ -66,6 +83,8 @@ bsg_scene_root_create(struct bview *v)
 {
     if (!v)
 	return NULL;
+
+    bsg_identity_enable_view_obj_derivation();
 
     /* If this view is part of a set and doesn't yet have a draw root, inherit
      * the active draw root from another view in the set.  This keeps secondary
@@ -104,6 +123,7 @@ bsg_scene_root_create(struct bview *v)
 	v->gv_draw_root = root;
     }
 
+    _bsg_scene_root_identity_assign((struct bv_scene_obj *)v->gv_draw_root);
     v->bsg_root = v->gv_draw_root;
     return (bsg_node *)v->bsg_root;
 }

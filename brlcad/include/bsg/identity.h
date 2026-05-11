@@ -69,6 +69,9 @@ enum bsg_node_revision_kind {
     BSG_NODE_REV_PAYLOAD,
     BSG_NODE_REV_TRANSFORM,
     BSG_NODE_REV_BOUNDS,
+    BSG_NODE_REV_STRUCTURE,
+    BSG_NODE_REV_APPEARANCE,
+    BSG_NODE_REV_SELECTION,
     BSG_NODE_REV_COUNT
 };
 
@@ -166,6 +169,13 @@ bsg_node_revision(const bsg_node *n, int rev_kind);
  */
 BSG_EXPORT extern uint64_t
 bsg_node_bump_revision(bsg_node *n, int rev_kind);
+
+/**
+ * Phase 2D: enable view-object identity derivation hooks in libbv
+ * bv_view_obj_create wrappers.
+ */
+BSG_EXPORT extern void
+bsg_identity_enable_view_obj_derivation(void);
 
 __END_DECLS
 

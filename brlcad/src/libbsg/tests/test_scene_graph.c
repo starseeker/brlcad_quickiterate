@@ -57,6 +57,7 @@
 #include "bv/defines.h"
 #include "bv/util.h"
 #include "bsg/defines.h"
+#include "bsg/identity.h"
 #include "bsg/util.h"
 
 static int g_fail = 0;
@@ -107,6 +108,7 @@ static void
 test_create_alias(void)
 {
     bu_log("=== Test 1: create_alias ===\n");
+    struct bsg_identity id_no_root, id_with_root;
 
     /* Without a draw root: standalone libbsg consumers get a minimal root. */
     struct bview *v = make_view();
@@ -114,8 +116,14 @@ test_create_alias(void)
     BSGCHECK(root != NULL,     "bsg_scene_root_create(no draw root) creates root");
     BSGCHECK(v->bsg_root == root, "view->bsg_root is set when no draw root");
     BSGCHECK(v->gv_draw_root == root, "view->gv_draw_root is set when no draw root");
+    BSGCHECK(bsg_node_identity_get(root, &id_no_root) == 1,
+	     "scene root identity assigned for standalone root");
+    BSGCHECK(id_no_root.node_id.value != 0, "scene root identity node_id is non-zero");
+    BSGCHECK(id_no_root.source_kind == BSG_SOURCE_GENERATED,
+	     "scene root identity source_kind is generated");
     bsg_scene_root_destroy(root);
     v->gv_draw_root = NULL;
+    bsg_node_identity_clear(root);
     bv_obj_put((struct bv_scene_obj *)root);
 
     /* Set up a fake draw root and re-run */
@@ -127,6 +135,12 @@ test_create_alias(void)
     BSGCHECK(v->bsg_root == root,        "view->bsg_root == returned root");
     BSGCHECK(v->bsg_root == v->gv_draw_root,
 	     "bsg_root is an alias for gv_draw_root (Phase F)");
+    BSGCHECK(bsg_node_identity_get(root, &id_with_root) == 1,
+	     "scene root identity assigned for existing draw root");
+    BSGCHECK(id_with_root.node_id.value == id_no_root.node_id.value,
+	     "scene root identity matches between standalone and pre-existing roots");
+    BSGCHECK(id_with_root.source_kind == BSG_SOURCE_GENERATED,
+	     "existing draw root identity source_kind is generated");
 
     /* Destroy: clears bsg_root but does NOT free the node */
     bsg_scene_root_destroy(root);
@@ -139,6 +153,7 @@ test_create_alias(void)
     /* Clean up the fake draw root manually (bsg_scene_root_destroy does not
      * free it, as it is owned by the draw-tree lifecycle). */
     v->gv_draw_root = NULL;
+    bsg_node_identity_clear((bsg_node *)dr);
     bv_obj_put(dr);
     free_view(v);
 }
@@ -175,6 +190,7 @@ test_sync_noop(void)
 
     bsg_scene_root_destroy(root);
     v->gv_draw_root = NULL;
+    bsg_node_identity_clear((bsg_node *)dr);
     bv_obj_put(dr);
     free_view(v);
 }
@@ -220,6 +236,7 @@ test_find_by_type(void)
      * objects here — let free_view() sweep the pool. */
     bsg_scene_root_destroy(root);
     v->gv_draw_root = NULL;
+    bsg_node_identity_clear(root);
     free_view(v);
 }
 
@@ -275,14 +292,68 @@ test_sensor_fire(void)
      * pointer; free_view handles the pool sweep. */
     bsg_scene_root_destroy(root);
     v->gv_draw_root = NULL;
+    bsg_node_identity_clear(root);
     free_view(v);
 }
 
-/* ---- Test 6: null guards ------------------------------------------- */
+/* ---- Test 6: view_obj_identity ------------------------------------- */
+static void
+test_view_obj_identity(void)
+{
+    bu_log("=== Test 6: view_obj_identity ===\n");
+
+    struct bview *v = make_view();
+    bsg_node *root = bsg_scene_root_create(v);
+    if (!root) { g_fail++; free_view(v); return; }
+
+    struct bv_view_obj_opts opts = BV_VIEW_OBJ_OPTS_INIT;
+    struct bsg_identity id_shared_0, id_shared_1, id_local;
+
+    opts.local = 0;
+    struct bv_scene_obj *shared0 = bv_view_obj_create(v, "phase2d_obj", 0, &opts);
+    struct bv_scene_obj *shared1 = bv_view_obj_create(v, "phase2d_obj", 0, &opts);
+    opts.local = 1;
+    struct bv_scene_obj *local0 = bv_view_obj_create(v, "phase2d_obj", 0, &opts);
+
+    BSGCHECK(shared0 != NULL, "shared view object #0 created");
+    BSGCHECK(shared1 != NULL, "shared view object #1 created");
+    BSGCHECK(local0 != NULL, "local view object created");
+
+    BSGCHECK(bsg_node_identity_get((bsg_node *)shared0, &id_shared_0) == 1,
+	     "shared view object #0 has identity");
+    BSGCHECK(bsg_node_identity_get((bsg_node *)shared1, &id_shared_1) == 1,
+	     "shared view object #1 has identity");
+    BSGCHECK(bsg_node_identity_get((bsg_node *)local0, &id_local) == 1,
+	     "local view object has identity");
+
+    BSGCHECK(id_shared_0.source_kind == BSG_SOURCE_VIEW_OBJECT,
+	     "shared view object source kind is view object");
+    BSGCHECK(id_shared_1.source_kind == BSG_SOURCE_VIEW_OBJECT,
+	     "second shared view object source kind is view object");
+    BSGCHECK(id_local.source_kind == BSG_SOURCE_VIEW_OBJECT,
+	     "local view object source kind is view object");
+
+    BSGCHECK(id_shared_0.node_id.value != 0,
+	     "shared view object identity is non-zero");
+    BSGCHECK(id_shared_1.node_id.value != id_shared_0.node_id.value,
+	     "duplicate shared names get distinct derived identities");
+    BSGCHECK(id_local.node_id.value != id_shared_0.node_id.value,
+	     "local and shared objects get distinct derived identities");
+
+    bsg_node_identity_clear((bsg_node *)shared0);
+    bsg_node_identity_clear((bsg_node *)shared1);
+    bsg_node_identity_clear((bsg_node *)local0);
+    bsg_scene_root_destroy(root);
+    v->gv_draw_root = NULL;
+    bsg_node_identity_clear(root);
+    free_view(v);
+}
+
+/* ---- Test 7: null guards ------------------------------------------- */
 static void
 test_null_guards(void)
 {
-    bu_log("=== Test 6: null_guards ===\n");
+    bu_log("=== Test 7: null_guards ===\n");
     int fails_before = g_fail;
 
     /* These must not crash */
@@ -312,6 +383,7 @@ main(int UNUSED(argc), char *argv[])
     test_sync_noop();
     test_find_by_type();
     test_sensor_fire();
+    test_view_obj_identity();
     test_null_guards();
 
     if (g_fail) {
