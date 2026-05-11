@@ -466,12 +466,13 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	return;
 
     // Assign color attributes
-    /* Phase 6D (BSG selection): query BSG "active" selection first;
-     * fall back to legacy s_iflag == UP for compatibility. */
-    int is_highlighted = (s->s_iflag == UP) ||
-	(v->bsg_root &&
+    /* Phase 6D (BSG selection): query BSG "active" selection first (authoritative
+     * in BSG-forward code paths), with legacy s_iflag == UP as compatibility
+     * fallback for callers that have not yet migrated to BSG selection APIs. */
+    int is_highlighted = (v->bsg_root &&
 	 bsg_node_is_selected((const bsg_node *)v->bsg_root,
-			      (const bsg_node *)s, "active"));
+			      (const bsg_node *)s, "active")) ||
+	(s->s_iflag == UP);
 
     if (obj_settings) {
 	dm_set_fg(dmp, obj_settings->color[0], obj_settings->color[1], obj_settings->color[2], 0, obj_settings->transparency);

@@ -481,8 +481,10 @@ test_from_illum_flags(void)
 	bsg_scene_selection_get(root, "active", 0);
     if (!active) FAIL("'active' set should exist after from_illum_flags");
 
-    /* The root itself is the first node visited; it may have s_iflag == 0
-     * (DOWN by default for a test root), so only s1 should be in the set. */
+    /* bsg_visit performs a depth-first pre-order traversal starting from root.
+     * The root itself (r) is visited first, followed by its children (s1, s2).
+     * Since root's s_iflag is DOWN by default in this test, only s1 (UP) ends
+     * up in the "active" set. */
     if (!bsg_selection_contains(active, s1))
 	FAIL("s1 (iflag UP) should be in 'active' set");
     if (bsg_selection_contains(active, s2))
