@@ -1273,7 +1273,7 @@ Phase 10 stages:
 
 Phase 11 stages:
 
-- 11A: libbsg internal direct-field sweep.
+- 11A: [DONE] libbsg internal direct-field sweep.
 - 11B: libged draw/erase/redraw sweep.
 - 11C: libdm render/backend sweep.
 - 11D: libtclcad/Archer adornment and getter/setter sweep.
@@ -1298,7 +1298,7 @@ This enhancement effort is complete when:
   raytracing backend, or another renderer without rewriting BRL-CAD producers.
 
 
-Current Implementation Snapshot (2026-05-11, updated Phase 10)
+Current Implementation Snapshot (2026-05-11, updated Phase 11A)
 --------------------------------------------
 This section records what is already present in the tree so future sessions can
 start from current reality rather than the idealized phase text above.
@@ -1516,17 +1516,35 @@ What is complete or substantially complete:
     core embedding, kind/parent routing, sidecar storage in core, identity and
     revisions inline, and public node-core API.
   - All 20 libbsg_* tests pass.
+- Phase 11A libbsg direct-field sweep is implemented for traversal/search/render
+  hot paths:
+  - `src/libbsg/render.c` now routes kind/child/transform/visibility checks
+    through `bsg_node_*` and `bsg_view_scope_visible` accessors for scene
+    traversal and frame passes.
+  - `src/libbsg/action.c` now routes view-scope, transform, kind, parent, and
+    child traversal checks through `bsg_node_*`/`bsg_view_scope_visible`
+    accessors in generic traversal and search/collect helpers.
+  - `src/libbsg/visit.c` now uses `bsg_node_kind`, `bsg_node_child_count`, and
+    `bsg_node_child` instead of direct `bv_scene_obj` field reads.
+  - `src/libbsg/selection.c` compatibility illumination sync now clears or sets
+    highlight flags by BSG tree traversal (`bsg_visit`) rather than manually
+    iterating only root children.
+  - Validation: `ctest --output-on-failure -R '^libbsg_'` passes (20/20).
 
 What is partially complete:
 
 - No open partial items are currently tracked for Phases 1-9.
 - Phase 10E (ABI break / make `struct bsg_node` real): deferred.
+- Phase 11 complete status:
+  - 11A libbsg internal direct-field sweep: done (accessor migration in core
+    traversal/search/render paths).
+  - 11B-11G consumer sweeps: pending.
 
 What is not yet implemented in this roadmap:
 
 - Phase 6F: Full BSelectState → BSG selection migration (GED selection containers).
 - Phase 10E ABI break (making `bsg_node` independent of `bv_scene_obj`).
-- Phase 11 broad consumer sweeps under this specific API plan.
+- Phase 11B-11G broad consumer sweeps under this specific API plan.
 - Phases 12-13 deprecation and readiness gate execution.
 
 
@@ -1538,14 +1556,14 @@ Use these as concrete "small-unit" prompts for the next work sessions.
    Make `struct bsg_node` a real type independent of `bv_scene_obj` and move
    backward-compat wrappers into libbv.  Requires coordinated ABI version bump.
 
-2. Phase 11A (recommended next):
-   libbsg internal direct-field sweep: identify remaining direct `bv_scene_obj`
-   field accesses inside libbsg source files and replace with BSG accessor calls.
-
-3. Phase 11B:
+2. Phase 11B (recommended next):
    libged draw/erase/redraw sweep: route remaining direct bv_scene_obj accesses
    in libged through bsg_node_* accessors.
 
-4. Phase 11C:
+3. Phase 11C:
    libdm render/backend sweep: clean up residual direct-field accesses in
    `_dm_draw_scene_obj_internal` and related helpers.
+
+4. Phase 11D:
+   libtclcad/Archer adornment and getter/setter sweep: move Tcl-side drawing
+   state reads/writes to BSG APIs and leave `gv_tcl` as compatibility scratch.

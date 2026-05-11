@@ -79,7 +79,7 @@ const struct bsg_renderer_ops bsg_renderer_noop = {
  */
 static void
 _bsg_render_traverse(struct bsg_render_action *ra,
-		     struct bv_scene_obj *node,
+		     bsg_node *node,
 		     const mat_t parent_xform,
 		     int pass)
 {
@@ -92,51 +92,50 @@ _bsg_render_traverse(struct bsg_render_action *ra,
     unsigned long long pflags = 0;
 
     /* Skip non-drawable structural meta-nodes. */
-    if (node->s_type_flags & BSG_NODE_SENSOR)
+    if (bsg_node_has_kind(node, BSG_NODE_SENSOR))
 	return;
-    if (node->s_type_flags & BSG_NODE_VIEW_BRIDGE)
+    if (bsg_node_has_kind(node, BSG_NODE_VIEW_BRIDGE))
 	return;
 
     /* Phase V1 (view-scope): skip nodes scoped to a different view.
      * NULL s_v means "shared" (visible to all views).  When visible,
      * recurse into children — the scope node itself has no geometry. */
-    if (node->s_type_flags & BSG_NODE_VIEW_SCOPE) {
-	if (v && node->s_v != NULL && node->s_v != v)
+    if (bsg_node_has_kind(node, BSG_NODE_VIEW_SCOPE)) {
+	if (!bsg_view_scope_visible(node, v))
 	    return;
-	for (size_t i = 0; i < BU_PTBL_LEN(&node->children); i++) {
-	    struct bv_scene_obj *c =
-		(struct bv_scene_obj *)BU_PTBL_GET(&node->children, i);
+	for (size_t i = 0; i < bsg_node_child_count(node); i++) {
+	    bsg_node *c = bsg_node_child(node, i);
 	    _bsg_render_traverse(ra, c, parent_xform, pass);
 	}
 	return;
     }
 
     /* Phase L0 (LoD): render only the active LoD level. */
-    if (node->s_type_flags & BSG_NODE_LOD) {
-	int nlevels = bsg_lod_node_level_count((bsg_node *)node);
+    if (bsg_node_has_kind(node, BSG_NODE_LOD)) {
+	int nlevels = bsg_lod_node_level_count(node);
 	if (nlevels <= 0)
 	    return;
-	int active = bsg_lod_node_active_level((bsg_node *)node, v);
+	int active = bsg_lod_node_active_level(node, v);
 	if (active < 0 || active >= nlevels)
 	    active = 0;
-	struct bv_scene_obj *child =
-	    (struct bv_scene_obj *)BU_PTBL_GET(&node->children, active);
+	bsg_node *child = bsg_node_child(node, (size_t)active);
 	if (child)
 	    _bsg_render_traverse(ra, child, parent_xform, pass);
 	return;
     }
 
     /* Phase 8B (transform): push accumulated matrix, recurse, pop. */
-    if (node->s_type_flags & BSG_NODE_TRANSFORM) {
+    if (bsg_node_has_kind(node, BSG_NODE_TRANSFORM)) {
 	mat_t new_xform;
-	bn_mat_mul(new_xform, parent_xform, node->s_mat);
+	mat_t nmat;
+	bsg_node_transform_get(node, nmat);
+	bn_mat_mul(new_xform, parent_xform, nmat);
 
 	if (ops->push_transform)
 	    ops->push_transform(data, new_xform, parent_xform);
 
-	for (size_t i = 0; i < BU_PTBL_LEN(&node->children); i++) {
-	    struct bv_scene_obj *c =
-		(struct bv_scene_obj *)BU_PTBL_GET(&node->children, i);
+	for (size_t i = 0; i < bsg_node_child_count(node); i++) {
+	    bsg_node *c = bsg_node_child(node, i);
 	    _bsg_render_traverse(ra, c, new_xform, pass);
 	}
 
@@ -147,13 +146,13 @@ _bsg_render_traverse(struct bsg_render_action *ra,
 
     /* Phase 9A: overlay payload hook.  Overlay payloads are rendered once
      * (single pass or opaque pass) through draw_overlay when available. */
-    pflags = bsg_node_get_payload_type((const bsg_node *)node);
+    pflags = bsg_node_get_payload_type(node);
     if (pflags & BSG_PAYLOAD_OVERLAY) {
 	if (pass != BSG_RENDER_PASS_TRANSPARENT) {
 	    if (ops->draw_overlay) {
 		ops->draw_overlay(data, (bsg_node *)node, v);
 	    } else if (ops->draw_payload) {
-		ops->draw_payload(data, (bsg_node *)node, v, parent_xform, pass);
+		ops->draw_payload(data, node, v, parent_xform, pass);
 	    }
 	}
 	return;
@@ -162,35 +161,36 @@ _bsg_render_traverse(struct bsg_render_action *ra,
     /* ------------------------------------------------------------------ */
     /* Drawable node: resolve BSG material/appearance/selection (Phase 8C) */
     /* ------------------------------------------------------------------ */
-    if (node->s_flag == DOWN && !node->s_force_draw)
+    if (!bsg_node_visible(node) && !bsg_node_force_draw(node))
 	return;
 
     struct bsg_material   mat;
     struct bsg_appearance app;
-    int have_mat = bsg_node_material_get((const bsg_node *)node, &mat);
-    int have_app = bsg_node_appearance_get((const bsg_node *)node, &app);
+    struct bsg_appearance legacy_app;
+    int have_mat = bsg_node_material_get(node, &mat);
+    int have_app = bsg_node_appearance_get(node, &app);
+    bsg_appearance_from_legacy_obj_settings(node, &legacy_app);
 
     fastf_t obj_transparency =
 	have_app ? app.transparency :
-	(have_mat ? mat.transparency : node->s_os->transparency);
+	(have_mat ? mat.transparency : legacy_app.transparency);
 
     /* Phase 6D: BSG "active" selection first; legacy s_iflag fallback. */
     int is_highlighted =
 	(v && v->bsg_root &&
-	 bsg_node_is_selected((const bsg_node *)v->bsg_root,
-			      (const bsg_node *)node, "active")) ||
-	(node->s_iflag == UP);
+	 bsg_node_is_selected((const bsg_node *)v->bsg_root, node, "active")) ||
+	(((const struct bv_scene_obj *)node)->s_iflag == UP);
 
     /* Invoke renderer ops with resolved BSG state. */
     if (ops->set_material)
-	ops->set_material(data, (bsg_node *)node,
+	ops->set_material(data, node,
 			  &mat, have_mat, is_highlighted, obj_transparency);
 
     if (ops->set_appearance)
-	ops->set_appearance(data, (bsg_node *)node, &app, have_app);
+	ops->set_appearance(data, node, &app, have_app);
 
     if (ops->draw_payload)
-	ops->draw_payload(data, (bsg_node *)node, v, parent_xform, pass);
+	ops->draw_payload(data, node, v, parent_xform, pass);
 }
 
 
@@ -231,7 +231,6 @@ bsg_render_action_apply(struct bsg_render_action *ra, bsg_node *root)
     const struct bsg_renderer_ops *ops = ra->ops;
     void *data = ra->renderer_data;
     struct bview *v = ra->view;
-    struct bv_scene_obj *r = (struct bv_scene_obj *)root;
 
     /* Camera snapshot — derived from the active view when available. */
     if (v && ops->set_camera) {
@@ -271,9 +270,8 @@ bsg_render_action_apply(struct bsg_render_action *ra, bsg_node *root)
 
     if (has_transparency) {
 	/* --- Opaque pass: draw objects with transparency == 1.0 --- */
-	for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
-	    struct bv_scene_obj *c =
-		(struct bv_scene_obj *)BU_PTBL_GET(&r->children, i);
+	for (size_t i = 0; i < bsg_node_child_count(root); i++) {
+	    bsg_node *c = bsg_node_child(root, i);
 	    _bsg_render_traverse(ra, c, initial_xform, BSG_RENDER_PASS_OPAQUE);
 	}
 
@@ -282,9 +280,8 @@ bsg_render_action_apply(struct bsg_render_action *ra, bsg_node *root)
 	    ops->set_depth_mask(data, 0);
 
 	/* --- Transparent pass: draw objects with transparency < 1.0 --- */
-	for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
-	    struct bv_scene_obj *c =
-		(struct bv_scene_obj *)BU_PTBL_GET(&r->children, i);
+	for (size_t i = 0; i < bsg_node_child_count(root); i++) {
+	    bsg_node *c = bsg_node_child(root, i);
 	    _bsg_render_traverse(ra, c, initial_xform, BSG_RENDER_PASS_TRANSPARENT);
 	}
 
@@ -294,9 +291,8 @@ bsg_render_action_apply(struct bsg_render_action *ra, bsg_node *root)
 
     } else {
 	/* Single-pass: all objects regardless of transparency. */
-	for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
-	    struct bv_scene_obj *c =
-		(struct bv_scene_obj *)BU_PTBL_GET(&r->children, i);
+	for (size_t i = 0; i < bsg_node_child_count(root); i++) {
+	    bsg_node *c = bsg_node_child(root, i);
 	    _bsg_render_traverse(ra, c, initial_xform, BSG_RENDER_PASS_ALL);
 	}
     }

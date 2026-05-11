@@ -32,6 +32,7 @@
 #include "bsg/lod_ops.h"
 #include "bsg/node.h"
 #include "bsg/payload.h"
+#include "bsg/view_scope.h"
 
 static void
 _bsg_bbox_from_payload_or_shape(const struct bv_scene_obj *s, vect_t *lmin, vect_t *lmax)
@@ -87,15 +88,17 @@ _bsg_action_traverse(struct bsg_action *action, struct bv_scene_obj *node, const
     if (!action || !node)
 return 1;
 
-    if (node->s_type_flags & BSG_NODE_VIEW_SCOPE) {
-if (action->view && node->s_v && node->s_v != action->view)
-    return 1;
-    }
+    if (bsg_node_has_kind((bsg_node *)node, BSG_NODE_VIEW_SCOPE) &&
+	!bsg_view_scope_visible((bsg_node *)node, action->view))
+	return 1;
 
     mat_t world;
     MAT_COPY(world, parent_mat);
-    if (node->s_type_flags & BSG_NODE_TRANSFORM)
-bn_mat_mul(world, parent_mat, node->s_mat);
+    if (bsg_node_has_kind((bsg_node *)node, BSG_NODE_TRANSFORM)) {
+	mat_t nmat;
+	bsg_node_transform_get((const bsg_node *)node, nmat);
+	bn_mat_mul(world, parent_mat, nmat);
+    }
 
     if (action->node_cb) {
 	action->current_depth = depth;
@@ -109,7 +112,7 @@ bn_mat_mul(world, parent_mat, node->s_mat);
 	}
     }
 
-    if (node->s_type_flags & BSG_NODE_LOD) {
+    if (bsg_node_has_kind((bsg_node *)node, BSG_NODE_LOD)) {
 int nlevels = bsg_lod_node_level_count((bsg_node *)node);
 if (nlevels <= 0)
     return 1;
@@ -120,14 +123,14 @@ if (level < 0)
 if (level < 0 || level >= nlevels)
     level = 0;
 
-struct bv_scene_obj *child = (struct bv_scene_obj *)BU_PTBL_GET(&node->children, level);
+struct bv_scene_obj *child = (struct bv_scene_obj *)bsg_node_child((bsg_node *)node, (size_t)level);
 if (!child)
     return 1;
 	return _bsg_action_traverse(action, child, world, depth + 1);
     }
 
-    for (size_t i = 0; i < BU_PTBL_LEN(&node->children); i++) {
-struct bv_scene_obj *child = (struct bv_scene_obj *)BU_PTBL_GET(&node->children, i);
+    for (size_t i = 0; i < bsg_node_child_count((bsg_node *)node); i++) {
+struct bv_scene_obj *child = (struct bv_scene_obj *)bsg_node_child((bsg_node *)node, i);
 if (!child)
     continue;
 	if (!_bsg_action_traverse(action, child, world, depth + 1))
@@ -197,10 +200,11 @@ _bsg_bbox_cb(struct bsg_action *base, bsg_node *node, const mat_t world)
     struct bv_scene_obj *s = (struct bv_scene_obj *)node;
     vect_t lmin, lmax, wmin, wmax;
 
-    if (!(s->s_type_flags & BSG_NODE_SHAPE))
+    if (!bsg_node_has_kind((const bsg_node *)s, BSG_NODE_SHAPE))
 return BSG_ACTION_CONTINUE;
 
-    if (!base->include_overlays && (s->s_type_flags & BSG_PAYLOAD_OVERLAY))
+    if (!base->include_overlays &&
+	(bsg_node_get_payload_type((const bsg_node *)s) & BSG_PAYLOAD_OVERLAY))
 return BSG_ACTION_CONTINUE;
 
     _bsg_bbox_from_payload_or_shape(s, &lmin, &lmax);
@@ -251,14 +255,13 @@ _bsg_search_match(const struct bsg_search_action *action, const struct bv_scene_
     struct bsg_identity nid;
 
     if (action->use_name) {
-if (!BU_VLS_IS_INITIALIZED(&node->s_name))
-    return 0;
-if (!BU_STR_EQUAL(action->name, bu_vls_cstr(&node->s_name)))
-    return 0;
+	const char *nname = bsg_node_name((const bsg_node *)node);
+	if (!nname || !BU_STR_EQUAL(action->name, nname))
+	    return 0;
     }
 
     if (action->use_kind_mask) {
-if ((node->s_type_flags & action->kind_mask) != action->kind_mask)
+if ((bsg_node_kind((const bsg_node *)node) & action->kind_mask) != action->kind_mask)
     return 0;
     }
 
@@ -275,7 +278,7 @@ if ((bsg_node_get_payload_type((const bsg_node *)node) & action->payload_mask) !
     }
 
     if (action->use_parent) {
-	if ((bsg_node *)node->parent != action->parent)
+	if (bsg_node_parent((const bsg_node *)node) != action->parent)
 	    return 0;
     }
 
@@ -514,10 +517,11 @@ _bsg_collect_cb(struct bsg_action *base, bsg_node *node, const mat_t world)
     struct bv_scene_obj *s = (struct bv_scene_obj *)node;
     vect_t lmin, lmax, wmin, wmax;
 
-    if (!(s->s_type_flags & BSG_NODE_SHAPE))
+    if (!bsg_node_has_kind((const bsg_node *)s, BSG_NODE_SHAPE))
 return BSG_ACTION_CONTINUE;
 
-    if (!base->include_overlays && (s->s_type_flags & BSG_PAYLOAD_OVERLAY))
+    if (!base->include_overlays &&
+	(bsg_node_get_payload_type((const bsg_node *)s) & BSG_PAYLOAD_OVERLAY))
 return BSG_ACTION_CONTINUE;
 
     if (!bsg_node_visible((const bsg_node *)s))

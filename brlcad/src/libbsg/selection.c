@@ -403,6 +403,7 @@ bsg_node_is_selected(const bsg_node *root, const bsg_node *node,
  */
 struct _sync_illum_ctx {
     struct bsg_selection_set *active_ss;
+    int clear_all;
 };
 
 static int
@@ -413,7 +414,7 @@ _sync_illum_cb(bsg_node *n, void *data)
     if (!s)
 	return 1;
 
-    int in_active = bsg_selection_contains(ctx->active_ss, n);
+    int in_active = (ctx->clear_all) ? 0 : bsg_selection_contains(ctx->active_ss, n);
     s->s_iflag = in_active ? UP : DOWN;
     return 1; /* continue */
 }
@@ -428,18 +429,16 @@ bsg_selection_sync_illum_flags(bsg_node *root)
 	bsg_scene_selection_get(root, "active", 0);
     if (!ss) {
 	/* No "active" set: clear all flags. */
-	struct bv_scene_obj *r = (struct bv_scene_obj *)root;
-	for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
-	    struct bv_scene_obj *c =
-		(struct bv_scene_obj *)BU_PTBL_GET(&r->children, i);
-	    if (c)
-		c->s_iflag = DOWN;
-	}
+	struct _sync_illum_ctx no_sel_ctx;
+	no_sel_ctx.active_ss = NULL;
+	no_sel_ctx.clear_all = 1;
+	bsg_visit(root, 0, _sync_illum_cb, &no_sel_ctx);
 	return;
     }
 
     struct _sync_illum_ctx ctx;
     ctx.active_ss = ss;
+    ctx.clear_all = 0;
     bsg_visit(root, 0, _sync_illum_cb, &ctx);
 }
 
