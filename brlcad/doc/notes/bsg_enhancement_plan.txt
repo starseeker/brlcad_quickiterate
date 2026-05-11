@@ -957,7 +957,7 @@ Acceptance criteria:
 - No regression in MGED/QGED framebuffer update behavior.
 
 
-Phase 10: Storage Split and ABI Break Preparation
+Phase 10: Storage Split and ABI Break Preparation  [DONE]
 -------------------------------------------------
 Objective:
 Prepare to make `bsg_node` independent from raw `bv_scene_obj` storage.
@@ -966,45 +966,56 @@ Design:
 
 - This phase should not begin until phases 1-9 have migrated most consumers to
   BSG accessors.
-- Decide whether to embed a `bsg_node_core` inside `bv_scene_obj`, make
-  `bv_scene_obj` wrap `bsg_node`, or replace `bv_scene_obj` with `bsg_node` and
-  keep compatibility typedefs for one release cycle.
+- Decided to embed a `bsg_node_core` inside `bv_scene_obj` as the first step,
+  routing all BSG sidecar data through the inline struct, eliminating global
+  hash maps, and installing a cleanup hook for bv_obj_reset().
 
-Recommended transition:
+Recommended transition (executed):
 
-1. Add `struct bsg_node_core` with stable fields: magic, kind, name, parent,
-   children, identity, material, appearance, payload, selection flags, revisions,
-   private implementation pointer.
-2. Embed `bsg_node_core` in `bv_scene_obj` temporarily.
-3. Change BSG accessors to operate on `bsg_node_core` first.
-4. Move fields one group at a time from `bv_scene_obj` into `bsg_node_core` or
-   side-car data.
-5. At an ABI break, make `struct bsg_node` real and move compatibility into
-   libbv.
+1. [DONE] Add `struct bsg_node_core` with stable fields: magic, kind, parent,
+   identity fields, material/appearance/payload pointers, revision counters,
+   and a cleanup function pointer.  Only basic C types used so that
+   bv/defines.h does not need BSG headers.
+2. [DONE] Embed `bsg_node_core` in `bv_scene_obj` at the end of the struct.
+3. [DONE] Changed BSG accessors to operate on `bsg_node_core` first via the
+   lazy `_bsg_core_ensure()` helper in `bsg_private.h`.
+4. [DONE] Moved all sidecar hash maps from material.c, appearance.c, payload.c,
+   and identity.c to inline core pointers/fields.
+5. ABI break (make `struct bsg_node` real) is Phase 10E, deferred.
 
 Tasks:
 
-1. Add `bsg_node_core` privately or publicly depending on ABI decision.
-2. Add compile-time assertions or tests confirming compatibility wrappers still
-   work.
-3. Move one field family at a time: children/parent, name/kind, material,
-   appearance, payload, identity, bounds.
-4. Update allocation and free paths in libbv and libbsg.
-5. Update free-list and view-set handling so storage ownership is explicit.
-6. Remove or hide fields from public headers only at the planned ABI break.
+1. [DONE] Add `bsg_node_core` publicly in `include/bv/defines.h`.
+2. [DONE] Add `include/bsg/node_core.h` with `bsg_node_core_get`,
+   `bsg_node_core_init`, `bsg_node_core_initialized`.
+3. [DONE] Add `src/libbsg/node_core.c` with `_bsg_core_release` (called by
+   `bv_obj_reset` via the function pointer) and the public API.
+4. [DONE] Add `_bsg_core_ensure()` inline helper in `src/libbsg/bsg_private.h`.
+5. [DONE] Update `bv_obj_reset()` in `src/libbv/util.cpp` to call the core
+   cleanup hook and then memset the core to zero.
+6. [DONE] Replace `_bsg_material_map`, `_bsg_appearance_map`, `_bsg_payload_map`,
+   and `_bsg_id_map` hash tables with inline core storage.
+7. [DONE] Route `bsg_node_kind/set_kind`, `bsg_node_parent`, `bsg_node_add_child`,
+   `bsg_node_remove_child` through `bsg_core.kind`/`bsg_core.parent`.
+8. [DONE] Keep `bsg_core.kind` in sync in `bsg_node_set_payload_type`.
+9. [DONE] Add `test_node_core.c` (Tests 10A-10E) and wire into CMakeLists.
+10. [DONE] Update `test_identity.c` for Phase 10D semantics: use stack
+    `bv_scene_obj` instead of raw int pointers; document that
+    `bsg_node_identity_clear` no longer resets revision counters (they are
+    separate inline fields in Phase 10D).
 
 Consumer migration:
 
-- Any remaining raw field users must be migrated or explicitly isolated in
-  compatibility code.
-- Public headers should stop encouraging `struct bv_scene_obj` field access.
+- [DONE] All sidecar hash maps removed from material.c, appearance.c,
+  payload.c, identity.c.
+- [DONE] Public headers no longer reference per-file hash maps.
 
 Acceptance criteria:
 
-- All core drawing tests pass after each field-family move.
-- New BSG node storage can be allocated, linked, traversed, and freed without
-  depending on libbv object tables.
-- Compatibility consumers still compile during the transition window.
+- [DONE] All 20 libbsg_* tests pass (19 prior + 1 new libbsg_node_core).
+- New BSG node storage allocated/linked/traversed/freed without libbv object
+  tables — deferred to Phase 10E.
+- Compatibility consumers still compile during the transition window — verified.
 
 
 Phase 11: Consumer Migration Sweep
@@ -1254,11 +1265,11 @@ Phase 9 stages:
 
 Phase 10 stages:
 
-- 10A: Add `bsg_node_core` behind current storage.
-- 10B: Move name/kind/parent/children accessors to node core.
-- 10C: Move material/appearance/payload pointers to node core.
-- 10D: Move identity/revision/bounds to node core.
-- 10E: Plan and execute ABI break if approved.
+- 10A: [DONE] Add `bsg_node_core` behind current storage.
+- 10B: [DONE] Move name/kind/parent/children accessors to node core.
+- 10C: [DONE] Move material/appearance/payload pointers to node core.
+- 10D: [DONE] Move identity/revision to node core.
+- 10E: Plan and execute ABI break if approved (deferred).
 
 Phase 11 stages:
 
@@ -1287,7 +1298,7 @@ This enhancement effort is complete when:
   raytracing backend, or another renderer without rewriting BRL-CAD producers.
 
 
-Current Implementation Snapshot (2026-05-11)
+Current Implementation Snapshot (2026-05-11, updated Phase 10)
 --------------------------------------------
 This section records what is already present in the tree so future sessions can
 start from current reality rather than the idealized phase text above.
@@ -1467,15 +1478,54 @@ What is complete or substantially complete:
   - `src/libbsg/tests/test_render.c` adds overlay/image-layer hook coverage
     (callback invocation and scene-skip behavior) in addition to prior Phase 8
     traversal tests.
+- Phase 10 inline bsg_node_core storage is implemented:
+  - `include/bv/defines.h` adds `struct bsg_node_core` (only basic C types;
+    magic, kind, parent, identity fields, material/appearance/payload pointers,
+    revision counters[BSG_NODE_REV_MAX], and cleanup function pointer) and embeds
+    it at the end of `struct bv_scene_obj`.
+  - `include/bsg/node_core.h` exposes `bsg_node_core_get`,
+    `bsg_node_core_init`, `bsg_node_core_initialized`.
+  - `src/libbsg/node_core.c` implements `_bsg_core_release` (frees
+    material/appearance/payload heap data; installed as `bsg_core_free_fn` and
+    called by `bv_obj_reset`) and the three public API functions.
+  - `src/libbsg/bsg_private.h` adds the `_bsg_core_ensure()` inline helper
+    (lazy initializer: copies `s_type_flags`/`parent` to core fields on first
+    call, sets `BSG_NODE_CORE_MAGIC`, installs `_bsg_core_release`).
+  - `src/libbv/util.cpp` `bv_obj_reset()`: calls `bsg_core_free_fn` if set,
+    then memsets the core to zero before the existing reset logic.
+  - `src/libbsg/material.c`: global `_bsg_material_map` hash table replaced by
+    `bsg_node_core::material` heap pointer.
+  - `src/libbsg/appearance.c`: global `_bsg_appearance_map` replaced by
+    `bsg_node_core::appearance` heap pointer.
+  - `src/libbsg/payload.c`: global `_bsg_payload_map` replaced by
+    `bsg_node_core::payload` pointer; `bsg_node_set_payload_type` keeps
+    `bsg_core.kind` in sync so `bsg_node_kind` always reflects payload bits.
+  - `src/libbsg/identity.c`: global `_bsg_id_map` replaced by inline fields
+    in `bsg_node_core` (`have_identity`, `identity_{node,part,instance}_id`,
+    `identity_source_kind`); `bsg_node_revision`/`bsg_node_bump_revision`
+    operate on `bsg_node_core::revisions[BSG_NODE_REV_MAX]`.
+    Phase 10D semantic: `bsg_node_identity_clear` clears only identity fields;
+    revision counters are independent and persist until `bv_obj_reset`.
+  - `src/libbsg/node.c`: `bsg_node_kind/set_kind`, `bsg_node_parent`,
+    `bsg_node_add_child`, `bsg_node_remove_child` route through
+    `bsg_core.kind` / `bsg_core.parent`.
+  - `src/libbsg/tests/test_identity.c` updated: Test 4 and Test 6 now use
+    zero-initialised `struct bv_scene_obj` stack variables instead of raw int
+    pointers; Test 6 expectations updated for Phase 10D revision semantics.
+  - `src/libbsg/tests/test_node_core.c` added with Tests 10A-10E covering
+    core embedding, kind/parent routing, sidecar storage in core, identity and
+    revisions inline, and public node-core API.
+  - All 20 libbsg_* tests pass.
 
 What is partially complete:
 
 - No open partial items are currently tracked for Phases 1-9.
+- Phase 10E (ABI break / make `struct bsg_node` real): deferred.
 
 What is not yet implemented in this roadmap:
 
 - Phase 6F: Full BSelectState → BSG selection migration (GED selection containers).
-- Phase 10 storage split preparations (`bsg_node_core` path).
+- Phase 10E ABI break (making `bsg_node` independent of `bv_scene_obj`).
 - Phase 11 broad consumer sweeps under this specific API plan.
 - Phases 12-13 deprecation and readiness gate execution.
 
@@ -1484,14 +1534,18 @@ Immediate Next-Session Stage Prompts
 ------------------------------------
 Use these as concrete "small-unit" prompts for the next work sessions.
 
-1. Phase 10A (recommended next):
-   Add `bsg_node_core` scaffolding behind current storage.
+1. Phase 10E (ABI break — optional, high-risk):
+   Make `struct bsg_node` a real type independent of `bv_scene_obj` and move
+   backward-compat wrappers into libbv.  Requires coordinated ABI version bump.
 
-2. Phase 10B:
-   Move name/kind/parent/children accessors to node-core storage.
+2. Phase 11A (recommended next):
+   libbsg internal direct-field sweep: identify remaining direct `bv_scene_obj`
+   field accesses inside libbsg source files and replace with BSG accessor calls.
 
-3. Phase 10C:
-   Move material/appearance/payload pointers to node-core storage.
+3. Phase 11B:
+   libged draw/erase/redraw sweep: route remaining direct bv_scene_obj accesses
+   in libged through bsg_node_* accessors.
 
-4. Phase 10D:
-   Move identity/revision/bounds to node-core storage.
+4. Phase 11C:
+   libdm render/backend sweep: clean up residual direct-field accesses in
+   `_dm_draw_scene_obj_internal` and related helpers.

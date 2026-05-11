@@ -26,7 +26,6 @@
 
 #include <string.h>
 
-#include "bu/hash.h"
 #include "bu/list.h"
 #include "bu/malloc.h"
 #include "bv/defines.h"
@@ -36,6 +35,8 @@
 #include "bsg/identity.h"
 #include "bsg/node.h"
 #include "bsg/payload.h"
+
+#include "./bsg_private.h"
 
 
 struct _bsg_payload_vlist {
@@ -54,35 +55,46 @@ struct _bsg_payload_mesh {
     const struct bv_mesh_lod *lod;
 };
 
-static bu_hash_tbl *_bsg_payload_map = NULL;
+/* ------------------------------------------------------------------ */
+/* Phase 10C: payload storage via bsg_node_core                         */
+/*                                                                      */
+/* The global _bsg_payload_map hash table (Phase 4) has been replaced   */
+/* by a struct bsg_payload * stored in bsg_node_core::payload.          */
+/* The pointer is owned by the core; _bsg_core_release() (called from   */
+/* bv_obj_reset) calls bsg_payload_destroy() on it.                     */
+/* ------------------------------------------------------------------ */
 
-static void
-_bsg_payload_map_ensure(void)
-{
-    if (!_bsg_payload_map)
-	_bsg_payload_map = bu_hash_create(128);
-}
-
+/* Return the payload currently attached to @p n from the core, or NULL. */
 static struct bsg_payload *
 _bsg_payload_sc_get(const bsg_node *n)
 {
-    if (!n || !_bsg_payload_map)
+    const struct bv_scene_obj *s;
+
+    if (!n)
 	return NULL;
-    return (struct bsg_payload *)bu_hash_get(_bsg_payload_map,
-	    (const uint8_t *)&n, sizeof(n));
+
+    s = (const struct bv_scene_obj *)n;
+    if (s->bsg_core.bsg_magic != BSG_NODE_CORE_MAGIC)
+	return NULL;
+    return (struct bsg_payload *)s->bsg_core.payload;
 }
 
+/* Store @p payload in the core for @p n (NULL clears it without destroy). */
 static void
 _bsg_payload_sc_set(const bsg_node *n, struct bsg_payload *payload)
 {
+    struct bsg_node_core *core;
+
     if (!n)
 	return;
-    _bsg_payload_map_ensure();
-    if (!payload) {
-	(void)bu_hash_rm(_bsg_payload_map, (const uint8_t *)&n, sizeof(n));
+
+    core = _bsg_core_ensure((bsg_node *)n);
+    if (!core)
 	return;
-    }
-    bu_hash_set(_bsg_payload_map, (const uint8_t *)&n, sizeof(n), payload);
+
+    /* Note: caller is responsible for destroying the old payload first
+     * (see bsg_node_payload_set).  We just store the new pointer. */
+    core->payload = payload;
 }
 
 static unsigned long long
@@ -273,6 +285,8 @@ bsg_node_payload_set(bsg_node *n, struct bsg_payload *payload)
     if (old && old != payload)
 	bsg_payload_destroy(old);
 
+    /* Store the new pointer (clear from core if payload==NULL so that
+     * bsg_node_get_payload_type returning 0 is consistent). */
     _bsg_payload_sc_set(n, payload);
     if (!payload) {
 	bsg_node_set_payload_type(n, 0);
@@ -573,13 +587,24 @@ bsg_payload_mesh_lod_get(const struct bsg_payload *payload)
 void
 bsg_node_set_payload_type(bsg_node *node, unsigned long long payload_flags)
 {
+    struct bsg_node_core *core;
+    unsigned long long new_flags;
+
     if (!node)
 	return;
 
     struct bv_scene_obj *s = (struct bv_scene_obj *)node;
 
-    s->s_type_flags = (bsg_node_kind(node) & ~BSG_PAYLOAD_MASK) |
-		      (payload_flags & BSG_PAYLOAD_MASK);
+    new_flags = (bsg_node_kind(node) & ~BSG_PAYLOAD_MASK) |
+		(payload_flags & BSG_PAYLOAD_MASK);
+    s->s_type_flags = new_flags;
+
+    /* Phase 10B: keep core.kind in sync so bsg_node_kind() returns the
+     * updated value after the payload bits are set. */
+    core = _bsg_core_ensure(node);
+    if (core)
+	core->kind = new_flags;
+
     bsg_node_field_touch(node, BSG_FIELD_PAYLOAD);
     (void)bsg_node_bump_revision(node, BSG_NODE_REV_PAYLOAD);
 }

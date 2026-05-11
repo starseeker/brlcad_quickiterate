@@ -27,11 +27,12 @@
 
 #include <string.h>
 
-#include "bu/hash.h"
 #include "bu/malloc.h"
 #include "bu/vls.h"
 #include "bv/util.h"
 #include "bsg/identity.h"
+
+#include "./bsg_private.h"
 
 
 static uint64_t
@@ -148,89 +149,43 @@ bsg_instance_id_hash(const struct bsg_instance_id *id)
 
 
 /* ------------------------------------------------------------------ */
-/* Phase 2B: side-car identity storage                                  */
+/* Phase 10D: identity and revision storage via bsg_node_core           */
+/*                                                                      */
+/* The global _bsg_id_map hash table (Phase 2B) has been replaced by   */
+/* inline fields in struct bsg_node_core, which is embedded directly in */
+/* bv_scene_obj.  This eliminates the per-call hash-map lookup while   */
+/* providing deterministic lifetime: the core is zeroed by              */
+/* bv_obj_reset() so identity data is automatically released when the   */
+/* node is recycled.                                                    */
 /* ------------------------------------------------------------------ */
 
 /*
- * Global process-wide map: bsg_node * (as raw bytes) -> side-car state
- *
- * Lifetime: entries are explicitly removed by bsg_node_identity_clear().
- * If a node is destroyed without calling bsg_node_identity_clear() first
- * the entry will remain in the map but the pointer key becomes dangling.
- * This is acceptable for Phase 2B; future phases will hook into node
- * destruction to call bsg_node_identity_clear() automatically.
- *
- * Thread safety: the map is NOT thread-safe.  External serialisation is
- * required when the caller accesses the same node from multiple threads.
+ * Compile-time guard: if new revision kinds are added to bsg_identity.h,
+ * BSG_NODE_REV_MAX in bv/defines.h must be incremented too.
  */
-static bu_hash_tbl *_bsg_id_map = NULL;
-
-/*
- * Per-node side-car payload stored in _bsg_id_map.
- *
- * - have_identity/identity: optional identity record set by
- *   bsg_node_identity_set and read by bsg_node_identity_get.
- * - revisions: per-kind revision counters used by bsg_node_revision and
- *   bsg_node_bump_revision.
- */
-struct _bsg_identity_sidecar {
-    int have_identity;
-    struct bsg_identity identity;
-    uint64_t revisions[BSG_NODE_REV_COUNT];
-};
-
-static void
-_bsg_id_map_ensure(void)
-{
-    if (!_bsg_id_map)
-	_bsg_id_map = bu_hash_create(128);
-}
-
-static struct _bsg_identity_sidecar *
-_bsg_sidecar_get(const bsg_node *n)
-{
-    if (!n || !_bsg_id_map)
-	return NULL;
-
-    return (struct _bsg_identity_sidecar *)bu_hash_get(_bsg_id_map,
-	    (const uint8_t *)&n, sizeof(n));
-}
-
-static struct _bsg_identity_sidecar *
-_bsg_sidecar_get_or_create(const bsg_node *n)
-{
-    struct _bsg_identity_sidecar *sc;
-
-    if (!n)
-	return NULL;
-
-    _bsg_id_map_ensure();
-    sc = _bsg_sidecar_get(n);
-    if (sc)
-	return sc;
-
-    BU_ALLOC(sc, struct _bsg_identity_sidecar);
-    sc->have_identity = 0;
-    bsg_identity_init(&sc->identity);
-    memset(sc->revisions, 0, sizeof(sc->revisions));
-    bu_hash_set(_bsg_id_map, (const uint8_t *)&n, sizeof(n), sc);
-    return sc;
-}
+typedef char _bsg_rev_max_check[
+    (BSG_NODE_REV_COUNT <= BSG_NODE_REV_MAX) ? 1 : -1];
 
 
 int
 bsg_node_identity_get(const bsg_node *n, struct bsg_identity *out)
 {
-    struct _bsg_identity_sidecar *sc;
+    const struct bv_scene_obj *s;
+    const struct bsg_node_core *core;
 
     if (!n || !out)
 	return 0;
 
-    sc = _bsg_sidecar_get(n);
-    if (!sc || !sc->have_identity)
+    s = (const struct bv_scene_obj *)n;
+    core = &s->bsg_core;
+
+    if (core->bsg_magic != BSG_NODE_CORE_MAGIC || !core->have_identity)
 	return 0;
 
-    *out = sc->identity;
+    out->node_id.value      = core->identity_node_id;
+    out->part_id.value      = core->identity_part_id;
+    out->instance_id.value  = core->identity_instance_id;
+    out->source_kind        = (enum bsg_source_kind)core->identity_source_kind;
     return 1;
 }
 
@@ -238,7 +193,7 @@ bsg_node_identity_get(const bsg_node *n, struct bsg_identity *out)
 void
 bsg_node_identity_set(bsg_node *n, const struct bsg_identity *id)
 {
-    struct _bsg_identity_sidecar *sc;
+    struct bsg_node_core *core;
 
     if (!n)
 	return;
@@ -248,66 +203,72 @@ bsg_node_identity_set(bsg_node *n, const struct bsg_identity *id)
 	return;
     }
 
-    sc = _bsg_sidecar_get_or_create(n);
-    if (!sc)
+    core = _bsg_core_ensure(n);
+    if (!core)
 	return;
 
-    sc->identity = *id;
-    sc->have_identity = 1;
+    core->identity_node_id      = id->node_id.value;
+    core->identity_part_id      = id->part_id.value;
+    core->identity_instance_id  = id->instance_id.value;
+    core->identity_source_kind  = (int)id->source_kind;
+    core->have_identity         = 1;
 }
 
 
 void
 bsg_node_identity_clear(bsg_node *n)
 {
-    struct _bsg_identity_sidecar *sc;
+    struct bv_scene_obj *s;
 
-    if (!n || !_bsg_id_map)
+    if (!n)
 	return;
 
-    sc = _bsg_sidecar_get(n);
-    if (!sc)
+    s = (struct bv_scene_obj *)n;
+    if (s->bsg_core.bsg_magic != BSG_NODE_CORE_MAGIC)
 	return;
 
-    bu_free(sc, "bsg_identity_sidecar");
-    bu_hash_rm(_bsg_id_map, (const uint8_t *)&n, sizeof(n));
+    s->bsg_core.have_identity         = 0;
+    s->bsg_core.identity_node_id      = 0;
+    s->bsg_core.identity_part_id      = 0;
+    s->bsg_core.identity_instance_id  = 0;
+    s->bsg_core.identity_source_kind  = 0;
 }
 
 
 uint64_t
 bsg_node_revision(const bsg_node *n, int rev_kind)
 {
-    struct _bsg_identity_sidecar *sc;
+    const struct bv_scene_obj *s;
 
     if (!n)
 	return 0;
     if (rev_kind < 0 || rev_kind >= BSG_NODE_REV_COUNT)
 	return 0;
 
-    sc = _bsg_sidecar_get(n);
-    if (!sc)
+    s = (const struct bv_scene_obj *)n;
+    if (s->bsg_core.bsg_magic != BSG_NODE_CORE_MAGIC)
 	return 0;
 
-    return sc->revisions[rev_kind];
+    return s->bsg_core.revisions[rev_kind];
 }
 
 
 uint64_t
 bsg_node_bump_revision(bsg_node *n, int rev_kind)
 {
-    struct _bsg_identity_sidecar *sc;
+    struct bsg_node_core *core;
 
     if (!n)
 	return 0;
     if (rev_kind < 0 || rev_kind >= BSG_NODE_REV_COUNT)
 	return 0;
 
-    sc = _bsg_sidecar_get_or_create(n);
-    if (!sc)
+    core = _bsg_core_ensure(n);
+    if (!core)
 	return 0;
 
-    sc->revisions[rev_kind]++;
-    return sc->revisions[rev_kind];
+    core->revisions[rev_kind]++;
+    return core->revisions[rev_kind];
 }
 
 

@@ -2121,6 +2121,16 @@ bv_obj_reset(struct bv_scene_obj *s)
     s->s_update_callback = NULL;
     s->s_v = NULL;
     s->view_scale = 0;
+
+    /* Phase 10: reset the BSG node core.  Call the free hook first so
+     * libbsg can release any material/appearance/payload it allocated,
+     * then zero the entire core struct.  Guard with bsg_magic so that
+     * freshly BU_ALLOC'd objects (uninitialized memory) don't accidentally
+     * invoke a stale function pointer. */
+    if (s->bsg_core.bsg_magic == BSG_NODE_CORE_MAGIC &&
+	    s->bsg_core.bsg_core_free_fn)
+	s->bsg_core.bsg_core_free_fn(&s->bsg_core);
+    memset(&s->bsg_core, 0, sizeof(s->bsg_core));
 }
 
 #define FREE_BV_SCENE_OBJ(p, fp) { \

@@ -21,24 +21,24 @@
  *
  * Phase 3: BSG appearance API and compatibility mapping over legacy
  * bv_scene_obj storage.
+ *
+ * Phase 10C: the global _bsg_appearance_map hash table has been replaced
+ * by a single heap-allocated struct bsg_appearance * stored in
+ * bsg_node_core::appearance.  The pointer is owned by the core and freed
+ * by _bsg_core_release() (called from bv_obj_reset).
  */
 
 #include "common.h"
 
-#include "bu/hash.h"
 #include "bu/malloc.h"
 #include "bv/util.h"
 #include "bsg/appearance.h"
 #include "bsg/field.h"
 #include "bsg/identity.h"
 
+#include "./bsg_private.h"
 
-struct _bsg_appearance_sidecar {
-    int have_appearance;
-    struct bsg_appearance appearance;
-};
 
-static bu_hash_tbl *_bsg_appearance_map = NULL;
 static int _bsg_view_obj_appearance_hook_enabled = 0;
 
 static fastf_t
@@ -51,34 +51,42 @@ _appearance_clamp_transparency(fastf_t t)
     return t;
 }
 
-static struct _bsg_appearance_sidecar *
+/* Return the appearance struct for @p n from the core, or NULL if unset. */
+static struct bsg_appearance *
 _bsg_appearance_sc_get(const bsg_node *n)
 {
-    if (!n || !_bsg_appearance_map)
-	return NULL;
-    return (struct _bsg_appearance_sidecar *)bu_hash_get(_bsg_appearance_map,
-	    (const uint8_t *)&n, sizeof(n));
-}
+    const struct bv_scene_obj *s;
 
-static struct _bsg_appearance_sidecar *
-_bsg_appearance_sc_get_or_create(const bsg_node *n)
-{
-    struct _bsg_appearance_sidecar *sc = NULL;
     if (!n)
 	return NULL;
 
-    if (!_bsg_appearance_map)
-	_bsg_appearance_map = bu_hash_create(128);
+    s = (const struct bv_scene_obj *)n;
+    if (s->bsg_core.bsg_magic != BSG_NODE_CORE_MAGIC)
+	return NULL;
+    return (struct bsg_appearance *)s->bsg_core.appearance;
+}
 
-    sc = _bsg_appearance_sc_get(n);
-    if (sc)
-	return sc;
+/* Return (allocating if needed) the appearance struct for @p n. */
+static struct bsg_appearance *
+_bsg_appearance_sc_get_or_create(bsg_node *n)
+{
+    struct bsg_node_core *core;
+    struct bsg_appearance *a;
 
-    BU_ALLOC(sc, struct _bsg_appearance_sidecar);
-    sc->have_appearance = 0;
-    bsg_appearance_init(&sc->appearance);
-    bu_hash_set(_bsg_appearance_map, (const uint8_t *)&n, sizeof(n), sc);
-    return sc;
+    if (!n)
+	return NULL;
+
+    core = _bsg_core_ensure(n);
+    if (!core)
+	return NULL;
+
+    if (core->appearance)
+	return (struct bsg_appearance *)core->appearance;
+
+    BU_ALLOC(a, struct bsg_appearance);
+    bsg_appearance_init(a);
+    core->appearance = a;
+    return a;
 }
 
 
@@ -148,13 +156,14 @@ bsg_appearance_to_legacy_obj_settings(bsg_node *n, const struct bsg_appearance *
 int
 bsg_node_appearance_get(const bsg_node *n, struct bsg_appearance *out)
 {
-    struct _bsg_appearance_sidecar *sc = NULL;
+    struct bsg_appearance *a;
+
     if (!n || !out)
 	return 0;
 
-    sc = _bsg_appearance_sc_get(n);
-    if (sc && sc->have_appearance) {
-	*out = sc->appearance;
+    a = _bsg_appearance_sc_get(n);
+    if (a) {
+	*out = *a;
 	return 1;
     }
 
@@ -166,7 +175,8 @@ bsg_node_appearance_get(const bsg_node *n, struct bsg_appearance *out)
 void
 bsg_node_appearance_set(bsg_node *n, const struct bsg_appearance *a)
 {
-    struct _bsg_appearance_sidecar *sc = NULL;
+    struct bsg_appearance *sc;
+
     if (!n || !a)
 	return;
 
@@ -174,8 +184,7 @@ bsg_node_appearance_set(bsg_node *n, const struct bsg_appearance *a)
     if (!sc)
 	return;
 
-    sc->appearance = *a;
-    sc->have_appearance = 1;
+    *sc = *a;
     bsg_appearance_to_legacy_obj_settings(n, a);
     bsg_node_field_touch(n, BSG_FIELD_APPEARANCE);
     (void)bsg_node_bump_revision(n, BSG_NODE_REV_APPEARANCE);
