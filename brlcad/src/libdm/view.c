@@ -29,6 +29,8 @@
 #include "bv/lod.h"
 #include "bv/util.h"
 #include "bsg/appearance.h"
+#include "bsg/camera.h"
+#include "bsg/light.h"
 #include "bsg/material.h"
 #include "bsg/selection.h"
 #include "bsg/util.h"
@@ -777,6 +779,17 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
 	(void)dm_loadpmatrix(dmp, NULL);
     }
 
+
+    // Phase 7C (BSG lights): mirror dm_set_light() state into the BSG scene
+    // light set attached to bsg_root.  This keeps the BSG light model in sync
+    // with the dm lighting boolean so renderers that consume bsg_scene_light_*
+    // APIs reflect the same on/off state as the legacy dm_get_light() path.
+    // The sync is a no-op when bsg_root is NULL (view not yet associated with
+    // a GED draw tree) or when libbsg is not active.
+    if (v->bsg_root) {
+	int dm_light_on = dm_get_light(dmp);
+	bsg_scene_light_enable((bsg_node *)v->bsg_root, dm_light_on);
+    }
 
     // Phase F (drawing_stack_modernization): bsg_root is now an alias for
     // gv_draw_root — no per-frame bsg_scene_root_sync rebuild is needed.

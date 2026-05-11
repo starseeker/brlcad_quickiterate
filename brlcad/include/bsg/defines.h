@@ -68,8 +68,8 @@
  * - bsg/material.h     material and color-binding API
  * - bsg/appearance.h   draw style, line style, depth/hidden-line policy
  * - bsg/selection.h    scene selection sets and sub-primitive entries
- * - bsg/light.h        light node definitions
- * - bsg/camera.h       renderer-neutral camera/view description
+ * - bsg/light.h        light node definitions (Phase 7 - DONE)
+ * - bsg/camera.h       renderer-neutral camera/view description (Phase 7 - DONE)
  * - bsg/render.h       renderer-facing callbacks and scene render contract
  * - bsg/compat.h       temporary compatibility helpers for raw bv_scene_obj
  *                      field access during the migration period
