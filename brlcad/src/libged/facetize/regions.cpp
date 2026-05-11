@@ -872,9 +872,8 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 		    facetize_log(s, 1, "FACETIZE: %s CSG vs BoT MISMATCH (SA_err=%.2f%% VOL_err=%.2f%%) - triggering perturb\n",
 			    dpw[0]->d_namep, sa_err_pct, vol_err_pct);
 		    bool reopened_wdb = false;
-		    struct directory *rdpa[2] = {dpw[0], NULL};
 		    FacetizeVariantPlan *vplan =
-			_ged_facetize_build_variant_plan(s, 1, rdpa);
+			_ged_facetize_build_variant_plan(s, 1, dpw);
 		    s->variant_plan = (void *)vplan;
 		    if (vplan) {
 			vcnt_variant_adjusted += vplan->n_adjusted_instances;
@@ -1213,7 +1212,7 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
     /* Done importing stuff - update nref. */
     db_update_nref(dbip);
 
-    /* Print variant-plan summary and clean up (Manifold path only). */
+    /* Print aggregate variant-plan summary and clean up (Manifold path only). */
     if (vcnt_variant_adjusted > 0) {
 	facetize_log(s, 0, "FACETIZE: variant summary: %d adjusted instance(s) "
 	       "(%d subtractive), %d fallback(s), %d tess failure(s)\n",
@@ -1223,16 +1222,7 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	       vcnt_variant_tess_failures);
     }
     if (s->variant_plan) {
-	FacetizeVariantPlan *vp = (FacetizeVariantPlan *)s->variant_plan;
-	if (vp->n_adjusted_instances > 0) {
-	    facetize_log(s, 0, "FACETIZE: variant summary: %d adjusted instance(s) "
-		   "(%d subtractive), %d fallback(s), %d tess failure(s)\n",
-		   vp->n_adjusted_instances,
-		   vp->n_sub_variants,
-		   vp->n_perturb_fallbacks,
-		   vp->n_variant_tess_failures);
-	}
-	delete vp;
+	delete (FacetizeVariantPlan *)s->variant_plan;
 	s->variant_plan = NULL;
     }
 
