@@ -60,6 +60,7 @@
  * - bsg/lod_ops.h      LoD policy and adaptive-wireframe API
  * - bsg/view_scope.h   per-view visibility scoping
  * - bsg/visit.h        traversal / visitor API
+ * - bsg/action.h       action/traversal interfaces (bbox/search/collect)
  * - bsg/draw_set.h     erase-by-name and draw-set management
  * - bsg/scene_set.h    scene-level object table
  *
@@ -69,7 +70,6 @@
  * - bsg/selection.h    scene selection sets and sub-primitive entries
  * - bsg/light.h        light node definitions
  * - bsg/camera.h       renderer-neutral camera/view description
- * - bsg/action.h       action/traversal interfaces
  * - bsg/render.h       renderer-facing callbacks and scene render contract
  * - bsg/compat.h       temporary compatibility helpers for raw bv_scene_obj
  *                      field access during the migration period

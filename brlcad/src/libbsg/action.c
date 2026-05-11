@@ -30,6 +30,7 @@
 
 #include "bsg/action.h"
 #include "bsg/lod_ops.h"
+#include "bsg/node.h"
 #include "bsg/payload.h"
 
 static int
@@ -82,7 +83,7 @@ if (first) {
 }
 
 static int
-_bsg_action_traverse(struct bsg_action *action, struct bv_scene_obj *node, const mat_t parent_mat)
+_bsg_action_traverse(struct bsg_action *action, struct bv_scene_obj *node, const mat_t parent_mat, int depth)
 {
     if (!action || !node)
 return 1;
@@ -98,7 +99,8 @@ if (action->view && node->s_v && node->s_v != action->view)
 bn_mat_mul(world, parent_mat, node->s_mat);
 
     if (action->node_cb) {
-int result = action->node_cb(action, (bsg_node *)node, world);
+	action->current_depth = depth;
+	int result = action->node_cb(action, (bsg_node *)node, world);
 if (result == BSG_ACTION_STOP) {
     action->stopped = 1;
     return 0;
@@ -123,15 +125,15 @@ if (level < 0 || level >= nlevels)
 struct bv_scene_obj *child = (struct bv_scene_obj *)BU_PTBL_GET(&node->children, level);
 if (!child)
     return 1;
-return _bsg_action_traverse(action, child, world);
+	return _bsg_action_traverse(action, child, world, depth + 1);
     }
 
     for (size_t i = 0; i < BU_PTBL_LEN(&node->children); i++) {
 struct bv_scene_obj *child = (struct bv_scene_obj *)BU_PTBL_GET(&node->children, i);
 if (!child)
     continue;
-if (!_bsg_action_traverse(action, child, world))
-    return 0;
+	if (!_bsg_action_traverse(action, child, world, depth + 1))
+	    return 0;
     }
 
     return 1;
@@ -185,7 +187,7 @@ return 0;
     action->error = 0;
 
     MAT_IDN(ident);
-    _bsg_action_traverse(action, (struct bv_scene_obj *)root, ident);
+    _bsg_action_traverse(action, (struct bv_scene_obj *)root, ident, 0);
 
     return action->error ? 0 : 1;
 }
@@ -290,11 +292,19 @@ if (action->source_path_kind != BSG_SOURCE_UNKNOWN && nid.source_kind != action-
     }
 
     if (action->use_material_source) {
-struct bsg_material m;
-if (!bsg_node_material_get((const bsg_node *)node, &m))
-    return 0;
-if (m.source_kind != action->material_source)
-    return 0;
+	struct bsg_material m;
+	if (!bsg_node_material_get((const bsg_node *)node, &m))
+	    return 0;
+	if (m.source_kind != action->material_source)
+	    return 0;
+    }
+
+    if (action->use_depth_range) {
+	int depth = action->base.current_depth;
+	if (depth < action->min_depth)
+	    return 0;
+	if (action->max_depth >= 0 && depth > action->max_depth)
+	    return 0;
     }
 
     return 1;
@@ -344,6 +354,9 @@ bu_free(action->name, "bsg_search_name");
     action->use_parent = 0;
     action->use_source_path = 0;
     action->use_material_source = 0;
+    action->use_depth_range = 0;
+    action->min_depth = 0;
+    action->max_depth = -1;
     action->max_results = 0;
     if (action->results) {
 	bu_ptbl_free(action->results);
@@ -438,6 +451,17 @@ bsg_search_action_set_max_results(struct bsg_search_action *action, size_t max_r
 return;
 
     action->max_results = max_results;
+}
+
+void
+bsg_search_action_set_depth_range(struct bsg_search_action *action, int min_depth, int max_depth)
+{
+    if (!action || min_depth < 0)
+	return;
+
+    action->use_depth_range = 1;
+    action->min_depth = min_depth;
+    action->max_depth = max_depth;
 }
 
 size_t

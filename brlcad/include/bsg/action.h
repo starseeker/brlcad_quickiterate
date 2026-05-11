@@ -50,6 +50,7 @@ struct bsg_action {
     int lod_level; /* -1 means use active level from per-view cursor */
     int stopped;
     int error;
+    int current_depth;
     int (*node_cb)(struct bsg_action *action, bsg_node *node, const mat_t world);
 };
 
@@ -101,6 +102,9 @@ struct bsg_search_action {
     int use_parent;
     int use_source_path;
     int use_material_source;
+    int use_depth_range;
+    int min_depth;
+    int max_depth;
 
     size_t max_results;
     struct bu_ptbl *results;
@@ -144,6 +148,9 @@ bsg_search_action_result_count(const struct bsg_search_action *action);
 
 BSG_EXPORT extern bsg_node *
 bsg_search_action_result_node(const struct bsg_search_action *action, size_t idx);
+
+BSG_EXPORT extern void
+bsg_search_action_set_depth_range(struct bsg_search_action *action, int min_depth, int max_depth);
 
 struct bsg_collect_shape {
     bsg_node *node;

@@ -170,7 +170,7 @@ bsg_view_find_by_type(bsg_node *root, unsigned long long flags)
     struct bsg_search_action search;
     bsg_search_action_init(&search);
     bsg_search_action_add_kind_criteria(&search, flags);
-    bsg_search_action_add_parent_criteria(&search, root);
+    bsg_search_action_set_depth_range(&search, 1, 1);
     bsg_search_action_set_max_results(&search, 1);
     bsg_action_apply(&search.base, root);
 
