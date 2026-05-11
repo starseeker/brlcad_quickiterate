@@ -201,6 +201,16 @@ _write_empty_bot(struct db_i *dbip, const char *bot_name, int verbosity)
     (void)_ged_facetize_write_bot(dbip, ebot, bot_name, verbosity);
 }
 
+static void
+_clear_variant_plan(struct _ged_facetize_state *s)
+{
+    if (!s || !s->variant_plan)
+	return;
+
+    delete (FacetizeVariantPlan *)s->variant_plan;
+    s->variant_plan = NULL;
+}
+
 /* returns 1 on pass, 0 on mismatch, -1 on unavailable/skip */
 static int
 _validate_csg_vs_bot(struct db_i *csg_dbip, const char *obj_name, struct db_i *bot_dbip, const char *bot_name, double sa_tol_pct, double vol_tol_pct, double *sa_err_pct, double *vol_err_pct);
@@ -872,10 +882,9 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 		    facetize_log(s, 1, "FACETIZE: %s CSG vs BoT MISMATCH (SA_err=%.2f%% VOL_err=%.2f%%) - triggering perturb\n",
 			    dpw[0]->d_namep, sa_err_pct, vol_err_pct);
 		    bool reopened_wdb = false;
-		    if (s->variant_plan) {
-			delete (FacetizeVariantPlan *)s->variant_plan;
-			s->variant_plan = NULL;
-		    }
+		    /* Region retries intentionally use a fresh plan scoped to the
+		     * failed root so passing regions do not create perturb variants. */
+		    _clear_variant_plan(s);
 		    FacetizeVariantPlan *vplan =
 			_ged_facetize_build_variant_plan(s, 1, dpw);
 		    s->variant_plan = (void *)vplan;
@@ -973,10 +982,7 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 				bu_log("FACETIZE: validation unavailable after perturb retry for %s\n", dpw[0]->d_namep);
 			}
 		    }
-		    if (s->variant_plan) {
-			delete (FacetizeVariantPlan *)s->variant_plan;
-			s->variant_plan = NULL;
-		    }
+		    _clear_variant_plan(s);
 		}
 		if (vret < 0) {
 		    vcnt_unavail++;
