@@ -32,6 +32,7 @@
 #include "bsg/camera.h"
 #include "bsg/light.h"
 #include "bsg/material.h"
+#include "bsg/node.h"
 #include "bsg/render.h"
 #include "bsg/selection.h"
 #include "bsg/util.h"
@@ -98,11 +99,11 @@ _independent_root_skip_child(struct bv_scene_obj *s)
 {
     if (!s)
 	return 1;
-    if (s->s_type_flags & BSG_NODE_VIEW_SCOPE)
+    if (bsg_node_has_kind((const bsg_node *)s, BSG_NODE_VIEW_SCOPE))
 	return 0;
     if (!BU_VLS_IS_INITIALIZED(&s->s_name))
 	return 1;
-    return BU_STR_EQUAL("_overlays", bu_vls_cstr(&s->s_name)) ? 0 : 1;
+    return BU_STR_EQUAL("_overlays", bsg_node_name((const bsg_node *)s)) ? 0 : 1;
 }
 
 // Draw an arrow head for each MOVE+LAST_DRAW paring
@@ -425,10 +426,10 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 			    int transparency_pass,
 			    const fastf_t *cur_mat)
 {
-    if (!s || !v || (s->s_flag == DOWN && !force_draw))
+    if (!s || !v || (!bsg_node_visible((const bsg_node *)s) && !force_draw))
 	return;
 
-    int do_force_draw = (force_draw || s->s_force_draw) ? 1 : 0;
+    int do_force_draw = (force_draw || bsg_node_force_draw((const bsg_node *)s)) ? 1 : 0;
     struct bsg_material material;
     struct bsg_appearance appearance;
     int have_material = bsg_node_material_get((const bsg_node *)s, &material);
@@ -450,7 +451,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
     if (!pass_skip
 	&& dm_get_bound_flag(dmp)
 	&& !s->s_displayobj
-	&& (s->s_type_flags & BSG_NODE_SHAPE)
+	&& bsg_node_has_kind((const bsg_node *)s, BSG_NODE_SHAPE)
 	&& v->gv_isize > 0
 	&& (s->s_size * v->gv_isize) < 0.001) {
 	pass_skip = 1;
@@ -459,8 +460,8 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
     // Draw children. TODO - drawing children first may not
     // always be the desired behavior - might need interior and exterior
     // children tables to provide some control
-    for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	struct bv_scene_obj *s_c = (struct bv_scene_obj *)BU_PTBL_GET(&s->children, i);
+    for (size_t i = 0; i < bsg_node_child_count((const bsg_node *)s); i++) {
+	struct bv_scene_obj *s_c = (struct bv_scene_obj *)bsg_node_child((const bsg_node *)s, i);
 	_dm_draw_scene_obj_internal(dmp, s_c, v, do_force_draw, obj_settings,
 				    transparency_pass, cur_mat);
     }
@@ -475,7 +476,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
     int is_highlighted = (v->bsg_root &&
 	 bsg_node_is_selected((const bsg_node *)v->bsg_root,
 			      (const bsg_node *)s, "active")) ||
-	(s->s_iflag == UP);
+	bsg_node_legacy_illum((const bsg_node *)s);
 
     if (obj_settings) {
 	dm_set_fg(dmp, obj_settings->color[0], obj_settings->color[1], obj_settings->color[2], 0, obj_settings->transparency);
@@ -526,9 +527,9 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
     }
 
     // Primary object drawing.
-    if (s->s_type_flags & BV_DB_OBJS) {
+    if (bsg_node_has_kind((const bsg_node *)s, BV_DB_OBJS)) {
 	struct bv_scene_obj *vo = s;
-	bv_log(1, "dm_draw_scene_obj - drawing %s[%s]", bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
+	bv_log(1, "dm_draw_scene_obj - drawing %s[%s]", bsg_node_name((const bsg_node *)vo), bu_vls_cstr(&v->gv_name));
 
 	/* Phase 11 (drawing_stack_modernization): renderer-backend contract.
 	 * dm_backend_draw_obj() routes through the dm's registered
@@ -550,7 +551,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
      * to identify "drawn this frame" without needing a per-frame full-tree
      * reset of s_flag.  s_flag remains the persistent visibility bit
      * (DOWN means hidden); it is no longer toggled UP by the renderer. */
-    s->s_drawn_rev = v->gv_frame_rev;
+    bsg_node_set_drawn_rev((bsg_node *)s, v->gv_frame_rev);
 
     if (edit_mat_swapped) {
 	/* Phase 6 (BSG render contract): restore the accumulated matrix
@@ -565,11 +566,11 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 
     dm_add_arrows(dmp, s);
 
-    if (s->s_type_flags & BV_AXES) {
+    if (bsg_node_has_kind((const bsg_node *)s, BV_AXES)) {
 	dm_draw_scene_axes(dmp, s);
     }
 
-    if (s->s_type_flags & BV_LABELS) {
+    if (bsg_node_has_kind((const bsg_node *)s, BV_LABELS)) {
 	dm_draw_label(dmp, s);
     }
 }
@@ -614,13 +615,13 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
     if (bv_view_is_independent(v) && r == (struct bv_scene_obj *)v->bsg_root) {
 	independent_root = 1;
     }
-    for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
-	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&r->children, i);
+    for (size_t i = 0; i < bsg_node_child_count((const bsg_node *)r); i++) {
+	struct bv_scene_obj *s = (struct bv_scene_obj *)bsg_node_child((const bsg_node *)r, i);
 	if (!s)
 	    continue;
 
 	/* Phase 6: skip sensor nodes — they are not drawable */
-	if (s->s_type_flags & BSG_NODE_SENSOR)
+	if (bsg_node_has_kind((const bsg_node *)s, BSG_NODE_SENSOR))
 	    continue;
 
 	if (independent_root && _independent_root_skip_child(s))
@@ -631,8 +632,8 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	 * owner means view-private (only visible to the owning view).
 	 * When the scope is visible, recurse into children and continue — the
 	 * scope node itself contributes no geometry. */
-	if (s->s_type_flags & BSG_NODE_VIEW_SCOPE) {
-	    if (s->s_v != NULL && s->s_v != v)
+	if (bsg_node_has_kind((const bsg_node *)s, BSG_NODE_VIEW_SCOPE)) {
+	    if (!bsg_view_scope_visible((bsg_node *)s, v))
 		continue; /* wrong view — skip entire subtree */
 	    _bsg_view_traverse_impl(v, s, transparency_pass, cur_mat);
 	    continue;
@@ -641,7 +642,7 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	/* Phase V4: BSG_NODE_VIEW_REF and BSG_NODE_VIEW_BRIDGE were removed
 	 * when the legacy ptbl bridge was retired.  Skip any stale nodes
 	 * from pre-V4 trees so the traversal stays correct. */
-	if (s->s_type_flags & BSG_NODE_VIEW_BRIDGE)
+	if (bsg_node_has_kind((const bsg_node *)s, BSG_NODE_VIEW_BRIDGE))
 	    continue;
 
 	/* Phase L0 (LoD redesign): for BSG_NODE_LOD nodes, render only
@@ -651,14 +652,13 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	 * cursor and recurse into the right child.  When no level has been
 	 * selected yet (level == -1) we fall through to the child at index 0
 	 * as a safe default. */
-	if (s->s_type_flags & BSG_NODE_LOD) {
+	if (bsg_node_has_kind((const bsg_node *)s, BSG_NODE_LOD)) {
 	    int active = bsg_lod_node_active_level((bsg_node *)s, v);
 	    int nlevels = bsg_lod_node_level_count((bsg_node *)s);
 	    if (nlevels > 0) {
 		if (active < 0 || active >= nlevels)
 		    active = 0;
-		struct bv_scene_obj *child =
-		    (struct bv_scene_obj *)BU_PTBL_GET(&s->children, active);
+		struct bv_scene_obj *child = (struct bv_scene_obj *)bsg_node_child((const bsg_node *)s, (size_t)active);
 		if (child)
 		    _bsg_view_traverse_impl(v, child,
 					    transparency_pass, cur_mat);
@@ -671,21 +671,23 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	 * through to dm_draw_scene_obj so that an s_iflag==UP child
 	 * under this transform restores back to the transform after the
 	 * gv_edit_mat swap, not to gv_model2view. */
-	if (s->s_type_flags & BSG_NODE_TRANSFORM) {
+	if (bsg_node_has_kind((const bsg_node *)s, BSG_NODE_TRANSFORM)) {
 	    mat_t save_mat;
 	    if (cur_mat)
 		MAT_COPY(save_mat, cur_mat);
 	    else
 		MAT_COPY(save_mat, v->gv_model2view);
 	    mat_t new_mat;
-	    bn_mat_mul(new_mat, save_mat, s->s_mat);
+	    mat_t node_mat;
+	    bsg_node_transform_get((const bsg_node *)s, node_mat);
+	    bn_mat_mul(new_mat, save_mat, node_mat);
 	    dm_loadmatrix(dmp, new_mat, 0);
 	    _bsg_view_traverse_impl(v, s, transparency_pass, new_mat);
 	    dm_loadmatrix(dmp, save_mat, 0);
 	    continue;
 	}
 
-	_dm_draw_scene_obj_internal(dmp, s, v, s->s_force_draw,
+	_dm_draw_scene_obj_internal(dmp, s, v, bsg_node_force_draw((const bsg_node *)s),
 				    (s->s_inherit_settings) ? s->s_os : NULL,
 				    transparency_pass, cur_mat);
     }
@@ -826,7 +828,7 @@ _dm_rop_draw_payload(void *data, bsg_node *bnode, struct bview *v,
     struct dm *dmp = ctx->dmp;
     struct bv_scene_obj *s = (struct bv_scene_obj *)bnode;
     _dm_draw_scene_obj_internal(dmp, s, v,
-				s->s_force_draw,
+				bsg_node_force_draw((const bsg_node *)s),
 				(s->s_inherit_settings) ? s->s_os : NULL,
 				pass, world_xform);
 }
@@ -843,7 +845,7 @@ _dm_rop_draw_overlay(void *data, bsg_node *bnode, struct bview *v)
     else
 	MAT_IDN(cur_mat);
     _dm_draw_scene_obj_internal(dmp, s, v,
-				s->s_force_draw,
+				bsg_node_force_draw((const bsg_node *)s),
 				(s->s_inherit_settings) ? s->s_os : NULL,
 				BSG_RENDER_PASS_ALL, cur_mat);
 }
