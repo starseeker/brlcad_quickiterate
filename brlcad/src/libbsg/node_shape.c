@@ -33,6 +33,7 @@
 #include "bsg/defines.h"
 #include "bsg/node.h"
 #include "bsg/node_shape.h"
+#include "bsg/payload.h"
 
 
 bsg_node *
@@ -54,18 +55,15 @@ bsg_shape_create(struct bview *v)
 void
 bsg_shape_set_vlist(bsg_node *shape, struct bu_list *vhead)
 {
+    struct bsg_payload *payload = NULL;
+
     if (!shape || !vhead)
 	return;
 
-    struct bv_scene_obj *s = (struct bv_scene_obj *)shape;
-
-    /* Free any existing vlist */
-    if (BU_LIST_IS_INITIALIZED(&s->s_vlist))
-	BV_FREE_VLIST(s->vlfree, &s->s_vlist);
-    BU_LIST_INIT(&s->s_vlist);
-
-    /* Copy in the new vlist */
-    bv_vlist_copy(s->vlfree, &s->s_vlist, vhead);
+    payload = bsg_payload_vlist_from_node(shape);
+    if (!payload)
+	return;
+    bsg_payload_vlist_set(payload, vhead);
 }
 
 

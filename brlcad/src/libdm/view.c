@@ -34,6 +34,7 @@
 #include "bsg/defines.h"
 #include "bsg/lod.h"
 #include "bsg/lod_ops.h"
+#include "bsg/payload.h"
 #include "bsg/visit.h"
 #include "bsg/view_scope.h"
 #include "dm.h"
@@ -104,7 +105,15 @@ _independent_root_skip_child(struct bv_scene_obj *s)
 void
 dm_add_arrows(struct dm *dmp, struct bv_scene_obj *s)
 {
-    struct bv_vlist *vp = (struct bv_vlist *)&s->s_vlist;
+    struct bu_list *vhead = &s->s_vlist;
+    struct bsg_payload *payload = bsg_node_payload_get((const bsg_node *)s);
+    if (payload && bsg_payload_type(payload) == BSG_PAYLOAD_TYPE_VLIST) {
+	struct bu_list *ph = bsg_payload_vlist_head(payload);
+	if (ph)
+	    vhead = ph;
+    }
+
+    struct bv_vlist *vp = (struct bv_vlist *)vhead;
     struct bv_vlist *tvp;
     point_t A = VINIT_ZERO;
     point_t B = VINIT_ZERO;
