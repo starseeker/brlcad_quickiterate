@@ -166,14 +166,18 @@ _bsg_render_traverse(struct bsg_render_action *ra,
 
     struct bsg_material   mat;
     struct bsg_appearance app;
-    struct bsg_appearance legacy_app;
     int have_mat = bsg_node_material_get(node, &mat);
     int have_app = bsg_node_appearance_get(node, &app);
     /* Preserve legacy transparency fallback from bv_scene_obj settings (s_os/s_local_os)
      * when no explicit BSG appearance/material is set. */
-    bsg_appearance_from_legacy_obj_settings(node, &legacy_app);
+    fastf_t legacy_transparency = 1.0;
+    {
+	struct bsg_appearance legacy_app;
+	bsg_appearance_from_legacy_obj_settings(node, &legacy_app);
+	legacy_transparency = legacy_app.transparency;
+    }
     /* Transparency precedence is explicit: appearance > material > legacy. */
-    fastf_t obj_transparency = legacy_app.transparency;
+    fastf_t obj_transparency = legacy_transparency;
     if (have_mat)
 	obj_transparency = mat.transparency;
     if (have_app)
@@ -184,7 +188,7 @@ _bsg_render_traverse(struct bsg_render_action *ra,
 	(v && v->bsg_root &&
 	 bsg_node_is_selected((const bsg_node *)v->bsg_root, node, "active")) ||
 	/* Legacy fallback while s_iflag compatibility remains in transition. */
-	(((const struct bv_scene_obj *)node)->s_iflag == UP);
+	bsg_node_legacy_illum(node);
 
     /* Invoke renderer ops with resolved BSG state. */
     if (ops->set_material)

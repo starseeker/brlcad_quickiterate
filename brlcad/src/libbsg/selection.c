@@ -40,6 +40,7 @@
 #include "bv/defines.h"
 #include "bsg/defines.h"
 #include "bsg/field.h"
+#include "bsg/node.h"
 #include "bsg/selection.h"
 #include "bsg/visit.h"
 
@@ -410,12 +411,11 @@ static int
 _sync_illum_cb(bsg_node *n, void *data)
 {
     struct _sync_illum_ctx *ctx = (struct _sync_illum_ctx *)data;
-    struct bv_scene_obj *s = (struct bv_scene_obj *)n;
-    if (!s)
+    if (!n)
 	return 1;
 
     int in_active = (ctx->clear_all) ? 0 : bsg_selection_contains(ctx->active_ss, n);
-    s->s_iflag = in_active ? UP : DOWN;
+    bsg_node_set_legacy_illum(n, in_active);
     return 1; /* continue */
 }
 
@@ -454,11 +454,10 @@ static int
 _from_illum_cb(bsg_node *n, void *data)
 {
     struct _from_illum_ctx *ctx = (struct _from_illum_ctx *)data;
-    const struct bv_scene_obj *s = (const struct bv_scene_obj *)n;
-    if (!s)
+    if (!n)
 	return 1;
 
-    if (s->s_iflag == UP) {
+    if (bsg_node_legacy_illum(n)) {
 	struct bsg_selection_entry e;
 	memset(&e, 0, sizeof(e));
 	e.node = n;

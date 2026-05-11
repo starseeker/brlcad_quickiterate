@@ -86,7 +86,7 @@ static int
 _bsg_action_traverse(struct bsg_action *action, bsg_node *node, const mat_t parent_mat, int depth)
 {
     if (!action || !node)
-return 1;
+	return 1;
 
     if (bsg_node_has_kind(node, BSG_NODE_VIEW_SCOPE) &&
 	!bsg_view_scope_visible(node, action->view))
@@ -113,26 +113,26 @@ return 1;
     }
 
     if (bsg_node_has_kind(node, BSG_NODE_LOD)) {
-int nlevels = bsg_lod_node_level_count(node);
-if (nlevels <= 0)
-    return 1;
+	int nlevels = bsg_lod_node_level_count(node);
+	if (nlevels <= 0)
+	    return 1;
 
-int level = action->lod_level;
-if (level < 0)
-    level = bsg_lod_node_active_level(node, action->view);
-if (level < 0 || level >= nlevels)
-    level = 0;
+	int level = action->lod_level;
+	if (level < 0)
+	    level = bsg_lod_node_active_level(node, action->view);
+	if (level < 0 || level >= nlevels)
+	    level = 0;
 
 	bsg_node *child = bsg_node_child(node, (size_t)level);
-if (!child)
-    return 1;
+	if (!child)
+	    return 1;
 	return _bsg_action_traverse(action, child, world, depth + 1);
     }
 
     for (size_t i = 0; i < bsg_node_child_count(node); i++) {
 	bsg_node *child = bsg_node_child(node, i);
-if (!child)
-    continue;
+	if (!child)
+	    continue;
 	if (!_bsg_action_traverse(action, child, world, depth + 1))
 	    return 0;
     }
