@@ -148,7 +148,9 @@ Migration path: Do not add new direct s_backend reads outside libbv/util.cpp
 
   libbv:  util.cpp
   libdm:  dm-gl_lod.cpp
-  libged (test): tests/draw/bsg_view_obj.cpp
+  (Note: tests/draw/bsg_view_obj.cpp contains a test-only reference;
+   test files are excluded from migration priority counts per the methodology
+   above, but are retained here because s_backend has very few non-test sites.)
 
 --------------------------------------------------------------------------------
 Field: s_flag  (visibility: UP=visible, DOWN=invisible)

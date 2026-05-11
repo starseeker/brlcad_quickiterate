@@ -164,7 +164,12 @@ Run these tests frequently while working in this area:
 
 Quick CI check command (run from the build directory):
 
-  ctest --output-on-failure -R '^(libbsg_|ged_test_bsg|ged_test_drawing|ged_test_mged|ged_test_tcl|ged_test_view)'
+  ctest --output-on-failure -R '^(libbsg_|ged_test_bsg|ged_test_drawing|ged_test_mged_bsg|ged_test_tcl|ged_test_view)'
+
+  The pattern matches by prefix: ged_test_bsg covers ged_test_bsg_view_obj,
+  ged_test_bsg_parity, and ged_test_bsg_quad_parity; ged_test_mged_bsg covers
+  ged_test_mged_bsg and ged_test_mged_shaded_mode_bsg; ged_test_view covers
+  ged_test_view_independent and ged_test_view_command.
 
 The libbsg tests run in seconds.  The ged_test_* tests require a built
 database and may be slower; skip the ged tests when iterating quickly on
