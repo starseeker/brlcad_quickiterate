@@ -508,6 +508,7 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
     /* Validation outcome counters — accumulated across all regions. */
     int vcnt_skip         = 0; /* skipped: no perturbable leaf */
     int vcnt_total        = 0; /* entered validation path */
+    int vcnt_naturally_empty = 0; /* Boolean eval itself produced an empty BoT (no geometry) */
     int vcnt_p1_pass      = 0; /* P1 MATCH (within threshold) */
     int vcnt_few_hit      = 0; /* P1: few Crofton hits — accepted with note (sub-mm geometry found) */
     int vcnt_zero_hit     = 0; /* P1: zero Crofton hits — non-empty BoT is suspicious */
@@ -829,6 +830,26 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	    bret = _ged_facetize_booleval_tri(s, wdbip, wwdbp, 1, (const char **)&obj_name, bu_vls_cstr(&bname), vlfree, 1, i+1, eval_total);
 	    bu_free(obj_name, "obj_name");
 
+	    /* Track regions where the Boolean evaluation itself yielded no geometry.
+	     * These are distinct from zero-hit replacements: here the tessellator
+	     * wrote an empty BoT directly (e.g. a subtraction that removes all of
+	     * the base solid), without any suspicious non-empty intermediate.     */
+	    if (bret == BRLCAD_OK) {
+		struct directory *ebot_dp = db_lookup(wdbip, bu_vls_cstr(&bname), LOOKUP_QUIET);
+		if (ebot_dp != RT_DIR_NULL) {
+		    struct rt_db_internal einternal;
+		    RT_DB_INTERNAL_INIT(&einternal);
+		    if (rt_db_get_internal(&einternal, ebot_dp, wdbip, NULL) >= 0) {
+			if (einternal.idb_minor_type == DB5_MINORTYPE_BRLCAD_BOT) {
+			    struct rt_bot_internal *ebot = (struct rt_bot_internal *)einternal.idb_ptr;
+			    if (ebot->num_faces == 0)
+				vcnt_naturally_empty++;
+			}
+			rt_db_free_internal(&einternal);
+		    }
+		}
+	    }
+
 	    bool can_validate = false;
 	    if (!s->no_perturb) {
 		std::set<std::string> visited;
@@ -1076,11 +1097,12 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	facetize_log(s, 0, "  %-45s %8.2f\n", "Runtime (sec)", elapsed_s);
 	facetize_log(s, 0, "  %-45s %8d\n", "Validation skipped (no perturbable leaves)", vcnt_skip);
 	facetize_log(s, 0, "  %-45s %8d\n", "Validation pass (P1)", vcnt_p1_pass);
+	facetize_log(s, 0, "  %-45s %8d\n", "Naturally empty BoTs (Boolean eval)", vcnt_naturally_empty);
 	facetize_log(s, 0, "  %-45s %8d\n", "Perturb retries triggered", vcnt_p1_trigger);
 	facetize_log(s, 0, "  %-45s %8d\n", "Perturb retries passed (P2)", vcnt_p2_pass);
 	facetize_log(s, 0, "  %-45s %8d\n", "Few-hit notes (pre-perturb)", vcnt_few_hit);
 	facetize_log(s, 0, "  %-45s %8d\n", "Few-hit notes (post-perturb)", vcnt_p2_topoflip);
-	facetize_log(s, 0, "  %-45s %8d\n", "Zero-hit empty replacements", vcnt_zero_hit);
+	facetize_log(s, 0, "  %-45s %8d\n", "Non-empty BoTs replaced with empty (Crofton 0-hit)", vcnt_zero_hit);
 	facetize_log(s, 0, "  %-45s %8d\n", "Persistent mismatches", vcnt_p2_warn);
 	facetize_log(s, 0, "  %-45s %8d\n", "Validation unavailable", vcnt_unavail);
 	if (!inspect_regions.empty()) {
