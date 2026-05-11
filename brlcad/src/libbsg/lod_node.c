@@ -121,7 +121,7 @@ bsg_lod_node_create(struct bview *v)
     pl->cursor_count = 0;
 
     bsg_node_user_data_set((bsg_node *)n, pl);
-    n->s_free_callback = _lod_node_free_cb;
+    n->s_free_callback = _lod_node_free_cb;  /* no BSG accessor for lifecycle callbacks yet */
 
     return (bsg_node *)n;
 }

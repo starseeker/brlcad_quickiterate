@@ -376,12 +376,15 @@ Initial consumer migration:
 - [DONE] overlay.c: bsg_find_overlay_group uses bsg_node_child_count/child/name;
   bsg_ensure_overlay_group uses bsg_node_set_kind, bsg_node_set_visible,
   bsg_node_set_name, bsg_node_add_child.
+  Note: dp=NULL is set directly since dp (directory pointer) is Phase 2
+  identity/source metadata with no BSG accessor yet.
 - [DONE] lod_node.c: _lod_payload uses bsg_node_has_kind/user_data_get;
   bsg_lod_node_create uses bsg_node_set_kind/set_visible/user_data_set;
   bsg_lod_node_attach_level delegates to bsg_node_add_child;
   bsg_lod_node_level_count uses bsg_node_has_kind/child_count.
   Note: bsg_lod_node_insert_above retains direct field access for the
-  BU_PTBL_SET slot-replacement step, which has no generic equivalent yet.
+  BU_PTBL_SET slot-replacement step (no generic equivalent yet) and for
+  s_free_callback (no BSG lifecycle callback accessor in Phase 1).
 - Do not yet migrate libdm/libged large call sites unless the changes are very
   small.
 
