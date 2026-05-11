@@ -42,7 +42,7 @@ static bu_hash_tbl *_bsg_appearance_map = NULL;
 static int _bsg_view_obj_appearance_hook_enabled = 0;
 
 static fastf_t
-_clamp_transparency(fastf_t t)
+_appearance_clamp_transparency(fastf_t t)
 {
     if (t < 0.0)
 	return 0.0;
@@ -115,7 +115,7 @@ bsg_appearance_from_legacy_obj_settings(const bsg_node *n, struct bsg_appearance
     out->draw_mode = os->s_dmode;
     out->line_width = os->s_line_width;
     out->line_style = s->s_soldash ? BSG_APPEARANCE_LINE_DASHED : BSG_APPEARANCE_LINE_SOLID;
-    out->transparency = _clamp_transparency(os->transparency);
+    out->transparency = _appearance_clamp_transparency(os->transparency);
     out->inherit_settings = s->s_inherit_settings ? 1 : 0;
     out->arrow_tip_length = os->s_arrow_tip_length;
     out->arrow_tip_width = os->s_arrow_tip_width;
@@ -135,7 +135,7 @@ bsg_appearance_to_legacy_obj_settings(bsg_node *n, const struct bsg_appearance *
 
     os->s_dmode = a->draw_mode;
     os->s_line_width = a->line_width;
-    os->transparency = _clamp_transparency(a->transparency);
+    os->transparency = _appearance_clamp_transparency(a->transparency);
     os->s_arrow_tip_length = a->arrow_tip_length;
     os->s_arrow_tip_width = a->arrow_tip_width;
     os->draw_solid_lines_only = a->draw_solid_lines_only;

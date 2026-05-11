@@ -1197,11 +1197,11 @@ Phase 2 stages:
 
 Phase 3 stages:
 
-- 3A: Add `bsg_material` and compatibility mapping tests.
-- 3B: Migrate view-object color setters/getters to BSG material.
-- 3C: Add `bsg_appearance` and compatibility mapping tests.
-- 3D: Migrate line width, draw mode, transparency reads in libdm to accessors.
-- 3E: Migrate libged material refresh to BSG material revisions.
+- 3A: [DONE] Add `bsg_material` and compatibility mapping tests.
+- 3B: [DONE] Migrate view-object color setters/getters to BSG material.
+- 3C: [DONE] Add `bsg_appearance` and compatibility mapping tests.
+- 3D: [DONE] Migrate line width, draw mode, transparency reads in libdm to accessors.
+- 3E: [DONE] Migrate libged material refresh to BSG material revisions.
 
 Phase 4 stages:
 
@@ -1324,6 +1324,24 @@ What is complete or substantially complete:
   - `src/libged/tests/draw/bsg_view_obj.cpp` validates identity-first erase
     behavior by removing a target shape's compatibility `s_fullpath` metadata
     and asserting `erase_by_dbpath` still removes it.
+- Phase 3 material/appearance API is implemented:
+  - `include/bsg/material.h` + `src/libbsg/material.c` add side-car-backed
+    material storage with compatibility mapping to legacy `s_color`,
+    `s_color_rev`, and `bv_obj_settings::transparency/color_override`.
+  - `include/bsg/appearance.h` + `src/libbsg/appearance.c` add side-car-backed
+    appearance storage with compatibility mapping to legacy draw-mode,
+    line-width, line-style, and related `bv_obj_settings` fields.
+  - `src/libbv/util.cpp` typed setters (`bv_view_obj_set_color`,
+    `bv_view_obj_set_line_width`) now support BSG hook bridges configured by
+    libbsg so view-object color/line-width mutations flow through BSG material
+    and appearance APIs while keeping compatibility fields synchronized.
+  - `src/libdm/view.c` render traversal now resolves color/line-width/
+    transparency from BSG material/appearance first, with legacy fallback.
+  - `src/libged/bsg_ged_draw.c` material refresh (`color_from_soltab`) now
+    writes BSG material state and bumps material revisions through
+    `bsg_node_material_set`.
+  - Unit coverage includes `src/libbsg/tests/test_material.c` and updated
+    `src/libged/tests/draw/tcl_adornment_bsg.cpp` assertions for BSG accessors.
 
 What is partially complete:
 
@@ -1334,7 +1352,6 @@ What is partially complete:
 
 What is not yet implemented in this roadmap:
 
-- Phase 3 material/appearance API (`material.h/.c`, `appearance.h/.c`).
 - Phase 5 action layer (`action.h/.c`, bbox/search/collect actions).
 - Phase 6 selection set model.
 - Phase 7 camera/light snapshots.
@@ -1349,14 +1366,12 @@ Immediate Next-Session Stage Prompts
 ------------------------------------
 Use these as concrete "small-unit" prompts for the next work sessions.
 
-1. Phase 3A (recommended next):
-   Add `bsg_material` with compatibility mapping helpers and unit tests, without
-   touching libdm traversal.
-
-2. Phase 3B:
-   Add `bsg_appearance` with draw-mode, line-width, and transparency fields.
-   Map to/from `bv_obj_settings` with compatibility helpers and tests.
-
-3. Phase 4A:
+1. Phase 4A (recommended next):
    Expand `include/bsg/payload.h` with a proper payload base struct (type,
    revision, bounds revision, lifecycle callbacks) and vlist payload wrappers.
+
+2. Phase 4B:
+   Migrate BSG shape vlist setter and related tests to the typed payload API.
+
+3. Phase 4C:
+   Add wire-polyline conversion helpers and tests for payload-backed rendering.

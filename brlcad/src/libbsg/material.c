@@ -44,7 +44,7 @@ static bu_hash_tbl *_bsg_material_map = NULL;
 static int _bsg_view_obj_material_hook_enabled = 0;
 
 static fastf_t
-_clamp_transparency(fastf_t t)
+_material_clamp_transparency(fastf_t t)
 {
     if (t < 0.0)
 	return 0.0;
@@ -142,7 +142,7 @@ bsg_material_from_legacy_obj(const bsg_node *n, struct bsg_material *out)
     out->rgba[0] = s->s_color[0];
     out->rgba[1] = s->s_color[1];
     out->rgba[2] = s->s_color[2];
-    out->transparency = _clamp_transparency(os->transparency);
+    out->transparency = _material_clamp_transparency(os->transparency);
     out->rgba[3] = (unsigned char)(out->transparency * 255.0);
     out->revision = s->s_color_rev;
 
@@ -175,7 +175,7 @@ bsg_material_to_legacy_obj(bsg_node *n, const struct bsg_material *m)
     s->s_color[2] = m->rgba[2];
     s->s_color_rev = (uint32_t)m->revision;
 
-    os->transparency = _clamp_transparency(m->transparency);
+    os->transparency = _material_clamp_transparency(m->transparency);
     if (m->use_override_color) {
 	os->color_override = 1;
 	os->color[0] = m->override_rgb[0];
