@@ -22,6 +22,62 @@
  * @brief
  * Scene-graph library core type definitions.
  *
+ * @par BSG is the intended scene graph API for BRL-CAD.
+ *
+ * libbsg (the BRL-CAD Scene Graph library) is the *intended public API* for
+ * working with drawn scene objects.  libbv storage (struct bv_scene_obj) is
+ * *transitional* backing storage; bsg_node is currently typedef'd to
+ * struct bv_scene_obj so that existing code requires no casts, but new code
+ * must not depend on that equivalence remaining true forever.
+ *
+ * @par Correct usage pattern for new code:
+ * @code
+ *   bsg_node *n = bsg_node_child(parent, i);     // traversal
+ *   if (bsg_node_has_kind(n, BSG_NODE_SHAPE)) {
+ *       bsg_node_set_visible(n, 1);               // mutation
+ *       bsg_node_bounds_get(n, bmin, bmax);       // query
+ *   }
+ * @endcode
+ *
+ * @par Do NOT write new code that looks like:
+ * @code
+ *   struct bv_scene_obj *sp = ...;
+ *   sp->s_flag = UP;           // wrong: use bsg_node_set_visible()
+ *   sp->s_type_flags |= ...;   // wrong: use bsg_node_set_kind()
+ *   VMOVE(sp->s_color, c);     // wrong: will use bsg_material_set_color()
+ * @endcode
+ *
+ * @par Header layout (current and planned):
+ * - bsg/node.h         generic node API, kind, name, parent/child, visibility,
+ *                      transforms, bounds, revisions, user data
+ * - bsg/identity.h     node, part, and instance identity APIs
+ * - bsg/field.h        SoField-like field-change notification API
+ * - bsg/sensor.h       Inventor-like FieldSensor/NodeSensor registry
+ * - bsg/payload.h      payload base API and payload lifecycle
+ * - bsg/node_group.h   group/root typed node helpers
+ * - bsg/node_shape.h   shape leaf typed node helpers
+ * - bsg/node_transform.h  transform node helpers
+ * - bsg/lod_ops.h      LoD policy and adaptive-wireframe API
+ * - bsg/view_scope.h   per-view visibility scoping
+ * - bsg/visit.h        traversal / visitor API
+ * - bsg/draw_set.h     erase-by-name and draw-set management
+ * - bsg/scene_set.h    scene-level object table
+ *
+ * Planned (Phase 3+):
+ * - bsg/material.h     material and color-binding API
+ * - bsg/appearance.h   draw style, line style, depth/hidden-line policy
+ * - bsg/selection.h    scene selection sets and sub-primitive entries
+ * - bsg/light.h        light node definitions
+ * - bsg/camera.h       renderer-neutral camera/view description
+ * - bsg/action.h       action/traversal interfaces
+ * - bsg/render.h       renderer-facing callbacks and scene render contract
+ * - bsg/compat.h       temporary compatibility helpers for raw bv_scene_obj
+ *                      field access during the migration period
+ *
+ * See doc/notes/bsg_enhancement_plan.txt for the full migration roadmap.
+ * See doc/notes/bsg_raw_field_inventory.txt for the current raw-field
+ * usage inventory and migration status.
+ *
  * bsg_node and bsg_shape are layout-compatible aliases for struct bv_scene_obj
  * (identical field prefix), so no casts are needed when promoting existing
  * scene objects into the scene graph.

@@ -230,6 +230,26 @@ struct bv_obj_backend {
     void (*invalidate)(struct bv_scene_obj *);  /**< @brief mark cached resource stale; may be NULL */
 };
 
+/**
+ * BSG GUARDRAIL: new scene-graph code should use BSG APIs (include/bsg/),
+ * not direct struct bv_scene_obj field accesses.
+ *
+ * struct bv_scene_obj is transitional storage.  It is typedef'd as bsg_node
+ * in include/bsg/defines.h so that existing pointers remain valid without
+ * casts.  All new code that creates, traverses, or mutates scene-graph nodes
+ * should call bsg_node_*(), bsg_identity_*(), bsg_material_*(),
+ * bsg_appearance_*(), and related BSG functions rather than reading or writing
+ * the raw fields below.
+ *
+ * Direct field access is permissible only in:
+ *   - libbsg internal implementation files (src/libbsg/)
+ *   - libbv low-level utility and vlist code (src/libbv/)
+ *   - libdm renderer backends that have no BSG accessor yet
+ *   - Legacy compatibility paths explicitly labelled BV_DEPRECATED
+ *
+ * See doc/notes/bsg_enhancement_plan.txt for the migration roadmap and
+ * doc/notes/bsg_raw_field_inventory.txt for the current usage inventory.
+ */
 struct bv_scene_obj  {
     struct bu_list l;
 
