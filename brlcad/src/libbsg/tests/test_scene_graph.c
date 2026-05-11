@@ -138,7 +138,7 @@ test_create_alias(void)
     BSGCHECK(bsg_node_identity_get(root, &id_with_root) == 1,
 	     "scene root identity assigned for existing draw root");
     BSGCHECK(id_with_root.node_id.value == id_no_root.node_id.value,
-	     "scene root identity is stable across creation paths");
+	     "scene root identity matches between standalone and pre-existing roots");
     BSGCHECK(id_with_root.source_kind == BSG_SOURCE_GENERATED,
 	     "existing draw root identity source_kind is generated");
 

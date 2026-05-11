@@ -77,6 +77,18 @@
         BU_LIST_APPEND(fp, &((p)->l)); \
         BV_FREE_VLIST(vlf, &((p)->s_vlist)); }
 
+static void
+_bsg_draw_root_identity_assign(struct bv_scene_obj *root)
+{
+    struct bsg_identity id;
+
+    if (!root)
+	return;
+
+    bsg_identity_from_path_str(&id, "_draw_root", BSG_SOURCE_GENERATED);
+    bsg_node_identity_set((bsg_node *)root, &id);
+}
+
 /* Thin wrapper: delegates to bsg_bump_rev_node() in libbsg/draw_set.c.
  * Phase 7 Step 11: the implementation moved to libbsg so that the free-group
  * helpers (also in libbsg) can bump the revision counter without carrying
@@ -323,12 +335,9 @@ ged_lod_adaptive_toggle_sync(struct bv_scene_obj *lod, struct bview *v, int adap
 static struct bv_scene_obj *
 _sg_root(struct ged *gedp)
 {
-    struct bsg_identity id;
-
     if (gedp->i->ged_gdp->gd_draw_root) {
 	struct bview *v = gedp->ged_gvp;
-	bsg_identity_from_path_str(&id, "_draw_root", BSG_SOURCE_GENERATED);
-	bsg_node_identity_set((bsg_node *)gedp->i->ged_gdp->gd_draw_root, &id);
+	_bsg_draw_root_identity_assign(gedp->i->ged_gdp->gd_draw_root);
 	if (v) {
 	    /* Phase F aliasing: bsg_root and gv_draw_root intentionally point to
 	     * the same shared draw-tree root for the active GED view. */
@@ -369,8 +378,7 @@ _sg_root(struct ged *gedp)
      * bsg_scene_root_sync rebuild is needed. */
     v->gv_draw_root = root;
     v->bsg_root = root;
-    bsg_identity_from_path_str(&id, "_draw_root", BSG_SOURCE_GENERATED);
-    bsg_node_identity_set((bsg_node *)root, &id);
+    _bsg_draw_root_identity_assign(root);
 
     return root;
 }
