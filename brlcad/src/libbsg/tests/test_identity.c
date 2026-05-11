@@ -19,14 +19,17 @@
  */
 /** @file libbsg/tests/test_identity.c
  *
- * Phase 2A tests for ID structs and init/equality/hash helpers.
+ * Phase 2A/2B tests for ID structs, init/equality/hash helpers,
+ * side-car identity storage, and path-string derived identity.
  */
 
 #include "common.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #include "bu/app.h"
+#include "bu/malloc.h"
 #include "bsg/identity.h"
 
 #define PASS(msg) do { printf("  PASS: %s\n", (msg)); } while (0)
@@ -131,6 +134,134 @@ test_hash_helpers(void)
 }
 
 
+/* ------------------------------------------------------------------ */
+/* Test 4: Phase 2B side-car identity storage                           */
+/* ------------------------------------------------------------------ */
+
+static int
+test_node_identity_sidecar(void)
+{
+    printf("=== Test 4: node_identity_sidecar ===\n");
+
+    /* Use a dummy pointer — identity storage is keyed by address only. */
+    int dummy_a = 0, dummy_b = 0;
+    bsg_node *na = (bsg_node *)&dummy_a;
+    bsg_node *nb = (bsg_node *)&dummy_b;
+
+    /* Before any set, get should return 0 */
+    struct bsg_identity got;
+    memset(&got, 0xFF, sizeof(got));
+    if (bsg_node_identity_get(na, &got) != 0)
+	FAIL("get on unknown node should return 0");
+
+    /* set then get round-trip */
+    struct bsg_identity id_a;
+    bsg_identity_init(&id_a);
+    id_a.node_id.value = 0xDEAD;
+    id_a.part_id.value = 0xBEEF;
+    id_a.source_kind = BSG_SOURCE_DB_OBJECT;
+    bsg_node_identity_set(na, &id_a);
+
+    struct bsg_identity got_a;
+    if (!bsg_node_identity_get(na, &got_a))
+	FAIL("get after set should return 1");
+    if (got_a.node_id.value != 0xDEAD)
+	FAIL("node_id round-trip");
+    if (got_a.part_id.value != 0xBEEF)
+	FAIL("part_id round-trip");
+    if (got_a.source_kind != BSG_SOURCE_DB_OBJECT)
+	FAIL("source_kind round-trip");
+
+    /* Different node pointer is independent */
+    if (bsg_node_identity_get(nb, &got) != 0)
+	FAIL("get on different node should return 0");
+
+    /* Overwrite with different values */
+    struct bsg_identity id_a2;
+    bsg_identity_init(&id_a2);
+    id_a2.node_id.value = 0xCAFE;
+    id_a2.source_kind = BSG_SOURCE_VIEW_OBJECT;
+    bsg_node_identity_set(na, &id_a2);
+
+    struct bsg_identity got_a2;
+    if (!bsg_node_identity_get(na, &got_a2))
+	FAIL("get after overwrite should return 1");
+    if (got_a2.node_id.value != 0xCAFE)
+	FAIL("overwrite node_id round-trip");
+    if (got_a2.source_kind != BSG_SOURCE_VIEW_OBJECT)
+	FAIL("overwrite source_kind round-trip");
+
+    /* Clear removes the entry */
+    bsg_node_identity_clear(na);
+    if (bsg_node_identity_get(na, &got) != 0)
+	FAIL("get after clear should return 0");
+
+    /* Double-clear is a no-op */
+    bsg_node_identity_clear(na);
+
+    /* NULL safety */
+    bsg_node_identity_set(NULL, &id_a);
+    bsg_node_identity_set(na, NULL); /* should also be a no-op / clear */
+    bsg_node_identity_clear(NULL);
+    if (bsg_node_identity_get(NULL, &got) != 0)
+	FAIL("get(NULL) should return 0");
+
+    PASS("node_identity_sidecar");
+    return 0;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Test 5: Phase 2B path-string derived identity                        */
+/* ------------------------------------------------------------------ */
+
+static int
+test_identity_from_path_str(void)
+{
+    printf("=== Test 5: identity_from_path_str ===\n");
+
+    struct bsg_identity id;
+
+    /* NULL path should produce zero node_id but still set source_kind */
+    bsg_identity_from_path_str(&id, NULL, BSG_SOURCE_DB_OBJECT);
+    if (id.node_id.value != 0)
+	FAIL("NULL path -> zero node_id");
+    if (id.source_kind != BSG_SOURCE_DB_OBJECT)
+	FAIL("NULL path -> source_kind set");
+
+    /* Non-empty path should produce a non-zero node_id */
+    bsg_identity_from_path_str(&id, "/tank/hull", BSG_SOURCE_DB_OBJECT);
+    if (id.node_id.value == 0)
+	FAIL("non-empty path -> non-zero node_id");
+    if (id.source_kind != BSG_SOURCE_DB_OBJECT)
+	FAIL("non-empty path -> source_kind set");
+
+    /* Same path always produces the same ID */
+    uint64_t id1 = id.node_id.value;
+    bsg_identity_from_path_str(&id, "/tank/hull", BSG_SOURCE_DB_OBJECT);
+    if (id.node_id.value != id1)
+	FAIL("same path -> stable node_id");
+
+    /* Different paths produce different IDs (no collision for these values) */
+    uint64_t id_a = id.node_id.value;
+    bsg_identity_from_path_str(&id, "/tank/turret", BSG_SOURCE_DB_OBJECT);
+    uint64_t id_b = id.node_id.value;
+    if (id_a == id_b)
+	FAIL("different paths -> different node_id");
+
+    /* source_kind is preserved independently */
+    bsg_identity_from_path_str(&id, "/obj", BSG_SOURCE_VIEW_OBJECT);
+    if (id.source_kind != BSG_SOURCE_VIEW_OBJECT)
+	FAIL("view object source_kind");
+
+    /* NULL out pointer is a no-op, must not crash */
+    bsg_identity_from_path_str(NULL, "/path", BSG_SOURCE_DB_OBJECT);
+
+    PASS("identity_from_path_str");
+    return 0;
+}
+
+
 int
 main(int UNUSED(argc), const char **argv)
 {
@@ -140,14 +271,15 @@ main(int UNUSED(argc), const char **argv)
     failures += test_init_helpers();
     failures += test_equal_helpers();
     failures += test_hash_helpers();
+    failures += test_node_identity_sidecar();
+    failures += test_identity_from_path_str();
 
     if (failures) {
 	printf("FAIL: %d test group(s) failed\n", failures);
 	return 1;
     }
 
-    printf("PASS: all identity tests passed\n");
-    return 0;
+    printf("PASS: all identity tests passed\n");    return 0;
 }
 
 /*

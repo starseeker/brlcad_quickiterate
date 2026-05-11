@@ -19,11 +19,16 @@
  */
 /** @file libbsg/identity.c
  *
- * Phase 2A: ID structs and init/equality/hash helpers.
+ * Phase 2A/2B: ID structs, init/equality/hash helpers, and side-car
+ * identity storage for BSG nodes.
  */
 
 #include "common.h"
 
+#include <string.h>
+
+#include "bu/hash.h"
+#include "bu/malloc.h"
 #include "bsg/identity.h"
 
 
@@ -137,6 +142,126 @@ bsg_instance_id_hash(const struct bsg_instance_id *id)
     if (!id)
 	return 0;
     return _bsg_hash_u64(id->value);
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Phase 2B: side-car identity storage                                  */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Global process-wide map: bsg_node * (as raw bytes) -> struct bsg_identity *
+ *
+ * Lifetime: entries are explicitly removed by bsg_node_identity_clear().
+ * If a node is destroyed without calling bsg_node_identity_clear() first
+ * the entry will remain in the map but the pointer key becomes dangling.
+ * This is acceptable for Phase 2B; future phases will hook into node
+ * destruction to call bsg_node_identity_clear() automatically.
+ *
+ * Thread safety: the map is NOT thread-safe.  External serialisation is
+ * required when the caller accesses the same node from multiple threads.
+ */
+static bu_hash_tbl *_bsg_id_map = NULL;
+
+static void
+_bsg_id_map_ensure(void)
+{
+    if (!_bsg_id_map)
+	_bsg_id_map = bu_hash_create(128);
+}
+
+
+int
+bsg_node_identity_get(const bsg_node *n, struct bsg_identity *out)
+{
+    if (!n || !out || !_bsg_id_map)
+	return 0;
+
+    void *val = bu_hash_get(_bsg_id_map,
+			    (const uint8_t *)&n, sizeof(n));
+    if (!val)
+	return 0;
+
+    *out = *(const struct bsg_identity *)val;
+    return 1;
+}
+
+
+void
+bsg_node_identity_set(bsg_node *n, const struct bsg_identity *id)
+{
+    if (!n)
+	return;
+
+    if (!id) {
+	bsg_node_identity_clear(n);
+	return;
+    }
+
+    _bsg_id_map_ensure();
+
+    /* Check whether we already have an entry to update in-place */
+    void *existing = bu_hash_get(_bsg_id_map,
+				 (const uint8_t *)&n, sizeof(n));
+    if (existing) {
+	*(struct bsg_identity *)existing = *id;
+    } else {
+	struct bsg_identity *copy;
+	BU_ALLOC(copy, struct bsg_identity);
+	*copy = *id;
+	bu_hash_set(_bsg_id_map, (const uint8_t *)&n, sizeof(n), copy);
+    }
+}
+
+
+void
+bsg_node_identity_clear(bsg_node *n)
+{
+    if (!n || !_bsg_id_map)
+	return;
+
+    void *val = bu_hash_get(_bsg_id_map,
+			    (const uint8_t *)&n, sizeof(n));
+    if (!val)
+	return;
+
+    bu_free(val, "bsg_identity");
+    bu_hash_rm(_bsg_id_map, (const uint8_t *)&n, sizeof(n));
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Phase 2B: path-string derived identity                               */
+/* ------------------------------------------------------------------ */
+
+/*
+ * FNV-1a 64-bit hash of a NUL-terminated string.  Chosen because it is
+ * simple, deterministic across platforms, and fast for short path strings.
+ */
+static uint64_t
+_fnv1a_64(const char *s)
+{
+    uint64_t h = 14695981039346656037ULL;
+    while (*s) {
+	h ^= (uint8_t)(*s++);
+	h *= 1099511628211ULL;
+    }
+    return h;
+}
+
+
+void
+bsg_identity_from_path_str(struct bsg_identity *id,
+			   const char *path_str,
+			   enum bsg_source_kind kind)
+{
+    if (!id)
+	return;
+
+    bsg_identity_init(id);
+    id->source_kind = kind;
+    if (path_str && *path_str)
+	id->node_id.value = _fnv1a_64(path_str);
 }
 
 

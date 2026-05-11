@@ -33,6 +33,7 @@
 #include "bu/parallel.h"
 #include "bu/time.h"
 #include "raytrace.h"
+#include "bsg/identity.h"
 
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
@@ -115,6 +116,15 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     bv_scene_obj_bound(sp, dgcdp->v);
 
     db_dup_full_path(&bdata->s_fullpath, pathp);
+
+    /* Phase 2C: assign BSG identity from DB path */
+    {
+	char *_bid_path = db_path_to_string(pathp);
+	struct bsg_identity _bid;
+	bsg_identity_from_path_str(&_bid, _bid_path, BSG_SOURCE_DB_OBJECT);
+	bsg_node_identity_set((bsg_node *)sp, &_bid);
+	bu_free((void *)_bid_path, "path string");
+    }
 
     sp->s_iflag = DOWN;
     sp->s_soldash = dashflag;
@@ -370,6 +380,16 @@ append_solid_to_display_list(
 
     sp->s_vlen = 0;
     db_dup_full_path(&bdata->s_fullpath, pathp);
+
+    /* Phase 2C: assign BSG identity from DB path */
+    {
+	char *_bid_path = db_path_to_string(pathp);
+	struct bsg_identity _bid;
+	bsg_identity_from_path_str(&_bid, _bid_path, BSG_SOURCE_DB_OBJECT);
+	bsg_node_identity_set((bsg_node *)sp, &_bid);
+	bu_free((void *)_bid_path, "path string");
+    }
+
     sp->s_iflag = DOWN;
 
     if (bv_data->draw_solid_lines_only) {
