@@ -60,6 +60,7 @@
 #include "bsg/identity.h"
 #include "bsg/lod_ops.h"
 #include "bsg/material.h"
+#include "bsg/node.h"
 #include "bsg/overlay.h"
 #include "bsg/payload.h"
 #include "bsg/sensor.h"
@@ -919,7 +920,9 @@ _bsg_payload_vlist_touch(struct bv_scene_obj *sp)
 
     (void)bsg_payload_bump_revision(payload);
     payload->bounds_revision = payload->revision;
+    bsg_node_field_touch((bsg_node *)sp, BSG_FIELD_PAYLOAD);
     (void)bsg_node_bump_revision((bsg_node *)sp, BSG_NODE_REV_PAYLOAD);
+    bsg_node_mark_stale((bsg_node *)sp);
 }
 
 static void

@@ -34,6 +34,7 @@
 #include "bu/time.h"
 #include "raytrace.h"
 #include "bsg/identity.h"
+#include "bsg/node.h"
 #include "bsg/payload.h"
 
 #include "ged/bsg_ged_draw.h"
@@ -57,7 +58,9 @@ _draw_payload_vlist_touch(struct bv_scene_obj *sp)
 
     (void)bsg_payload_bump_revision(payload);
     payload->bounds_revision = payload->revision;
+    bsg_node_field_touch((bsg_node *)sp, BSG_FIELD_PAYLOAD);
     (void)bsg_node_bump_revision((bsg_node *)sp, BSG_NODE_REV_PAYLOAD);
+    bsg_node_mark_stale((bsg_node *)sp);
 }
 
 /* Set solid's basecolor, color, and color flags based on client data and tree
