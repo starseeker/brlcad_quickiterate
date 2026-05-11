@@ -303,6 +303,26 @@ bsg_node_mark_stale(bsg_node *n)
 }
 
 
+uint64_t
+bsg_node_drawn_rev(const bsg_node *n)
+{
+    if (!n)
+	return 0;
+
+    return ((const struct bv_scene_obj *)n)->s_drawn_rev;
+}
+
+
+void
+bsg_node_set_drawn_rev(bsg_node *n, uint64_t rev)
+{
+    if (!n)
+	return;
+
+    ((struct bv_scene_obj *)n)->s_drawn_rev = rev;
+}
+
+
 /*
  * Local Variables:
  * tab-width: 8

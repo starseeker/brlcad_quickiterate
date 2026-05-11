@@ -839,7 +839,7 @@ Acceptance criteria:
   internals.
 
 
-Phase 8: Render Action and Renderer Contract
+Phase 8: Render Action and Renderer Contract  [DONE]
 --------------------------------------------
 Objective:
 Move common render traversal semantics out of libdm-specific code and into a
@@ -1240,10 +1240,10 @@ Phase 7 stages:
 
 Phase 8 stages:
 
-- 8A: Add renderer ops structs and a no-op/test renderer.
-- 8B: Move view-scope/LoD/transform traversal into BSG render helper.
-- 8C: Move material/appearance/selection resolution into render helper.
-- 8D: Adapt libdm `dm_draw_objs` to the render helper.
+- 8A: [DONE] Add renderer ops structs and a no-op/test renderer.
+- 8B: [DONE] Move view-scope/LoD/transform traversal into BSG render helper.
+- 8C: [DONE] Move material/appearance/selection resolution into render helper.
+- 8D: [DONE] Adapt libdm `dm_draw_objs` to the render helper.
 
 Phase 9 stages:
 
@@ -1418,15 +1418,48 @@ What is complete or substantially complete:
     camera snapshot init/null-safety, identity-view snapshot, perspective mode,
     light lifecycle, default light set content, and scene-root registry
     enable/disable.  All 18 libbsg tests pass.
+- Phase 8 render action/renderer contract is implemented:
+  - `include/bsg/render.h` + `src/libbsg/render.c` add `struct bsg_render_action`,
+    `struct bsg_renderer_ops`, `bsg_render_action_init`, `bsg_render_action_set_view`,
+    `bsg_render_action_apply`, and `bsg_renderer_noop`.
+  - `bsg_render_action_apply` handles the full BSG structural traversal in libbsg:
+    view-scope filtering (BSG_NODE_VIEW_SCOPE), LoD level selection
+    (BSG_NODE_LOD), transform push/pop (BSG_NODE_TRANSFORM with
+    `push_transform`/`pop_transform` callbacks), sensor/bridge-node skipping,
+    and drawable-node material/appearance/selection resolution via BSG APIs
+    (`bsg_node_material_get`, `bsg_node_appearance_get`, `bsg_node_is_selected`).
+  - Two-pass transparency is managed internally via `query_capability` /
+    `set_depth_mask` callbacks; single-pass for renderers that don't declare
+    BSG_RENDERER_CAP_TRANSPARENCY.
+  - Camera snapshot is supplied to the renderer via `set_camera` (derived from
+    `ra->view` with `bsg_camera_snapshot_from_bview`) before traversal.
+  - `include/bsg/node.h` + `src/libbsg/node.c` add `bsg_node_drawn_rev` and
+    `bsg_node_set_drawn_rev` accessors over `s_drawn_rev`.
+  - `src/libdm/view.c` adds `_dm_renderer_ops` (a `bsg_renderer_ops` instance
+    backed by `dm_*` functions): `_dm_rop_push_transform`, `_dm_rop_pop_transform`,
+    `_dm_rop_set_material`, `_dm_rop_set_appearance`, `_dm_rop_draw_payload`,
+    `_dm_rop_set_depth_mask`, `_dm_rop_query_capability`.
+  - `dm_draw_objs` is adapted: the previous direct `_bsg_view_traverse_impl`
+    two-pass calls are replaced by `bsg_render_action_apply(&ra, v->bsg_root)`.
+  - `_bsg_view_traverse_impl` and `bsg_view_traverse` remain for backward
+    compatibility; `dm_draw_scene_obj` is unchanged.
+  - Residual direct-field access in `_dm_draw_scene_obj_internal` (called by
+    `draw_payload`) is a known Phase 11C cleanup item.
+  - `include/bsg/render.h` added to the `bsg_headers` install list; `camera.h`
+    and `light.h` also added (they were present but absent from the list).
+  - Unit coverage: `src/libbsg/tests/test_render.c` with 8 tests covering
+    null-safety/init, no-op renderer, counting renderer (begin/end/3-payload
+    calls), view-scope filtering (va vs vb), transform push/pop, two-pass
+    transparency (4 payload calls + depth-mask sequence), sensor skip, and
+    `bsg_node_drawn_rev` accessors.  All 19 libbsg tests pass.
 
 What is partially complete:
 
-- No open partial items are currently tracked for Phases 1-7.
+- No open partial items are currently tracked for Phases 1-8.
 
 What is not yet implemented in this roadmap:
 
 - Phase 6F: Full BSelectState → BSG selection migration (GED selection containers).
-- Phase 8 render action/renderer contract.
 - Phase 9 overlay/image-layer model in the form described here.
 - Phase 10 storage split preparations (`bsg_node_core` path).
 - Phase 11 broad consumer sweeps under this specific API plan.
@@ -1437,11 +1470,15 @@ Immediate Next-Session Stage Prompts
 ------------------------------------
 Use these as concrete "small-unit" prompts for the next work sessions.
 
-1. Phase 8A (recommended next):
-   Add renderer ops structs and a no-op/test renderer.
+1. Phase 9A (recommended next):
+   Add overlay payload basics — BSG overlay node draw hook through
+   the render action's `draw_overlay` callback.
 
-2. Phase 8B:
-   Move view-scope/LoD/transform traversal into BSG render helper.
+2. Phase 9B:
+   Add image layer payload basics for framebuffer / FBO-backed layers.
 
-3. Phase 8C:
-   Move material/appearance/selection resolution into render helper.
+3. Phase 9C:
+   Preserve faceplate tests through render action overlay hooks.
+
+4. Phase 9D:
+   Preserve framebuffer tests through image layer hooks.

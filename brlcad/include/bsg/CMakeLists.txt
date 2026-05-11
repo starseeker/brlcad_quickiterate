@@ -2,11 +2,13 @@ set(
   bsg_headers
   action.h
   appearance.h
+  camera.h
   defines.h
   draw_ctx.h
   draw_set.h
   field.h
   identity.h
+  light.h
   lod.h
   lod_ops.h
   material.h
@@ -17,6 +19,7 @@ set(
   obol_node.h
   overlay.h
   payload.h
+  render.h
   scene_set.h
   selection.h
   sensor.h

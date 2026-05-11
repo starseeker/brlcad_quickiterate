@@ -99,6 +99,28 @@ bsg_node_bounds_set(bsg_node *n, const point_t bmin, const point_t bmax);
 BSG_EXPORT extern void
 bsg_node_mark_stale(bsg_node *n);
 
+/**
+ * Return the per-frame draw revision stamp for @p n.
+ *
+ * This value is set to the view's gv_frame_rev each time the node is
+ * successfully rendered.  Callers can compare it with gv_frame_rev to
+ * determine whether the node was drawn in the current frame, replacing
+ * the legacy full-tree s_flag = DOWN/UP reset sweep.
+ *
+ * Returns 0 if @p n is NULL.
+ */
+BSG_EXPORT extern uint64_t
+bsg_node_drawn_rev(const bsg_node *n);
+
+/**
+ * Set the per-frame draw revision stamp for @p n to @p rev.
+ *
+ * Typically called by renderers after successfully drawing the node,
+ * passing gv_frame_rev as @p rev.  No-op if @p n is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_set_drawn_rev(bsg_node *n, uint64_t rev);
+
 __END_DECLS
 
 #endif /* BSG_NODE_H */
