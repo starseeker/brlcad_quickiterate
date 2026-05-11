@@ -38,8 +38,8 @@
  *
  *   Phase C - Rebuild & Create: build the lookup table (inst_to_variant) from
  *     the named instances first (mirrors npush's "clear+repopulate" step), then
- *     create the perturbed variant primitives in the working .g via ft_perturb
- *     hooks (ARB8->ARBN, ARBN, TGC, ELL, SPH, TOR).
+ *     create the perturbed variant primitives from the source .g in the working
+ *     .g via ft_perturb hooks (ARB8->ARBN, ARBN, TGC, ELL, SPH, TOR).
  *
  * Role disambiguation in inst_to_variant:
  *   The same primitive can appear at identical tree depth in both a UNION and a
@@ -310,13 +310,14 @@ natural_variant_name(const std::string &src_name, bool is_sub, int idx)
 /* ------------------------------------------------------------------ */
 
 /**
- * Create one perturbed variant of @a src_name in @a wdbip via ft_perturb.
- * Writes the result under @a vname.
+ * Create one perturbed variant of @a src_name from @a src_dbip via ft_perturb.
+ * Writes the result under @a vname in @a wdbip.
  *
  * @return BRLCAD_OK on success, BRLCAD_ERROR otherwise.
  */
 static int
 create_variant_in_working_g(struct db_i       *wdbip,
+				struct db_i       *src_dbip,
 				const std::string &src_name,
 				const std::string &vname,
 				bool               is_sub,
@@ -325,13 +326,13 @@ create_variant_in_working_g(struct db_i       *wdbip,
 				fastf_t           *out_factor)
 {
 	struct directory *src_dp =
-		db_lookup(wdbip, src_name.c_str(), LOOKUP_QUIET);
+		db_lookup(src_dbip, src_name.c_str(), LOOKUP_QUIET);
 	if (!src_dp)
 		return BRLCAD_ERROR;
 
 	struct rt_db_internal src_intern;
 	RT_DB_INTERNAL_INIT(&src_intern);
-	if (rt_db_get_internal(&src_intern, src_dp, wdbip, NULL) < 0)
+	if (rt_db_get_internal(&src_intern, src_dp, src_dbip, NULL) < 0)
 		return BRLCAD_ERROR;
 
 	int prim_type = src_intern.idb_type;
@@ -343,7 +344,7 @@ create_variant_in_working_g(struct db_i       *wdbip,
 	point_t bmin, bmax;
 	/* If bounds fail, keep -1 and fall back to the non-micro/default floor. */
 	fastf_t bbox_diag = -1.0;
-	if (rt_bound_internal(wdbip, src_dp, bmin, bmax) == 0)
+	if (rt_bound_internal(src_dbip, src_dp, bmin, bmax) == 0)
 		bbox_diag = DIST_PNT_PNT(bmin, bmax);
 
 	fastf_t factor = variant_perturb_factor(src_name, is_sub, idx, bbox_diag);
@@ -455,9 +456,9 @@ _ged_facetize_build_variant_plan(struct _ged_facetize_state *s,
 
 	for (auto &inst : ctx.instances) {
 
-		/* Only create variants for primitives with ft_perturb support */
+		/* Only create variants for source primitives with ft_perturb support */
 		struct directory *src_dp =
-			db_lookup(wdbip, inst.src_name.c_str(), LOOKUP_QUIET);
+			db_lookup(s->dbip, inst.src_name.c_str(), LOOKUP_QUIET);
 		if (!src_dp || !OBJ[src_dp->d_minor_type].ft_perturb) {
 			plan->n_perturb_fallbacks++;
 			continue;
@@ -528,6 +529,7 @@ _ged_facetize_build_variant_plan(struct _ged_facetize_state *s,
 
 		fastf_t used_factor = 0.0;
 		int cret = create_variant_in_working_g(wdbip,
+						s->dbip,
 						inst.src_name,
 						inst.vname,
 						inst.is_sub,
