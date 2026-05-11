@@ -574,23 +574,40 @@ _sg_add_path(struct ged *gedp, const char *name)
 /* Erase helpers — tree-navigation based, no split logic              */
 /* ------------------------------------------------------------------ */
 
+struct _sg_path_match_ctx {
+    struct db_full_path *subpath;
+    struct bsg_identity subpath_id;
+};
+
 /*
  * Path-match callback for bsg_erase_nested_subpath case (b).
+ * @p shape is the candidate shape node.
  * @p shape_u_data is bv_scene_obj::s_u_data (struct ged_bv_data *).
- * @p match_ctx    is a struct db_full_path * (the subpath being erased).
+ * @p match_ctx is struct _sg_path_match_ctx.
  *
- * Phase 7 Step 12: the case (b) inner loop now lives in libbsg/draw_set.c
- * (bsg_erase_nested_subpath); this callback supplies the GED-specific path
- * comparison without carrying a struct ged * into libbsg.
+ * Prefer BSG identity matching and fall back to legacy db_full_path matching
+ * to preserve compatibility with callers that still rely on s_fullpath.
  */
 static int
-_sg_path_match_cb(void *shape_u_data, void *match_ctx)
+_sg_path_match_cb(const bsg_node *shape, void *shape_u_data, void *match_ctx)
 {
-    if (!shape_u_data || !match_ctx)
+    if (!shape || !match_ctx)
+        return 0;
+
+    struct _sg_path_match_ctx *ctx = (struct _sg_path_match_ctx *)match_ctx;
+    struct bsg_identity sid;
+    /* Identity-first: when both the target subpath hash and node identity are
+     * available, match by identity.  If either side is unavailable (zero hash
+     * or no side-car identity), fall back to legacy db_full_path matching. */
+    if (ctx->subpath_id.node_id.value
+        && bsg_node_identity_get(shape, &sid)
+        && bsg_node_id_equal(&sid.node_id, &ctx->subpath_id.node_id))
+        return 1;
+
+    if (!shape_u_data || !ctx->subpath)
         return 0;
     struct ged_bv_data *bd = (struct ged_bv_data *)shape_u_data;
-    struct db_full_path *subpath = (struct db_full_path *)match_ctx;
-    return db_full_path_match_top(subpath, &bd->s_fullpath);
+    return db_full_path_match_top(ctx->subpath, &bd->s_fullpath);
 }
 
 
@@ -607,6 +624,15 @@ static void
 _sg_erase_nested_subpath(struct bv_scene_obj *parent,
                           struct db_full_path *subpath, size_t depth_start)
 {
+    struct _sg_path_match_ctx mctx = {0};
+    mctx.subpath = subpath;
+    {
+	char *subpath_s = db_path_to_string(subpath);
+	bsg_identity_from_path_str(&mctx.subpath_id, subpath_s, BSG_SOURCE_DB_OBJECT);
+	if (subpath_s)
+	    bu_free((void *)subpath_s, "subpath string");
+    }
+
     const char **names = (const char **)bu_malloc(
         sizeof(const char *) * subpath->fp_len, "subpath names");
     for (size_t i = 0; i < subpath->fp_len; i++)
@@ -614,7 +640,7 @@ _sg_erase_nested_subpath(struct bv_scene_obj *parent,
 
     bsg_erase_nested_subpath((bsg_node *)parent,
                               names, subpath->fp_len, depth_start,
-                              _sg_path_match_cb, (void *)subpath);
+                              _sg_path_match_cb, (void *)&mctx);
 
     bu_free(names, "subpath names");
 }
