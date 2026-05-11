@@ -435,7 +435,7 @@ extern "C" const struct dm_backend_ops gl_backend_ops = {
 // down the big mesh into smaller pieces as in the earlier LoD experiments in
 // order to keep using display lists...
 static int
-gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
+gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
 {
     int fcnt = lod->fcnt;
     int pcnt = lod->pcnt;
@@ -775,7 +775,7 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
     }
 
     if (payload_lod) {
-	return gl_draw_tri(dmp, (struct bv_mesh_lod *)payload_lod);
+	return gl_draw_tri(dmp, payload_lod);
     }
 
     if (payload && bsg_payload_type(payload) == BSG_PAYLOAD_TYPE_VLIST) {

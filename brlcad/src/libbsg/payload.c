@@ -139,6 +139,39 @@ _payload_wire_free(struct bsg_payload *payload)
     wp->polyline_count = 0;
 }
 
+static size_t
+_wire_append_polyline(struct _bsg_payload_wire *wp,
+		      point_t *cur_pts,
+		      size_t cur_cnt,
+		      size_t poly_cap)
+{
+    struct bsg_wire_polyline *pl = NULL;
+    size_t i = 0;
+    size_t ncap = 0;
+
+    if (!wp || !cur_pts || cur_cnt <= 1)
+	return poly_cap;
+
+    if (wp->polyline_count + 1 > poly_cap) {
+	ncap = (poly_cap == 0) ? 8 : poly_cap * 2;
+	wp->polylines = (struct bsg_wire_polyline *)bu_realloc(
+		wp->polylines, ncap * sizeof(struct bsg_wire_polyline),
+		"bsg wire polylines grow");
+	for (i = poly_cap; i < ncap; i++) {
+	    wp->polylines[i].point_count = 0;
+	    wp->polylines[i].points = NULL;
+	}
+	poly_cap = ncap;
+    }
+
+    pl = &wp->polylines[wp->polyline_count++];
+    pl->point_count = cur_cnt;
+    pl->points = (point_t *)bu_malloc(cur_cnt * sizeof(point_t),
+				      "bsg wire polyline points");
+    memcpy(pl->points, cur_pts, cur_cnt * sizeof(point_t));
+    return poly_cap;
+}
+
 struct bsg_payload *
 bsg_payload_create(enum bsg_payload_type type)
 {
@@ -278,10 +311,33 @@ bsg_payload_bounds(const struct bsg_payload *payload, point_t *bmin, point_t *bm
 
     if (payload->type == BSG_PAYLOAD_TYPE_VLIST) {
 	const struct _bsg_payload_vlist *vp = (const struct _bsg_payload_vlist *)payload;
-	struct bv_scene_obj *s = vp->owner ? (struct bv_scene_obj *)vp->owner : NULL;
+	struct bv_scene_obj *s = (struct bv_scene_obj *)vp->owner;
+	struct bv_vlist *tvp = NULL;
+	int have_pt = 0;
 	if (!s)
 	    return 0;
-	return bv_vlist_bbox(&s->s_vlist, bmin, bmax, NULL, NULL);
+	if (bv_vlist_bbox(&s->s_vlist, bmin, bmax, NULL, NULL))
+	    return 1;
+
+	for (BU_LIST_FOR(tvp, bv_vlist, &s->s_vlist)) {
+	    size_t j = 0;
+	    for (j = 0; j < tvp->nused; j++) {
+		point_t *pt = &tvp->pt[j];
+		if (!have_pt) {
+		    if (bmin)
+			VMOVE((*bmin), *pt);
+		    if (bmax)
+			VMOVE((*bmax), *pt);
+		    have_pt = 1;
+		} else {
+		    if (bmin)
+			VMIN((*bmin), *pt);
+		    if (bmax)
+			VMAX((*bmax), *pt);
+		}
+	    }
+	}
+	return have_pt ? 1 : 0;
     }
 
     if (payload->type == BSG_PAYLOAD_TYPE_MESH) {
@@ -396,7 +452,6 @@ bsg_payload_wire_from_vlist(const struct bsg_payload *vlist_payload)
     size_t cur_cnt = 0;
     size_t cur_cap = 0;
     size_t poly_cap = 0;
-    size_t i = 0;
 
     if (!vlist_payload || vlist_payload->type != BSG_PAYLOAD_TYPE_VLIST)
 	return NULL;
@@ -410,30 +465,6 @@ bsg_payload_wire_from_vlist(const struct bsg_payload *vlist_payload)
     if (!wire)
 	return NULL;
     wp = (struct _bsg_payload_wire *)wire;
-
-#define FLUSH_WIRE_POLYLINE() \
-    do { \
-	if (cur_cnt > 1) { \
-	    struct bsg_wire_polyline *pl = NULL; \
-	    if (wp->polyline_count + 1 > poly_cap) { \
-		size_t ncap = (poly_cap == 0) ? 8 : poly_cap * 2; \
-		wp->polylines = (struct bsg_wire_polyline *)bu_realloc( \
-			wp->polylines, ncap * sizeof(struct bsg_wire_polyline), \
-			"bsg wire polylines grow"); \
-		for (i = poly_cap; i < ncap; i++) { \
-		    wp->polylines[i].point_count = 0; \
-		    wp->polylines[i].points = NULL; \
-		} \
-		poly_cap = ncap; \
-	    } \
-	    pl = &wp->polylines[wp->polyline_count++]; \
-	    pl->point_count = cur_cnt; \
-	    pl->points = (point_t *)bu_malloc(cur_cnt * sizeof(point_t), \
-					      "bsg wire polyline points"); \
-	    memcpy(pl->points, cur_pts, cur_cnt * sizeof(point_t)); \
-	} \
-	cur_cnt = 0; \
-    } while (0)
 
     for (BU_LIST_FOR(tvp, bv_vlist, &s->s_vlist)) {
 	int *cmd = tvp->cmd;
@@ -450,7 +481,8 @@ bsg_payload_wire_from_vlist(const struct bsg_payload *vlist_payload)
 		is_draw = 1;
 
 	    if (is_move) {
-		FLUSH_WIRE_POLYLINE();
+		poly_cap = _wire_append_polyline(wp, cur_pts, cur_cnt, poly_cap);
+		cur_cnt = 0;
 		if (cur_cnt + 1 > cur_cap) {
 		    size_t ncap = (cur_cap == 0) ? 16 : cur_cap * 2;
 		    cur_pts = (point_t *)bu_realloc(cur_pts, ncap * sizeof(point_t),
@@ -474,9 +506,7 @@ bsg_payload_wire_from_vlist(const struct bsg_payload *vlist_payload)
 	    }
 	}
     }
-    FLUSH_WIRE_POLYLINE();
-
-#undef FLUSH_WIRE_POLYLINE
+    poly_cap = _wire_append_polyline(wp, cur_pts, cur_cnt, poly_cap);
 
     if (cur_pts)
 	bu_free(cur_pts, "bsg wire temp points");
