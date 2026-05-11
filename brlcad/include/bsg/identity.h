@@ -170,6 +170,13 @@ bsg_node_revision(const bsg_node *n, int rev_kind);
 BSG_EXPORT extern uint64_t
 bsg_node_bump_revision(bsg_node *n, int rev_kind);
 
+/**
+ * Phase 2D: enable view-object identity derivation hooks in libbv
+ * bv_view_obj_create wrappers.
+ */
+BSG_EXPORT extern void
+bsg_identity_enable_view_obj_derivation(void);
+
 __END_DECLS
 
 #endif /* BSG_IDENTITY_H */

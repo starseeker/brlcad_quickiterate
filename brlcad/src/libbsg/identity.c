@@ -29,6 +29,8 @@
 
 #include "bu/hash.h"
 #include "bu/malloc.h"
+#include "bu/vls.h"
+#include "bv/util.h"
 #include "bsg/identity.h"
 
 
@@ -341,6 +343,53 @@ bsg_identity_from_path_str(struct bsg_identity *id,
     id->source_kind = kind;
     if (path_str && *path_str)
 	id->node_id.value = _fnv1a_64(path_str);
+}
+
+static int _bsg_view_obj_derivation_enabled = 0;
+
+static void
+_bsg_view_obj_identity_hook(struct bv_scene_obj *obj,
+			    struct bview *v,
+			    struct bv_scene_obj *scope,
+			    const char *name,
+			    int local,
+			    int name_ordinal)
+{
+    struct bsg_identity id;
+    struct bu_vls path = BU_VLS_INIT_ZERO;
+    const char *scope_name = "_view_obj_scope";
+    const char *view_name = "_view";
+    const char *obj_name = (name && *name) ? name : "_view_obj";
+
+    if (!obj || !scope)
+	return;
+
+    if (BU_VLS_IS_INITIALIZED(&scope->s_name) && bu_vls_strlen(&scope->s_name))
+	scope_name = bu_vls_cstr(&scope->s_name);
+    if (local && v && BU_VLS_IS_INITIALIZED(&v->gv_name) && bu_vls_strlen(&v->gv_name))
+	view_name = bu_vls_cstr(&v->gv_name);
+
+    if (local) {
+	bu_vls_sprintf(&path, "%s/%s/%s#%d",
+		       view_name, scope_name, obj_name, name_ordinal);
+    } else {
+	bu_vls_sprintf(&path, "%s/%s#%d",
+		       scope_name, obj_name, name_ordinal);
+    }
+
+    bsg_identity_from_path_str(&id, bu_vls_cstr(&path), BSG_SOURCE_VIEW_OBJECT);
+    bsg_node_identity_set((bsg_node *)obj, &id);
+    bu_vls_free(&path);
+}
+
+void
+bsg_identity_enable_view_obj_derivation(void)
+{
+    if (_bsg_view_obj_derivation_enabled)
+	return;
+
+    bv_view_obj_identity_hook_set(_bsg_view_obj_identity_hook);
+    _bsg_view_obj_derivation_enabled = 1;
 }
 
 

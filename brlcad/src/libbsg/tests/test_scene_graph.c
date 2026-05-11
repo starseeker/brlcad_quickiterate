@@ -296,11 +296,64 @@ test_sensor_fire(void)
     free_view(v);
 }
 
-/* ---- Test 6: null guards ------------------------------------------- */
+/* ---- Test 6: view_obj_identity ------------------------------------- */
+static void
+test_view_obj_identity(void)
+{
+    bu_log("=== Test 6: view_obj_identity ===\n");
+
+    struct bview *v = make_view();
+    bsg_node *root = bsg_scene_root_create(v);
+    if (!root) { g_fail++; free_view(v); return; }
+
+    struct bv_view_obj_opts opts = BV_VIEW_OBJ_OPTS_INIT;
+    struct bsg_identity id_shared_0, id_shared_1, id_local;
+
+    opts.local = 0;
+    struct bv_scene_obj *shared0 = bv_view_obj_create(v, "phase2d_obj", 0, &opts);
+    struct bv_scene_obj *shared1 = bv_view_obj_create(v, "phase2d_obj", 0, &opts);
+    opts.local = 1;
+    struct bv_scene_obj *local0 = bv_view_obj_create(v, "phase2d_obj", 0, &opts);
+
+    BSGCHECK(shared0 != NULL, "shared view object #0 created");
+    BSGCHECK(shared1 != NULL, "shared view object #1 created");
+    BSGCHECK(local0 != NULL, "local view object created");
+
+    BSGCHECK(bsg_node_identity_get((bsg_node *)shared0, &id_shared_0) == 1,
+	     "shared view object #0 has identity");
+    BSGCHECK(bsg_node_identity_get((bsg_node *)shared1, &id_shared_1) == 1,
+	     "shared view object #1 has identity");
+    BSGCHECK(bsg_node_identity_get((bsg_node *)local0, &id_local) == 1,
+	     "local view object has identity");
+
+    BSGCHECK(id_shared_0.source_kind == BSG_SOURCE_VIEW_OBJECT,
+	     "shared view object source kind is view object");
+    BSGCHECK(id_shared_1.source_kind == BSG_SOURCE_VIEW_OBJECT,
+	     "second shared view object source kind is view object");
+    BSGCHECK(id_local.source_kind == BSG_SOURCE_VIEW_OBJECT,
+	     "local view object source kind is view object");
+
+    BSGCHECK(id_shared_0.node_id.value != 0,
+	     "shared view object identity is non-zero");
+    BSGCHECK(id_shared_1.node_id.value != id_shared_0.node_id.value,
+	     "duplicate shared names get distinct derived identities");
+    BSGCHECK(id_local.node_id.value != id_shared_0.node_id.value,
+	     "local and shared objects get distinct derived identities");
+
+    bsg_node_identity_clear((bsg_node *)shared0);
+    bsg_node_identity_clear((bsg_node *)shared1);
+    bsg_node_identity_clear((bsg_node *)local0);
+    bsg_scene_root_destroy(root);
+    v->gv_draw_root = NULL;
+    bsg_node_identity_clear(root);
+    free_view(v);
+}
+
+/* ---- Test 7: null guards ------------------------------------------- */
 static void
 test_null_guards(void)
 {
-    bu_log("=== Test 6: null_guards ===\n");
+    bu_log("=== Test 7: null_guards ===\n");
     int fails_before = g_fail;
 
     /* These must not crash */
@@ -330,6 +383,7 @@ main(int UNUSED(argc), char *argv[])
     test_sync_noop();
     test_find_by_type();
     test_sensor_fire();
+    test_view_obj_identity();
     test_null_guards();
 
     if (g_fail) {

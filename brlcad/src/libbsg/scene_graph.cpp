@@ -84,6 +84,8 @@ bsg_scene_root_create(struct bview *v)
     if (!v)
 	return NULL;
 
+    bsg_identity_enable_view_obj_derivation();
+
     /* If this view is part of a set and doesn't yet have a draw root, inherit
      * the active draw root from another view in the set.  This keeps secondary
      * views (e.g. libtclcad null-DM views) aligned with the GED draw tree. */

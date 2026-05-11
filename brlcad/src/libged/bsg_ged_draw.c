@@ -335,6 +335,8 @@ ged_lod_adaptive_toggle_sync(struct bv_scene_obj *lod, struct bview *v, int adap
 static struct bv_scene_obj *
 _sg_root(struct ged *gedp)
 {
+    bsg_identity_enable_view_obj_derivation();
+
     if (gedp->i->ged_gdp->gd_draw_root) {
 	struct bview *v = gedp->ged_gvp;
 	_bsg_draw_root_identity_assign(gedp->i->ged_gdp->gd_draw_root);

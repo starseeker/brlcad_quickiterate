@@ -48,6 +48,8 @@
 #define DM_DEFAULT_FONT_SIZE 20
 #define BV_INDEPENDENT_SCOPE_NAME "_independent_db_scope"
 
+static bv_view_obj_identity_hook_t _bv_view_obj_identity_hook = NULL;
+
 static const char *
 _bv_vname(struct bview *v)
 {
@@ -1592,9 +1594,40 @@ _bv_view_scope_ensure(struct bview *v, int local)
     return scope;
 }
 
+void
+bv_view_obj_identity_hook_set(bv_view_obj_identity_hook_t hook)
+{
+    _bv_view_obj_identity_hook = hook;
+}
+
+static int
+_bv_view_obj_name_ordinal(struct bv_scene_obj *scope, const char *name)
+{
+    int ordinal = 0;
+    const char *n = (name && strlen(name)) ? name : "_view_obj";
+
+    if (!scope)
+	return 0;
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&scope->children); i++) {
+	struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&scope->children, i);
+	if (!c)
+	    continue;
+	if (!BU_VLS_IS_INITIALIZED(&c->s_name))
+	    continue;
+	if (BU_STR_EQUAL(n, bu_vls_cstr(&c->s_name)))
+	    ordinal++;
+    }
+
+    return ordinal;
+}
+
 static struct bv_scene_obj *
 _bv_view_obj_create(struct bview *v, const char *name, int local, unsigned long long type_flags)
 {
+    const char *identity_name = NULL;
+    int name_ordinal = 0;
+
     if (!v)
 	return NULL;
 
@@ -1608,6 +1641,8 @@ _bv_view_obj_create(struct bview *v, const char *name, int local, unsigned long 
     struct bv_scene_obj *s = bv_obj_get_unregistered(v, BV_VIEW_OBJS | (local ? BV_LOCAL_OBJS : 0));
     if (!s)
 	return NULL;
+    identity_name = (name && strlen(name)) ? name : "_view_obj";
+    name_ordinal = _bv_view_obj_name_ordinal(scope, identity_name);
     s->parent = scope;
     bu_ptbl_ins(&scope->children, (long *)s);
 
@@ -1621,6 +1656,9 @@ _bv_view_obj_create(struct bview *v, const char *name, int local, unsigned long 
 
     if (type_flags)
 	s->s_type_flags |= type_flags;
+
+    if (_bv_view_obj_identity_hook)
+	_bv_view_obj_identity_hook(s, v, scope, identity_name, local, name_ordinal);
 
     return s;
 }
