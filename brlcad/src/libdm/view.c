@@ -695,23 +695,68 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
  * Phase 8D: libdm renderer ops for bsg_render_action
  *
  * These callbacks implement bsg_renderer_ops for the dm display manager
- * backend.  The renderer_data pointer is the struct dm * for the active
- * display manager.  bsg_render_action_apply() handles the BSG structural
+ * backend.  The renderer_data pointer is a dm render context containing the
+ * active display manager and per-frame flags.  bsg_render_action_apply()
+ * handles the BSG structural
  * traversal (view-scope, LoD, transform, two-pass transparency); each
  * callback here performs the corresponding dm_* operation.
  * ====================================================================== */
 
+struct dm_render_ctx {
+    struct dm *dmp;
+    int image_overlay_only;
+};
+
+static int
+_dm_rop_draw_fb_layer(struct dm *dmp, struct bview *v)
+{
+    if (!dmp || !v || !v->gv_s)
+	return 0;
+
+    if (v->gv_s->gv_fb_mode && dm_get_fb(dmp)) {
+	int zbuff_restore = dm_get_zbuffer(dmp);
+	dm_set_zbuffer(dmp, 0);
+	/* Phase A2 (ert reliability): clamp the fb_refresh region to the
+	 * intersection of the framebuffer canvas and the dm widget so an
+	 * in-flight rt-driven fb that hasn't yet matched the resized
+	 * widget cannot induce out-of-bounds reads or stretched/tiled
+	 * artefacts.  When dm == fb (steady state) this is a no-op. */
+	struct fb *fbp = dm_get_fb(dmp);
+	int rw = dm_get_width(dmp);
+	int rh = dm_get_height(dmp);
+	if (fbp) {
+	    int fbw = fb_getwidth(fbp);
+	    int fbh = fb_getheight(fbp);
+	    if (fbw > 0 && fbw < rw) rw = fbw;
+	    if (fbh > 0 && fbh < rh) rh = fbh;
+	}
+	if (rw > 0 && rh > 0) {
+	    fb_refresh(fbp, 0, 0, rw, rh);
+	}
+	if (zbuff_restore)
+	    dm_set_zbuffer(dmp, 1);
+	if (v->gv_s->gv_fb_mode == 1) {
+	    /* overlay-only mode */
+	    return 1;
+	}
+    }
+
+    return 0;
+}
+
 static void
 _dm_rop_push_transform(void *data, const mat_t new_xform, const mat_t old_xform)
 {
+    struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
     (void)old_xform;
-    dm_loadmatrix((struct dm *)data, (fastf_t *)new_xform, 0);
+    dm_loadmatrix(ctx->dmp, (fastf_t *)new_xform, 0);
 }
 
 static void
 _dm_rop_pop_transform(void *data, const mat_t restored_xform)
 {
-    dm_loadmatrix((struct dm *)data, (fastf_t *)restored_xform, 0);
+    struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
+    dm_loadmatrix(ctx->dmp, (fastf_t *)restored_xform, 0);
 }
 
 static void
@@ -719,7 +764,8 @@ _dm_rop_set_material(void *data, bsg_node *node,
 		     const struct bsg_material *mat, int have_material,
 		     int is_highlighted, fastf_t transparency)
 {
-    struct dm *dmp = (struct dm *)data;
+    struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
+    struct dm *dmp = ctx->dmp;
     struct bv_scene_obj *s = (struct bv_scene_obj *)node;
 
     if (is_highlighted) {
@@ -751,7 +797,8 @@ static void
 _dm_rop_set_appearance(void *data, bsg_node *node,
 		       const struct bsg_appearance *app, int have_appearance)
 {
-    struct dm *dmp = (struct dm *)data;
+    struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
+    struct dm *dmp = ctx->dmp;
     struct bv_scene_obj *s = (struct bv_scene_obj *)node;
     int lw = have_appearance ? app->line_width : s->s_os->s_line_width;
     if (lw <= 0)
@@ -775,7 +822,8 @@ _dm_rop_draw_payload(void *data, bsg_node *bnode, struct bview *v,
      * _dm_draw_scene_obj_internal re-primes it after drawing children
      * (which reset the state), ensuring the top-level node is drawn with
      * the correct colour.  This redundancy is a known Phase 11 cleanup. */
-    struct dm *dmp = (struct dm *)data;
+    struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
+    struct dm *dmp = ctx->dmp;
     struct bv_scene_obj *s = (struct bv_scene_obj *)bnode;
     _dm_draw_scene_obj_internal(dmp, s, v,
 				s->s_force_draw,
@@ -784,15 +832,43 @@ _dm_rop_draw_payload(void *data, bsg_node *bnode, struct bview *v,
 }
 
 static void
+_dm_rop_draw_overlay(void *data, bsg_node *bnode, struct bview *v)
+{
+    struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
+    struct dm *dmp = ctx->dmp;
+    struct bv_scene_obj *s = (struct bv_scene_obj *)bnode;
+    mat_t cur_mat;
+    if (v)
+	MAT_COPY(cur_mat, v->gv_model2view);
+    else
+	MAT_IDN(cur_mat);
+    _dm_draw_scene_obj_internal(dmp, s, v,
+				s->s_force_draw,
+				(s->s_inherit_settings) ? s->s_os : NULL,
+				BSG_RENDER_PASS_ALL, cur_mat);
+}
+
+static int
+_dm_rop_draw_image_layer(void *data, bsg_node *root, struct bview *v)
+{
+    struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
+    (void)root;
+    ctx->image_overlay_only = _dm_rop_draw_fb_layer(ctx->dmp, v);
+    return ctx->image_overlay_only ? 0 : 1;
+}
+
+static void
 _dm_rop_set_depth_mask(void *data, int on)
 {
-    (void)dm_set_depth_mask((struct dm *)data, on);
+    struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
+    (void)dm_set_depth_mask(ctx->dmp, on);
 }
 
 static int
 _dm_rop_query_capability(void *data, int cap)
 {
-    struct dm *dmp = (struct dm *)data;
+    struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
+    struct dm *dmp = ctx->dmp;
     if (cap == BSG_RENDERER_CAP_TRANSPARENCY)
 	return dm_get_transparency(dmp);
     if (cap == BSG_RENDERER_CAP_DEPTH_MASK)
@@ -809,7 +885,8 @@ static const struct bsg_renderer_ops _dm_renderer_ops = {
     _dm_rop_set_material,
     _dm_rop_set_appearance,
     _dm_rop_draw_payload,
-    NULL,                       /* draw_overlay  */
+    _dm_rop_draw_overlay,
+    _dm_rop_draw_image_layer,
     _dm_rop_set_depth_mask,
     _dm_rop_query_capability
 };
@@ -858,38 +935,6 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
     // frame.  If the faceplate fps display is enabled, the faceplate draw at
     // the end of the cycle will need this start time.
     dmp->start_time = bu_gettime();
-
-    // If we're drawing the framebuffer, that's the first order of business.
-    // The rest of the drawing layers manipulate the OpenGL view and projection
-    // matrices, but the framebuffer is always aligned to the view.  We also
-    // can't have the zbuffer enabled or the fb image won't draw correctly.
-    if (v->gv_s->gv_fb_mode && dm_get_fb(dmp)) {
-	int zbuff_restore = dm_get_zbuffer(dmp);
-	dm_set_zbuffer(dmp, 0);
-	/* Phase A2 (ert reliability): clamp the fb_refresh region to the
-	 * intersection of the framebuffer canvas and the dm widget so an
-	 * in-flight rt-driven fb that hasn't yet matched the resized
-	 * widget cannot induce out-of-bounds reads or stretched/tiled
-	 * artefacts.  When dm == fb (steady state) this is a no-op. */
-	struct fb *fbp = dm_get_fb(dmp);
-	int rw = dm_get_width(dmp);
-	int rh = dm_get_height(dmp);
-	if (fbp) {
-	    int fbw = fb_getwidth(fbp);
-	    int fbh = fb_getheight(fbp);
-	    if (fbw > 0 && fbw < rw) rw = fbw;
-	    if (fbh > 0 && fbh < rh) rh = fbh;
-	}
-	if (rw > 0 && rh > 0) {
-	    fb_refresh(fbp, 0, 0, rw, rh);
-	}
-	if (zbuff_restore)
-	    dm_set_zbuffer(dmp, 1);
-	if (v->gv_s->gv_fb_mode == 1) {
-	    // In overlay mode, it's just the fb - skip all the rest
-	    return;
-	}
-    }
 
     // On to the scene objects - for drawing those we need the view matrix
     matp_t mat = v->gv_model2view;
@@ -947,9 +992,14 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
 	 * depth-mask toggling are managed inside bsg_render_action_apply via
 	 * the query_capability / set_depth_mask ops in _dm_renderer_ops. */
 	struct bsg_render_action ra;
-	bsg_render_action_init(&ra, &_dm_renderer_ops, dmp);
+	struct dm_render_ctx dctx = {dmp, 0};
+	bsg_render_action_init(&ra, &_dm_renderer_ops, &dctx);
 	bsg_render_action_set_view(&ra, v);
 	bsg_render_action_apply(&ra, (bsg_node *)v->bsg_root);
+	if (dctx.image_overlay_only) {
+	    dm_pop_pmatrix(dmp);
+	    return;
+	}
     }
 
     // Done with perspective/orthogonal drawing

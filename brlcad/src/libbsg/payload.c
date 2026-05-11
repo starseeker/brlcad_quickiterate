@@ -99,6 +99,8 @@ _payload_type_to_flags(enum bsg_payload_type type)
 	    return BSG_PAYLOAD_CSG;
 	case BSG_PAYLOAD_TYPE_OVERLAY:
 	    return BSG_PAYLOAD_OVERLAY;
+	case BSG_PAYLOAD_TYPE_IMAGE:
+	    return BSG_PAYLOAD_IMAGE;
 	default:
 	    return 0;
     }
@@ -117,6 +119,8 @@ _payload_flags_to_type(unsigned long long flags)
 	return BSG_PAYLOAD_TYPE_CSG_REF;
     if (flags & BSG_PAYLOAD_OVERLAY)
 	return BSG_PAYLOAD_TYPE_OVERLAY;
+    if (flags & BSG_PAYLOAD_IMAGE)
+	return BSG_PAYLOAD_TYPE_IMAGE;
     return BSG_PAYLOAD_TYPE_NONE;
 }
 
