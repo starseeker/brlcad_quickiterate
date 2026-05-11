@@ -359,6 +359,16 @@ bsg_node_set_legacy_illum(bsg_node *n, int illuminated)
 }
 
 
+int
+bsg_node_is_display_obj(const bsg_node *n)
+{
+    if (!n)
+	return 0;
+
+    return ((const struct bv_scene_obj *)n)->s_displayobj ? 1 : 0;
+}
+
+
 uint64_t
 bsg_node_drawn_rev(const bsg_node *n)
 {

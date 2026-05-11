@@ -25,7 +25,11 @@
 /** @} */
 
 #include "common.h"
+#include "dm.h"
 #include "dm/view.h"
+#include "bsg/appearance.h"
+#include "bsg/material.h"
+#include "bsg/node.h"
 #include "bsg/util.h"
 #include "bsg/visit.h"
 #include "ged.h"
@@ -100,13 +104,21 @@ go_draw_solid(struct bview *gdvp, struct bv_scene_obj *sp)
 	dm_loadmatrix(dmp, edit_model2view, 0);
     }
 
-    if (sp->s_iflag == UP)
-	(void)dm_set_fg(dmp, 255, 255, 255, 0, sp->s_os->transparency);
-    else
-	(void)dm_set_fg(dmp,
-			(unsigned char)sp->s_color[0],
-			(unsigned char)sp->s_color[1],
-			(unsigned char)sp->s_color[2], 0, sp->s_os->transparency);
+    /* Phase 11D: resolve highlight/color from BSG accessors. */
+    struct bsg_material _mat;
+    bsg_node_material_get((const bsg_node *)sp, &_mat);
+    if (bsg_node_legacy_illum((const bsg_node *)sp)) {
+	(void)dm_set_fg(dmp, 255, 255, 255, 0, _mat.transparency);
+    } else {
+	if (_mat.use_override_color)
+	    (void)dm_set_fg(dmp, _mat.override_rgb[0], _mat.override_rgb[1], _mat.override_rgb[2],
+			    0, _mat.transparency);
+	else if (_mat.use_geometry_default_color) {
+	    unsigned char *gdc = dm_get_geometry_default_color(dmp);
+	    (void)dm_set_fg(dmp, gdc[0], gdc[1], gdc[2], 0, _mat.transparency);
+	} else
+	    (void)dm_set_fg(dmp, _mat.rgba[0], _mat.rgba[1], _mat.rgba[2], 0, _mat.transparency);
+    }
 
     /* Phase 13 (drawing_stack_modernization): the GL backend now lazily
      * compiles per-shape display lists on first draw (matching the qged
@@ -138,11 +150,15 @@ _go_draw_solid_cb(bsg_node *n, void *ud)
     struct _go_draw_data *d = (struct _go_draw_data *)ud;
     struct dm *dmp = (struct dm *)d->gdvp->dmp;
 
-    if (d->transparency_pass == 1 && sp->s_os->transparency < 1.0) return 1;
-    if (d->transparency_pass == 2 && ZERO(sp->s_os->transparency - 1.0)) return 1;
+    /* Phase 11D: resolve transparency and line style from BSG appearance. */
+    struct bsg_appearance _app;
+    bsg_node_appearance_get((const bsg_node *)sp, &_app);
+    if (d->transparency_pass == 1 && _app.transparency < 1.0) return 1;
+    if (d->transparency_pass == 2 && ZERO(_app.transparency - 1.0)) return 1;
 
-    if (d->line_style != sp->s_soldash) {
-	d->line_style = sp->s_soldash;
+    int _soldash = (_app.line_style == BSG_APPEARANCE_LINE_DASHED) ? 1 : 0;
+    if (d->line_style != _soldash) {
+	d->line_style = _soldash;
 	(void)dm_set_line_attr(dmp, dm_get_linewidth(dmp), d->line_style);
     }
     go_draw_solid(d->gdvp, sp);
@@ -250,11 +266,14 @@ to_edit_redraw(struct ged *gedp,
 		int arg = 0;
 
 		av[arg++] = (char *)argv[0];
-		if (sp->s_os->s_dmode == 4) {
+		/* Phase 11D: read draw mode and transparency from BSG appearance. */
+		struct bsg_appearance _sp_app;
+		bsg_node_appearance_get((const bsg_node *)sp, &_sp_app);
+		if (_sp_app.draw_mode == 4) {
 		    av[arg++] = "-h";
 		} else {
-		    bu_vls_printf(&mflag, "-m%d", sp->s_os->s_dmode);
-		    bu_vls_printf(&xflag, "-x%f", sp->s_os->transparency);
+		    bu_vls_printf(&mflag, "-m%d", _sp_app.draw_mode);
+		    bu_vls_printf(&xflag, "-x%f", _sp_app.transparency);
 		    av[arg++] = bu_vls_addr(&mflag);
 		    av[arg++] = bu_vls_addr(&xflag);
 		}

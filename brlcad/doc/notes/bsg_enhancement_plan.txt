@@ -1273,10 +1273,10 @@ Phase 10 stages:
 
 Phase 11 stages:
 
-- 11A: [DONE] libbsg internal direct-field sweep.
+- Phase 11A: [DONE] libbsg internal direct-field sweep.
 - 11B: [PARTIAL] libged draw/erase/redraw sweep.
-- 11C: [PARTIAL] libdm render/backend sweep.
-- 11D: libtclcad/Archer adornment and getter/setter sweep.
+- 11C: [DONE] libdm render/backend sweep.
+- 11D: [DONE] libtclcad/Archer adornment and getter/setter sweep.
 - 11E: QGED/libqtcad selection/edit/polygon sweep.
 - 11F: MGED edit/highlight/refresh sweep.
 - 11G: [PARTIAL] tests direct-field assertion sweep.
@@ -1298,7 +1298,7 @@ This enhancement effort is complete when:
   raytracing backend, or another renderer without rewriting BRL-CAD producers.
 
 
-Current Implementation Snapshot (2026-05-11, updated Phase 11B/11C/11G partial)
+Current Implementation Snapshot (2026-05-11, updated Phase 11C done / 11D done)
 --------------------------------------------
 This section records what is already present in the tree so future sessions can
 start from current reality rather than the idealized phase text above.
@@ -1565,6 +1565,51 @@ What is complete or substantially complete:
     succeeds; `ctest -R '^libbsg_'` passes (20/20); `ged_test_tcl_adornment_bsg`
     passes; `ged_test_bsg_view_obj` still reports the same pre-existing Phase 9.1
     cached-bbox assertion failures in section [12].
+- Phase 11C is now COMPLETE.  The completion step adds:
+  - `include/bsg/appearance.h`: `draw_arrows` field added to `struct bsg_appearance`.
+    `bsg_appearance_from_legacy_obj_settings` now maps `s->s_arrow`; the to-legacy
+    function maps it back.
+  - `include/bsg/node.h` / `src/libbsg/node.c`: `bsg_node_is_display_obj(n)` — maps
+    `s->s_displayobj`.
+  - `src/libdm/view.c` — complete migration of adornment/color/inherit paths:
+    - `dm_draw_label`: `s->s_i_data` → `bsg_node_user_data_get`; `s->s_color[]`
+      → `bsg_node_material_get` result; `s->s_os->s_arrow_tip_*` → appearance.
+    - `dm_add_arrows`: `s->s_arrow` → `appearance.draw_arrows`; tip dimensions →
+      `appearance.arrow_tip_*`.
+    - `_dm_draw_scene_obj_internal`: unconditional `bsg_node_material_get` +
+      `bsg_node_appearance_get` (legacy fallback included); removes `s_old.s_cflag`,
+      `s_color[]`, `s_os->color_override`, `s_os->transparency`, `s_os->s_line_width`,
+      `s_soldash`, and `s_displayobj` direct accesses from the core rendering path.
+    - `_dm_rop_set_material`: simplified to use `mat` struct unconditionally.
+    - `_dm_rop_set_appearance`: simplified to use `app` struct unconditionally.
+    - `_bsg_view_traverse_impl`, `_dm_rop_draw_payload`, `_dm_rop_draw_overlay`:
+      `s_inherit_settings` flag now sourced from `appearance.inherit_settings`;
+      `s->s_os` is still used as the pointer value when inherit_settings is true
+      (Phase 12 target to introduce a full BSG settings-inheritance accessor).
+  - Validation: `cmake --build brlcad_build --target libbsg libdm libtclcad`
+    succeeds; `ctest -R '^libbsg_'` passes (20/20).
+- Phase 11D libtclcad/Archer adornment and getter/setter sweep is COMPLETE:
+  - `src/libtclcad/view/draw.c`:
+    - `go_draw_solid`: `sp->s_iflag == UP` → `bsg_node_legacy_illum`; `sp->s_color[]`
+      / `sp->s_os->transparency` → `bsg_node_material_get` result.
+    - `_go_draw_solid_cb`: `sp->s_os->transparency` / `sp->s_soldash` →
+      `bsg_node_appearance_get` result.
+    - `to_edit_redraw`: `sp->s_os->s_dmode` / `sp->s_os->transparency` →
+      `bsg_node_appearance_get` result.
+  - `src/libtclcad/view/arrows.c`:
+    - `to_data_arrows_func` color getter → `bsg_node_material_get`.
+    - line_width getter → `bsg_node_appearance_get`.
+    - `tip_length` / `tip_width` getter → `bsg_node_appearance_get`; setter →
+      `bsg_node_appearance_set`.
+    - `points` getter → BSG payload vlist with `s_vlist` fallback.
+  - `src/libtclcad/bsg_move_helpers.h`:
+    - `_bsg_extract_pts`: prefers BSG payload vlist, falls back to `s_vlist`.
+    - `_bsg_read_style`: color → `bsg_node_material_get`; line_width / tip_* →
+      `bsg_node_appearance_get`; visible → `bsg_node_visible`.
+    - `_bsg_rebuild_arrows`: tip dimensions and `draw_arrows` flag set via
+      `bsg_node_appearance_set`.
+  - Validation: `cmake --build brlcad_build --target libtclcad` succeeds;
+    `ctest -R '^libbsg_'` passes (20/20).
 
 What is partially complete:
 
@@ -1576,44 +1621,48 @@ What is partially complete:
   - 11B libged draw/erase/redraw sweep: partial (tree/root/highlight/LoD
     accessor migration is done; color/vlist/legacy metadata compatibility paths
     remain).
-  - 11C libdm render/backend sweep: partial (core traversal and revision/transform
-    accessors are migrated; compatibility-heavy color/object-setting fields and
-    helper draw paths still use legacy storage).
+  - 11C libdm render/backend sweep: DONE (all adornment, color, material,
+    appearance, arrow, label, displayobj, inherit_settings paths migrated to
+    BSG accessors; `s->s_os` still used as pointer value when inherit_settings
+    is true, targeted for Phase 12).
+  - 11D libtclcad/Archer adornment and getter/setter sweep: DONE (draw.c,
+    arrows.c, and bsg_move_helpers.h fully migrated; bsg_move_helpers.h also
+    uses BSG payload vlist API for point extraction).
   - 11G tests direct-field assertion sweep: partial (`bsg_view_obj` and
     `tcl_adornment_bsg` now use `bsg_node_*` assertions for migrated paths).
-  - 11D-11F, remaining 11C cleanup, and remaining 11G coverage: pending.
+  - 11E-11F, remaining 11B cleanup, and remaining 11G coverage: pending.
 
 What is not yet implemented in this roadmap:
 
 - Phase 6F: Full BSelectState → BSG selection migration (GED selection containers).
 - Phase 10E ABI break (making `bsg_node` independent of `bv_scene_obj`).
-- Remaining Phase 11B-11G broad consumer sweeps under this specific API plan.
+- Remaining Phase 11B / 11E / 11F / 11G broad consumer sweeps.
+- Phase 12: introduce a full BSG settings-inheritance accessor to replace the
+  remaining `s->s_os` pointer usage in inherit_settings paths.
 - Phases 12-13 deprecation and readiness gate execution.
 
 
 Immediate Next-Session Stage Prompts
-------------------------------------
-Use these as concrete "small-unit" prompts for the next work sessions.
+-------------------------------------
+Use these as concrete “small-unit” prompts for the next work sessions.
 
 1. Phase 10E (ABI break — optional, high-risk):
    Make `struct bsg_node` a real type independent of `bv_scene_obj` and move
    backward-compat wrappers into libbv.  Requires coordinated ABI version bump.
 
-2. Phase 11C (recommended next):
-   libdm render/backend sweep: finish residual compatibility-heavy direct-field
-   accesses in `_dm_draw_scene_obj_internal`, renderer-op helpers, and adornment
-   drawing paths (color/object-setting/arrow-label fields) or add focused BSG
-   accessors where replacement is justified.
-
-3. Phase 11B:
+2. Phase 11B (recommended next):
    libged draw/erase/redraw sweep: finish the remaining compatibility-heavy
    direct-field uses (`s_color*`, `s_old.*`, `s_vlist`/`s_vlen`, `s_u_data`,
    `s_free_callback`) or add focused new BSG accessors where replacement is
    justified.
 
-4. Phase 11D:
-   libtclcad/Archer adornment and getter/setter sweep: move Tcl-side drawing
-   state reads/writes to BSG APIs and leave `gv_tcl` as compatibility scratch.
+3. Phase 11E:
+   QGED/libqtcad selection/edit/polygon sweep: move QGED selection and
+   polygon editing state reads/writes to BSG APIs.
+
+4. Phase 11F:
+   MGED edit/highlight/refresh sweep: move MGED edit-mode highlight and
+   refresh paths to BSG accessors.
 
 5. Phase 11G:
    Continue converting draw-stack regression tests (`bsg_view_obj`,

@@ -102,6 +102,7 @@ bsg_appearance_init(struct bsg_appearance *a)
     a->inherit_settings = 0;
     a->arrow_tip_length = 0.0;
     a->arrow_tip_width = 0.0;
+    a->draw_arrows = 0;
     a->draw_solid_lines_only = 0;
     a->draw_non_subtract_only = 0;
 }
@@ -127,6 +128,7 @@ bsg_appearance_from_legacy_obj_settings(const bsg_node *n, struct bsg_appearance
     out->inherit_settings = s->s_inherit_settings ? 1 : 0;
     out->arrow_tip_length = os->s_arrow_tip_length;
     out->arrow_tip_width = os->s_arrow_tip_width;
+    out->draw_arrows = s->s_arrow ? 1 : 0;
     out->draw_solid_lines_only = os->draw_solid_lines_only;
     out->draw_non_subtract_only = os->draw_non_subtract_only;
 }
@@ -150,6 +152,7 @@ bsg_appearance_to_legacy_obj_settings(bsg_node *n, const struct bsg_appearance *
     os->draw_non_subtract_only = a->draw_non_subtract_only;
     s->s_soldash = (a->line_style == BSG_APPEARANCE_LINE_DASHED) ? 1 : 0;
     s->s_inherit_settings = a->inherit_settings ? 1 : 0;
+    s->s_arrow = a->draw_arrows ? 1 : 0;
 }
 
 
