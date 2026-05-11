@@ -456,7 +456,7 @@ _ged_facetize_build_variant_plan(struct _ged_facetize_state *s,
 
 	for (auto &inst : ctx.instances) {
 
-		/* Only create variants for source primitives with ft_perturb support */
+		/* Only create variants for primitives with ft_perturb support in the source database */
 		struct directory *src_dp =
 			db_lookup(s->dbip, inst.src_name.c_str(), LOOKUP_QUIET);
 		if (!src_dp || !OBJ[src_dp->d_minor_type].ft_perturb) {
