@@ -887,8 +887,8 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 		    _clear_variant_plan(s);
 		    FacetizeVariantPlan *region_vplan =
 			_ged_facetize_build_variant_plan(s, 1, dpw);
-		    s->variant_plan = (void *)region_vplan;
 		    if (region_vplan) {
+			s->variant_plan = (void *)region_vplan;
 			vcnt_adjusted_instances += region_vplan->n_adjusted_instances;
 			vcnt_sub_variants += region_vplan->n_sub_variants;
 			vcnt_perturb_fallbacks += region_vplan->n_perturb_fallbacks;
@@ -928,7 +928,7 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 			 * generated parametric CSG copies from s->dbip (the
 			 * exact same factor stored in region_vplan->variant_recs).
 			 * Fall back to the original-CSG reference if the db
-			 * cannot be built (e.g. no region plan or all primitives lack
+			 * cannot be built (e.g. no region_vplan or all primitives lack
 			 * ft_perturb support). */
 			struct db_i *perturb_dbip = NULL;
 			if (region_vplan)
