@@ -519,10 +519,10 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
     int vcnt_p2_topoflip  = 0; /* P2: Crofton-zero/few after perturb (perturb shifted topology) */
     int vcnt_p2_warn      = 0; /* P2 persistent validation mismatch */
     int vcnt_unavail      = 0; /* validation unavailable (metric/prep failure) */
-    int vcnt_variant_adjusted = 0;
-    int vcnt_variant_sub = 0;
-    int vcnt_variant_fallbacks = 0;
-    int vcnt_variant_tess_failures = 0;
+    int vcnt_adjusted_instances = 0;
+    int vcnt_sub_variants = 0;
+    int vcnt_perturb_fallbacks = 0;
+    int vcnt_tess_failures = 0;
     std::set<std::string> inspect_regions;
 
     /* Used the libged tolerances */
@@ -885,16 +885,16 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 		    /* Region retries intentionally use a fresh plan scoped to the
 		     * failed root so passing regions do not create perturb variants. */
 		    _clear_variant_plan(s);
-		    FacetizeVariantPlan *vplan =
+		    FacetizeVariantPlan *region_vplan =
 			_ged_facetize_build_variant_plan(s, 1, dpw);
-		    s->variant_plan = (void *)vplan;
-		    if (vplan) {
-			vcnt_variant_adjusted += vplan->n_adjusted_instances;
-			vcnt_variant_sub += vplan->n_sub_variants;
-			vcnt_variant_fallbacks += vplan->n_perturb_fallbacks;
-			if (!vplan->variant_names.empty())
-			    _ged_facetize_tessellate_variant_names(s, vplan);
-			vcnt_variant_tess_failures += vplan->n_variant_tess_failures;
+		    s->variant_plan = (void *)region_vplan;
+		    if (region_vplan) {
+			vcnt_adjusted_instances += region_vplan->n_adjusted_instances;
+			vcnt_sub_variants += region_vplan->n_sub_variants;
+			vcnt_perturb_fallbacks += region_vplan->n_perturb_fallbacks;
+			if (!region_vplan->variant_names.empty())
+			    _ged_facetize_tessellate_variant_names(s, region_vplan);
+			vcnt_tess_failures += region_vplan->n_variant_tess_failures;
 			reopened_wdb = true;
 		    }
 		    if (reopened_wdb) {
@@ -926,14 +926,14 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 			 * against a Crofton raytrace of the perturbed CSG: build
 			 * a fresh in-memory db whose leaves are ft_perturb-
 			 * generated parametric CSG copies from s->dbip (the
-			 * exact same factor stored in vplan->variant_recs).
+			 * exact same factor stored in region_vplan->variant_recs).
 			 * Fall back to the original-CSG reference if the db
-			 * cannot be built (e.g. no vplan or all primitives lack
+			 * cannot be built (e.g. no region plan or all primitives lack
 			 * ft_perturb support). */
 			struct db_i *perturb_dbip = NULL;
-			if (vplan)
+			if (region_vplan)
 			    perturb_dbip = _create_perturbed_csg_db(
-				s->dbip, dpw[0]->d_namep, vplan);
+				s->dbip, dpw[0]->d_namep, region_vplan);
 			struct db_i *csg_ref_dbip =
 			    perturb_dbip ? perturb_dbip : s->dbip;
 			int vret2 = _validate_csg_vs_bot(
@@ -1223,13 +1223,13 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
     db_update_nref(dbip);
 
     /* Print aggregate variant-plan summary and clean up (Manifold path only). */
-    if (vcnt_variant_adjusted > 0) {
+    if (vcnt_adjusted_instances > 0) {
 	facetize_log(s, 0, "FACETIZE: variant summary: %d adjusted instance(s) "
 	       "(%d subtractive), %d fallback(s), %d tess failure(s)\n",
-	       vcnt_variant_adjusted,
-	       vcnt_variant_sub,
-	       vcnt_variant_fallbacks,
-	       vcnt_variant_tess_failures);
+	       vcnt_adjusted_instances,
+	       vcnt_sub_variants,
+	       vcnt_perturb_fallbacks,
+	       vcnt_tess_failures);
     }
 
     bu_ptbl_free(ar);
