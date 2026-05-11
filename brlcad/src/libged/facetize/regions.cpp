@@ -897,31 +897,37 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 			vcnt_tess_failures += region_vplan->n_variant_tess_failures;
 			reopened_wdb = true;
 		    }
-		    if (reopened_wdb) {
-			db_close(wdbip);
-			wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
-			if (!wdbip) {
-			    bret = BRLCAD_ERROR;
-			    break;
+		    if (!region_vplan) {
+			vcnt_unavail++;
+			inspect_regions.insert(std::string(dpw[0]->d_namep) + " (perturb plan unavailable)");
+			if (s->verbosity > 0)
+			    bu_log("FACETIZE: perturb plan unavailable for %s\n", dpw[0]->d_namep);
+		    } else {
+			if (reopened_wdb) {
+			    db_close(wdbip);
+			    wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
+			    if (!wdbip) {
+				bret = BRLCAD_ERROR;
+				break;
+			    }
+			    db_dirbuild(wdbip);
+			    db_update_nref(wdbip);
+			    wwdbp = wdb_dbopen(wdbip, RT_WDB_TYPE_DB_DEFAULT);
 			}
-			db_dirbuild(wdbip);
-			db_update_nref(wdbip);
-			wwdbp = wdb_dbopen(wdbip, RT_WDB_TYPE_DB_DEFAULT);
-		    }
 
-		    s->use_variant_plan = 1;
-		    struct directory *od = db_lookup(wdbip, bu_vls_cstr(&bname), LOOKUP_QUIET);
-		    if (od != RT_DIR_NULL) {
-			db_delete(wdbip, od);
-			db_dirdelete(wdbip, od);
-		    }
-		    char *obj_name_retry = bu_strdup(dpw[0]->d_namep);
-		    bret = _ged_facetize_booleval_tri(s, wdbip, wwdbp, 1, (const char **)&obj_name_retry, bu_vls_cstr(&bname), vlfree, 1, i+1, -1);
-		    bu_free(obj_name_retry, "obj_name_retry");
-		    s->use_variant_plan = 0;
+			s->use_variant_plan = 1;
+			struct directory *od = db_lookup(wdbip, bu_vls_cstr(&bname), LOOKUP_QUIET);
+			if (od != RT_DIR_NULL) {
+			    db_delete(wdbip, od);
+			    db_dirdelete(wdbip, od);
+			}
+			char *obj_name_retry = bu_strdup(dpw[0]->d_namep);
+			bret = _ged_facetize_booleval_tri(s, wdbip, wwdbp, 1, (const char **)&obj_name_retry, bu_vls_cstr(&bname), vlfree, 1, i+1, -1);
+			bu_free(obj_name_retry, "obj_name_retry");
+			s->use_variant_plan = 0;
 
-		    if (bret == BRLCAD_OK) {
-			double sa_err2 = -1.0, vol_err2 = -1.0;
+			if (bret == BRLCAD_OK) {
+			    double sa_err2 = -1.0, vol_err2 = -1.0;
 			/* Compare the perturbed BoT (exact bg_trimesh metrics)
 			 * against a Crofton raytrace of the perturbed CSG: build
 			 * a fresh in-memory db whose leaves are ft_perturb-
@@ -980,6 +986,7 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 			    vcnt_unavail++;
 			    if (s->verbosity > 0)
 				bu_log("FACETIZE: validation unavailable after perturb retry for %s\n", dpw[0]->d_namep);
+			}
 			}
 		    }
 		    _clear_variant_plan(s);
