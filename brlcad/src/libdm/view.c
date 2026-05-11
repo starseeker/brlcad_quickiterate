@@ -678,9 +678,9 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	    else
 		MAT_COPY(save_mat, v->gv_model2view);
 	    mat_t new_mat;
-	    mat_t node_mat;
-	    bsg_node_transform_get((const bsg_node *)s, node_mat);
-	    bn_mat_mul(new_mat, save_mat, node_mat);
+	    mat_t local_xform;
+	    bsg_node_transform_get((const bsg_node *)s, local_xform);
+	    bn_mat_mul(new_mat, save_mat, local_xform);
 	    dm_loadmatrix(dmp, new_mat, 0);
 	    _bsg_view_traverse_impl(v, s, transparency_pass, new_mat);
 	    dm_loadmatrix(dmp, save_mat, 0);
