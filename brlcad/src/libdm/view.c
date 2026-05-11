@@ -30,6 +30,7 @@
 #include "bv/util.h"
 #include "bsg/appearance.h"
 #include "bsg/material.h"
+#include "bsg/selection.h"
 #include "bsg/util.h"
 #include "bsg/defines.h"
 #include "bsg/lod.h"
@@ -465,10 +466,18 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	return;
 
     // Assign color attributes
+    /* Phase 6D (BSG selection): query BSG "active" selection first (authoritative
+     * in BSG-forward code paths), with legacy s_iflag == UP as compatibility
+     * fallback for callers that have not yet migrated to BSG selection APIs. */
+    int is_highlighted = (v->bsg_root &&
+	 bsg_node_is_selected((const bsg_node *)v->bsg_root,
+			      (const bsg_node *)s, "active")) ||
+	(s->s_iflag == UP);
+
     if (obj_settings) {
 	dm_set_fg(dmp, obj_settings->color[0], obj_settings->color[1], obj_settings->color[2], 0, obj_settings->transparency);
     } else {
-	if (s->s_iflag == UP) {
+	if (is_highlighted) {
 	    dm_set_fg(dmp, 255, 255, 255, 0, obj_transparency);
 	} else if (have_material) {
 	    if (material.use_override_color) {
@@ -503,9 +512,12 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
      * temporarily swap the modelview matrix so the object is drawn at
      * its edit-transformed position.  Restore the *current* accumulated
      * matrix afterwards (cur_mat) — falling back to gv_model2view when
-     * we are not under a transform node. */
+     * we are not under a transform node.
+     *
+     * Phase 6D: use is_highlighted (BSG selection OR s_iflag) for the
+     * edit-matrix test so the edit transform is applied consistently. */
     int edit_mat_swapped = 0;
-    if (s->s_iflag == UP && v->gv_edit_mat) {
+    if (is_highlighted && v->gv_edit_mat) {
 	dm_loadmatrix(dmp, v->gv_edit_mat, 0);
 	edit_mat_swapped = 1;
     }

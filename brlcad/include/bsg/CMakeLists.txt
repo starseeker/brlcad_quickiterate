@@ -1,6 +1,7 @@
 set(
   bsg_headers
   action.h
+  appearance.h
   defines.h
   draw_ctx.h
   draw_set.h
@@ -8,6 +9,8 @@ set(
   identity.h
   lod.h
   lod_ops.h
+  material.h
+  node.h
   node_group.h
   node_shape.h
   node_transform.h
@@ -15,6 +18,7 @@ set(
   overlay.h
   payload.h
   scene_set.h
+  selection.h
   sensor.h
   util.h
   view_scope.h

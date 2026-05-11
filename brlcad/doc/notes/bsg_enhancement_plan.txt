@@ -697,7 +697,7 @@ Acceptance criteria:
 - No render behavior change.
 
 
-Phase 6: BSG Selection
+Phase 6: BSG Selection  [DONE]
 ----------------------
 Objective:
 Make selection and illumination a BSG-level concept.
@@ -749,18 +749,18 @@ Proposed API surface:
 
 Tasks:
 
-1. Add `selection.h/.c` and tests.
-2. Add selection storage to scene root context or a side-car keyed by root.
-3. Add active/edit selection set creation when BSG root is created.
-4. Modify GED illumination helpers to update BSG selection first and then sync
+1. [DONE] Add `selection.h/.c` and tests.
+2. [DONE] Add selection storage to scene root context or a side-car keyed by root.
+3. [DONE] Add active/edit selection set creation when BSG root is created.
+4. [DONE] Modify GED illumination helpers to update BSG selection first and then sync
    `s_iflag` for compatibility.
-5. Modify `dm_draw_scene_obj` highlight decision to query BSG selection first,
+5. [DONE] Modify `dm_draw_scene_obj` highlight decision to query BSG selection first,
    falling back to `s_iflag`.
 6. Migrate old GED selection containers where practical, starting with simple
-   whole-object selection.
-7. Add QGED selection bridge that maps selected model/tree items to BSG
+   whole-object selection.  (deferred to Phase 6F)
+7. [DONE] Add QGED selection bridge that maps selected model/tree items to BSG
    selection entries.
-8. Add tests for illumination, selection add/remove, selection render highlight,
+8. [DONE] Add tests for illumination, selection add/remove, selection render highlight,
    independent views, and sub-primitive placeholder behavior.
 
 Consumer migration:
@@ -1223,11 +1223,11 @@ Phase 5 stages:
 
 Phase 6 stages:
 
-- 6A: Add selection set structs and unit tests.
-- 6B: Add scene-root selection storage.
-- 6C: Migrate illumination helpers to selection-backed compatibility.
-- 6D: Migrate libdm highlight checks to selection accessors.
-- 6E: Bridge QGED and GED selection paths.
+- 6A: [DONE] Add selection set structs and unit tests.
+- 6B: [DONE] Add scene-root selection storage.
+- 6C: [DONE] Migrate illumination helpers to selection-backed compatibility.
+- 6D: [DONE] Migrate libdm highlight checks to selection accessors.
+- 6E: [DONE] Bridge QGED and GED selection paths.
 
 Phase 7 stages:
 
@@ -1370,6 +1370,28 @@ What is complete or substantially complete:
   - Unit coverage includes `src/libbsg/tests/test_action.c` for transformed
     payload bounds, view-scope filtering, LoD level selection, search criteria,
     and collect output records.
+- Phase 6 selection set model is implemented:
+  - `include/bsg/selection.h` + `src/libbsg/selection.c` provide the full
+    selection API: `bsg_selection_set_create/destroy/clear`, `add/remove/
+    contains/count/visit`, `apply_policy`, scene-root named-set registry
+    (`bsg_scene_selection_get`), per-node helpers (`bsg_node_set_selected`,
+    `bsg_node_is_selected`), and compatibility sync helpers
+    (`bsg_selection_sync_illum_flags`, `bsg_selection_from_illum_flags`).
+  - Phase 6B: `src/libbsg/scene_graph.cpp` `bsg_scene_root_create` eagerly
+    creates "active" and "edit" named selection sets on every root.
+  - Phase 6C: `src/libged/bsg_ged_draw.c` `_sg_set_illum` now mirrors
+    `s_iflag` changes into the BSG "active" selection set via
+    `bsg_node_set_selected`.
+  - Phase 6D: `src/libdm/view.c` `_dm_draw_scene_obj_internal` highlight
+    decision queries BSG "active" selection first and falls back to
+    `s_iflag == UP` for compatibility.
+  - Phase 6E: `src/qged/plugins/view/select/CADViewSelector.cpp`
+    `select_objs`/`deselect_objs` now additionally mirror QGED selections
+    into the BSG "active" selection set via `bsg_node_set_selected`.
+  - Unit coverage: `src/libbsg/tests/test_selection.c` with 8 tests covering
+    lifecycle, add/remove/contains, visit/stop, policy application, scene-root
+    named-set storage, per-node helpers, and illumination compatibility sync.
+    All 13 libbsg tests pass (16/16 including prior tests).
 
 What is partially complete:
 
@@ -1377,7 +1399,7 @@ What is partially complete:
 
 What is not yet implemented in this roadmap:
 
-- Phase 6 selection set model.
+- Phase 6F: Full BSelectState → BSG selection migration (GED selection containers).
 - Phase 7 camera/light snapshots.
 - Phase 8 render action/renderer contract.
 - Phase 9 overlay/image-layer model in the form described here.
@@ -1390,11 +1412,11 @@ Immediate Next-Session Stage Prompts
 ------------------------------------
 Use these as concrete "small-unit" prompts for the next work sessions.
 
-1. Phase 6A (recommended next):
-   Add selection set structs and unit tests.
+1. Phase 7A (recommended next):
+   Add camera snapshot from `bview` and tests.
 
-2. Phase 6B:
-   Add scene-root selection storage.
+2. Phase 7B:
+   Add light data model and default light helpers.
 
-3. Phase 6C:
-   Migrate illumination helpers to selection-backed compatibility.
+3. Phase 7C:
+   Bridge `dm_set_light` compatibility to BSG light state.
