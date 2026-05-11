@@ -1274,12 +1274,12 @@ Phase 10 stages:
 Phase 11 stages:
 
 - 11A: [DONE] libbsg internal direct-field sweep.
-- 11B: libged draw/erase/redraw sweep.
+- 11B: [PARTIAL] libged draw/erase/redraw sweep.
 - 11C: libdm render/backend sweep.
 - 11D: libtclcad/Archer adornment and getter/setter sweep.
 - 11E: QGED/libqtcad selection/edit/polygon sweep.
 - 11F: MGED edit/highlight/refresh sweep.
-- 11G: tests direct-field assertion sweep.
+- 11G: [PARTIAL] tests direct-field assertion sweep.
 
 
 Completion Definition
@@ -1298,7 +1298,7 @@ This enhancement effort is complete when:
   raytracing backend, or another renderer without rewriting BRL-CAD producers.
 
 
-Current Implementation Snapshot (2026-05-11, updated Phase 11A)
+Current Implementation Snapshot (2026-05-11, updated Phase 11B/11G partial)
 --------------------------------------------
 This section records what is already present in the tree so future sessions can
 start from current reality rather than the idealized phase text above.
@@ -1530,6 +1530,27 @@ What is complete or substantially complete:
     highlight flags by BSG tree traversal (`bsg_visit`) rather than manually
     iterating only root children.
   - Validation: `ctest --output-on-failure -R '^libbsg_'` passes (20/20).
+- Phase 11B / 11G partial libged + test sweep is implemented:
+  - `src/libged/bsg_ged_draw.c` now routes draw-root kind/name and `s_i_data`
+    setup, LoD payload access, draw-tree child/parent/name/kind traversal,
+    overlay/shape attachment, zap/group iteration, and highlight `s_iflag`
+    transitions through `bsg_node_*` accessors where equivalent APIs exist.
+  - `src/libged/draw/draw.c` now routes drawn-shape kind assignment and legacy
+    illumination initialization through `bsg_node_set_kind` and
+    `bsg_node_set_legacy_illum`.
+  - `src/libged/tests/draw/bsg_view_obj.cpp` and
+    `src/libged/tests/draw/tcl_adornment_bsg.cpp` now assert highlight state,
+    group/root child traversal, overlay kind, LoD payload handles, and
+    force-draw state through `bsg_node_*` accessors instead of raw
+    `bv_scene_obj` fields.
+  - Remaining direct-field usage in this area is concentrated in legacy
+    color/material compatibility state (`s_color*`, `s_old.*`), vlist storage
+    (`s_vlist`, `s_vlen`), and metadata/callback fields without matching BSG
+    accessors yet (`s_u_data`, `s_free_callback`, bbox-cache test assertions).
+  - Validation: `ctest --output-on-failure -R '^(libbsg_node|libbsg_identity|libbsg_payload|libbsg_node_core)$'`
+    passes (4/4), `ged_test_tcl_adornment_bsg` passes, and
+    `ged_test_bsg_view_obj` still reports the pre-existing Phase 9.1 cached-bbox
+    assertion failures in section [12] (`root->s_bbox_cached == 1`).
 
 What is partially complete:
 
@@ -1538,13 +1559,18 @@ What is partially complete:
 - Phase 11 complete status:
   - 11A libbsg internal direct-field sweep: done (accessor migration in core
     traversal/search/render paths).
-  - 11B-11G consumer sweeps: pending.
+  - 11B libged draw/erase/redraw sweep: partial (tree/root/highlight/LoD
+    accessor migration is done; color/vlist/legacy metadata compatibility paths
+    remain).
+  - 11G tests direct-field assertion sweep: partial (`bsg_view_obj` and
+    `tcl_adornment_bsg` now use `bsg_node_*` assertions for migrated paths).
+  - 11C-11F and remaining 11G coverage: pending.
 
 What is not yet implemented in this roadmap:
 
 - Phase 6F: Full BSelectState → BSG selection migration (GED selection containers).
 - Phase 10E ABI break (making `bsg_node` independent of `bv_scene_obj`).
-- Phase 11B-11G broad consumer sweeps under this specific API plan.
+- Remaining Phase 11B-11G broad consumer sweeps under this specific API plan.
 - Phases 12-13 deprecation and readiness gate execution.
 
 
@@ -1557,8 +1583,10 @@ Use these as concrete "small-unit" prompts for the next work sessions.
    backward-compat wrappers into libbv.  Requires coordinated ABI version bump.
 
 2. Phase 11B (recommended next):
-   libged draw/erase/redraw sweep: route remaining direct bv_scene_obj accesses
-   in libged through bsg_node_* accessors.
+   libged draw/erase/redraw sweep: finish the remaining compatibility-heavy
+   direct-field uses (`s_color*`, `s_old.*`, `s_vlist`/`s_vlen`, `s_u_data`,
+   `s_free_callback`) or add focused new BSG accessors where replacement is
+   justified.
 
 3. Phase 11C:
    libdm render/backend sweep: clean up residual direct-field accesses in
@@ -1567,3 +1595,8 @@ Use these as concrete "small-unit" prompts for the next work sessions.
 4. Phase 11D:
    libtclcad/Archer adornment and getter/setter sweep: move Tcl-side drawing
    state reads/writes to BSG APIs and leave `gv_tcl` as compatibility scratch.
+
+5. Phase 11G:
+   Continue converting draw-stack regression tests (`bsg_view_obj`,
+   `mged_bsg`, `mged_shaded_mode_bsg`, and related cases) away from direct
+   `bv_scene_obj` field assertions when equivalent BSG accessors exist.
