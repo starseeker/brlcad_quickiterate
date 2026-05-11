@@ -872,6 +872,10 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 		    facetize_log(s, 1, "FACETIZE: %s CSG vs BoT MISMATCH (SA_err=%.2f%% VOL_err=%.2f%%) - triggering perturb\n",
 			    dpw[0]->d_namep, sa_err_pct, vol_err_pct);
 		    bool reopened_wdb = false;
+		    if (s->variant_plan) {
+			delete (FacetizeVariantPlan *)s->variant_plan;
+			s->variant_plan = NULL;
+		    }
 		    FacetizeVariantPlan *vplan =
 			_ged_facetize_build_variant_plan(s, 1, dpw);
 		    s->variant_plan = (void *)vplan;
@@ -1220,10 +1224,6 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	       vcnt_variant_sub,
 	       vcnt_variant_fallbacks,
 	       vcnt_variant_tess_failures);
-    }
-    if (s->variant_plan) {
-	delete (FacetizeVariantPlan *)s->variant_plan;
-	s->variant_plan = NULL;
     }
 
     bu_ptbl_free(ar);
