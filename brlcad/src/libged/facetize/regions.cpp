@@ -204,7 +204,7 @@ _write_empty_bot(struct db_i *dbip, const char *bot_name, int verbosity)
 static void
 _clear_variant_plan(struct _ged_facetize_state *s)
 {
-    if (!s || !s->variant_plan)
+    if (!s->variant_plan)
 	return;
 
     delete (FacetizeVariantPlan *)s->variant_plan;
