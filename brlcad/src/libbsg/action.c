@@ -123,6 +123,7 @@ if (level < 0)
 if (level < 0 || level >= nlevels)
     level = 0;
 
+/* Internal traversal still uses bv_scene_obj while Phase 10E keeps bsg_node typedef-backed. */
 struct bv_scene_obj *child = (struct bv_scene_obj *)bsg_node_child((bsg_node *)node, (size_t)level);
 if (!child)
     return 1;
@@ -130,6 +131,7 @@ if (!child)
     }
 
     for (size_t i = 0; i < bsg_node_child_count((bsg_node *)node); i++) {
+/* Internal traversal still uses bv_scene_obj while Phase 10E keeps bsg_node typedef-backed. */
 struct bv_scene_obj *child = (struct bv_scene_obj *)bsg_node_child((bsg_node *)node, i);
 if (!child)
     continue;
