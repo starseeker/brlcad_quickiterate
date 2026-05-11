@@ -49,6 +49,7 @@
 #include <bv.h>
 #include "bsg/appearance.h"
 #include "bsg/material.h"
+#include "bsg/node.h"
 #include "bv/tcl_data.h"
 #include "bv/util.h"
 #include "bv/vlist.h"
@@ -164,9 +165,7 @@ main(int ac, char *av[])
     (void)bsg_node_appearance_get((const bsg_node *)obj, &a);
     ASSERT(m.rgba[0] == 255 && m.rgba[1] == 128 && m.rgba[2] == 0);
     ASSERT(a.line_width == 2);
-    ASSERT(obj->s_color[0] == 255 && obj->s_color[1] == 128 && obj->s_color[2] == 0);
-    ASSERT(obj->s_os->s_line_width == 2);
-    ASSERT(obj->s_force_draw == 1);
+    ASSERT(bsg_node_force_draw((const bsg_node *)obj) == 1);
 
     /* ------------------------------------------------------------------ *
      * [5] visit: bv_view_obj_visit with BV_VIEW_OBJ_SCOPE_LOCAL must    *

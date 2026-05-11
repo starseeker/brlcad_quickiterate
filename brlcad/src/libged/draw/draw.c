@@ -110,7 +110,8 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     struct bv_scene_obj *sp = bv_obj_get(dgcdp->v, BV_DB_OBJS);
     if (!sp)
 	return;
-    sp->s_type_flags |= BSG_NODE_SHAPE;
+    bsg_node_set_kind((bsg_node *)sp,
+		      bsg_node_kind((const bsg_node *)sp) | BSG_NODE_SHAPE);
 
     struct ged_bv_data *bdata = (sp->s_u_data) ? (struct ged_bv_data *)sp->s_u_data : NULL;
     if (!bdata) {
@@ -148,7 +149,7 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
 	bu_free((void *)_bid_path, "path string");
     }
 
-    sp->s_iflag = DOWN;
+    bsg_node_set_legacy_illum((bsg_node *)sp, 0);
     sp->s_soldash = dashflag;
     sp->s_old.s_Eflag = 0;
 
@@ -326,7 +327,8 @@ append_solid_to_display_list(
 
     /* create solid */
     struct bv_scene_obj *sp = bv_obj_get(bv_data->v, BV_DB_OBJS);
-    sp->s_type_flags |= BSG_NODE_SHAPE;
+    bsg_node_set_kind((bsg_node *)sp,
+		      bsg_node_kind((const bsg_node *)sp) | BSG_NODE_SHAPE);
     struct ged_bv_data *bdata = (sp->s_u_data) ? (struct ged_bv_data *)sp->s_u_data : NULL;
     if (!bdata) {
 	BU_GET(bdata, struct ged_bv_data);
@@ -414,7 +416,7 @@ append_solid_to_display_list(
 	bu_free((void *)_bid_path, "path string");
     }
 
-    sp->s_iflag = DOWN;
+    bsg_node_set_legacy_illum((bsg_node *)sp, 0);
 
     if (bv_data->draw_solid_lines_only) {
         sp->s_soldash = 0;
