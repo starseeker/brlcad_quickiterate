@@ -20,8 +20,6 @@
 
 #include "common.h"
 
-#include <string.h>
-
 #include "bu/str.h"
 #include "bu/time.h"
 #include "bu/units.h"
@@ -704,7 +702,7 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
  * callback here performs the corresponding dm_* operation.
  * ====================================================================== */
 
-struct _dm_render_ctx {
+struct dm_render_ctx {
     struct dm *dmp;
     int image_overlay_only;
 };
@@ -749,7 +747,7 @@ _dm_rop_draw_fb_layer(struct dm *dmp, struct bview *v)
 static void
 _dm_rop_push_transform(void *data, const mat_t new_xform, const mat_t old_xform)
 {
-    struct _dm_render_ctx *ctx = (struct _dm_render_ctx *)data;
+    struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
     (void)old_xform;
     dm_loadmatrix(ctx->dmp, (fastf_t *)new_xform, 0);
 }
@@ -757,7 +755,7 @@ _dm_rop_push_transform(void *data, const mat_t new_xform, const mat_t old_xform)
 static void
 _dm_rop_pop_transform(void *data, const mat_t restored_xform)
 {
-    struct _dm_render_ctx *ctx = (struct _dm_render_ctx *)data;
+    struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
     dm_loadmatrix(ctx->dmp, (fastf_t *)restored_xform, 0);
 }
 
@@ -766,7 +764,7 @@ _dm_rop_set_material(void *data, bsg_node *node,
 		     const struct bsg_material *mat, int have_material,
 		     int is_highlighted, fastf_t transparency)
 {
-    struct _dm_render_ctx *ctx = (struct _dm_render_ctx *)data;
+    struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
     struct dm *dmp = ctx->dmp;
     struct bv_scene_obj *s = (struct bv_scene_obj *)node;
 
@@ -799,7 +797,7 @@ static void
 _dm_rop_set_appearance(void *data, bsg_node *node,
 		       const struct bsg_appearance *app, int have_appearance)
 {
-    struct _dm_render_ctx *ctx = (struct _dm_render_ctx *)data;
+    struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
     struct dm *dmp = ctx->dmp;
     struct bv_scene_obj *s = (struct bv_scene_obj *)node;
     int lw = have_appearance ? app->line_width : s->s_os->s_line_width;
@@ -824,7 +822,7 @@ _dm_rop_draw_payload(void *data, bsg_node *bnode, struct bview *v,
      * _dm_draw_scene_obj_internal re-primes it after drawing children
      * (which reset the state), ensuring the top-level node is drawn with
      * the correct colour.  This redundancy is a known Phase 11 cleanup. */
-    struct _dm_render_ctx *ctx = (struct _dm_render_ctx *)data;
+    struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
     struct dm *dmp = ctx->dmp;
     struct bv_scene_obj *s = (struct bv_scene_obj *)bnode;
     _dm_draw_scene_obj_internal(dmp, s, v,
@@ -836,7 +834,7 @@ _dm_rop_draw_payload(void *data, bsg_node *bnode, struct bview *v,
 static void
 _dm_rop_draw_overlay(void *data, bsg_node *bnode, struct bview *v)
 {
-    struct _dm_render_ctx *ctx = (struct _dm_render_ctx *)data;
+    struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
     struct dm *dmp = ctx->dmp;
     struct bv_scene_obj *s = (struct bv_scene_obj *)bnode;
     mat_t cur_mat;
@@ -853,7 +851,7 @@ _dm_rop_draw_overlay(void *data, bsg_node *bnode, struct bview *v)
 static int
 _dm_rop_draw_image_layer(void *data, bsg_node *root, struct bview *v)
 {
-    struct _dm_render_ctx *ctx = (struct _dm_render_ctx *)data;
+    struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
     (void)root;
     ctx->image_overlay_only = _dm_rop_draw_fb_layer(ctx->dmp, v);
     return ctx->image_overlay_only ? 0 : 1;
@@ -862,14 +860,14 @@ _dm_rop_draw_image_layer(void *data, bsg_node *root, struct bview *v)
 static void
 _dm_rop_set_depth_mask(void *data, int on)
 {
-    struct _dm_render_ctx *ctx = (struct _dm_render_ctx *)data;
+    struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
     (void)dm_set_depth_mask(ctx->dmp, on);
 }
 
 static int
 _dm_rop_query_capability(void *data, int cap)
 {
-    struct _dm_render_ctx *ctx = (struct _dm_render_ctx *)data;
+    struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
     struct dm *dmp = ctx->dmp;
     if (cap == BSG_RENDERER_CAP_TRANSPARENCY)
 	return dm_get_transparency(dmp);
@@ -994,9 +992,7 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
 	 * depth-mask toggling are managed inside bsg_render_action_apply via
 	 * the query_capability / set_depth_mask ops in _dm_renderer_ops. */
 	struct bsg_render_action ra;
-	struct _dm_render_ctx dctx;
-	memset(&dctx, 0, sizeof(dctx));
-	dctx.dmp = dmp;
+	struct dm_render_ctx dctx = {dmp, 0};
 	bsg_render_action_init(&ra, &_dm_renderer_ops, &dctx);
 	bsg_render_action_set_view(&ra, v);
 	bsg_render_action_apply(&ra, (bsg_node *)v->bsg_root);

@@ -243,11 +243,16 @@ bsg_render_action_apply(struct bsg_render_action *ra, bsg_node *root)
     if (ops->begin_frame)
 	ops->begin_frame(data, v);
 
-    /* Phase 9B/9D: framebuffer/image-layer hook before scene traversal.
+    /* Phase 9D: framebuffer/image-layer hook before scene traversal.
      * Renderers may return 0 to skip scene drawing (overlay-only mode). */
     int do_scene = 1;
     if (ops->draw_image_layer)
 	do_scene = ops->draw_image_layer(data, root, v);
+    if (!do_scene) {
+	if (ops->end_frame)
+	    ops->end_frame(data, v);
+	return 1;
+    }
 
     /* Use gv_model2view as the initial accumulated transform so that
      * transform-node matrix computations start from the correct base,
@@ -264,7 +269,7 @@ bsg_render_action_apply(struct bsg_render_action *ra, bsg_node *root)
 	? ops->query_capability(data, BSG_RENDERER_CAP_TRANSPARENCY)
 	: 0;
 
-    if (do_scene && has_transparency) {
+    if (has_transparency) {
 	/* --- Opaque pass: draw objects with transparency == 1.0 --- */
 	for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
 	    struct bv_scene_obj *c =
@@ -287,7 +292,7 @@ bsg_render_action_apply(struct bsg_render_action *ra, bsg_node *root)
 	if (ops->set_depth_mask)
 	    ops->set_depth_mask(data, 1);
 
-    } else if (do_scene) {
+    } else {
 	/* Single-pass: all objects regardless of transparency. */
 	for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
 	    struct bv_scene_obj *c =

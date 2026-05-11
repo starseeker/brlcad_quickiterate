@@ -160,8 +160,9 @@ __BEGIN_DECLS
 #define BSG_PAYLOAD_OVERLAY 0x100000000000ULL /**< @brief HUD overlay element (bit 44) */
 #define BSG_PAYLOAD_IMAGE   0x400000000000ULL /**< @brief framebuffer/image layer (bit 46) */
 
-/** Mask covering all payload bits */
-#define BSG_PAYLOAD_MASK    0x5F0000000000ULL
+/** Mask covering all payload bits (expression form avoids stale literal masks
+ * when payload flags are extended). */
+#define BSG_PAYLOAD_MASK    (BSG_PAYLOAD_VLIST | BSG_PAYLOAD_CSG | BSG_PAYLOAD_MESH | BSG_PAYLOAD_BREP | BSG_PAYLOAD_OVERLAY | BSG_PAYLOAD_IMAGE)
 
 /**
  * bsg_node is a layout-compatible alias for struct bv_scene_obj.
