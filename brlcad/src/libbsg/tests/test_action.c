@@ -56,7 +56,7 @@ static void
 free_view(struct bview *v)
 {
     if (!v)
-return;
+	return;
     bv_free(v);
     bu_free(v, "test view");
 }
@@ -263,9 +263,9 @@ main(int UNUSED(argc), const char **argv)
     failures += test_search_and_collect();
 
     if (!failures)
-printf("RESULT: all action tests PASSED\n");
+	bu_log("RESULT: all action tests PASSED\n");
     else
-printf("RESULT: %d action test(s) FAILED\n", failures);
+	bu_log("RESULT: %d action test(s) FAILED\n", failures);
 
     return failures;
 }

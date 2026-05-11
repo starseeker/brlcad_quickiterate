@@ -33,17 +33,17 @@
 #include "bsg/node.h"
 #include "bsg/payload.h"
 
-static int
+static void
 _bsg_bbox_from_payload_or_shape(const struct bv_scene_obj *s, vect_t *lmin, vect_t *lmax)
 {
     struct bsg_payload *payload = bsg_node_payload_get((const bsg_node *)s);
     if (payload && bsg_payload_bounds(payload, lmin, lmax))
-return 1;
+	return;
 
     if (s->have_bbox) {
-VMOVE(*lmin, s->bmin);
-VMOVE(*lmax, s->bmax);
-return 1;
+	VMOVE(*lmin, s->bmin);
+	VMOVE(*lmax, s->bmax);
+	return;
     }
 
     (*lmin)[X] = s->s_center[X] - s->s_size;
@@ -53,7 +53,6 @@ return 1;
     (*lmax)[Y] = s->s_center[Y] + s->s_size;
     (*lmax)[Z] = s->s_center[Z] + s->s_size;
 
-    return 1;
 }
 
 static void
@@ -101,14 +100,13 @@ bn_mat_mul(world, parent_mat, node->s_mat);
     if (action->node_cb) {
 	action->current_depth = depth;
 	int result = action->node_cb(action, (bsg_node *)node, world);
-if (result == BSG_ACTION_STOP) {
-    action->stopped = 1;
-    return 0;
-}
-if (result == BSG_ACTION_ERROR) {
-    action->error = 1;
-    return 0;
-}
+	if (result == BSG_ACTION_STOP) {
+	    action->stopped = 1;
+	    return 0;
+	} else if (result == BSG_ACTION_ERROR) {
+	    action->error = 1;
+	    return 0;
+	}
     }
 
     if (node->s_type_flags & BSG_NODE_LOD) {
@@ -205,8 +203,7 @@ return BSG_ACTION_CONTINUE;
     if (!base->include_overlays && (s->s_type_flags & BSG_PAYLOAD_OVERLAY))
 return BSG_ACTION_CONTINUE;
 
-    if (!_bsg_bbox_from_payload_or_shape(s, &lmin, &lmax))
-return BSG_ACTION_CONTINUE;
+    _bsg_bbox_from_payload_or_shape(s, &lmin, &lmax);
 
     _bsg_bbox_xform(&wmin, &wmax, lmin, lmax, world);
 
@@ -526,8 +523,7 @@ return BSG_ACTION_CONTINUE;
     if (!bsg_node_visible((const bsg_node *)s))
 return BSG_ACTION_CONTINUE;
 
-    if (!_bsg_bbox_from_payload_or_shape(s, &lmin, &lmax))
-return BSG_ACTION_CONTINUE;
+    _bsg_bbox_from_payload_or_shape(s, &lmin, &lmax);
 
     _bsg_bbox_xform(&wmin, &wmax, lmin, lmax, world);
 
