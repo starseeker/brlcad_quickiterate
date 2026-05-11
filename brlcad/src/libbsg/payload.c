@@ -376,7 +376,8 @@ bsg_payload_vlist_from_node(bsg_node *n)
     vp = (struct _bsg_payload_vlist *)p;
     vp->owner = n;
     p->source = (void *)n;
-    bsg_node_payload_set(n, p);
+    _bsg_payload_sc_set(n, p);
+    bsg_node_set_payload_type(n, bsg_node_get_payload_type(n) | BSG_PAYLOAD_VLIST);
     return p;
 }
 
