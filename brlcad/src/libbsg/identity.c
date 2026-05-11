@@ -163,6 +163,14 @@ bsg_instance_id_hash(const struct bsg_instance_id *id)
  */
 static bu_hash_tbl *_bsg_id_map = NULL;
 
+/*
+ * Per-node side-car payload stored in _bsg_id_map.
+ *
+ * - have_identity/identity: optional identity record set by
+ *   bsg_node_identity_set and read by bsg_node_identity_get.
+ * - revisions: per-kind revision counters used by bsg_node_revision and
+ *   bsg_node_bump_revision.
+ */
 struct _bsg_identity_sidecar {
     int have_identity;
     struct bsg_identity identity;

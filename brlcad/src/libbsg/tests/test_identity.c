@@ -284,10 +284,14 @@ test_node_revisions(void)
 	FAIL("revision invalid kind -1 -> 0");
     if (bsg_node_revision(na, BSG_NODE_REV_COUNT) != 0)
 	FAIL("revision invalid kind COUNT -> 0");
+    if (bsg_node_revision(na, BSG_NODE_REV_COUNT + 1) != 0)
+	FAIL("revision invalid kind COUNT+1 -> 0");
     if (bsg_node_bump_revision(na, -1) != 0)
 	FAIL("bump invalid kind -1 -> 0");
     if (bsg_node_bump_revision(na, BSG_NODE_REV_COUNT) != 0)
 	FAIL("bump invalid kind COUNT -> 0");
+    if (bsg_node_bump_revision(na, BSG_NODE_REV_COUNT + 1) != 0)
+	FAIL("bump invalid kind COUNT+1 -> 0");
 
     /* bump increments and returns new value */
     if (bsg_node_bump_revision(na, BSG_NODE_REV_MATERIAL) != 1)

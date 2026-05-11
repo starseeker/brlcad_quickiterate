@@ -154,6 +154,7 @@ bsg_identity_from_path_str(struct bsg_identity *id,
  *
  * Return the current revision counter for @p n and @p rev_kind.  Returns 0
  * for NULL node, invalid revision kind, or nodes with no side-car state.
+ * Valid revision kinds are in the range [0, BSG_NODE_REV_COUNT).
  */
 BSG_EXPORT extern uint64_t
 bsg_node_revision(const bsg_node *n, int rev_kind);
@@ -161,6 +162,7 @@ bsg_node_revision(const bsg_node *n, int rev_kind);
 /**
  * Increment and return the revision counter for @p n and @p rev_kind.
  * Returns 0 for NULL node or invalid revision kind.
+ * Valid revision kinds are in the range [0, BSG_NODE_REV_COUNT).
  */
 BSG_EXPORT extern uint64_t
 bsg_node_bump_revision(bsg_node *n, int rev_kind);
