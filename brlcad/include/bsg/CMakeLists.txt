@@ -4,6 +4,7 @@ set(
   draw_ctx.h
   draw_set.h
   field.h
+  identity.h
   lod.h
   lod_ops.h
   node_group.h

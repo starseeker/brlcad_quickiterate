@@ -32,6 +32,7 @@
 #define BSG_H
 
 #include "bsg/defines.h"
+#include "bsg/identity.h"
 #include "bsg/lod.h"
 #include "bsg/node.h"
 #include "bsg/obol_node.h"
