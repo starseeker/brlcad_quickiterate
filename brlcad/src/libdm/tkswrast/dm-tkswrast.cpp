@@ -90,6 +90,13 @@ tkswrast_log(const char *fmt, ...)
     fflush(lfp);
 }
 
+static unsigned long
+tkswrast_black_pixel(Tcl_Interp *interp, Tk_Window tkwin)
+{
+    XColor *black = Tk_GetColor(interp, tkwin, Tk_GetUid("black"));
+    return black ? black->pixel : 0;
+}
+
 static void
 tkswrast_log_tk_hierarchy(struct dm *dmp)
 {
@@ -506,7 +513,7 @@ tkswrast_open(void *ctx, void *vinterp, int argc, const char **argv)
 	    }
 	}
     }
-    Tk_SetWindowBackground(tv->xtkwin, BlackPixelOfScreen(Tk_Screen(tv->xtkwin)));
+    Tk_SetWindowBackground(tv->xtkwin, tkswrast_black_pixel(interp, tv->xtkwin));
     Tk_MakeWindowExist(tv->xtkwin);
 
     tkswrast_safe_image_name(&tv->photo_name, bu_vls_addr(&dmp->i->dm_pathName));
