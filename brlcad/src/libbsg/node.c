@@ -35,14 +35,24 @@
 #include "bsg/field.h"
 #include "bsg/node.h"
 
+#include "./bsg_private.h"
+
 
 unsigned long long
 bsg_node_kind(const bsg_node *n)
 {
+    const struct bv_scene_obj *s;
+
     if (!n)
 	return 0;
 
-    return ((const struct bv_scene_obj *)n)->s_type_flags;
+    s = (const struct bv_scene_obj *)n;
+    /* Phase 10B: prefer the core if it has been initialized; fall back to the
+     * legacy field so that nodes not yet touched by any BSG setter still
+     * return the correct value. */
+    if (s->bsg_core.bsg_magic == BSG_NODE_CORE_MAGIC)
+	return s->bsg_core.kind;
+    return s->s_type_flags;
 }
 
 
@@ -59,11 +69,18 @@ bsg_node_has_kind(const bsg_node *n, unsigned long long kind)
 void
 bsg_node_set_kind(bsg_node *n, unsigned long long kind)
 {
+    struct bsg_node_core *core;
+
     if (!n)
 	return;
 
+    /* Phase 10B: write to both the legacy field (for backward compat) and the
+     * core (primary BSG storage). */
     struct bv_scene_obj *s = (struct bv_scene_obj *)n;
     s->s_type_flags = kind;
+    core = _bsg_core_ensure(n);
+    if (core)
+	core->kind = kind;
     bsg_node_field_touch(n, BSG_FIELD_KIND);
 }
 
@@ -97,10 +114,16 @@ bsg_node_set_name(bsg_node *n, const char *name)
 bsg_node *
 bsg_node_parent(const bsg_node *n)
 {
+    const struct bv_scene_obj *s;
+
     if (!n)
 	return NULL;
 
-    return (bsg_node *)((const struct bv_scene_obj *)n)->parent;
+    s = (const struct bv_scene_obj *)n;
+    /* Phase 10B: prefer the core if initialized. */
+    if (s->bsg_core.bsg_magic == BSG_NODE_CORE_MAGIC)
+	return (bsg_node *)s->bsg_core.parent;
+    return (bsg_node *)s->parent;
 }
 
 
@@ -141,6 +164,12 @@ bsg_node_add_child(bsg_node *parent, bsg_node *child)
 
     bu_ptbl_ins(&p->children, (long *)c);
     c->parent = p;
+    /* Phase 10B: keep core parent in sync. */
+    {
+	struct bsg_node_core *cc = _bsg_core_ensure(child);
+	if (cc)
+	    cc->parent = p;
+    }
     bsg_node_field_touch(parent, BSG_FIELD_CHILDREN);
 }
 
@@ -166,8 +195,15 @@ bsg_node_remove_child(bsg_node *parent, bsg_node *child)
 	return;
 
     bu_ptbl_rm(&p->children, (const long *)c);
-    if (c->parent == p)
+    if (c->parent == p) {
 	c->parent = NULL;
+	/* Phase 10B: keep core parent in sync. */
+	{
+	    struct bsg_node_core *cc = _bsg_core_ensure(child);
+	    if (cc)
+		cc->parent = NULL;
+	}
+    }
     bsg_node_field_touch(parent, BSG_FIELD_CHILDREN);
 }
 

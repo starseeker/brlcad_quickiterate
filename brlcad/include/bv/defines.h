@@ -231,6 +231,62 @@ struct bv_obj_backend {
 };
 
 /**
+ * Phase 10 (BSG enhancement): stable node-core embedded in bv_scene_obj.
+ *
+ * struct bsg_node_core holds the BSG scene-graph fields that are being
+ * migrated out of global side-car hash maps and into the node itself.
+ * It is embedded as the last field of struct bv_scene_obj so that existing
+ * field offsets are not disturbed.
+ *
+ * Design constraints:
+ *  - Only basic C types (no BSG-specific structs) so that bv/defines.h does
+ *    not need to include BSG headers (which would create a circular dependency).
+ *  - Identity and revision counters are stored inline (no heap allocation).
+ *  - Material, appearance, and payload are stored as void* pointers; they
+ *    are cast to the appropriate BSG types only inside libbsg code.
+ *  - bsg_core_free_fn is called by bv_obj_reset() before the struct is
+ *    zeroed, allowing libbsg to release any heap data it allocated without
+ *    introducing a libbsg dependency in libbv.
+ *
+ * See doc/notes/bsg_enhancement_plan.txt Phase 10 for the full rationale.
+ */
+#define BSG_NODE_CORE_MAGIC 0x626e636fUL  /**< @brief magic: 'b','n','c','o' */
+#define BSG_NODE_REV_MAX    8             /**< @brief max revision-counter slots */
+
+struct bsg_node_core {
+    uint32_t bsg_magic;           /**< @brief BSG_NODE_CORE_MAGIC when initialized */
+
+    /* Phase 10B: node taxonomy and parent link (mirror s_type_flags / parent) */
+    unsigned long long kind;      /**< @brief BSG_NODE_* flags; mirrors s_type_flags */
+    void *parent;                 /**< @brief parent bsg_node*; mirrors bv_scene_obj::parent */
+
+    /* Phase 10D: inline identity and revision storage.
+     * Replaces the _bsg_id_map global hash map in identity.c.
+     * When have_identity == 0 the ID fields are zeroed. */
+    int have_identity;
+    uint64_t identity_node_id;
+    uint64_t identity_part_id;
+    uint64_t identity_instance_id;
+    int identity_source_kind;           /**< @brief enum bsg_source_kind value */
+    uint64_t revisions[BSG_NODE_REV_MAX];
+
+    /* Phase 10C: BSG side-car pointers.
+     * Allocated on first use by libbsg; freed via bsg_core_free_fn.
+     *  material   -> struct bsg_material *
+     *  appearance -> struct bsg_appearance *
+     *  payload    -> struct bsg_payload * */
+    void *material;
+    void *appearance;
+    void *payload;
+
+    /** @brief Cleanup hook invoked by bv_obj_reset() before the core is
+     *  zeroed.  libbsg sets this to _bsg_core_release() on first BSG init
+     *  so that heap-allocated material/appearance/payload are freed safely
+     *  without creating a libbsg -> libbv link dependency. */
+    void (*bsg_core_free_fn)(struct bsg_node_core *);
+};
+
+/**
  * BSG GUARDRAIL: new scene-graph code should use BSG APIs (include/bsg/),
  * not direct struct bv_scene_obj field accesses.
  *
@@ -411,6 +467,12 @@ struct bv_scene_obj  {
 
     /* User data to associate with this view object */
     void *s_u_data;
+
+    /* Phase 10 (BSG enhancement): embedded BSG node core.
+     * Access the BSG-typed material/identity/etc. through the BSG API
+     * (bsg_node_material_get, bsg_node_identity_get, ...).  For internal
+     * libbsg use: call bsg_node_core_get() from bsg/node_core.h. */
+    struct bsg_node_core bsg_core;
 };
 
 

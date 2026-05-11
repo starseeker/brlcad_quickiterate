@@ -27,20 +27,24 @@
 
 #include <string.h>
 
-#include "bu/hash.h"
 #include "bu/malloc.h"
 #include "bv/util.h"
 #include "bsg/field.h"
 #include "bsg/identity.h"
 #include "bsg/material.h"
 
+#include "./bsg_private.h"
 
-struct _bsg_material_sidecar {
-    int have_material;
-    struct bsg_material material;
-};
 
-static bu_hash_tbl *_bsg_material_map = NULL;
+/* ------------------------------------------------------------------ */
+/* Phase 10C: material storage via bsg_node_core                        */
+/*                                                                      */
+/* The global _bsg_material_map hash table (Phase 3) has been replaced  */
+/* by a single heap-allocated struct bsg_material * stored in           */
+/* bsg_node_core::material.  The pointer is owned by the core and freed */
+/* by _bsg_core_release() (called from bv_obj_reset).                   */
+/* ------------------------------------------------------------------ */
+
 static int _bsg_view_obj_material_hook_enabled = 0;
 
 static fastf_t
@@ -53,39 +57,42 @@ _material_clamp_transparency(fastf_t t)
     return t;
 }
 
-static void
-_bsg_material_map_ensure(void)
-{
-    if (!_bsg_material_map)
-	_bsg_material_map = bu_hash_create(128);
-}
-
-static struct _bsg_material_sidecar *
+/* Return the material struct for @p n from the core, or NULL if unset. */
+static struct bsg_material *
 _bsg_material_sc_get(const bsg_node *n)
 {
-    if (!n || !_bsg_material_map)
-	return NULL;
-    return (struct _bsg_material_sidecar *)bu_hash_get(_bsg_material_map,
-	    (const uint8_t *)&n, sizeof(n));
-}
+    const struct bv_scene_obj *s;
 
-static struct _bsg_material_sidecar *
-_bsg_material_sc_get_or_create(const bsg_node *n)
-{
-    struct _bsg_material_sidecar *sc = NULL;
     if (!n)
 	return NULL;
 
-    _bsg_material_map_ensure();
-    sc = _bsg_material_sc_get(n);
-    if (sc)
-	return sc;
+    s = (const struct bv_scene_obj *)n;
+    if (s->bsg_core.bsg_magic != BSG_NODE_CORE_MAGIC)
+	return NULL;
+    return (struct bsg_material *)s->bsg_core.material;
+}
 
-    BU_ALLOC(sc, struct _bsg_material_sidecar);
-    sc->have_material = 0;
-    bsg_material_init(&sc->material);
-    bu_hash_set(_bsg_material_map, (const uint8_t *)&n, sizeof(n), sc);
-    return sc;
+/* Return (allocating if needed) the material struct for @p n. */
+static struct bsg_material *
+_bsg_material_sc_get_or_create(bsg_node *n)
+{
+    struct bsg_node_core *core;
+    struct bsg_material *m;
+
+    if (!n)
+	return NULL;
+
+    core = _bsg_core_ensure(n);
+    if (!core)
+	return NULL;
+
+    if (core->material)
+	return (struct bsg_material *)core->material;
+
+    BU_ALLOC(m, struct bsg_material);
+    bsg_material_init(m);
+    core->material = m;
+    return m;
 }
 
 
@@ -192,13 +199,14 @@ bsg_material_to_legacy_obj(bsg_node *n, const struct bsg_material *m)
 int
 bsg_node_material_get(const bsg_node *n, struct bsg_material *out)
 {
-    struct _bsg_material_sidecar *sc = NULL;
+    struct bsg_material *m;
+
     if (!n || !out)
 	return 0;
 
-    sc = _bsg_material_sc_get(n);
-    if (sc && sc->have_material) {
-	*out = sc->material;
+    m = _bsg_material_sc_get(n);
+    if (m) {
+	*out = *m;
 	return 1;
     }
 
@@ -210,7 +218,8 @@ bsg_node_material_get(const bsg_node *n, struct bsg_material *out)
 void
 bsg_node_material_set(bsg_node *n, const struct bsg_material *m)
 {
-    struct _bsg_material_sidecar *sc = NULL;
+    struct bsg_material *sc;
+
     if (!n || !m)
 	return;
 
@@ -218,8 +227,7 @@ bsg_node_material_set(bsg_node *n, const struct bsg_material *m)
     if (!sc)
 	return;
 
-    sc->material = *m;
-    sc->have_material = 1;
+    *sc = *m;
     bsg_material_to_legacy_obj(n, m);
     bsg_node_field_touch(n, BSG_FIELD_MATERIAL);
     (void)bsg_node_bump_revision(n, BSG_NODE_REV_MATERIAL);

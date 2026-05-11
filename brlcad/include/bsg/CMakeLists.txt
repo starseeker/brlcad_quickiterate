@@ -13,6 +13,7 @@ set(
   lod_ops.h
   material.h
   node.h
+  node_core.h
   node_group.h
   node_shape.h
   node_transform.h

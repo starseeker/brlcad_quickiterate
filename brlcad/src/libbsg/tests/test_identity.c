@@ -22,6 +22,14 @@
  * Phase 2A/2B/follow-up tests for ID structs, init/equality/hash helpers,
  * side-car identity storage, path-string derived identity, and node
  * revision counters.
+ *
+ * Phase 10D update: revision counters are now stored inline in
+ * bsg_node_core (embedded in bv_scene_obj).  Tests that previously used
+ * raw int-pointer "dummy nodes" now use zero-initialised bv_scene_obj
+ * stack variables, and the expectation that bsg_node_identity_clear()
+ * resets revision counters has been removed -- in Phase 10D clearing the
+ * identity only clears the identity fields; revisions are independent
+ * and persist until the node is recycled by bv_obj_reset().
  */
 
 #include "common.h"
@@ -31,6 +39,7 @@
 
 #include "bu/app.h"
 #include "bu/malloc.h"
+#include "bv/defines.h"    /* struct bv_scene_obj, struct bsg_node_core */
 #include "bsg/identity.h"
 
 #define PASS(msg) do { printf("  PASS: %s\n", (msg)); } while (0)
@@ -144,10 +153,13 @@ test_node_identity_sidecar(void)
 {
     printf("=== Test 4: node_identity_sidecar ===\n");
 
-    /* Use a dummy pointer — identity storage is keyed by address only. */
-    int dummy_a = 0, dummy_b = 0;
-    bsg_node *na = (bsg_node *)&dummy_a;
-    bsg_node *nb = (bsg_node *)&dummy_b;
+    /* Phase 10D: identity is now stored inline in bsg_node_core which is
+     * embedded in bv_scene_obj.  We must use properly-sized nodes. */
+    struct bv_scene_obj raw_a, raw_b;
+    memset(&raw_a, 0, sizeof(raw_a));
+    memset(&raw_b, 0, sizeof(raw_b));
+    bsg_node *na = (bsg_node *)&raw_a;
+    bsg_node *nb = (bsg_node *)&raw_b;
 
     /* Before any set, get should return 0 */
     struct bsg_identity got;
@@ -271,9 +283,15 @@ test_node_revisions(void)
 {
     printf("=== Test 6: node_revisions ===\n");
 
-    int dummy_a = 0, dummy_b = 0;
-    bsg_node *na = (bsg_node *)&dummy_a;
-    bsg_node *nb = (bsg_node *)&dummy_b;
+    /* Phase 10D: revision counters live in bsg_node_core which is embedded
+     * directly in bv_scene_obj.  We must use a properly-sized (zeroed)
+     * bv_scene_obj; raw int pointers no longer work because _bsg_core_ensure
+     * writes into the core at a non-trivial offset within the struct. */
+    struct bv_scene_obj raw_a, raw_b;
+    memset(&raw_a, 0, sizeof(raw_a));
+    memset(&raw_b, 0, sizeof(raw_b));
+    bsg_node *na = (bsg_node *)&raw_a;
+    bsg_node *nb = (bsg_node *)&raw_b;
 
     /* unknown node defaults */
     if (bsg_node_revision(na, BSG_NODE_REV_MATERIAL) != 0)
@@ -341,20 +359,23 @@ test_node_revisions(void)
     if (bsg_node_revision(na, BSG_NODE_REV_MATERIAL) != 2)
 	FAIL("material rev survives identity set");
 
-    /* clear removes side-car state including revisions */
+    /* Phase 10D: bsg_node_identity_clear() only clears identity fields;
+     * revision counters are independent inline state and are NOT zeroed.
+     * (Previously the sidecar struct held both identity and revisions, so
+     * clearing the sidecar also cleared revisions.  That coupling is gone.) */
     bsg_node_identity_clear(na);
-    if (bsg_node_revision(na, BSG_NODE_REV_MATERIAL) != 0)
-	FAIL("material rev reset after clear");
-    if (bsg_node_revision(na, BSG_NODE_REV_PAYLOAD) != 0)
-	FAIL("payload rev reset after clear");
-    if (bsg_node_revision(na, BSG_NODE_REV_BOUNDS) != 0)
-	FAIL("bounds rev reset after clear");
-    if (bsg_node_revision(na, BSG_NODE_REV_STRUCTURE) != 0)
-	FAIL("structure rev reset after clear");
-    if (bsg_node_revision(na, BSG_NODE_REV_APPEARANCE) != 0)
-	FAIL("appearance rev reset after clear");
-    if (bsg_node_revision(na, BSG_NODE_REV_SELECTION) != 0)
-	FAIL("selection rev reset after clear");
+    if (bsg_node_revision(na, BSG_NODE_REV_MATERIAL) != 2)
+	FAIL("material rev preserved after identity clear (Phase 10D)");
+    if (bsg_node_revision(na, BSG_NODE_REV_PAYLOAD) != 1)
+	FAIL("payload rev preserved after identity clear (Phase 10D)");
+    if (bsg_node_revision(na, BSG_NODE_REV_BOUNDS) != 1)
+	FAIL("bounds rev preserved after identity clear (Phase 10D)");
+    /* identity is gone */
+    {
+	struct bsg_identity out;
+	if (bsg_node_identity_get(na, &out) != 0)
+	    FAIL("identity cleared after identity_clear");
+    }
 
     /* NULL safety */
     if (bsg_node_revision(NULL, BSG_NODE_REV_MATERIAL) != 0)

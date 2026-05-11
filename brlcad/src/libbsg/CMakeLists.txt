@@ -11,6 +11,7 @@ set(
   lod_node.c
   material.c
   node.c
+  node_core.c
   node_group.c
   node_root.c
   node_shape.c
@@ -53,6 +54,7 @@ cmakefiles(
   lod_node.c
   material.c
   node.c
+  node_core.c
   node_group.c
   node_root.c
   node_shape.c
