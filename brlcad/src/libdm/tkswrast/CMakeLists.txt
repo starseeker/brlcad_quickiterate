@@ -23,7 +23,7 @@ if(BRLCAD_ENABLE_TK)
       ${TCL_LIBRARY}
       ${TK_LIBRARY}
     )
-    set(TKSWRAST_COMPILE_DEFINITIONS BRLCADBUILD HAVE_CONFIG_H HAVE_TK OSMESA)
+    set(TKSWRAST_COMPILE_DEFINITIONS BRLCADBUILD;HAVE_CONFIG_H;HAVE_TK;OSMESA)
 
     # If Tk is using X11, we need the X11 headers/libs as well.  Aqua Tk
     # builds do not need or want these.
