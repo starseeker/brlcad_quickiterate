@@ -19,8 +19,9 @@
  */
 /** @file libbsg/tests/test_identity.c
  *
- * Phase 2A/2B tests for ID structs, init/equality/hash helpers,
- * side-car identity storage, and path-string derived identity.
+ * Phase 2A/2B/follow-up tests for ID structs, init/equality/hash helpers,
+ * side-car identity storage, path-string derived identity, and node
+ * revision counters.
  */
 
 #include "common.h"
@@ -261,6 +262,83 @@ test_identity_from_path_str(void)
     return 0;
 }
 
+/* ------------------------------------------------------------------ */
+/* Test 6: Phase 2 follow-up revision counters                          */
+/* ------------------------------------------------------------------ */
+
+static int
+test_node_revisions(void)
+{
+    printf("=== Test 6: node_revisions ===\n");
+
+    int dummy_a = 0, dummy_b = 0;
+    bsg_node *na = (bsg_node *)&dummy_a;
+    bsg_node *nb = (bsg_node *)&dummy_b;
+
+    /* unknown node defaults */
+    if (bsg_node_revision(na, BSG_NODE_REV_MATERIAL) != 0)
+	FAIL("unknown node material rev default 0");
+
+    /* invalid kinds are rejected */
+    if (bsg_node_revision(na, -1) != 0)
+	FAIL("revision invalid kind -1 -> 0");
+    if (bsg_node_revision(na, BSG_NODE_REV_COUNT) != 0)
+	FAIL("revision invalid kind COUNT -> 0");
+    if (bsg_node_bump_revision(na, -1) != 0)
+	FAIL("bump invalid kind -1 -> 0");
+    if (bsg_node_bump_revision(na, BSG_NODE_REV_COUNT) != 0)
+	FAIL("bump invalid kind COUNT -> 0");
+
+    /* bump increments and returns new value */
+    if (bsg_node_bump_revision(na, BSG_NODE_REV_MATERIAL) != 1)
+	FAIL("bump material #1");
+    if (bsg_node_bump_revision(na, BSG_NODE_REV_MATERIAL) != 2)
+	FAIL("bump material #2");
+    if (bsg_node_revision(na, BSG_NODE_REV_MATERIAL) != 2)
+	FAIL("read material rev 2");
+
+    /* independent per-kind */
+    if (bsg_node_revision(na, BSG_NODE_REV_PAYLOAD) != 0)
+	FAIL("payload starts at 0");
+    if (bsg_node_bump_revision(na, BSG_NODE_REV_PAYLOAD) != 1)
+	FAIL("payload bump #1");
+    if (bsg_node_revision(na, BSG_NODE_REV_TRANSFORM) != 0)
+	FAIL("transform remains 0");
+
+    /* independent per-node */
+    if (bsg_node_revision(nb, BSG_NODE_REV_MATERIAL) != 0)
+	FAIL("other node starts at 0");
+    if (bsg_node_bump_revision(nb, BSG_NODE_REV_MATERIAL) != 1)
+	FAIL("other node bump #1");
+    if (bsg_node_revision(na, BSG_NODE_REV_MATERIAL) != 2)
+	FAIL("first node untouched");
+
+    /* revisions survive identity set/get */
+    struct bsg_identity id;
+    bsg_identity_init(&id);
+    id.node_id.value = 777;
+    bsg_node_identity_set(na, &id);
+    if (bsg_node_revision(na, BSG_NODE_REV_MATERIAL) != 2)
+	FAIL("material rev survives identity set");
+
+    /* clear removes side-car state including revisions */
+    bsg_node_identity_clear(na);
+    if (bsg_node_revision(na, BSG_NODE_REV_MATERIAL) != 0)
+	FAIL("material rev reset after clear");
+    if (bsg_node_revision(na, BSG_NODE_REV_PAYLOAD) != 0)
+	FAIL("payload rev reset after clear");
+
+    /* NULL safety */
+    if (bsg_node_revision(NULL, BSG_NODE_REV_MATERIAL) != 0)
+	FAIL("revision(NULL) -> 0");
+    if (bsg_node_bump_revision(NULL, BSG_NODE_REV_MATERIAL) != 0)
+	FAIL("bump(NULL) -> 0");
+
+    bsg_node_identity_clear(nb);
+    PASS("node_revisions");
+    return 0;
+}
+
 
 int
 main(int UNUSED(argc), const char **argv)
@@ -273,6 +351,7 @@ main(int UNUSED(argc), const char **argv)
     failures += test_hash_helpers();
     failures += test_node_identity_sidecar();
     failures += test_identity_from_path_str();
+    failures += test_node_revisions();
 
     if (failures) {
 	printf("FAIL: %d test group(s) failed\n", failures);

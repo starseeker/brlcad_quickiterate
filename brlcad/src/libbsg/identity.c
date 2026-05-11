@@ -19,8 +19,8 @@
  */
 /** @file libbsg/identity.c
  *
- * Phase 2A/2B: ID structs, init/equality/hash helpers, and side-car
- * identity storage for BSG nodes.
+ * Phase 2A/2B/follow-up: ID structs, init/equality/hash helpers, and
+ * side-car identity/revision storage for BSG nodes.
  */
 
 #include "common.h"
@@ -150,7 +150,7 @@ bsg_instance_id_hash(const struct bsg_instance_id *id)
 /* ------------------------------------------------------------------ */
 
 /*
- * Global process-wide map: bsg_node * (as raw bytes) -> struct bsg_identity *
+ * Global process-wide map: bsg_node * (as raw bytes) -> side-car state
  *
  * Lifetime: entries are explicitly removed by bsg_node_identity_clear().
  * If a node is destroyed without calling bsg_node_identity_clear() first
@@ -163,6 +163,12 @@ bsg_instance_id_hash(const struct bsg_instance_id *id)
  */
 static bu_hash_tbl *_bsg_id_map = NULL;
 
+struct _bsg_identity_sidecar {
+    int have_identity;
+    struct bsg_identity identity;
+    uint64_t revisions[BSG_NODE_REV_COUNT];
+};
+
 static void
 _bsg_id_map_ensure(void)
 {
@@ -170,19 +176,51 @@ _bsg_id_map_ensure(void)
 	_bsg_id_map = bu_hash_create(128);
 }
 
+static struct _bsg_identity_sidecar *
+_bsg_sidecar_get(const bsg_node *n)
+{
+    if (!n || !_bsg_id_map)
+	return NULL;
+
+    return (struct _bsg_identity_sidecar *)bu_hash_get(_bsg_id_map,
+	    (const uint8_t *)&n, sizeof(n));
+}
+
+static struct _bsg_identity_sidecar *
+_bsg_sidecar_get_or_create(const bsg_node *n)
+{
+    struct _bsg_identity_sidecar *sc;
+
+    if (!n)
+	return NULL;
+
+    _bsg_id_map_ensure();
+    sc = _bsg_sidecar_get(n);
+    if (sc)
+	return sc;
+
+    BU_ALLOC(sc, struct _bsg_identity_sidecar);
+    sc->have_identity = 0;
+    bsg_identity_init(&sc->identity);
+    memset(sc->revisions, 0, sizeof(sc->revisions));
+    bu_hash_set(_bsg_id_map, (const uint8_t *)&n, sizeof(n), sc);
+    return sc;
+}
+
 
 int
 bsg_node_identity_get(const bsg_node *n, struct bsg_identity *out)
 {
-    if (!n || !out || !_bsg_id_map)
+    struct _bsg_identity_sidecar *sc;
+
+    if (!n || !out)
 	return 0;
 
-    void *val = bu_hash_get(_bsg_id_map,
-			    (const uint8_t *)&n, sizeof(n));
-    if (!val)
+    sc = _bsg_sidecar_get(n);
+    if (!sc || !sc->have_identity)
 	return 0;
 
-    *out = *(const struct bsg_identity *)val;
+    *out = sc->identity;
     return 1;
 }
 
@@ -190,6 +228,8 @@ bsg_node_identity_get(const bsg_node *n, struct bsg_identity *out)
 void
 bsg_node_identity_set(bsg_node *n, const struct bsg_identity *id)
 {
+    struct _bsg_identity_sidecar *sc;
+
     if (!n)
 	return;
 
@@ -198,35 +238,66 @@ bsg_node_identity_set(bsg_node *n, const struct bsg_identity *id)
 	return;
     }
 
-    _bsg_id_map_ensure();
+    sc = _bsg_sidecar_get_or_create(n);
+    if (!sc)
+	return;
 
-    /* Check whether we already have an entry to update in-place */
-    void *existing = bu_hash_get(_bsg_id_map,
-				 (const uint8_t *)&n, sizeof(n));
-    if (existing) {
-	*(struct bsg_identity *)existing = *id;
-    } else {
-	struct bsg_identity *copy;
-	BU_ALLOC(copy, struct bsg_identity);
-	*copy = *id;
-	bu_hash_set(_bsg_id_map, (const uint8_t *)&n, sizeof(n), copy);
-    }
+    sc->identity = *id;
+    sc->have_identity = 1;
 }
 
 
 void
 bsg_node_identity_clear(bsg_node *n)
 {
+    struct _bsg_identity_sidecar *sc;
+
     if (!n || !_bsg_id_map)
 	return;
 
-    void *val = bu_hash_get(_bsg_id_map,
-			    (const uint8_t *)&n, sizeof(n));
-    if (!val)
+    sc = _bsg_sidecar_get(n);
+    if (!sc)
 	return;
 
-    bu_free(val, "bsg_identity");
+    bu_free(sc, "bsg_identity_sidecar");
     bu_hash_rm(_bsg_id_map, (const uint8_t *)&n, sizeof(n));
+}
+
+
+uint64_t
+bsg_node_revision(const bsg_node *n, int rev_kind)
+{
+    struct _bsg_identity_sidecar *sc;
+
+    if (!n)
+	return 0;
+    if (rev_kind < 0 || rev_kind >= BSG_NODE_REV_COUNT)
+	return 0;
+
+    sc = _bsg_sidecar_get(n);
+    if (!sc)
+	return 0;
+
+    return sc->revisions[rev_kind];
+}
+
+
+uint64_t
+bsg_node_bump_revision(bsg_node *n, int rev_kind)
+{
+    struct _bsg_identity_sidecar *sc;
+
+    if (!n)
+	return 0;
+    if (rev_kind < 0 || rev_kind >= BSG_NODE_REV_COUNT)
+	return 0;
+
+    sc = _bsg_sidecar_get_or_create(n);
+    if (!sc)
+	return 0;
+
+    sc->revisions[rev_kind]++;
+    return sc->revisions[rev_kind];
 }
 
 

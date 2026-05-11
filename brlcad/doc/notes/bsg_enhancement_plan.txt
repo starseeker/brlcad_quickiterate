@@ -1265,7 +1265,9 @@ What is not yet implemented in this roadmap:
       `append_solid_to_display_list`) (Phase 2C).
   - Unit tests in `src/libbsg/tests/test_identity.c` (5 test groups) registered
     as `libbsg_identity`.
-  - Revision sub-API (revision counters, bump_revision) not yet implemented.
+  - Revision sub-API implemented in `identity.h/.c`:
+    `bsg_node_revision` and `bsg_node_bump_revision` for material, payload,
+    transform, and bounds revision kinds (Phase 2 follow-up).
 - Phase 3 material/appearance API (`material.h/.c`, `appearance.h/.c`).
 - Phase 5 action layer (`action.h/.c`, bbox/search/collect actions).
 - Phase 6 selection set model.
@@ -1289,11 +1291,6 @@ Use these as concrete "small-unit" prompts for the next work sessions.
    Add `bsg_appearance` with draw-mode, line-width, and transparency fields.
    Map to/from `bv_obj_settings` with compatibility helpers and tests.
 
-3. Phase 2 follow-up (optional):
-   Add revision counters (`bsg_node_revision` / `bsg_node_bump_revision`) to
-   the identity side-car for material, payload, transform, and bounds revisions.
-   Requires no ABI break.
-
-4. Phase 4A:
+3. Phase 4A:
    Expand `include/bsg/payload.h` with a proper payload base struct (type,
    revision, bounds revision, lifecycle callbacks) and vlist payload wrappers.

@@ -20,8 +20,9 @@
 /** @addtogroup libbsg
  *
  * @brief
- * BSG identity primitives (Phase 2A/2B): ID structs, init/equality/hash helpers,
- * and side-car storage APIs for per-node identity.
+ * BSG identity primitives (Phase 2A/2B/follow-up): ID structs,
+ * init/equality/hash helpers, and side-car storage APIs for per-node identity
+ * and revisions.
  */
 /** @{ */
 /* @file bsg/identity.h */
@@ -61,6 +62,14 @@ struct bsg_identity {
     struct bsg_part_id part_id;
     struct bsg_instance_id instance_id;
     enum bsg_source_kind source_kind;
+};
+
+enum bsg_node_revision_kind {
+    BSG_NODE_REV_MATERIAL = 0,
+    BSG_NODE_REV_PAYLOAD,
+    BSG_NODE_REV_TRANSFORM,
+    BSG_NODE_REV_BOUNDS,
+    BSG_NODE_REV_COUNT
 };
 
 BSG_EXPORT extern void
@@ -139,6 +148,22 @@ BSG_EXPORT extern void
 bsg_identity_from_path_str(struct bsg_identity *id,
 			   const char *path_str,
 			   enum bsg_source_kind kind);
+
+/**
+ * Phase 2 follow-up: revision counters in the identity side-car.
+ *
+ * Return the current revision counter for @p n and @p rev_kind.  Returns 0
+ * for NULL node, invalid revision kind, or nodes with no side-car state.
+ */
+BSG_EXPORT extern uint64_t
+bsg_node_revision(const bsg_node *n, int rev_kind);
+
+/**
+ * Increment and return the revision counter for @p n and @p rev_kind.
+ * Returns 0 for NULL node or invalid revision kind.
+ */
+BSG_EXPORT extern uint64_t
+bsg_node_bump_revision(bsg_node *n, int rev_kind);
 
 __END_DECLS
 
