@@ -100,6 +100,22 @@ BSG_EXPORT extern void
 bsg_node_mark_stale(bsg_node *n);
 
 /**
+ * Legacy compatibility accessor for illumination/highlight state (s_iflag).
+ *
+ * Returns non-zero when illuminated/highlighted (UP), zero otherwise.
+ */
+BSG_EXPORT extern int
+bsg_node_legacy_illum(const bsg_node *n);
+
+/**
+ * Legacy compatibility setter for illumination/highlight state (s_iflag).
+ *
+ * Stores UP when @p illuminated is non-zero, DOWN otherwise.
+ */
+BSG_EXPORT extern void
+bsg_node_set_legacy_illum(bsg_node *n, int illuminated);
+
+/**
  * Return the per-frame draw revision stamp for @p n.
  *
  * This value is set to the view's gv_frame_rev each time the node is

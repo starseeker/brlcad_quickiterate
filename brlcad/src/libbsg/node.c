@@ -339,6 +339,26 @@ bsg_node_mark_stale(bsg_node *n)
 }
 
 
+int
+bsg_node_legacy_illum(const bsg_node *n)
+{
+    if (!n)
+	return 0;
+
+    return (((const struct bv_scene_obj *)n)->s_iflag == UP) ? 1 : 0;
+}
+
+
+void
+bsg_node_set_legacy_illum(bsg_node *n, int illuminated)
+{
+    if (!n)
+	return;
+
+    ((struct bv_scene_obj *)n)->s_iflag = illuminated ? UP : DOWN;
+}
+
+
 uint64_t
 bsg_node_drawn_rev(const bsg_node *n)
 {

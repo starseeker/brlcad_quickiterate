@@ -34,6 +34,7 @@
 #include "bu/ptbl.h"
 #include "bv/defines.h"
 #include "bsg/defines.h"
+#include "bsg/node.h"
 #include "bsg/visit.h"
 
 
@@ -44,17 +45,15 @@ _bsg_visit_dfs(bsg_node *node,
 	       int (*cb)(bsg_node *, void *),
 	       void *userdata)
 {
-    struct bv_scene_obj *s = (struct bv_scene_obj *)node;
-
     /* Invoke callback if this node matches the predicate */
-    if (type_mask == 0 || (s->s_type_flags & type_mask)) {
+    if (type_mask == 0 || (bsg_node_kind(node) & type_mask)) {
 	if (!(*cb)(node, userdata))
 	    return 0;
     }
 
     /* Recurse into children (ptbl, insertion order) */
-    for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	bsg_node *child = (bsg_node *)BU_PTBL_GET(&s->children, i);
+    for (size_t i = 0; i < bsg_node_child_count(node); i++) {
+	bsg_node *child = bsg_node_child(node, i);
 	if (!_bsg_visit_dfs(child, type_mask, cb, userdata))
 	    return 0;
     }
