@@ -1254,7 +1254,18 @@ What is partially complete:
 
 What is not yet implemented in this roadmap:
 
-- Phase 2 identity/revision API (`identity.h/.c`).
+- Phase 2 identity/revision API is implemented:
+  - `include/bsg/identity.h` and `src/libbsg/identity.c` provide:
+    - `bsg_node_id`, `bsg_part_id`, `bsg_instance_id`, `bsg_identity` structs
+      with init/equality/hash helpers (Phase 2A).
+    - Side-car identity storage with `bsg_node_identity_get/set/clear` and
+      `bsg_identity_from_path_str` (Phase 2B).
+    - DB-path-derived identity is assigned in both draw entry points
+      in `src/libged/draw/draw.c` (`dl_add_path` and
+      `append_solid_to_display_list`) (Phase 2C).
+  - Unit tests in `src/libbsg/tests/test_identity.c` (5 test groups) registered
+    as `libbsg_identity`.
+  - Revision sub-API (revision counters, bump_revision) not yet implemented.
 - Phase 3 material/appearance API (`material.h/.c`, `appearance.h/.c`).
 - Phase 5 action layer (`action.h/.c`, bbox/search/collect actions).
 - Phase 6 selection set model.
@@ -1270,18 +1281,19 @@ Immediate Next-Session Stage Prompts
 ------------------------------------
 Use these as concrete "small-unit" prompts for the next work sessions.
 
-1. Phase 2A (recommended next):
-   Add `bsg_identity` ID structs and init/equality/hash helpers with unit tests
-   only. Do not migrate consumers yet.
-
-2. Phase 2B:
-   Add identity side-car storage and `bsg_node_identity_get/set` APIs with null
-   safety and deterministic behavior tests.
-
-3. Phase 2C:
-   Add DB-path-derived identity assignment in libged draw-root/shape creation
-   paths while preserving existing draw behavior.
-
-4. Phase 3A:
+1. Phase 3A (recommended next):
    Add `bsg_material` with compatibility mapping helpers and unit tests, without
    touching libdm traversal.
+
+2. Phase 3B:
+   Add `bsg_appearance` with draw-mode, line-width, and transparency fields.
+   Map to/from `bv_obj_settings` with compatibility helpers and tests.
+
+3. Phase 2 follow-up (optional):
+   Add revision counters (`bsg_node_revision` / `bsg_node_bump_revision`) to
+   the identity side-car for material, payload, transform, and bounds revisions.
+   Requires no ABI break.
+
+4. Phase 4A:
+   Expand `include/bsg/payload.h` with a proper payload base struct (type,
+   revision, bounds revision, lifecycle callbacks) and vlist payload wrappers.

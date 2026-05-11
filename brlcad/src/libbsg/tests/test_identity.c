@@ -279,7 +279,8 @@ main(int UNUSED(argc), const char **argv)
 	return 1;
     }
 
-    printf("PASS: all identity tests passed\n");    return 0;
+    printf("PASS: all identity tests passed\n");
+    return 0;
 }
 
 /*
