@@ -1,0 +1,255 @@
+--- CMakeLists.txt.orig	2026-04-29 02:19:23.034495670 +0000
++++ CMakeLists.txt	2026-04-29 02:19:39.708132361 +0000
+@@ -1,25 +1,25 @@
+ #########################################################################
+ #
+-#	BRL-CAD
++#BRL-CAD
+ #
+-#	Copyright (c) 2011-2025 United States Government as represented by
+-#	the U.S. Army Research Laboratory.
++#Copyright (c) 2011-2025 United States Government as represented by
++#the U.S. Army Research Laboratory.
+ #
+-#	This library is free software; you can redistribute it and/or
+-#	modify it under the terms of the GNU Lesser General Public License
+-#	version 2.1 as published by the Free Software Foundation.
+-#
+-#	This library is distributed in the hope that it will be useful, but
+-#	WITHOUT ANY WARRANTY; without even the implied warranty of
+-#	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+-#	Lesser General Public License for more details.
+-#
+-#	You should have received a copy of the GNU Lesser General Public
+-#	License along with this file; see the file named COPYING for more
+-#	information.
++#This library is free software; you can redistribute it and/or
++#modify it under the terms of the GNU Lesser General Public License
++#version 2.1 as published by the Free Software Foundation.
++#
++#This library is distributed in the hope that it will be useful, but
++#WITHOUT ANY WARRANTY; without even the implied warranty of
++#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++#Lesser General Public License for more details.
++#
++#You should have received a copy of the GNU Lesser General Public
++#License along with this file; see the file named COPYING for more
++#information.
+ #
+ #########################################################################
+-#	@file CMakeLists.txt
++#@file CMakeLists.txt
+ #########################################################################
+ 
+ CMAKE_MINIMUM_REQUIRED(VERSION 3.18)
+@@ -31,8 +31,27 @@
+ SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+ SET(CMAKE_CXX_STANDARD 11)
+ 
+-# We need BRL-CAD
+-FIND_PACKAGE(BRLCAD REQUIRED)
++# We need BRL-CAD.  Try the modern Config-file package first (available
++# since BRL-CAD 7.40+); fall back to the legacy Module-mode FindBRLCAD
++# shipped with older installs.  The Config-file package provides
++# namespaced imported targets (BRLCAD::rt, BRLCAD::rt-static, etc.)
++# with full transitive dependency information, so downstream link rules
++# are greatly simplified when it is available.
++FIND_PACKAGE(BRLCAD CONFIG QUIET)
++IF(BRLCAD_FOUND)
++    MESSAGE(STATUS "Found BRL-CAD ${BRLCAD_VERSION} (Config mode) at ${BRLCAD_LIB_DIR}/..")
++    SET(BRLCAD_VERSION_FOUND TRUE)
++    # Populate version components from the Config-supplied version string if
++    # not already set by the config file (they should be).
++    IF(NOT BRLCAD_VERSION_MAJOR)
++        STRING(REGEX REPLACE "([0-9]+)\\.[0-9]+\\.[0-9]+" "\\1" BRLCAD_VERSION_MAJOR "${BRLCAD_VERSION}")
++        STRING(REGEX REPLACE "[0-9]+\\.([0-9]+)\\.[0-9]+" "\\1" BRLCAD_VERSION_MINOR "${BRLCAD_VERSION}")
++        STRING(REGEX REPLACE "[0-9]+\\.[0-9]+\\.([0-9]+)" "\\1" BRLCAD_VERSION_PATCH "${BRLCAD_VERSION}")
++    ENDIF()
++ELSE()
++    # Legacy path: use the Module-mode FindBRLCAD.cmake bundled with MOOSE.
++    FIND_PACKAGE(BRLCAD REQUIRED)
++ENDIF()
+ 
+ IF(BRLCAD_VERSION_FOUND)
+     SET(VERSION_H_CONTENT
+--- src/CMakeLists.txt.orig	2026-04-29 02:19:23.035956286 +0000
++++ src/CMakeLists.txt	2026-04-29 02:20:22.789706613 +0000
+@@ -1,37 +1,71 @@
+ #########################################################################
+ #
+-#	BRL-CAD
++#BRL-CAD
+ #
+-#	Copyright (c) 2011-2025 United States Government as represented by
+-#	the U.S. Army Research Laboratory.
++#Copyright (c) 2011-2025 United States Government as represented by
++#the U.S. Army Research Laboratory.
+ #
+-#	This library is free software; you can redistribute it and/or
+-#	modify it under the terms of the GNU Lesser General Public License
+-#	version 2.1 as published by the Free Software Foundation.
+-#
+-#	This library is distributed in the hope that it will be useful, but
+-#	WITHOUT ANY WARRANTY; without even the implied warranty of
+-#	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+-#	Lesser General Public License for more details.
+-#
+-#	You should have received a copy of the GNU Lesser General Public
+-#	License along with this file; see the file named COPYING for more
+-#	information.
++#This library is free software; you can redistribute it and/or
++#modify it under the terms of the GNU Lesser General Public License
++#version 2.1 as published by the Free Software Foundation.
++#
++#This library is distributed in the hope that it will be useful, but
++#WITHOUT ANY WARRANTY; without even the implied warranty of
++#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++#Lesser General Public License for more details.
++#
++#You should have received a copy of the GNU Lesser General Public
++#License along with this file; see the file named COPYING for more
++#information.
+ #
+ #########################################################################
+-#	@file src/CMakeLists.txt
++#@file src/CMakeLists.txt
+ #########################################################################
+ 
+-
++# BRLCAD_INCLUDE_DIRS is set by both the modern BRLCADConfig.cmake and the
++# legacy FindBRLCAD.cmake, so this line works for both old and new installs.
+ INCLUDE_DIRECTORIES(
+         ${MOOSE_SOURCE_DIR}/include
+         ${MOOSE_BINARY_DIR}/include
+         ${BRLCAD_INCLUDE_DIRS}
+-        ${ZLIB_INCLUDE_DIRS}
+ )
+ 
++# ---------------------------------------------------------------------------
++# Static-vs-shared selection
++#
++# With BRL-CAD 7.40+ Config-file package the imported targets already carry
++# full transitive dependency information, so we just need to pick the right
++# target variant.  With the legacy Module-mode FindBRLCAD.cmake we keep the
++# traditional explicit variable list.
++# ---------------------------------------------------------------------------
++
+ OPTION(BRLCAD_STATIC_LINK "Link the BRL-CAD core libraries statically" ON)
+ 
++IF(TARGET BRLCAD::rt)
++    # -----------------------------------------------------------------------
++    # Modern path: BRLCADConfig.cmake (Config-file package) was found.
++    # BRLCAD::rt-static (and siblings) carry all transitive dependencies
++    # via INTERFACE_LINK_LIBRARIES, so the explicit variable lists below are
++    # not needed.
++    # -----------------------------------------------------------------------
++    IF(BRLCAD_STATIC_LINK AND TARGET BRLCAD::rt-static)
++        SET(_brlcad_rt    BRLCAD::rt-static)
++        SET(_brlcad_wdb   BRLCAD::wdb-static)
++        SET(_brlcad_ged   BRLCAD::ged-static)
++    ELSE()
++        SET(_brlcad_rt    BRLCAD::rt)
++        SET(_brlcad_wdb   BRLCAD::wdb)
++        SET(_brlcad_ged   BRLCAD::ged)
++    ENDIF()
++    SET(_brlcad_use_imported_targets TRUE)
++ELSE()
++    # -----------------------------------------------------------------------
++    # Legacy path: only Module-mode FindBRLCAD.cmake results are available.
++    # Keep the original explicit variable lists.
++    # -----------------------------------------------------------------------
++    SET(_brlcad_use_imported_targets FALSE)
++ENDIF()
++
+ # Module: Database
+ SET(DatabaseSources "")
+ ADD_SUBDIRECTORY(Database)
+@@ -47,7 +81,11 @@
+     ADD_SUBDIRECTORY(CommandString)
+     GET_DIRECTORY_PROPERTY(CommandStringSources DIRECTORY CommandString DEFINITION CommandStringSources)
+ 
+-    IF(BRLCAD_STATIC_LINK)
++    IF(_brlcad_use_imported_targets)
++        # The imported ged target (static or shared) carries its full
++        # transitive deps: analyze, dm, icv, pkg, manifold, mmesh, etc.
++        SET(COMMANDSTRING_LIBRARIES ${_brlcad_ged})
++    ELSEIF(BRLCAD_STATIC_LINK)
+         SET(COMMANDSTRING_LIBRARIES
+             ${BRLCAD_PNG_STATIC_LIBRARY}
+             ${BRLCAD_JPEG_STATIC_LIBRARY}
+@@ -61,11 +99,9 @@
+             ${BRLCAD_PKG_STATIC_LIBRARY}
+             ${BRLCAD_MANIFOLD_LIBRARY}
+         )
+-    ELSE(BRLCAD_STATIC_LINK)
+-        SET(COMMANDSTRING_LIBRARIES
+-            ${BRLCAD_GED_LIBRARY}
+-        )
+-    ENDIF(BRLCAD_STATIC_LINK)
++    ELSE()
++        SET(COMMANDSTRING_LIBRARIES ${BRLCAD_GED_LIBRARY})
++    ENDIF()
+ 
+     SET(CMAKE_INSTALL_RPATH "${BRLCAD_LIB_DIR}")
+ ENDIF(MODULE_COMMANDSTRING)
+@@ -119,10 +155,34 @@
+     ADD_DEFINITIONS("-DBRLCAD_MOOSE_EXPORT=")
+ ENDIF(MSVC)
+ 
+-LINK_DIRECTORIES(${BRLCAD_LIB_DIR})
+-
+ ADD_LIBRARY(brlcad SHARED ${MooseSources})
+-IF(BRLCAD_STATIC_LINK)
++
++IF(_brlcad_use_imported_targets)
++    # -----------------------------------------------------------------------
++    # Modern imported-target path.
++    #
++    # _brlcad_wdb / _brlcad_rt resolve to BRLCAD::wdb-static / BRLCAD::rt-static
++    # (or their shared twins) depending on BRLCAD_STATIC_LINK.  Either way
++    # they carry all transitive BRL-CAD library deps in their
++    # INTERFACE_LINK_LIBRARIES, so no manual enumeration is needed.
++    # -----------------------------------------------------------------------
++    TARGET_LINK_LIBRARIES(brlcad
++        ${COMMANDSTRING_LIBRARIES}
++        ${_brlcad_wdb}
++        ${_brlcad_rt}
++        ${MSVC_LIBRARIES}
++        ${LUA_LIBRARIES}
++        ${CMAKE_DL_LIBS}
++        Threads::Threads
++        ${UUID_LIBRARIES}
++    )
++ELSEIF(BRLCAD_STATIC_LINK)
++    # -----------------------------------------------------------------------
++    # Legacy static path: explicit variable list from FindBRLCAD.cmake.
++    # -----------------------------------------------------------------------
++    IF(NOT BRLCAD_LIB_DIR)
++        LINK_DIRECTORIES(${BRLCAD_LIB_DIR})
++    ENDIF()
+     TARGET_LINK_LIBRARIES(brlcad
+         ${COMMANDSTRING_LIBRARIES}
+         ${BRLCAD_RT_STATIC_LIBRARY}
+@@ -147,14 +207,20 @@
+         Threads::Threads
+         ${UUID_LIBRARIES}
+     )
+-ELSE(BRLCAD_STATIC_LINK)
++ELSE()
++    # -----------------------------------------------------------------------
++    # Legacy shared path.
++    # -----------------------------------------------------------------------
++    IF(NOT BRLCAD_LIB_DIR)
++        LINK_DIRECTORIES(${BRLCAD_LIB_DIR})
++    ENDIF()
+     TARGET_LINK_LIBRARIES(brlcad
+         ${COMMANDSTRING_LIBRARIES}
+         ${BRLCAD_RT_LIBRARY}
+         ${MSVC_LIBRARIES}
+         ${LUA_LIBRARIES}
+     )
+-ENDIF(BRLCAD_STATIC_LINK)
++ENDIF()
+ 
+ INSTALL(TARGETS brlcad DESTINATION lib)
+ INSTALL(FILES ${MooseHeaders} DESTINATION include/brlcad)
