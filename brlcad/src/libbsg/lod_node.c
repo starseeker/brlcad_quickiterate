@@ -44,6 +44,7 @@
 #include "bsg/defines.h"
 #include "bsg/draw_set.h"
 #include "bsg/lod_ops.h"
+#include "bsg/node.h"
 #include "bsg/node_group.h"
 
 
@@ -58,12 +59,9 @@
 static struct bsg_lod_payload *
 _lod_payload(bsg_node *node)
 {
-    if (!node)
+    if (!bsg_node_has_kind(node, BSG_NODE_LOD))
 	return NULL;
-    struct bv_scene_obj *n = (struct bv_scene_obj *)node;
-    if (!(n->s_type_flags & BSG_NODE_LOD))
-	return NULL;
-    return (struct bsg_lod_payload *)n->s_i_data;
+    return (struct bsg_lod_payload *)bsg_node_user_data_get(node);
 }
 
 
@@ -105,8 +103,8 @@ bsg_lod_node_create(struct bview *v)
     if (!n)
 	return NULL;
 
-    n->s_type_flags = BSG_NODE_LOD;
-    n->s_flag       = UP;
+    bsg_node_set_kind((bsg_node *)n, BSG_NODE_LOD);
+    bsg_node_set_visible((bsg_node *)n, 1);
 
     /* Allocate the payload. */
     struct bsg_lod_payload *pl;
@@ -122,8 +120,8 @@ bsg_lod_node_create(struct bview *v)
 	   pl->cursor_alloc * sizeof(struct bsg_lod_view_cursor));
     pl->cursor_count = 0;
 
-    n->s_i_data       = pl;
-    n->s_free_callback = _lod_node_free_cb;
+    bsg_node_user_data_set((bsg_node *)n, pl);
+    n->s_free_callback = _lod_node_free_cb;  /* no BSG accessor for lifecycle callbacks yet */
 
     return (bsg_node *)n;
 }
@@ -147,19 +145,10 @@ bsg_lod_node_attach_level(bsg_node *lod_node, bsg_node *level_node)
 {
     if (!lod_node || !level_node)
 	return;
-    struct bv_scene_obj *n = (struct bv_scene_obj *)lod_node;
-    if (!(n->s_type_flags & BSG_NODE_LOD))
+    if (!bsg_node_has_kind(lod_node, BSG_NODE_LOD))
 	return;
-    struct bv_scene_obj *c = (struct bv_scene_obj *)level_node;
 
-    /* Avoid duplicates. */
-    for (size_t i = 0; i < BU_PTBL_LEN(&n->children); i++) {
-	if ((struct bv_scene_obj *)BU_PTBL_GET(&n->children, i) == c)
-	    return;
-    }
-
-    c->parent = n;
-    bu_ptbl_ins(&n->children, (long *)c);
+    bsg_node_add_child(lod_node, level_node);
 }
 
 
@@ -215,12 +204,9 @@ bsg_lod_node_active_level(bsg_node *node, struct bview *v)
 int
 bsg_lod_node_level_count(bsg_node *node)
 {
-    if (!node)
+    if (!bsg_node_has_kind(node, BSG_NODE_LOD))
 	return 0;
-    struct bv_scene_obj *n = (struct bv_scene_obj *)node;
-    if (!(n->s_type_flags & BSG_NODE_LOD))
-	return 0;
-    return (int)BU_PTBL_LEN(&n->children);
+    return (int)bsg_node_child_count(node);
 }
 
 

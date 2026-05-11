@@ -44,6 +44,7 @@
 #include "bsg/defines.h"
 #include "bsg/draw_ctx.h"
 #include "bsg/draw_set.h"
+#include "bsg/node.h"
 #include "bsg/overlay.h"
 #include "bsg_private.h"
 
@@ -68,14 +69,15 @@
 bsg_node *
 bsg_find_overlay_group(bsg_node *draw_root)
 {
-    struct bv_scene_obj *root = (struct bv_scene_obj *)draw_root;
-    if (!root)
+    if (!draw_root)
 	return NULL;
-    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-	struct bv_scene_obj *g =
-	    (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
-	if (BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name)))
-	    return (bsg_node *)g;
+
+    size_t n = bsg_node_child_count(draw_root);
+    for (size_t i = 0; i < n; i++) {
+	bsg_node *g = bsg_node_child(draw_root, i);
+	const char *name = bsg_node_name(g);
+	if (name && BU_STR_EQUAL("_overlays", name))
+	    return g;
     }
     return NULL;
 }
@@ -91,18 +93,15 @@ bsg_ensure_overlay_group(bsg_node *draw_root, struct bview *v)
     if (!v)
 	return NULL;
 
-    struct bv_scene_obj *root = (struct bv_scene_obj *)draw_root;
-
     struct bv_scene_obj *ov = bv_obj_create(v, BV_CHILD_OBJS);
     if (!ov)
 	return NULL;
 
-    ov->s_type_flags = BSG_NODE_GROUP;
-    ov->s_flag       = UP;
-    ov->dp           = NULL;
-    ov->parent       = draw_root;
-    bu_vls_sprintf(&ov->s_name, "_overlays");
-    bu_ptbl_ins(&root->children, (long *)ov);
+    bsg_node_set_kind((bsg_node *)ov, BSG_NODE_GROUP);
+    bsg_node_set_visible((bsg_node *)ov, 1);
+    ov->dp = NULL;  /* Phase 2: dp identity handled by bsg_identity, no accessor yet */
+    bsg_node_set_name((bsg_node *)ov, "_overlays");
+    bsg_node_add_child(draw_root, (bsg_node *)ov);
 
     return (bsg_node *)ov;
 }

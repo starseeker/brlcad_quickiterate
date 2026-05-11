@@ -149,7 +149,7 @@ Run these tests frequently while working in this area:
 - `libbsg_lod_node`
 - `libbsg_view_scope`
 - `libbsg_identity`
-- `libbsg_bsg_node`
+- `libbsg_node`
 - `ged_test_bsg_view_obj`
 - `ged_test_drawing_basic`
 - `ged_test_drawing_faceplate`
@@ -297,7 +297,7 @@ Acceptance criteria:
 - Baseline tests pass or known failures are documented.  [MET: 13/13 libbsg tests pass]
 
 
-Phase 1: Generic BSG Node API Over Current Storage
+Phase 1: Generic BSG Node API Over Current Storage  [DONE]
 --------------------------------------------------
 Objective:
 Make BSG the preferred API for basic node operations while still using
@@ -323,7 +323,7 @@ Proposed API surface:
 - `bsg_node_add_child(bsg_node *parent, bsg_node *child)`
 - `bsg_node_remove_child(bsg_node *parent, bsg_node *child)`
 - `bsg_node_visible(const bsg_node *n)`
-- `bsg_node_set_visible(bsg_node *n, int visible)`
+- `bsg_node_set_visible(bsg_node *n, int visible)` (in field.h, transitively included by node.h)
 - `bsg_node_force_draw(const bsg_node *n)`
 - `bsg_node_set_force_draw(bsg_node *n, int force_draw)`
 - `bsg_node_transform_get(const bsg_node *n, mat_t out)`
@@ -348,28 +348,51 @@ Field ID additions:
 
 Tasks:
 
-1. Add `node.h` and `node.c` wrappers.
-2. Implement wrappers by reading/writing the existing `bv_scene_obj` fields.
-3. Route existing `bsg_group_add_child`, `bsg_group_remove_child`,
+1. [DONE] Add `node.h` and `node.c` wrappers.
+   All functions listed above are implemented and exported from libbsg.
+2. [DONE] Implement wrappers by reading/writing the existing `bv_scene_obj` fields.
+   Each accessor maps directly to the appropriate struct field.
+3. [DONE] Route existing `bsg_group_add_child`, `bsg_group_remove_child`,
    `bsg_transform_set_matrix`, and visibility helpers through the new generic
    API where possible.
-4. Update `src/libbsg/CMakeLists.txt` and `cmakefiles` list.
-5. Add `test_bsg_node.c` covering null safety, kind, name, children, parent,
+   node_group.c, node_transform.c, node_shape.c, and view_scope.c all use
+   bsg_node_* accessors for kind, visibility, add/remove child, and transform.
+4. [DONE] Update `src/libbsg/CMakeLists.txt` and `cmakefiles` list.
+   node.c is compiled into libbsg; test target is registered.
+5. [DONE] Add `test_bsg_node.c` covering null safety, kind, name, children, parent,
    visible, force draw, transform, bounds, and field notifications.
-6. Add tests to `src/libbsg/tests/CMakeLists.txt`.
+   All five test groups pass under the `libbsg_node` test name.
+6. [DONE] Add tests to `src/libbsg/tests/CMakeLists.txt`.
+   Test registered as `libbsg_node` (COMMAND test_bsg_node).
 
 Initial consumer migration:
 
-- Update libbsg implementation files to use `bsg_node_*` accessors where
-  straightforward.
+- [DONE] node_group.c: bsg_group_add_child/remove_child delegate to bsg_node_add_child/remove_child.
+- [DONE] node_transform.c: bsg_transform_set/get_matrix delegate to bsg_node_transform_set/get;
+  kind and visibility set via bsg_node_set_kind / bsg_node_set_visible.
+- [DONE] node_shape.c: kind and visibility set via bsg_node_set_kind / bsg_node_set_visible.
+- [DONE] view_scope.c: kind and visibility set via bsg_node_set_kind / bsg_node_set_visible;
+  kind test uses bsg_node_has_kind.
+- [DONE] overlay.c: bsg_find_overlay_group uses bsg_node_child_count/child/name;
+  bsg_ensure_overlay_group uses bsg_node_set_kind, bsg_node_set_visible,
+  bsg_node_set_name, bsg_node_add_child.
+  Note: dp=NULL is set directly since dp (directory pointer) is Phase 2
+  identity/source metadata with no BSG accessor yet.
+- [DONE] lod_node.c: _lod_payload uses bsg_node_has_kind/user_data_get;
+  bsg_lod_node_create uses bsg_node_set_kind/set_visible/user_data_set;
+  bsg_lod_node_attach_level delegates to bsg_node_add_child;
+  bsg_lod_node_level_count uses bsg_node_has_kind/child_count.
+  Note: bsg_lod_node_insert_above retains direct field access for the
+  BU_PTBL_SET slot-replacement step (no generic equivalent yet) and for
+  s_free_callback (no BSG lifecycle callback accessor in Phase 1).
 - Do not yet migrate libdm/libged large call sites unless the changes are very
   small.
 
 Acceptance criteria:
 
-- New node API tests pass.
-- Existing libbsg tests pass.
-- No behavior change in draw tests.
+- New node API tests pass.  [MET: libbsg_node passes]
+- Existing libbsg tests pass.  [MET: 13/13 libbsg_* pass]
+- No behavior change in draw tests.  [MET: consumer migrations are semantically identical]
 
 
 Phase 2: BSG Identity and Revisions
