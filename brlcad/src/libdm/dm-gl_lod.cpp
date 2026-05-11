@@ -35,6 +35,7 @@
 extern "C" {
 #include "bv/defines.h"
 #include "bv/lod.h"
+#include "bsg/payload.h"
 #include "dm.h"
 #include "./dm-gl.h"
 #include "./include/private.h"
@@ -434,7 +435,7 @@ extern "C" const struct dm_backend_ops gl_backend_ops = {
 // down the big mesh into smaller pieces as in the earlier LoD experiments in
 // order to keep using display lists...
 static int
-gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
+gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
 {
     int fcnt = lod->fcnt;
     int pcnt = lod->pcnt;
@@ -758,16 +759,34 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
     int restoreShadeModel = 0;
     GLboolean lightingWasEnabled = GL_FALSE;
     int restoreLighting = 0;
+    struct bsg_payload *payload = NULL;
+    const struct bv_mesh_lod *payload_lod = NULL;
+    struct bu_list *payload_vhead = NULL;
 
     gl_dlist_delete_flush(dmp);
 
-    if (s->mesh_obj && s->draw_data) {
-	struct bv_mesh_lod *lod = (struct bv_mesh_lod *)s->draw_data;
-	return gl_draw_tri(dmp, lod);
+    payload = bsg_node_payload_get((const bsg_node *)s);
+    if (payload && bsg_payload_type(payload) == BSG_PAYLOAD_TYPE_MESH) {
+	payload_lod = bsg_payload_mesh_lod_get(payload);
+    }
+
+    if (!payload_lod && s->mesh_obj && s->draw_data) {
+	payload_lod = (const struct bv_mesh_lod *)s->draw_data;
+    }
+
+    if (payload_lod) {
+	return gl_draw_tri(dmp, payload_lod);
+    }
+
+    if (payload && bsg_payload_type(payload) == BSG_PAYLOAD_TYPE_VLIST) {
+	payload_vhead = bsg_payload_vlist_head(payload);
+    }
+    if (!payload_vhead) {
+	payload_vhead = &s->s_vlist;
     }
 
     // "Standard" vlist object drawing
-    if (bu_list_len(&s->s_vlist)) {
+    if (bu_list_len(payload_vhead)) {
 	if (gl_swrast_wireframe_obj(dmp, s)) {
 	    /* Swrast wireframes should render as flat, unlit lines whether the
 	     * fast path or the fallback GL path draws them. */
@@ -779,7 +798,7 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 		restoreLighting = 1;
 	    }
 	    if (gl_swrast_database_wireframe(dmp, s)) {
-		int fast_ret = swrast_draw_vlist_fast(dmp, (struct bv_vlist *)&s->s_vlist);
+		int fast_ret = swrast_draw_vlist_fast(dmp, (struct bv_vlist *)payload_vhead);
 		if (restoreLighting) {
 		    glEnable(GL_LIGHTING);
 		    restoreLighting = 0;
@@ -797,7 +816,7 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 	if (s->s_os->s_dmode == 4) {
 	    /* Hidden-line mode always uses the explicit vlist path so the
 	     * line/edge drawing logic in dm_draw_vlist_hidden_line runs. */
-	    dm_draw_vlist_hidden_line(dmp, (struct bv_vlist *)&s->s_vlist);
+	    dm_draw_vlist_hidden_line(dmp, (struct bv_vlist *)payload_vhead);
 	} else if (dm_get_displaylist(dmp)) {
 	    /* Phase 13 (drawing_stack_modernization): the GL backend owns the
 	     * per-shape display-list lifecycle for ordinary vlist objects
@@ -825,7 +844,7 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 	    if (!h || h->dlist == 0) {
 		size_t size_est = 0;
 		struct bv_vlist *vp;
-		for (BU_LIST_FOR(vp, bv_vlist, &s->s_vlist)) {
+		for (BU_LIST_FOR(vp, bv_vlist, payload_vhead)) {
 		    size_est += vp->nused * sizeof(point_t);
 		}
 		ssize_t avail_mem = 0.5 * bu_mem(BU_MEM_AVAIL, NULL);
@@ -835,7 +854,7 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 		    h->dlist = glGenLists(1);
 		    if (h->dlist != 0) {
 			glNewList(h->dlist, GL_COMPILE);
-			dm_draw_vlist(dmp, (struct bv_vlist *)&s->s_vlist);
+			dm_draw_vlist(dmp, (struct bv_vlist *)payload_vhead);
 			glEndList();
 		    }
 		}
@@ -845,10 +864,10 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 	    } else {
 		/* Memory was tight or list allocation failed; fall back to
 		 * immediate-mode drawing so the object still renders. */
-		dm_draw_vlist(dmp, (struct bv_vlist *)&s->s_vlist);
+		dm_draw_vlist(dmp, (struct bv_vlist *)payload_vhead);
 	    }
 	} else {
-	    dm_draw_vlist(dmp, (struct bv_vlist *)&s->s_vlist);
+	    dm_draw_vlist(dmp, (struct bv_vlist *)payload_vhead);
 	}
 	if (restoreShadeModel)
 	    glShadeModel((GLenum)originalShadeModel);

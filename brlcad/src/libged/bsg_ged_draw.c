@@ -61,6 +61,7 @@
 #include "bsg/lod_ops.h"
 #include "bsg/material.h"
 #include "bsg/overlay.h"
+#include "bsg/payload.h"
 #include "bsg/sensor.h"
 #include "bsg/visit.h"
 
@@ -905,12 +906,30 @@ color_soltab(struct db_i *dbip, struct bv_scene_obj *sp)
 /* ------------------------------------------------------------------ */
 
 static void
+_bsg_payload_vlist_touch(struct bv_scene_obj *sp)
+{
+    struct bsg_payload *payload = NULL;
+
+    if (!sp)
+	return;
+
+    payload = bsg_payload_vlist_from_node((bsg_node *)sp);
+    if (!payload)
+	return;
+
+    (void)bsg_payload_bump_revision(payload);
+    payload->bounds_revision = payload->revision;
+    (void)bsg_node_bump_revision((bsg_node *)sp, BSG_NODE_REV_PAYLOAD);
+}
+
+static void
 solid_append_vlist(struct bv_scene_obj *sp, struct bv_vlist *vlist)
 {
     if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
         sp->s_vlen = 0;
     sp->s_vlen += bv_vlist_cmd_cnt(vlist);
     BU_LIST_APPEND_LIST(&(sp->s_vlist), &(vlist->l));
+    _bsg_payload_vlist_touch(sp);
 }
 
 static void
@@ -920,6 +939,7 @@ solid_copy_vlist(struct db_i *UNUSED(dbip), struct bv_scene_obj *sp,
     BU_LIST_INIT(&(sp->s_vlist));
     bv_vlist_copy(vlfree, &(sp->s_vlist), (struct bu_list *)vlist);
     sp->s_vlen = bv_vlist_cmd_cnt((struct bv_vlist *)(&(sp->s_vlist)));
+    _bsg_payload_vlist_touch(sp);
 }
 
 

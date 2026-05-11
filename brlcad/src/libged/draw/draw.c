@@ -34,6 +34,7 @@
 #include "bu/time.h"
 #include "raytrace.h"
 #include "bsg/identity.h"
+#include "bsg/payload.h"
 
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
@@ -41,6 +42,23 @@
 
 /* declare our callbacks used by _ged_drawtrees() */
 static int drawtrees_depth = 0;
+
+static void
+_draw_payload_vlist_touch(struct bv_scene_obj *sp)
+{
+    struct bsg_payload *payload = NULL;
+
+    if (!sp)
+	return;
+
+    payload = bsg_payload_vlist_from_node((bsg_node *)sp);
+    if (!payload)
+	return;
+
+    (void)bsg_payload_bump_revision(payload);
+    payload->bounds_revision = payload->revision;
+    (void)bsg_node_bump_revision((bsg_node *)sp, BSG_NODE_REV_PAYLOAD);
+}
 
 /* Set solid's basecolor, color, and color flags based on client data and tree
  * state. If user color isn't set in client data, the solid's region id must be
@@ -112,6 +130,7 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     struct bv_vlist *bvv = (struct bv_vlist *)vhead;
     sp->s_vlen += bv_vlist_cmd_cnt(bvv);
     BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
+    _draw_payload_vlist_touch(sp);
 
     bv_scene_obj_bound(sp, dgcdp->v);
 
@@ -211,6 +230,7 @@ draw_solid_wireframe(struct bv_scene_obj *sp, struct bview *gvp, struct db_i *db
     struct bv_vlist *bvv = (struct bv_vlist *)&vhead;
     sp->s_vlen += bv_vlist_cmd_cnt(bvv);
     BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
+    _draw_payload_vlist_touch(sp);
 
     return 0;
 }
@@ -369,6 +389,7 @@ append_solid_to_display_list(
 	struct bv_vlist *bvv = (struct bv_vlist *)&vhead;
 	sp->s_vlen += bv_vlist_cmd_cnt(bvv);
 	BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
+	_draw_payload_vlist_touch(sp);
 
 	bv_scene_obj_bound(sp, bv_data->v);
 
@@ -1845,4 +1866,3 @@ GED_DECLARE_PLUGIN_MANIFEST("libged_draw", 1, GED_DRAW_COMMANDS)
  * End:
  * ex: shiftwidth=4 tabstop=8
  */
-
