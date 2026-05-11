@@ -89,9 +89,8 @@ if(BRLCAD_ENABLE_MINIMAL)
 endif(BRLCAD_ENABLE_MINIMAL)
 
 # Enable Aqua widgets on Mac OSX.  This impacts Tcl/Tk building and OpenGL
-# building. Not currently working - needs work in at least Tk CMake logic
-# (probably more), and the display manager/framebuffer codes are known to
-# depend on either GLX or WGL specifically in their current forms.
+# building.  Historically the display manager/framebuffer codes have depended
+# on either GLX or WGL, although tkswrast can operate without X11.
 option(BRLCAD_ENABLE_AQUA "Use Aqua instead of X11 whenever possible on OSX." OFF)
 mark_as_advanced(BRLCAD_ENABLE_AQUA)
 
