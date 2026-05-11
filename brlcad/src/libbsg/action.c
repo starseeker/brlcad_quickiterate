@@ -83,26 +83,26 @@ if (first) {
 }
 
 static int
-_bsg_action_traverse(struct bsg_action *action, struct bv_scene_obj *node, const mat_t parent_mat, int depth)
+_bsg_action_traverse(struct bsg_action *action, bsg_node *node, const mat_t parent_mat, int depth)
 {
     if (!action || !node)
 return 1;
 
-    if (bsg_node_has_kind((bsg_node *)node, BSG_NODE_VIEW_SCOPE) &&
-	!bsg_view_scope_visible((bsg_node *)node, action->view))
+    if (bsg_node_has_kind(node, BSG_NODE_VIEW_SCOPE) &&
+	!bsg_view_scope_visible(node, action->view))
 	return 1;
 
     mat_t world;
     MAT_COPY(world, parent_mat);
-    if (bsg_node_has_kind((bsg_node *)node, BSG_NODE_TRANSFORM)) {
+    if (bsg_node_has_kind(node, BSG_NODE_TRANSFORM)) {
 	mat_t nmat;
-	bsg_node_transform_get((const bsg_node *)node, nmat);
+	bsg_node_transform_get(node, nmat);
 	bn_mat_mul(world, parent_mat, nmat);
     }
 
     if (action->node_cb) {
 	action->current_depth = depth;
-	int result = action->node_cb(action, (bsg_node *)node, world);
+	int result = action->node_cb(action, node, world);
 	if (result == BSG_ACTION_STOP) {
 	    action->stopped = 1;
 	    return 0;
@@ -112,26 +112,25 @@ return 1;
 	}
     }
 
-    /* Internal traversal still uses bv_scene_obj while deferred Phase 10E keeps bsg_node typedef-backed. */
-    if (bsg_node_has_kind((bsg_node *)node, BSG_NODE_LOD)) {
-int nlevels = bsg_lod_node_level_count((bsg_node *)node);
+    if (bsg_node_has_kind(node, BSG_NODE_LOD)) {
+int nlevels = bsg_lod_node_level_count(node);
 if (nlevels <= 0)
     return 1;
 
 int level = action->lod_level;
 if (level < 0)
-    level = bsg_lod_node_active_level((bsg_node *)node, action->view);
+    level = bsg_lod_node_active_level(node, action->view);
 if (level < 0 || level >= nlevels)
     level = 0;
 
-struct bv_scene_obj *child = (struct bv_scene_obj *)bsg_node_child((bsg_node *)node, (size_t)level);
+	bsg_node *child = bsg_node_child(node, (size_t)level);
 if (!child)
     return 1;
 	return _bsg_action_traverse(action, child, world, depth + 1);
     }
 
-    for (size_t i = 0; i < bsg_node_child_count((bsg_node *)node); i++) {
-struct bv_scene_obj *child = (struct bv_scene_obj *)bsg_node_child((bsg_node *)node, i);
+    for (size_t i = 0; i < bsg_node_child_count(node); i++) {
+	bsg_node *child = bsg_node_child(node, i);
 if (!child)
     continue;
 	if (!_bsg_action_traverse(action, child, world, depth + 1))
@@ -189,7 +188,7 @@ return 0;
     action->error = 0;
 
     MAT_IDN(ident);
-    _bsg_action_traverse(action, (struct bv_scene_obj *)root, ident, 0);
+    _bsg_action_traverse(action, root, ident, 0);
 
     return action->error ? 0 : 1;
 }
