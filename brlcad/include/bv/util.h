@@ -369,6 +369,22 @@ typedef void (*bv_view_obj_identity_hook_t)(struct bv_scene_obj *obj,
 BV_EXPORT void
 bv_view_obj_identity_hook_set(bv_view_obj_identity_hook_t hook);
 
+/* Optional hooks for typed view-object setters.  These allow higher layers
+ * (e.g. libbsg) to route typed setter requests through BSG material/
+ * appearance APIs without introducing a libbv->libbsg dependency.  Hook
+ * callbacks return non-zero when they handled the request. */
+typedef int (*bv_view_obj_color_hook_t)(struct bv_scene_obj *obj,
+					unsigned char r,
+					unsigned char g,
+					unsigned char b);
+BV_EXPORT void
+bv_view_obj_color_hook_set(bv_view_obj_color_hook_t hook);
+
+typedef int (*bv_view_obj_line_width_hook_t)(struct bv_scene_obj *obj,
+					     int line_width);
+BV_EXPORT void
+bv_view_obj_line_width_hook_set(bv_view_obj_line_width_hook_t hook);
+
 BV_EXPORT struct bv_scene_obj *
 bv_view_obj_create(struct bview *v, const char *name, unsigned long long type_flags, const struct bv_view_obj_opts *opts);
 BV_EXPORT struct bv_scene_obj *

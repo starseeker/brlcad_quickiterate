@@ -47,6 +47,8 @@
 
 #include <bu.h>
 #include <bv.h>
+#include "bsg/appearance.h"
+#include "bsg/material.h"
 #include "bv/tcl_data.h"
 #include "bv/util.h"
 #include "bv/vlist.h"
@@ -156,6 +158,12 @@ main(int ac, char *av[])
     bv_view_obj_set_color(obj, 255, 128, 0);
     bv_view_obj_set_line_width(obj, 2);
     bv_view_obj_set_visible(obj, 1);
+    struct bsg_material m;
+    struct bsg_appearance a;
+    (void)bsg_node_material_get((const bsg_node *)obj, &m);
+    (void)bsg_node_appearance_get((const bsg_node *)obj, &a);
+    ASSERT(m.rgba[0] == 255 && m.rgba[1] == 128 && m.rgba[2] == 0);
+    ASSERT(a.line_width == 2);
     ASSERT(obj->s_color[0] == 255 && obj->s_color[1] == 128 && obj->s_color[2] == 0);
     ASSERT(obj->s_os->s_line_width == 2);
     ASSERT(obj->s_force_draw == 1);

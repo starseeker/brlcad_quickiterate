@@ -1,10 +1,12 @@
 set(
   LIBBSG_SRCS
+  appearance.c
   draw_set.c
   field.c
   identity.c
   lod.cpp
   lod_node.c
+  material.c
   node.c
   node_group.c
   node_root.c
@@ -35,11 +37,13 @@ add_subdirectory(tests)
 
 cmakefiles(
   CMakeLists.txt
+  appearance.c
   bsg_private.h
   draw_set.c
   field.c
   identity.c
   lod_node.c
+  material.c
   node.c
   node_group.c
   node_root.c

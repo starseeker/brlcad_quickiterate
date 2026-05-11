@@ -53,7 +53,9 @@
 #include "bv/view_sets.h"
 
 #include "bsg/defines.h"
+#include "bsg/appearance.h"
 #include "bsg/identity.h"
+#include "bsg/material.h"
 #include "bsg/util.h"
 #include "bsg/visit.h"
 #include "bsg/scene_set.h"
@@ -85,6 +87,8 @@ bsg_scene_root_create(struct bview *v)
 	return NULL;
 
     bsg_identity_enable_view_obj_derivation();
+    bsg_material_enable_view_obj_setters();
+    bsg_appearance_enable_view_obj_setters();
 
     /* If this view is part of a set and doesn't yet have a draw root, inherit
      * the active draw root from another view in the set.  This keeps secondary
