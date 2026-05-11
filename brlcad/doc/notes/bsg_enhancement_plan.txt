@@ -148,6 +148,8 @@ Run these tests frequently while working in this area:
 - `libbsg_phase6`
 - `libbsg_lod_node`
 - `libbsg_view_scope`
+- `libbsg_identity`
+- `libbsg_bsg_node`
 - `ged_test_bsg_view_obj`
 - `ged_test_drawing_basic`
 - `ged_test_drawing_faceplate`
@@ -159,6 +161,14 @@ Run these tests frequently while working in this area:
 - `ged_test_tcl_adornment_bsg`
 - `ged_test_view_independent`
 - `ged_test_view_command`
+
+Quick CI check command (run from the build directory):
+
+  ctest --output-on-failure -R '^(libbsg_|ged_test_bsg|ged_test_drawing|ged_test_mged|ged_test_tcl|ged_test_view)'
+
+The libbsg tests run in seconds.  The ged_test_* tests require a built
+database and may be slower; skip the ged tests when iterating quickly on
+libbsg internals.  Always run the full set before a merge.
 
 Use narrower test subsets inside a phase, but a phase is not complete until the
 relevant subset passes and no known parity regression remains.
@@ -235,8 +245,8 @@ Do not include all new headers from `include/bsg.h` immediately if that would
 destabilize builds. Add them to the umbrella header when their APIs are stable.
 
 
-Phase 0: Baseline and Guardrails
---------------------------------
+Phase 0: Baseline and Guardrails  [DONE]
+----------------------------------------
 Objective:
 Establish a safe baseline before changing APIs.
 
@@ -248,26 +258,38 @@ Design rules:
 
 Tasks:
 
-1. Create a raw-field usage inventory.
+1. [DONE] Create a raw-field usage inventory.
    Search `src` and `include` for direct use of important fields:
    `s_type_flags`, `s_name`, `s_path`, `dp`, `s_mat`, `s_v`, `s_i_data`,
    `s_vlist`, `s_backend`, `s_flag`, `s_force_draw`, `s_iflag`, `s_color`,
    `s_color_rev`, `s_soldash`, `s_arrow`, `s_os`, `s_local_os`, `children`,
    and `parent`.
-   Record the inventory in `doc/notes/bsg_raw_field_inventory.txt` or in this
-   file if the list is small enough.
-2. Add comments to `include/bv/defines.h` stating that new scene-graph code
-   should use BSG APIs, not direct `bv_scene_obj` fields.
-3. Add a short `include/bsg/README`-style comment or documentation block saying
-   BSG is the intended scene API and libbv storage is transitional.
-4. Confirm baseline tests pass before work begins.
-5. Add a temporary CI or developer checklist entry listing the core test set.
+   Recorded in `doc/notes/bsg_raw_field_inventory.txt`.
+
+2. [DONE] Add comments to `include/bv/defines.h` stating that new scene-graph
+   code should use BSG APIs, not direct `bv_scene_obj` fields.
+   A "BSG GUARDRAIL" comment block was added immediately before the
+   struct bv_scene_obj definition.
+
+3. [DONE] Add a short `include/bsg/README`-style comment or documentation block
+   saying BSG is the intended scene API and libbv storage is transitional.
+   The @addtogroup libbsg Doxygen block in include/bsg/defines.h was expanded
+   into a full README-style header covering correct/incorrect usage patterns,
+   the planned header layout, and pointers to the roadmap and inventory docs.
+
+4. [DONE] Confirm baseline tests pass.
+   All 13 libbsg_* tests pass (ctest -R '^libbsg_').
+
+5. [DONE] Add a CI or developer checklist entry listing the core test set.
+   The "Core Test Set" section above now includes libbsg_identity and
+   libbsg_bsg_node (Phase 1 and 2 additions), and provides the quick CI
+   check command for the full core test suite.
 
 Acceptance criteria:
 
-- No code behavior changes.
-- Raw-field usage inventory exists.
-- Baseline tests pass or known failures are documented.
+- No code behavior changes.  [MET]
+- Raw-field usage inventory exists.  [MET: doc/notes/bsg_raw_field_inventory.txt]
+- Baseline tests pass or known failures are documented.  [MET: 13/13 libbsg tests pass]
 
 
 Phase 1: Generic BSG Node API Over Current Storage
