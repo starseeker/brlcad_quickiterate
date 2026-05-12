@@ -423,6 +423,46 @@ function(BRLCAD_COLLECT_DEP_INCLUDES out_var)
 endfunction(BRLCAD_COLLECT_DEP_INCLUDES)
 
 
+# Add a link-only executable that forces all object files in a static archive
+# onto the link line.  This catches missing PRIVATE/PUBLIC dependency
+# declarations that ordinary archive linking can hide until a downstream
+# consumer references the affected object.
+function(BRLCAD_ADD_STATIC_LINK_TEST libstatic)
+  if(NOT BRLCAD_VALIDATE_STATIC_LINKS)
+    return()
+  endif(NOT BRLCAD_VALIDATE_STATIC_LINKS)
+  if(NOT BRLCAD_LINKER_WHOLE_ARCHIVE_LINK_ITEM OR NOT BRLCAD_LINKER_NO_WHOLE_ARCHIVE_LINK_ITEM)
+    return()
+  endif(NOT BRLCAD_LINKER_WHOLE_ARCHIVE_LINK_ITEM OR NOT BRLCAD_LINKER_NO_WHOLE_ARCHIVE_LINK_ITEM)
+  if(NOT TARGET ${libstatic})
+    return()
+  endif(NOT TARGET ${libstatic})
+
+  set(_link_test_src "${BRLCAD_BINARY_DIR}/CMakeTmp/brlcad_static_link_test_main.c")
+  file(WRITE "${_link_test_src}" "int main(void) { return 0; }\n")
+
+  set(_link_test "${libstatic}-static-link-test")
+  if(TARGET ${_link_test})
+    return()
+  endif(TARGET ${_link_test})
+
+  add_executable(${_link_test} EXCLUDE_FROM_ALL "${_link_test_src}")
+  target_compile_definitions(${_link_test} PRIVATE BRLCADBUILD HAVE_CONFIG_H)
+  target_link_libraries(
+    ${_link_test}
+    PRIVATE
+    ${BRLCAD_LINKER_WHOLE_ARCHIVE_LINK_ITEM}
+    ${libstatic}
+    ${BRLCAD_LINKER_NO_WHOLE_ARCHIVE_LINK_ITEM}
+    ${ARGN}
+  )
+  set_target_properties(${_link_test} PROPERTIES FOLDER "BRL-CAD Static Link Tests")
+  if(TARGET check)
+    add_dependencies(check ${_link_test})
+  endif(TARGET check)
+endfunction(BRLCAD_ADD_STATIC_LINK_TEST)
+
+
 #---------------------------------------------------------------------
 # Library function handles both shared and static libs, so one
 # "BRLCAD_ADDLIB" statement will cover both automatically
@@ -548,6 +588,9 @@ function(
 
     # Set the standard build definitions for all BRL-CAD targets
     target_compile_definitions(${libname} PRIVATE BRLCADBUILD HAVE_CONFIG_H)
+    if(BRLCAD_LINKER_NO_UNDEFINED_FLAG)
+      target_link_options(${libname} PRIVATE ${BRLCAD_LINKER_NO_UNDEFINED_FLAG})
+    endif(BRLCAD_LINKER_NO_UNDEFINED_FLAG)
 
     # Set includes on shared target.
     # brlcad_include_dirs() adds paths with correct ordering and SYSTEM flags;
@@ -713,6 +756,7 @@ function(
 
     set_target_properties(${libstatic} PROPERTIES FOLDER "BRL-CAD Static Libraries${SUBFOLDER}")
     validate_style("${libstatic}" "${srcslist};${L_STATIC_SRCS}")
+    brlcad_add_static_link_test(${libstatic} ${STATIC_PUBLIC_LIBS} ${STATIC_PRIVATE_LIBS} ${STATIC_INTERFACE_LIBS})
 
     # ----------------------------------------------------------------
     # Export setup for static targets
@@ -783,12 +827,6 @@ function(
         endif()
       endforeach()
     endif()
-
-    # Propagate the DLL-import compile definition so Windows consumers
-    # don't need to set it manually.
-    if(HIDE_INTERNAL_SYMBOLS)
-      target_compile_definitions(${libstatic} INTERFACE "${UPPER_CORE}_DLL_IMPORTS")
-    endif(HIDE_INTERNAL_SYMBOLS)
 
     if(NOT L_NO_INSTALL)
       install(

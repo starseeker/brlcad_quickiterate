@@ -209,6 +209,7 @@ if(_brlcad_want_static)
     set(_brlcad_want_static FALSE)
   endif()
 endif()
+set(BRLCAD_STATIC_MODE ${_brlcad_want_static})
 
 # ------------------------------------------------------------------
 # 7.  Aggregate convenience target BRLCAD::brlcad

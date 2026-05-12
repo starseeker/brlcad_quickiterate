@@ -604,6 +604,24 @@ if(MSVC)
   set(HIDE_INTERNAL_SYMBOLS_EXT 1)
 endif(MSVC)
 
+# Link-time checks used by BRL-CAD library validation.  These must be probed
+# before use so platforms without GNU/LLVM-style linker options are skipped.
+brlcad_check_linker_flag(C "LINKER:--no-undefined" BRLCAD_LINKER_NO_UNDEFINED_C_FLAG_FOUND)
+brlcad_check_linker_flag(CXX "LINKER:--no-undefined" BRLCAD_LINKER_NO_UNDEFINED_CXX_FLAG_FOUND)
+if(BRLCAD_LINKER_NO_UNDEFINED_C_FLAG_FOUND AND BRLCAD_LINKER_NO_UNDEFINED_CXX_FLAG_FOUND)
+  set(BRLCAD_LINKER_NO_UNDEFINED_FLAG "LINKER:--no-undefined" CACHE STRING "Linker flag requiring resolved shared library symbols" FORCE)
+endif()
+brlcad_check_linker_flags(C BRLCAD_LINKER_WHOLE_ARCHIVE_GROUP_C_FLAG_FOUND "LINKER:--whole-archive" "LINKER:--no-whole-archive")
+if(BRLCAD_LINKER_WHOLE_ARCHIVE_GROUP_C_FLAG_FOUND)
+  set(BRLCAD_LINKER_WHOLE_ARCHIVE_LINK_ITEM "-Wl,--whole-archive" CACHE STRING "Link item enabling whole-archive resolution" FORCE)
+  set(BRLCAD_LINKER_NO_WHOLE_ARCHIVE_LINK_ITEM "-Wl,--no-whole-archive" CACHE STRING "Link item disabling whole-archive resolution" FORCE)
+endif()
+mark_as_advanced(
+  BRLCAD_LINKER_NO_UNDEFINED_FLAG
+  BRLCAD_LINKER_WHOLE_ARCHIVE_LINK_ITEM
+  BRLCAD_LINKER_NO_WHOLE_ARCHIVE_LINK_ITEM
+)
+
 # check for -fno-strict-aliasing
 # XXX - THIS FLAG IS REQUIRED if any level of optimization is
 # enabled with GCC as we do use aliasing and type-punning.

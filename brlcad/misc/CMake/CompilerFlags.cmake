@@ -35,7 +35,10 @@
 ###
 
 include(CheckCCompilerFlag)
+include(CheckCSourceCompiles)
 include(CheckCXXCompilerFlag)
+include(CheckCXXSourceCompiles)
+include(CheckLinkerFlag)
 include(CMakeParseArguments)
 include(CMakePushCheckState)
 
@@ -120,6 +123,33 @@ if(NOT COMMAND CHECK_COMPILER_FLAG)
     endif("${FLAG_LANG}" STREQUAL "CXX")
   endmacro(CHECK_COMPILER_FLAG LANG NEW_FLAG RESULTVAR)
 endif(NOT COMMAND CHECK_COMPILER_FLAG)
+
+# This function tests for a specified C or C++ linker flag, setting the
+# result in the specified variable.  NEW_FLAG should use the spelling expected
+# by CMake's LINK_OPTIONS handling (for example LINKER:--no-undefined).
+function(BRLCAD_CHECK_LINKER_FLAG FLAG_LANG NEW_FLAG RESULTVAR)
+  if("${FLAG_LANG}" STREQUAL "C")
+    check_linker_flag(C ${NEW_FLAG} ${RESULTVAR})
+  endif("${FLAG_LANG}" STREQUAL "C")
+  if("${FLAG_LANG}" STREQUAL "CXX")
+    check_linker_flag(CXX ${NEW_FLAG} ${RESULTVAR})
+  endif("${FLAG_LANG}" STREQUAL "CXX")
+  set(${RESULTVAR} ${${RESULTVAR}} PARENT_SCOPE)
+endfunction(BRLCAD_CHECK_LINKER_FLAG)
+
+# Test linker option groups that must be used together.
+function(BRLCAD_CHECK_LINKER_FLAGS FLAG_LANG RESULTVAR)
+  cmake_push_check_state(RESET)
+  set(CMAKE_REQUIRED_LINK_OPTIONS ${ARGN})
+  if("${FLAG_LANG}" STREQUAL "C")
+    check_c_source_compiles("int main(void) { return 0; }" ${RESULTVAR})
+  endif("${FLAG_LANG}" STREQUAL "C")
+  if("${FLAG_LANG}" STREQUAL "CXX")
+    check_cxx_source_compiles("int main() { return 0; }" ${RESULTVAR})
+  endif("${FLAG_LANG}" STREQUAL "CXX")
+  cmake_pop_check_state()
+  set(${RESULTVAR} ${${RESULTVAR}} PARENT_SCOPE)
+endfunction(BRLCAD_CHECK_LINKER_FLAGS)
 
 # Synopsis:  CHECK_FLAG(LANG flag [BUILD_TYPES type1 type2 ...] [GROUPS group1 group2 ...] [VARS var1 var2 ...] )
 #
