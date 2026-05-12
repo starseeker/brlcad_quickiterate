@@ -534,32 +534,101 @@ if(TCL_ENABLE_TK)
     unset(_tk_lib_dir)
     unset(_tkconfig)
 
-    # Fallback 2: inspect exported symbols in the Tk shared library via nm.
-    # Fingerprints: Tk_GetHINSTANCE defined (win32), Tk_MacOSXSetEmbedHandler defined
-    # (aqua), XOpenDisplay undefined/referenced (x11).
-    # The -D flag targets the ELF dynamic symbol table (Linux/Unix); on platforms where
-    # nm does not recognise -D (e.g. macOS), ERROR_QUIET suppresses the error and empty
-    # output falls through cleanly to fallback 3.
+    # Fallback 2: inspect the Tk shared library binary to determine the windowing
+    # system.  The tool and technique must vary by platform because the binary
+    # formats and available tools differ:
+    #
+    #   macOS (Mach-O .dylib): use "otool -L" to list linked frameworks and shared
+    #     libraries.  otool is always present on macOS as part of Xcode Command Line
+    #     Tools and understands Mach-O natively.  "nm -D" is a GNU binutils extension
+    #     for ELF dynamic symbol tables; macOS's nm does not recognise -D and either
+    #     ignores it silently or errors, so nm is not reliable here.  An Aqua (native
+    #     macOS) Tk links against Cocoa.framework or AppKit.framework; an X11 Tk on
+    #     macOS (e.g. from XQuartz) links against /opt/X11/lib/libX11 or
+    #     /usr/X11R6/lib/libX11.
+    #
+    #   Windows (PE/COFF .dll or import .lib): inspect the DLL import table to
+    #     distinguish a native win32 Tk (imports gdi32.dll, user32.dll) from a
+    #     Cygwin/X11 Tk (imports cygX11-6.dll or a similarly-named X11 DLL).
+    #     "dumpbin /IMPORTS" (MSVC toolchain) is tried first; "objdump -p" (MinGW /
+    #     binutils) is the fallback.  Both list the DLLs the binary imports from,
+    #     which is sufficient to identify the windowing system.
+    #
+    #   Linux / other ELF Unix: "nm -D" reads the ELF dynamic symbol table
+    #     (SHT_DYNSYM section).  The -D flag (long form: --dynamic) is a GNU
+    #     binutils extension universally available on Linux/BSD.  It works correctly
+    #     even on stripped shared libraries because SHT_DYNSYM is not stripped.
+    #     Fingerprints: XOpenDisplay appears as an undefined reference (type U) in
+    #     x11 builds; Tk_MacOSXSetEmbedHandler / TkMacOSXGetDrawablePort appear in
+    #     aqua builds; Tk_GetHINSTANCE / Tk_GetHWND appear in win32 builds.
     if("${TK_WINDOWING_SYSTEM}" STREQUAL "${TK_WINDOWING_SYSTEM_NOTFOUND}"
        OR "${TK_WINDOWING_SYSTEM}" STREQUAL "")
-      find_program(_tk_nm_tool NAMES nm NO_CACHE)
-      if(_tk_nm_tool)
-        execute_process(
-          COMMAND "${_tk_nm_tool}" -D "${TK_LIBRARY}"
-          OUTPUT_VARIABLE _tk_nm_output
-          ERROR_QUIET
-          OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-        if("${_tk_nm_output}" MATCHES "Tk_GetHINSTANCE|Tk_GetHWND")
-          set(TK_WINDOWING_SYSTEM "win32")
-        elseif("${_tk_nm_output}" MATCHES "Tk_MacOSXSetEmbedHandler|TkMacOSXGetDrawablePort")
+      set(_tk_sym_output "")
+      if(APPLE)
+        # macOS: otool -L lists Mach-O load commands for linked libraries/frameworks.
+        find_program(_tk_sym_tool NAMES otool NO_CACHE)
+        if(_tk_sym_tool)
+          execute_process(
+            COMMAND "${_tk_sym_tool}" -L "${TK_LIBRARY}"
+            OUTPUT_VARIABLE _tk_sym_output
+            ERROR_QUIET
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+          )
+        endif()
+        if("${_tk_sym_output}" MATCHES "Cocoa\\.framework|AppKit\\.framework")
           set(TK_WINDOWING_SYSTEM "aqua")
-        elseif("${_tk_nm_output}" MATCHES " U XOpenDisplay")
+        elseif("${_tk_sym_output}" MATCHES "libX11")
           set(TK_WINDOWING_SYSTEM "x11")
         endif()
-        unset(_tk_nm_output)
+      elseif(WIN32)
+        # Windows: inspect the DLL import table.  Try dumpbin (MSVC) then objdump (MinGW).
+        find_program(_tk_sym_tool NAMES dumpbin NO_CACHE)
+        if(_tk_sym_tool)
+          execute_process(
+            COMMAND "${_tk_sym_tool}" /IMPORTS "${TK_LIBRARY}"
+            OUTPUT_VARIABLE _tk_sym_output
+            ERROR_QUIET
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+          )
+        else()
+          find_program(_tk_sym_tool NAMES objdump NO_CACHE)
+          if(_tk_sym_tool)
+            execute_process(
+              COMMAND "${_tk_sym_tool}" -p "${TK_LIBRARY}"
+              OUTPUT_VARIABLE _tk_sym_output
+              ERROR_QUIET
+              OUTPUT_STRIP_TRAILING_WHITESPACE
+            )
+          endif()
+        endif()
+        # A Cygwin/X11 Tk imports an X11 DLL (cygX11-6.dll, libX11-6.dll, etc.).
+        # A native win32 Tk imports gdi32 or user32 but no X11 DLL.
+        if("${_tk_sym_output}" MATCHES "[Xx]11\\.dll|cygX11|libX11")
+          set(TK_WINDOWING_SYSTEM "x11")
+        elseif("${_tk_sym_output}" MATCHES "gdi32|GDI32|user32|USER32")
+          set(TK_WINDOWING_SYSTEM "win32")
+        endif()
+      else()
+        # Linux / other ELF Unix: nm -D dumps the ELF dynamic symbol table.
+        find_program(_tk_sym_tool NAMES nm NO_CACHE)
+        if(_tk_sym_tool)
+          execute_process(
+            COMMAND "${_tk_sym_tool}" -D "${TK_LIBRARY}"
+            OUTPUT_VARIABLE _tk_sym_output
+            ERROR_QUIET
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+          )
+        endif()
+        if("${_tk_sym_output}" MATCHES "Tk_GetHINSTANCE|Tk_GetHWND")
+          set(TK_WINDOWING_SYSTEM "win32")
+        elseif("${_tk_sym_output}" MATCHES "Tk_MacOSXSetEmbedHandler|TkMacOSXGetDrawablePort")
+          set(TK_WINDOWING_SYSTEM "aqua")
+        elseif("${_tk_sym_output}" MATCHES " U XOpenDisplay")
+          set(TK_WINDOWING_SYSTEM "x11")
+        endif()
       endif()
-      unset(_tk_nm_tool)
+      unset(_tk_sym_output)
+      unset(_tk_sym_tool)
     endif()
 
     # Fallback 3: last-resort inference from CMake platform variables.
