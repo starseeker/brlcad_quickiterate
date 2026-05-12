@@ -139,6 +139,7 @@ function(BRLCAD_CHECK_LINKER_FLAG FLAG_LANG NEW_FLAG RESULTVAR)
 endfunction(BRLCAD_CHECK_LINKER_FLAG)
 
 # Test linker option groups that must be used together.
+# Pass each linker option as a separate argument.
 function(BRLCAD_CHECK_LINKER_FLAGS FLAG_LANG RESULTVAR)
   cmake_push_check_state(RESET)
   set(CMAKE_REQUIRED_LINK_OPTIONS ${ARGN})

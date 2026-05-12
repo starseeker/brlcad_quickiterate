@@ -435,15 +435,13 @@ function(BRLCAD_ADD_STATIC_LINK_TEST libstatic)
   # executable link line; partial availability cannot produce a safe test.
   if(NOT BRLCAD_LINKER_WHOLE_ARCHIVE_LINK_ITEM OR NOT BRLCAD_LINKER_NO_WHOLE_ARCHIVE_LINK_ITEM)
     return()
-  endif(NOT BRLCAD_LINKER_WHOLE_ARCHIVE_LINK_ITEM OR NOT BRLCAD_LINKER_NO_WHOLE_ARCHIVE_LINK_ITEM)
+  endif()
   if(NOT TARGET ${libstatic})
     return()
   endif(NOT TARGET ${libstatic})
 
   set(_link_test_src "${BRLCAD_BINARY_DIR}/CMakeTmp/brlcad_static_link_test_main.cpp")
-  if(NOT EXISTS "${_link_test_src}")
-    file(WRITE "${_link_test_src}" "int main() { return 0; }\n")
-  endif(NOT EXISTS "${_link_test_src}")
+  file(CONFIGURE OUTPUT "${_link_test_src}" CONTENT "int main() { return 0; }\n")
 
   set(_link_test "${libstatic}-static-link-test")
   if(TARGET ${_link_test})
