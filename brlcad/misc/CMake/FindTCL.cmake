@@ -466,13 +466,14 @@ if(TCL_ENABLE_TK)
   endif()
 
   set(TK_WINDOWING_SYSTEM "")
+  set(TK_WINDOWING_SYSTEM_NOTFOUND "wm-NOTFOUND")
   if(TK_WISH AND NOT TARGET "${TK_WISH}")
     set(
       tkwin_script
       "
       set filename \"${CMAKE_BINARY_DIR}/CMakeTmp/TK_WINDOWINGSYSTEM\"
       set fileId [open $filename \"w\"]
-      set windowingsystem \"wm-NOTFOUND\"
+      set windowingsystem \"${TK_WINDOWING_SYSTEM_NOTFOUND}\"
       if {![catch {tk windowingsystem} tkwm]} {
         set windowingsystem $tkwm
       }
@@ -492,7 +493,7 @@ if(TCL_ENABLE_TK)
       file(READ "${CMAKE_BINARY_DIR}/CMakeTmp/TK_WINDOWINGSYSTEM" readresultvar)
       string(REGEX REPLACE "\n" "" TK_WINDOWING_SYSTEM "${readresultvar}")
     else()
-      set(TK_WINDOWING_SYSTEM "wm-NOTFOUND")
+      set(TK_WINDOWING_SYSTEM "${TK_WINDOWING_SYSTEM_NOTFOUND}")
     endif()
   endif()
 
@@ -502,7 +503,7 @@ if(TCL_ENABLE_TK)
     # If we have no information about the windowing system or it does not match
     # a specified system, the find_package detection has failed
     if(
-      NOT "${TK_WINDOWING_SYSTEM}" STREQUAL "wm-NOTFOUND"
+      NOT "${TK_WINDOWING_SYSTEM}" STREQUAL "${TK_WINDOWING_SYSTEM_NOTFOUND}"
       AND NOT "${TK_WINDOWING_SYSTEM}" STREQUAL ""
       AND NOT "${TK_WINDOWING_SYSTEM}" STREQUAL "${TCL_TK_SYSTEM_GRAPHICS}"
     )
