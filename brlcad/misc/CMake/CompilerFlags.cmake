@@ -124,9 +124,10 @@ if(NOT COMMAND CHECK_COMPILER_FLAG)
   endmacro(CHECK_COMPILER_FLAG LANG NEW_FLAG RESULTVAR)
 endif(NOT COMMAND CHECK_COMPILER_FLAG)
 
-# This function tests for a specified C or C++ linker flag, setting the
-# result in the specified variable.  NEW_FLAG should use the spelling expected
-# by CMake's LINK_OPTIONS handling (for example LINKER:--no-undefined).
+# This function tests for a specified C or C++ linker flag.
+#   FLAG_LANG - C or CXX
+#   NEW_FLAG  - CMake LINK_OPTIONS spelling, for example LINKER:--no-undefined
+#   RESULTVAR - parent-scope variable receiving the boolean test result
 function(BRLCAD_CHECK_LINKER_FLAG FLAG_LANG NEW_FLAG RESULTVAR)
   if("${FLAG_LANG}" STREQUAL "C")
     check_linker_flag(C ${NEW_FLAG} ${RESULTVAR})
@@ -139,7 +140,9 @@ function(BRLCAD_CHECK_LINKER_FLAG FLAG_LANG NEW_FLAG RESULTVAR)
 endfunction(BRLCAD_CHECK_LINKER_FLAG)
 
 # Test linker option groups that must be used together.
-# Pass each linker option as a separate argument.
+#   FLAG_LANG - C or CXX
+#   RESULTVAR - parent-scope variable receiving the boolean test result
+#   ARGN      - linker options to test as a group, one option per argument
 function(BRLCAD_CHECK_LINKER_FLAGS FLAG_LANG RESULTVAR)
   cmake_push_check_state(RESET)
   set(CMAKE_REQUIRED_LINK_OPTIONS ${ARGN})
