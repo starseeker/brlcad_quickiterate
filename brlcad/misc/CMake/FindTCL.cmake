@@ -603,11 +603,15 @@ if(TCL_ENABLE_TK)
         endif()
         # A Cygwin/X11 Tk imports an X11 DLL (cygX11-6.dll, libX11-6.dll, etc.).
         # A native win32 Tk imports gdi32 or user32 but no X11 DLL.
-        if("${_tk_sym_output}" MATCHES "[Xx]11\\.dll|cygX11|libX11")
+        # Normalise to lowercase so the patterns work regardless of how the tool
+        # capitalises DLL names (dumpbin may print GDI32.dll or gdi32.dll).
+        string(TOLOWER "${_tk_sym_output}" _tk_sym_lc)
+        if("${_tk_sym_lc}" MATCHES "x11\\.dll|cygx11|libx11")
           set(TK_WINDOWING_SYSTEM "x11")
-        elseif("${_tk_sym_output}" MATCHES "gdi32|GDI32|user32|USER32")
+        elseif("${_tk_sym_lc}" MATCHES "gdi32|user32")
           set(TK_WINDOWING_SYSTEM "win32")
         endif()
+        unset(_tk_sym_lc)
       else()
         # Linux / other ELF Unix: nm -D dumps the ELF dynamic symbol table.
         find_program(_tk_sym_tool NAMES nm NO_CACHE)
@@ -619,6 +623,9 @@ if(TCL_ENABLE_TK)
             OUTPUT_STRIP_TRAILING_WHITESPACE
           )
         endif()
+        # On Linux/ELF, the only expected windowing system is x11; the nm -D
+        # fingerprints for win32 and aqua are included only as belt-and-suspenders
+        # guards for cross-compiled or unusual Tk builds.
         if("${_tk_sym_output}" MATCHES "Tk_GetHINSTANCE|Tk_GetHWND")
           set(TK_WINDOWING_SYSTEM "win32")
         elseif("${_tk_sym_output}" MATCHES "Tk_MacOSXSetEmbedHandler|TkMacOSXGetDrawablePort")
