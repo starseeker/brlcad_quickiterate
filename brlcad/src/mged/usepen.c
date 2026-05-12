@@ -29,6 +29,7 @@
 
 #include "vmath.h"
 #include "bn.h"
+#include "bsg/node.h"
 
 #include "./mged.h"
 #include "./mged_dm.h"
@@ -54,18 +55,21 @@ _illuminate_cb(bsg_node *n, void *ud)
     struct _illuminate_data *d = (struct _illuminate_data *)ud;
     if (sp->s_flag == UP) {
 	if (d->count-- == 0) {
-	    sp->s_iflag = UP;
+	    bsg_node_set_legacy_illum((bsg_node *)sp, 1);
 	    illump = sp;
 	    /* Walk up to the root child (depth-1 group) */
 	    {
-		struct bv_scene_obj *_g = (struct bv_scene_obj *)sp->parent;
-		while (_g && _g->parent &&
-		       ((struct bv_scene_obj *)_g->parent)->parent != NULL)
-		    _g = (struct bv_scene_obj *)_g->parent;
+		struct bv_scene_obj *_g =
+		    (struct bv_scene_obj *)bsg_node_parent((const bsg_node *)sp);
+		while (_g &&
+		       bsg_node_parent((const bsg_node *)_g) &&
+		       bsg_node_parent((const bsg_node *)
+				       bsg_node_parent((const bsg_node *)_g)) != NULL)
+		    _g = (struct bv_scene_obj *)bsg_node_parent((const bsg_node *)_g);
 		illum_gdlp = _g;
 	    }
 	} else {
-	    sp->s_iflag = DOWN;
+	    bsg_node_set_legacy_illum((bsg_node *)sp, 0);
 	}
     }
     return 1;
@@ -91,7 +95,7 @@ _matpick_topmat_cb(bsg_node *n, void *ud)
 	    DB_FULL_PATH_GET(&d->bdata->s_fullpath, j))
 	    break;
     }
-    sp->s_iflag = (j == d->ipathpos + 1) ? UP : DOWN;
+    bsg_node_set_legacy_illum((bsg_node *)sp, (j == d->ipathpos + 1));
     return 1;
 }
 
@@ -172,7 +176,7 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	if (illump == NULL)
 	    return TCL_ERROR;
 	sp = illump;
-	sp->s_iflag = DOWN;
+	bsg_node_set_legacy_illum((bsg_node *)sp, 0);
 
 	/* Advance using snapshotted DFS integer index — single snapshot
 	 * build, O(N) total.  bsg_view_obj_advance_solid wraps circularly. */

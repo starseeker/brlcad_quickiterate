@@ -50,6 +50,7 @@
 #define DM_WITH_RT
 #include <dm.h>
 #include <ged.h>
+#include "bsg/node.h"
 #include "bsg/util.h"
 #include "bv/defines.h"
 #include "bv/util.h"
@@ -294,7 +295,7 @@ test_illumination(const char *datadir)
 	return 0;
     }
 
-    illum_sp->s_iflag = UP;
+    bsg_node_set_legacy_illum((bsg_node *)illum_sp, 1);
     do_refresh(gedp);
     capture(gedp, "mged_bsg_t2_illum.png");
     long white_illum = count_white("mged_bsg_t2_illum.png");
@@ -311,7 +312,7 @@ test_illumination(const char *datadir)
     }
 
     /* Cleanup */
-    illum_sp->s_iflag = DOWN;
+    bsg_node_set_legacy_illum((bsg_node *)illum_sp, 0);
     bu_file_delete("mged_bsg_t2_base.png");
     bu_file_delete("mged_bsg_t2_illum.png");
     bu_file_delete("mged_bsg_t2.g");
@@ -358,7 +359,7 @@ test_edit_matrix(const char *datadir)
     }
 
     /* Illuminate the object */
-    sp->s_iflag = UP;
+    bsg_node_set_legacy_illum((bsg_node *)sp, 1);
 
     /* Render at normal position */
     v->gv_edit_mat = NULL;
@@ -388,7 +389,7 @@ test_edit_matrix(const char *datadir)
 	bu_log("PASS: gv_edit_mat produces different render for illuminated object\n");
     }
 
-    sp->s_iflag = DOWN;
+    bsg_node_set_legacy_illum((bsg_node *)sp, 0);
     bu_file_delete("mged_bsg_t3_normal.png");
     bu_file_delete("mged_bsg_t3_shifted.png");
     bu_file_delete("mged_bsg_t3.g");

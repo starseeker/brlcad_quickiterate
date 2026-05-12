@@ -69,6 +69,7 @@
 #define DM_WITH_RT
 #include <dm.h>
 #include <ged.h>
+#include "bsg/node.h"
 #include "bsg/util.h"
 #include "bv/defines.h"
 #include "bv/util.h"
@@ -448,10 +449,9 @@ test_sflags_per_frame_reset(const char *datadir)
 	struct bv_scene_obj *root = (struct bv_scene_obj *)gedp->ged_gvp->bsg_root;
 	uint64_t fr = gedp->ged_gvp->gv_frame_rev;
 	if (root) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-		struct bv_scene_obj *sp =
-		    (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
-		if (sp && sp->s_drawn_rev == fr) nup_first++;
+	    for (size_t i = 0; i < bsg_node_child_count((const bsg_node *)root); i++) {
+		struct bv_scene_obj *sp = (struct bv_scene_obj *)bsg_node_child((const bsg_node *)root, i);
+		if (sp && bsg_node_drawn_rev((const bsg_node *)sp) == fr) nup_first++;
 	    }
 	}
     }
@@ -494,10 +494,9 @@ test_sflags_per_frame_reset(const char *datadir)
 	struct bv_scene_obj *root = (struct bv_scene_obj *)gedp->ged_gvp->bsg_root;
 	uint64_t fr = gedp->ged_gvp->gv_frame_rev;
 	if (root) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-		struct bv_scene_obj *sp =
-		    (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
-		if (sp && sp->s_drawn_rev == fr) nup_second++;
+	    for (size_t i = 0; i < bsg_node_child_count((const bsg_node *)root); i++) {
+		struct bv_scene_obj *sp = (struct bv_scene_obj *)bsg_node_child((const bsg_node *)root, i);
+		if (sp && bsg_node_drawn_rev((const bsg_node *)sp) == fr) nup_second++;
 	    }
 	}
     }

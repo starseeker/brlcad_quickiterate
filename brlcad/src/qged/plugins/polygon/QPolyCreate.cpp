@@ -28,6 +28,7 @@
 #include <QButtonGroup>
 #include <QGroupBox>
 #include <QtGlobal>
+#include "bsg/node.h"
 #include "../../QgEdApp.h"
 #include "QPolyCreate.h"
 #include "qtcad/QgSignalFlags.h"
@@ -40,11 +41,24 @@ struct _qpolycreate_poly_collect {
     std::vector<struct bv_scene_obj *> *polys;
     struct bv_scene_obj *exclude;
 };
+
+static struct bv_polygon *
+_qpolycreate_poly(struct bv_scene_obj *obj)
+{
+    return (struct bv_polygon *)bsg_node_user_data_get((const bsg_node *)obj);
+}
+
+static int
+_qpolycreate_is_poly(struct bv_scene_obj *obj)
+{
+    return obj && bsg_node_has_kind((const bsg_node *)obj, BV_POLYGONS);
+}
+
 extern "C" int
 _qpolycreate_poly_collect_cb(struct bv_scene_obj *obj, void *data)
 {
     struct _qpolycreate_poly_collect *s = (struct _qpolycreate_poly_collect *)data;
-    if ((obj->s_type_flags & BV_POLYGONS) && obj != s->exclude)
+    if (_qpolycreate_is_poly(obj) && obj != s->exclude)
 	s->polys->push_back(obj);
     return 1;
 }
@@ -56,10 +70,10 @@ struct _qpolycreate_clear_pts {
 extern "C" int
 _qpolycreate_clear_pts_cb(struct bv_scene_obj *obj, void *data)
 {
-    if (!(obj->s_type_flags & BV_POLYGONS))
+    if (!_qpolycreate_is_poly(obj))
 	return 1;
     struct _qpolycreate_clear_pts *s = (struct _qpolycreate_clear_pts *)data;
-    struct bv_polygon *ip = (struct bv_polygon *)obj->s_i_data;
+    struct bv_polygon *ip = _qpolycreate_poly(obj);
     if (ip && ip->curr_point_i != -1) {
 	*s->draw_change = true;
 	ip->curr_point_i = -1;
@@ -80,7 +94,7 @@ _qpolycreate_snap_collect_cb(struct bv_scene_obj *obj, void *data)
     struct _qpolycreate_snap_collect *s = (struct _qpolycreate_snap_collect *)data;
     if (obj == s->exclude)
 	return 1;
-    if (obj->s_type_flags & BV_POLYGONS)
+    if (_qpolycreate_is_poly(obj))
 	bu_ptbl_ins(s->snap_objs, (long *)obj);
     return 1;
 }
@@ -249,7 +263,7 @@ QPolyCreate::finalize(bool)
 	    sk_name = bu_strdup(ps->sketch_name->text().toLocal8Bit().data());
 	}
 	if (sk_name && db_lookup(gedp->dbip, sk_name, LOOKUP_QUIET) == RT_DIR_NULL) {
-	    struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
+	    struct bv_polygon *ip = _qpolycreate_poly(p);
 	    ip->u_data = (void *)db_scene_obj_to_sketch(gedp->dbip, sk_name, p);
 	    emit view_updated(QG_VIEW_DB);
 	}
@@ -587,7 +601,7 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
     //  whatever is already established - otherwise, grab from the widget
     //  settings
     if (p) {
-	struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
+	struct bv_polygon *ip = _qpolycreate_poly(p);
 	cf->ptype = ip->type;
     } else {
 	if (ellipse_mode->isChecked()) {

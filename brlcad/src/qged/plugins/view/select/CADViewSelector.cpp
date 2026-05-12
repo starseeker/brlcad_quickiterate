@@ -36,6 +36,7 @@
 #include "bg/aabb_ray.h"
 #include "bg/plane.h"
 
+#include "bsg/node.h"
 #include "bsg/selection.h"
 
 #include "../../../../libged/dbi.h"
@@ -233,7 +234,7 @@ CADViewSelector::select_objs()
     struct bu_vls dpath = BU_VLS_INIT_ZERO;
     for (size_t i = 0; i < BU_PTBL_LEN(&cf->selected_set); i++) {
 	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&cf->selected_set, i);
-	bu_vls_sprintf(&dpath, "%s",  bu_vls_cstr(&s->s_name));
+	bu_vls_sprintf(&dpath, "%s",  bsg_node_name((const bsg_node *)s));
 	if (bu_vls_cstr(&dpath)[0] != '/')
 	    bu_vls_prepend(&dpath, "/");
 	if (!ss->select_path(bu_vls_cstr(&dpath), false)) {
@@ -269,7 +270,7 @@ CADViewSelector::deselect_objs()
     struct bu_vls dpath = BU_VLS_INIT_ZERO;
     for (size_t i = 0; i < BU_PTBL_LEN(&cf->selected_set); i++) {
 	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&cf->selected_set, i);
-	bu_vls_sprintf(&dpath, "%s",  bu_vls_cstr(&s->s_name));
+	bu_vls_sprintf(&dpath, "%s",  bsg_node_name((const bsg_node *)s));
 	if (bu_vls_cstr(&dpath)[0] != '/')
 	    bu_vls_prepend(&dpath, "/");
 	if (!ss->deselect_path(bu_vls_cstr(&dpath), false)) {
@@ -305,7 +306,7 @@ CADViewSelector::erase_objs()
 	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&cf->selected_set, i);
 	if (!s)
 	    continue;
-	av[i+1] = bu_vls_cstr(&s->s_name);
+	av[i+1] = bsg_node_name((const bsg_node *)s);
 	scnt++;
     }
     ged_exec_erase(gedp, scnt, av);

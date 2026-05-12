@@ -30,6 +30,7 @@
 #include "vmath.h"
 #include "bu/getopt.h"
 #include "bn.h"
+#include "bsg/node.h"
 #include "bv/util.h"
 #include "raytrace.h"
 #include "rt/edit.h"
@@ -1228,7 +1229,7 @@ _fill_solid_cb(bsg_node *n, void *ud)
     int fi, fj;
     const char *fsname;
 
-    fsp->s_iflag = DOWN;
+    bsg_node_set_legacy_illum((bsg_node *)fsp, 0);
     if (!fsp->s_u_data) return 1;
     struct ged_bv_data *bdata = (struct ged_bv_data *)fsp->s_u_data;
     if (d->exact && d->nm_pieces != bdata->s_fullpath.fp_len) return 1;
@@ -1423,7 +1424,7 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 
     /* Make the specified solid the illuminated solid */
     illump = lastfound;
-    illump->s_iflag = UP;
+    bsg_node_set_legacy_illum((bsg_node *)illump, 1);
 
     if (!illum_only) {
 	if (s->global_editing_state == ST_O_PICK) {

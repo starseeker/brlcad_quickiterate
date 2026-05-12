@@ -40,6 +40,7 @@ extern "C" {
 #include "bu/vls.h"
 #include "bv.h"
 #include "bsg/defines.h"
+#include "bsg/node.h"
 #include "raytrace.h"
 #include "ged/bsg_ged_draw.h"
 }
@@ -74,17 +75,17 @@ _view_obj_walk_bsg(struct view_obj_walk_state &w, struct bv_scene_obj *root)
 	struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
 	if (!c)
 	    continue;
-	if ((c->s_type_flags & BSG_NODE_VIEW_SCOPE) && c->s_v && c->s_v != w.v)
+	if (bsg_node_has_kind((const bsg_node *)c, BSG_NODE_VIEW_SCOPE) && c->s_v && c->s_v != w.v)
 	    continue;
 
 	struct bv_scene_obj *s = c;
-	if ((c->s_type_flags & BSG_NODE_VIEW_REF) && c->s_path)
+	if (bsg_node_has_kind((const bsg_node *)c, BSG_NODE_VIEW_REF) && c->s_path)
 	    s = (struct bv_scene_obj *)c->s_path;
 
 	if (s && BU_VLS_IS_INITIALIZED(&s->s_name)) {
-	    int is_view = (s->s_type_flags & BV_VIEW_OBJS) ? 1 : 0;
-	    int is_db = (s->s_type_flags & BV_DB_OBJS) ? 1 : 0;
-	    int is_local = (s->s_type_flags & BV_LOCAL_OBJS) ? 1 : 0;
+	    int is_view = bsg_node_has_kind((const bsg_node *)s, BV_VIEW_OBJS);
+	    int is_db = bsg_node_has_kind((const bsg_node *)s, BV_DB_OBJS);
+	    int is_local = bsg_node_has_kind((const bsg_node *)s, BV_LOCAL_OBJS);
 	    int type_ok = (w.list_view && is_view) || (w.list_db && is_db);
 	    if (type_ok && (!w.local_only || is_local)) {
 		const char *n = bu_vls_cstr(&s->s_name);
@@ -141,15 +142,15 @@ _view_obj_type(struct bv_scene_obj *s)
 {
     if (!s)
 	return "unknown";
-    if (s->s_type_flags & BV_AXES)
+    if (bsg_node_has_kind((const bsg_node *)s, BV_AXES))
 	return "axes";
-    if (s->s_type_flags & BV_LINES)
+    if (bsg_node_has_kind((const bsg_node *)s, BV_LINES))
 	return "line";
-    if (s->s_type_flags & BV_LABELS)
+    if (bsg_node_has_kind((const bsg_node *)s, BV_LABELS))
 	return "label";
-    if (s->s_type_flags & BV_POLYGONS)
+    if (bsg_node_has_kind((const bsg_node *)s, BV_POLYGONS))
 	return "polygon";
-    if (s->s_type_flags & BV_DB_OBJS)
+    if (bsg_node_has_kind((const bsg_node *)s, BV_DB_OBJS))
 	return "gobj";
     return "object";
 }
@@ -250,7 +251,7 @@ _objs_cmd_delete(void *bs, int argc, const char **argv)
 	bu_vls_printf(gedp->ged_result_str, "No view object named %s\n", gd->vobj);
 	return BRLCAD_ERROR;
     }
-    if (!(s->s_type_flags & BV_VIEWONLY)) {
+    if (!bsg_node_has_kind((const bsg_node *)s, BV_VIEWONLY)) {
 	bu_vls_printf(gedp->ged_result_str, "View object %s is associated with a database object - use 'erase' cmd to clear\n", gd->vobj);
 	return BRLCAD_ERROR;
     }

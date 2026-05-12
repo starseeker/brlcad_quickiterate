@@ -1277,8 +1277,8 @@ Phase 11 stages:
 - 11B: [PARTIAL] libged draw/erase/redraw sweep.
 - 11C: [DONE] libdm render/backend sweep.
 - 11D: [DONE] libtclcad/Archer adornment and getter/setter sweep.
-- 11E: QGED/libqtcad selection/edit/polygon sweep.
-- 11F: MGED edit/highlight/refresh sweep.
+- 11E: [PARTIAL] QGED/libqtcad selection/edit/polygon sweep.
+- 11F: [PARTIAL] MGED edit/highlight/refresh sweep.
 - 11G: [PARTIAL] tests direct-field assertion sweep.
 
 
@@ -1298,7 +1298,7 @@ This enhancement effort is complete when:
   raytracing backend, or another renderer without rewriting BRL-CAD producers.
 
 
-Current Implementation Snapshot (2026-05-11, updated Phase 11C done / 11D done)
+Current Implementation Snapshot (2026-05-12, updated Phase 11B / 11E / 11F / 11G partial)
 --------------------------------------------
 This section records what is already present in the tree so future sessions can
 start from current reality rather than the idealized phase text above.
@@ -1610,6 +1610,42 @@ What is complete or substantially complete:
       `bsg_node_appearance_set`.
   - Validation: `cmake --build brlcad_build --target libtclcad` succeeds;
     `ctest -R '^libbsg_'` passes (20/20).
+- Additional Phase 11B / 11E / 11F / 11G partial consumer/test migration is
+  now implemented:
+  - `src/libged/view/objs.cpp` now routes view-object type/view-only checks
+    through `bsg_node_has_kind`.
+  - `src/libged/view/polygons.c` now adds a shared `_ged_view_polygon()`
+    helper using `bsg_node_has_kind` + `bsg_node_user_data_get`, and selected
+    polygon command paths now consume it instead of directly reading
+    `s_type_flags` / `s_i_data`.
+  - `src/qged/plugins/view/select/CADViewSelector.cpp` and
+    `src/libqtcad/QgSelectFilter.cpp` now use `bsg_node_name()` when feeding
+    erase/select raytrace paths.
+  - `src/libqtcad/QgPolyFilter.cpp`,
+    `src/qged/plugins/polygon/QPolyCreate.cpp`,
+    `src/qged/plugins/polygon/QPolyMod.cpp`,
+    `src/qged/plugins/polygon/QPolySettings.cpp`, and
+    `src/qged/plugins/edit/ell/QEll.cpp` now route polygon/edit state through
+    BSG node/material/payload accessors where equivalents already exist
+    (`bsg_node_user_data_get/set`, `bsg_node_has_kind`, `bsg_node_set_name`,
+    `bsg_node_material_get/set`, `bsg_payload_vlist_from_node`).
+  - `src/mged/usepen.c`, `src/mged/buttons.c`, `src/mged/chgview.c`,
+    `src/mged/edsol.c`, and `src/mged/dozoom.c` now use
+    `bsg_node_set_legacy_illum`, `bsg_node_legacy_illum`,
+    `bsg_node_parent`, and `bsg_node_drawn_rev` in highlight/refresh paths.
+  - `src/libged/tests/draw/mged_bsg.cpp` and
+    `src/libged/tests/draw/mged_shaded_mode_bsg.cpp` now assert illumination
+    and per-frame drawn revision state through `bsg_node_*` accessors instead of
+    raw `bv_scene_obj` fields.
+  - Validation: `cmake --build brlcad_build --target libged ged_test_mged_bsg
+    ged_test_mged_shaded_mode_bsg ged_test_bsg_view_obj
+    ged_test_tcl_adornment_bsg -j$(nproc)` succeeds.  `ctest --output-on-failure
+    -R '^(ged_test_mged_bsg|ged_test_bsg_view_obj|ged_test_tcl_adornment_bsg|ged_test_mged_shaded_mode_bsg)$'`
+    still reports the pre-existing MGED no-display-manager failures plus the
+    pre-existing `ged_test_bsg_view_obj` cached-bbox assertion failures.
+    `cmake --build brlcad_build --target libqtcad qged -j$(nproc)` still fails
+    in pre-existing Qt header compilation paths before the libqtcad/QGED sweep
+    can be fully validated.
 
 What is partially complete:
 
@@ -1619,8 +1655,10 @@ What is partially complete:
   - 11A libbsg internal direct-field sweep: done (accessor migration in core
     traversal/search/render paths).
   - 11B libged draw/erase/redraw sweep: partial (tree/root/highlight/LoD
-    accessor migration is done; color/vlist/legacy metadata compatibility paths
-    remain).
+    accessor migration is done; `libged/view/objs.cpp` and part of
+    `libged/view/polygons.c` now also use `bsg_node_has_kind` /
+    `bsg_node_user_data_get`, but color/vlist/legacy metadata compatibility
+    paths remain).
   - 11C libdm render/backend sweep: DONE (all adornment, color, material,
     appearance, arrow, label, displayobj, inherit_settings paths migrated to
     BSG accessors; `s->s_os` still used as pointer value when inherit_settings
@@ -1628,9 +1666,19 @@ What is partially complete:
   - 11D libtclcad/Archer adornment and getter/setter sweep: DONE (draw.c,
     arrows.c, and bsg_move_helpers.h fully migrated; bsg_move_helpers.h also
     uses BSG payload vlist API for point extraction).
-  - 11G tests direct-field assertion sweep: partial (`bsg_view_obj` and
-    `tcl_adornment_bsg` now use `bsg_node_*` assertions for migrated paths).
-  - 11E-11F, remaining 11B cleanup, and remaining 11G coverage: pending.
+  - 11E QGED/libqtcad selection/edit/polygon sweep: partial
+    (`CADViewSelector`, `QgSelectFilter`, `QgPolyFilter`, `QPolyCreate`,
+    `QPolyMod`, `QPolySettings`, and `QEll` now use BSG accessors for migrated
+    name/type/user-data/material/payload paths; broader Qt validation is blocked
+    by a pre-existing Qt header build failure).
+  - 11F MGED edit/highlight/refresh sweep: partial (`usepen`, `buttons`,
+    `chgview`, `edsol`, and `dozoom` now use BSG illumination/drawn-rev
+    accessors where equivalents exist; remaining MGED compatibility fields are
+    still pending).
+  - 11G tests direct-field assertion sweep: partial (`bsg_view_obj`,
+    `tcl_adornment_bsg`, `mged_bsg`, and `mged_shaded_mode_bsg` now use
+    `bsg_node_*` assertions for migrated paths).
+  - Remaining 11B / 11E / 11F cleanup and remaining 11G coverage: pending.
 
 What is not yet implemented in this roadmap:
 
@@ -1651,20 +1699,26 @@ Use these as concrete “small-unit” prompts for the next work sessions.
    backward-compat wrappers into libbv.  Requires coordinated ABI version bump.
 
 2. Phase 11B (recommended next):
-   libged draw/erase/redraw sweep: finish the remaining compatibility-heavy
-   direct-field uses (`s_color*`, `s_old.*`, `s_vlist`/`s_vlen`, `s_u_data`,
+   libged draw/erase/redraw sweep: continue converting the remaining
+   compatibility-heavy direct-field uses in `bsg_ged_draw.c`,
+   `draw/draw.c`, and the rest of `view/polygons.c`
+   (`s_color*`, `s_old.*`, `s_vlist`/`s_vlen`, `s_u_data`,
    `s_free_callback`) or add focused new BSG accessors where replacement is
    justified.
 
 3. Phase 11E:
-   QGED/libqtcad selection/edit/polygon sweep: move QGED selection and
-   polygon editing state reads/writes to BSG APIs.
+   QGED/libqtcad selection/edit/polygon sweep: continue the remaining Qt-side
+   migration beyond the now-converted name/type/user-data/material/payload
+   paths, and resolve or work around the current pre-existing Qt header build
+   failure so libqtcad/QGED validation can run again.
 
 4. Phase 11F:
-   MGED edit/highlight/refresh sweep: move MGED edit-mode highlight and
-   refresh paths to BSG accessors.
+   MGED edit/highlight/refresh sweep: continue moving MGED compatibility-heavy
+   edit paths beyond the now-converted illumination/drawn-revision cases,
+   especially `s_u_data`, `s_vlist`, and `s_old.*` users.
 
 5. Phase 11G:
    Continue converting draw-stack regression tests (`bsg_view_obj`,
    `mged_bsg`, `mged_shaded_mode_bsg`, and related cases) away from direct
-   `bv_scene_obj` field assertions when equivalent BSG accessors exist.
+   `bv_scene_obj` field assertions when equivalent BSG accessors exist, while
+   keeping the known cached-bbox failure isolated from accessor-sweep work.

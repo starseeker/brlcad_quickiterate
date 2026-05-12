@@ -38,6 +38,7 @@
 #include "rt/primitives/arb8.h"
 #include "wdb.h"
 #include "rt/db4.h"
+#include "bsg/node.h"
 #include "ged/view.h"
 
 #include "./mged.h"
@@ -91,10 +92,10 @@ _replot_active_solid_cb(bsg_node *n, void *ud)
 {
     struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
     struct _replot_active_data *d = (struct _replot_active_data *)ud;
-    if (sp->s_iflag == DOWN) return 1;
+    if (!bsg_node_legacy_illum((const bsg_node *)sp)) return 1;
     (void)replot_original_solid(d->s, sp);
     if (d->continue_editing == DOWN)
-	sp->s_iflag = DOWN;
+	bsg_node_set_legacy_illum((bsg_node *)sp, 0);
     return 1;
 }
 
