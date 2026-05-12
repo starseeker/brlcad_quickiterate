@@ -23,6 +23,8 @@ if(BRLCAD_ENABLE_TK)
       ${TCL_LIBRARY}
       ${TK_LIBRARY}
     )
+    set(TKSWRAST_COMPILE_DEFINITIONS)
+    list(APPEND TKSWRAST_COMPILE_DEFINITIONS BRLCADBUILD HAVE_CONFIG_H HAVE_TK OSMESA)
 
     # If Tk is using X11, we need the X11 headers/libs as well.  Aqua Tk
     # builds do not need or want these.
@@ -39,6 +41,7 @@ if(BRLCAD_ENABLE_TK)
       if(X11_Xi_LIB)
 	list(APPEND TKSWRAST_LIBS ${X11_Xi_LIB})
       endif()
+      list(APPEND TKSWRAST_COMPILE_DEFINITIONS TKSWRAST_X11)
     endif()
 
     include_directories(${TKSWRAST_INCLUDE_DIRS})
@@ -50,7 +53,7 @@ if(BRLCAD_ENABLE_TK)
 
     dm_plugin_library(dm-tkswrast SHARED ${TKSWRAST_SRCS})
     target_link_libraries(dm-tkswrast ${TKSWRAST_LIBS})
-    set_property(TARGET dm-tkswrast APPEND PROPERTY COMPILE_DEFINITIONS BRLCADBUILD HAVE_CONFIG_H HAVE_TK OSMESA)
+    set_property(TARGET dm-tkswrast APPEND PROPERTY COMPILE_DEFINITIONS ${TKSWRAST_COMPILE_DEFINITIONS})
     validate_style(dm-tkswrast "${TKSWRAST_SRCS}")
 
     plugin_setup(dm-tkswrast dm)
