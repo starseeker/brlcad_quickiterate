@@ -24,6 +24,8 @@
 #include <QLabel>
 #include <QString>
 #include <QMessageBox>
+#include "bsg/material.h"
+#include "bsg/node.h"
 #include "bu/malloc.h"
 #include "bg/polygon.h"
 #include "QPolySettings.h"
@@ -224,10 +226,13 @@ QPolySettings::settings_sync(struct bv_scene_obj *p)
 	return;
 
 
-    struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
+    struct bv_polygon *ip = (struct bv_polygon *)bsg_node_user_data_get((const bsg_node *)p);
+    struct bsg_material m;
+    bsg_material_init(&m);
+    (void)bsg_node_material_get((const bsg_node *)p, &m);
 
     edge_color->blockSignals(true);
-    edge_color->rgbtext->setText(QString("%1/%2/%3").arg(p->s_color[0]).arg(p->s_color[1]).arg(p->s_color[2]));
+    edge_color->rgbtext->setText(QString("%1/%2/%3").arg(m.rgba[0]).arg(m.rgba[1]).arg(m.rgba[2]));
     edge_color->blockSignals(false);
 
     unsigned char frgb[3];

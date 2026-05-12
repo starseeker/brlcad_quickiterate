@@ -32,8 +32,27 @@ extern "C" {
 #include "raytrace.h" // For finalize polygon sketch export functionality (TODO - need to move...)
 }
 
+#include "bsg/material.h"
+#include "bsg/node.h"
 #include "qtcad/QgPolyFilter.h"
 #include "qtcad/QgSignalFlags.h"
+
+static struct bv_polygon *
+_qgpoly_poly(struct bv_scene_obj *obj)
+{
+    return (struct bv_polygon *)bsg_node_user_data_get((const bsg_node *)obj);
+}
+
+static void
+_qgpoly_edge_color(struct bu_color *c, const struct bv_scene_obj *obj)
+{
+    if (!c || !obj)
+	return;
+    struct bsg_material m;
+    bsg_material_init(&m);
+    (void)bsg_node_material_get((const bsg_node *)obj, &m);
+    (void)bu_color_from_rgb_chars(c, m.rgba);
+}
 
 QMouseEvent *
 QgPolyFilter::view_sync(QEvent *e)
@@ -77,7 +96,7 @@ QgPolyFilter::close_polygon()
 {
     // Close the general polygon - if that's what we're creating,
     // at this point it will still be open.
-    struct bv_polygon *ip = (struct bv_polygon *)wp->s_i_data;
+    struct bv_polygon *ip = _qgpoly_poly(wp);
     if (ip && ip->polygon.contour[0].open) {
 
 	if (ip->polygon.contour[0].num_points < 3) {
@@ -116,7 +135,7 @@ QPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 	    wp = bv_create_polygon(v, BV_VIEW_OBJS, ptype, &v->gv_point);
 	    wp->s_v = v;
 
-	    struct bv_polygon *ip = (struct bv_polygon *)wp->s_i_data;
+	    struct bv_polygon *ip = _qgpoly_poly(wp);
 	    if (ptype == BV_POLYGON_GENERAL) {
 		// For general polygons, we need to identify the active contour
 		// for update operations to work.
@@ -127,7 +146,7 @@ QPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 	    }
 
 	    // Get edge color
-	    bu_color_to_rgb_chars(&edge_color, wp->s_color);
+	    _qgpoly_edge_color(&edge_color, wp);
 
 	    // fill color
 	    BU_COLOR_CPY(&ip->fill_color, &fill_color);
@@ -153,10 +172,8 @@ QPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 	    }
 
 	    // Name appropriately
-	    bu_vls_init(&wp->s_name);
-
 	    // It doesn't get a "proper" name until its finalized
-	    bu_vls_printf(&wp->s_name, "_tmp_view_polygon");
+	    bsg_node_set_name((bsg_node *)wp, "_tmp_view_polygon");
 
 	    emit view_updated(QG_VIEW_REFRESH);
 	    return true;
@@ -168,7 +185,7 @@ QPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 
 	// If we are in the process of creating a general polygon, after the initial creation
 	// left clicks will append new points
-	struct bv_polygon *ip = (struct bv_polygon *)wp->s_i_data;
+	struct bv_polygon *ip = _qgpoly_poly(wp);
 	if (ip->type == BV_POLYGON_GENERAL) {
 	    wp->s_v->gv_mouse_x = v->gv_mouse_x;
 	    wp->s_v->gv_mouse_y = v->gv_mouse_y;
@@ -188,7 +205,7 @@ QPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 	    return true;
 
 	// Non-general polygon creation doesn't use right click.
-	struct bv_polygon *ip = (struct bv_polygon *)wp->s_i_data;
+	struct bv_polygon *ip = _qgpoly_poly(wp);
 	if (ip->type != BV_POLYGON_GENERAL)
 	    return true;
 
@@ -211,7 +228,7 @@ QPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 	    return true;
 
 	// General polygon creation doesn't use mouse movement.
-	struct bv_polygon *ip = (struct bv_polygon *)wp->s_i_data;
+	struct bv_polygon *ip = _qgpoly_poly(wp);
 	if (ip->type == BV_POLYGON_GENERAL)
 	    return true;
 
@@ -235,7 +252,7 @@ QPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 	// General polygons are finalized by a right-click close, since
 	// appending multiple points requires multiple mouse click-and-release
 	// operations
-	struct bv_polygon *ip = (struct bv_polygon *)wp->s_i_data;
+	struct bv_polygon *ip = _qgpoly_poly(wp);
 	if (ip && ip->type == BV_POLYGON_GENERAL)
 	    return true;
 
@@ -263,7 +280,7 @@ QPolyCreateFilter::finalize(bool)
 
     if (op == bg_None || !BU_PTBL_LEN(&bool_objs)) {
 	// No interactions, so we're keeping it - assign a proper name
-	bu_vls_sprintf(&wp->s_name, "%s", vname.c_str());
+	bsg_node_set_name((bsg_node *)wp, vname.c_str());
     } else {
 
 	for (size_t i = 0; i < BU_PTBL_LEN(&bool_objs); i++) {
@@ -279,7 +296,7 @@ QPolyCreateFilter::finalize(bool)
 	    wp = NULL;
 	} else {
 	    // No interactions, so we're keeping it - assign a proper name
-	    bu_vls_sprintf(&wp->s_name, "%s", vname.c_str());
+	    bsg_node_set_name((bsg_node *)wp, vname.c_str());
 	}
     }
 
@@ -310,7 +327,7 @@ QPolyUpdateFilter::eventFilter(QObject *, QEvent *e)
     if (m_e->type() == QEvent::MouseMove) {
 
 	// General polygon creation doesn't use mouse movement.
-	struct bv_polygon *ip = (struct bv_polygon *)wp->s_i_data;
+	struct bv_polygon *ip = _qgpoly_poly(wp);
 	if (ip->type == BV_POLYGON_GENERAL)
 	    return true;
 
@@ -342,7 +359,7 @@ QPolySelectFilter::eventFilter(QObject *, QEvent *e)
 	wp = bv_view_select_polygon(v, &v->gv_point);
 	if (!wp)
 	    return true;
-	struct bv_polygon *vp = (struct bv_polygon *)wp->s_i_data;
+	struct bv_polygon *vp = _qgpoly_poly(wp);
 	ptype = vp->type;
 	close_general_poly = (vp->polygon.contour) ? vp->polygon.contour[0].open : 1;
 
@@ -367,7 +384,7 @@ QPolyPointFilter::eventFilter(QObject *, QEvent *e)
     if (!wp || ptype != BV_POLYGON_GENERAL)
 	return false;
 
-    struct bv_polygon *vp = (struct bv_polygon *)wp->s_i_data;
+    struct bv_polygon *vp = _qgpoly_poly(wp);
 
     // If we have a Left release, clear point selection
     if (m_e->type() == QEvent::MouseButtonRelease) {

@@ -33,6 +33,7 @@ extern "C" {
 }
 
 #include <unordered_set>
+#include "bsg/node.h"
 #include "qtcad/QgSelectFilter.h"
 #include "qtcad/QgSignalFlags.h"
 
@@ -317,7 +318,7 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
     const char **objs = (const char **)bu_calloc(BU_PTBL_LEN(&selected_set) + 1, sizeof(char *), "objs");
     for (size_t i = 0; i < BU_PTBL_LEN(&selected_set); i++) {
 	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&selected_set, i);
-	objs[i] = bu_vls_cstr(&s->s_name);
+	objs[i] = bsg_node_name((const bsg_node *)s);
     }
     if (rt_gettrees_and_attrs(rtip, NULL, scnt, objs, 1)) {
 	bu_free(objs, "objs");

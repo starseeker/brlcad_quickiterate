@@ -26,9 +26,25 @@
 #include <QLineEdit>
 #include <QButtonGroup>
 #include <QGroupBox>
+#include "bsg/material.h"
+#include "bsg/node.h"
+#include "bsg/payload.h"
 #include "../../../QgEdApp.h"
 #include "ged/bsg_ged_draw.h"
 #include "QEll.h"
+
+static void
+_qell_set_color(struct bv_scene_obj *obj, unsigned char r, unsigned char g, unsigned char b)
+{
+    struct bsg_material m;
+    bsg_material_init(&m);
+    (void)bsg_node_material_get((const bsg_node *)obj, &m);
+    m.rgba[0] = r;
+    m.rgba[1] = g;
+    m.rgba[2] = b;
+    m.rgba[3] = 255;
+    bsg_node_material_set((bsg_node *)obj, &m);
+}
 
 QEll::QEll()
     : QWidget()
@@ -200,14 +216,17 @@ QEll::update_obj_wireframe()
     struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
     struct bn_tol *tol = &wdbp->wdb_tol;
     struct bg_tess_tol *ttol = &wdbp->wdb_ttol;
-    intern.idb_meth->ft_plot(&p->s_vlist, &intern, ttol, tol, p->s_v);
+    struct bsg_payload *plot_payload = bsg_payload_vlist_from_node((bsg_node *)p);
+    intern.idb_meth->ft_plot(bsg_payload_vlist_head(plot_payload), &intern, ttol, tol, p->s_v);
 
     // At least for now, mimic the MGED behavior and make editing wireframes white
     const char *wcolor = "255/255/255";
     const char *av[2] = {wcolor, NULL};
     struct bu_color cval;
     bu_opt_color(NULL, 1, (const char **)&av[0], (void *)&cval);
-    bu_color_to_rgb_chars(&cval, p->s_color);
+    unsigned char wcolor_rgb[3];
+    bu_color_to_rgb_chars(&cval, wcolor_rgb);
+    _qell_set_color(p, wcolor_rgb[0], wcolor_rgb[1], wcolor_rgb[2]);
 
     // When editing, we show the labels (if any)
     struct rt_point_labels pl[8+1];
@@ -221,12 +240,13 @@ QEll::update_obj_wireframe()
 	struct bv_scene_obj *s = bv_obj_get_child(p);
 	struct bv_label *la;
 	BU_GET(la, struct bv_label);
-	s->s_i_data = (void *)la;
+	bsg_node_user_data_set((bsg_node *)s, (void *)la);
 
-	BU_LIST_INIT(&(s->s_vlist));
-	VSET(s->s_color, 255, 255, 0);
-	s->s_type_flags |= BV_DBOBJ_BASED;
-	s->s_type_flags |= BV_LABELS;
+	struct bsg_payload *label_payload = bsg_payload_vlist_from_node((bsg_node *)s);
+	BU_LIST_INIT(bsg_payload_vlist_head(label_payload));
+	_qell_set_color(s, 255, 255, 0);
+	bsg_node_set_kind((bsg_node *)s,
+			  bsg_node_kind((const bsg_node *)s) | BV_DBOBJ_BASED | BV_LABELS);
 	BU_VLS_INIT(&la->label);
 
 	bu_vls_sprintf(&la->label, "%s", pl[i].str);

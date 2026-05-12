@@ -79,7 +79,7 @@ _mged_count_drawn_cb(bsg_node *n, void *userdata)
     struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
     struct _mged_count_drawn_ctx *ctx =
 	(struct _mged_count_drawn_ctx *)userdata;
-    if (sp && sp->s_drawn_rev == ctx->frame_rev)
+    if (sp && bsg_node_drawn_rev((const bsg_node *)sp) == ctx->frame_rev)
 	(*ctx->np)++;
     return 1; /* continue traversal */
 }
@@ -249,4 +249,3 @@ dozoom(struct mged_state *s, int which_eye)
  * End:
  * ex: shiftwidth=4 tabstop=8
  */
-
