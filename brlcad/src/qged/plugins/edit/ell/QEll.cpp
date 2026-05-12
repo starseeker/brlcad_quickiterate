@@ -33,6 +33,19 @@
 #include "ged/bsg_ged_draw.h"
 #include "QEll.h"
 
+static void
+_qell_set_color(struct bv_scene_obj *obj, unsigned char r, unsigned char g, unsigned char b)
+{
+    struct bsg_material m;
+    bsg_material_init(&m);
+    (void)bsg_node_material_get((const bsg_node *)obj, &m);
+    m.rgba[0] = r;
+    m.rgba[1] = g;
+    m.rgba[2] = b;
+    m.rgba[3] = 255;
+    bsg_node_material_set((bsg_node *)obj, &m);
+}
+
 QEll::QEll()
     : QWidget()
 {
@@ -211,9 +224,9 @@ QEll::update_obj_wireframe()
     const char *av[2] = {wcolor, NULL};
     struct bu_color cval;
     bu_opt_color(NULL, 1, (const char **)&av[0], (void *)&cval);
-    unsigned char wcolor[3];
-    bu_color_to_rgb_chars(&cval, wcolor);
-    _qell_set_color(p, wcolor[0], wcolor[1], wcolor[2]);
+    unsigned char wcolor_rgb[3];
+    bu_color_to_rgb_chars(&cval, wcolor_rgb);
+    _qell_set_color(p, wcolor_rgb[0], wcolor_rgb[1], wcolor_rgb[2]);
 
     // When editing, we show the labels (if any)
     struct rt_point_labels pl[8+1];
@@ -311,15 +324,3 @@ QEll::eventFilter(QObject *, QEvent *e)
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-static void
-_qell_set_color(struct bv_scene_obj *obj, unsigned char r, unsigned char g, unsigned char b)
-{
-    struct bsg_material m;
-    bsg_material_init(&m);
-    (void)bsg_node_material_get((const bsg_node *)obj, &m);
-    m.rgba[0] = r;
-    m.rgba[1] = g;
-    m.rgba[2] = b;
-    m.rgba[3] = 255;
-    bsg_node_material_set((bsg_node *)obj, &m);
-}
