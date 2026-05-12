@@ -58,11 +58,11 @@ _qpolymod_is_poly(struct bv_scene_obj *obj)
 static void
 _qpolymod_edge_color_set(struct bv_scene_obj *obj, const struct bu_color *c)
 {
-    struct bsg_material m;
     unsigned char rgb[3] = {0, 0, 0};
-    bsg_material_init(&m);
     if (!c || !obj)
 	return;
+    struct bsg_material m;
+    bsg_material_init(&m);
     (void)bu_color_to_rgb_chars(c, rgb);
     (void)bsg_node_material_get((const bsg_node *)obj, &m);
     m.rgba[0] = rgb[0];

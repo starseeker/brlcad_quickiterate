@@ -46,10 +46,10 @@ _qgpoly_poly(struct bv_scene_obj *obj)
 static void
 _qgpoly_edge_color(struct bu_color *c, const struct bv_scene_obj *obj)
 {
-    struct bsg_material m;
-    bsg_material_init(&m);
     if (!c || !obj)
 	return;
+    struct bsg_material m;
+    bsg_material_init(&m);
     (void)bsg_node_material_get((const bsg_node *)obj, &m);
     (void)bu_color_from_rgb_chars(c, m.rgba);
 }
