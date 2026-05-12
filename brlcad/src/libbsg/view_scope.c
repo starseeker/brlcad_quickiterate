@@ -84,7 +84,7 @@ bsg_view_scope_destroy(bsg_node *scope)
     struct bv_scene_obj *s = (struct bv_scene_obj *)scope;
 
     /* Clear the children list (borrowed references — do not free). */
-    bu_ptbl_reset(&s->children);
+    bu_ptbl_reset(&s->bsg.bsg_children);
 
     bv_obj_put(s);
 }

@@ -78,7 +78,7 @@ free_view(struct bview *v)
 
 
 /* ------------------------------------------------------------------ */
-/* Test 10A: struct bsg_node_core embedded in bv_scene_obj              */
+/* Test 10A: struct bsg_node is first member of bv_scene_obj            */
 /* ------------------------------------------------------------------ */
 
 static int
@@ -86,22 +86,20 @@ test_core_embedded(void)
 {
     printf("=== Test 10A: core_embedded ===\n");
 
-    /* The embedded core must be accessible via the raw struct field. */
+    /* The embedded bsg node must be accessible via the raw struct field. */
     struct bv_scene_obj s;
     memset(&s, 0, sizeof(s));
 
-    if (s.bsg_core.bsg_magic != 0)
+    if (s.bsg.bsg_magic != 0)
 	FAIL("fresh zero-init should have magic 0");
 
-    s.bsg_core.bsg_magic = BSG_NODE_CORE_MAGIC;
-    if (s.bsg_core.bsg_magic != BSG_NODE_CORE_MAGIC)
+    s.bsg.bsg_magic = BSG_NODE_CORE_MAGIC;
+    if (s.bsg.bsg_magic != BSG_NODE_CORE_MAGIC)
 	FAIL("magic round-trip");
 
-    /* Offset sanity: bsg_core is NOT at the very beginning of bv_scene_obj
-     * (there are many legacy fields before it), so the embedded offset must
-     * be nonzero. */
-    if (offsetof(struct bv_scene_obj, bsg_core) == 0)
-	FAIL("bsg_core must not be at offset 0 (legacy fields precede it)");
+    /* Phase 10E: bsg is the FIRST member of bv_scene_obj (offset == 0). */
+    if (offsetof(struct bv_scene_obj, bsg) != 0)
+	FAIL("bsg must be at offset 0 (first member)");
 
     /* BSG_NODE_REV_MAX must accommodate all defined revision kinds. */
     if (BSG_NODE_REV_MAX < BSG_NODE_REV_COUNT)
@@ -142,17 +140,17 @@ test_kind_parent_routing(void)
     if (bsg_node_parent(child) != parent)
 	FAIL("parent via core after add_child");
 
-    struct bsg_node_core *core = bsg_node_core_get(child);
+    bsg_node *core = bsg_node_core_get(child);
     if (!core)
 	FAIL("bsg_node_core_get returned NULL");
-    if ((bsg_node *)core->parent != parent)
-	FAIL("core->parent direct field mismatch");
+    if (core->bsg_parent != parent)
+	FAIL("core->bsg_parent direct field mismatch");
 
     bsg_node_remove_child(parent, child);
     if (bsg_node_parent(child) != NULL)
 	FAIL("parent is NULL after remove_child");
-    if (core->parent != NULL)
-	FAIL("core->parent not cleared after remove_child");
+    if (core->bsg_parent != NULL)
+	FAIL("core->bsg_parent not cleared after remove_child");
 
     /* Payload bits must also be reflected in bsg_node_kind. */
     bsg_node_set_payload_type(child, BSG_PAYLOAD_VLIST);
@@ -194,7 +192,7 @@ test_sidecars_in_core(void)
     bsg_node_material_set(n, &m_in);
 
     /* Core should now have the material pointer. */
-    struct bsg_node_core *core = bsg_node_core_get(n);
+    bsg_node *core = bsg_node_core_get(n);
     if (!core || !core->material)
 	FAIL("material pointer not in core after set");
 
@@ -333,17 +331,17 @@ test_node_core_api(void)
     if (!bsg_node_core_initialized(n))
 	FAIL("should be initialized after core_init");
 
-    /* core_get returns the same embedded struct */
-    struct bsg_node_core *core = bsg_node_core_get(n);
+    /* core_get returns the node itself */
+    bsg_node *core = bsg_node_core_get(n);
     if (!core)
 	FAIL("core_get returned NULL after init");
-    if (core != &raw.bsg_core)
-	FAIL("core_get must return &s->bsg_core");
+    if (core != n)
+	FAIL("core_get must return the node itself (Phase 10E)");
 
     /* Double init is a no-op */
-    core->kind = 0xABCDEFULL;
+    core->bsg_kind = 0xABCDEFULL;
     bsg_node_core_init(n);
-    if (core->kind != 0xABCDEFULL)
+    if (core->bsg_kind != 0xABCDEFULL)
 	FAIL("double init must not reset existing core fields");
 
     PASS("node_core_api");

@@ -72,7 +72,7 @@ bsg_transform_destroy(bsg_node *transform)
 	return;
 
     struct bv_scene_obj *t = (struct bv_scene_obj *)transform;
-    bu_ptbl_reset(&t->children);
+    bu_ptbl_reset(&t->bsg.bsg_children);
     bv_obj_put(t);
 }
 

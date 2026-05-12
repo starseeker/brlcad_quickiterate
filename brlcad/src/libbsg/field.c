@@ -54,8 +54,7 @@ bsg_node_set_flag(bsg_node *n, int flag)
     if (!n)
 	return;
 
-    struct bv_scene_obj *s = (struct bv_scene_obj *)n;
-    s->s_flag = flag;
+    n->bsg_flag = flag;
     bsg_node_field_touch(n, BSG_FIELD_FLAG);
 }
 
@@ -66,7 +65,7 @@ bsg_node_get_flag(const bsg_node *n)
     if (!n)
 	return 0;
 
-    return ((const struct bv_scene_obj *)n)->s_flag;
+    return n->bsg_flag;
 }
 
 
@@ -109,8 +108,7 @@ bsg_node_set_visible(bsg_node *n, int on)
     if (!n)
 	return;
 
-    struct bv_scene_obj *s = (struct bv_scene_obj *)n;
-    s->s_flag = on ? UP : DOWN;
+    n->bsg_flag = on ? UP : DOWN;
     bsg_node_field_touch(n, BSG_FIELD_VISIBILITY);
 }
 

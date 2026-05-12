@@ -68,22 +68,19 @@ struct _bsg_payload_mesh {
 static struct bsg_payload *
 _bsg_payload_sc_get(const bsg_node *n)
 {
-    const struct bv_scene_obj *s;
-
     if (!n)
 	return NULL;
 
-    s = (const struct bv_scene_obj *)n;
-    if (s->bsg_core.bsg_magic != BSG_NODE_CORE_MAGIC)
+    if (n->bsg_magic != BSG_NODE_CORE_MAGIC)
 	return NULL;
-    return (struct bsg_payload *)s->bsg_core.payload;
+    return (struct bsg_payload *)n->payload;
 }
 
 /* Store @p payload in the core for @p n (NULL clears it without destroy). */
 static void
 _bsg_payload_sc_set(const bsg_node *n, struct bsg_payload *payload)
 {
-    struct bsg_node_core *core;
+    bsg_node *core;
 
     if (!n)
 	return;
@@ -587,23 +584,14 @@ bsg_payload_mesh_lod_get(const struct bsg_payload *payload)
 void
 bsg_node_set_payload_type(bsg_node *node, unsigned long long payload_flags)
 {
-    struct bsg_node_core *core;
     unsigned long long new_flags;
 
     if (!node)
 	return;
 
-    struct bv_scene_obj *s = (struct bv_scene_obj *)node;
-
     new_flags = (bsg_node_kind(node) & ~BSG_PAYLOAD_MASK) |
 		(payload_flags & BSG_PAYLOAD_MASK);
-    s->s_type_flags = new_flags;
-
-    /* Phase 10B: keep core.kind in sync so bsg_node_kind() returns the
-     * updated value after the payload bits are set. */
-    core = _bsg_core_ensure(node);
-    if (core)
-	core->kind = new_flags;
+    node->bsg_kind = new_flags;
 
     bsg_node_field_touch(node, BSG_FIELD_PAYLOAD);
     (void)bsg_node_bump_revision(node, BSG_NODE_REV_PAYLOAD);

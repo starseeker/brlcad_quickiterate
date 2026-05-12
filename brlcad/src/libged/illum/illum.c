@@ -121,9 +121,9 @@ illum_solid_cb(struct bv_scene_obj *sp, void *userdata)
 	    BU_STR_EQUAL(data->obj, DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_namep)) {
 	    data->found = 1;
 	    if (data->illum)
-		sp->s_iflag = UP;
+		sp->bsg.bsg_iflag = UP;
 	    else
-		sp->s_iflag = DOWN;
+		sp->bsg.bsg_iflag = DOWN;
 	}
     }
     return 1; /* continue */

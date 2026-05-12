@@ -2486,7 +2486,7 @@ _bview_state_attach_leaf(struct ged *gedp,
 /*
  * Unlink @p sp from its BSG parent's children ptbl, bump the parent's
  * revision counter and invalidate cached aggregate bboxes.  Safe to
- * call on objects that were never attached (sp->parent == NULL).
+ * call on objects that were never attached (sp->bsg.bsg_parent == NULL).
  *
  * Must be called before bv_obj_put(sp), because bv_obj_put() does NOT
  * remove the object from any parent BSG node's children ptbl — only
@@ -2495,13 +2495,13 @@ _bview_state_attach_leaf(struct ged *gedp,
 static void
 _bview_state_detach_leaf(struct bv_scene_obj *sp)
 {
-    if (!sp || !sp->parent)
+    if (!sp || !sp->bsg.bsg_parent)
 	return;
-    struct bv_scene_obj *p = sp->parent;
-    bu_ptbl_rm(&p->children, (const long *)sp);
+    struct bv_scene_obj *p = sp->bsg.bsg_parent;
+    bu_ptbl_rm(&p->bsg.bsg_children, (const long *)sp);
     bsg_bump_rev_node((bsg_node *)p);
     bsg_node_bbox_invalidate((bsg_node *)p);
-    sp->parent = NULL;
+    sp->bsg.bsg_parent = NULL;
 }
 
 
@@ -3006,11 +3006,11 @@ BViewState::scene_obj(
 	    sp = s_map[phash][curr_mode];
 	    if (vs && vs->s_dmode == curr_mode) {
 		if (sp->s_soldash && vs->draw_non_subtract_only) {
-		    if (sp->s_flag != DOWN)
-			sp->s_flag = DOWN;
+		    if (sp->bsg.bsg_flag != DOWN)
+			sp->bsg.bsg_flag = DOWN;
 		} else {
-		    if (sp->s_flag != UP)
-			sp->s_flag = UP;
+		    if (sp->bsg.bsg_flag != UP)
+			sp->bsg.bsg_flag = UP;
 		}
 		if (bv_obj_settings_sync(sp->s_os, vs))
 		    objs.insert(sp);
@@ -3021,13 +3021,13 @@ BViewState::scene_obj(
 	    // plotting enablement/disablement must invalidate LoD state so
 	    // the next bsg_lod_update pass regenerates level geometry.
 	    struct bv_scene_obj *lod = NULL;
-	    if (sp->s_type_flags & BSG_NODE_LOD) {
+	    if (sp->bsg.bsg_kind & BSG_NODE_LOD) {
 		lod = sp;
 	    } else {
 		/* Adaptive LoD leaves are wrapped by a direct BSG_NODE_LOD parent
 		 * in BViewState::redraw (Phase L3 insertion). */
-		struct bv_scene_obj *pp = static_cast<struct bv_scene_obj *>(sp->parent);
-		if (pp && (pp->s_type_flags & BSG_NODE_LOD))
+		struct bv_scene_obj *pp = static_cast<struct bv_scene_obj *>(sp->bsg.bsg_parent);
+		if (pp && (pp->bsg.bsg_kind & BSG_NODE_LOD))
 		    lod = pp;
 	    }
 	    if (lod) {
@@ -3137,15 +3137,15 @@ BViewState::scene_obj(
     // Align with vs draw_non_subtract_only settings
     if (vs->s_dmode == curr_mode) {
         if (sp->s_soldash && vs->draw_non_subtract_only) {
-            if (sp->s_flag != DOWN)
-                sp->s_flag = DOWN;
+            if (sp->bsg.bsg_flag != DOWN)
+                sp->bsg.bsg_flag = DOWN;
         } else {
-            if (sp->s_flag != UP)
-                sp->s_flag = UP;
+            if (sp->bsg.bsg_flag != UP)
+                sp->bsg.bsg_flag = UP;
         }
     }
 
-    dbis->print_path(&sp->s_name, path_hashes);
+    dbis->print_path(&sp->bsg.bsg_name, path_hashes);
     /* Phase 12: read draw mode back from BSG settings for the s_map key. */
     {
 	struct bsg_settings _kinfo;
@@ -3476,7 +3476,7 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 	    ret = GED_DBISTATE_VIEW_CHANGE;
 
 	    // print path name, set view - otherwise empty
-	    dbis->print_path(&nso->s_name, cp);
+	    dbis->print_path(&nso->bsg.bsg_name, cp);
 	    nso->s_v = v;
 	    nso->dp = s->dp;
 	    s_map[*k_it][mm_it->first] = nso;
@@ -3488,7 +3488,7 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 		_bview_state_attach_leaf(dbis->gedp, nso, cp, dbis);
 	    }
 
-	    bv_log(3, "refresh %s[%s]", bu_vls_cstr(&(nso->s_name)), bu_vls_cstr(&(v->gv_name)));
+	    bv_log(3, "refresh %s[%s]", bu_vls_cstr(&(nso->bsg.bsg_name)), bu_vls_cstr(&(v->gv_name)));
 	    draw_scene(nso, v);
 	    bv_obj_put(s);
 	}
@@ -3616,7 +3616,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 		} else {
 		    s = bv_obj_get_unregistered(v, BV_DB_OBJS);
 		    // print path name, set view - otherwise empty
-		    dbis->print_path(&s->s_name, cp);
+		    dbis->print_path(&s->bsg.bsg_name, cp);
 		    s->s_v = v;
 		    s_map[*iv_it][mm_it->first] = s;
 		}
@@ -3672,7 +3672,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	    std::vector<unsigned long long> cpath = ms_it->second[*sz_it];
 	    struct bv_scene_obj *s = bv_obj_get_unregistered(v, BV_DB_OBJS);
 	    // print path name, set view - otherwise empty
-	    dbis->print_path(&s->s_name, cpath);
+	    dbis->print_path(&s->bsg.bsg_name, cpath);
 	    s->s_v = v;
 	    s_map[ms_it->first][*iv_it] = s;
 
@@ -3747,8 +3747,8 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 		continue;
 	    if (!(sp->mesh_obj || sp->csg_obj))
 		continue;
-	    struct bv_scene_obj *pp = (struct bv_scene_obj *)sp->parent;
-	    if (pp && (pp->s_type_flags & BSG_NODE_LOD))
+	    struct bv_scene_obj *pp = (struct bv_scene_obj *)sp->bsg.bsg_parent;
+	    if (pp && (pp->bsg.bsg_kind & BSG_NODE_LOD))
 		continue;
 	    struct bv_scene_obj *lod = (struct bv_scene_obj *)bsg_lod_node_insert_above((bsg_node *)sp, first_view);
 	    if (!lod)
@@ -3818,7 +3818,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     cache_collapsed();
 
     // Phase F (drawing_stack_modernization): bsg_root is now an alias for
-    // gv_draw_root; bsg_root->children is maintained live by the draw-tree
+    // gv_draw_root; bsg_root->bsg.bsg_children is maintained live by the draw-tree
     // mutations above.  No per-view sync is needed here.
 
     return ret;

@@ -430,10 +430,10 @@ test_sync_illum_flags(void)
     /* No crash — basic smoke test. */
 
     /* Set s1's flag manually and verify sync_illum_flags on NULL is no-op */
-    so1->s_iflag = DOWN;
-    so2->s_iflag = UP;
+    so1->bsg.bsg_iflag = DOWN;
+    so2->bsg.bsg_iflag = UP;
     bsg_selection_sync_illum_flags(NULL);  /* no-op, must not crash */
-    if (so2->s_iflag != UP) FAIL("sync(NULL) should be a no-op");
+    if (so2->bsg.bsg_iflag != UP) FAIL("sync(NULL) should be a no-op");
 
     bsg_shape_destroy(s1);
     bsg_shape_destroy(s2);
@@ -468,12 +468,12 @@ test_from_illum_flags(void)
     struct bv_scene_obj *r   = (struct bv_scene_obj *)root;
 
     /* Attach to root's children table so DFS finds them */
-    bu_ptbl_ins_unique(&r->children, (long *)s1);
-    bu_ptbl_ins_unique(&r->children, (long *)s2);
+    bu_ptbl_ins_unique(&r->bsg.bsg_children, (long *)s1);
+    bu_ptbl_ins_unique(&r->bsg.bsg_children, (long *)s2);
 
     /* Mark s1 illuminated, s2 not */
-    so1->s_iflag = UP;
-    so2->s_iflag = DOWN;
+    so1->bsg.bsg_iflag = UP;
+    so2->bsg.bsg_iflag = DOWN;
 
     bsg_selection_from_illum_flags(root);
 
@@ -494,8 +494,8 @@ test_from_illum_flags(void)
     bsg_selection_from_illum_flags(NULL);  /* no-op */
 
     /* Detach before destroy to avoid double-free */
-    bu_ptbl_rm(&r->children, (long *)s1);
-    bu_ptbl_rm(&r->children, (long *)s2);
+    bu_ptbl_rm(&r->bsg.bsg_children, (long *)s1);
+    bu_ptbl_rm(&r->bsg.bsg_children, (long *)s2);
 
     bsg_shape_destroy(s1);
     bsg_shape_destroy(s2);

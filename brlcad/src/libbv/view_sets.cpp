@@ -44,7 +44,7 @@ bv_set_init(struct bview_set *s)
     BU_LIST_INIT(&s->i->vlfree);
     /* init the solid list */
     BU_GET(s->i->free_scene_obj, struct bv_scene_obj);
-    BU_LIST_INIT(&s->i->free_scene_obj->l);
+    BU_LIST_INIT(&s->i->free_scene_obj->bsg.l);
 }
 
 void
@@ -56,15 +56,15 @@ bv_set_free(struct bview_set *s)
 
 	// TODO - replace free_scene_obj with bu_ptbl
 	struct bv_scene_obj *sp, *nsp;
-	sp = BU_LIST_NEXT(bv_scene_obj, &s->i->free_scene_obj->l);
-	while (BU_LIST_NOT_HEAD(sp, &s->i->free_scene_obj->l)) {
+	sp = BU_LIST_NEXT(bv_scene_obj, &s->i->free_scene_obj->bsg.l);
+	while (BU_LIST_NOT_HEAD(sp, &s->i->free_scene_obj->bsg.l)) {
 	    nsp = BU_LIST_PNEXT(bv_scene_obj, sp);
-	    BU_LIST_DEQUEUE(&((sp)->l));
+	    BU_LIST_DEQUEUE(&((sp)->bsg.l));
 	    if (sp->s_free_callback)
 		(*sp->s_free_callback)(sp);
 	    /* Phase 11: route backend release through the generic contract. */
 	    bv_scene_obj_release_backend(sp);
-	    bu_ptbl_free(&sp->children);
+	    bu_ptbl_free(&sp->bsg.bsg_children);
 	    BU_PUT(sp, struct bv_scene_obj);
 	    sp = nsp;
 	}

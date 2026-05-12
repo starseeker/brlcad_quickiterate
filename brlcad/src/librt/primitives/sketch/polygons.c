@@ -212,7 +212,7 @@ end:
 	return NULL;
     }
     /* Phase A1: s_name is initialized by bv_obj_reset; just overwrite. */
-    bu_vls_sprintf(&s->s_name, "%s", sname);
+    bu_vls_sprintf(&s->bsg.bsg_name, "%s", sname);
 
     // check attributes for visual properties
     int have_view = 1;
@@ -333,7 +333,7 @@ struct directory *
 db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bv_scene_obj *s)
 {
     // Make sure we have a view polygon
-    if (!(s->s_type_flags & BV_VIEWONLY) || !(s->s_type_flags & BV_POLYGONS)) {
+    if (!(s->bsg.bsg_kind & BV_VIEWONLY) || !(s->bsg.bsg_kind & BV_POLYGONS)) {
 	return NULL;
     }
 

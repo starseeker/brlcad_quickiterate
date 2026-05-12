@@ -24,8 +24,8 @@
  *
  * Phase F semantics (drawing_stack_modernization):
  *   bsg_root is an alias for gv_draw_root — no separate synthetic node.
- *   bsg_scene_root_sync() is a deliberate no-op; bsg_root->children IS
- *   gv_draw_root->children, maintained live by draw/erase mutations.
+ *   bsg_scene_root_sync() is a deliberate no-op; bsg_root->bsg.bsg_children IS
+ *   gv_draw_root->bsg.bsg_children, maintained live by draw/erase mutations.
  *
  * Tests (no display manager, no .g file required):
  *   1. create_alias  — bsg_scene_root_create wires bsg_root = gv_draw_root.
@@ -34,7 +34,7 @@
  *      bsg_scene_root_destroy clears the pointer without freeing the node.
  *   2. create_null   — NULL bview input returns NULL without crashing.
  *   3. sync_noop     — bsg_scene_root_sync is a no-op; calling it does not
- *      change root->children.
+ *      change root->bsg.bsg_children.
  *   4. find_by_type  — bsg_view_find_by_type locates a child whose
  *      s_type_flags contain a specific set of bits.
  *   5. sensor_fire   — a BSG_NODE_SENSOR child's s_update_callback is
@@ -97,8 +97,8 @@ attach_fake_draw_root(struct bview *v)
     struct bv_scene_obj *dr = bv_obj_create(v, BV_CHILD_OBJS);
     if (!dr)
 	return NULL;
-    dr->s_type_flags = BSG_NODE_GROUP;
-    dr->s_flag       = UP;
+    dr->bsg.bsg_kind = BSG_NODE_GROUP;
+    dr->bsg.bsg_flag       = UP;
     v->gv_draw_root  = dr;
     return dr;
 }
@@ -181,10 +181,10 @@ test_sync_noop(void)
     bsg_node *root = bsg_scene_root_create(v);
     if (!root) { g_fail++; v->gv_draw_root = NULL; free_view(v); return; }
     struct bv_scene_obj *r = (struct bv_scene_obj *)root;
-    BSGCHECK(BU_PTBL_LEN(&r->children) == 0, "children empty before sync");
+    BSGCHECK(BU_PTBL_LEN(&r->bsg.bsg_children) == 0, "children empty before sync");
 
     bsg_scene_root_sync(root, v);
-    BSGCHECK(BU_PTBL_LEN(&r->children) == 0, "sync is a no-op: children still empty");
+    BSGCHECK(BU_PTBL_LEN(&r->bsg.bsg_children) == 0, "sync is a no-op: children still empty");
 
     bu_log("  PASS: sync_noop\n");
 
@@ -208,14 +208,14 @@ test_find_by_type(void)
     bsg_node *root = bsg_scene_root_create(v);
     if (!root) { g_fail++; v->gv_draw_root = NULL; bv_obj_put(dr); free_view(v); return; }
 
-    /* Add a child directly to root->children with a specific type flag.
+    /* Add a child directly to root->bsg.bsg_children with a specific type flag.
      * Phase F: root IS the draw root, so this is identical to adding a
      * child to the draw tree. */
     struct bv_scene_obj *child = bv_obj_create(v, BV_CHILD_OBJS);
     if (!child) { g_fail++; bsg_scene_root_destroy(root); v->gv_draw_root = NULL; bv_obj_put(dr); free_view(v); return; }
 
-    child->s_type_flags |= BSG_NODE_SHAPE;
-    bu_ptbl_ins(&((struct bv_scene_obj *)root)->children, (long *)child);
+    child->bsg.bsg_kind |= BSG_NODE_SHAPE;
+    bu_ptbl_ins(&((struct bv_scene_obj *)root)->bsg.bsg_children, (long *)child);
 
     bsg_node *found = bsg_view_find_by_type(root, BSG_NODE_SHAPE);
     BSGCHECK(found != NULL, "bsg_view_find_by_type finds BSG_NODE_SHAPE child");
@@ -264,7 +264,7 @@ test_sensor_fire(void)
     bsg_node *root = bsg_scene_root_create(v);
     if (!root) { g_fail++; v->gv_draw_root = NULL; free_view(v); return; }
 
-    /* Add a sensor child directly to root->children. */
+    /* Add a sensor child directly to root->bsg.bsg_children. */
     struct bv_scene_obj *sensor_child = bv_obj_create(v, BV_CHILD_OBJS);
     if (!sensor_child) {
 	g_fail++;
@@ -274,9 +274,9 @@ test_sensor_fire(void)
 	return;
     }
 
-    sensor_child->s_type_flags    |= BSG_NODE_SENSOR;
+    sensor_child->bsg.bsg_kind    |= BSG_NODE_SENSOR;
     sensor_child->s_update_callback = sensor_callback;
-    bu_ptbl_ins(&((struct bv_scene_obj *)root)->children, (long *)sensor_child);
+    bu_ptbl_ins(&((struct bv_scene_obj *)root)->bsg.bsg_children, (long *)sensor_child);
 
     bsg_sensor_fire(root, v);
 

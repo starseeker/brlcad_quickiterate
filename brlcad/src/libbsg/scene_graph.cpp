@@ -31,8 +31,8 @@
  *
  * Phase F (drawing_stack_modernization): bsg_root is no longer a separate
  * synthetic node.  v->bsg_root is an alias for v->gv_draw_root — the same
- * bv_scene_obj that the BSG draw tree uses as its root.  bsg_root->children
- * IS gv_draw_root->children; it is maintained live by draw/erase mutations
+ * bv_scene_obj that the BSG draw tree uses as its root.  bsg_root->bsg.bsg_children
+ * IS gv_draw_root->bsg.bsg_children; it is maintained live by draw/erase mutations
  * (bsg_group_ensure_child / bsg_free_group in libbsg/draw_set.c) and by
  * bsg_view_obj_zap.  No per-frame rebuild is needed; bsg_scene_root_sync is
  * now a no-op.  View-only objects (BV_VIEW_OBJS ptbls) are iterated directly
@@ -122,10 +122,10 @@ bsg_scene_root_create(struct bview *v)
 	    bu_log("bsg_scene_root_create: failed to allocate standalone draw root\n");
 	    return NULL;
 	}
-	root->s_type_flags = BSG_NODE_GROUP;
-	root->s_flag = UP;
-	root->parent = NULL;
-	bu_vls_sprintf(&root->s_name, "_draw_root");
+	root->bsg.bsg_kind = BSG_NODE_GROUP;
+	root->bsg.bsg_flag = UP;
+	root->bsg.bsg_parent = NULL;
+	bu_vls_sprintf(&root->bsg.bsg_name, "_draw_root");
 	v->gv_draw_root = root;
     }
 
@@ -143,7 +143,7 @@ bsg_scene_root_create(struct bview *v)
 }
 
 
-/* Phase F: bsg_root->children IS gv_draw_root->children — maintained live by
+/* Phase F: bsg_root->bsg.bsg_children IS gv_draw_root->bsg.bsg_children — maintained live by
  * the draw-tree mutation helpers (bsg_group_ensure_child / bsg_free_group /
  * bsg_view_obj_zap).  No per-frame rebuild is required; this function is kept
  * only for binary / source compatibility with callers that have not yet been
@@ -198,9 +198,9 @@ bsg_sensor_fire(bsg_node *root, struct bview *v)
     struct bv_scene_obj *r = (struct bv_scene_obj *)root;
 
     /* Depth-first traversal of the subtree. */
-    for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
+    for (size_t i = 0; i < BU_PTBL_LEN(&r->bsg.bsg_children); i++) {
 	struct bv_scene_obj *child =
-	    (struct bv_scene_obj *)BU_PTBL_GET(&r->children, i);
+	    (struct bv_scene_obj *)BU_PTBL_GET(&r->bsg.bsg_children, i);
 	if (!child)
 	    continue;
 
@@ -208,7 +208,7 @@ bsg_sensor_fire(bsg_node *root, struct bview *v)
 	bsg_sensor_fire((bsg_node *)child, v);
 
 	/* Fire the sensor callback on this node if applicable. */
-	if ((child->s_type_flags & BSG_NODE_SENSOR) && child->s_update_callback)
+	if ((child->bsg.bsg_kind & BSG_NODE_SENSOR) && child->s_update_callback)
 	    child->s_update_callback(child, v, 0);
     }
 }

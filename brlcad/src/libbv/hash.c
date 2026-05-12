@@ -159,9 +159,9 @@ _bv_hash_db_obj_cb(struct bv_scene_obj *s, void *data)
 {
     struct bu_data_hash_state *state = (struct bu_data_hash_state *)data;
     /* Hash children first (view-specific adaptive objects) */
-    if (BU_PTBL_IS_INITIALIZED(&s->children)) {
-	for (size_t j = 0; j < BU_PTBL_LEN(&s->children); j++) {
-	    struct bv_scene_obj *s_c = (struct bv_scene_obj *)BU_PTBL_GET(&s->children, j);
+    if (BU_PTBL_IS_INITIALIZED(&s->bsg.bsg_children)) {
+	for (size_t j = 0; j < BU_PTBL_LEN(&s->bsg.bsg_children); j++) {
+	    struct bv_scene_obj *s_c = (struct bv_scene_obj *)BU_PTBL_GET(&s->bsg.bsg_children, j);
 	    bv_scene_obj_hash(state, s_c);
 	}
     }
@@ -176,9 +176,9 @@ static int
 _bv_hash_view_obj_cb(struct bv_scene_obj *s, void *data)
 {
     struct bu_data_hash_state *state = (struct bu_data_hash_state *)data;
-    if (BU_PTBL_IS_INITIALIZED(&s->children)) {
-	for (size_t j = 0; j < BU_PTBL_LEN(&s->children); j++) {
-	    struct bv_scene_obj *s_c = (struct bv_scene_obj *)BU_PTBL_GET(&s->children, j);
+    if (BU_PTBL_IS_INITIALIZED(&s->bsg.bsg_children)) {
+	for (size_t j = 0; j < BU_PTBL_LEN(&s->bsg.bsg_children); j++) {
+	    struct bv_scene_obj *s_c = (struct bv_scene_obj *)BU_PTBL_GET(&s->bsg.bsg_children, j);
 	    bv_scene_obj_hash(state, s_c);
 	}
     }

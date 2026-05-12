@@ -79,7 +79,7 @@ bsg_group_destroy(bsg_node *group)
     struct bv_scene_obj *g = (struct bv_scene_obj *)group;
 
     /* Clear the children list (borrowed references — do not free). */
-    bu_ptbl_reset(&g->children);
+    bu_ptbl_reset(&g->bsg.bsg_children);
 
     bv_obj_put(g);
 }

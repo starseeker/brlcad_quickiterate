@@ -217,11 +217,11 @@ bsg_lod_node_insert_above(bsg_node *leaf, struct bview *v)
 	return NULL;
 
     struct bv_scene_obj *sleaf = (struct bv_scene_obj *)leaf;
-    struct bv_scene_obj *parent = (struct bv_scene_obj *)sleaf->parent;
+    struct bv_scene_obj *parent = (struct bv_scene_obj *)sleaf->bsg.bsg_parent;
     if (!parent)
 	return NULL;
 
-    intmax_t loc = bu_ptbl_locate(&parent->children, (const long *)sleaf);
+    intmax_t loc = bu_ptbl_locate(&parent->bsg.bsg_children, (const long *)sleaf);
     if (loc < 0)
 	return NULL;
 
@@ -230,10 +230,10 @@ bsg_lod_node_insert_above(bsg_node *leaf, struct bview *v)
 	return NULL;
 
     struct bv_scene_obj *slod = (struct bv_scene_obj *)lod;
-    slod->parent = parent;
-    BU_PTBL_SET(&parent->children, (size_t)loc, slod);
+    slod->bsg.bsg_parent = &parent->bsg;
+    BU_PTBL_SET(&parent->bsg.bsg_children, (size_t)loc, slod);
 
-    sleaf->parent = slod;
+    sleaf->bsg.bsg_parent = &slod->bsg;
     bsg_lod_node_attach_level(lod, leaf);
 
     bsg_bump_rev_node((bsg_node *)parent);

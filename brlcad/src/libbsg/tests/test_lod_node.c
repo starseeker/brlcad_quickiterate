@@ -169,7 +169,7 @@ test_create(void)
     CHECK(lod != NULL, "bsg_lod_node_create returned non-NULL");
 
     struct bv_scene_obj *n = (struct bv_scene_obj *)lod;
-    CHECK((n->s_type_flags & BSG_NODE_LOD) != 0,
+    CHECK((n->bsg.bsg_kind & BSG_NODE_LOD) != 0,
 	  "type flag is BSG_NODE_LOD");
     CHECK(n->s_i_data != NULL, "s_i_data (payload) allocated");
 
@@ -464,24 +464,24 @@ test_insert_above(void)
     struct bv_scene_obj *sib = (struct bv_scene_obj *)bsg_shape_create(v);
     CHECK(parent && leaf && sib, "test nodes created");
 
-    leaf->parent = parent;
-    sib->parent = parent;
-    bu_ptbl_ins(&parent->children, (long *)leaf);
-    bu_ptbl_ins(&parent->children, (long *)sib);
-    CHECK(BU_PTBL_LEN(&parent->children) == 2, "parent has two children");
+    leaf->bsg.bsg_parent = parent;
+    sib->bsg.bsg_parent = parent;
+    bu_ptbl_ins(&parent->bsg.bsg_children, (long *)leaf);
+    bu_ptbl_ins(&parent->bsg.bsg_children, (long *)sib);
+    CHECK(BU_PTBL_LEN(&parent->bsg.bsg_children) == 2, "parent has two children");
 
     bsg_node *lod = bsg_lod_node_insert_above((bsg_node *)leaf, v);
     CHECK(lod != NULL, "insert_above returned lod node");
-    CHECK((((struct bv_scene_obj *)lod)->s_type_flags & BSG_NODE_LOD) != 0,
+    CHECK((((struct bv_scene_obj *)lod)->bsg.bsg_kind & BSG_NODE_LOD) != 0,
 	  "inserted node is BSG_NODE_LOD");
-    CHECK(BU_PTBL_LEN(&parent->children) == 2, "parent child count unchanged");
-    CHECK((struct bv_scene_obj *)BU_PTBL_GET(&parent->children, 0) == (struct bv_scene_obj *)lod,
+    CHECK(BU_PTBL_LEN(&parent->bsg.bsg_children) == 2, "parent child count unchanged");
+    CHECK((struct bv_scene_obj *)BU_PTBL_GET(&parent->bsg.bsg_children, 0) == (struct bv_scene_obj *)lod,
 	  "lod replaced original leaf slot");
-    CHECK((struct bv_scene_obj *)BU_PTBL_GET(&parent->children, 1) == sib,
+    CHECK((struct bv_scene_obj *)BU_PTBL_GET(&parent->bsg.bsg_children, 1) == sib,
 	  "sibling order preserved");
-    CHECK(leaf->parent == (struct bv_scene_obj *)lod, "leaf parent updated to lod");
-    CHECK(BU_PTBL_LEN(&((struct bv_scene_obj *)lod)->children) == 1, "lod has one child");
-    CHECK((struct bv_scene_obj *)BU_PTBL_GET(&((struct bv_scene_obj *)lod)->children, 0) == leaf,
+    CHECK(leaf->bsg.bsg_parent == (struct bv_scene_obj *)lod, "leaf parent updated to lod");
+    CHECK(BU_PTBL_LEN(&((struct bv_scene_obj *)lod)->bsg.bsg_children) == 1, "lod has one child");
+    CHECK((struct bv_scene_obj *)BU_PTBL_GET(&((struct bv_scene_obj *)lod)->bsg.bsg_children, 0) == leaf,
 	  "lod level-0 child is original leaf");
 
     free_view(v);
