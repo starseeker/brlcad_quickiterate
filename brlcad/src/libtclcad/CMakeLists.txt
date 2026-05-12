@@ -58,12 +58,15 @@ if(BRLCAD_ENABLE_TCL)
   endif(BRLCAD_ENABLE_X11)
 
   # Note - libtclcad_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
-  set(TCLCAD_LIBS ${libtclcad_deps} ${TCL_LIBRARY} ${TCLCAD_XLIBS})
+  set(TCLCAD_PUBLIC_LIBS ${libtclcad_deps} ${TCL_LIBRARY})
+  set(TCLCAD_PRIVATE_LIBS ${TCLCAD_XLIBS})
   if(TK_LIBRARY)
-    set(TCLCAD_LIBS ${TCLCAD_LIBS} ${TK_LIBRARY})
+    set(TCLCAD_PUBLIC_LIBS ${TCLCAD_PUBLIC_LIBS} ${TK_LIBRARY})
   endif(TK_LIBRARY)
 
-  brlcad_addlib(libtclcad "${LIBTCLCAD_SRCS}" "${TCLCAD_LIBS}" "${TCLCAD_INCLUDE_DIRS}" "${TCLCAD_LOCAL_INCLUDE_DIRS}"
+  brlcad_addlib(libtclcad "${LIBTCLCAD_SRCS}" "" "${TCLCAD_INCLUDE_DIRS}" "${TCLCAD_LOCAL_INCLUDE_DIRS}"
+    PUBLIC_LIBS ${TCLCAD_PUBLIC_LIBS}
+    PRIVATE_LIBS ${TCLCAD_PRIVATE_LIBS}
     # refresh.c defines DM_WITH_RT before including dm/view.h to expose
     # dm_draw_viewobjs; when batched after draw.c the DM_VIEW_H guard fires
     # without DM_WITH_RT set and the declaration is lost.

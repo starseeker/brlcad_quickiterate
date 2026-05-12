@@ -103,3 +103,47 @@ Execution conclusion for item 1:
 * Next implementation phase should convert the 21 legacy `brlcad_addlib` calls
   to explicit `PUBLIC_LIBS`/`PRIVATE_LIBS`/`INTERFACE_LIBS` lists using the
   above classifications as the starting map.
+
+
+Implementation update (2026-05-12, follow-up)
+==============================================
+
+Completed:
+* Reapplied explicit dependency visibility on all currently-detected legacy
+  `brlcad_addlib` calls in `src/*/CMakeLists.txt`.
+* Current scan result is 0 remaining legacy calls without one of
+  `PUBLIC_LIBS`/`PRIVATE_LIBS`/`INTERFACE_LIBS` (22 call sites converted in this
+  tree, including optional `libqtcad`).
+* Installed missing development packages needed to configure and build in the
+  quick-iterate environment:
+  - `tcl-dev`
+  - `tk-dev`
+  - `libjpeg-dev`
+
+Validation results:
+* Reconfigure with static+shared enabled now succeeds after package install.
+* Targeted compile checks succeed for converted non-Qt/non-tclcad libraries:
+  `libbu libbn libbg libbv libnmg libbrep librt libwdb libpkg libgcv
+   libanalyze liboptical libicv libdm libged libfft librender librtuif`
+* Representative static-link tests pass for
+  `librt-static-static-link-test`, `libdm-static-static-link-test`, and
+  `liboptical-static-static-link-test` when built serially.
+* `libtclcad` still fails in this environment due to a pre-existing
+  `-Werror=c++-compat` issue in `src/libtclcad/fb.c` (`gedp->ged_interp`
+  implicit conversion to `Tcl_Interp *`) when unity builds compile C code in a
+  C++-compatibility context.
+* `libged-static-static-link-test` hit an LTO resource limit in this container
+  (linker killed `lto1`), indicating an environment capacity issue rather than
+  a dependency-visibility classification failure.
+
+Next steps:
+1. Decide whether to treat the `libtclcad/fb.c` C++-compat warning as an
+   independent cleanup item (cast or typed accessor), or adjust compile flags
+   for that TU if preserving current source is preferred.
+2. Run static-link validation targets for the converted libraries to confirm no
+   missing PRIVATE/PUBLIC declarations remain hidden in archive links.
+3. Re-run `libged-static-static-link-test` in a larger-memory environment or
+   with adjusted LTO settings to separate capacity limits from true dependency
+   declaration problems.
+4. If Qt is enabled in CI configurations, run a dedicated `libqtcad` build pass
+   to verify the explicit dependency visibility in Qt5/Qt6 variants.
