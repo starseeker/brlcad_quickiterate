@@ -135,8 +135,8 @@ find_dependency(Threads)
 
 # BRL-CAD bundled mesh/geometry libraries whose targets appear in
 # the exported link interface of librt.
-find_dependency(mmesh)
-find_dependency(manifold)
+find_dependency(mmesh CONFIG)
+find_dependency(manifold CONFIG)
 
 # Optional deps gated by the build-time feature flags
 if(@BRLCAD_HAVE_TCL@)
@@ -309,8 +309,14 @@ foreach(_lib
     bu bn bg bv nmg brep rt wdb ged analyze gcv icv dm fft optical pkg render
     tclcad qtcad)
   string(TOUPPER "${_lib}" _LIB)
-  if(TARGET BRLCAD::${_lib})
-    set(BRLCAD_${_LIB}_LIBRARY BRLCAD::${_lib})
+  set(_brlcad_compat_target)
+  if(_brlcad_want_static AND TARGET BRLCAD::${_lib}-static)
+    set(_brlcad_compat_target BRLCAD::${_lib}-static)
+  elseif(TARGET BRLCAD::${_lib})
+    set(_brlcad_compat_target BRLCAD::${_lib})
+  endif()
+  if(_brlcad_compat_target)
+    set(BRLCAD_${_LIB}_LIBRARY ${_brlcad_compat_target})
   endif()
   if(TARGET BRLCAD::${_lib}-static)
     set(BRLCAD_${_LIB}_STATIC_LIBRARY BRLCAD::${_lib}-static)
