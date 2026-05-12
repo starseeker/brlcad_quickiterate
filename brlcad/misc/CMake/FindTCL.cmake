@@ -518,8 +518,6 @@ if(TCL_ENABLE_TK)
           set(TK_WINDOWING_SYSTEM "x11")
         elseif("${_tkline}" MATCHES "-framework Cocoa|-framework AppKit")
           set(TK_WINDOWING_SYSTEM "aqua")
-        elseif(WIN32)
-          set(TK_WINDOWING_SYSTEM "win32")
         endif()
         if(NOT "${TK_WINDOWING_SYSTEM}" STREQUAL "${TK_WINDOWING_SYSTEM_NOTFOUND}"
            AND NOT "${TK_WINDOWING_SYSTEM}" STREQUAL "")
@@ -539,9 +537,12 @@ if(TCL_ENABLE_TK)
     # Fallback 2: inspect exported symbols in the Tk shared library via nm.
     # Fingerprints: Tk_GetHINSTANCE defined (win32), Tk_MacOSXSetEmbedHandler defined
     # (aqua), XOpenDisplay undefined/referenced (x11).
+    # The -D flag targets the ELF dynamic symbol table (Linux/Unix); on platforms where
+    # nm does not recognise -D (e.g. macOS), ERROR_QUIET suppresses the error and empty
+    # output falls through cleanly to fallback 3.
     if("${TK_WINDOWING_SYSTEM}" STREQUAL "${TK_WINDOWING_SYSTEM_NOTFOUND}"
        OR "${TK_WINDOWING_SYSTEM}" STREQUAL "")
-      find_program(_tk_nm_tool NAMES nm)
+      find_program(_tk_nm_tool NAMES nm NO_CACHE)
       if(_tk_nm_tool)
         execute_process(
           COMMAND "${_tk_nm_tool}" -D "${TK_LIBRARY}"
@@ -558,7 +559,7 @@ if(TCL_ENABLE_TK)
         endif()
         unset(_tk_nm_output)
       endif()
-      unset(_tk_nm_tool CACHE)
+      unset(_tk_nm_tool)
     endif()
 
     # Fallback 3: last-resort inference from CMake platform variables.
