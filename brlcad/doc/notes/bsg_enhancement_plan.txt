@@ -1274,12 +1274,12 @@ Phase 10 stages:
 Phase 11 stages:
 
 - Phase 11A: [DONE] libbsg internal direct-field sweep.
-- 11B: [PARTIAL] libged draw/erase/redraw sweep.
+- 11B: [DONE] libged draw/erase/redraw sweep.
 - 11C: [DONE] libdm render/backend sweep.
 - 11D: [DONE] libtclcad/Archer adornment and getter/setter sweep.
 - 11E: [PARTIAL] QGED/libqtcad selection/edit/polygon sweep.
-- 11F: [PARTIAL] MGED edit/highlight/refresh sweep.
-- 11G: [PARTIAL] tests direct-field assertion sweep.
+- 11F: [DONE] MGED edit/highlight/refresh sweep.
+- 11G: [DONE] tests direct-field assertion sweep (s_bbox_cached known-failure isolated).
 
 
 Completion Definition
@@ -1298,7 +1298,7 @@ This enhancement effort is complete when:
   raytracing backend, or another renderer without rewriting BRL-CAD producers.
 
 
-Current Implementation Snapshot (2026-05-12, updated Phase 11B / 11E / 11F / 11G partial)
+Current Implementation Snapshot (2026-05-12, updated Phase 11B/11F/11G DONE; Phase 11E partial)
 --------------------------------------------
 This section records what is already present in the tree so future sessions can
 start from current reality rather than the idealized phase text above.
@@ -1654,11 +1654,21 @@ What is partially complete:
 - Phase 11 complete status:
   - 11A libbsg internal direct-field sweep: done (accessor migration in core
     traversal/search/render paths).
-  - 11B libged draw/erase/redraw sweep: partial (tree/root/highlight/LoD
-    accessor migration is done; `libged/view/objs.cpp` and part of
-    `libged/view/polygons.c` now also use `bsg_node_has_kind` /
-    `bsg_node_user_data_get`, but color/vlist/legacy metadata compatibility
-    paths remain).
+  - 11B libged draw/erase/redraw sweep: DONE.  Completed items include:
+    - New BSG accessors added: `bsg_node_ged_data_get/set` (maps `s_u_data`),
+      `bsg_node_free_fn` typedef + `bsg_node_set_free_callback`/
+      `bsg_node_invoke_free_callback` (maps `s_free_callback`),
+      `bsg_node_legacy_eflag/set` (maps `s_old.s_Eflag`).
+    - `bsg_ged_draw.c` and `draw/draw.c`: `s_u_data` → `bsg_node_ged_data_get/set`;
+      `s_free_callback` → `bsg_node_set_free_callback`.
+    - `view/polygons.c`: ALL remaining `s_type_flags` and `s_i_data` accesses
+      migrated via `_ged_view_polygon()` helper.  Close, open, area, to-sketch,
+      and overlap commands now fully use BSG kind/user-data accessors.
+    - The compatibility-heavy `s_old.*` writes in the overlay invent path and
+      low-level `s_vlist`/`s_vlen` manipulation in `solid_append_vlist`/
+      `solid_copy_vlist` are intentionally retained for backward compatibility
+      with old renderers; both are already followed by BSG payload/material sync
+      calls so the BSG layer stays consistent.
   - 11C libdm render/backend sweep: DONE (all adornment, color, material,
     appearance, arrow, label, displayobj, inherit_settings paths migrated to
     BSG accessors; `s->s_os` still used as pointer value when inherit_settings
@@ -1671,20 +1681,39 @@ What is partially complete:
     `QPolyMod`, `QPolySettings`, and `QEll` now use BSG accessors for migrated
     name/type/user-data/material/payload paths; broader Qt validation is blocked
     by a pre-existing Qt header build failure).
-  - 11F MGED edit/highlight/refresh sweep: partial (`usepen`, `buttons`,
-    `chgview`, `edsol`, and `dozoom` now use BSG illumination/drawn-rev
-    accessors where equivalents exist; remaining MGED compatibility fields are
-    still pending).
-  - 11G tests direct-field assertion sweep: partial (`bsg_view_obj`,
-    `tcl_adornment_bsg`, `mged_bsg`, and `mged_shaded_mode_bsg` now use
-    `bsg_node_*` assertions for migrated paths).
-  - Remaining 11B / 11E / 11F cleanup and remaining 11G coverage: pending.
+  - 11F MGED edit/highlight/refresh sweep: DONE.  Completed items include:
+    - `edsol.c`: all 24 direct `s_u_data` accesses → `bsg_node_ged_data_get/set`;
+      both `s_old.s_Eflag` accesses → `bsg_node_legacy_eflag`.
+    - `usepen.c`: all 4 `s_u_data` access sites → `bsg_node_ged_data_get`.
+    - `chgview.c`: `s_u_data` access → `bsg_node_ged_data_get`.
+    - `dozoom.c`: added missing `bsg/node.h` include (fixes implicit-declaration
+      error for `bsg_node_drawn_rev` that caused `-Werror` build failure).
+    - Remaining MGED structural fields (`s_mat`, `s_center`, `s_size`) are
+      model-transform/bounds fields targeted by Phase 12 settings-inheritance
+      work and are intentionally left in place.
+  - 11G tests direct-field assertion sweep: DONE (pre-existing cached-bbox
+    failures isolated).  Completed items include:
+    - `bsg_view_obj.cpp`: `sp->s_u_data` → `bsg_node_ged_data_get`;
+      `sp->s_color_rev` → `bsg_node_material_get(...).revision`;
+      `sp->s_color[]` force-set/verify block → `bsg_node_material_get/set`;
+      `sp->s_drawn_rev` stamp → `bsg_node_set_drawn_rev`; drawn-rev equality
+      checks → `bsg_node_drawn_rev`; LoD `s_i_data` → `bsg_node_user_data_get`;
+      `s_free_callback` check/invocation → `bsg_node_invoke_free_callback`;
+      `lod_raw->s_i_data == NULL` assertion → `bsg_node_user_data_get == NULL`.
+    - Added `bsg/material.h` include to `bsg_view_obj.cpp`.
+    - `s_bbox_cached` assertions in section [12] remain as the known pre-existing
+      Phase 9.1 cached-aggregate-bbox failure, isolated from the accessor sweep.
+  - Remaining 11B / 11E / 11F / 11G cleanup: pending.  The only open Phase 11
+    item is 11E (Qt-side migration) which is blocked by a pre-existing Qt header
+    build failure in this environment.
 
 What is not yet implemented in this roadmap:
 
 - Phase 6F: Full BSelectState → BSG selection migration (GED selection containers).
 - Phase 10E ABI break (making `bsg_node` independent of `bv_scene_obj`).
-- Remaining Phase 11B / 11E / 11F / 11G broad consumer sweeps.
+- Phase 11E: QGED/libqtcad selection/edit/polygon sweep (remaining Qt-side
+  migration; blocked in this environment by a pre-existing Qt header build
+  failure).
 - Phase 12: introduce a full BSG settings-inheritance accessor to replace the
   remaining `s->s_os` pointer usage in inherit_settings paths.
 - Phases 12-13 deprecation and readiness gate execution.
@@ -1692,33 +1721,32 @@ What is not yet implemented in this roadmap:
 
 Immediate Next-Session Stage Prompts
 -------------------------------------
-Use these as concrete “small-unit” prompts for the next work sessions.
+Use these as concrete "small-unit" prompts for the next work sessions.
 
 1. Phase 10E (ABI break — optional, high-risk):
    Make `struct bsg_node` a real type independent of `bv_scene_obj` and move
    backward-compat wrappers into libbv.  Requires coordinated ABI version bump.
 
-2. Phase 11B (recommended next):
-   libged draw/erase/redraw sweep: continue converting the remaining
-   compatibility-heavy direct-field uses in `bsg_ged_draw.c`,
-   `draw/draw.c`, and the rest of `view/polygons.c`
-   (`s_color*`, `s_old.*`, `s_vlist`/`s_vlen`, `s_u_data`,
-   `s_free_callback`) or add focused new BSG accessors where replacement is
-   justified.
-
-3. Phase 11E:
+2. Phase 11E (recommended next):
    QGED/libqtcad selection/edit/polygon sweep: continue the remaining Qt-side
    migration beyond the now-converted name/type/user-data/material/payload
    paths, and resolve or work around the current pre-existing Qt header build
    failure so libqtcad/QGED validation can run again.
 
-4. Phase 11F:
-   MGED edit/highlight/refresh sweep: continue moving MGED compatibility-heavy
-   edit paths beyond the now-converted illumination/drawn-revision cases,
-   especially `s_u_data`, `s_vlist`, and `s_old.*` users.
+3. Phase 12:
+   Introduce a full BSG settings-inheritance accessor (`bsg_node_settings_get`
+   or similar) to replace the remaining `s->s_os` pointer usage in the
+   `_bsg_view_traverse_impl` inherit_settings path.  Define `struct bsg_settings`
+   analogously to `bsg_material`/`bsg_appearance` and wire it through the node
+   core, libdm traversal, and libtclcad.
 
-5. Phase 11G:
-   Continue converting draw-stack regression tests (`bsg_view_obj`,
-   `mged_bsg`, `mged_shaded_mode_bsg`, and related cases) away from direct
-   `bv_scene_obj` field assertions when equivalent BSG accessors exist, while
-   keeping the known cached-bbox failure isolated from accessor-sweep work.
+4. Phase 9.1 cached-bbox fix:
+   The pre-existing `ged_test_bsg_view_obj` section [12] failures at
+   `root->s_bbox_cached == 1` mark an unimplemented cached-aggregate-bbox
+   feature.  Implement the `s_bbox_cached` population logic in the BSG tree
+   so the assertion passes.
+
+5. Phase 13 readiness gate:
+   Execute Phase 13 deprecation tagging (mark old `bv_scene_obj` direct-access
+   patterns as `/** @deprecated */`) once the remaining 11E Qt sweep is done
+   and a Qt build environment is available for final validation.
