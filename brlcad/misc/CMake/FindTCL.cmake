@@ -606,6 +606,9 @@ if(TCL_ENABLE_TK)
         # Normalise to lowercase so the patterns work regardless of how the tool
         # capitalises DLL names (dumpbin may print GDI32.dll or gdi32.dll).
         string(TOLOWER "${_tk_sym_output}" _tk_sym_lc)
+        # x11\\.dll  - matches a standalone "x11.dll" entry (dot escaped to be literal).
+        # cygx11     - prefix-matches "cygx11-6.dll" (Cygwin X11 DLL).
+        # libx11     - prefix-matches "libx11.dll" / "libx11-6.dll" (MinGW X11 DLL).
         if("${_tk_sym_lc}" MATCHES "x11\\.dll|cygx11|libx11")
           set(TK_WINDOWING_SYSTEM "x11")
         elseif("${_tk_sym_lc}" MATCHES "gdi32|user32")
