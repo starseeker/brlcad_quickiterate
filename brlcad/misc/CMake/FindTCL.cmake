@@ -497,6 +497,84 @@ if(TCL_ENABLE_TK)
     endif()
   endif()
 
+  # Headless fallbacks: when the wish probe could not determine the windowing system
+  # (no active display, wish not available, etc.), try static analysis of the Tk library.
+  if(TK_LIBRARY
+     AND ("${TK_WINDOWING_SYSTEM}" STREQUAL "${TK_WINDOWING_SYSTEM_NOTFOUND}"
+          OR "${TK_WINDOWING_SYSTEM}" STREQUAL ""))
+
+    # Fallback 1: parse tkConfig.sh - Tk always installs this alongside the library.
+    # TK_XLIBSW and TK_LIBS record the X/platform libraries the build was linked against.
+    get_filename_component(_tk_lib_dir "${TK_LIBRARY}" DIRECTORY)
+    foreach(_tkconfig IN ITEMS
+        "${_tk_lib_dir}/tkConfig.sh"
+        "${_tk_lib_dir}/../lib/tkConfig.sh")
+      if(NOT EXISTS "${_tkconfig}")
+        continue()
+      endif()
+      file(STRINGS "${_tkconfig}" _tkconfig_lines REGEX "^TK_XLIBSW=|^TK_LIBS=")
+      foreach(_tkline IN LISTS _tkconfig_lines)
+        if("${_tkline}" MATCHES "-lX11")
+          set(TK_WINDOWING_SYSTEM "x11")
+        elseif("${_tkline}" MATCHES "-framework Cocoa|-framework AppKit")
+          set(TK_WINDOWING_SYSTEM "aqua")
+        elseif(WIN32)
+          set(TK_WINDOWING_SYSTEM "win32")
+        endif()
+        if(NOT "${TK_WINDOWING_SYSTEM}" STREQUAL "${TK_WINDOWING_SYSTEM_NOTFOUND}"
+           AND NOT "${TK_WINDOWING_SYSTEM}" STREQUAL "")
+          break()
+        endif()
+      endforeach()
+      unset(_tkconfig_lines)
+      unset(_tkline)
+      if(NOT "${TK_WINDOWING_SYSTEM}" STREQUAL "${TK_WINDOWING_SYSTEM_NOTFOUND}"
+         AND NOT "${TK_WINDOWING_SYSTEM}" STREQUAL "")
+        break()
+      endif()
+    endforeach()
+    unset(_tk_lib_dir)
+    unset(_tkconfig)
+
+    # Fallback 2: inspect exported symbols in the Tk shared library via nm.
+    # Fingerprints: Tk_GetHINSTANCE defined (win32), Tk_MacOSXSetEmbedHandler defined
+    # (aqua), XOpenDisplay undefined/referenced (x11).
+    if("${TK_WINDOWING_SYSTEM}" STREQUAL "${TK_WINDOWING_SYSTEM_NOTFOUND}"
+       OR "${TK_WINDOWING_SYSTEM}" STREQUAL "")
+      find_program(_tk_nm_tool NAMES nm)
+      if(_tk_nm_tool)
+        execute_process(
+          COMMAND "${_tk_nm_tool}" -D "${TK_LIBRARY}"
+          OUTPUT_VARIABLE _tk_nm_output
+          ERROR_QUIET
+          OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        if("${_tk_nm_output}" MATCHES "Tk_GetHINSTANCE|Tk_GetHWND")
+          set(TK_WINDOWING_SYSTEM "win32")
+        elseif("${_tk_nm_output}" MATCHES "Tk_MacOSXSetEmbedHandler|TkMacOSXGetDrawablePort")
+          set(TK_WINDOWING_SYSTEM "aqua")
+        elseif("${_tk_nm_output}" MATCHES " U XOpenDisplay")
+          set(TK_WINDOWING_SYSTEM "x11")
+        endif()
+        unset(_tk_nm_output)
+      endif()
+      unset(_tk_nm_tool CACHE)
+    endif()
+
+    # Fallback 3: last-resort inference from CMake platform variables.
+    if("${TK_WINDOWING_SYSTEM}" STREQUAL "${TK_WINDOWING_SYSTEM_NOTFOUND}"
+       OR "${TK_WINDOWING_SYSTEM}" STREQUAL "")
+      if(WIN32)
+        set(TK_WINDOWING_SYSTEM "win32")
+      elseif(APPLE)
+        set(TK_WINDOWING_SYSTEM "aqua")
+      else()
+        set(TK_WINDOWING_SYSTEM "x11")
+      endif()
+    endif()
+
+  endif()
+
   # IFF we have TCL_TK_SYSTEM_GRAPHICS set and have a system TK_WISH, check that the
   # windowing system matches the specified type
   if(NOT "${TCL_TK_SYSTEM_GRAPHICS}" STREQUAL "" AND TK_WISH AND NOT TARGET "${TK_WISH}")
