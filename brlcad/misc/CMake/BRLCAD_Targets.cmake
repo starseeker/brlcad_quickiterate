@@ -444,8 +444,7 @@ function(BRLCAD_ADD_STATIC_LINK_TEST libstatic)
     return()
   endif(NOT TARGET ${libstatic})
 
-  set(_link_test_src "${BRLCAD_BINARY_DIR}/CMakeTmp/brlcad_static_link_test_main.cpp")
-  file(CONFIGURE OUTPUT "${_link_test_src}" CONTENT "int main() { return 0; }\n")
+  set(_link_test_src "${BRLCAD_CMAKE_DIR}/static_link_test_main.cpp")
 
   set(_link_test "${libstatic}-static-link-test")
   if(TARGET ${_link_test})
