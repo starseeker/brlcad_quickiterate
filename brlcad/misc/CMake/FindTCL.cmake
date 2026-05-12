@@ -472,7 +472,10 @@ if(TCL_ENABLE_TK)
       "
       set filename \"${CMAKE_BINARY_DIR}/CMakeTmp/TK_WINDOWINGSYSTEM\"
       set fileId [open $filename \"w\"]
-      set windowingsystem [tk windowingsystem]
+      set windowingsystem \"wm-NOTFOUND\"
+      if {![catch {tk windowingsystem} tkwm]} {
+        set windowingsystem $tkwm
+      }
       puts $fileId $windowingsystem
       close $fileId
       exit
@@ -480,7 +483,11 @@ if(TCL_ENABLE_TK)
     )
     set(tkwin_scriptfile "${CMAKE_BINARY_DIR}/CMakeTmp/tk_windowingsystem.tcl")
     file(WRITE ${tkwin_scriptfile} ${tkwin_script})
-    execute_process(COMMAND ${TK_WISH} ${tkwin_scriptfile} OUTPUT_VARIABLE EXECOUTPUT)
+    execute_process(
+      COMMAND ${TK_WISH} ${tkwin_scriptfile}
+      OUTPUT_QUIET
+      ERROR_QUIET
+    )
     if(EXISTS "${CMAKE_BINARY_DIR}/CMakeTmp/TK_WINDOWINGSYSTEM")
       file(READ "${CMAKE_BINARY_DIR}/CMakeTmp/TK_WINDOWINGSYSTEM" readresultvar)
       string(REGEX REPLACE "\n" "" TK_WINDOWING_SYSTEM "${readresultvar}")
@@ -494,7 +501,11 @@ if(TCL_ENABLE_TK)
   if(NOT "${TCL_TK_SYSTEM_GRAPHICS}" STREQUAL "" AND TK_WISH AND NOT TARGET "${TK_WISH}")
     # If we have no information about the windowing system or it does not match
     # a specified system, the find_package detection has failed
-    if(NOT "${TK_WINDOWING_SYSTEM}" STREQUAL "${TCL_TK_SYSTEM_GRAPHICS}")
+    if(
+      NOT "${TK_WINDOWING_SYSTEM}" STREQUAL "wm-NOTFOUND"
+      AND NOT "${TK_WINDOWING_SYSTEM}" STREQUAL ""
+      AND NOT "${TK_WINDOWING_SYSTEM}" STREQUAL "${TCL_TK_SYSTEM_GRAPHICS}"
+    )
       unset(TCL_LIBRARY CACHE)
       unset(TCL_STUB_LIBRARY CACHE)
       unset(TK_LIBRARY CACHE)
