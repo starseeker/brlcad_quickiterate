@@ -433,8 +433,10 @@ function(BRLCAD_ADD_STATIC_LINK_TEST libstatic)
   if(NOT BRLCAD_VALIDATE_STATIC_LINKS)
     return()
   endif(NOT BRLCAD_VALIDATE_STATIC_LINKS)
-  # Both raw link items are needed to bracket exactly one archive on the
-  # executable link line; partial availability cannot produce a safe test.
+  # Require both raw link items as an inseparable pair: one enables whole
+  # archive resolution before libstatic, and the other disables it before
+  # following dependencies.  If either item is missing, the link test would
+  # over- or under-apply whole-archive behavior and is skipped.
   if(NOT BRLCAD_LINKER_WHOLE_ARCHIVE_LINK_ITEM OR NOT BRLCAD_LINKER_NO_WHOLE_ARCHIVE_LINK_ITEM)
     return()
   endif()

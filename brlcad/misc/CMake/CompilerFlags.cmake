@@ -124,7 +124,8 @@ if(NOT COMMAND CHECK_COMPILER_FLAG)
   endmacro(CHECK_COMPILER_FLAG LANG NEW_FLAG RESULTVAR)
 endif(NOT COMMAND CHECK_COMPILER_FLAG)
 
-# This function tests for a specified C or C++ linker flag.
+# Purpose: test one linker flag using CMake's check_linker_flag helper and
+# return the supported/unsupported result to the caller.
 #   FLAG_LANG - C or CXX
 #   NEW_FLAG  - CMake LINK_OPTIONS spelling, for example LINKER:--no-undefined
 #   RESULTVAR - parent-scope variable receiving the boolean test result
