@@ -31,6 +31,7 @@
 #include "bu/cmd.h"
 #include "bu/str.h"
 #include "dm.h"
+#include "bsg/settings.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
 
@@ -67,16 +68,19 @@ how_solid_cb(struct bv_scene_obj *sp, void *userdata)
 
     /* found a match */
     data->found = 1;
-    if (sp->s_os->s_dmode == 4) {
+    /* Phase 12: read draw mode/transparency via BSG settings accessor. */
+    struct bsg_settings sinfo;
+    bsg_node_settings_get((const bsg_node *)sp, &sinfo);
+    if (sinfo.draw_mode == 4) {
 	if (data->both)
 	    bu_vls_printf(data->vls, "%d 1", _GED_HIDDEN_LINE);
 	else
 	    bu_vls_printf(data->vls, "%d", _GED_HIDDEN_LINE);
     } else {
 	if (data->both)
-	    bu_vls_printf(data->vls, "%d %g", sp->s_os->s_dmode, sp->s_os->transparency);
+	    bu_vls_printf(data->vls, "%d %g", sinfo.draw_mode, sinfo.transparency);
 	else
-	    bu_vls_printf(data->vls, "%d", sp->s_os->s_dmode);
+	    bu_vls_printf(data->vls, "%d", sinfo.draw_mode);
     }
 
     return 0; /* stop iteration */

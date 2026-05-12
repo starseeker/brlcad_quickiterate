@@ -62,6 +62,7 @@
 #include "bsg/util.h"
 #include "bsg/draw_set.h"
 #include "bsg/lod_ops.h"
+#include "bsg/settings.h"
 
 #include "./dbi.h"
 
@@ -3094,8 +3095,17 @@ BViewState::scene_obj(
 	sp->s_color[2] = vs->color[2];
     }
 
-    // Set drawing mode
-    sp->s_os->s_dmode = curr_mode;
+    // Phase 12: set drawing mode/line width/transparency via BSG settings accessor.
+    {
+	struct bsg_settings sinfo;
+	bsg_node_settings_get((const bsg_node *)sp, &sinfo);
+	sinfo.draw_mode = curr_mode;
+	if (vs && vs->s_line_width)
+	    sinfo.line_width = vs->s_line_width;
+	if (vs)
+	    sinfo.transparency = (fastf_t)vs->transparency;
+	bsg_node_settings_set((bsg_node *)sp, &sinfo);
+    }
 
     // Tell scene object what the current matrix is
     if (m) {
@@ -3135,16 +3145,13 @@ BViewState::scene_obj(
         }
     }
 
-    // Set line width, if the user specified a non-default value
-    if (vs && vs->s_line_width)
-	sp->s_os->s_line_width = vs->s_line_width;
-
-    // Set transparency
-    if (vs)
-	sp->s_os->transparency = vs->transparency;
-
     dbis->print_path(&sp->s_name, path_hashes);
-    s_map[phash][sp->s_os->s_dmode] = sp;
+    /* Phase 12: read draw mode back from BSG settings for the s_map key. */
+    {
+	struct bsg_settings _kinfo;
+	bsg_node_settings_get((const bsg_node *)sp, &_kinfo);
+	s_map[phash][_kinfo.draw_mode] = sp;
+    }
     s_keys[phash] = path_hashes;
 
     /* Phase B-full: the leaf is allocated via bv_obj_get_unregistered so it

@@ -22,6 +22,7 @@ set(
   scene_graph.cpp
   selection.c
   sensor.c
+  settings.c
   view_scope.c
   visit.c
   vlist.c
@@ -64,6 +65,7 @@ cmakefiles(
   render.c
   selection.c
   sensor.c
+  settings.c
   view_scope.c
   visit.c
 )
