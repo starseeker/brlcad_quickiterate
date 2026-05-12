@@ -45,7 +45,9 @@ endif(BRLCAD_ENABLE_OPENGL)
 set(DM_LOCAL_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${PNG_INCLUDE_DIRS} ${BRLCAD_SOURCE_DIR}/src/libbg)
 
 # Note - libdm_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
-brlcad_addlib(libdm "${LIBDM_SRCS}" "${libdm_deps};${PNG_LIBRARIES}" "${DM_INCLUDE_DIRS}" "${DM_LOCAL_INCLUDE_DIRS}"
+brlcad_addlib(libdm "${LIBDM_SRCS}" "" "${DM_INCLUDE_DIRS}" "${DM_LOCAL_INCLUDE_DIRS}"
+  PUBLIC_LIBS ${libdm_deps}
+  PRIVATE_LIBS PNG::PNG ${PNG_LIBRARIES}
   UNITY_BUILD_SKIP dm_init.cpp
   )
 set_target_properties(libdm PROPERTIES VERSION 20.0.1 SOVERSION 20)
@@ -73,7 +75,9 @@ if(BRLCAD_ENABLE_OPENGL)
     set(OPENGL_LIBS ${OPENGL_gl_LIBRARY})
   endif(OPENGL_gl_LIBRARY)
 
-  brlcad_addlib(libdmgl "${LIBDMGL_SRCS}" "libdm;libbn;libbu;${OPENGL_LIBS}" "${DM_INCLUDE_DIRS}" "")
+  brlcad_addlib(libdmgl "${LIBDMGL_SRCS}" "" "${DM_INCLUDE_DIRS}" ""
+    PRIVATE_LIBS libdm libbn libbu ${OPENGL_LIBS}
+  )
   set_target_properties(libdmgl PROPERTIES VERSION 20.0.1 SOVERSION 20)
 endif(BRLCAD_ENABLE_OPENGL)
 
