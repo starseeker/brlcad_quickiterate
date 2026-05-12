@@ -46,6 +46,7 @@ struct bsg_appearance {
     int inherit_settings;
     fastf_t arrow_tip_length;
     fastf_t arrow_tip_width;
+    int draw_arrows;           /* non-zero: draw arrow heads on line endpoints */
     int draw_solid_lines_only;
     int draw_non_subtract_only;
 };

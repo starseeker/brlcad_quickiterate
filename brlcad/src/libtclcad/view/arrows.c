@@ -26,6 +26,10 @@
 
 #include "common.h"
 #include "bu/units.h"
+#include "bsg/appearance.h"
+#include "bsg/material.h"
+#include "bsg/node.h"
+#include "bsg/payload.h"
 #include "bv/vlist.h"
 #include "ged.h"
 #include "tclcad.h"
@@ -163,12 +167,18 @@ to_data_arrows_func(Tcl_Interp *interp,
 
     if (BU_STR_EQUAL(argv[1], "color")) {
 	if (argc == 2) {
-	    /* T3: read color from BSG object. */
+	    /* Phase 11D (T3): read color from BSG material. */
 	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
-	    if (_s)
-		bu_vls_printf(gedp->ged_result_str, "%d %d %d",
-			      (int)_s->s_color[0], (int)_s->s_color[1], (int)_s->s_color[2]);
-	    else
+	    if (_s) {
+		struct bsg_material _mat;
+		bsg_node_material_get((const bsg_node *)_s, &_mat);
+		if (_mat.use_override_color)
+		    bu_vls_printf(gedp->ged_result_str, "%d %d %d",
+				  (int)_mat.override_rgb[0], (int)_mat.override_rgb[1], (int)_mat.override_rgb[2]);
+		else
+		    bu_vls_printf(gedp->ged_result_str, "%d %d %d",
+				  (int)_mat.rgba[0], (int)_mat.rgba[1], (int)_mat.rgba[2]);
+	    } else
 		bu_vls_printf(gedp->ged_result_str, "0 0 0");
 	    return BRLCAD_OK;
 	}
@@ -202,11 +212,13 @@ to_data_arrows_func(Tcl_Interp *interp,
 
     if (BU_STR_EQUAL(argv[1], "line_width")) {
 	if (argc == 2) {
-	    /* T3: read line_width from BSG object settings. */
+	    /* Phase 11D (T3): read line_width from BSG appearance. */
 	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
-	    if (_s && _s->s_os)
-		bu_vls_printf(gedp->ged_result_str, "%d", _s->s_os->s_line_width);
-	    else
+	    if (_s) {
+		struct bsg_appearance _app;
+		bsg_node_appearance_get((const bsg_node *)_s, &_app);
+		bu_vls_printf(gedp->ged_result_str, "%d", _app.line_width);
+	    } else
 		bu_vls_printf(gedp->ged_result_str, "0");
 	    return BRLCAD_OK;
 	}
@@ -233,12 +245,18 @@ to_data_arrows_func(Tcl_Interp *interp,
 	register int i;
 
 	if (argc == 2) {
-	    /* T3: read points from BSG vlist. */
+	    /* Phase 11D (T3): read points from BSG payload or vlist. */
 	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
 	    if (_s) {
+		struct bu_list *_vhead = &_s->s_vlist;
+		struct bsg_payload *_pl = bsg_node_payload_get((const bsg_node *)_s);
+		if (_pl && bsg_payload_type(_pl) == BSG_PAYLOAD_TYPE_VLIST) {
+		    struct bu_list *_ph = bsg_payload_vlist_head(_pl);
+		    if (_ph) _vhead = _ph;
+		}
 		struct bv_vlist *_vp;
 		size_t _j;
-		for (BU_LIST_FOR(_vp, bv_vlist, &_s->s_vlist)) {
+		for (BU_LIST_FOR(_vp, bv_vlist, _vhead)) {
 		    for (_j = 0; _j < (size_t)_vp->nused; _j++) {
 			bu_vls_printf(gedp->ged_result_str, " {%lf %lf %lf} ",
 				      V3ARGS(_vp->pt[_j]));
@@ -302,11 +320,13 @@ to_data_arrows_func(Tcl_Interp *interp,
 
     if (BU_STR_EQUAL(argv[1], "tip_length")) {
 	if (argc == 2) {
-	    /* T3: read tip_length from BSG object settings. */
+	    /* Phase 11D (T3): read tip_length from BSG appearance. */
 	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
-	    if (_s && _s->s_os)
-		bu_vls_printf(gedp->ged_result_str, "%d", (int)_s->s_os->s_arrow_tip_length);
-	    else
+	    if (_s) {
+		struct bsg_appearance _app;
+		bsg_node_appearance_get((const bsg_node *)_s, &_app);
+		bu_vls_printf(gedp->ged_result_str, "%d", (int)_app.arrow_tip_length);
+	    } else
 		bu_vls_printf(gedp->ged_result_str, "0");
 	    return BRLCAD_OK;
 	}
@@ -317,11 +337,13 @@ to_data_arrows_func(Tcl_Interp *interp,
 	    if (bu_sscanf(argv[2], "%d", &tip_length) != 1)
 		goto bad;
 
-	    /* T3: update BSG object in-place (no gv_tcl write). */
+	    /* Phase 11D (T3): update arrow tip length via BSG appearance setter. */
 	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
-	    if (_s && _s->s_os) {
-		_s->s_os->s_arrow_tip_length = (fastf_t)tip_length;
-		bv_obj_stale(_s);
+	    if (_s) {
+		struct bsg_appearance _app;
+		bsg_node_appearance_get((const bsg_node *)_s, &_app);
+		_app.arrow_tip_length = (fastf_t)tip_length;
+		bsg_node_appearance_set((bsg_node *)_s, &_app);
 	    }
 
 	    to_refresh_view(gdvp);
@@ -333,11 +355,13 @@ to_data_arrows_func(Tcl_Interp *interp,
 
     if (BU_STR_EQUAL(argv[1], "tip_width")) {
 	if (argc == 2) {
-	    /* T3: read tip_width from BSG object settings. */
+	    /* Phase 11D (T3): read tip_width from BSG appearance. */
 	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
-	    if (_s && _s->s_os)
-		bu_vls_printf(gedp->ged_result_str, "%d", (int)_s->s_os->s_arrow_tip_width);
-	    else
+	    if (_s) {
+		struct bsg_appearance _app;
+		bsg_node_appearance_get((const bsg_node *)_s, &_app);
+		bu_vls_printf(gedp->ged_result_str, "%d", (int)_app.arrow_tip_width);
+	    } else
 		bu_vls_printf(gedp->ged_result_str, "0");
 	    return BRLCAD_OK;
 	}
@@ -348,11 +372,13 @@ to_data_arrows_func(Tcl_Interp *interp,
 	    if (bu_sscanf(argv[2], "%d", &tip_width) != 1)
 		goto bad;
 
-	    /* T3: update BSG object in-place (no gv_tcl write). */
+	    /* Phase 11D (T3): update arrow tip width via BSG appearance setter. */
 	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
-	    if (_s && _s->s_os) {
-		_s->s_os->s_arrow_tip_width = (fastf_t)tip_width;
-		bv_obj_stale(_s);
+	    if (_s) {
+		struct bsg_appearance _app;
+		bsg_node_appearance_get((const bsg_node *)_s, &_app);
+		_app.arrow_tip_width = (fastf_t)tip_width;
+		bsg_node_appearance_set((bsg_node *)_s, &_app);
 	    }
 
 	    to_refresh_view(gdvp);

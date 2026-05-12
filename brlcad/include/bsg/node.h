@@ -116,6 +116,16 @@ BSG_EXPORT extern void
 bsg_node_set_legacy_illum(bsg_node *n, int illuminated);
 
 /**
+ * Return non-zero when @p n is a display-space-coordinate object.
+ *
+ * Maps to the legacy bv_scene_obj::s_displayobj flag.  Objects with this flag
+ * set contain vertices already expressed in display/screen coordinates rather
+ * than model space; bounds-based culling is suppressed for them.
+ */
+BSG_EXPORT extern int
+bsg_node_is_display_obj(const bsg_node *n);
+
+/**
  * Return the per-frame draw revision stamp for @p n.
  *
  * This value is set to the view's gv_frame_rev each time the node is

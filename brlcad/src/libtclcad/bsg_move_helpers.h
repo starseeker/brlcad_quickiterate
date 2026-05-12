@@ -37,6 +37,10 @@
 
 #include "vmath.h"
 #include "bu/malloc.h"
+#include "bsg/appearance.h"
+#include "bsg/material.h"
+#include "bsg/node.h"
+#include "bsg/payload.h"
 #include "bv/defines.h"
 #include "bv/vlist.h"
 #include "bv/util.h"
@@ -55,7 +59,8 @@ __BEGIN_DECLS
  * -------------------------------------------------------------------------- */
 
 /**
- * Extract a flat point_t array from the vlist of a BSG scene object.
+ * Extract a flat point_t array from the BSG payload vlist (or legacy s_vlist)
+ * of a BSG scene object.
  * On success, *pts_out points to a bu_calloc'd array of npts points.
  * Caller must bu_free(*pts_out, "bsg pts").
  * Returns the number of points extracted (0 if none or s is NULL).
@@ -65,17 +70,27 @@ _bsg_extract_pts(struct bv_scene_obj *s, point_t **pts_out)
 {
     if (!s || !pts_out) return 0;
 
+    /* Phase 11D: prefer BSG payload vlist; fall back to s_vlist for view
+     * objects that pre-date the payload API. */
+    struct bu_list *vhead = &s->s_vlist;
+    struct bsg_payload *payload = bsg_node_payload_get((const bsg_node *)s);
+    if (payload && bsg_payload_type(payload) == BSG_PAYLOAD_TYPE_VLIST) {
+	struct bu_list *ph = bsg_payload_vlist_head(payload);
+	if (ph)
+	    vhead = ph;
+    }
+
     /* Count points in vlist */
     int total = 0;
     struct bv_vlist *vp;
-    for (BU_LIST_FOR(vp, bv_vlist, &s->s_vlist))
+    for (BU_LIST_FOR(vp, bv_vlist, vhead))
 	total += vp->nused;
 
     if (total < 1) { *pts_out = NULL; return 0; }
 
     point_t *pts = (point_t *)bu_calloc(total, sizeof(point_t), "bsg pts");
     int k = 0;
-    for (BU_LIST_FOR(vp, bv_vlist, &s->s_vlist))
+    for (BU_LIST_FOR(vp, bv_vlist, vhead))
 	for (size_t j = 0; j < (size_t)vp->nused; j++)
 	    VMOVE(pts[k++], vp->pt[j]);
 
@@ -153,9 +168,14 @@ _bsg_rebuild_arrows(struct bview *v,
     if (color)
 	bv_view_obj_set_color(ns, color[0], color[1], color[2]);
     bv_view_obj_set_line_width(ns, lw);
-    if (ns->s_os) {
-	ns->s_os->s_arrow_tip_length = (fastf_t)tip_len;
-	ns->s_os->s_arrow_tip_width  = (fastf_t)tip_wid;
+    /* Phase 11D: set arrow tip dimensions via BSG appearance. */
+    {
+	struct bsg_appearance _app;
+	bsg_node_appearance_get((const bsg_node *)ns, &_app);
+	_app.arrow_tip_length = (fastf_t)tip_len;
+	_app.arrow_tip_width  = (fastf_t)tip_wid;
+	_app.draw_arrows = 1;
+	bsg_node_appearance_set((bsg_node *)ns, &_app);
     }
     bv_view_obj_set_visible(ns, visible);
 }
@@ -239,6 +259,9 @@ _bsg_rebuild_axes(struct bview *v,
 /**
  * Read display style fields from an existing BSG scene object into caller-
  * supplied output variables.  Safe to call with a NULL @p s (fills defaults).
+ *
+ * Phase 11D: reads color via BSG material, line width / arrow tip dimensions
+ * via BSG appearance, and visibility via bsg_node_visible().
  */
 _BSG_HELPER_STATIC void
 _bsg_read_style(struct bv_scene_obj *s,
@@ -258,18 +281,27 @@ _bsg_read_style(struct bv_scene_obj *s,
     if (!s) return;
 
     if (color_out) {
-	color_out[0] = (int)s->s_color[0];
-	color_out[1] = (int)s->s_color[1];
-	color_out[2] = (int)s->s_color[2];
+	struct bsg_material _mat;
+	bsg_node_material_get((const bsg_node *)s, &_mat);
+	if (_mat.use_override_color) {
+	    color_out[0] = (int)_mat.override_rgb[0];
+	    color_out[1] = (int)_mat.override_rgb[1];
+	    color_out[2] = (int)_mat.override_rgb[2];
+	} else {
+	    color_out[0] = (int)_mat.rgba[0];
+	    color_out[1] = (int)_mat.rgba[1];
+	    color_out[2] = (int)_mat.rgba[2];
+	}
     }
-    if (lw_out && s->s_os)
-	*lw_out = s->s_os->s_line_width;
-    if (tip_len_out && s->s_os)
-	*tip_len_out = (int)s->s_os->s_arrow_tip_length;
-    if (tip_wid_out && s->s_os)
-	*tip_wid_out = (int)s->s_os->s_arrow_tip_width;
+    {
+	struct bsg_appearance _app;
+	bsg_node_appearance_get((const bsg_node *)s, &_app);
+	if (lw_out)      *lw_out      = _app.line_width;
+	if (tip_len_out) *tip_len_out = (int)_app.arrow_tip_length;
+	if (tip_wid_out) *tip_wid_out = (int)_app.arrow_tip_width;
+    }
     if (visible_out)
-	*visible_out = (s->s_flag == UP) ? 1 : 0;
+	*visible_out = bsg_node_visible((const bsg_node *)s) ? 1 : 0;
 }
 
 __END_DECLS

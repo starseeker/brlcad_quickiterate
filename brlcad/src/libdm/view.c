@@ -118,14 +118,18 @@ dm_add_arrows(struct dm *dmp, struct bv_scene_obj *s)
 	    vhead = ph;
     }
 
+    struct bsg_appearance appearance;
+    bsg_node_appearance_get((const bsg_node *)s, &appearance);
+
     struct bv_vlist *vp = (struct bv_vlist *)vhead;
     struct bv_vlist *tvp;
     point_t A = VINIT_ZERO;
     point_t B = VINIT_ZERO;
     int pcnt = 0;
-    if (!s->s_arrow)
+    /* Phase 11C: route s_arrow flag through BSG appearance. */
+    if (!appearance.draw_arrows)
 	return;
-    if (NEAR_ZERO(s->s_os->s_arrow_tip_length, SMALL_FASTF) || NEAR_ZERO(s->s_os->s_arrow_tip_width, SMALL_FASTF))
+    if (NEAR_ZERO(appearance.arrow_tip_length, SMALL_FASTF) || NEAR_ZERO(appearance.arrow_tip_width, SMALL_FASTF))
        return;
     for (BU_LIST_FOR(tvp, bv_vlist, &vp->l)) {
 	int nused = tvp->nused;
@@ -138,7 +142,7 @@ dm_add_arrows(struct dm *dmp, struct bv_scene_obj *s)
 		    if (pcnt > 1) {
 			// We have a move and more than one point - add an arrow
 			// to the A -> B segment at B
-			dm_draw_arrow(dmp, A, B, s->s_os->s_arrow_tip_length, s->s_os->s_arrow_tip_width, 1.0);
+			dm_draw_arrow(dmp, A, B, appearance.arrow_tip_length, appearance.arrow_tip_width, 1.0);
 		    }
 		    VMOVE(B,*pt);
 		    break;
@@ -155,7 +159,7 @@ dm_add_arrows(struct dm *dmp, struct bv_scene_obj *s)
     }
     // Get the last pairing
     if (pcnt > 1)
-	dm_draw_arrow(dmp, A, B, s->s_os->s_arrow_tip_length, s->s_os->s_arrow_tip_width, 1.0);
+	dm_draw_arrow(dmp, A, B, appearance.arrow_tip_length, appearance.arrow_tip_width, 1.0);
 }
 
 void
@@ -303,10 +307,18 @@ dm_draw_faceplate(struct bview *v)
 void
 dm_draw_label(struct dm *dmp, struct bv_scene_obj *s)
 {
-    struct bv_label *l = (struct bv_label *)s->s_i_data;
+    struct bv_label *l = (struct bv_label *)bsg_node_user_data_get((const bsg_node *)s);
 
-    /* set color */
-    (void)dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2], 1, 1.0);
+    /* Phase 11C: resolve label color from BSG material. */
+    struct bsg_material material;
+    bsg_node_material_get((const bsg_node *)s, &material);
+    unsigned char r, g, b;
+    if (material.use_override_color) {
+	r = material.override_rgb[0]; g = material.override_rgb[1]; b = material.override_rgb[2];
+    } else {
+	r = material.rgba[0]; g = material.rgba[1]; b = material.rgba[2];
+    }
+    (void)dm_set_fg(dmp, r, g, b, 1, 1.0);
 
     point_t vpoint;
     MAT4X3PNT(vpoint, s->s_v->gv_model2view, l->p);
@@ -404,7 +416,9 @@ dm_draw_label(struct dm *dmp, struct bv_scene_obj *s)
     }
 
     if (l->arrow) {
-	dm_draw_arrow(dmp, mpt, l->target, s->s_os->s_arrow_tip_length, s->s_os->s_arrow_tip_width, 1.0);
+	struct bsg_appearance lappearance;
+	bsg_node_appearance_get((const bsg_node *)s, &lappearance);
+	dm_draw_arrow(dmp, mpt, l->target, lappearance.arrow_tip_length, lappearance.arrow_tip_width, 1.0);
     } else {
 	dm_draw_line_3d(dmp, mpt, l->target);
     }
@@ -430,12 +444,15 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	return;
 
     int do_force_draw = (force_draw || bsg_node_force_draw((const bsg_node *)s)) ? 1 : 0;
+
+    /* Phase 11C: unconditionally resolve material and appearance through BSG
+     * accessors; both fall back to legacy bv_scene_obj fields when no explicit
+     * BSG value has been set, so the returned structs are always valid. */
     struct bsg_material material;
     struct bsg_appearance appearance;
-    int have_material = bsg_node_material_get((const bsg_node *)s, &material);
-    int have_appearance = bsg_node_appearance_get((const bsg_node *)s, &appearance);
-    fastf_t obj_transparency = have_appearance ? appearance.transparency :
-	(have_material ? material.transparency : s->s_os->transparency);
+    bsg_node_material_get((const bsg_node *)s, &material);
+    bsg_node_appearance_get((const bsg_node *)s, &appearance);
+    fastf_t obj_transparency = appearance.transparency;
 
     /* Phase 1 (BSG render contract): transparency-pass filter.  Note we
      * *do* still recurse into children — a non-leaf scene-obj may have
@@ -447,10 +464,11 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	pass_skip = 1;
 
     /* Phase 5 (BSG render contract): bound-flag size-based culling — skip
-     * very small geometry on a panning frame when the dm has set bound. */
+     * very small geometry on a panning frame when the dm has set bound.
+     * Phase 11C: route s_displayobj through bsg_node_is_display_obj. */
     if (!pass_skip
 	&& dm_get_bound_flag(dmp)
-	&& !s->s_displayobj
+	&& !bsg_node_is_display_obj((const bsg_node *)s)
 	&& bsg_node_has_kind((const bsg_node *)s, BSG_NODE_SHAPE)
 	&& v->gv_isize > 0
 	&& (s->s_size * v->gv_isize) < 0.001) {
@@ -481,34 +499,28 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
     if (obj_settings) {
 	dm_set_fg(dmp, obj_settings->color[0], obj_settings->color[1], obj_settings->color[2], 0, obj_settings->transparency);
     } else {
+	/* Phase 11C: resolve color from BSG material struct.  When no
+	 * explicit BSG material was set, bsg_node_material_get() already
+	 * mapped the legacy s_color/s_old.s_cflag/color_override fields
+	 * into the struct, so all colour paths are consolidated here. */
 	if (is_highlighted) {
 	    dm_set_fg(dmp, 255, 255, 255, 0, obj_transparency);
-	} else if (have_material) {
-	    if (material.use_override_color) {
-		dm_set_fg(dmp, material.override_rgb[0], material.override_rgb[1], material.override_rgb[2], 0, obj_transparency);
-	    } else if (material.use_geometry_default_color) {
-		unsigned char *gdc = dm_get_geometry_default_color(dmp);
-		dm_set_fg(dmp, gdc[0], gdc[1], gdc[2], 0, obj_transparency);
-	    } else {
-		dm_set_fg(dmp, material.rgba[0], material.rgba[1], material.rgba[2], 0, obj_transparency);
-	    }
-	} else if (s->s_os->color_override) {
-	    dm_set_fg(dmp, s->s_os->color[0], s->s_os->color[1], s->s_os->color[2], 0, s->s_os->transparency);
-	} else if (s->s_old.s_cflag) {
+	} else if (material.use_override_color) {
+	    dm_set_fg(dmp, material.override_rgb[0], material.override_rgb[1], material.override_rgb[2], 0, obj_transparency);
+	} else if (material.use_geometry_default_color) {
 	    unsigned char *gdc = dm_get_geometry_default_color(dmp);
-	    dm_set_fg(dmp, gdc[0], gdc[1], gdc[2], 0, s->s_os->transparency);
+	    dm_set_fg(dmp, gdc[0], gdc[1], gdc[2], 0, obj_transparency);
 	} else {
-	    dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2], 0, s->s_os->transparency);
+	    dm_set_fg(dmp, material.rgba[0], material.rgba[1], material.rgba[2], 0, obj_transparency);
 	}
     }
 
-    /* Phase 4 (BSG render contract): line-width fallback.  When the
-     * per-object override is zero (or negative), use the dm's current
-     * global linewidth so `set linewidth` propagates through. */
-    int lw = have_appearance ? appearance.line_width : s->s_os->s_line_width;
+    /* Phase 4 / Phase 11C (BSG render contract): line-width and dash style
+     * resolved unconditionally from BSG appearance (legacy fallback included). */
+    int lw = appearance.line_width;
     if (lw <= 0)
 	lw = dm_get_linewidth(dmp);
-    int soldash = have_appearance ? ((appearance.line_style == BSG_APPEARANCE_LINE_DASHED) ? 1 : 0) : s->s_soldash;
+    int soldash = (appearance.line_style == BSG_APPEARANCE_LINE_DASHED) ? 1 : 0;
     dm_set_line_attr(dmp, lw, soldash);
 
     /* Phase 6 (BSG render contract): if this object is illuminated (edit
@@ -687,9 +699,18 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	    continue;
 	}
 
-	_dm_draw_scene_obj_internal(dmp, s, v, bsg_node_force_draw((const bsg_node *)s),
-				    (s->s_inherit_settings) ? s->s_os : NULL,
+	/* Phase 11C: route s_inherit_settings flag through BSG appearance.
+	 * When inherit_settings is set, the current node's legacy s_os pointer
+	 * is passed as the obj_settings override for all children.  s->s_os is
+	 * still legacy storage for the actual settings struct; routing the flag
+	 * through BSG enables producers to set it via bsg_node_appearance_set. */
+	{
+	    struct bsg_appearance _node_app;
+	    bsg_node_appearance_get((const bsg_node *)s, &_node_app);
+	    _dm_draw_scene_obj_internal(dmp, s, v, bsg_node_force_draw((const bsg_node *)s),
+				    _node_app.inherit_settings ? s->s_os : NULL,
 				    transparency_pass, cur_mat);
+	}
     }
 }
 
@@ -768,31 +789,25 @@ _dm_rop_set_material(void *data, bsg_node *node,
 {
     struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
     struct dm *dmp = ctx->dmp;
-    struct bv_scene_obj *s = (struct bv_scene_obj *)node;
 
+    /* Phase 11C: use the material struct unconditionally.  The render action
+     * always provides a valid mat pointer (filled via bsg_node_material_get
+     * with legacy fallback), so have_material only indicates whether an
+     * explicit BSG material was set; we don't need to branch on it here. */
     if (is_highlighted) {
 	dm_set_fg(dmp, 255, 255, 255, 0, transparency);
-    } else if (have_material) {
-	if (mat->use_override_color) {
-	    dm_set_fg(dmp, mat->override_rgb[0], mat->override_rgb[1],
-		      mat->override_rgb[2], 0, transparency);
-	} else if (mat->use_geometry_default_color) {
-	    unsigned char *gdc = dm_get_geometry_default_color(dmp);
-	    dm_set_fg(dmp, gdc[0], gdc[1], gdc[2], 0, transparency);
-	} else {
-	    dm_set_fg(dmp, mat->rgba[0], mat->rgba[1], mat->rgba[2],
-		      0, transparency);
-	}
-    } else if (s->s_os->color_override) {
-	dm_set_fg(dmp, s->s_os->color[0], s->s_os->color[1],
-		  s->s_os->color[2], 0, s->s_os->transparency);
-    } else if (s->s_old.s_cflag) {
+    } else if (mat && mat->use_override_color) {
+	dm_set_fg(dmp, mat->override_rgb[0], mat->override_rgb[1],
+		  mat->override_rgb[2], 0, transparency);
+    } else if (mat && mat->use_geometry_default_color) {
 	unsigned char *gdc = dm_get_geometry_default_color(dmp);
-	dm_set_fg(dmp, gdc[0], gdc[1], gdc[2], 0, s->s_os->transparency);
-    } else {
-	dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2],
-		  0, s->s_os->transparency);
+	dm_set_fg(dmp, gdc[0], gdc[1], gdc[2], 0, transparency);
+    } else if (mat) {
+	dm_set_fg(dmp, mat->rgba[0], mat->rgba[1], mat->rgba[2],
+		  0, transparency);
     }
+    (void)node;
+    (void)have_material;
 }
 
 static void
@@ -801,14 +816,17 @@ _dm_rop_set_appearance(void *data, bsg_node *node,
 {
     struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
     struct dm *dmp = ctx->dmp;
-    struct bv_scene_obj *s = (struct bv_scene_obj *)node;
-    int lw = have_appearance ? app->line_width : s->s_os->s_line_width;
+    /* Phase 11C: use appearance struct unconditionally.  The render action
+     * always provides a valid app pointer (filled via bsg_node_appearance_get
+     * with legacy fallback); have_appearance only indicates whether an
+     * explicit BSG appearance was set. */
+    int lw = app ? app->line_width : 0;
     if (lw <= 0)
 	lw = dm_get_linewidth(dmp);
-    int soldash = have_appearance
-	? ((app->line_style == BSG_APPEARANCE_LINE_DASHED) ? 1 : 0)
-	: s->s_soldash;
+    int soldash = (app && app->line_style == BSG_APPEARANCE_LINE_DASHED) ? 1 : 0;
     dm_set_line_attr(dmp, lw, soldash);
+    (void)node;
+    (void)have_appearance;
 }
 
 static void
@@ -827,9 +845,12 @@ _dm_rop_draw_payload(void *data, bsg_node *bnode, struct bview *v,
     struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
     struct dm *dmp = ctx->dmp;
     struct bv_scene_obj *s = (struct bv_scene_obj *)bnode;
+    /* Phase 11C: route s_inherit_settings flag through BSG appearance. */
+    struct bsg_appearance _app;
+    bsg_node_appearance_get((const bsg_node *)s, &_app);
     _dm_draw_scene_obj_internal(dmp, s, v,
 				bsg_node_force_draw((const bsg_node *)s),
-				(s->s_inherit_settings) ? s->s_os : NULL,
+				_app.inherit_settings ? s->s_os : NULL,
 				pass, world_xform);
 }
 
@@ -839,6 +860,9 @@ _dm_rop_draw_overlay(void *data, bsg_node *bnode, struct bview *v)
     struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
     struct dm *dmp = ctx->dmp;
     struct bv_scene_obj *s = (struct bv_scene_obj *)bnode;
+    /* Phase 11C: route s_inherit_settings flag through BSG appearance. */
+    struct bsg_appearance _app;
+    bsg_node_appearance_get((const bsg_node *)s, &_app);
     mat_t cur_mat;
     if (v)
 	MAT_COPY(cur_mat, v->gv_model2view);
@@ -846,7 +870,7 @@ _dm_rop_draw_overlay(void *data, bsg_node *bnode, struct bview *v)
 	MAT_IDN(cur_mat);
     _dm_draw_scene_obj_internal(dmp, s, v,
 				bsg_node_force_draw((const bsg_node *)s),
-				(s->s_inherit_settings) ? s->s_os : NULL,
+				_app.inherit_settings ? s->s_os : NULL,
 				BSG_RENDER_PASS_ALL, cur_mat);
 }
 
