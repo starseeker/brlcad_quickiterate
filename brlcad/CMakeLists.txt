@@ -614,12 +614,14 @@ endif()
 brlcad_check_linker_flags(C BRLCAD_LINKER_WHOLE_ARCHIVE_GROUP_C_FLAG_FOUND "LINKER:--whole-archive" "LINKER:--no-whole-archive")
 brlcad_check_linker_flags(CXX BRLCAD_LINKER_WHOLE_ARCHIVE_GROUP_CXX_FLAG_FOUND "LINKER:--whole-archive" "LINKER:--no-whole-archive")
 if(BRLCAD_LINKER_WHOLE_ARCHIVE_GROUP_C_FLAG_FOUND AND BRLCAD_LINKER_WHOLE_ARCHIVE_GROUP_CXX_FLAG_FOUND)
-  # BRL-CAD's minimum CMake version is 3.22, before LINK_LIBRARY:WHOLE_ARCHIVE.
-  # The option group is probed with CMake's LINKER: spelling above, but stored
-  # as raw link items so BRLCAD_ADDLIB can bracket one static archive on an
-  # executable link line.  On GNU/LLVM drivers the LINKER: wrapper expands to
-  # -Wl, arguments, so the explicit raw items match the probed options.  When
-  # BRL-CAD raises its minimum CMake to 3.24+, this should be revisited.
+  # BRL-CAD's minimum CMake version is 3.22; CMake introduced
+  # LINK_LIBRARY:WHOLE_ARCHIVE in 3.24.  The option group is probed with
+  # CMake's LINKER: spelling above, but stored as raw link items so
+  # BRLCAD_ADDLIB can bracket one static archive on an executable link line.
+  # On GNU/LLVM drivers the LINKER: wrapper expands to -Wl, arguments, so the
+  # explicit raw items match the probed options.  When BRL-CAD raises its
+  # minimum CMake to 3.24+, this should be revisited.
+  # GNU/LLVM driver-specific raw items corresponding to the successful probes.
   set(BRLCAD_LINKER_WHOLE_ARCHIVE_LINK_ITEM "-Wl,--whole-archive" CACHE STRING "Link item enabling whole-archive resolution" FORCE)
   set(BRLCAD_LINKER_NO_WHOLE_ARCHIVE_LINK_ITEM "-Wl,--no-whole-archive" CACHE STRING "Link item disabling whole-archive resolution" FORCE)
 endif()
