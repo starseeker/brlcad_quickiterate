@@ -389,6 +389,71 @@ bsg_node_set_drawn_rev(bsg_node *n, uint64_t rev)
 }
 
 
+void *
+bsg_node_ged_data_get(const bsg_node *n)
+{
+    if (!n)
+	return NULL;
+
+    return ((const struct bv_scene_obj *)n)->s_u_data;
+}
+
+
+void
+bsg_node_ged_data_set(bsg_node *n, void *data)
+{
+    if (!n)
+	return;
+
+    ((struct bv_scene_obj *)n)->s_u_data = data;
+}
+
+
+void
+bsg_node_set_free_callback(bsg_node *n, bsg_node_free_fn cb)
+{
+    if (!n)
+	return;
+
+    /* bsg_node and bv_scene_obj are the same type; function pointer cast
+     * is safe for the current transitional storage model. */
+    ((struct bv_scene_obj *)n)->s_free_callback =
+	(void (*)(struct bv_scene_obj *))cb;
+}
+
+
+void
+bsg_node_invoke_free_callback(bsg_node *n)
+{
+    if (!n)
+	return;
+
+    struct bv_scene_obj *s = (struct bv_scene_obj *)n;
+    if (s->s_free_callback)
+	s->s_free_callback(s);
+}
+
+
+int
+bsg_node_legacy_eflag(const bsg_node *n)
+{
+    if (!n)
+	return 0;
+
+    return ((const struct bv_scene_obj *)n)->s_old.s_Eflag ? 1 : 0;
+}
+
+
+void
+bsg_node_set_legacy_eflag(bsg_node *n, int eflag)
+{
+    if (!n)
+	return;
+
+    ((struct bv_scene_obj *)n)->s_old.s_Eflag = eflag ? 1 : 0;
+}
+
+
 /*
  * Local Variables:
  * tab-width: 8

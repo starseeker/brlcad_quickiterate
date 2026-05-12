@@ -52,6 +52,7 @@
 #include "bsg/draw_set.h"
 #include "bsg/field.h"
 #include "bsg/lod_ops.h"
+#include "bsg/material.h"
 #include "bsg/node.h"
 #include "bsg/node_group.h"
 #include "bsg/util.h"
@@ -366,8 +367,8 @@ main(int ac, char *av[])
 	    ASSERT(before3 > 0);
 	    struct bv_scene_obj *sp = bsg_view_obj_first_solid(gedp);
 	    ASSERT(sp != NULL);
-	    ASSERT(sp->s_u_data != NULL);
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	    ASSERT(bsg_node_ged_data_get((bsg_node *)sp) != NULL);
+	    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)sp);
 	    ASSERT(bdata->s_fullpath.fp_len > 0);
 
 	    struct db_full_path target;
@@ -672,7 +673,10 @@ main(int ac, char *av[])
 
 	/* Verify the first shape was stamped with rev0. */
 	ASSERT(s0 != NULL);
-	ASSERT((uint64_t)s0->s_color_rev == rev0);
+	{
+	    struct bsg_material _m0; bsg_node_material_get((const bsg_node *)s0, &_m0);
+	    ASSERT(_m0.revision == rev0);
+	}
 
 	/* Simulate a material-change event: bump the counter. */
 	bsg_view_obj_bump_mater_rev(gedp);
@@ -683,18 +687,28 @@ main(int ac, char *av[])
 	 * them with the new rev, but the counter itself stays put. */
 	bsg_view_obj_color_from_soltab(gedp);
 	ASSERT(bsg_view_obj_mater_rev(gedp) == rev1);  /* unchanged */
-	ASSERT((uint64_t)s0->s_color_rev == rev1);      /* stamped at rev1 */
+	{
+	    struct bsg_material _m1; bsg_node_material_get((const bsg_node *)s0, &_m1);
+	    ASSERT(_m1.revision == rev1);      /* stamped at rev1 */
+	}
 
 	/* A second call without a bump must skip all already-stamped shapes.
 	 * Verify by force-setting a known color and checking it is unchanged. */
-	s0->s_color[0] = 123;
-	s0->s_color[1] = 45;
-	s0->s_color[2] = 67;
+	{
+	    /* Set color via BSG while keeping the current revision so that
+	     * color_from_soltab still sees s_color_rev == mater_rev and skips. */
+	    struct bsg_material _mf; bsg_node_material_get((const bsg_node *)s0, &_mf);
+	    _mf.rgba[0] = 123; _mf.rgba[1] = 45; _mf.rgba[2] = 67;
+	    bsg_node_material_set((bsg_node *)s0, &_mf);
+	}
 	bsg_view_obj_color_from_soltab(gedp);  /* skip: s_color_rev == mater_rev */
-	ASSERT(s0->s_color[0] == 123);         /* must be unchanged */
-	ASSERT(s0->s_color[1] == 45);
-	ASSERT(s0->s_color[2] == 67);
-	ASSERT((uint64_t)s0->s_color_rev == rev1);  /* stamp unchanged */
+	{
+	    struct bsg_material _mc; bsg_node_material_get((const bsg_node *)s0, &_mc);
+	    ASSERT(_mc.rgba[0] == 123);         /* must be unchanged */
+	    ASSERT(_mc.rgba[1] == 45);
+	    ASSERT(_mc.rgba[2] == 67);
+	    ASSERT(_mc.revision == rev1);  /* stamp unchanged */
+	}
 
 	/* set_illum pointer is cleared by zap. */
 	bsg_view_obj_set_illum(gedp, s0);
@@ -882,8 +896,7 @@ main(int ac, char *av[])
 	    struct _stamp_ctx { uint64_t r; } ctx = { this_frame };
 	    auto stamp_cb = [](bsg_node *n, void *ud) -> int {
 		struct _stamp_ctx *c = (struct _stamp_ctx *)ud;
-		struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
-		if (sp) sp->s_drawn_rev = c->r;
+		if (n) bsg_node_set_drawn_rev(n, c->r);
 		return 1;
 	    };
 	    bsg_visit((bsg_node *)root, BSG_NODE_SHAPE, stamp_cb, &ctx);
@@ -895,8 +908,7 @@ main(int ac, char *av[])
 	    struct _count_ctx { uint64_t r; int *n; } ctx = { this_frame, &counted };
 	    auto count_cb = [](bsg_node *n, void *ud) -> int {
 		struct _count_ctx *c = (struct _count_ctx *)ud;
-		struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
-		if (sp && sp->s_drawn_rev == c->r) (*c->n)++;
+		if (n && bsg_node_drawn_rev((const bsg_node *)n) == c->r) (*c->n)++;
 		return 1;
 	    };
 	    bsg_visit((bsg_node *)root, BSG_NODE_SHAPE, count_cb, &ctx);
@@ -913,8 +925,7 @@ main(int ac, char *av[])
 	    struct _count_ctx { uint64_t r; int *n; } ctx = { next_frame, &recounted };
 	    auto count_cb = [](bsg_node *n, void *ud) -> int {
 		struct _count_ctx *c = (struct _count_ctx *)ud;
-		struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
-		if (sp && sp->s_drawn_rev == c->r) (*c->n)++;
+		if (n && bsg_node_drawn_rev((const bsg_node *)n) == c->r) (*c->n)++;
 		return 1;
 	    };
 	    bsg_visit((bsg_node *)root, BSG_NODE_SHAPE, count_cb, &ctx);
@@ -1242,7 +1253,7 @@ main(int ac, char *av[])
 	st17.select_val = 1;
 	{
 	    auto *pl = (struct bsg_lod_payload *)
-		((struct bv_scene_obj *)lod)->s_i_data;
+		bsg_node_user_data_get((const bsg_node *)lod);
 	    if (pl->ops->is_stale(lod, lv)) {
 		int lvl_idx = pl->ops->select_level(lod, lv);
 		pl->ops->activate_level(lod, lv, lvl_idx);
@@ -1256,7 +1267,7 @@ main(int ac, char *av[])
 	st17.stale_val = 0;
 	{
 	    auto *pl = (struct bsg_lod_payload *)
-		((struct bv_scene_obj *)lod)->s_i_data;
+		bsg_node_user_data_get((const bsg_node *)lod);
 	    if (pl->ops->is_stale(lod, lv)) {
 		int lvl_idx = pl->ops->select_level(lod, lv);
 		pl->ops->activate_level(lod, lv, lvl_idx);
@@ -1270,9 +1281,8 @@ main(int ac, char *av[])
 	 * Do NOT set ops->free since user_data lives on our stack. */
 	ops17.free = NULL;
 	struct bv_scene_obj *lod_raw = (struct bv_scene_obj *)lod;
-	if (lod_raw->s_free_callback)
-	    lod_raw->s_free_callback(lod_raw);
-	ASSERT(lod_raw->s_i_data == NULL);
+	bsg_node_invoke_free_callback((bsg_node *)lod_raw);
+	ASSERT(bsg_node_user_data_get((const bsg_node *)lod_raw) == NULL);
     }
 
 

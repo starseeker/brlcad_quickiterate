@@ -331,9 +331,8 @@ _poly_cmd_clear(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    struct bv_polygon *p = (struct bv_polygon *)s->s_i_data;
-    p->curr_contour_i = 0;
-    p->curr_point_i = -1;
+    polyA->curr_contour_i = 0;
+    polyA->curr_point_i = -1;
     bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
 
     return BRLCAD_OK;
@@ -365,8 +364,7 @@ _poly_cmd_close(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    struct bv_polygon *p = (struct bv_polygon *)s->s_i_data;
-    if (p->type != BV_POLYGON_GENERAL) {
+    if (polyA->type != BV_POLYGON_GENERAL) {
 	return BRLCAD_OK;
     }
 
@@ -384,11 +382,11 @@ _poly_cmd_close(void *bs, int argc, const char **argv)
 
    if (ind < 0) {
        // Close all contours
-       for (size_t i = 0; i < p->polygon.num_contours; i++) {
-	   p->polygon.contour[i].open = 0;
+       for (size_t i = 0; i < polyA->polygon.num_contours; i++) {
+	   polyA->polygon.contour[i].open = 0;
        }
    } else {
-       p->polygon.contour[ind].open = 0;
+       polyA->polygon.contour[ind].open = 0;
    }
 
     bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
@@ -422,8 +420,7 @@ _poly_cmd_open(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    struct bv_polygon *p = (struct bv_polygon *)s->s_i_data;
-    if (p->type != BV_POLYGON_GENERAL) {
+    if (polyA->type != BV_POLYGON_GENERAL) {
 	bu_vls_printf(gedp->ged_result_str, "Constrained polygon shapes are always closed.\n");
 	return BRLCAD_ERROR;
     }
@@ -442,11 +439,11 @@ _poly_cmd_open(void *bs, int argc, const char **argv)
 
    if (ind < 0) {
        // Open all contours
-       for (size_t i = 0; i < p->polygon.num_contours; i++) {
-	   p->polygon.contour[i].open = 1;
+       for (size_t i = 0; i < polyA->polygon.num_contours; i++) {
+	   polyA->polygon.contour[i].open = 1;
        }
    } else {
-       p->polygon.contour[ind].open = 1;
+       polyA->polygon.contour[ind].open = 1;
    }
 
     bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
@@ -474,12 +471,11 @@ _poly_cmd_area(void *bs, int argc, const char **argv)
 	bu_vls_printf(gedp->ged_result_str, "View object %s does not exist\n", gd->vobj);
 	return BRLCAD_ERROR;
     }
-    if (!(s->s_type_flags & BV_VIEWONLY) || !(s->s_type_flags & BV_POLYGONS)) {
+    struct bv_polygon *p = _ged_view_polygon(s);
+    if (!p) {
 	bu_vls_printf(gedp->ged_result_str, "Specified object is not a view polygon.\n");
 	return BRLCAD_ERROR;
     }
-
-    struct bv_polygon *p = (struct bv_polygon *)s->s_i_data;
 
     double area = bg_find_polygon_area(&p->polygon, CLIPPER_MAX, &p->vp, s->s_v->gv_scale);
 
@@ -630,7 +626,7 @@ _poly_cmd_export(void *bs, int argc, const char **argv)
 	bu_vls_printf(gedp->ged_result_str, "View object %s does not exist\n", gd->vobj);
 	return BRLCAD_ERROR;
     }
-    if (!(s->s_type_flags & BV_VIEWONLY) || !(s->s_type_flags & BV_POLYGONS)) {
+    if (!_ged_view_polygon(s)) {
 	bu_vls_printf(gedp->ged_result_str, "Specified object is not a view polygon.\n");
 	return BRLCAD_ERROR;
     }
@@ -782,7 +778,8 @@ _poly_cmd_csg(void *bs, int argc, const char **argv)
 	bu_vls_printf(gedp->ged_result_str, "View object %s does not exist\n", gd->vobj);
 	return BRLCAD_ERROR;
     }
-    if (!(s->s_type_flags & BV_VIEWONLY) || !(s->s_type_flags & BV_POLYGONS)) {
+    struct bv_polygon *polyA = _ged_view_polygon(s);
+    if (!polyA) {
 	bu_vls_printf(gedp->ged_result_str, "Specified object is not a view polygon.\n");
 	return BRLCAD_ERROR;
     }
@@ -819,15 +816,14 @@ _poly_cmd_csg(void *bs, int argc, const char **argv)
 	bu_vls_printf(gedp->ged_result_str, "View object %s does not exist\n", argv[0]);
 	return BRLCAD_ERROR;
     }
-    if (!(s2->s_type_flags & BV_VIEWONLY) || !(s2->s_type_flags & BV_POLYGONS)) {
+    struct bv_polygon *polyB = _ged_view_polygon(s2);
+    if (!polyB) {
 	bu_vls_printf(gedp->ged_result_str, "%s is not a view polygon.\n", argv[0]);
 	return BRLCAD_ERROR;
     }
 
     // Have two polygons.  Check for overlaps, using the origin view of the
     // obj1 polygon.
-    struct bv_polygon *polyA = (struct bv_polygon *)s->s_i_data;
-    struct bv_polygon *polyB = (struct bv_polygon *)s2->s_i_data;
 
     struct bg_polygon *cp = bg_clip_polygon(op, &polyA->polygon, &polyB->polygon, CLIPPER_MAX, &polyA->vp);
 

@@ -47,6 +47,7 @@
 #include "bsg/util.h"
 #include "bsg/visit.h"
 #include "bsg/defines.h"
+#include "bsg/node.h"
 #include "dm/view.h"
 #include "ged/bsg_ged_draw.h"
 
