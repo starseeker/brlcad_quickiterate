@@ -1827,7 +1827,7 @@ draw_m3(struct bv_scene_obj *s)
 	db_path_to_vls(&ppath, dgcdp.fp);
 	path = bu_vls_cstr(&ppath);
     } else {
-	path = bu_vls_cstr(&s->s_name);
+	path = bu_vls_cstr(&s->bsg.bsg_name);
     }
 
     if (!path || rt_gettrees(dgcdp.rtip, 1, (const char **)&path, 1)) {

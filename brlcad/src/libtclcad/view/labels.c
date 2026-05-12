@@ -177,9 +177,9 @@ to_data_labels_func(Tcl_Interp *interp,
 	     * single gdls_color[3] field in bv_data_label_state), so reading
 	     * the first child reflects the entire set. */
 	    struct bv_scene_obj *_parent = bv_view_obj_find(gdvp, bsg_name);
-	    if (_parent && BU_PTBL_LEN(&_parent->children) > 0) {
+	    if (_parent && BU_PTBL_LEN(&_parent->bsg.bsg_children) > 0) {
 		struct bv_scene_obj *_c =
-		    (struct bv_scene_obj *)BU_PTBL_GET(&_parent->children, 0);
+		    (struct bv_scene_obj *)BU_PTBL_GET(&_parent->bsg.bsg_children, 0);
 		bu_vls_printf(gedp->ged_result_str, "%d %d %d",
 			      (int)_c->s_color[0], (int)_c->s_color[1], (int)_c->s_color[2]);
 	    } else {
@@ -222,9 +222,9 @@ to_data_labels_func(Tcl_Interp *interp,
 	    /* T3: read label strings and positions from BSG label children. */
 	    struct bv_scene_obj *_parent = bv_view_obj_find(gdvp, bsg_name);
 	    if (_parent) {
-		for (size_t _k = 0; _k < BU_PTBL_LEN(&_parent->children); _k++) {
+		for (size_t _k = 0; _k < BU_PTBL_LEN(&_parent->bsg.bsg_children); _k++) {
 		    struct bv_scene_obj *_c =
-			(struct bv_scene_obj *)BU_PTBL_GET(&_parent->children, _k);
+			(struct bv_scene_obj *)BU_PTBL_GET(&_parent->bsg.bsg_children, _k);
 		    if (!_c->s_i_data)
 			continue;
 		    struct bv_label *_l = (struct bv_label *)_c->s_i_data;

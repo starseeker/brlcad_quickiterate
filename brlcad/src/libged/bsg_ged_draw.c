@@ -79,7 +79,7 @@
 
 #define FIRST_SOLID(_bdata)  ((_bdata)->s_fullpath.fp_names[0])
 #define FREE_BV_SCENE_OBJ(p, fp, vlf) { \
-        BU_LIST_APPEND(fp, &((p)->l)); \
+        BU_LIST_APPEND(fp, &((p)->bsg.l)); \
         BV_FREE_VLIST(vlf, &((p)->s_vlist)); }
 
 static void
@@ -363,7 +363,7 @@ _sg_root(struct ged *gedp)
         return NULL;
 
     bsg_node_set_kind((bsg_node *)root, BSG_NODE_GROUP);
-    root->s_flag = UP;
+    root->bsg.bsg_flag = UP;
     bsg_node_set_name((bsg_node *)root, "_draw_root");
 
     gedp->i->ged_gdp->gd_draw_root = root;
@@ -728,7 +728,7 @@ _sg_erase_subgroups_by_name(struct ged *gedp, struct bv_scene_obj *parent,
             _sg_bump_rev_node(parent);
             struct bv_scene_obj *fso = c->free_scene_obj;
             if (fso)
-                FREE_BV_SCENE_OBJ(c, &fso->l, c->vlfree);
+                FREE_BV_SCENE_OBJ(c, &fso->bsg.l, c->vlfree);
         } else {
             _sg_erase_subgroups_by_name(gedp, c, name);
         }
@@ -1820,7 +1820,7 @@ bsg_view_obj_zap(struct ged *gedp)
         bsg_node_remove_child((bsg_node *)root, (bsg_node *)g);
         struct bv_scene_obj *fso = g->free_scene_obj;
         if (fso)
-            FREE_BV_SCENE_OBJ(g, &fso->l, g->vlfree);
+            FREE_BV_SCENE_OBJ(g, &fso->bsg.l, g->vlfree);
     }
     bu_ptbl_free(&snap);
 

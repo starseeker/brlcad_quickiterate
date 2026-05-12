@@ -34,6 +34,7 @@
 #include "bu/vls.h"
 
 #include "bsg/settings.h"
+#include "bsg/node.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
 #include "./ged_view.h"
@@ -154,11 +155,12 @@ _view_independent_collect_paths(struct _view_independent_path **paths,
     if (!node)
 	return BRLCAD_OK;
 
-    if (node->s_type_flags & BSG_NODE_VIEW_SCOPE)
+    if (node->bsg.bsg_kind & BSG_NODE_VIEW_SCOPE)
 	return BRLCAD_OK;
 
-    if (node->s_type_flags & BV_DB_OBJS) {
-	struct ged_bv_data *bdata = node->s_u_data ? (struct ged_bv_data *)node->s_u_data : NULL;
+    if (node->bsg.bsg_kind & BV_DB_OBJS) {
+	void *_ud = bsg_node_ged_data_get((const bsg_node *)node);
+	struct ged_bv_data *bdata = _ud ? (struct ged_bv_data *)_ud : NULL;
 	if (bdata && bdata->s_fullpath.fp_len > 0) {
 	    char *fpath = db_path_to_string(&bdata->s_fullpath);
 	    const char *npath = (fpath && fpath[0] == '/') ? fpath + 1 : fpath;
@@ -178,8 +180,8 @@ _view_independent_collect_paths(struct _view_independent_path **paths,
 	}
     }
 
-    for (size_t i = 0; i < BU_PTBL_LEN(&node->children); i++) {
-	struct bv_scene_obj *child = (struct bv_scene_obj *)BU_PTBL_GET(&node->children, i);
+    for (size_t i = 0; i < BU_PTBL_LEN(&node->bsg.bsg_children); i++) {
+	struct bv_scene_obj *child = (struct bv_scene_obj *)BU_PTBL_GET(&node->bsg.bsg_children, i);
 	int ret = _view_independent_collect_paths(paths, path_cnt, path_cap, child);
 	if (ret != BRLCAD_OK)
 	    return ret;

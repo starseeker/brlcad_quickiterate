@@ -2497,7 +2497,7 @@ _bview_state_detach_leaf(struct bv_scene_obj *sp)
 {
     if (!sp || !sp->bsg.bsg_parent)
 	return;
-    struct bv_scene_obj *p = sp->bsg.bsg_parent;
+    struct bv_scene_obj *p = (struct bv_scene_obj *)sp->bsg.bsg_parent;
     bu_ptbl_rm(&p->bsg.bsg_children, (const long *)sp);
     bsg_bump_rev_node((bsg_node *)p);
     bsg_node_bbox_invalidate((bsg_node *)p);
@@ -3026,7 +3026,7 @@ BViewState::scene_obj(
 	    } else {
 		/* Adaptive LoD leaves are wrapped by a direct BSG_NODE_LOD parent
 		 * in BViewState::redraw (Phase L3 insertion). */
-		struct bv_scene_obj *pp = static_cast<struct bv_scene_obj *>(sp->bsg.bsg_parent);
+		struct bv_scene_obj *pp = reinterpret_cast<struct bv_scene_obj *>(sp->bsg.bsg_parent);
 		if (pp && (pp->bsg.bsg_kind & BSG_NODE_LOD))
 		    lod = pp;
 	    }
@@ -3730,7 +3730,7 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
     for (v_it = views.begin(); v_it != views.end(); v_it++) {
 	std::unordered_set<struct bv_scene_obj *>::iterator o_it;
 	for (o_it = objs.begin(); o_it != objs.end(); o_it++) {
-	    bv_log(3, "redraw %s[%s]", bu_vls_cstr(&((*(*o_it)).s_name)), bu_vls_cstr(&((*(*v_it)).gv_name)));
+	    bv_log(3, "redraw %s[%s]", bu_vls_cstr(&((*(*o_it)).bsg.bsg_name)), bu_vls_cstr(&((*(*v_it)).gv_name)));
 	    draw_scene(*o_it, *v_it);
 	}
     }

@@ -153,7 +153,7 @@ rtcheck_vector_handler(void *clientData, int type)
 	} cctx = {sname, strlen(sname), &robjs};
 	auto _collect_rtcheck = [](struct bv_scene_obj *s, void *data) -> int {
 	    struct _rtcheck_collect_ctx *c = (struct _rtcheck_collect_ctx *)data;
-	    if (!bu_strncmp(c->sname, bu_vls_cstr(&s->s_name), c->sname_len))
+	    if (!bu_strncmp(c->sname, bu_vls_cstr(&s->bsg.bsg_name), c->sname_len))
 		c->robjs->insert(s);
 	    return 1;
 	};

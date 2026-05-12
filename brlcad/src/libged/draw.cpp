@@ -124,7 +124,7 @@ csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int flag)
     if (!v->gv_s->adaptive_plot_csg)
 	return 0;
 
-    bv_log(1, "csg_wireframe_update %s[%s]", bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
+    bv_log(1, "csg_wireframe_update %s[%s]", bu_vls_cstr(&vo->bsg.bsg_name), bu_vls_cstr(&v->gv_name));
 
     vo->csg_obj = 1;
 
@@ -262,7 +262,7 @@ bot_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
     s->csg_obj = 0;
     s->mesh_obj = 1;
 
-    bv_log(1, "bot_adaptive_plot %s[%s]", bu_vls_cstr(&s->s_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
+    bv_log(1, "bot_adaptive_plot %s[%s]", bu_vls_cstr(&s->bsg.bsg_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
 
     if (!s->draw_data) {
 
@@ -388,7 +388,7 @@ brep_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
     struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
     if (!d || !d->mesh_c)
 	return;
-    bv_log(1, "brep_adaptive_plot %s[%s]", bu_vls_cstr(&s->s_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
+    bv_log(1, "brep_adaptive_plot %s[%s]", bu_vls_cstr(&s->bsg.bsg_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
 
     s->csg_obj = 0;
     s->mesh_obj = 1;
@@ -520,7 +520,7 @@ brep_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 static void
 wireframe_plot(struct bv_scene_obj *s, struct bview *v, struct rt_db_internal *ip)
 {
-    bv_log(1, "wireframe_plot %s[%s]", bu_vls_cstr(&s->s_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
+    bv_log(1, "wireframe_plot %s[%s]", bu_vls_cstr(&s->bsg.bsg_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
     struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
     const struct bn_tol *tol = d->tol;
     const struct bg_tess_tol *ttol = d->ttol;
@@ -567,7 +567,7 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
     if (s->current && !v)
 	return;
 
-    bv_log(1, "draw_scene %s[%s]", bu_vls_cstr(&s->s_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
+    bv_log(1, "draw_scene %s[%s]", bu_vls_cstr(&s->bsg.bsg_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
 
     // If we're not adaptive, trigger the view insensitive drawing routines
     if (v && !v->gv_s->adaptive_plot_csg && !v->gv_s->adaptive_plot_mesh) {
@@ -579,8 +579,8 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
     // any children and trigger their drawing operations.
     struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
     if (!d) {
-	for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	    struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&s->children, i);
+	for (size_t i = 0; i < BU_PTBL_LEN(&s->bsg.bsg_children); i++) {
+	    struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&s->bsg.bsg_children, i);
 	    draw_scene(c, v);
 	}
 	return;
@@ -963,14 +963,14 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 	// job here will just be to set up the key data for later use...
 
 	struct bv_scene_obj *s = bv_obj_get_child(dd->g);
-	db_path_to_vls(&s->s_name, path);
+	db_path_to_vls(&s->bsg.bsg_name, path);
 	BU_GET(s->s_path, struct db_full_path);
 	db_full_path_init((struct db_full_path *)s->s_path);
 	db_dup_full_path((struct db_full_path *)s->s_path, path);
 
 	MAT_COPY(s->s_mat, *curr_mat);
 	bv_obj_settings_sync(s->s_os, dd->g->s_os);
-	s->s_type_flags = BV_DBOBJ_BASED;
+	s->bsg.bsg_kind = BV_DBOBJ_BASED;
 	s->current = 0;
 	s->s_changed++;
 	if (!s->s_os->draw_solid_lines_only) {

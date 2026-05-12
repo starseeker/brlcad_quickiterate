@@ -1170,7 +1170,7 @@ replot_editing_solid(struct mged_state *s)
     d.s = s;
     d.illdp = illdp;
     d.es_int = &MEDIT(s)->es_int;
-    bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _replot_modified_solid_cb, &d);
+    bsg_visit((bsg_node *)bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _replot_modified_solid_cb, &d);
 }
 
 
@@ -6038,7 +6038,7 @@ oedit_apply(struct mged_state *s, int continue_editing)
 	struct _replot_active_data d;
 	d.s = s;
 	d.continue_editing = continue_editing;
-	bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _replot_active_solid_cb, &d);
+	bsg_visit((bsg_node *)bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _replot_active_solid_cb, &d);
     }
 }
 
@@ -6056,7 +6056,7 @@ oedit_accept(struct mged_state *s)
 	    struct _replot_active_data d;
 	    d.s = s;
 	    d.continue_editing = DOWN;
-	    bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE,
+	    bsg_visit((bsg_node *)bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE,
 		      _replot_active_solid_cb, &d);
 	}
 
@@ -6305,7 +6305,7 @@ sedit_reject(struct mged_state *s)
 	struct _replot_lastsol_data d;
 	d.s = s;
 	d.target_dp = LAST_SOLID(bdata);
-	bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE,
+	bsg_visit((bsg_node *)bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE,
 		  _replot_lastsol_cb, &d);
     }
 

@@ -2077,9 +2077,9 @@ to_data_move_func(struct ged *gedp,
 	struct bv_scene_obj *_lp = bv_view_obj_find(gdvp, _bsg_name);
 	if (!_lp) return BRLCAD_OK;
 
-	if ((size_t)dindex >= BU_PTBL_LEN(&_lp->children)) return BRLCAD_OK;
+	if ((size_t)dindex >= BU_PTBL_LEN(&_lp->bsg.bsg_children)) return BRLCAD_OK;
 
-	struct bv_scene_obj *_c = (struct bv_scene_obj *)BU_PTBL_GET(&_lp->children, dindex);
+	struct bv_scene_obj *_c = (struct bv_scene_obj *)BU_PTBL_GET(&_lp->bsg.bsg_children, dindex);
 	if (!_c || !_c->s_i_data) return BRLCAD_OK;
 	struct bv_label *_l = (struct bv_label *)_c->s_i_data;
 
@@ -2099,9 +2099,9 @@ to_data_move_func(struct ged *gedp,
 	struct bv_scene_obj *_lp = bv_view_obj_find(gdvp, _bsg_name);
 	if (!_lp) return BRLCAD_OK;
 
-	if ((size_t)dindex >= BU_PTBL_LEN(&_lp->children)) return BRLCAD_OK;
+	if ((size_t)dindex >= BU_PTBL_LEN(&_lp->bsg.bsg_children)) return BRLCAD_OK;
 
-	struct bv_scene_obj *_c = (struct bv_scene_obj *)BU_PTBL_GET(&_lp->children, dindex);
+	struct bv_scene_obj *_c = (struct bv_scene_obj *)BU_PTBL_GET(&_lp->bsg.bsg_children, dindex);
 	if (!_c || !_c->s_i_data) return BRLCAD_OK;
 	struct bv_label *_l = (struct bv_label *)_c->s_i_data;
 
@@ -2545,12 +2545,12 @@ to_data_pick_func(struct ged *gedp,
     /* check for label points - T3: read from BSG children instead of gv_tcl */
     {
 	struct bv_scene_obj *_lp = bv_view_obj_find(gdvp, "_tcl_data_labels");
-	if (_lp && BU_PTBL_LEN(&_lp->children) > 0) {
-	    for (size_t _k = 0; _k < BU_PTBL_LEN(&_lp->children); _k++) {
+	if (_lp && BU_PTBL_LEN(&_lp->bsg.bsg_children) > 0) {
+	    for (size_t _k = 0; _k < BU_PTBL_LEN(&_lp->bsg.bsg_children); _k++) {
 		fastf_t minX, maxX;
 		fastf_t minY, maxY;
 
-		struct bv_scene_obj *_c = (struct bv_scene_obj *)BU_PTBL_GET(&_lp->children, _k);
+		struct bv_scene_obj *_c = (struct bv_scene_obj *)BU_PTBL_GET(&_lp->bsg.bsg_children, _k);
 		if (!_c || !_c->s_i_data) continue;
 		struct bv_label *_l = (struct bv_label *)_c->s_i_data;
 
@@ -2580,12 +2580,12 @@ to_data_pick_func(struct ged *gedp,
     /* check for selected label points - T3: read from BSG children */
     {
 	struct bv_scene_obj *_lp = bv_view_obj_find(gdvp, "_tcl_sdata_labels");
-	if (_lp && BU_PTBL_LEN(&_lp->children) > 0) {
-	    for (size_t _k = 0; _k < BU_PTBL_LEN(&_lp->children); _k++) {
+	if (_lp && BU_PTBL_LEN(&_lp->bsg.bsg_children) > 0) {
+	    for (size_t _k = 0; _k < BU_PTBL_LEN(&_lp->bsg.bsg_children); _k++) {
 		fastf_t minX, maxX;
 		fastf_t minY, maxY;
 
-		struct bv_scene_obj *_c = (struct bv_scene_obj *)BU_PTBL_GET(&_lp->children, _k);
+		struct bv_scene_obj *_c = (struct bv_scene_obj *)BU_PTBL_GET(&_lp->bsg.bsg_children, _k);
 		if (!_c || !_c->s_i_data) continue;
 		struct bv_label *_l = (struct bv_label *)_c->s_i_data;
 

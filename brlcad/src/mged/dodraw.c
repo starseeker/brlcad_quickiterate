@@ -42,7 +42,7 @@
               (p)->s_u_data = (void *)bdata; \
           } else { \
               p = BU_LIST_NEXT(bv_scene_obj, fp); \
-              BU_LIST_DEQUEUE(&((p)->l)); \
+              BU_LIST_DEQUEUE(&((p)->bsg.l)); \
               if ((p)->s_u_data) { \
                   struct ged_bv_data *bdata = (struct ged_bv_data *)(p)->s_u_data; \
                   bdata->s_fullpath.fp_len = 0; \
@@ -99,8 +99,8 @@ drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const str
     if (!existing_sp) {
 	/* Handling a new solid */
 	struct bv_scene_obj *free_scene_obj = bv_set_fsos(&s->gedp->ged_views);
-	GET_BV_SCENE_OBJ(sp, &free_scene_obj->l);
-	BU_LIST_APPEND(&free_scene_obj->l, &((sp)->l) );
+	GET_BV_SCENE_OBJ(sp, &free_scene_obj->bsg.l);
+	BU_LIST_APPEND(&free_scene_obj->bsg.l, &((sp)->bsg.l) );
     } else {
 	/* Just updating an existing solid.
 	 * 'tsp' and 'pathpos' will not be used
@@ -133,7 +133,7 @@ drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const str
 	    sp->s_old.s_basecolor[2] = tsp->ts_mater.ma_color[2] * 255.0;
 	}
 	sp->s_old.s_cflag = 0;
-	sp->s_iflag = DOWN;
+	sp->bsg.bsg_iflag = DOWN;
 	sp->s_soldash = dashflag;
 	sp->s_old.s_Eflag = 0;	/* This is a solid */
 	if (sp->s_u_data) {
@@ -154,7 +154,7 @@ drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const str
 	bu_semaphore_release(RT_SEM_MODEL);
     } else {
 	/* replacing existing solid -- struct already linked in */
-	sp->s_iflag = UP;
+	sp->bsg.bsg_iflag = UP;
     }
 }
 

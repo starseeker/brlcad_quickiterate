@@ -38,7 +38,7 @@
 void
 dm_draw_scene_axes(struct dm *dmp,  struct bv_scene_obj *s)
 {
-    if (!(s->s_type_flags & BV_AXES))
+    if (!(s->bsg.bsg_kind & BV_AXES))
 	return;
 
     struct bv_axes *bndasp = (struct bv_axes *)s->s_i_data;
