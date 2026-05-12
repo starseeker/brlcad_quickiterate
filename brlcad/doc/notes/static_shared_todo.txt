@@ -50,3 +50,56 @@ Remaining production-grade static library work:
    for this audit configured far enough to inspect core targets, but stopped on
    missing Tcl/JPEG development inputs before a complete all-target static audit
    build could be completed.
+
+
+Audit findings for item 1 (2026-05-12)
+======================================
+
+Scope audited:
+* Every `brlcad_addlib(...)` call in `/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/src`
+  still using the legacy `libslist` argument behavior.
+* Result: 21 library targets still rely on legacy dependency visibility defaults.
+
+General finding:
+* Legacy `libslist` fallback currently promotes dependencies to PUBLIC in
+  `BRLCAD_ADDLIB`, which over-exposes many internal and third-party link
+  requirements in `INTERFACE_LINK_LIBRARIES`.
+
+Public-header exposure check:
+* Cross-library includes were scanned in `/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad/include`.
+* Header exposure indicates at least these API-level relationships:
+  - bn -> bu
+  - bg -> bn, bu, bv
+  - bv -> bg, bn, bu, dm
+  - nmg -> bn, bu
+  - brep -> bg, bn, bu, bv
+  - rt -> bg, bn, brep, bu, bv, nmg
+  - gcv -> bn, bu, rt
+  - analyze -> bu
+  - optical -> bn, bu, rt
+  - dm -> bu, bv, pkg, rt
+  - ged -> bg, bn, bu, bv, dm, rt
+  - tclcad -> bu, dm, ged
+  - qtcad -> bg, bu, bv, dm, ged, rt
+
+Legacy-call audit by target (proposed split direction):
+* Mostly PRIVATE candidates (no clear public API link/export need from current
+  CMake definitions):
+  - libbu, libpkg, libfft, libanalyze, libicv, liboslrend, librender, libdmgl, librtuif
+* Mixed PUBLIC/PRIVATE candidates (public header exposure indicates at least some
+  non-private dependency surface):
+  - libbn, libbg, libbv, libnmg, libbrep, librt, libwdb, libgcv, liboptical, libdm, libged, libtclcad, libqtcad
+
+Third-party dependency overexposure identified:
+* Current legacy fallback exports multiple external dependencies publicly where
+  PRIVATE is likely more correct for most consumers:
+  - OPENNURBS (libbrep/librt/libwdb)
+  - PNG/JPEG/NETPBM (libdm/libged/libicv)
+  - LMDB/REGEX (libbu/libged/librt)
+  - system link libs (Threads, dl, m, winsock/rpcrt, psapi)
+
+Execution conclusion for item 1:
+* Audit execution complete.
+* Next implementation phase should convert the 21 legacy `brlcad_addlib` calls
+  to explicit `PUBLIC_LIBS`/`PRIVATE_LIBS`/`INTERFACE_LIBS` lists using the
+  above classifications as the starting map.
