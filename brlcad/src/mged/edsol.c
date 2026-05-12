@@ -7411,7 +7411,7 @@ f_get_sedit(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
 	return TCL_ERROR;
     }
 
-    if (illump || !bsg_node_ged_data_get((bsg_node *)illump))
+    if (!illump || !bsg_node_ged_data_get((bsg_node *)illump))
 	return TCL_ERROR;
     struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)illump);
 
