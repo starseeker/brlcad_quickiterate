@@ -48,6 +48,7 @@
 #include "bu/str.h"
 #include "bu/vls.h"
 #include "bv/vlist.h"
+#include "bsg/settings.h"
 #include "../ged_private.h"
 #include "./ged_view.h"
 
@@ -195,10 +196,14 @@ _view_dlines_cmd_line_width(void *bs, int argc, const char **argv)
 
     if (argc == 1) {
 	struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
-	if (s && s->s_os)
-	    bu_vls_printf(gedp->ged_result_str, "%d", s->s_os->s_line_width);
-	else
+	if (s) {
+	    /* Phase 12: read line width via BSG settings accessor. */
+	    struct bsg_settings sinfo;
+	    bsg_node_settings_get((const bsg_node *)s, &sinfo);
+	    bu_vls_printf(gedp->ged_result_str, "%d", sinfo.line_width);
+	} else {
 	    bu_vls_printf(gedp->ged_result_str, "0");
+	}
 	return BRLCAD_OK;
     }
 
@@ -266,8 +271,10 @@ _view_dlines_cmd_points(void *bs, int argc, const char **argv)
 	    saved_color[0] = (int)old_s->s_color[0];
 	    saved_color[1] = (int)old_s->s_color[1];
 	    saved_color[2] = (int)old_s->s_color[2];
-	    if (old_s->s_os)
-		saved_lw = old_s->s_os->s_line_width;
+	    /* Phase 12: read line width via BSG settings accessor. */
+	    struct bsg_settings sinfo;
+	    bsg_node_settings_get((const bsg_node *)old_s, &sinfo);
+	    saved_lw = sinfo.line_width;
 	}
 
 	if (ac < 2) {

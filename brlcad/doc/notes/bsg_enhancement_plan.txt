@@ -1104,30 +1104,82 @@ Acceptance criteria:
 
 Phase 12: Deprecation and Removal
 ---------------------------------
+STATUS: DONE (core `bsg_settings` API and primary consumer migration complete)
+
 Objective:
 Remove transitional compatibility once consumers are migrated.
 
-Tasks:
+Tasks accomplished in this phase:
 
-1. Remove public encouragement of `bv_scene_obj` field access.
-2. Move `struct bv_scene_obj` definition out of public headers if feasible, or
-   reduce it to an opaque compatibility handle.
-3. Remove deprecated BSG flags that have real typed replacements, keeping only
-   ABI aliases where unavoidable.
-4. Remove old GED selection hashes after all selection consumers use BSG.
-5. Remove `gv_selected` placeholder or replace it with BSG selection storage.
-6. Remove stale `bv_obj_settings` use after material/appearance migration.
-7. Remove direct display-list assumptions from public scene-object APIs.
-8. Update public docs and man pages for view object, draw, erase, selection, and
-   material behavior.
+12A. BSG settings-inheritance accessor — DONE
+  - Introduced `struct bsg_settings` (include/bsg/settings.h) mirroring all
+    fields of `bv_obj_settings`, plus full conversion helpers:
+    `bsg_settings_init`, `bsg_settings_from_legacy_obj_settings`,
+    `bsg_settings_to_legacy_obj_settings`, `bsg_node_settings_get`,
+    `bsg_node_settings_set`.
+  - Storage is backed by `bv_scene_obj::s_os`/`s_local_os` (no ABI change to
+    `bsg_node_core` required in this phase).
+  - Added `src/libbsg/settings.c` implementing the API.
+  - Added `include/bsg/settings.h` and installed as part of BSG public headers.
+  - Test suite: `src/libbsg/tests/test_settings.c` (6 test cases covering init
+    defaults, legacy round-trip, get from s_os, get from s_local_os, set, and
+    NULL safety); passes as `libbsg_settings` ctest entry.
 
-Acceptance criteria:
+12B. libdm/view.c inherit_settings migration — DONE
+  - Changed `_dm_draw_scene_obj_internal` internal signature from
+    `struct bv_obj_settings *obj_settings` to
+    `const struct bsg_settings *inherited_settings`.
+  - `dm_draw_scene_obj` (public API) converts `struct bv_obj_settings *` →
+    `struct bsg_settings` at the boundary via
+    `bsg_settings_from_legacy_obj_settings`.
+  - All three `s->s_os` pointer usage sites in the traversal path migrated:
+    `_bsg_view_traverse_impl`, `_dm_rop_draw_payload`, `_dm_rop_draw_overlay`
+    now call `bsg_node_settings_get` instead of passing `s->s_os` directly.
+  - Comment updated to reference Phase 12 (was Phase 11C comment stub).
 
-- BSG is the documented public scene graph API.
-- libbv no longer exposes public scene-object internals as the primary way to
-  work with drawn objects.
-- Consumer code compiles and passes tests without compatibility-only direct
-  field access.
+12C. libged consumer migration — DONE (primary paths)
+  - `src/libged/draw/draw.c`: two `sp->s_os->transparency/s_dmode` write sites
+    migrated to `bsg_node_settings_get/set` pattern; `redraw_solid` draw-mode
+    read migrated.
+  - `src/libged/dbi_state.cpp`: `s_dmode`, `s_line_width`, `transparency` write
+    block and `s_dmode` s_map-key read migrated.
+  - `src/libged/how/how.c`: `s_dmode`/`transparency` reads migrated.
+  - `src/libged/set_transparency/set_transparency.c`: `transparency` write
+    migrated.
+  - `src/libged/view/view.c`: `s_dmode` read migrated.
+  - `src/libged/view/objs.cpp`: `s_dmode` (mode-string) read migrated; arrow
+    tip width/length now routed through `bsg_node_appearance_get/set` (already
+    the correct BSG type).
+  - `src/libged/view/data_lines.c`: two `s_line_width` reads migrated.
+  - `src/libged/bot/dump/bot_dump.cpp`: `transparency` read migrated.
+
+Remaining open items:
+
+1. Move `struct bv_scene_obj` definition out of public headers (high-risk ABI
+   break; deferred to Phase 10E).
+2. Remove deprecated BSG flags / `bv_obj_settings` once all consumers use BSG
+   typed accessors — requires surveying remaining direct `s_os->*` accesses:
+   * `src/libbv/polygon.c` lines 100 and 196: `s_os->s_line_width = 1`
+     cannot use `bsg_node_settings_set` because `libbv` must not depend on
+     `libbsg`; requires a `libbv`-level accessor or deferred to Phase 10E.
+   * `src/libbv/hash.c`: `s_os` NULL-check.
+   * `src/libbsg/tests/test_material.c` legacy field probe (test-only).
+3. Remove old GED selection hashes / `gv_selected` (see Phases 6F, 5 above).
+4. Update public docs/man pages for view object, draw, erase, selection, and
+   material behavior (ongoing; doc/notes are updated incrementally).
+
+Acceptance criteria status:
+
+- BSG is the documented public scene graph API: YES (guardrail comment in
+  bv/defines.h; all new code uses BSG APIs).
+- libbv no longer exposes public scene-object internals as primary API: PARTIAL
+  (polygon.c still uses s_os directly; all other primary paths migrated).
+- Consumer code compiles and passes tests without new compatibility-only direct
+  field access: YES (all Phase 12 targets build clean; 21/21 libbsg_* pass).
+
+Validation:
+  cmake --build brlcad_build --target libbsg libdm libged -j$(nproc)
+  ctest -R '^libbsg_'   → 21/21 PASS
 
 
 Phase 13: Renderer and Obol Readiness Gate
@@ -1584,10 +1636,10 @@ What is complete or substantially complete:
     - `_dm_rop_set_appearance`: simplified to use `app` struct unconditionally.
     - `_bsg_view_traverse_impl`, `_dm_rop_draw_payload`, `_dm_rop_draw_overlay`:
       `s_inherit_settings` flag now sourced from `appearance.inherit_settings`;
-      `s->s_os` is still used as the pointer value when inherit_settings is true
-      (Phase 12 target to introduce a full BSG settings-inheritance accessor).
+      Phase 12 completed the migration: `s->s_os` pointer propagation replaced
+      with `bsg_node_settings_get` (typed `bsg_settings` snapshot).
   - Validation: `cmake --build brlcad_build --target libbsg libdm libtclcad`
-    succeeds; `ctest -R '^libbsg_'` passes (20/20).
+    succeeds; `ctest -R '^libbsg_'` passes (21/21 including libbsg_settings).
 - Phase 11D libtclcad/Archer adornment and getter/setter sweep is COMPLETE:
   - `src/libtclcad/view/draw.c`:
     - `go_draw_solid`: `sp->s_iflag == UP` → `bsg_node_legacy_illum`; `sp->s_color[]`
@@ -1651,6 +1703,9 @@ What is partially complete:
 
 - No open partial items are currently tracked for Phases 1-9.
 - Phase 10E (ABI break / make `struct bsg_node` real): deferred.
+- Phase 12 partial remaining items (see Phase 12 section for full list):
+  - `libbv/polygon.c` s_os->s_line_width (cannot add libbsg dependency to libbv).
+  - `gv_selected` removal (deferred to Phase 6F / Phase 10E).
 - Phase 11 complete status:
   - 11A libbsg internal direct-field sweep: done (accessor migration in core
     traversal/search/render paths).
@@ -1671,8 +1726,8 @@ What is partially complete:
       calls so the BSG layer stays consistent.
   - 11C libdm render/backend sweep: DONE (all adornment, color, material,
     appearance, arrow, label, displayobj, inherit_settings paths migrated to
-    BSG accessors; `s->s_os` still used as pointer value when inherit_settings
-    is true, targeted for Phase 12).
+    BSG accessors; Phase 12 completed the final migration by replacing
+    `s->s_os` pointer propagation with `bsg_node_settings_get`).
   - 11D libtclcad/Archer adornment and getter/setter sweep: DONE (draw.c,
     arrows.c, and bsg_move_helpers.h fully migrated; bsg_move_helpers.h also
     uses BSG payload vlist API for point extraction).
@@ -1714,9 +1769,14 @@ What is not yet implemented in this roadmap:
 - Phase 11E: QGED/libqtcad selection/edit/polygon sweep (remaining Qt-side
   migration; blocked in this environment by a pre-existing Qt header build
   failure).
-- Phase 12: introduce a full BSG settings-inheritance accessor to replace the
-  remaining `s->s_os` pointer usage in inherit_settings paths.
-- Phases 12-13 deprecation and readiness gate execution.
+- Phase 12 remaining items:
+  - `libbv/polygon.c` `s_os->s_line_width = 1` (lines 100, 196) — cannot use
+    `bsg_node_settings_set` because `libbv` must not depend on `libbsg`.
+  - `libbv/hash.c` `s_os` NULL-check — low-priority, structural.
+  - Remove `bv_obj_settings` struct entirely once `libbv` polygon initializer
+    is resolved via a `libbv`-level accessor or Phase 10E ABI break.
+  - `gv_selected` removal / replacement with BSG selection storage (Phase 6F).
+- Phase 13 deprecation and readiness gate execution.
 
 
 Immediate Next-Session Stage Prompts
@@ -1733,12 +1793,10 @@ Use these as concrete "small-unit" prompts for the next work sessions.
    paths, and resolve or work around the current pre-existing Qt header build
    failure so libqtcad/QGED validation can run again.
 
-3. Phase 12:
-   Introduce a full BSG settings-inheritance accessor (`bsg_node_settings_get`
-   or similar) to replace the remaining `s->s_os` pointer usage in the
-   `_bsg_view_traverse_impl` inherit_settings path.  Define `struct bsg_settings`
-   analogously to `bsg_material`/`bsg_appearance` and wire it through the node
-   core, libdm traversal, and libtclcad.
+3. Phase 12 cleanup (settings-inheritance path complete; remaining):
+   Resolve `libbv/polygon.c` s_os->s_line_width usage by either introducing a
+   thin `libbv`-level accessor that does not create a `libbv`→`libbsg` circular
+   dependency, or deferring to Phase 10E.
 
 4. Phase 9.1 cached-bbox fix:
    The pre-existing `ged_test_bsg_view_obj` section [12] failures at

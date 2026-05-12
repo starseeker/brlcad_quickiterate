@@ -40,7 +40,9 @@ extern "C" {
 #include "bu/vls.h"
 #include "bv.h"
 #include "bsg/defines.h"
+#include "bsg/appearance.h"
 #include "bsg/node.h"
+#include "bsg/settings.h"
 #include "raytrace.h"
 #include "ged/bsg_ged_draw.h"
 }
@@ -158,11 +160,14 @@ _view_obj_type(struct bv_scene_obj *s)
 static void
 _view_obj_mode_string(struct bu_vls *out, struct bv_scene_obj *s)
 {
-    if (!out || !s || !s->s_os) {
+    if (!out || !s) {
 	bu_vls_printf(out, "unknown");
 	return;
     }
-    switch (s->s_os->s_dmode) {
+    /* Phase 12: read draw mode via BSG settings accessor. */
+    struct bsg_settings sinfo;
+    bsg_node_settings_get((const bsg_node *)s, &sinfo);
+    switch (sinfo.draw_mode) {
 	case _GED_WIREFRAME:
 	    bu_vls_printf(out, "wireframe");
 	    break;
@@ -367,26 +372,38 @@ _objs_cmd_arrow(void *bs, int argc, const char **argv)
     }
     if (BU_STR_EQUAL(argv[0], "width"))  {
 	if (argc == 2) {
-	    if (bu_opt_fastf_t(NULL, 1, (const char **)&argv[1], (void *)&s->s_os->s_arrow_tip_width) != 1) {
+	    /* Phase 12: arrow tip width via BSG appearance accessor. */
+	    struct bsg_appearance app;
+	    bsg_node_appearance_get((const bsg_node *)s, &app);
+	    if (bu_opt_fastf_t(NULL, 1, (const char **)&argv[1], (void *)&app.arrow_tip_width) != 1) {
 		bu_vls_printf(gedp->ged_result_str, "Invalid argument %s\n", argv[0]);
 		return BRLCAD_ERROR;
 	    }
+	    bsg_node_appearance_set((bsg_node *)s, &app);
 	    return BRLCAD_OK;
 	} else {
-	    bu_vls_printf(gedp->ged_result_str, "%f\n", s->s_os->s_arrow_tip_width);
+	    struct bsg_appearance app;
+	    bsg_node_appearance_get((const bsg_node *)s, &app);
+	    bu_vls_printf(gedp->ged_result_str, "%f\n", app.arrow_tip_width);
 	    return BRLCAD_OK;
 	}
     }
 
     if (BU_STR_EQUAL(argv[0], "length"))  {
 	if (argc == 2) {
-	    if (bu_opt_fastf_t(NULL, 1, (const char **)&argv[1], (void *)&s->s_os->s_arrow_tip_length) != 1) {
+	    /* Phase 12: arrow tip length via BSG appearance accessor. */
+	    struct bsg_appearance app;
+	    bsg_node_appearance_get((const bsg_node *)s, &app);
+	    if (bu_opt_fastf_t(NULL, 1, (const char **)&argv[1], (void *)&app.arrow_tip_length) != 1) {
 		bu_vls_printf(gedp->ged_result_str, "Invalid argument %s\n", argv[0]);
 		return BRLCAD_ERROR;
 	    }
+	    bsg_node_appearance_set((bsg_node *)s, &app);
 	    return BRLCAD_OK;
 	} else {
-	    bu_vls_printf(gedp->ged_result_str, "%f\n", s->s_os->s_arrow_tip_length);
+	    struct bsg_appearance app;
+	    bsg_node_appearance_get((const bsg_node *)s, &app);
+	    bu_vls_printf(gedp->ged_result_str, "%f\n", app.arrow_tip_length);
 	    return BRLCAD_OK;
 	}
     }

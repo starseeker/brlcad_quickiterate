@@ -50,6 +50,7 @@
 #include "raytrace.h"
 
 #include "bv/defines.h"
+#include "bsg/settings.h"
 #include "dm.h"
 
 #include "ged/bsg_ged_draw.h"
@@ -455,7 +456,10 @@ botdump_solid_cb(struct bv_scene_obj *sp, void *userdata)
 	d->obj.curr_obj_red = sp->s_color[0];
 	d->obj.curr_obj_green = sp->s_color[1];
 	d->obj.curr_obj_blue = sp->s_color[2];
-	d->obj.curr_obj_alpha = sp->s_os->transparency;
+	/* Phase 12: read transparency via BSG settings accessor. */
+	struct bsg_settings sinfo;
+	bsg_node_settings_get((const bsg_node *)sp, &sinfo);
+	d->obj.curr_obj_alpha = sinfo.transparency;
     }
 
     bot = (struct rt_bot_internal *)intern.idb_ptr;

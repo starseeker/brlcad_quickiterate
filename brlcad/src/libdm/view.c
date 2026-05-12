@@ -35,6 +35,7 @@
 #include "bsg/node.h"
 #include "bsg/render.h"
 #include "bsg/selection.h"
+#include "bsg/settings.h"
 #include "bsg/util.h"
 #include "bsg/defines.h"
 #include "bsg/lod.h"
@@ -436,7 +437,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 			    struct bv_scene_obj *s,
 			    struct bview *v,
 			    int force_draw,
-			    struct bv_obj_settings *obj_settings,
+			    const struct bsg_settings *inherited_settings,
 			    int transparency_pass,
 			    const fastf_t *cur_mat)
 {
@@ -480,7 +481,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
     // children tables to provide some control
     for (size_t i = 0; i < bsg_node_child_count((const bsg_node *)s); i++) {
 	struct bv_scene_obj *s_c = (struct bv_scene_obj *)bsg_node_child((const bsg_node *)s, i);
-	_dm_draw_scene_obj_internal(dmp, s_c, v, do_force_draw, obj_settings,
+	_dm_draw_scene_obj_internal(dmp, s_c, v, do_force_draw, inherited_settings,
 				    transparency_pass, cur_mat);
     }
 
@@ -496,8 +497,12 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 			      (const bsg_node *)s, "active")) ||
 	bsg_node_legacy_illum((const bsg_node *)s);
 
-    if (obj_settings) {
-	dm_set_fg(dmp, obj_settings->color[0], obj_settings->color[1], obj_settings->color[2], 0, obj_settings->transparency);
+    /* Phase 12: inherited settings override — when a parent node sets
+     * inherit_settings, its BSG settings snapshot is passed here.  Use
+     * the inherited color/transparency instead of the node's own material
+     * so the parent's draw settings are applied uniformly to the subtree. */
+    if (inherited_settings) {
+	dm_set_fg(dmp, inherited_settings->color[0], inherited_settings->color[1], inherited_settings->color[2], 0, inherited_settings->transparency);
     } else {
 	/* Phase 11C: resolve color from BSG material struct.  When no
 	 * explicit BSG material was set, bsg_node_material_get() already
@@ -592,8 +597,18 @@ dm_draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int f
 {
     /* Public single-pass API — preserves legacy behaviour: draw any
      * object regardless of transparency, restore gv_model2view after
-     * any edit-matrix swap. */
-    _dm_draw_scene_obj_internal(dmp, s, v, force_draw, obj_settings,
+     * any edit-matrix swap.
+     *
+     * Phase 12: convert the legacy bv_obj_settings pointer to a typed
+     * bsg_settings snapshot at the public API boundary so the internal
+     * traversal only sees BSG types. */
+    struct bsg_settings _settings;
+    const struct bsg_settings *settings_ptr = NULL;
+    if (obj_settings) {
+	bsg_settings_from_legacy_obj_settings(obj_settings, &_settings);
+	settings_ptr = &_settings;
+    }
+    _dm_draw_scene_obj_internal(dmp, s, v, force_draw, settings_ptr,
 				/*transparency_pass=*/0, /*cur_mat=*/NULL);
 }
 
@@ -699,17 +714,22 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	    continue;
 	}
 
-	/* Phase 11C: route s_inherit_settings flag through BSG appearance.
-	 * When inherit_settings is set, the current node's legacy s_os pointer
-	 * is passed as the obj_settings override for all children.  s->s_os is
-	 * still legacy storage for the actual settings struct; routing the flag
-	 * through BSG enables producers to set it via bsg_node_appearance_set. */
+	/* Phase 12: route s_inherit_settings flag through BSG appearance and
+	 * settings.  When inherit_settings is set, read the parent node's
+	 * settings via bsg_node_settings_get() and pass the typed snapshot
+	 * to the draw call; this eliminates the direct s->s_os pointer access
+	 * from the traversal path. */
 	{
 	    struct bsg_appearance _node_app;
 	    bsg_node_appearance_get((const bsg_node *)s, &_node_app);
+	    struct bsg_settings _inh_settings;
+	    const struct bsg_settings *isp = NULL;
+	    if (_node_app.inherit_settings) {
+		bsg_node_settings_get((const bsg_node *)s, &_inh_settings);
+		isp = &_inh_settings;
+	    }
 	    _dm_draw_scene_obj_internal(dmp, s, v, bsg_node_force_draw((const bsg_node *)s),
-				    _node_app.inherit_settings ? s->s_os : NULL,
-				    transparency_pass, cur_mat);
+				    isp, transparency_pass, cur_mat);
 	}
     }
 }
@@ -845,12 +865,19 @@ _dm_rop_draw_payload(void *data, bsg_node *bnode, struct bview *v,
     struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
     struct dm *dmp = ctx->dmp;
     struct bv_scene_obj *s = (struct bv_scene_obj *)bnode;
-    /* Phase 11C: route s_inherit_settings flag through BSG appearance. */
+    /* Phase 12: route s_inherit_settings flag through BSG settings accessor,
+     * eliminating the direct s->s_os pointer access from this render path. */
     struct bsg_appearance _app;
     bsg_node_appearance_get((const bsg_node *)s, &_app);
+    struct bsg_settings _inh_settings;
+    const struct bsg_settings *isp = NULL;
+    if (_app.inherit_settings) {
+	bsg_node_settings_get((const bsg_node *)s, &_inh_settings);
+	isp = &_inh_settings;
+    }
     _dm_draw_scene_obj_internal(dmp, s, v,
 				bsg_node_force_draw((const bsg_node *)s),
-				_app.inherit_settings ? s->s_os : NULL,
+				isp,
 				pass, world_xform);
 }
 
@@ -860,9 +887,15 @@ _dm_rop_draw_overlay(void *data, bsg_node *bnode, struct bview *v)
     struct dm_render_ctx *ctx = (struct dm_render_ctx *)data;
     struct dm *dmp = ctx->dmp;
     struct bv_scene_obj *s = (struct bv_scene_obj *)bnode;
-    /* Phase 11C: route s_inherit_settings flag through BSG appearance. */
+    /* Phase 12: route s_inherit_settings flag through BSG settings accessor. */
     struct bsg_appearance _app;
     bsg_node_appearance_get((const bsg_node *)s, &_app);
+    struct bsg_settings _inh_settings;
+    const struct bsg_settings *isp = NULL;
+    if (_app.inherit_settings) {
+	bsg_node_settings_get((const bsg_node *)s, &_inh_settings);
+	isp = &_inh_settings;
+    }
     mat_t cur_mat;
     if (v)
 	MAT_COPY(cur_mat, v->gv_model2view);
@@ -870,7 +903,7 @@ _dm_rop_draw_overlay(void *data, bsg_node *bnode, struct bview *v)
 	MAT_IDN(cur_mat);
     _dm_draw_scene_obj_internal(dmp, s, v,
 				bsg_node_force_draw((const bsg_node *)s),
-				_app.inherit_settings ? s->s_os : NULL,
+				isp,
 				BSG_RENDER_PASS_ALL, cur_mat);
 }
 

@@ -24,6 +24,7 @@ set(
   scene_set.h
   selection.h
   sensor.h
+  settings.h
   util.h
   view_scope.h
   visit.h

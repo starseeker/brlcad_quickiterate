@@ -25,6 +25,7 @@
 
 #include "common.h"
 
+#include "bsg/settings.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
 
@@ -58,7 +59,11 @@ set_transparency_cb(struct bv_scene_obj *sp, void *userdata)
 	return 1; /* continue */
 
     /* found a match */
-    sp->s_os->transparency = data->transparency;
+    /* Phase 12: write transparency via BSG settings accessor. */
+    struct bsg_settings sinfo;
+    bsg_node_settings_get((const bsg_node *)sp, &sinfo);
+    sinfo.transparency = (fastf_t)data->transparency;
+    bsg_node_settings_set((bsg_node *)sp, &sinfo);
 
     return 1; /* continue */
 }

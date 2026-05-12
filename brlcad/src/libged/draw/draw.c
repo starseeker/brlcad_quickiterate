@@ -36,6 +36,7 @@
 #include "bsg/identity.h"
 #include "bsg/node.h"
 #include "bsg/payload.h"
+#include "bsg/settings.h"
 
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
@@ -159,8 +160,14 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
 
     solid_set_color_info(sp, wireframe_color_override, tsp);
 
-    sp->s_os->transparency = dgcdp->vs.transparency;
-    sp->s_os->s_dmode = dgcdp->vs.s_dmode;
+    /* Phase 12: write draw settings via BSG settings accessor. */
+    {
+	struct bsg_settings sinfo;
+	bsg_node_settings_get((const bsg_node *)sp, &sinfo);
+	sinfo.transparency = (fastf_t)dgcdp->vs.transparency;
+	sinfo.draw_mode    = dgcdp->vs.s_dmode;
+	bsg_node_settings_set((bsg_node *)sp, &sinfo);
+    }
 
     /* append solid to display list */
     bu_semaphore_acquire(RT_SEM_MODEL);
@@ -242,7 +249,10 @@ draw_solid_wireframe(struct bv_scene_obj *sp, struct bview *gvp, struct db_i *db
 static int
 redraw_solid(struct bv_scene_obj *sp, struct db_i *dbip, struct db_tree_state *tsp, struct bview *gvp, struct bu_list *vlfree)
 {
-    if (sp->s_os->s_dmode == _GED_WIREFRAME) {
+    /* Phase 12: read draw mode via BSG settings accessor. */
+    struct bsg_settings _redraw_sinfo;
+    bsg_node_settings_get((const bsg_node *)sp, &_redraw_sinfo);
+    if (_redraw_sinfo.draw_mode == _GED_WIREFRAME) {
 	/* replot wireframe */
 	if (BU_LIST_NON_EMPTY(&sp->s_vlist)) {
 	    BV_FREE_VLIST(vlfree, &sp->s_vlist);
@@ -482,8 +492,14 @@ append_solid_to_display_list(
 	}
     }
 
-    sp->s_os->transparency = bv_data->transparency;
-    sp->s_os->s_dmode = bv_data->dmode;
+    /* Phase 12: write draw settings via BSG settings accessor. */
+    {
+	struct bsg_settings sinfo;
+	bsg_node_settings_get((const bsg_node *)sp, &sinfo);
+	sinfo.transparency = (fastf_t)bv_data->transparency;
+	sinfo.draw_mode    = bv_data->dmode;
+	bsg_node_settings_set((bsg_node *)sp, &sinfo);
+    }
     MAT_COPY(sp->s_mat, tsp->ts_mat);
 
     /* append solid to display list */
