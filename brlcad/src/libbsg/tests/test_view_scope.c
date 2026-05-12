@@ -96,10 +96,10 @@ test_create(void)
     CHECK(scope != NULL, "bsg_view_scope_create returned non-NULL");
 
     struct bv_scene_obj *s = (struct bv_scene_obj *)scope;
-    CHECK((s->s_type_flags & BSG_NODE_VIEW_SCOPE) != 0,
+    CHECK((s->bsg.bsg_kind & BSG_NODE_VIEW_SCOPE) != 0,
 	  "type flag is BSG_NODE_VIEW_SCOPE");
     CHECK(s->s_v == v, "s_v set to the creating view");
-    CHECK(s->s_flag == UP, "s_flag is UP");
+    CHECK(s->bsg.bsg_flag == UP, "s_flag is UP");
 
     bsg_view_scope_destroy(scope);
     free_view(v);
@@ -218,8 +218,8 @@ test_destroy(void)
     /* Add a dummy child reference (just the pointer — we own it). */
     bsg_node *child = bsg_group_create(v);
     CHECK(child != NULL, "child create");
-    bu_ptbl_ins(&((struct bv_scene_obj *)scope)->children, (long *)child);
-    CHECK(BU_PTBL_LEN(&((struct bv_scene_obj *)scope)->children) == 1,
+    bu_ptbl_ins(&((struct bv_scene_obj *)scope)->bsg.bsg_children, (long *)child);
+    CHECK(BU_PTBL_LEN(&((struct bv_scene_obj *)scope)->bsg.bsg_children) == 1,
 	  "one child before destroy");
 
     /* destroy resets children and frees the node. */

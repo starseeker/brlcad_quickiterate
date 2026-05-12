@@ -262,10 +262,10 @@ _scene_bsph_cb(struct bv_scene_obj *s, void *data)
     vect_t minus, plus;
     /* For BSG leaf nodes s_center/s_size are authoritative.
      * For non-BSG top-level groups, recurse into children first. */
-    if (BU_PTBL_LEN(&s->children)) {
-	for (size_t j = 0; j < BU_PTBL_LEN(&s->children); j++) {
+    if (BU_PTBL_LEN(&s->bsg.bsg_children)) {
+	for (size_t j = 0; j < BU_PTBL_LEN(&s->bsg.bsg_children); j++) {
 	    struct bv_scene_obj *sp =
-		(struct bv_scene_obj *)BU_PTBL_GET(&s->children, j);
+		(struct bv_scene_obj *)BU_PTBL_GET(&s->bsg.bsg_children, j);
 	    minus[X] = sp->s_center[X] - sp->s_size;
 	    minus[Y] = sp->s_center[Y] - sp->s_size;
 	    minus[Z] = sp->s_center[Z] - sp->s_size;

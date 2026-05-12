@@ -137,8 +137,8 @@ obj_bb(int *have_objs, vect_t *min, vect_t *max, struct bv_scene_obj *s, struct 
 	plus[Z] = s->s_center[Z] + s->s_size;
 	VMAX(*max, plus);
     }
-    for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	struct bv_scene_obj *sc = (struct bv_scene_obj *)BU_PTBL_GET(&s->children, i);
+    for (size_t i = 0; i < BU_PTBL_LEN(&s->bsg.bsg_children); i++) {
+	struct bv_scene_obj *sc = (struct bv_scene_obj *)BU_PTBL_GET(&s->bsg.bsg_children, i);
 	obj_bb(have_objs, min, max, sc, v);
     }
 }
@@ -344,9 +344,9 @@ bv_view_bounds(struct bview *v)
 static void
 _find_active_objs(std::set<struct bv_scene_obj *> &active, struct bv_scene_obj *s, struct bview *v, point_t obb_c, point_t obb_e1, point_t obb_e2, point_t obb_e3)
 {
-    if (BU_PTBL_LEN(&s->children)) {
-	for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	    struct bv_scene_obj *sc = (struct bv_scene_obj *)BU_PTBL_GET(&s->children, i);
+    if (BU_PTBL_LEN(&s->bsg.bsg_children)) {
+	for (size_t i = 0; i < BU_PTBL_LEN(&s->bsg.bsg_children); i++) {
+	    struct bv_scene_obj *sc = (struct bv_scene_obj *)BU_PTBL_GET(&s->bsg.bsg_children, i);
 	    _find_active_objs(active, sc, v, obb_c, obb_e1, obb_e2, obb_e3);
 	}
     } else {
@@ -1859,8 +1859,8 @@ bv_mesh_lod_destroy(struct bv_mesh_lod *lod)
 static void
 dlist_stale(struct bv_scene_obj *s)
 {
-    for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	struct bv_scene_group *cg = (struct bv_scene_group *)BU_PTBL_GET(&s->children, i);
+    for (size_t i = 0; i < BU_PTBL_LEN(&s->bsg.bsg_children); i++) {
+	struct bv_scene_group *cg = (struct bv_scene_group *)BU_PTBL_GET(&s->bsg.bsg_children, i);
 	dlist_stale(cg);
     }
     /* Phase 11: route through the backend contract so any registered
@@ -1910,7 +1910,7 @@ bv_mesh_lod_level(struct bv_scene_obj *s, int level, int reset)
 	l->pcnt = (int)sp->lod_tri_pnts_snapped.size();
     }
 
-    bv_log(2, "bv_mesh_lod_level %s[%d](%d): %d", bu_vls_cstr(&s->s_name), level, reset, l->fcnt);
+    bv_log(2, "bv_mesh_lod_level %s[%d](%d): %d", bu_vls_cstr(&s->bsg.bsg_name), level, reset, l->fcnt);
 
     // If the data changed, any Display List we may have previously generated
     // is now obsolete
@@ -1937,7 +1937,7 @@ bv_mesh_lod_view(struct bv_scene_obj *s, struct bview *v, int reset)
     vscale = (vscale < 0) ? 0 : vscale;
     vscale = (vscale >= POP_MAXLEVEL) ? POP_MAXLEVEL-1 : vscale;
 
-    bv_log(2, "bv_mesh_lod_view %s[%s][%d]", bu_vls_cstr(&s->s_name), bu_vls_cstr(&v->gv_name), vscale);
+    bv_log(2, "bv_mesh_lod_view %s[%s][%d]", bu_vls_cstr(&s->bsg.bsg_name), bu_vls_cstr(&v->gv_name), vscale);
 
     // If the object is not visible in the scene, don't change the data
     //bu_log("min: %f %f %f max: %f %f %f\n", V3ARGS(s->bmin), V3ARGS(s->bmax));

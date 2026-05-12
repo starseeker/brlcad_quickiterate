@@ -526,14 +526,14 @@ bv_plot_vlblock(FILE *fp, const struct bv_vlblock *vbp)
 	BU_ALLOC((p), struct bv_scene_obj); \
     } else { \
 	p = BU_LIST_NEXT(bv_scene_obj, fp); \
-	BU_LIST_DEQUEUE(&((p)->l)); \
+	BU_LIST_DEQUEUE(&((p)->bsg.l)); \
     } \
-    bu_vls_init(&(p)->s_name); \
+    bu_vls_init(&(p)->bsg.bsg_name); \
     (p)->s_path = NULL; \
     BU_LIST_INIT( &((p)->s_vlist) ); }
 
 #define FREE_BV_SCENE_OBJ(p, fp, vlf) { \
-    BU_LIST_APPEND(fp, &((p)->l)); \
+    BU_LIST_APPEND(fp, &((p)->bsg.l)); \
     BV_FREE_VLIST(vlf, &((p)->s_vlist)); }
 
 void
@@ -551,7 +551,7 @@ bv_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlblock
 	    bu_vls_sprintf(&cname, "%sobj%zd", name_root, i);
 	    for (size_t j = 0; j < BU_PTBL_LEN(out); j++) {
 		struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(out, j);
-		if (BU_STR_EQUAL(bu_vls_cstr(&cname), bu_vls_cstr(&s->s_name))) {
+		if (BU_STR_EQUAL(bu_vls_cstr(&cname), bu_vls_cstr(&s->bsg.bsg_name))) {
 		    bu_ptbl_ins_unique(&oobjs, (long *)s);
 		}
 	    }
@@ -560,15 +560,15 @@ bv_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlblock
     for (size_t i = 0; i < BU_PTBL_LEN(&oobjs); i++) {
 	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&oobjs, i);
 	bu_ptbl_rm(out, (long *)s);
-	FREE_BV_SCENE_OBJ(s, &f->l, vlfree);
+	FREE_BV_SCENE_OBJ(s, &f->bsg.l, vlfree);
     }
     for (size_t i = 0; i < vbp->nused; i++) {
 	if (!BU_LIST_IS_EMPTY(&(vbp->head[i]))) {
 	    struct bv_scene_obj *s;
-	    GET_BV_SCENE_OBJ(s, &f->l);
-	    s->s_type_flags = BV_VIEWONLY;
+	    GET_BV_SCENE_OBJ(s, &f->bsg.l);
+	    s->bsg.bsg_kind = BV_VIEWONLY;
 	    s->s_v = v;
-	    bu_vls_sprintf(&s->s_name, "%sobj%zd", name_root, i);
+	    bu_vls_sprintf(&s->bsg.bsg_name, "%sobj%zd", name_root, i);
 	    struct bv_vlist *bvl = (struct bv_vlist *)&vbp->head[i];
 	    long int rgb = vbp->rgb[i];
 	    s->s_vlen = bv_vlist_cmd_cnt(bvl);
@@ -608,7 +608,7 @@ bv_vlblock_obj(struct bv_vlblock *vbp, struct bview *v, const char *name)
 	    sc->s_color[0] = (rgb>>16);
 	    sc->s_color[1] = (rgb>>8);
 	    sc->s_color[2] = (rgb) & 0xFF;
-	    bu_vls_sprintf(&sc->s_name, "%s_%d_%d_%d", name, V3ARGS(sc->s_color));
+	    bu_vls_sprintf(&sc->bsg.bsg_name, "%s_%d_%d_%d", name, V3ARGS(sc->s_color));
 	}
     }
 

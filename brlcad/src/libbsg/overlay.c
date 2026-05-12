@@ -60,7 +60,7 @@
  * Mirrors the identical macro in libbsg/draw_set.c.
  */
 #define FREE_BV_SCENE_OBJ(p, fp, vlf) { \
-    BU_LIST_APPEND(fp, &((p)->l)); \
+    BU_LIST_APPEND(fp, &((p)->bsg.l)); \
     BV_FREE_VLIST(vlf, &((p)->s_vlist)); }
 
 
@@ -119,38 +119,38 @@ bsg_erase_overlay_by_name(bsg_node *draw_root, const char *name)
     if (!ov)
 	return;
 
-    struct bsg_draw_ctx *ctx = _ctx_of_node(root);
+    struct bsg_draw_ctx *ctx = _ctx_of_node((bsg_node *)root);
     struct bv_scene_obj *fso = (ctx && ctx->fso) ? ctx->fso : NULL;
 
     struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
-    for (size_t i = 0; i < BU_PTBL_LEN(&ov->children); i++)
-	bu_ptbl_ins(&snap, BU_PTBL_GET(&ov->children, i));
+    for (size_t i = 0; i < BU_PTBL_LEN(&ov->bsg.bsg_children); i++)
+	bu_ptbl_ins(&snap, BU_PTBL_GET(&ov->bsg.bsg_children, i));
 
     for (size_t i = 0; i < BU_PTBL_LEN(&snap); i++) {
 	struct bv_scene_obj *sp =
 	    (struct bv_scene_obj *)BU_PTBL_GET(&snap, i);
-	if (!BU_STR_EQUAL(name, bu_vls_cstr(&sp->s_name)))
+	if (!BU_STR_EQUAL(name, bu_vls_cstr(&sp->bsg.bsg_name)))
 	    continue;
 
 	/* Phase 11: release backend resources via the generic contract. */
 	bv_scene_obj_release_backend(sp);
-	bu_ptbl_rm(&ov->children, (const long *)sp);
-	/* bump rev via root (sp->parent now being cleared) */
+	bu_ptbl_rm(&ov->bsg.bsg_children, (const long *)sp);
+	/* bump rev via root (sp->bsg.bsg_parent now being cleared) */
 	bsg_bump_rev_node(draw_root);
-	sp->parent = NULL;
+	sp->bsg.bsg_parent = NULL;
 	struct bv_scene_obj *sfso = fso ? fso : sp->free_scene_obj;
 	if (sfso)
-	    FREE_BV_SCENE_OBJ(sp, &sfso->l, sp->vlfree);
+	    FREE_BV_SCENE_OBJ(sp, &sfso->bsg.l, sp->vlfree);
     }
     bu_ptbl_free(&snap);
 
     /* Remove empty _overlays group from root */
-    if (BU_PTBL_LEN(&ov->children) == 0) {
-	bu_ptbl_rm(&root->children, (const long *)ov);
-	ov->parent = NULL;
+    if (BU_PTBL_LEN(&ov->bsg.bsg_children) == 0) {
+	bu_ptbl_rm(&root->bsg.bsg_children, (const long *)ov);
+	ov->bsg.bsg_parent = NULL;
 	struct bv_scene_obj *ofso = ov->free_scene_obj;
 	if (ofso)
-	    FREE_BV_SCENE_OBJ(ov, &ofso->l, ov->vlfree);
+	    FREE_BV_SCENE_OBJ(ov, &ofso->bsg.l, ov->vlfree);
     }
 }
 

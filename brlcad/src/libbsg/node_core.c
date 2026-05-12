@@ -57,18 +57,18 @@
  * (no libbsg -> libbv symbol dependency).
  */
 void
-_bsg_core_release(struct bsg_node_core *core)
+_bsg_core_release(struct bsg_node *core)
 {
     if (!core)
 	return;
 
     if (core->material) {
-	bu_free(core->material, "bsg_node_core material");
+	bu_free(core->material, "bsg_node material");
 	core->material = NULL;
     }
 
     if (core->appearance) {
-	bu_free(core->appearance, "bsg_node_core appearance");
+	bu_free(core->appearance, "bsg_node appearance");
 	core->appearance = NULL;
     }
 
@@ -83,7 +83,7 @@ _bsg_core_release(struct bsg_node_core *core)
 /* Public API                                                           */
 /* ------------------------------------------------------------------ */
 
-struct bsg_node_core *
+bsg_node *
 bsg_node_core_get(bsg_node *n)
 {
     return _bsg_core_ensure(n);
@@ -102,8 +102,7 @@ bsg_node_core_initialized(const bsg_node *n)
 {
     if (!n)
 	return 0;
-    return (((const struct bv_scene_obj *)n)->bsg_core.bsg_magic
-	    == BSG_NODE_CORE_MAGIC) ? 1 : 0;
+    return (n->bsg_magic == BSG_NODE_CORE_MAGIC) ? 1 : 0;
 }
 
 

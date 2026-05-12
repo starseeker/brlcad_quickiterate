@@ -41,18 +41,10 @@
 unsigned long long
 bsg_node_kind(const bsg_node *n)
 {
-    const struct bv_scene_obj *s;
-
     if (!n)
 	return 0;
 
-    s = (const struct bv_scene_obj *)n;
-    /* Phase 10B: prefer the core if it has been initialized; fall back to the
-     * legacy field so that nodes not yet touched by any BSG setter still
-     * return the correct value. */
-    if (s->bsg_core.bsg_magic == BSG_NODE_CORE_MAGIC)
-	return s->bsg_core.kind;
-    return s->s_type_flags;
+    return n->bsg_kind;
 }
 
 
@@ -69,18 +61,10 @@ bsg_node_has_kind(const bsg_node *n, unsigned long long kind)
 void
 bsg_node_set_kind(bsg_node *n, unsigned long long kind)
 {
-    struct bsg_node_core *core;
-
     if (!n)
 	return;
 
-    /* Phase 10B: write to both the legacy field (for backward compat) and the
-     * core (primary BSG storage). */
-    struct bv_scene_obj *s = (struct bv_scene_obj *)n;
-    s->s_type_flags = kind;
-    core = _bsg_core_ensure(n);
-    if (core)
-	core->kind = kind;
+    n->bsg_kind = kind;
     bsg_node_field_touch(n, BSG_FIELD_KIND);
 }
 
@@ -91,7 +75,7 @@ bsg_node_name(const bsg_node *n)
     if (!n)
 	return NULL;
 
-    return bu_vls_cstr(&((const struct bv_scene_obj *)n)->s_name);
+    return bu_vls_cstr(&n->bsg_name);
 }
 
 
@@ -101,11 +85,10 @@ bsg_node_set_name(bsg_node *n, const char *name)
     if (!n)
 	return;
 
-    struct bv_scene_obj *s = (struct bv_scene_obj *)n;
     if (!name) {
-	bu_vls_trunc(&s->s_name, 0);
+	bu_vls_trunc(&n->bsg_name, 0);
     } else {
-	bu_vls_sprintf(&s->s_name, "%s", name);
+	bu_vls_sprintf(&n->bsg_name, "%s", name);
     }
     bsg_node_field_touch(n, BSG_FIELD_NAME);
 }
@@ -114,16 +97,10 @@ bsg_node_set_name(bsg_node *n, const char *name)
 bsg_node *
 bsg_node_parent(const bsg_node *n)
 {
-    const struct bv_scene_obj *s;
-
     if (!n)
 	return NULL;
 
-    s = (const struct bv_scene_obj *)n;
-    /* Phase 10B: prefer the core if initialized. */
-    if (s->bsg_core.bsg_magic == BSG_NODE_CORE_MAGIC)
-	return (bsg_node *)s->bsg_core.parent;
-    return (bsg_node *)s->parent;
+    return n->bsg_parent;
 }
 
 
@@ -133,7 +110,7 @@ bsg_node_child_count(const bsg_node *n)
     if (!n)
 	return 0;
 
-    return BU_PTBL_LEN(&((const struct bv_scene_obj *)n)->children);
+    return BU_PTBL_LEN(&n->bsg_children);
 }
 
 
@@ -143,7 +120,7 @@ bsg_node_child(const bsg_node *n, size_t idx)
     if (!n || idx >= bsg_node_child_count(n))
 	return NULL;
 
-    return (bsg_node *)BU_PTBL_GET(&((const struct bv_scene_obj *)n)->children, idx);
+    return (bsg_node *)BU_PTBL_GET(&n->bsg_children, idx);
 }
 
 
@@ -153,23 +130,13 @@ bsg_node_add_child(bsg_node *parent, bsg_node *child)
     if (!parent || !child || parent == child)
 	return;
 
-    struct bv_scene_obj *p = (struct bv_scene_obj *)parent;
-    struct bv_scene_obj *c = (struct bv_scene_obj *)child;
-
-    for (size_t i = 0; i < BU_PTBL_LEN(&p->children); i++) {
-	if ((struct bv_scene_obj *)BU_PTBL_GET(&p->children, i) == c) {
+    for (size_t i = 0; i < BU_PTBL_LEN(&parent->bsg_children); i++) {
+	if ((bsg_node *)BU_PTBL_GET(&parent->bsg_children, i) == child)
 	    return;
-	}
     }
 
-    bu_ptbl_ins(&p->children, (long *)c);
-    c->parent = p;
-    /* Phase 10B: keep core parent in sync. */
-    {
-	struct bsg_node_core *cc = _bsg_core_ensure(child);
-	if (cc)
-	    cc->parent = p;
-    }
+    bu_ptbl_ins(&parent->bsg_children, (long *)child);
+    child->bsg_parent = parent;
     bsg_node_field_touch(parent, BSG_FIELD_CHILDREN);
 }
 
@@ -180,12 +147,9 @@ bsg_node_remove_child(bsg_node *parent, bsg_node *child)
     if (!parent || !child)
 	return;
 
-    struct bv_scene_obj *p = (struct bv_scene_obj *)parent;
-    struct bv_scene_obj *c = (struct bv_scene_obj *)child;
     int found = 0;
-
-    for (size_t i = 0; i < BU_PTBL_LEN(&p->children); i++) {
-	if ((struct bv_scene_obj *)BU_PTBL_GET(&p->children, i) == c) {
+    for (size_t i = 0; i < BU_PTBL_LEN(&parent->bsg_children); i++) {
+	if ((bsg_node *)BU_PTBL_GET(&parent->bsg_children, i) == child) {
 	    found = 1;
 	    break;
 	}
@@ -194,16 +158,9 @@ bsg_node_remove_child(bsg_node *parent, bsg_node *child)
     if (!found)
 	return;
 
-    bu_ptbl_rm(&p->children, (const long *)c);
-    if (c->parent == p) {
-	c->parent = NULL;
-	/* Phase 10B: keep core parent in sync. */
-	{
-	    struct bsg_node_core *cc = _bsg_core_ensure(child);
-	    if (cc)
-		cc->parent = NULL;
-	}
-    }
+    bu_ptbl_rm(&parent->bsg_children, (const long *)child);
+    if (child->bsg_parent == parent)
+	child->bsg_parent = NULL;
     bsg_node_field_touch(parent, BSG_FIELD_CHILDREN);
 }
 
@@ -214,7 +171,7 @@ bsg_node_visible(const bsg_node *n)
     if (!n)
 	return 0;
 
-    return (((const struct bv_scene_obj *)n)->s_flag == UP) ? 1 : 0;
+    return (n->bsg_flag == UP) ? 1 : 0;
 }
 
 
@@ -224,7 +181,7 @@ bsg_node_force_draw(const bsg_node *n)
     if (!n)
 	return 0;
 
-    return ((const struct bv_scene_obj *)n)->s_force_draw ? 1 : 0;
+    return n->bsg_force_draw ? 1 : 0;
 }
 
 
@@ -232,7 +189,7 @@ bsg_node_force_draw(const bsg_node *n)
  * @brief Set whether a node should draw even when inherited visibility rules
  * would otherwise suppress it.
  *
- * Stores 0/1 in s_force_draw and fires BSG_FIELD_FORCE_DRAW notifications.
+ * Stores 0/1 in bsg_force_draw and fires BSG_FIELD_FORCE_DRAW notifications.
  */
 void
 bsg_node_set_force_draw(bsg_node *n, int force_draw)
@@ -240,7 +197,7 @@ bsg_node_set_force_draw(bsg_node *n, int force_draw)
     if (!n)
 	return;
 
-    ((struct bv_scene_obj *)n)->s_force_draw = force_draw ? 1 : 0;
+    n->bsg_force_draw = force_draw ? 1 : 0;
     bsg_node_field_touch(n, BSG_FIELD_FORCE_DRAW);
 }
 
@@ -345,7 +302,7 @@ bsg_node_legacy_illum(const bsg_node *n)
     if (!n)
 	return 0;
 
-    return (((const struct bv_scene_obj *)n)->s_iflag == UP) ? 1 : 0;
+    return (n->bsg_iflag == UP) ? 1 : 0;
 }
 
 
@@ -355,7 +312,7 @@ bsg_node_set_legacy_illum(bsg_node *n, int illuminated)
     if (!n)
 	return;
 
-    ((struct bv_scene_obj *)n)->s_iflag = illuminated ? UP : DOWN;
+    n->bsg_iflag = illuminated ? UP : DOWN;
 }
 
 
@@ -415,8 +372,8 @@ bsg_node_set_free_callback(bsg_node *n, bsg_node_free_fn cb)
     if (!n)
 	return;
 
-    /* bsg_node and bv_scene_obj are the same type; function pointer cast
-     * is safe for the current transitional storage model. */
+    /* bsg_node and bv_scene_obj are related via first-member embedding;
+     * function pointer cast is safe for the current storage model. */
     ((struct bv_scene_obj *)n)->s_free_callback =
 	(void (*)(struct bv_scene_obj *))cb;
 }

@@ -53,7 +53,7 @@ _lod_update_recursive(bsg_node *node, struct bview *v)
 
     struct bv_scene_obj *n = (struct bv_scene_obj *)node;
 
-    if (n->s_type_flags & BSG_NODE_LOD) {
+    if (n->bsg.bsg_kind & BSG_NODE_LOD) {
 	struct bsg_lod_payload *pl =
 	    (struct bsg_lod_payload *)n->s_i_data;
 	if (pl && pl->ops) {
@@ -70,13 +70,13 @@ _lod_update_recursive(bsg_node *node, struct bview *v)
     }
 
     /* Walk children regardless of node type so we find nested LoD nodes. */
-    for (size_t i = 0; i < BU_PTBL_LEN(&n->children); i++) {
+    for (size_t i = 0; i < BU_PTBL_LEN(&n->bsg.bsg_children); i++) {
 	struct bv_scene_obj *child =
-	    (struct bv_scene_obj *)BU_PTBL_GET(&n->children, i);
+	    (struct bv_scene_obj *)BU_PTBL_GET(&n->bsg.bsg_children, i);
 	if (!child)
 	    continue;
 	/* Skip leaf nodes — they cannot contain BSG_NODE_LOD children. */
-	if (child->s_type_flags & BSG_NODE_SHAPE)
+	if (child->bsg.bsg_kind & BSG_NODE_SHAPE)
 	    continue;
 	_lod_update_recursive((bsg_node *)child, v);
     }
@@ -106,7 +106,7 @@ bsg_lod_stale(bsg_node *n, struct bview *v)
 
     /* Only BSG_NODE_LOD nodes carry staleness state. */
     struct bv_scene_obj *s = (struct bv_scene_obj *)n;
-    if (!(s->s_type_flags & BSG_NODE_LOD))
+    if (!(s->bsg.bsg_kind & BSG_NODE_LOD))
 	return 0;
 
     struct bsg_lod_payload *pl = (struct bsg_lod_payload *)s->s_i_data;

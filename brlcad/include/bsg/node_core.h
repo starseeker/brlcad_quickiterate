@@ -46,18 +46,18 @@
 #define BSG_NODE_CORE_H
 
 #include "common.h"
-#include "bv/defines.h"   /* struct bsg_node_core, BSG_NODE_CORE_MAGIC */
+#include "bv/defines.h"   /* struct bsg_node, BSG_NODE_CORE_MAGIC */
 #include "bsg/defines.h"  /* bsg_node typedef */
 
 __BEGIN_DECLS
 
 /**
- * Return the embedded @c bsg_node_core for @p n, initialising it on first
+ * Return the BSG node core for @p n, initialising it on first
  * call.  Never returns NULL for a non-NULL @p n.
  *
  * This is a low-level accessor; prefer the typed BSG APIs.
  */
-BSG_EXPORT extern struct bsg_node_core *
+BSG_EXPORT extern bsg_node *
 bsg_node_core_get(bsg_node *n);
 
 /**

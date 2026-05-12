@@ -226,7 +226,7 @@ test_group_create_add_remove(void)
     if (!grp) FAIL("bsg_group_create returned NULL");
 
     struct bv_scene_obj *g = (struct bv_scene_obj *)grp;
-    if (!(g->s_type_flags & BSG_NODE_GROUP)) FAIL("type flag not BSG_NODE_GROUP");
+    if (!(g->bsg.bsg_kind & BSG_NODE_GROUP)) FAIL("type flag not BSG_NODE_GROUP");
 
     bsg_node *child1 = bsg_group_create(v);
     bsg_node *child2 = bsg_group_create(v);
@@ -234,14 +234,14 @@ test_group_create_add_remove(void)
 
     bsg_group_add_child(grp, child1);
     bsg_group_add_child(grp, child2);
-    if (BU_PTBL_LEN(&g->children) != 2) FAIL("expected 2 children after add");
+    if (BU_PTBL_LEN(&g->bsg.bsg_children) != 2) FAIL("expected 2 children after add");
 
     /* Adding the same child twice should be a no-op */
     bsg_group_add_child(grp, child1);
-    if (BU_PTBL_LEN(&g->children) != 2) FAIL("duplicate add should be no-op");
+    if (BU_PTBL_LEN(&g->bsg.bsg_children) != 2) FAIL("duplicate add should be no-op");
 
     bsg_group_remove_child(grp, child1);
-    if (BU_PTBL_LEN(&g->children) != 1) FAIL("expected 1 child after remove");
+    if (BU_PTBL_LEN(&g->bsg.bsg_children) != 1) FAIL("expected 1 child after remove");
 
     bsg_group_destroy(child1);
     bsg_group_destroy(child2);
@@ -271,7 +271,7 @@ test_transform_matrix(void)
     if (!xf) FAIL("bsg_transform_create returned NULL");
 
     struct bv_scene_obj *xs = (struct bv_scene_obj *)xf;
-    if (!(xs->s_type_flags & BSG_NODE_TRANSFORM))
+    if (!(xs->bsg.bsg_kind & BSG_NODE_TRANSFORM))
 	FAIL("type flag not BSG_NODE_TRANSFORM");
 
     /* Verify identity matrix after create */

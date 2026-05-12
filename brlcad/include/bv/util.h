@@ -476,6 +476,20 @@ bv_obj_reset(struct bv_scene_obj *s);
 BV_EXPORT void
 bv_obj_put(struct bv_scene_obj *o);
 
+/**
+ * Return the embedded @c struct bsg_node pointer for @p s.
+ *
+ * Because @c struct bsg_node is the first member of @c struct bv_scene_obj
+ * (Phase 10E first-member embedding), this is simply a pointer cast.  The
+ * helper is provided as an explicit, typed accessor so that call sites are
+ * self-documenting and to avoid accidental raw casts.
+ */
+static inline struct bsg_node *
+bv_obj_bsg_node(struct bv_scene_obj *s)
+{
+    return s ? &s->bsg : NULL;
+}
+
 /* Given a scene object and a name vname, glob match child names and uuids to
  * attempt to locate a child of s that matches vname */
 BV_EXPORT struct bv_scene_obj *

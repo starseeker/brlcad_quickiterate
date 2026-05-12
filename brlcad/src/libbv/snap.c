@@ -181,9 +181,9 @@ bv_snap_lines_3d(point_t *out_pt, struct bview *v, point_t *p)
 	    for (size_t i = 0; i < BU_PTBL_LEN(&gv_s->gv_snap_objs); i++) {
 		struct bv_scene_obj *so = (struct bv_scene_obj *)BU_PTBL_GET(&gv_s->gv_snap_objs, i);
 		if (gv_s->gv_snap_flags) {
-		    if (gv_s->gv_snap_flags == BV_SNAP_DB && (!(so->s_type_flags & BV_DB_OBJS)))
+		    if (gv_s->gv_snap_flags == BV_SNAP_DB && (!(so->bsg.bsg_kind & BV_DB_OBJS)))
 			continue;
-		    if (gv_s->gv_snap_flags == BV_SNAP_VIEW && (!(so->s_type_flags & BV_VIEW_OBJS)))
+		    if (gv_s->gv_snap_flags == BV_SNAP_VIEW && (!(so->bsg.bsg_kind & BV_VIEW_OBJS)))
 			continue;
 		}
 		struct bv_obj_settings *s_os = (so->s_os) ? so->s_os : &so->s_local_os;

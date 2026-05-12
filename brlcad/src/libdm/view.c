@@ -102,7 +102,7 @@ _independent_root_skip_child(struct bv_scene_obj *s)
 	return 1;
     if (bsg_node_has_kind((const bsg_node *)s, BSG_NODE_VIEW_SCOPE))
 	return 0;
-    if (!BU_VLS_IS_INITIALIZED(&s->s_name))
+    if (!BU_VLS_IS_INITIALIZED(&s->bsg.bsg_name))
 	return 1;
     return BU_STR_EQUAL("_overlays", bsg_node_name((const bsg_node *)s)) ? 0 : 1;
 }

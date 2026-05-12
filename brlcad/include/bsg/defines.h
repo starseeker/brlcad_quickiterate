@@ -78,9 +78,8 @@
  * See doc/notes/bsg_raw_field_inventory.txt for the current raw-field
  * usage inventory and migration status.
  *
- * bsg_node and bsg_shape are layout-compatible aliases for struct bv_scene_obj
- * (identical field prefix), so no casts are needed when promoting existing
- * scene objects into the scene graph.
+ * bsg_node and bsg_shape are direct typedefs for struct bsg_node (defined in
+ * bv/defines.h), which is embedded as the first member of struct bv_scene_obj.
  */
 /** @{ */
 /* @file bsg/defines.h */
@@ -165,16 +164,17 @@ __BEGIN_DECLS
 #define BSG_PAYLOAD_MASK    (BSG_PAYLOAD_VLIST | BSG_PAYLOAD_CSG | BSG_PAYLOAD_MESH | BSG_PAYLOAD_BREP | BSG_PAYLOAD_OVERLAY | BSG_PAYLOAD_IMAGE)
 
 /**
- * bsg_node is a layout-compatible alias for struct bv_scene_obj.
- * Using the same struct pointer avoids any ABI mismatch.  Callers can
- * freely cast between bsg_node * and struct bv_scene_obj * without risk.
+ * bsg_node is the first-class BSG scene-graph node type.
+ * It is a direct typedef for struct bsg_node (defined in bv/defines.h).
+ * Casting bsg_node * <-> struct bv_scene_obj * is valid via the first-member
+ * rule because struct bv_scene_obj embeds struct bsg_node as its first member.
  */
-typedef struct bv_scene_obj bsg_node;
+typedef struct bsg_node bsg_node;
 
 /**
  * bsg_shape is the same alias used for leaf drawable shapes.
  */
-typedef struct bv_scene_obj bsg_shape;
+typedef struct bsg_node bsg_shape;
 
 __END_DECLS
 

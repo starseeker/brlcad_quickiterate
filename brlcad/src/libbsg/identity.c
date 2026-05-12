@@ -170,22 +170,16 @@ typedef char _bsg_rev_max_check[
 int
 bsg_node_identity_get(const bsg_node *n, struct bsg_identity *out)
 {
-    const struct bv_scene_obj *s;
-    const struct bsg_node_core *core;
-
     if (!n || !out)
 	return 0;
 
-    s = (const struct bv_scene_obj *)n;
-    core = &s->bsg_core;
-
-    if (core->bsg_magic != BSG_NODE_CORE_MAGIC || !core->have_identity)
+    if (n->bsg_magic != BSG_NODE_CORE_MAGIC || !n->have_identity)
 	return 0;
 
-    out->node_id.value      = core->identity_node_id;
-    out->part_id.value      = core->identity_part_id;
-    out->instance_id.value  = core->identity_instance_id;
-    out->source_kind        = (enum bsg_source_kind)core->identity_source_kind;
+    out->node_id.value      = n->identity_node_id;
+    out->part_id.value      = n->identity_part_id;
+    out->instance_id.value  = n->identity_instance_id;
+    out->source_kind        = (enum bsg_source_kind)n->identity_source_kind;
     return 1;
 }
 
@@ -193,7 +187,7 @@ bsg_node_identity_get(const bsg_node *n, struct bsg_identity *out)
 void
 bsg_node_identity_set(bsg_node *n, const struct bsg_identity *id)
 {
-    struct bsg_node_core *core;
+    bsg_node *core;
 
     if (!n)
 	return;
@@ -218,45 +212,39 @@ bsg_node_identity_set(bsg_node *n, const struct bsg_identity *id)
 void
 bsg_node_identity_clear(bsg_node *n)
 {
-    struct bv_scene_obj *s;
-
     if (!n)
 	return;
 
-    s = (struct bv_scene_obj *)n;
-    if (s->bsg_core.bsg_magic != BSG_NODE_CORE_MAGIC)
+    if (n->bsg_magic != BSG_NODE_CORE_MAGIC)
 	return;
 
-    s->bsg_core.have_identity         = 0;
-    s->bsg_core.identity_node_id      = 0;
-    s->bsg_core.identity_part_id      = 0;
-    s->bsg_core.identity_instance_id  = 0;
-    s->bsg_core.identity_source_kind  = 0;
+    n->have_identity         = 0;
+    n->identity_node_id      = 0;
+    n->identity_part_id      = 0;
+    n->identity_instance_id  = 0;
+    n->identity_source_kind  = 0;
 }
 
 
 uint64_t
 bsg_node_revision(const bsg_node *n, int rev_kind)
 {
-    const struct bv_scene_obj *s;
-
     if (!n)
 	return 0;
     if (rev_kind < 0 || rev_kind >= BSG_NODE_REV_COUNT)
 	return 0;
 
-    s = (const struct bv_scene_obj *)n;
-    if (s->bsg_core.bsg_magic != BSG_NODE_CORE_MAGIC)
+    if (n->bsg_magic != BSG_NODE_CORE_MAGIC)
 	return 0;
 
-    return s->bsg_core.revisions[rev_kind];
+    return n->revisions[rev_kind];
 }
 
 
 uint64_t
 bsg_node_bump_revision(bsg_node *n, int rev_kind)
 {
-    struct bsg_node_core *core;
+    bsg_node *core;
 
     if (!n)
 	return 0;
@@ -325,8 +313,8 @@ _bsg_view_obj_identity_hook(struct bv_scene_obj *obj,
     if (!obj || !scope)
 	return;
 
-    if (BU_VLS_IS_INITIALIZED(&scope->s_name) && bu_vls_strlen(&scope->s_name))
-	scope_name = bu_vls_cstr(&scope->s_name);
+    if (BU_VLS_IS_INITIALIZED(&scope->bsg.bsg_name) && bu_vls_strlen(&scope->bsg.bsg_name))
+	scope_name = bu_vls_cstr(&scope->bsg.bsg_name);
     if (local && v && BU_VLS_IS_INITIALIZED(&v->gv_name) && bu_vls_strlen(&v->gv_name))
 	view_name = bu_vls_cstr(&v->gv_name);
 

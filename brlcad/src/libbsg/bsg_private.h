@@ -37,57 +37,57 @@
  * in root->s_i_data.  Returns NULL if the root has no context.
  */
 static inline struct bsg_draw_ctx *
-_ctx_of_node(struct bv_scene_obj *n)
+_ctx_of_node(bsg_node *n)
 {
     if (!n)
 	return NULL;
-    while (n->parent)
-	n = (struct bv_scene_obj *)n->parent;
-    return (struct bsg_draw_ctx *)n->s_i_data;
+    while (n->bsg_parent)
+	n = n->bsg_parent;
+    return (struct bsg_draw_ctx *)((struct bv_scene_obj *)n)->s_i_data;
 }
 
 /* ------------------------------------------------------------------ */
-/* Phase 10: BSG node-core helpers                                      */
+/* Phase 10E: BSG node helpers                                          */
 /* ------------------------------------------------------------------ */
 
 /**
- * Cleanup function stored in bsg_core.bsg_core_free_fn.
+ * Cleanup function stored in bsg_node.bsg_core_free_fn.
  * Defined in node_core.c; frees material, appearance, and payload data
  * allocated by libbsg, then zeros the pointers.
- * Called by bv_obj_reset() (via the function pointer) before the core
- * is zeroed.
+ * Called by bv_obj_reset() (via the function pointer) before the node
+ * fields are zeroed.
  */
-extern void _bsg_core_release(struct bsg_node_core *core);
+extern void _bsg_core_release(struct bsg_node *core);
 
 /**
- * Ensure the BSG node core for @p n has been initialized.
+ * Ensure the BSG node for @p n has been initialized.
  *
- * If the core magic is already BSG_NODE_CORE_MAGIC this is a very cheap
- * check (one comparison).  On first use it zeroes the core, copies the
- * existing s_type_flags and parent pointer into core.kind / core.parent,
- * and installs _bsg_core_release as the cleanup callback so that
+ * If the node magic is already BSG_NODE_CORE_MAGIC this is a very cheap
+ * check (one comparison).  On first use it zeroes the identity/revision
+ * fields and installs _bsg_core_release as the cleanup callback so that
  * bv_obj_reset() will free any material/appearance/payload allocated later.
  *
- * Returns the initialized core, or NULL if @p n is NULL.
+ * Returns the initialized node, or NULL if @p n is NULL.
  */
-static inline struct bsg_node_core *
+static inline bsg_node *
 _bsg_core_ensure(bsg_node *n)
 {
-    struct bv_scene_obj *s;
-
     if (!n)
 	return NULL;
-
-    s = (struct bv_scene_obj *)n;
-    if (s->bsg_core.bsg_magic == BSG_NODE_CORE_MAGIC)
-	return &s->bsg_core;
-
-    memset(&s->bsg_core, 0, sizeof(s->bsg_core));
-    s->bsg_core.bsg_magic        = BSG_NODE_CORE_MAGIC;
-    s->bsg_core.kind             = s->s_type_flags;
-    s->bsg_core.parent           = s->parent;
-    s->bsg_core.bsg_core_free_fn = _bsg_core_release;
-    return &s->bsg_core;
+    if (n->bsg_magic == BSG_NODE_CORE_MAGIC)
+	return n;
+    n->have_identity = 0;
+    n->identity_node_id = 0;
+    n->identity_part_id = 0;
+    n->identity_instance_id = 0;
+    n->identity_source_kind = 0;
+    memset(n->revisions, 0, sizeof(n->revisions));
+    n->material = NULL;
+    n->appearance = NULL;
+    n->payload = NULL;
+    n->bsg_core_free_fn = _bsg_core_release;
+    n->bsg_magic = BSG_NODE_CORE_MAGIC;
+    return n;
 }
 
 #endif /* LIBBSG_BSG_PRIVATE_H */

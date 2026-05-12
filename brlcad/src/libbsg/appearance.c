@@ -55,22 +55,19 @@ _appearance_clamp_transparency(fastf_t t)
 static struct bsg_appearance *
 _bsg_appearance_sc_get(const bsg_node *n)
 {
-    const struct bv_scene_obj *s;
-
     if (!n)
 	return NULL;
 
-    s = (const struct bv_scene_obj *)n;
-    if (s->bsg_core.bsg_magic != BSG_NODE_CORE_MAGIC)
+    if (n->bsg_magic != BSG_NODE_CORE_MAGIC)
 	return NULL;
-    return (struct bsg_appearance *)s->bsg_core.appearance;
+    return (struct bsg_appearance *)n->appearance;
 }
 
 /* Return (allocating if needed) the appearance struct for @p n. */
 static struct bsg_appearance *
 _bsg_appearance_sc_get_or_create(bsg_node *n)
 {
-    struct bsg_node_core *core;
+    bsg_node *core;
     struct bsg_appearance *a;
 
     if (!n)
