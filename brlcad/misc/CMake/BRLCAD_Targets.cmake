@@ -427,6 +427,8 @@ endfunction(BRLCAD_COLLECT_DEP_INCLUDES)
 # onto the link line.  This catches missing PRIVATE/PUBLIC dependency
 # declarations that ordinary archive linking can hide until a downstream
 # consumer references the affected object.
+#   libstatic - target name of the static library archive to validate
+#   ARGN      - additional link dependencies needed by the static archive
 function(BRLCAD_ADD_STATIC_LINK_TEST libstatic)
   if(NOT BRLCAD_VALIDATE_STATIC_LINKS)
     return()
