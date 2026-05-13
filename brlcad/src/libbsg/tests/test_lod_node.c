@@ -464,8 +464,8 @@ test_insert_above(void)
     struct bv_scene_obj *sib = (struct bv_scene_obj *)bsg_shape_create(v);
     CHECK(parent && leaf && sib, "test nodes created");
 
-    leaf->bsg.bsg_parent = parent;
-    sib->bsg.bsg_parent = parent;
+    leaf->bsg.bsg_parent = (bsg_node *)parent;
+    sib->bsg.bsg_parent = (bsg_node *)parent;
     bu_ptbl_ins(&parent->bsg.bsg_children, (long *)leaf);
     bu_ptbl_ins(&parent->bsg.bsg_children, (long *)sib);
     CHECK(BU_PTBL_LEN(&parent->bsg.bsg_children) == 2, "parent has two children");
@@ -479,7 +479,7 @@ test_insert_above(void)
 	  "lod replaced original leaf slot");
     CHECK((struct bv_scene_obj *)BU_PTBL_GET(&parent->bsg.bsg_children, 1) == sib,
 	  "sibling order preserved");
-    CHECK(leaf->bsg.bsg_parent == (struct bv_scene_obj *)lod, "leaf parent updated to lod");
+    CHECK(leaf->bsg.bsg_parent == (bsg_node *)lod, "leaf parent updated to lod");
     CHECK(BU_PTBL_LEN(&((struct bv_scene_obj *)lod)->bsg.bsg_children) == 1, "lod has one child");
     CHECK((struct bv_scene_obj *)BU_PTBL_GET(&((struct bv_scene_obj *)lod)->bsg.bsg_children, 0) == leaf,
 	  "lod level-0 child is original leaf");

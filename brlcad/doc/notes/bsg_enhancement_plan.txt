@@ -981,7 +981,8 @@ Recommended transition (executed):
    lazy `_bsg_core_ensure()` helper in `bsg_private.h`.
 4. [DONE] Moved all sidecar hash maps from material.c, appearance.c, payload.c,
    and identity.c to inline core pointers/fields.
-5. ABI break (make `struct bsg_node` real) is Phase 10E, deferred.
+5. [DONE] Phase 10E completed the ABI split: `struct bsg_node` is now the
+   primary BSG type, embedded as the first member of `struct bv_scene_obj`.
 
 Tasks:
 
@@ -1012,9 +1013,10 @@ Consumer migration:
 
 Acceptance criteria:
 
-- [DONE] All 20 libbsg_* tests pass (19 prior + 1 new libbsg_node_core).
-- New BSG node storage allocated/linked/traversed/freed without libbv object
-  tables — deferred to Phase 10E.
+- [DONE] All 21 libbsg_* tests pass (including `libbsg_lod_node`,
+  `libbsg_settings`, and `libbsg_node_core`).
+- New BSG node storage is now represented by `struct bsg_node`, with
+  `struct bv_scene_obj` acting as the compatibility wrapper/storage owner.
 - Compatibility consumers still compile during the transition window — verified.
 
 
@@ -1155,13 +1157,14 @@ Tasks accomplished in this phase:
 
 Remaining open items:
 
-1. Move `struct bv_scene_obj` definition out of public headers (high-risk ABI
-   break; deferred to Phase 10E).
+1. Continue reducing public-header compatibility exposure around
+   `struct bv_scene_obj` now that Phase 10E has made `struct bsg_node` the
+   primary BSG type.
 2. Remove deprecated BSG flags / `bv_obj_settings` once all consumers use BSG
    typed accessors — requires surveying remaining direct `s_os->*` accesses:
-   * `src/libbv/polygon.c` lines 100 and 196: `s_os->s_line_width = 1`
-     cannot use `bsg_node_settings_set` because `libbv` must not depend on
-     `libbsg`; requires a `libbv`-level accessor or deferred to Phase 10E.
+   * `src/libbv/polygon.c` line-width initialization now goes through the
+     existing libbv accessor `bv_view_obj_set_line_width`, avoiding a new
+     `libbv` → `libbsg` dependency while keeping BSG hooks synchronized.
    * `src/libbv/hash.c`: `s_os` NULL-check.
    * `src/libbsg/tests/test_material.c` legacy field probe (test-only).
 3. Remove old GED selection hashes / `gv_selected` (see Phases 6F, 5 above).
@@ -1173,13 +1176,18 @@ Acceptance criteria status:
 - BSG is the documented public scene graph API: YES (guardrail comment in
   bv/defines.h; all new code uses BSG APIs).
 - libbv no longer exposes public scene-object internals as primary API: PARTIAL
-  (polygon.c still uses s_os directly; all other primary paths migrated).
+  (`libbv/hash.c` still probes `s_os` directly; the polygon line-width
+  initializer now uses the libbv accessor path).
 - Consumer code compiles and passes tests without new compatibility-only direct
-  field access: YES (all Phase 12 targets build clean; 21/21 libbsg_* pass).
+  field access: YES (core non-Qt targets build clean; 21/21 libbsg_* pass).
 
 Validation:
-  cmake --build brlcad_build --target libbsg libdm libged -j$(nproc)
-  ctest -R '^libbsg_'   → 21/21 PASS
+  cmake --build brlcad_build --target libbsg libdm libged libtclcad mged \
+    ged_test_bsg_view_obj ged_test_tcl_adornment_bsg ged_test_mged_bsg \
+    ged_test_mged_shaded_mode_bsg -j$(nproc)
+  ctest --output-on-failure -R '^libbsg_'   → 21/21 PASS
+  ctest --output-on-failure -R '^(ged_test_bsg_view_obj|ged_test_tcl_adornment_bsg|ged_test_mged_bsg|ged_test_mged_shaded_mode_bsg)$'
+    → 4/4 PASS
 
 
 Phase 13: Renderer and Obol Readiness Gate
@@ -1321,7 +1329,8 @@ Phase 10 stages:
 - 10B: [DONE] Move name/kind/parent/children accessors to node core.
 - 10C: [DONE] Move material/appearance/payload pointers to node core.
 - 10D: [DONE] Move identity/revision to node core.
-- 10E: Plan and execute ABI break if approved (deferred).
+- 10E: [DONE] Execute ABI break: make `struct bsg_node` the primary BSG type and
+  adjust consumers/tests for explicit `bsg_node *` ↔ `bv_scene_obj *` casts.
 
 Phase 11 stages:
 
@@ -1331,7 +1340,7 @@ Phase 11 stages:
 - 11D: [DONE] libtclcad/Archer adornment and getter/setter sweep.
 - 11E: [PARTIAL] QGED/libqtcad selection/edit/polygon sweep.
 - 11F: [DONE] MGED edit/highlight/refresh sweep.
-- 11G: [DONE] tests direct-field assertion sweep (s_bbox_cached known-failure isolated).
+- 11G: [DONE] tests direct-field assertion sweep.
 
 
 Completion Definition
@@ -1350,7 +1359,7 @@ This enhancement effort is complete when:
   raytracing backend, or another renderer without rewriting BRL-CAD producers.
 
 
-Current Implementation Snapshot (2026-05-12, updated Phase 11B/11F/11G DONE; Phase 11E partial)
+Current Implementation Snapshot (2026-05-13, updated after Phase 10E follow-on fixes, Phase 9.1 bbox cache completion, and Phase 12 libbv polygon cleanup)
 --------------------------------------------
 This section records what is already present in the tree so future sessions can
 start from current reality rather than the idealized phase text above.
@@ -1429,8 +1438,9 @@ What is complete or substantially complete:
   - `include/bsg/action.h` + `src/libbsg/action.c` add the base action,
     bbox action, search action, and collect action APIs with transform-aware
     traversal, view-scope filtering, and LoD-aware descent.
-  - `src/libbsg/draw_set.c` now routes `bsg_subtree_bbox` through
-    `bsg_bbox_action`.
+  - `src/libbsg/draw_set.c` now routes overlay-inclusive bbox queries through
+    `bsg_bbox_action`, while the common non-overlay path uses a cached
+    group/root aggregate stored in `bmin`/`bmax` with `s_bbox_cached`.
   - `src/libbsg/scene_graph.cpp` now routes `bsg_view_find_by_type` through
     `bsg_search_action` with direct-child depth filtering.
   - Unit coverage includes `src/libbsg/tests/test_action.c` for transformed
@@ -1567,7 +1577,20 @@ What is complete or substantially complete:
   - `src/libbsg/tests/test_node_core.c` added with Tests 10A-10E covering
     core embedding, kind/parent routing, sidecar storage in core, identity and
     revisions inline, and public node-core API.
-  - All 20 libbsg_* tests pass.
+  - Phase 10E follow-on work is now complete in-tree:
+    - `include/bsg/defines.h` now exposes `bsg_node` as the real public BSG
+      type, and `struct bv_scene_obj` embeds `struct bsg_node` as its first
+      member for compatibility.
+    - Consumer/test follow-on fixes landed across libdm, libged, libtclcad,
+      and MGED to use `bsg.bsg_kind`, `bsg.bsg_name`, `bsg.bsg_parent`,
+      `bsg.bsg_children`, `bsg.bsg_flag`, `bsg.bsg_iflag`, and `bsg.l` where
+      the old direct struct aliasing assumptions no longer hold.
+    - `src/libged/ged_private.h` now stores `gd_illum_sensor` as `bsg_node *`
+      rather than `struct bv_scene_obj *`.
+    - `src/libbsg/node.c` now forces core initialization in
+      `bsg_node_set_kind`, keeping `test_bsg_node_core` aligned with the
+      real-type ABI split.
+  - All 21 libbsg_* tests now pass.
 - Phase 11A libbsg direct-field sweep is implemented for traversal/search/render
   hot paths:
   - `src/libbsg/render.c` now routes kind/child/transform/visibility checks
@@ -1601,8 +1624,7 @@ What is complete or substantially complete:
     accessors yet (`s_u_data`, `s_free_callback`, bbox-cache test assertions).
   - Validation: `ctest --output-on-failure -R '^(libbsg_node|libbsg_identity|libbsg_payload|libbsg_node_core)$'`
     passes (4/4), `ged_test_tcl_adornment_bsg` passes, and
-    `ged_test_bsg_view_obj` still reports the pre-existing Phase 9.1 cached-bbox
-    assertion failures in section [12] (`root->s_bbox_cached == 1`).
+    `ged_test_bsg_view_obj` now passes after the cached aggregate bbox work.
 - Phase 11C partial libdm render/backend sweep is implemented:
   - `src/libdm/view.c` now routes scene-node visibility, force-draw, kind
     checks, child traversal, transform reads, legacy illum fallback, and
@@ -1614,9 +1636,8 @@ What is complete or substantially complete:
     already exist, while keeping compatibility-heavy material/object-setting and
     arrow/label/color fields on legacy storage for now.
   - Validation: targeted build of `libdm`, `libged`, and draw-test binaries
-    succeeds; `ctest -R '^libbsg_'` passes (20/20); `ged_test_tcl_adornment_bsg`
-    passes; `ged_test_bsg_view_obj` still reports the same pre-existing Phase 9.1
-    cached-bbox assertion failures in section [12].
+    succeeds; `ctest -R '^libbsg_'` passes; `ged_test_tcl_adornment_bsg`
+    passes; `ged_test_bsg_view_obj` passes.
 - Phase 11C is now COMPLETE.  The completion step adds:
   - `include/bsg/appearance.h`: `draw_arrows` field added to `struct bsg_appearance`.
     `bsg_appearance_from_legacy_obj_settings` now maps `s->s_arrow`; the to-legacy
@@ -1689,22 +1710,19 @@ What is complete or substantially complete:
     `src/libged/tests/draw/mged_shaded_mode_bsg.cpp` now assert illumination
     and per-frame drawn revision state through `bsg_node_*` accessors instead of
     raw `bv_scene_obj` fields.
-  - Validation: `cmake --build brlcad_build --target libged ged_test_mged_bsg
-    ged_test_mged_shaded_mode_bsg ged_test_bsg_view_obj
-    ged_test_tcl_adornment_bsg -j$(nproc)` succeeds.  `ctest --output-on-failure
+  - Validation: `cmake --build brlcad_build --target libbsg libdm libged
+    libtclcad mged ged_test_mged_bsg ged_test_mged_shaded_mode_bsg
+    ged_test_bsg_view_obj ged_test_tcl_adornment_bsg -j$(nproc)` succeeds.
+    `ctest --output-on-failure
     -R '^(ged_test_mged_bsg|ged_test_bsg_view_obj|ged_test_tcl_adornment_bsg|ged_test_mged_shaded_mode_bsg)$'`
-    still reports the pre-existing MGED no-display-manager failures plus the
-    pre-existing `ged_test_bsg_view_obj` cached-bbox assertion failures.
-    `cmake --build brlcad_build --target libqtcad qged -j$(nproc)` still fails
-    in pre-existing Qt header compilation paths before the libqtcad/QGED sweep
-    can be fully validated.
+    passes (4/4).  Qt-side validation remains blocked in this environment
+    earlier at configure time: a Qt-enabled CMake run currently fails to find
+    `Qt6Config.cmake` / `Qt5Config.cmake`.
 
 What is partially complete:
 
 - No open partial items are currently tracked for Phases 1-9.
-- Phase 10E (ABI break / make `struct bsg_node` real): deferred.
 - Phase 12 partial remaining items (see Phase 12 section for full list):
-  - `libbv/polygon.c` s_os->s_line_width (cannot add libbsg dependency to libbv).
   - `gv_selected` removal (deferred to Phase 6F / Phase 10E).
 - Phase 11 complete status:
   - 11A libbsg internal direct-field sweep: done (accessor migration in core
@@ -1735,7 +1753,8 @@ What is partially complete:
     (`CADViewSelector`, `QgSelectFilter`, `QgPolyFilter`, `QPolyCreate`,
     `QPolyMod`, `QPolySettings`, and `QEll` now use BSG accessors for migrated
     name/type/user-data/material/payload paths; broader Qt validation is blocked
-    by a pre-existing Qt header build failure).
+    by missing Qt package configuration files during Qt-enabled CMake
+    configure).
   - 11F MGED edit/highlight/refresh sweep: DONE.  Completed items include:
     - `edsol.c`: all 24 direct `s_u_data` accesses → `bsg_node_ged_data_get/set`;
       both `s_old.s_Eflag` accesses → `bsg_node_legacy_eflag`.
@@ -1746,8 +1765,7 @@ What is partially complete:
     - Remaining MGED structural fields (`s_mat`, `s_center`, `s_size`) are
       model-transform/bounds fields targeted by Phase 12 settings-inheritance
       work and are intentionally left in place.
-  - 11G tests direct-field assertion sweep: DONE (pre-existing cached-bbox
-    failures isolated).  Completed items include:
+  - 11G tests direct-field assertion sweep: DONE.  Completed items include:
     - `bsg_view_obj.cpp`: `sp->s_u_data` → `bsg_node_ged_data_get`;
       `sp->s_color_rev` → `bsg_node_material_get(...).revision`;
       `sp->s_color[]` force-set/verify block → `bsg_node_material_get/set`;
@@ -1756,25 +1774,20 @@ What is partially complete:
       `s_free_callback` check/invocation → `bsg_node_invoke_free_callback`;
       `lod_raw->s_i_data == NULL` assertion → `bsg_node_user_data_get == NULL`.
     - Added `bsg/material.h` include to `bsg_view_obj.cpp`.
-    - `s_bbox_cached` assertions in section [12] remain as the known pre-existing
-      Phase 9.1 cached-aggregate-bbox failure, isolated from the accessor sweep.
   - Remaining 11B / 11E / 11F / 11G cleanup: pending.  The only open Phase 11
-    item is 11E (Qt-side migration) which is blocked by a pre-existing Qt header
-    build failure in this environment.
+    item is 11E (Qt-side migration) which is blocked in this environment by
+    missing Qt package configuration files during a Qt-enabled CMake configure.
 
 What is not yet implemented in this roadmap:
 
 - Phase 6F: Full BSelectState → BSG selection migration (GED selection containers).
-- Phase 10E ABI break (making `bsg_node` independent of `bv_scene_obj`).
 - Phase 11E: QGED/libqtcad selection/edit/polygon sweep (remaining Qt-side
-  migration; blocked in this environment by a pre-existing Qt header build
-  failure).
+  migration; blocked in this environment by missing Qt6/Qt5 CMake package
+  configuration files for a Qt-enabled build).
 - Phase 12 remaining items:
-  - `libbv/polygon.c` `s_os->s_line_width = 1` (lines 100, 196) — cannot use
-    `bsg_node_settings_set` because `libbv` must not depend on `libbsg`.
   - `libbv/hash.c` `s_os` NULL-check — low-priority, structural.
   - Remove `bv_obj_settings` struct entirely once `libbv` polygon initializer
-    is resolved via a `libbv`-level accessor or Phase 10E ABI break.
+    cleanup is carried through all remaining compatibility call sites.
   - `gv_selected` removal / replacement with BSG selection storage (Phase 6F).
 - Phase 13 deprecation and readiness gate execution.
 
@@ -1783,28 +1796,22 @@ Immediate Next-Session Stage Prompts
 -------------------------------------
 Use these as concrete "small-unit" prompts for the next work sessions.
 
-1. Phase 10E (ABI break — optional, high-risk):
-   Make `struct bsg_node` a real type independent of `bv_scene_obj` and move
-   backward-compat wrappers into libbv.  Requires coordinated ABI version bump.
-
-2. Phase 11E (recommended next):
+1. Phase 11E (recommended next):
    QGED/libqtcad selection/edit/polygon sweep: continue the remaining Qt-side
    migration beyond the now-converted name/type/user-data/material/payload
-   paths, and resolve or work around the current pre-existing Qt header build
+   paths, and resolve or work around the current missing-Qt-package configure
    failure so libqtcad/QGED validation can run again.
 
-3. Phase 12 cleanup (settings-inheritance path complete; remaining):
-   Resolve `libbv/polygon.c` s_os->s_line_width usage by either introducing a
-   thin `libbv`-level accessor that does not create a `libbv`→`libbsg` circular
-   dependency, or deferring to Phase 10E.
+2. Phase 6F / Phase 12 selection cleanup:
+   Retire the old GED selection hashes and `gv_selected`, wiring the remaining
+   selection state through `bsg_selection` storage only.
 
-4. Phase 9.1 cached-bbox fix:
-   The pre-existing `ged_test_bsg_view_obj` section [12] failures at
-   `root->s_bbox_cached == 1` mark an unimplemented cached-aggregate-bbox
-   feature.  Implement the `s_bbox_cached` population logic in the BSG tree
-   so the assertion passes.
+3. Phase 12 compatibility cleanup:
+   Resolve the remaining `libbv/hash.c` `s_os` structural probe and continue the
+   removal path for `bv_obj_settings` compatibility once the last compatibility
+   callers are identified.
 
-5. Phase 13 readiness gate:
+4. Phase 13 readiness gate:
    Execute Phase 13 deprecation tagging (mark old `bv_scene_obj` direct-access
    patterns as `/** @deprecated */`) once the remaining 11E Qt sweep is done
-   and a Qt build environment is available for final validation.
+   and a Qt-capable build environment is available for final validation.

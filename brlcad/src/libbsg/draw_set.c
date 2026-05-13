@@ -47,6 +47,7 @@
 #include "bsg/draw_ctx.h"
 #include "bsg/draw_set.h"
 #include "bsg/node.h"
+#include "bsg/payload.h"
 #include "bsg_private.h"
 
 
@@ -345,26 +346,106 @@ bsg_erase_nested_subpath(bsg_node *parent_node,
 void
 bsg_node_bbox_invalidate(bsg_node *n)
 {
+    int cleared = 0;
+
     if (!n)
 	return;
     struct bv_scene_obj *cur = (struct bv_scene_obj *)n;
 
     /* Walk up the parent chain; clear s_bbox_cached on every ancestor
-     * that is still cached.  Stop at the first already-dirty ancestor
-     * (any further ancestor must already be dirty too).
+     * that is still cached.
      *
-     * The starting node itself is included in the walk: if @p n is a
-     * leaf shape we skip to its parent (leaves have no aggregate
-     * cache); otherwise we clear @p n too.
+     * A leaf may sit below an already-dirty subgroup whose ancestor root
+     * cache is still live, so we cannot stop until we've cleared at least
+     * one cached group/root on this path.  After that point, the first
+     * already-dirty ancestor proves all higher ancestors are already dirty
+     * too, so the historical early-stop optimization is still valid.
      */
     while (cur) {
 	if (cur->bsg.bsg_kind & (BSG_NODE_GROUP | BSG_NODE_ROOT)) {
-	    if (!cur->s_bbox_cached)
-		return;  /* already dirty up from here */
-	    cur->s_bbox_cached = 0;
+	    if (cur->s_bbox_cached) {
+		cur->s_bbox_cached = 0;
+		cleared = 1;
+	    } else if (cleared) {
+		return;
+	    }
 	}
 	cur = (struct bv_scene_obj *)cur->bsg.bsg_parent;
     }
+}
+
+
+static int
+_bsg_subtree_bbox_cached(struct bv_scene_obj *s,
+			 vect_t *min, vect_t *max,
+			 int include_overlays)
+{
+    int have = 0;
+    vect_t lmin, lmax;
+
+    if (!s || !min || !max)
+	return 1;
+
+    if ((s->bsg.bsg_kind & BSG_NODE_SHAPE) &&
+	!include_overlays &&
+	(bsg_node_get_payload_type((const bsg_node *)s) & BSG_PAYLOAD_OVERLAY))
+	return 1;
+
+    if (!(s->bsg.bsg_kind & (BSG_NODE_GROUP | BSG_NODE_ROOT))) {
+	struct bsg_payload *payload = bsg_node_payload_get((const bsg_node *)s);
+	if (payload && bsg_payload_bounds(payload, min, max))
+	    return 0;
+	if (s->have_bbox) {
+	    VMOVE((*min), s->bmin);
+	    VMOVE((*max), s->bmax);
+	    return 0;
+	}
+	VSET((*min), s->s_center[X] - s->s_size, s->s_center[Y] - s->s_size, s->s_center[Z] - s->s_size);
+	VSET((*max), s->s_center[X] + s->s_size, s->s_center[Y] + s->s_size, s->s_center[Z] + s->s_size);
+	return 0;
+    }
+
+    if (!include_overlays && s->s_bbox_cached && s->have_bbox) {
+	VMOVE((*min), s->bmin);
+	VMOVE((*max), s->bmax);
+	return 0;
+    }
+
+    VSETALL(lmin,  INFINITY);
+    VSETALL(lmax, -INFINITY);
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&s->bsg.bsg_children); i++) {
+	struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&s->bsg.bsg_children, i);
+	vect_t cmin, cmax;
+	if (_bsg_subtree_bbox_cached(c, &cmin, &cmax, include_overlays))
+	    continue;
+	if (!have) {
+	    VMOVE(lmin, cmin);
+	    VMOVE(lmax, cmax);
+	    have = 1;
+	    continue;
+	}
+	VMIN(lmin, cmin);
+	VMAX(lmax, cmax);
+    }
+
+    if (!have) {
+	s->have_bbox = 0;
+	s->s_bbox_cached = 0;
+	VSETALL((*min),  INFINITY);
+	VSETALL((*max), -INFINITY);
+	return 1;
+    }
+
+    VMOVE((*min), lmin);
+    VMOVE((*max), lmax);
+    if (!include_overlays) {
+	VMOVE(s->bmin, lmin);
+	VMOVE(s->bmax, lmax);
+	s->have_bbox = 1;
+	s->s_bbox_cached = 1;
+    }
+    return 0;
 }
 
 
@@ -373,11 +454,13 @@ bsg_subtree_bbox(bsg_node *n,
 		 vect_t *min, vect_t *max,
 		 int include_overlays)
 {
-    struct bsg_bbox_action action;
-
     if (!min || !max || !n)
 	return 1;
 
+    if (!include_overlays)
+	return _bsg_subtree_bbox_cached((struct bv_scene_obj *)n, min, max, 0);
+
+    struct bsg_bbox_action action;
     bsg_bbox_action_init(&action);
     bsg_action_set_include_overlays(&action.base, include_overlays);
     if (!bsg_action_apply(&action.base, n))
