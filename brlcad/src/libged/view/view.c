@@ -411,7 +411,8 @@ _view_cmd_selections(void *bs, int argc, const char **argv)
 	    sel_cnt = bsg_selection_count(ss);
     }
 
-    bu_vls_printf(gd->gedp->ged_result_str, "%zu", sel_cnt);
+    bu_vls_printf(gd->gedp->ged_result_str, "%llu",
+	    (unsigned long long)sel_cnt);
 
     return BRLCAD_OK;
 }

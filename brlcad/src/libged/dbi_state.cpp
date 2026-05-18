@@ -3885,8 +3885,11 @@ _selectionset_from_bsg_cb(const struct bsg_selection_entry *e, void *data)
 	return 1;
 
     std::vector<unsigned long long> path_hashes = ctx->dbis->digest_path(e->src_path);
-    if (!path_hashes.size())
+    if (!path_hashes.size()) {
+	bu_log("SelectionSet::sync_from_bsg: skipping invalid selection path %s\n",
+		e->src_path);
 	return 1;
+    }
 
     unsigned long long phash = ctx->dbis->path_hash(path_hashes, 0);
     (*(ctx->selected))[phash] = path_hashes;
@@ -3946,9 +3949,9 @@ SelectionSet::sync_to_bsg() const
     bsg_selection_clear(ss);
 
     struct bu_vls vpath = BU_VLS_INIT_ZERO;
-    for (auto &kv : selected) {
+    for (auto &sel_entry : selected) {
 	struct bsg_selection_entry e = {};
-	std::vector<unsigned long long> path_hashes = kv.second;
+	std::vector<unsigned long long> path_hashes = sel_entry.second;
 	dbis->print_path(&vpath, path_hashes);
 	e.src_path = (char *)bu_vls_cstr(&vpath);
 	e.kind = (path_hashes.size() > 1) ? BSG_SELECTION_INSTANCE : BSG_SELECTION_NODE;
