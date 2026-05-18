@@ -181,20 +181,20 @@ go_draw_dlist(struct bview *gdvp)
     if (dm_get_transparency(dmp)) {
 	/* First, draw opaque stuff */
 	d.transparency_pass = 1;
-	bsg_visit(bsg_view_obj_root(lgedp), BSG_NODE_SHAPE, _go_draw_solid_cb, &d);
+	bsg_visit((bsg_node *)bsg_view_obj_root(lgedp), BSG_NODE_SHAPE, _go_draw_solid_cb, &d);
 
 	/* disable write to depth buffer */
 	(void)dm_set_depth_mask(dmp, 0);
 
 	/* Second, draw transparent stuff */
 	d.transparency_pass = 2;
-	bsg_visit(bsg_view_obj_root(lgedp), BSG_NODE_SHAPE, _go_draw_solid_cb, &d);
+	bsg_visit((bsg_node *)bsg_view_obj_root(lgedp), BSG_NODE_SHAPE, _go_draw_solid_cb, &d);
 
 	/* re-enable write to depth buffer */
 	(void)dm_set_depth_mask(dmp, 1);
     } else {
 	d.transparency_pass = 0;
-	bsg_visit(bsg_view_obj_root(lgedp), BSG_NODE_SHAPE, _go_draw_solid_cb, &d);
+	bsg_visit((bsg_node *)bsg_view_obj_root(lgedp), BSG_NODE_SHAPE, _go_draw_solid_cb, &d);
     }
 
     return BRLCAD_OK;
@@ -277,7 +277,7 @@ to_edit_redraw(struct ged *gedp,
 		    av[arg++] = bu_vls_addr(&mflag);
 		    av[arg++] = bu_vls_addr(&xflag);
 		}
-		av[arg] = bu_vls_strdup(&sp->s_name);
+		av[arg] = bu_vls_strdup(&sp->bsg.bsg_name);
 
 		ged_exec(gedp, arg + 1, (const char **)av);
 

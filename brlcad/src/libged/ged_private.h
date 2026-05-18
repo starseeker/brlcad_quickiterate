@@ -40,6 +40,7 @@
 #include "rt/geom.h"
 #include "bv/defines.h"
 #include "bv/util.h"
+#include "bsg/defines.h"
 #include "bsg/draw_ctx.h"
 #include "ged.h"
 #include "include/plugin.h"
@@ -86,9 +87,8 @@ struct ged_drawable {
      * bsg_sensor_target()); a separate gd_illum_solid cache field used to
      * exist alongside it but was retired in Phase 13.  Owned by libged;
      * created and destroyed by _sg_set_illum on transitions to/from a
-     * non-NULL solid.  Stored as struct bv_scene_obj * (= bsg_node) to
-     * avoid pulling in bsg/defines.h here. */
-    struct bv_scene_obj         *gd_illum_sensor;
+     * non-NULL solid.  Stored as bsg_node * (Phase 10E: now a distinct type). */
+    bsg_node                    *gd_illum_sensor;
     /* Phase 9.3 (drawing_stack_modernization B5 residual): monotonic
      * highlight-state revision counter.  Bumped on:
      *   - every transition of the illuminated solid (set/clear/replace) and

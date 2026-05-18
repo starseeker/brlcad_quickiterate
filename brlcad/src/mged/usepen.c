@@ -53,7 +53,7 @@ _illuminate_cb(bsg_node *n, void *ud)
 {
     struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
     struct _illuminate_data *d = (struct _illuminate_data *)ud;
-    if (sp->s_flag == UP) {
+    if (sp->bsg.bsg_flag == UP) {
 	if (d->count-- == 0) {
 	    bsg_node_set_legacy_illum((bsg_node *)sp, 1);
 	    illump = sp;
@@ -117,7 +117,7 @@ illuminate(struct mged_state *s, int y) {
 
     struct _illuminate_data d;
     d.count = count;
-    bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _illuminate_cb, &d);
+    bsg_visit((bsg_node *)bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _illuminate_cb, &d);
 
     /* Register the illuminated solid in GED so set_iflag(DOWN) can run
      * O(1) instead of sweeping the full tree (B5). */
@@ -325,7 +325,7 @@ f_matpick(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
 	struct _matpick_data d;
 	d.bdata = bdata;
 	d.ipathpos = (size_t)ipathpos;
-	bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _matpick_topmat_cb, &d);
+	bsg_visit((bsg_node *)bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _matpick_topmat_cb, &d);
 	/* matpick may place multiple solids in the UP state (same tree-top).
 	 * Invalidate the single-solid illum tracker so set_iflag(DOWN) uses
 	 * the safe O(N) sweep (B5). */

@@ -1397,7 +1397,7 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	fd.ri = ri;
 	fd.nmatch = 0;
 	fd.lastfound = NULL;
-	bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _fill_solid_cb, &fd);
+	bsg_visit((bsg_node *)bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _fill_solid_cb, &fd);
 	nmatch = fd.nmatch;
 	lastfound = fd.lastfound;
     }

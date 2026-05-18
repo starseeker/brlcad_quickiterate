@@ -60,7 +60,7 @@ gl_swrast_database_wireframe(struct dm *dmp, struct bv_scene_obj *s)
     if (!mvars || !mvars->fast_wireframe_active)
 	return 0;
 
-    if (!(s->s_type_flags & BV_DB_OBJS))
+    if (!(s->bsg.bsg_kind & BV_DB_OBJS))
 	return 0;
 
     return (s->s_os->s_dmode == 0 || s->s_os->s_dmode == 3);
@@ -71,7 +71,7 @@ gl_swrast_wireframe_obj(struct dm *dmp, struct bv_scene_obj *s)
 {
     if (!dmp || !s || !dm_get_dm_name(dmp) || !BU_STR_EQUAL(dm_get_dm_name(dmp), "swrast"))
 	return 0;
-    if (!(s->s_type_flags & BV_DB_OBJS))
+    if (!(s->bsg.bsg_kind & BV_DB_OBJS))
 	return 0;
     return (s->s_os->s_dmode == 0 || s->s_os->s_dmode == 3);
 }
@@ -491,7 +491,7 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
     // to change it without regeneration - hence, we need to do it
     // up front
     if (mode == 0) {
-	if (s->s_iflag == UP) {
+	if (s->bsg.bsg_iflag == UP) {
 	    dm_set_fg(dmp, 255, 255, 255, 0, s->s_os->transparency);
 	}
 	if (mvars->lighting_on) {
@@ -503,7 +503,7 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
 		glDisable(GL_BLEND);
 	}
     } else {
-	if (s->s_iflag == UP) {
+	if (s->bsg.bsg_iflag == UP) {
 	    dm_set_fg(dmp, 255, 255, 255, 0, s->s_os->transparency);
 	}
 	if (mvars->lighting_on) {

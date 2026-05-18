@@ -43,7 +43,7 @@ static int
 set_flag_cb(struct bv_scene_obj *sp, void *userdata)
 {
     int flag = *(int *)userdata;
-    sp->s_flag = flag;
+    sp->bsg.bsg_flag = flag;
     return 1; /* continue */
 }
 

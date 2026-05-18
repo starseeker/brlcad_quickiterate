@@ -115,8 +115,8 @@ _poly_cmd_create(void *bs, int argc, const char **argv)
 	bu_vls_printf(gedp->ged_result_str, "Failed to create %s\n", gd->vobj);
 	return BRLCAD_ERROR;
     }
-    /* Phase A1: s_name is initialized by bv_obj_reset; just overwrite. */
-    bu_vls_sprintf(&s->s_name, "%s", gd->vobj);
+    /* Phase A1: bsg_name is initialized by bv_obj_reset; just overwrite. */
+    bu_vls_sprintf(&s->bsg.bsg_name, "%s", gd->vobj);
 
     return BRLCAD_OK;
 }

@@ -73,8 +73,8 @@ _view_obj_walk_bsg(struct view_obj_walk_state &w, struct bv_scene_obj *root)
     if (!root || !w.v)
 	return;
 
-    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-	struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->bsg.bsg_children); i++) {
+	struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&root->bsg.bsg_children, i);
 	if (!c)
 	    continue;
 	if (bsg_node_has_kind((const bsg_node *)c, BSG_NODE_VIEW_SCOPE) && c->s_v && c->s_v != w.v)
@@ -84,13 +84,13 @@ _view_obj_walk_bsg(struct view_obj_walk_state &w, struct bv_scene_obj *root)
 	if (bsg_node_has_kind((const bsg_node *)c, BSG_NODE_VIEW_REF) && c->s_path)
 	    s = (struct bv_scene_obj *)c->s_path;
 
-	if (s && BU_VLS_IS_INITIALIZED(&s->s_name)) {
+	if (s && BU_VLS_IS_INITIALIZED(&s->bsg.bsg_name)) {
 	    int is_view = bsg_node_has_kind((const bsg_node *)s, BV_VIEW_OBJS);
 	    int is_db = bsg_node_has_kind((const bsg_node *)s, BV_DB_OBJS);
 	    int is_local = bsg_node_has_kind((const bsg_node *)s, BV_LOCAL_OBJS);
 	    int type_ok = (w.list_view && is_view) || (w.list_db && is_db);
 	    if (type_ok && (!w.local_only || is_local)) {
-		const char *n = bu_vls_cstr(&s->s_name);
+		const char *n = bu_vls_cstr(&s->bsg.bsg_name);
 		if (n && strlen(n) && _view_obj_name_match(w.glob, n)) {
 		    w.names.insert(std::string(n));
 		    if (w.by_name.find(std::string(n)) == w.by_name.end())
@@ -215,7 +215,7 @@ _objs_cmd_draw(void *bs, int argc, const char **argv)
     }
 
     if (argc == 0) {
-	if (s->s_flag == UP) {
+	if (s->bsg.bsg_flag == UP) {
 	    bu_vls_printf(gedp->ged_result_str, "UP\n");
 	} else {
 	    bu_vls_printf(gedp->ged_result_str, "DOWN\n");
@@ -224,11 +224,11 @@ _objs_cmd_draw(void *bs, int argc, const char **argv)
     }
 
     if (BU_STR_EQUAL(argv[0], "DOWN")) {
-	s->s_flag = DOWN;
+	s->bsg.bsg_flag = DOWN;
 	return BRLCAD_OK;
     }
     if (BU_STR_EQUAL(argv[0], "UP")) {
-	s->s_flag = UP;
+	s->bsg.bsg_flag = UP;
 	return BRLCAD_OK;
     }
 
@@ -302,9 +302,9 @@ _objs_cmd_color(void *bs, int argc, const char **argv)
 	    while (!sobjs.empty()) {
 		struct bv_scene_obj *sc = sobjs.front();
 		sobjs.pop();
-		bu_vls_printf(gedp->ged_result_str, "%s: %d/%d/%d\n", bu_vls_cstr(&sc->s_name), sc->s_color[0], sc->s_color[1], sc->s_color[2]);
-		for (size_t i = 0; i < BU_PTBL_LEN(&sc->children); i++) {
-		    struct bv_scene_obj *scn = (struct bv_scene_obj *)BU_PTBL_GET(&sc->children, i);
+		bu_vls_printf(gedp->ged_result_str, "%s: %d/%d/%d\n", bu_vls_cstr(&sc->bsg.bsg_name), sc->s_color[0], sc->s_color[1], sc->s_color[2]);
+		for (size_t i = 0; i < BU_PTBL_LEN(&sc->bsg.bsg_children); i++) {
+		    struct bv_scene_obj *scn = (struct bv_scene_obj *)BU_PTBL_GET(&sc->bsg.bsg_children, i);
 		    sobjs.push(scn);
 		}
 	    }
@@ -326,8 +326,8 @@ _objs_cmd_color(void *bs, int argc, const char **argv)
 		struct bv_scene_obj *sc = sobjs.front();
 		sobjs.pop();
 		bu_color_to_rgb_chars(&val, sc->s_color);
-		for (size_t i = 0; i < BU_PTBL_LEN(&sc->children); i++) {
-		    struct bv_scene_obj *scn = (struct bv_scene_obj *)BU_PTBL_GET(&sc->children, i);
+		for (size_t i = 0; i < BU_PTBL_LEN(&sc->bsg.bsg_children); i++) {
+		    struct bv_scene_obj *scn = (struct bv_scene_obj *)BU_PTBL_GET(&sc->bsg.bsg_children, i);
 		    sobjs.push(scn);
 		}
 	    }
@@ -439,8 +439,8 @@ _objs_cmd_lcnt(void *bs, int argc, const char **argv)
 static void
 update_recurse(struct bv_scene_obj *s, struct bview *v, int flags)
 {
-    for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	struct bv_scene_obj *sc = (struct bv_scene_obj *)BU_PTBL_GET(&s->children, i);
+    for (size_t i = 0; i < BU_PTBL_LEN(&s->bsg.bsg_children); i++) {
+	struct bv_scene_obj *sc = (struct bv_scene_obj *)BU_PTBL_GET(&s->bsg.bsg_children, i);
 	update_recurse(sc, v, flags);
     }
     s->s_changed = 0;

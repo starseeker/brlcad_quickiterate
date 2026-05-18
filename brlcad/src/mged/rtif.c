@@ -247,7 +247,7 @@ f_rmats(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		VSETALL(d.sav_center, 0.0);
 		d.sp = NULL;
 		d.found = 0;
-		bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE,
+		bsg_visit((bsg_node *)bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE,
 			  _rtif_eye_solid_cb, &d);
 		if (d.found) {
 		    VMOVE(sav_start, d.sav_start);

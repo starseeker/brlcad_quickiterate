@@ -622,7 +622,7 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
 		if (gedp->dbi_state) {
 		    struct bview *view = gedp->ged_gvp;
 		    struct bv_scene_obj *nobj = bv_vlblock_obj(vbp, view, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
-		    bu_vls_sprintf(&nobj->s_name, "%s", bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
+		    bu_vls_sprintf(&nobj->bsg.bsg_name, "%s", bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
 		} else {
 		    _ged_cvt_vlblock_to_solids(gedp, vbp, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename), 0);
 		}

@@ -114,7 +114,7 @@ _axes_cmd_pos(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object named %s does not exist\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    if (!(s->s_type_flags & BV_AXES)) {
+    if (!(s->bsg.bsg_kind & BV_AXES)) {
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }
@@ -161,7 +161,7 @@ _axes_cmd_size(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object named %s does not exist\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    if (!(s->s_type_flags & BV_AXES)) {
+    if (!(s->bsg.bsg_kind & BV_AXES)) {
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }
@@ -207,7 +207,7 @@ _axes_cmd_linewidth(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object named %s does not exist\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    if (!(s->s_type_flags & BV_AXES)) {
+    if (!(s->bsg.bsg_kind & BV_AXES)) {
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }
@@ -258,7 +258,7 @@ _axes_cmd_axes_color(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object named %s does not exist\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    if (!(s->s_type_flags & BV_AXES)) {
+    if (!(s->bsg.bsg_kind & BV_AXES)) {
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }

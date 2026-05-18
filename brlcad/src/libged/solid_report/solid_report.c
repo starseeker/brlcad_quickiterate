@@ -65,7 +65,7 @@ solid_report_cb(struct bv_scene_obj *sp, void *userdata)
 
 	db_path_to_vls(data->vls, &bdata->s_fullpath);
 
-	if ((data->lvl != -1) && (sp->s_iflag == UP))
+	if ((data->lvl != -1) && (sp->bsg.bsg_iflag == UP))
 	    bu_vls_printf(data->vls, " ILLUM");
 
 	bu_vls_printf(data->vls, "\n");

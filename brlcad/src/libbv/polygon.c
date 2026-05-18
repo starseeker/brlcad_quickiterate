@@ -97,7 +97,7 @@ bv_fill_polygon(struct bv_scene_obj *s)
     // Got fill, create lines
     fobj = bv_obj_get_child(s);
     bu_vls_printf(&fobj->bsg.bsg_name, ":fill");
-    fobj->s_os->s_line_width = 1;
+    bv_view_obj_set_line_width(fobj, 1);
     fobj->s_soldash = 0;
     bu_color_to_rgb_chars(&p->fill_color, fobj->s_color);
     for (size_t i = 0; i < fill->num_contours; i++) {
@@ -193,7 +193,7 @@ bv_create_polygon_obj(struct bview *v, int flags, struct bv_polygon *p)
     // Construct the plane
     bv_view_plane(&p->vp, v);
 
-    s->s_os->s_line_width = 1;
+    bv_view_obj_set_line_width(s, 1);
     s->s_color[0] = 255;
     s->s_color[1] = 255;
     s->s_color[2] = 0;

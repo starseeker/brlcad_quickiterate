@@ -160,7 +160,7 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 
     {
 	int area_err = 0;
-	bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE,
+	bsg_visit((bsg_node *)bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE,
 		  _area_check_solid_cb, &area_err);
 	if (area_err) {
 	    struct bu_vls vls = BU_VLS_INIT_ZERO;
@@ -251,7 +251,7 @@ f_area(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	wd.dbip = s->dbip;
 	VSETALL(wd.last, 0.0);
 	VSETALL(wd.fin, 0.0);
-	bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE,
+	bsg_visit((bsg_node *)bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE,
 		  _area_write_solid_cb, &wd);
     }
 

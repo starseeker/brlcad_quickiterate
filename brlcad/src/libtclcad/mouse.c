@@ -3146,13 +3146,13 @@ to_data_scale(struct ged *gedp,
     /* scale data labels - T3: modify bv_label.p in BSG children instead of gv_tcl */
     {
 	struct bv_scene_obj *_lp = bv_view_obj_find(gdvp, "_tcl_data_labels");
-	if (_lp && BU_PTBL_LEN(&_lp->children) > 0) {
+	if (_lp && BU_PTBL_LEN(&_lp->bsg.bsg_children) > 0) {
 	    point_t vcenter = {0, 0, 0};
 	    point_t vpoint;
 
-	    for (size_t _k = 0; _k < BU_PTBL_LEN(&_lp->children); _k++) {
+	    for (size_t _k = 0; _k < BU_PTBL_LEN(&_lp->bsg.bsg_children); _k++) {
 		struct bv_scene_obj *_c =
-		    (struct bv_scene_obj *)BU_PTBL_GET(&_lp->children, _k);
+		    (struct bv_scene_obj *)BU_PTBL_GET(&_lp->bsg.bsg_children, _k);
 		if (!_c || !_c->s_i_data) continue;
 		struct bv_label *_l = (struct bv_label *)_c->s_i_data;
 		vect_t diff;

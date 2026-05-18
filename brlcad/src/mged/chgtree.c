@@ -41,6 +41,7 @@
 #include "./mged.h"
 #include "./mged_dm.h"
 #include "./cmd.h"
+#include "bsg/node.h"
 
 
 /**
@@ -149,15 +150,15 @@ _find_solid_with_path_cb(bsg_node *n, void *ud)
 {
     struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
     struct _fswp_data *d = (struct _fswp_data *)ud;
-    if (!sp->s_u_data) return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    if (!bsg_node_ged_data_get((const bsg_node *)sp)) return 1;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((const bsg_node *)sp);
     if (!db_identical_full_paths(d->pathp, &bdata->s_fullpath)) return 1;
     /* Walk up to the root child (depth-1 group) */
     {
-	struct bv_scene_obj *_g = (struct bv_scene_obj *)sp->parent;
-	while (_g && _g->parent &&
-	       ((struct bv_scene_obj *)_g->parent)->parent != NULL)
-	    _g = (struct bv_scene_obj *)_g->parent;
+	struct bv_scene_obj *_g = (struct bv_scene_obj *)sp->bsg.bsg_parent;
+	while (_g && _g->bsg.bsg_parent &&
+	       ((struct bv_scene_obj *)_g->bsg.bsg_parent)->bsg.bsg_parent != NULL)
+	    _g = (struct bv_scene_obj *)_g->bsg.bsg_parent;
 	illum_gdlp = _g;
     }
     d->ret = sp;
@@ -174,7 +175,7 @@ find_solid_with_path(struct mged_state *s, struct db_full_path *pathp)
     d.pathp = pathp;
     d.ret = NULL;
     d.count = 0;
-    bsg_visit(bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _find_solid_with_path_cb, &d);
+    bsg_visit((bsg_node *)bsg_view_obj_root(s->gedp), BSG_NODE_SHAPE, _find_solid_with_path_cb, &d);
 
     if (d.count > 1) {
 	struct bu_vls tmp_vls = BU_VLS_INIT_ZERO;

@@ -64,6 +64,7 @@ bsg_node_set_kind(bsg_node *n, unsigned long long kind)
     if (!n)
 	return;
 
+    _bsg_core_ensure(n);
     n->bsg_kind = kind;
     bsg_node_field_touch(n, BSG_FIELD_KIND);
 }
