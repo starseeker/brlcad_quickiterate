@@ -59,6 +59,7 @@
 #include "ged/view.h"
 #include "ged/bsg_ged_draw.h"
 #include "./ged_private.h"
+#include "bsg/selection.h"
 #include "bsg/util.h"
 #include "bsg/draw_set.h"
 #include "bsg/lod_ops.h"
@@ -824,7 +825,7 @@ DbiState::DbiState(struct ged *ged_p)
     BU_GET(res, struct resource);
     rt_init_resource(res, 0, NULL);
     shared_vs = new BViewState(this);
-    default_selected = new SelectionSet(this);
+    default_selected = new SelectionSet(this, "active");
     selected_sets[std::string("default")] = default_selected;
     gedp = ged_p;
     if (!gedp)
@@ -1911,7 +1912,7 @@ DbiState::get_selected_states(const char *sname)
     if (ret.size())
 	return ret;
 
-    SelectionSet *ns = new SelectionSet(this);
+    SelectionSet *ns = new SelectionSet(this, sn.c_str());
     selected_sets[sn] = ns;
     ret.push_back(ns);
     return ret;
@@ -1945,6 +1946,7 @@ DbiState::put_selected_state(const char *sname)
     std::unordered_map<std::string, SelectionSet *>::iterator ss_it;
     for (ss_it = selected_sets.begin(); ss_it != selected_sets.end(); ss_it++) {
 	if (BU_STR_EQUIV(sname, ss_it->first.c_str())) {
+	    ss_it->second->clear();
 	    delete ss_it->second;
 	    selected_sets.erase(ss_it);
 	    return;
@@ -1977,7 +1979,7 @@ DbiState::get_selection_set(const char *name)
     if (ss_it != selected_sets.end())
 	return ss_it->second;
 
-    SelectionSet *ns = new SelectionSet(this);
+    SelectionSet *ns = new SelectionSet(this, sn.c_str());
     selected_sets[sn] = ns;
     return ns;
 }
@@ -1995,7 +1997,7 @@ DbiState::add_selection_set(const char *name)
 	return;
     std::string sn(name);
     if (selected_sets.find(sn) == selected_sets.end())
-	selected_sets[sn] = new SelectionSet(this);
+	selected_sets[sn] = new SelectionSet(this, sn.c_str());
 }
 
 void
@@ -3869,9 +3871,91 @@ BViewState::print_view_state(struct bu_vls *outvls)
 
 /* Handle selection status for various instances in the database */
 
-SelectionSet::SelectionSet(DbiState *s)
+namespace {
+struct selection_sync_ctx {
+    DbiState *dbis;
+    std::unordered_map<unsigned long long, std::vector<unsigned long long>> *selected;
+};
+
+static int
+_selectionset_from_bsg_cb(const struct bsg_selection_entry *e, void *data)
+{
+    struct selection_sync_ctx *ctx = (struct selection_sync_ctx *)data;
+    if (!ctx || !ctx->dbis || !ctx->selected || !e || !e->src_path)
+	return 1;
+
+    std::vector<unsigned long long> path_hashes = ctx->dbis->digest_path(e->src_path);
+    if (!path_hashes.size())
+	return 1;
+
+    unsigned long long phash = ctx->dbis->path_hash(path_hashes, 0);
+    (*(ctx->selected))[phash] = path_hashes;
+    return 1;
+}
+}
+
+SelectionSet::SelectionSet(DbiState *s, const char *name)
 {
     dbis = s;
+    set_name = (name && name[0]) ? name : "active";
+}
+
+struct bsg_selection_set *
+SelectionSet::bsg_set(bool create) const
+{
+    if (!dbis || !dbis->gedp)
+	return NULL;
+
+    struct bview *v = dbis->gedp->ged_gvp;
+    if (!v) {
+	struct bu_ptbl *views = bv_set_views(&dbis->gedp->ged_views);
+	if (views && BU_PTBL_LEN(views) > 0)
+	    v = (struct bview *)BU_PTBL_GET(views, 0);
+    }
+    if (!v)
+	return NULL;
+
+    if (!v->bsg_root)
+	bsg_scene_root_create(v);
+    if (!v->bsg_root)
+	return NULL;
+
+    return bsg_scene_selection_get((bsg_node *)v->bsg_root,
+	    set_name.empty() ? "active" : set_name.c_str(), create ? 1 : 0);
+}
+
+void
+SelectionSet::sync_from_bsg()
+{
+    struct bsg_selection_set *ss = bsg_set(false);
+    if (!ss)
+	return;
+
+    selected.clear();
+    struct selection_sync_ctx ctx = {dbis, &selected};
+    bsg_selection_visit(ss, _selectionset_from_bsg_cb, &ctx);
+}
+
+void
+SelectionSet::sync_to_bsg() const
+{
+    struct bsg_selection_set *ss = bsg_set(true);
+    if (!ss || !dbis)
+	return;
+
+    bsg_selection_clear(ss);
+
+    struct bu_vls vpath = BU_VLS_INIT_ZERO;
+    for (auto &kv : selected) {
+	struct bsg_selection_entry e = {};
+	std::vector<unsigned long long> path_hashes = kv.second;
+	dbis->print_path(&vpath, path_hashes);
+	e.src_path = (char *)bu_vls_cstr(&vpath);
+	e.kind = (path_hashes.size() > 1) ? BSG_SELECTION_INSTANCE : BSG_SELECTION_NODE;
+	bsg_selection_add(ss, &e);
+	bu_vls_trunc(&vpath, 0);
+    }
+    bu_vls_free(&vpath);
 }
 
 bool
@@ -3895,6 +3979,8 @@ SelectionSet::select_hpath(std::vector<unsigned long long> &hpath)
 {
     if (!hpath.size())
 	return false;
+
+    sync_from_bsg();
 
     // If we're already selected, nothing to do
     unsigned long long shash = dbis->path_hash(hpath, 0);
@@ -3936,6 +4022,7 @@ SelectionSet::select_hpath(std::vector<unsigned long long> &hpath)
 
     // Add to selected set
     selected[shash] = hpath;
+    sync_to_bsg();
 
     // Note - with this lower level function, it is the caller's responsibility
     // to call characterize to populate the path relationships - we deliberately
@@ -3967,6 +4054,8 @@ SelectionSet::deselect_hpath(std::vector<unsigned long long> &hpath)
     if (!hpath.size())
 	return false;
 
+    sync_from_bsg();
+
     // For higher level paths, need to clear the illuminated solids
     // below this path (if any)
     std::vector<unsigned long long> pitems = hpath;
@@ -3982,6 +4071,7 @@ SelectionSet::deselect_hpath(std::vector<unsigned long long> &hpath)
     unsigned long long phash = dbis->path_hash(hpath, 0);
     selected.erase(phash);
     active_paths.erase(phash);
+    sync_to_bsg();
     return true;
 
     // Note - with this lower level function, it is the caller's responsibility
@@ -4063,14 +4153,17 @@ SelectionSet::is_grand_parent_obj(unsigned long long hash)
 void
 SelectionSet::clear()
 {
+    sync_from_bsg();
     selected.clear();
     active_paths.clear();
+    sync_to_bsg();
     characterize();
 }
 
 std::vector<std::string>
 SelectionSet::list_selected_paths()
 {
+    sync_from_bsg();
     std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator s_it;
     std::vector<std::string> ret;
     struct bu_vls vpath = BU_VLS_INIT_ZERO;
@@ -4168,6 +4261,7 @@ SelectionSet::expand_paths(
 void
 SelectionSet::expand()
 {
+    sync_from_bsg();
     // Given the current selection set, expand all the paths to
     // their leaf solids and report those paths
     std::vector<std::vector<unsigned long long>> out_paths;
@@ -4186,12 +4280,14 @@ SelectionSet::expand()
 	selected[phash] = out_paths[i];
     }
 
+    sync_to_bsg();
     characterize();
 }
 
 void
 SelectionSet::collapse()
 {
+    sync_from_bsg();
     std::vector<std::vector<unsigned long long>> collapsed;
     std::map<size_t, std::unordered_set<unsigned long long>> depth_groups;
     std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator s_it;
@@ -4298,6 +4394,7 @@ SelectionSet::collapse()
 	selected[phash] = collapsed[i];
     }
 
+    sync_to_bsg();
     characterize();
 }
 
@@ -4381,6 +4478,7 @@ SelectionSet::characterize()
 void
 SelectionSet::refresh()
 {
+    sync_from_bsg();
     // If the database may have changed, we need to revalidate selected
     // paths are still current, and regenerate the active_paths set.
     active_paths.clear();
@@ -4417,11 +4515,13 @@ SelectionSet::refresh()
 	seed_hashes.pop_back();
 	add_paths(shash, seed_hashes);
     }
+    sync_to_bsg();
 }
 
 bool
 SelectionSet::draw_sync()
 {
+    sync_from_bsg();
     bool changed = false;
     std::unordered_set<BViewState *> vstates;
 
@@ -4454,6 +4554,7 @@ SelectionSet::draw_sync()
 unsigned long long
 SelectionSet::state_hash()
 {
+    sync_from_bsg();
     std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator s_it;
     struct bu_data_hash_state *s = bu_data_hash_create();
     if (!s)
@@ -4475,9 +4576,11 @@ SelectionSet::select(unsigned long long path_hash,
                      const std::vector<unsigned long long> &path_vec,
                      bool update_hierarchy)
 {
+    sync_from_bsg();
     if (!path_hash) return false;
     if (selected.find(path_hash) != selected.end()) return false;
     selected[path_hash] = path_vec;
+    sync_to_bsg();
     if (update_hierarchy)
 	characterize();
     return true;
@@ -4486,7 +4589,9 @@ SelectionSet::select(unsigned long long path_hash,
 bool
 SelectionSet::deselect(unsigned long long path_hash, bool update_hierarchy)
 {
+    sync_from_bsg();
     if (selected.erase(path_hash) == 0) return false;
+    sync_to_bsg();
     if (update_hierarchy)
 	characterize();
     return true;
@@ -4562,6 +4667,7 @@ SelectionSet::selected_paths() const
 std::unordered_set<unsigned long long>
 SelectionSet::selected_hashes() const
 {
+    const_cast<SelectionSet *>(this)->sync_from_bsg();
     std::unordered_set<unsigned long long> result;
     for (auto &kv : selected)
         result.insert(kv.first);

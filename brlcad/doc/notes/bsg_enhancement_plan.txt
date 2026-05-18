@@ -1302,6 +1302,9 @@ Phase 6 stages:
 - 6C: [DONE] Migrate illumination helpers to selection-backed compatibility.
 - 6D: [DONE] Migrate libdm highlight checks to selection accessors.
 - 6E: [DONE] Bridge QGED and GED selection paths.
+- 6F: [DONE] Retire `gv_selected`/legacy GED-backed selection storage in favor
+  of BSG-backed selection-set storage, preserving the existing SelectionSet API
+  as a compatibility wrapper.
 
 Phase 7 stages:
 
@@ -1721,7 +1724,7 @@ What is partially complete:
 
 - No open partial items are currently tracked for Phases 1-9.
 - Phase 12 partial remaining items (see Phase 12 section for full list):
-  - `gv_selected` removal (deferred to Phase 6F / Phase 10E).
+  - `libbv/hash.c` `s_os` NULL-check — low-priority, structural.
 - Phase 11 complete status:
   - 11A libbsg internal direct-field sweep: done (accessor migration in core
     traversal/search/render paths).
@@ -1779,12 +1782,10 @@ What is partially complete:
 
 What is not yet implemented in this roadmap:
 
-- Phase 6F: Full BSelectState → BSG selection migration (GED selection containers).
 - Phase 12 remaining items:
   - `libbv/hash.c` `s_os` NULL-check — low-priority, structural.
   - Remove `bv_obj_settings` struct entirely once `libbv` polygon initializer
     cleanup is carried through all remaining compatibility call sites.
-  - `gv_selected` removal / replacement with BSG selection storage (Phase 6F).
 - Phase 13 deprecation and readiness gate execution.
 
 
@@ -1792,16 +1793,12 @@ Immediate Next-Session Stage Prompts
 -------------------------------------
 Use these as concrete "small-unit" prompts for the next work sessions.
 
-1. Phase 6F / Phase 12 selection cleanup:
-   Retire the old GED selection hashes and `gv_selected`, wiring the remaining
-   selection state through `bsg_selection` storage only.
-
-2. Phase 12 compatibility cleanup:
+1. Phase 12 compatibility cleanup:
    Resolve the remaining `libbv/hash.c` `s_os` structural probe and continue the
    removal path for `bv_obj_settings` compatibility once the last compatibility
    callers are identified.
 
-3. Phase 13 readiness gate:
+2. Phase 13 readiness gate:
    Execute Phase 13 deprecation tagging (mark old `bv_scene_obj` direct-access
    patterns as `/** @deprecated */`) now that the Phase 11E Qt sweep is done
    and Qt-capable validation can run.

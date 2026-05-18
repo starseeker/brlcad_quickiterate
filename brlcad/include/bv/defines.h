@@ -606,9 +606,6 @@ struct bview_settings {
     struct bv_interactive_rect_state gv_rect;
 
 
-    // Not yet implemented - mechanism for defining a set of selected view
-    // objects
-    struct bu_ptbl                      *gv_selected;
 };
 
 /* A view needs to know what objects are active within it, but this is a

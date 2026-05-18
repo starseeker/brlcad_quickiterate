@@ -243,9 +243,11 @@ private:
 
 /* ---- Phase 1-F: SelectionSet (replaces BSelectState) ----------------- */
 
+struct bsg_selection_set;
+
 class GED_EXPORT SelectionSet {
     public:
-	explicit SelectionSet(DbiState *);
+	explicit SelectionSet(DbiState *, const char *name = nullptr);
 
 	/* ---- Existing BSelectState API (backward-compatible) ------------- */
 
@@ -327,6 +329,7 @@ class GED_EXPORT SelectionSet {
 
     private:
 	DbiState *dbis;
+	std::string set_name;
 
 	void add_paths(
 		unsigned long long c_hash,
@@ -349,6 +352,9 @@ class GED_EXPORT SelectionSet {
 		);
 
 	void clear_paths(std::vector<unsigned long long> &path_hashes, unsigned long long c_hash);
+	struct bsg_selection_set *bsg_set(bool create = true) const;
+	void sync_from_bsg();
+	void sync_to_bsg() const;
 };
 
 /* Backward-compatibility typedef: existing code that uses BSelectState compiles unchanged. */

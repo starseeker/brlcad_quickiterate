@@ -77,7 +77,7 @@ QgTreeSelectionModel::select(const QItemSelection &selection, QItemSelectionMode
 	// If we are selecting an already selected node, clear it
 	if (flags & QItemSelectionModel::Select && ss->is_selected(snode->path_hash())) {
 	    if (!(QGuiApplication::keyboardModifiers().testFlag(Qt::ShiftModifier))) {
-		if (flags & QItemSelectionModel::Clear && ss->selected.size() > 1) {
+		if (flags & QItemSelectionModel::Clear && ss->selected_map().size() > 1) {
 		    ss->clear();
 		    std::vector<unsigned long long> path_hashes = snode->path_items();
 		    ss->select_hpath(path_hashes);
@@ -185,4 +185,3 @@ QgTreeSelectionModel::select(const QModelIndex &index, QItemSelectionModel::Sele
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

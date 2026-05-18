@@ -35,6 +35,7 @@
 
 #include "bsg/settings.h"
 #include "bsg/node.h"
+#include "bsg/selection.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
 #include "./ged_view.h"
@@ -402,7 +403,15 @@ _view_cmd_selections(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    bu_vls_printf(gd->gedp->ged_result_str, "%zd", BU_PTBL_LEN(v->gv_s->gv_selected));
+    size_t sel_cnt = 0;
+    if (v->bsg_root) {
+	struct bsg_selection_set *ss =
+	    bsg_scene_selection_get((bsg_node *)v->bsg_root, "active", 0);
+	if (ss)
+	    sel_cnt = bsg_selection_count(ss);
+    }
+
+    bu_vls_printf(gd->gedp->ged_result_str, "%zu", sel_cnt);
 
     return BRLCAD_OK;
 }
