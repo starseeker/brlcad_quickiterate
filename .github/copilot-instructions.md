@@ -19,13 +19,15 @@ stack (libqtcad, dm-qtgl, dm-swrast, qged, archer).  Qt must be installed and
 `-DBRLCAD_ENABLE_QT=ON` must be used at every phase.  Never build with
 `-DBRLCAD_ENABLE_QT=OFF` unless specifically asked to test the non-Qt path.**
 
-Install system and Qt6 development packages before configuring or building:
+Install system dependencies before configuring or building with bext Qt:
 
 ```bash
 sudo apt-get update
 # X11 and OpenGL
 sudo apt-get install -y xserver-xorg-dev libx11-dev libxi-dev libxext-dev \
   libglu1-mesa-dev libfontconfig-dev libgl-dev xvfb
+# Additional runtime libs required by bext Qt6Gui linkage
+sudo apt-get install -y libegl1 libmd4c0
 # Build tools
 sudo apt-get install -y astyle re2c xsltproc libxml2-utils
 # XCB / input packages required by the Qt6 XCB platform plugin on Linux
@@ -39,18 +41,12 @@ sudo apt-get install -y \
   libxcb-shape0-dev libxcb-randr0-dev libxcb-render-util0-dev \
   libxcb-util-dev libxcb-xinerama0-dev libxcb-xkb-dev \
   libxkbcommon-dev libxkbcommon-x11-dev
-# Qt6 development packages (Widgets, SVG, Network, OpenGL, OpenGLWidgets)
-sudo apt-get install -y \
-  qt6-base-dev \
-  qt6-opengl-dev \
-  qt6-svg-dev \
-  qt6-tools-dev \
-  libqt6opengl6t64 \
-  libqt6openglwidgets6t64
 ```
 
 These packages are also pre-installed by `.github/workflows/copilot-setup-steps.yml`
 so they will be present in every Copilot agent session automatically.
+The Qt toolchain itself is expected to come from `bext_output/install` (via
+`-DCMAKE_PREFIX_PATH`), not from system Qt development packages.
 
 ## Configuring BRL-CAD
 

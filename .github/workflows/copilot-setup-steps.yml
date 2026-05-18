@@ -19,7 +19,7 @@ jobs:
       contents: read
 
     steps:
-      - name: Install system and Qt6 dependencies
+      - name: Install system dependencies for bext Qt builds
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
@@ -27,6 +27,8 @@ jobs:
           # X11 and OpenGL support needed for display-related builds and tests
           sudo apt-get install -y xserver-xorg-dev libx11-dev libxi-dev libxext-dev \
             libglu1-mesa-dev libfontconfig-dev libgl-dev xvfb
+          # Additional runtime libs required by bext Qt6Gui linkage
+          sudo apt-get install -y libegl1 libmd4c0
           # Tools required by BRL-CAD build and test
           sudo apt-get install -y astyle re2c xsltproc libxml2-utils
           # XCB / input dev packages required by the Qt6 platform plugin on Linux
@@ -40,11 +42,3 @@ jobs:
             libxcb-shape0-dev libxcb-randr0-dev libxcb-render-util0-dev \
             libxcb-util-dev libxcb-xinerama0-dev libxcb-xkb-dev \
             libxkbcommon-dev libxkbcommon-x11-dev
-          # Qt6 development packages (Widgets, SVG, Network, OpenGL, OpenGLWidgets)
-          sudo apt-get install -y \
-            qt6-base-dev \
-            qt6-opengl-dev \
-            qt6-svg-dev \
-            qt6-tools-dev \
-            libqt6opengl6t64 \
-            libqt6openglwidgets6t64
