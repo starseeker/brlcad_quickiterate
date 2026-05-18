@@ -3878,7 +3878,7 @@ struct selection_sync_ctx {
 };
 
 static int
-_selectionset_from_bsg_cb(const struct bsg_selection_entry *e, void *data)
+_selset_sync_from_bsg_cb(const struct bsg_selection_entry *e, void *data)
 {
     struct selection_sync_ctx *ctx = (struct selection_sync_ctx *)data;
     if (!ctx || !ctx->dbis || !ctx->selected || !e || !e->src_path)
@@ -3923,7 +3923,7 @@ SelectionSet::bsg_set(bool create) const
 	return NULL;
 
     return bsg_scene_selection_get((bsg_node *)v->bsg_root,
-	    set_name.empty() ? "active" : set_name.c_str(), create ? 1 : 0);
+	    set_name.c_str(), create ? 1 : 0);
 }
 
 void
@@ -3934,8 +3934,9 @@ SelectionSet::sync_from_bsg()
 	return;
 
     selected.clear();
+    selected.reserve(bsg_selection_count(ss));
     struct selection_sync_ctx ctx = {dbis, &selected};
-    bsg_selection_visit(ss, _selectionset_from_bsg_cb, &ctx);
+    bsg_selection_visit(ss, _selset_sync_from_bsg_cb, &ctx);
 }
 
 void
