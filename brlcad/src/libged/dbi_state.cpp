@@ -3934,7 +3934,6 @@ SelectionSet::sync_from_bsg()
 	return;
 
     selected.clear();
-    selected.reserve(bsg_selection_count(ss));
     struct selection_sync_ctx ctx = {dbis, &selected};
     bsg_selection_visit(ss, _selset_sync_from_bsg_cb, &ctx);
 }
