@@ -1,0 +1,52 @@
+BRL-CAD bext Qt dependency findings
+Date: 2026-05-18
+
+Goal
+- Verify Qt-enabled BRL-CAD configure/build using bext_output Qt with no system Qt installed.
+- Identify any non-Qt system packages needed beyond standard OpenGL/Mesa3D dev headers.
+
+Environment checks
+- No system Qt development packages detected:
+  - qt6-base-dev, qt6-opengl-dev, qt6-svg-dev, qt6-tools-dev, qtbase5-dev were not installed.
+- bext Qt config present:
+  - /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/bext_output/install/lib/cmake/Qt6/Qt6Config.cmake
+
+What was installed first (standard OpenGL/Mesa3D dev headers)
+- libgl-dev
+- libglu1-mesa-dev
+
+Configure result with bext Qt
+- Command (from repo root):
+  cmake -S /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad \
+    -B /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad_build \
+    -DBRLCAD_EXT_DIR=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/bext_output \
+    -DCMAKE_PREFIX_PATH=/home/runner/work/brlcad_quickiterate/brlcad_quickiterate/bext_output/install \
+    -DBRLCAD_EXTRADOCS=OFF -DBRLCAD_ENABLE_STEP=OFF -DBRLCAD_ENABLE_GDAL=OFF \
+    -DBRLCAD_ENABLE_OPENGL=ON -DBRLCAD_ENABLE_QT=ON
+- Status: SUCCESS
+- Summary reported Qt: Bundled; Qt support: ON; OpenGL support: ON
+
+Build result and missing package analysis
+- Building Qt targets initially failed at qged link with:
+  - warning: libEGL.so.1 not found
+  - warning: libmd4c.so.0 not found
+  - undefined references to egl* symbols and md_parse from libQt6Gui.so.6.10.2
+- This indicates bext Qt6Gui has runtime dependencies on system EGL and md4c shared libraries.
+
+Additional required non-Qt system packages (beyond standard OpenGL/Mesa3D dev headers)
+- libegl1
+- libmd4c0
+
+Validation after installing additional packages
+- Installed: libegl1 libmd4c0
+- Rebuild of Qt targets succeeded:
+  - libqtcad
+  - dm-qtgl
+  - dm-swrast
+  - qged
+  - archer
+
+Conclusion
+- bext_output Qt is sufficient for BRL-CAD Qt configure/build in this environment without system Qt dev packages.
+- The missing pieces were system runtime libraries required by bext Qt6Gui:
+  libegl1 and libmd4c0.

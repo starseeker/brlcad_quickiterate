@@ -1338,7 +1338,7 @@ Phase 11 stages:
 - 11B: [DONE] libged draw/erase/redraw sweep.
 - 11C: [DONE] libdm render/backend sweep.
 - 11D: [DONE] libtclcad/Archer adornment and getter/setter sweep.
-- 11E: [PARTIAL] QGED/libqtcad selection/edit/polygon sweep.
+- 11E: [DONE] QGED/libqtcad selection/edit/polygon sweep.
 - 11F: [DONE] MGED edit/highlight/refresh sweep.
 - 11G: [DONE] tests direct-field assertion sweep.
 
@@ -1715,9 +1715,7 @@ What is complete or substantially complete:
     ged_test_bsg_view_obj ged_test_tcl_adornment_bsg -j$(nproc)` succeeds.
     `ctest --output-on-failure
     -R '^(ged_test_mged_bsg|ged_test_bsg_view_obj|ged_test_tcl_adornment_bsg|ged_test_mged_shaded_mode_bsg)$'`
-    passes (4/4).  Qt-side validation remains blocked in this environment
-    earlier at configure time: a Qt-enabled CMake run currently fails to find
-    `Qt6Config.cmake` / `Qt5Config.cmake`.
+    passes (4/4).
 
 What is partially complete:
 
@@ -1749,12 +1747,15 @@ What is partially complete:
   - 11D libtclcad/Archer adornment and getter/setter sweep: DONE (draw.c,
     arrows.c, and bsg_move_helpers.h fully migrated; bsg_move_helpers.h also
     uses BSG payload vlist API for point extraction).
-  - 11E QGED/libqtcad selection/edit/polygon sweep: partial
-    (`CADViewSelector`, `QgSelectFilter`, `QgPolyFilter`, `QPolyCreate`,
-    `QPolyMod`, `QPolySettings`, and `QEll` now use BSG accessors for migrated
-    name/type/user-data/material/payload paths; broader Qt validation is blocked
-    by missing Qt package configuration files during Qt-enabled CMake
-    configure).
+  - 11E QGED/libqtcad selection/edit/polygon sweep: DONE.  Completed items
+    include: `CADViewSelector`, `QgSelectFilter`, `QgPolyFilter`,
+    `QPolyCreate`, `QPolyMod`, `QPolySettings`, and `QEll` now use BSG
+    accessors for migrated name/type/user-data/material/payload paths.  `QEll`
+    now routes visibility
+    toggles through `bsg_node_set_visible` rather than direct `s_flag` writes.
+    The CMake Qt finder now clears stale per-component cache variables before
+    retrying non-bundled Qt6 lookup, fixing bext Qt package resolution during
+    Qt-enabled configure.
   - 11F MGED edit/highlight/refresh sweep: DONE.  Completed items include:
     - `edsol.c`: all 24 direct `s_u_data` accesses → `bsg_node_ged_data_get/set`;
       both `s_old.s_Eflag` accesses → `bsg_node_legacy_eflag`.
@@ -1774,16 +1775,11 @@ What is partially complete:
       `s_free_callback` check/invocation → `bsg_node_invoke_free_callback`;
       `lod_raw->s_i_data == NULL` assertion → `bsg_node_user_data_get == NULL`.
     - Added `bsg/material.h` include to `bsg_view_obj.cpp`.
-  - Remaining 11B / 11E / 11F / 11G cleanup: pending.  The only open Phase 11
-    item is 11E (Qt-side migration) which is blocked in this environment by
-    missing Qt package configuration files during a Qt-enabled CMake configure.
+  - Remaining 11B / 11E / 11F / 11G cleanup: complete.
 
 What is not yet implemented in this roadmap:
 
 - Phase 6F: Full BSelectState → BSG selection migration (GED selection containers).
-- Phase 11E: QGED/libqtcad selection/edit/polygon sweep (remaining Qt-side
-  migration; blocked in this environment by missing Qt6/Qt5 CMake package
-  configuration files for a Qt-enabled build).
 - Phase 12 remaining items:
   - `libbv/hash.c` `s_os` NULL-check — low-priority, structural.
   - Remove `bv_obj_settings` struct entirely once `libbv` polygon initializer
@@ -1796,22 +1792,16 @@ Immediate Next-Session Stage Prompts
 -------------------------------------
 Use these as concrete "small-unit" prompts for the next work sessions.
 
-1. Phase 11E (recommended next):
-   QGED/libqtcad selection/edit/polygon sweep: continue the remaining Qt-side
-   migration beyond the now-converted name/type/user-data/material/payload
-   paths, and resolve or work around the current missing-Qt-package configure
-   failure so libqtcad/QGED validation can run again.
-
-2. Phase 6F / Phase 12 selection cleanup:
+1. Phase 6F / Phase 12 selection cleanup:
    Retire the old GED selection hashes and `gv_selected`, wiring the remaining
    selection state through `bsg_selection` storage only.
 
-3. Phase 12 compatibility cleanup:
+2. Phase 12 compatibility cleanup:
    Resolve the remaining `libbv/hash.c` `s_os` structural probe and continue the
    removal path for `bv_obj_settings` compatibility once the last compatibility
    callers are identified.
 
-4. Phase 13 readiness gate:
+3. Phase 13 readiness gate:
    Execute Phase 13 deprecation tagging (mark old `bv_scene_obj` direct-access
-   patterns as `/** @deprecated */`) once the remaining 11E Qt sweep is done
-   and a Qt-capable build environment is available for final validation.
+   patterns as `/** @deprecated */`) now that the Phase 11E Qt sweep is done
+   and Qt-capable validation can run.

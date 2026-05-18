@@ -26,6 +26,7 @@
 #include <QLineEdit>
 #include <QButtonGroup>
 #include <QGroupBox>
+#include "bsg/field.h"
 #include "bsg/material.h"
 #include "bsg/node.h"
 #include "bsg/payload.h"
@@ -253,7 +254,7 @@ QEll::update_obj_wireframe()
 	VMOVE(la->p, pl[i].pt);
     }
 
-    p->s_flag = UP;
+    bsg_node_set_visible((bsg_node *)p, 1);
     // TODO - we should be able to set UP or DOWN on the various labels
     // when their respective controls are enabled/disabled...
 
@@ -301,7 +302,7 @@ QEll::update_viewobj_name(const QString &)
 	} else {
 	    // Turning off wireframe - obj name is now invalid; clear highlight
 	    bsg_view_obj_set_illum(gedp, NULL);
-	    p->s_flag = DOWN;
+	    bsg_node_set_visible((bsg_node *)p, 0);
 	    emit view_updated(QG_VIEW_REFRESH);
 	}
     }
