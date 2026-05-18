@@ -412,6 +412,16 @@ bsg_node_set_legacy_eflag(bsg_node *n, int eflag)
 }
 
 
+struct bu_list *
+bsg_node_vlfree(const bsg_node *n)
+{
+    if (!n)
+	return NULL;
+
+    return ((const struct bv_scene_obj *)n)->vlfree;
+}
+
+
 /*
  * Local Variables:
  * tab-width: 8

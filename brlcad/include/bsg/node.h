@@ -215,6 +215,19 @@ bsg_node_legacy_eflag(const bsg_node *n);
 BSG_EXPORT extern void
 bsg_node_set_legacy_eflag(bsg_node *n, int eflag);
 
+/**
+ * Return the vlist free-list pointer for @p n (bv_scene_obj::vlfree).
+ *
+ * This is the allocator free-list that should be passed as the first
+ * argument to BV_ADD_VLIST / BV_FREE_VLIST when directly building vlist
+ * geometry for @p n.  Typically set to the owning view's free-list at
+ * object creation time.
+ *
+ * Returns NULL if @p n is NULL.
+ */
+BSG_EXPORT extern struct bu_list *
+bsg_node_vlfree(const bsg_node *n);
+
 __END_DECLS
 
 #endif /* BSG_NODE_H */

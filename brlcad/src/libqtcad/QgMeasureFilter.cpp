@@ -31,6 +31,9 @@ extern "C" {
 #include "raytrace.h"
 }
 
+#include "bsg/material.h"
+#include "bsg/node.h"
+#include "bsg/payload.h"
 #include "qtcad/QgMeasureFilter.h"
 #include "qtcad/QgSignalFlags.h"
 
@@ -108,7 +111,11 @@ QgMeasureFilter::update_color(struct bu_color *c)
 {
     if (!s || !c)
 	return;
-    bu_color_to_rgb_chars(c, s->s_color);
+    struct bsg_material m;
+    bsg_material_init(&m);
+    (void)bsg_node_material_get((const bsg_node *)s, &m);
+    bu_color_to_rgb_chars(c, m.rgba);
+    bsg_node_material_set((bsg_node *)s, &m);
 }
 
 bool
@@ -152,7 +159,10 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 	    mode = 1;
 	    VMOVE(p1, mpnt);
 	    VMOVE(p2, mpnt);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BV_VLIST_LINE_MOVE);
+	    {
+		struct bsg_payload *sp = bsg_payload_vlist_from_node((bsg_node *)s);
+		BV_ADD_VLIST(bsg_node_vlfree((const bsg_node *)s), bsg_payload_vlist_head(sp), p1, BV_VLIST_LINE_MOVE);
+	    }
 	    emit view_updated(QG_VIEW_REFRESH);
 	    return true;
 	}
@@ -167,11 +177,16 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 	    if (!get_point())
 		return true;
 	    mode = 3;
-	    BV_FREE_VLIST(s->vlfree, &s->s_vlist);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BV_VLIST_LINE_DRAW);
-	    VMOVE(p3, mpnt);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p3, BV_VLIST_LINE_DRAW);
+	    {
+		struct bsg_payload *sp = bsg_payload_vlist_from_node((bsg_node *)s);
+		struct bu_list *svlfree = bsg_node_vlfree((const bsg_node *)s);
+		struct bu_list *svhead = bsg_payload_vlist_head(sp);
+		BV_FREE_VLIST(svlfree, svhead);
+		BV_ADD_VLIST(svlfree, svhead, p1, BV_VLIST_LINE_MOVE);
+		BV_ADD_VLIST(svlfree, svhead, p2, BV_VLIST_LINE_DRAW);
+		VMOVE(p3, mpnt);
+		BV_ADD_VLIST(svlfree, svhead, p3, BV_VLIST_LINE_DRAW);
+	    }
 	    emit view_updated(QG_VIEW_REFRESH);
 	}
 	return true;
@@ -184,21 +199,31 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 	    if (!get_point())
 		return true;
 
-	    BV_FREE_VLIST(s->vlfree, &s->s_vlist);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BV_VLIST_LINE_MOVE);
-	    VMOVE(p2, mpnt);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BV_VLIST_LINE_DRAW);
+	    {
+		struct bsg_payload *sp = bsg_payload_vlist_from_node((bsg_node *)s);
+		struct bu_list *svlfree = bsg_node_vlfree((const bsg_node *)s);
+		struct bu_list *svhead = bsg_payload_vlist_head(sp);
+		BV_FREE_VLIST(svlfree, svhead);
+		BV_ADD_VLIST(svlfree, svhead, p1, BV_VLIST_LINE_MOVE);
+		VMOVE(p2, mpnt);
+		BV_ADD_VLIST(svlfree, svhead, p2, BV_VLIST_LINE_DRAW);
+	    }
 	    emit view_updated(QG_VIEW_REFRESH);
 	}
 	if (mode == 3) {
 	    if (!get_point())
 		return true;
 
-	    BV_FREE_VLIST(s->vlfree, &s->s_vlist);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BV_VLIST_LINE_DRAW);
-	    VMOVE(p3, mpnt);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p3, BV_VLIST_LINE_DRAW);
+	    {
+		struct bsg_payload *sp = bsg_payload_vlist_from_node((bsg_node *)s);
+		struct bu_list *svlfree = bsg_node_vlfree((const bsg_node *)s);
+		struct bu_list *svhead = bsg_payload_vlist_head(sp);
+		BV_FREE_VLIST(svlfree, svhead);
+		BV_ADD_VLIST(svlfree, svhead, p1, BV_VLIST_LINE_MOVE);
+		BV_ADD_VLIST(svlfree, svhead, p2, BV_VLIST_LINE_DRAW);
+		VMOVE(p3, mpnt);
+		BV_ADD_VLIST(svlfree, svhead, p3, BV_VLIST_LINE_DRAW);
+	    }
 	    emit view_updated(QG_VIEW_REFRESH);
 	}
 	return true;
@@ -231,10 +256,15 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 	    }
 
 	    mode = 2;
-	    BV_FREE_VLIST(s->vlfree, &s->s_vlist);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BV_VLIST_LINE_MOVE);
-	    VMOVE(p2, mpnt);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BV_VLIST_LINE_DRAW);
+	    {
+		struct bsg_payload *sp = bsg_payload_vlist_from_node((bsg_node *)s);
+		struct bu_list *svlfree = bsg_node_vlfree((const bsg_node *)s);
+		struct bu_list *svhead = bsg_payload_vlist_head(sp);
+		BV_FREE_VLIST(svlfree, svhead);
+		BV_ADD_VLIST(svlfree, svhead, p1, BV_VLIST_LINE_MOVE);
+		VMOVE(p2, mpnt);
+		BV_ADD_VLIST(svlfree, svhead, p2, BV_VLIST_LINE_DRAW);
+	    }
 	    emit view_updated(QG_VIEW_REFRESH);
 	    return true;
 	}
@@ -242,11 +272,16 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 	    if (!get_point())
 		return true;
 	    mode = 4;
-	    BV_FREE_VLIST(s->vlfree, &s->s_vlist);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BV_VLIST_LINE_DRAW);
-	    VMOVE(p3, mpnt);
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p3, BV_VLIST_LINE_DRAW);
+	    {
+		struct bsg_payload *sp = bsg_payload_vlist_from_node((bsg_node *)s);
+		struct bu_list *svlfree = bsg_node_vlfree((const bsg_node *)s);
+		struct bu_list *svhead = bsg_payload_vlist_head(sp);
+		BV_FREE_VLIST(svlfree, svhead);
+		BV_ADD_VLIST(svlfree, svhead, p1, BV_VLIST_LINE_MOVE);
+		BV_ADD_VLIST(svlfree, svhead, p2, BV_VLIST_LINE_DRAW);
+		VMOVE(p3, mpnt);
+		BV_ADD_VLIST(svlfree, svhead, p3, BV_VLIST_LINE_DRAW);
+	    }
 	    emit view_updated(QG_VIEW_REFRESH);
 	    return true;
 	}
@@ -388,7 +423,7 @@ QMeasure3DFilter::get_point()
 	const char **objs = (const char **)bu_calloc(BU_PTBL_LEN(&scene_obj_set) + 1, sizeof(char *), "objs");
 	for (size_t i = 0; i < BU_PTBL_LEN(&scene_obj_set); i++) {
 	    struct bv_scene_obj *l_s = (struct bv_scene_obj *)BU_PTBL_GET(&scene_obj_set, i);
-	    objs[i] = bu_vls_cstr(&l_s->s_name);
+	    objs[i] = bsg_node_name((const bsg_node *)l_s);
 	}
 	if (rt_gettrees_and_attrs(rtip, NULL, scnt, objs, 1)) {
 	    bu_free(objs, "objs");
