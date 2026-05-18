@@ -3885,9 +3885,8 @@ _selectionset_from_bsg_cb(const struct bsg_selection_entry *e, void *data)
 	return 1;
 
     std::vector<unsigned long long> path_hashes = ctx->dbis->digest_path(e->src_path);
-    if (!path_hashes.size()) {
-	bu_log("SelectionSet::sync_from_bsg: skipping invalid selection path %s\n",
-		e->src_path);
+    if (path_hashes.empty()) {
+	bu_log("%s: skipping invalid selection path %s\n", __func__, e->src_path);
 	return 1;
     }
 
@@ -4670,7 +4669,6 @@ SelectionSet::selected_paths() const
 std::unordered_set<unsigned long long>
 SelectionSet::selected_hashes() const
 {
-    const_cast<SelectionSet *>(this)->sync_from_bsg();
     std::unordered_set<unsigned long long> result;
     for (auto &kv : selected)
         result.insert(kv.first);
