@@ -1,5 +1,0 @@
-#ifndef QT_FEATURES_WaylandClient_src_plugins_platforms_wayland_qtwaylandclient_config_p_h_H
-#define QT_FEATURES_WaylandClient_src_plugins_platforms_wayland_qtwaylandclient_config_p_h_H
-
-
-#endif // QT_FEATURES_WaylandClient_src_plugins_platforms_wayland_qtwaylandclient_config_p_h_H
