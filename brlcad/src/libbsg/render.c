@@ -166,20 +166,9 @@ _bsg_render_traverse(struct bsg_render_action *ra,
 
     struct bsg_material   mat;
     struct bsg_appearance app;
-    int have_mat = bsg_node_material_get(node, &mat);
+    (void)bsg_node_material_get(node, &mat);
     int have_app = bsg_node_appearance_get(node, &app);
-    fastf_t obj_transparency = 1.0;
-    if (have_mat) {
-	obj_transparency = mat.transparency;
-    } else if (have_app) {
-	obj_transparency = app.transparency;
-    } else {
-	/* Preserve legacy transparency fallback from bv_scene_obj settings (s_os/s_local_os)
-	 * when no explicit BSG appearance/material is set. */
-	struct bsg_material legacy_mat;
-	bsg_material_from_legacy_obj(node, &legacy_mat);
-	obj_transparency = legacy_mat.transparency;
-    }
+    fastf_t obj_transparency = mat.transparency;
 
     /* Phase 6D: BSG "active" selection first; legacy s_iflag fallback. */
     int is_highlighted =
@@ -191,7 +180,7 @@ _bsg_render_traverse(struct bsg_render_action *ra,
     /* Invoke renderer ops with resolved BSG state. */
     if (ops->set_material)
 	ops->set_material(data, node,
-			  &mat, have_mat, is_highlighted, obj_transparency);
+			  &mat, 1, is_highlighted, obj_transparency);
 
     if (ops->set_appearance)
 	ops->set_appearance(data, node, &app, have_app);

@@ -2227,8 +2227,6 @@ bv_obj_reset(struct bv_scene_obj *s)
     s->bsg.identity_instance_id = 0;
     s->bsg.identity_source_kind = 0;
     memset(s->bsg.revisions, 0, sizeof(s->bsg.revisions));
-    s->bsg.settings_local = NULL;
-    s->bsg.settings_effective = NULL;
     s->bsg.material = NULL;
     s->bsg.appearance = NULL;
     s->bsg.payload = NULL;
