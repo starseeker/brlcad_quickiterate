@@ -1049,8 +1049,8 @@ bv_update(struct bview *gvp)
     }
 }
 
-int
-bsg_settings_sync(struct bsg_settings *dest, struct bsg_settings *src)
+static int
+_bsg_settings_sync(struct bsg_settings *dest, struct bsg_settings *src)
 {
     int ret = 0;
     if (!dest || !src)
@@ -2080,7 +2080,7 @@ bv_obj_reset(struct bv_scene_obj *s)
     bu_vls_trunc(&s->bsg.bsg_name, 0);
 
     struct bsg_settings defaults = BSG_SETTINGS_INIT;
-    bsg_settings_sync(&s->s_local_os, &defaults);
+    _bsg_settings_sync(&s->s_local_os, &defaults);
     s->s_os = &s->s_local_os;
     s->s_inherit_settings = 0;
 
@@ -2531,7 +2531,7 @@ bv_view_objs_visit_db(struct bview *v,
 void
 bv_obj_sync(struct bv_scene_obj *dest, struct bv_scene_obj *src)
 {
-    bsg_settings_sync(dest->s_os, src->s_os);
+    _bsg_settings_sync(dest->s_os, src->s_os);
     VMOVE(dest->s_center, src->s_center);
     VMOVE(dest->s_color, src->s_color);
     VMOVE(dest->bmin, src->bmin);

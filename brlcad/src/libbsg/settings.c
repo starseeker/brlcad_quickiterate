@@ -30,6 +30,7 @@
 
 #include "bv/defines.h"
 #include "bsg/settings.h"
+#include "vmath.h"
 
 #include "./bsg_private.h"
 
@@ -81,6 +82,53 @@ bsg_node_settings_set(bsg_node *n, const struct bsg_settings *s)
     struct bv_scene_obj *obj = (struct bv_scene_obj *)n;
     obj->s_local_os = *s;
     obj->s_os = &obj->s_local_os;
+}
+
+int
+bsg_settings_sync(struct bsg_settings *dest, struct bsg_settings *src)
+{
+    int ret = 0;
+    if (!dest || !src)
+	return ret;
+
+    if (dest->line_width != src->line_width) {
+	dest->line_width = src->line_width;
+	ret = 1;
+    }
+    if (!NEAR_EQUAL(dest->arrow_tip_length, src->arrow_tip_length, SMALL_FASTF)) {
+	dest->arrow_tip_length = src->arrow_tip_length;
+	ret = 1;
+    }
+    if (!NEAR_EQUAL(dest->arrow_tip_width, src->arrow_tip_width, SMALL_FASTF)) {
+	dest->arrow_tip_width = src->arrow_tip_width;
+	ret = 1;
+    }
+    if (!NEAR_EQUAL(dest->transparency, src->transparency, SMALL_FASTF)) {
+	dest->transparency = src->transparency;
+	ret = 1;
+    }
+    if (dest->draw_mode != src->draw_mode) {
+	dest->draw_mode = src->draw_mode;
+	ret = 1;
+    }
+    if (dest->color_override != src->color_override) {
+	dest->color_override = src->color_override;
+	ret = 1;
+    }
+    if (!VNEAR_EQUAL(dest->color, src->color, SMALL_FASTF)) {
+	VMOVE(dest->color, src->color);
+	ret = 1;
+    }
+    if (dest->draw_solid_lines_only != src->draw_solid_lines_only) {
+	dest->draw_solid_lines_only = src->draw_solid_lines_only;
+	ret = 1;
+    }
+    if (dest->draw_non_subtract_only != src->draw_non_subtract_only) {
+	dest->draw_non_subtract_only = src->draw_non_subtract_only;
+	ret = 1;
+    }
+
+    return ret;
 }
 
 

@@ -42,6 +42,7 @@
 #include "bv/defines.h"
 #include "bg/sat.h"
 #include "bv/lod.h"
+#include "bsg/settings.h"
 #include "nmg.h"
 #include "rt/view.h"
 

@@ -42,6 +42,7 @@
 #include "bu/vls.h"
 #include "bv.h"
 #include "bsg/defines.h"
+#include "bsg/settings.h"
 
 #include "../ged_private.h"
 #include "./ged_view.h"

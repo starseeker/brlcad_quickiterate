@@ -59,6 +59,14 @@ bsg_node_settings_get(const bsg_node *n, struct bsg_settings *out);
 BSG_EXPORT extern void
 bsg_node_settings_set(bsg_node *n, const struct bsg_settings *s);
 
+/**
+ * Copy settings state from @p src to @p dest.
+ *
+ * Returns 0 if no settings changed in @p dest and 1 otherwise.
+ */
+BSG_EXPORT extern int
+bsg_settings_sync(struct bsg_settings *dest, struct bsg_settings *src);
+
 __END_DECLS
 
 #endif /* BSG_SETTINGS_H */
