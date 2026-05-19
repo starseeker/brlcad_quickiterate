@@ -109,9 +109,10 @@ _qtgl_texture_enabled(void)
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     if (!ev || !ev[0])
 	return 0; /* Qt5 embedded QOpenGLWidget path has shown color-channel issues with the texture blit path. */
-#endif
+#else
     if (!ev || !ev[0])
 	return 1; /* Default to texture-backed blit path for better incremental update performance. */
+#endif
     if (!bu_str_true(ev))
 	return 0;
     return 1;
