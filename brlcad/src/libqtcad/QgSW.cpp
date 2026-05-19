@@ -63,17 +63,17 @@ qtcad_render_size(const QWidget *w)
 }
 
 QImage
-qtcad_dm_painter_image(struct dm *dmp, int flip)
+qtcad_dm_painter_image(struct dm *dmp, int flip_vertically)
 {
     if (!dmp)
 	return QImage();
 
     unsigned char *dm_image = NULL;
-    if (dm_get_display_image(dmp, &dm_image, flip, 1) || !dm_image)
+    if (dm_get_display_image(dmp, &dm_image, flip_vertically, 1) || !dm_image)
 	return QImage();
 
     /* Convert the DM's raw RGBA bytes into an owned, painter-friendly image
-     * rather than relying on Qt's direct RGBX8888 handling of external memory. */
+     * rather than relying on Qt's direct 32-bit external-memory image path. */
     QImage raw(dm_image, dm_get_width(dmp), dm_get_height(dmp), QImage::Format_RGBA8888);
     QImage image = raw.copy().convertToFormat(QImage::Format_RGB32);
     bu_free(dm_image, "dm display image");
