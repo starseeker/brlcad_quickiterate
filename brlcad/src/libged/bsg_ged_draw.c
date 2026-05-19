@@ -1019,7 +1019,7 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     struct bsg_material m;
     bsg_material_from_legacy_obj((const bsg_node *)sp, &m);
     m.transparency = transparency;
-    m.rgba[3] = (m.transparency <= 0.0) ? 0 : ((m.transparency >= 1.0) ? 255 : (unsigned char)(m.transparency * 255.0));
+    m.rgba[3] = bsg_material_alpha_from_transparency(m.transparency);
     m.revision = (uint64_t)sp->s_color_rev;
     bsg_node_material_set((bsg_node *)sp, &m);
 

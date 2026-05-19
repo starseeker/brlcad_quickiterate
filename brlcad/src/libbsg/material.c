@@ -129,6 +129,13 @@ bsg_material_set_rgba(struct bsg_material *m,
     m->transparency = ((fastf_t)a) / 255.0;
 }
 
+unsigned char
+bsg_material_alpha_from_transparency(fastf_t transparency)
+{
+    fastf_t t = _material_clamp_transparency(transparency);
+    return (unsigned char)(t * 255.0);
+}
+
 
 void
 bsg_material_from_legacy_obj(const bsg_node *n, struct bsg_material *out)
@@ -147,7 +154,7 @@ bsg_material_from_legacy_obj(const bsg_node *n, struct bsg_material *out)
     out->rgba[1] = s->s_color[1];
     out->rgba[2] = s->s_color[2];
     out->transparency = _material_clamp_transparency(os->transparency);
-    out->rgba[3] = (unsigned char)(out->transparency * 255.0);
+    out->rgba[3] = bsg_material_alpha_from_transparency(out->transparency);
     out->revision = s->s_color_rev;
 
     if (os->color_override) {

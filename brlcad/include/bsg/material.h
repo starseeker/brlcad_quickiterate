@@ -63,6 +63,9 @@ bsg_material_set_rgba(struct bsg_material *m,
 		      unsigned char b,
 		      unsigned char a);
 
+BSG_EXPORT extern unsigned char
+bsg_material_alpha_from_transparency(fastf_t transparency);
+
 BSG_EXPORT extern int
 bsg_node_material_get(const bsg_node *n, struct bsg_material *out);
 

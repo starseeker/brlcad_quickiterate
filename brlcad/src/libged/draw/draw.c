@@ -170,7 +170,7 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
 	(void)bsg_node_material_get((const bsg_node *)sp, &mat);
 	(void)bsg_node_appearance_get((const bsg_node *)sp, &app);
 	mat.transparency = (fastf_t)dgcdp->vs.transparency;
-	mat.rgba[3] = (mat.transparency <= 0.0) ? 0 : ((mat.transparency >= 1.0) ? 255 : (unsigned char)(mat.transparency * 255.0));
+	mat.rgba[3] = bsg_material_alpha_from_transparency(mat.transparency);
 	app.draw_mode = dgcdp->vs.draw_mode;
 	bsg_node_material_set((bsg_node *)sp, &mat);
 	bsg_node_appearance_set((bsg_node *)sp, &app);
@@ -507,7 +507,7 @@ append_solid_to_display_list(
 	(void)bsg_node_material_get((const bsg_node *)sp, &mat);
 	(void)bsg_node_appearance_get((const bsg_node *)sp, &app);
 	mat.transparency = (fastf_t)bv_data->transparency;
-	mat.rgba[3] = (mat.transparency <= 0.0) ? 0 : ((mat.transparency >= 1.0) ? 255 : (unsigned char)(mat.transparency * 255.0));
+	mat.rgba[3] = bsg_material_alpha_from_transparency(mat.transparency);
 	app.draw_mode = bv_data->dmode;
 	bsg_node_material_set((bsg_node *)sp, &mat);
 	bsg_node_appearance_set((bsg_node *)sp, &app);

@@ -63,7 +63,7 @@ set_transparency_cb(struct bv_scene_obj *sp, void *userdata)
     bsg_material_init(&mat);
     (void)bsg_node_material_get((const bsg_node *)sp, &mat);
     mat.transparency = (fastf_t)data->transparency;
-    mat.rgba[3] = (mat.transparency <= 0.0) ? 0 : ((mat.transparency >= 1.0) ? 255 : (unsigned char)(mat.transparency * 255.0));
+    mat.rgba[3] = bsg_material_alpha_from_transparency(mat.transparency);
     bsg_node_material_set((bsg_node *)sp, &mat);
 
     return 1; /* continue */
