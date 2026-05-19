@@ -126,13 +126,14 @@ bv_scene_obj_hash(struct bu_data_hash_state *state, struct bv_scene_obj *s)
     for (BU_LIST_FOR(tvp, bv_vlist, &((struct bv_vlist *)&s->s_vlist)->l)) {
 	bu_data_hash_update(state, tvp, sizeof(struct bv_vlist));
     }
-    struct bsg_settings os;
+    struct bsg_settings effective_os;
     struct bsg_settings local_os;
+    bsg_settings_init(&local_os);
     bsg_settings_from_legacy_obj_settings(&s->s_local_os, &local_os);
-    bsg_settings_init(&os);
-    bsg_node_settings_get((const bsg_node *)s, &os);
-    if (memcmp(&os, &local_os, sizeof(struct bsg_settings)) != 0)
-	bu_data_hash_update(state, &os, sizeof(struct bsg_settings));
+    bsg_settings_init(&effective_os);
+    bsg_node_settings_get((const bsg_node *)s, &effective_os);
+    if (memcmp(&effective_os, &local_os, sizeof(struct bsg_settings)) != 0)
+	bu_data_hash_update(state, &effective_os, sizeof(struct bsg_settings));
     _bv_obj_settings_hash(state, &s->s_local_os);
 }
 
