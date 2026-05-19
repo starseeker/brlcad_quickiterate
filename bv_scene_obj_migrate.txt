@@ -471,29 +471,35 @@ Phase 3 - Introduce a Compatibility Header Boundary
 Objective:
 Break the header cycle that keeps bsg_settings in bv/defines.h.
 
-Options:
+Status:
+- DONE for the immediate header-boundary objective.
 
-Option A - Intermediate shared header
-- Move struct bsg_settings to a neutral header that both bv and bsg can include.
-- Keep storage in bv_scene_obj temporarily.
-- Lowest immediate risk.
+Completed in this pass:
+- Added a dedicated shared header: `include/bsg/settings_types.h`.
+- Moved the `struct bsg_settings` definition and `BSG_SETTINGS_INIT` macro out
+  of `include/bv/defines.h`.
+- Updated the public headers so:
+  - `include/bv/defines.h` consumes the shared settings-types header for legacy
+    `bv_scene_obj` storage declarations.
+  - `include/bsg/settings.h` explicitly includes the shared settings-types
+    header for the public settings API.
+- Updated `include/bsg/CMakeLists.txt` so the new public header is installed.
 
-Option B - Compatibility header split
-- Keep BSG-facing type definitions in include/bsg/.
-- Move bv compatibility storage declarations into a dedicated compatibility
-  header, not the core public BSG headers.
+Resulting boundary:
+- `struct bsg_settings` is now defined in `include/bsg/settings_types.h`.
+- `include/bv/defines.h` no longer owns the type definition; it only includes
+  the shared type so `s_os` / `s_local_os` can keep using transitional inline
+  storage.
 
-Option C - Remove inline storage first
-- Replace s_local_os embedded storage with opaque/heap-backed compatibility
-  storage so bv/defines.h no longer needs the full struct definition.
-- This is the cleanest architectural move, but requires more lifecycle changes.
-
-Recommended order:
-- Use Option A or B only as a transitional step if needed to reduce risk.
-- Prefer converging toward Option C as part of the larger bv_scene_obj removal.
-
-Exit criteria:
-- struct bsg_settings is no longer defined in include/bv/defines.h.
+Moved to subsequent phases:
+- The stronger Option B/Option C follow-on work is still pending:
+  - moving legacy compatibility storage declarations out of `bv_scene_obj`
+  - removing the remaining `bsg/defines.h` -> `bv/defines.h` dependency
+  - replacing inline `s_local_os` storage with BSG-owned or opaque compatibility
+    storage
+- Those broader storage-owner and header-decoupling changes now stay with Phase
+  4, because they depend on removing `bv_scene_obj` ownership rather than just
+  relocating the shared type definition.
 
 
 Phase 4 - Replace bv_scene_obj-Owned Settings Storage

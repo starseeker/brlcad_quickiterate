@@ -25,6 +25,7 @@ set(
   selection.h
   sensor.h
   settings.h
+  settings_types.h
   util.h
   view_scope.h
   visit.h

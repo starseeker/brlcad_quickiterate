@@ -35,6 +35,7 @@
 
 #include "common.h"
 #include "bsg/defines.h"
+#include "bsg/settings_types.h"
 
 __BEGIN_DECLS
 
