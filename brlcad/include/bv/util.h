@@ -292,6 +292,18 @@ BV_EXPORT extern int bv_scene_obj_bound(struct bv_scene_obj *s, struct bview *v)
  * the vlist points in s in the context of view v */
 BV_EXPORT extern fastf_t bv_vZ_calc(struct bv_scene_obj *s, struct bview *v, int mode);
 
+/* Compatibility helpers for the legacy per-object settings bundle.  Callers
+ * that still need bundle-copy behavior should go through these accessors
+ * rather than reading or writing s_os / s_local_os directly. */
+BV_EXPORT extern int
+bv_scene_obj_settings_get(const struct bv_scene_obj *s, struct bsg_settings *out);
+BV_EXPORT extern int
+bv_scene_obj_settings_local_get(const struct bv_scene_obj *s, struct bsg_settings *out);
+BV_EXPORT extern void
+bv_scene_obj_settings_set(struct bv_scene_obj *s, const struct bsg_settings *settings);
+BV_EXPORT extern void
+bv_scene_obj_settings_reset(struct bv_scene_obj *s);
+
 /* Copy object attributes (but not geometry) from src to dest */
 BV_EXPORT extern void bv_obj_sync(struct bv_scene_obj *dest, struct bv_scene_obj *src);
 

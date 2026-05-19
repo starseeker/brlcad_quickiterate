@@ -29,6 +29,7 @@
  *  12E - bsg_node_settings_set writes to s_local_os, updates s_os, and syncs semantic sidecars.
  *  12F - bsg_settings_sync copies mixed_modes.
  *  12G - NULL-safety: all public functions tolerate NULL arguments.
+ *  12H - bv compatibility settings shims expose effective/local/reset behavior.
  */
 
 #include "common.h"
@@ -351,6 +352,72 @@ test_null_safety(void)
     return 0;
 }
 
+/* ------------------------------------------------------------------ */
+/* Test 12H: bv compatibility settings helpers                         */
+/* ------------------------------------------------------------------ */
+
+static int
+test_bv_settings_helpers(void)
+{
+    printf("=== Test 12H: bv settings helpers ===\n");
+
+    struct bview *v = make_view();
+    bsg_node *root = bsg_scene_root_create(v);
+    bsg_node *shape = bsg_shape_create(v);
+    if (!root || !shape)
+	FAIL("create nodes");
+
+    struct bv_scene_obj *obj = (struct bv_scene_obj *)shape;
+    struct bsg_settings inherited = BSG_SETTINGS_INIT;
+    struct bsg_settings local = BSG_SETTINGS_INIT;
+    struct bsg_settings out = BSG_SETTINGS_INIT;
+
+    local.line_width = 2;
+    local.draw_mode = 1;
+    obj->s_local_os = local;
+
+    inherited.line_width = 7;
+    inherited.draw_mode = 4;
+    inherited.mixed_modes = 1;
+    obj->s_os = &inherited;
+
+    if (!bv_scene_obj_settings_local_get(obj, &out))
+	FAIL("local helper returned 0");
+    if (out.line_width != 2 || out.draw_mode != 1)
+	FAIL("local helper values");
+
+    if (!bv_scene_obj_settings_get(obj, &out))
+	FAIL("effective helper returned 0");
+    if (out.line_width != 7 || out.draw_mode != 4 || out.mixed_modes != 1)
+	FAIL("effective helper values");
+
+    out.line_width = 5;
+    out.draw_mode = 3;
+    out.mixed_modes = 1;
+    bv_scene_obj_settings_set(obj, &out);
+    if (obj->s_os != &obj->s_local_os)
+	FAIL("settings_set did not restore s_os to local storage");
+    if (obj->s_local_os.line_width != 5 || obj->s_local_os.draw_mode != 3 || obj->s_local_os.mixed_modes != 1)
+	FAIL("settings_set did not update local storage");
+
+    bv_scene_obj_settings_reset(obj);
+    if (obj->s_local_os.line_width != 1 || obj->s_local_os.draw_mode != 0 || obj->s_local_os.mixed_modes != 0)
+	FAIL("settings_reset defaults");
+    if (obj->s_os != &obj->s_local_os)
+	FAIL("settings_reset did not preserve local storage pointer");
+
+    bv_scene_obj_settings_get(NULL, &out);
+    bv_scene_obj_settings_local_get(NULL, &out);
+    bv_scene_obj_settings_set(NULL, &out);
+    bv_scene_obj_settings_reset(NULL);
+
+    bsg_shape_destroy(shape);
+    bsg_scene_root_destroy(root);
+    free_view(v);
+    PASS("bv_settings_helpers");
+    return 0;
+}
+
 
 /* ------------------------------------------------------------------ */
 /* main                                                                 */
@@ -370,6 +437,7 @@ main(int argc, char *argv[])
     failures += test_settings_set();
     failures += test_settings_sync();
     failures += test_null_safety();
+    failures += test_bv_settings_helpers();
 
     if (failures) {
 	printf("FAILED: %d test(s)\n", failures);

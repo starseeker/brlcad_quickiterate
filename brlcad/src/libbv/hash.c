@@ -104,7 +104,7 @@ _bv_interactive_rect_state_hash(struct bu_data_hash_state *state, struct bv_inte
 }
 
 static void
-_bsg_settings_hash(struct bu_data_hash_state *state, struct bsg_settings *v)
+_bsg_settings_hash(struct bu_data_hash_state *state, const struct bsg_settings *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
@@ -145,15 +145,15 @@ bv_scene_obj_hash(struct bu_data_hash_state *state, struct bv_scene_obj *s)
     for (BU_LIST_FOR(tvp, bv_vlist, &((struct bv_vlist *)&s->s_vlist)->l)) {
 	bu_data_hash_update(state, tvp, sizeof(struct bv_vlist));
     }
-    struct bsg_settings effective_settings;
-    struct bsg_settings local_settings;
-    local_settings = s->s_local_os;
-    effective_settings = (s->s_os) ? *s->s_os : s->s_local_os;
+    struct bsg_settings effective_settings = BSG_SETTINGS_INIT;
+    struct bsg_settings local_settings = BSG_SETTINGS_INIT;
+    (void)bv_scene_obj_settings_local_get(s, &local_settings);
+    (void)bv_scene_obj_settings_get(s, &effective_settings);
     /* Preserve legacy behavior: local settings are always hashed, and inherited
      * settings only add extra entropy when they differ from local storage. */
     if (!_bsg_settings_equal(&effective_settings, &local_settings))
 	bu_data_hash_update(state, &effective_settings, sizeof(struct bsg_settings));
-    _bsg_settings_hash(state, &s->s_local_os);
+    _bsg_settings_hash(state, &local_settings);
 }
 
 void
