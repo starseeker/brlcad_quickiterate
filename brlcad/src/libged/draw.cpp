@@ -42,6 +42,8 @@
 #include "bv/defines.h"
 #include "bg/sat.h"
 #include "bv/lod.h"
+#include "bsg/appearance.h"
+#include "bsg/material.h"
 #include "bsg/settings.h"
 #include "nmg.h"
 #include "rt/view.h"
@@ -111,6 +113,62 @@ mesh_lod_draw_free(struct bv_scene_obj *s)
 	return;
     bv_mesh_lod_free(s);
     draw_free_data(s);
+}
+
+static int
+scene_draw_mode(const struct bv_scene_obj *s)
+{
+    struct bsg_appearance app;
+    bsg_appearance_init(&app);
+    if (!s)
+	return 0;
+    (void)bsg_node_appearance_get((const bsg_node *)s, &app);
+    return app.draw_mode;
+}
+
+static void
+scene_draw_mode_set(struct bv_scene_obj *s, int mode)
+{
+    struct bsg_appearance app;
+    if (!s)
+	return;
+    bsg_appearance_init(&app);
+    (void)bsg_node_appearance_get((const bsg_node *)s, &app);
+    app.draw_mode = mode;
+    bsg_node_appearance_set((bsg_node *)s, &app);
+}
+
+static int
+scene_color_override(const struct bv_scene_obj *s)
+{
+    struct bsg_material mat;
+    bsg_material_init(&mat);
+    if (!s)
+	return 0;
+    (void)bsg_node_material_get((const bsg_node *)s, &mat);
+    return mat.use_override_color;
+}
+
+static int
+scene_draw_non_subtract_only(const struct bv_scene_obj *s)
+{
+    struct bsg_appearance app;
+    bsg_appearance_init(&app);
+    if (!s)
+	return 0;
+    (void)bsg_node_appearance_get((const bsg_node *)s, &app);
+    return app.draw_non_subtract_only;
+}
+
+static int
+scene_draw_solid_lines_only(const struct bv_scene_obj *s)
+{
+    struct bsg_appearance app;
+    bsg_appearance_init(&app);
+    if (!s)
+	return 0;
+    (void)bsg_node_appearance_get((const bsg_node *)s, &app);
+    return app.draw_solid_lines_only;
 }
 
 
@@ -595,7 +653,7 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
 
     /* Mode 3 generates an evaluated wireframe rather than drawing
      * the individual solid wireframes */
-    if (s->s_os->draw_mode == 3) {
+    if (scene_draw_mode(s) == 3) {
 	draw_m3(s);
 	bv_scene_obj_bound(s, v);
 	s->current = 1;
@@ -603,7 +661,7 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
     }
 
     /* Mode 5 draws a point cloud in lieu of wireframes */
-    if (s->s_os->draw_mode == 5) {
+    if (scene_draw_mode(s) == 5) {
 	draw_points(s);
 	bv_scene_obj_bound(s, v);
 	s->current = 1;
@@ -625,8 +683,9 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
 
     // Adaptive BoTs have specialized LoD routines to help cope with very large
     // data sets, both for wireframe and shaded mode.
+    int draw_mode = scene_draw_mode(s);
     if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT && v && v->gv_s->adaptive_plot_mesh &&
-       (s->s_os->draw_mode == 0 || s->s_os->draw_mode == 1)) {
+       (draw_mode == 0 || draw_mode == 1)) {
 	bot_adaptive_plot(s, v);
 	return;
     }
@@ -634,7 +693,7 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
     // Adaptive BReps have specialized LoD routines to manage shaded displays, which
     // can involve slow and large mesh generations.  BRep wireframes are based on the
     // NURBS data, so this is used only for shaded mode
-    if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BREP && v && v->gv_s->adaptive_plot_mesh && s->s_os->draw_mode == 1) {
+    if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BREP && v && v->gv_s->adaptive_plot_mesh && draw_mode == 1) {
 	brep_adaptive_plot(s, v);
 	return;
     }
@@ -667,7 +726,7 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
 
     // For anything other than mode 0, we call specific routines for
     // some of the primitives.
-    if (s->s_os->draw_mode > 0) {
+    if (draw_mode > 0) {
 	switch (ip->idb_minor_type) {
 	    case DB5_MINORTYPE_BRLCAD_BOT:
 		(void)rt_bot_plot_poly(&s->s_vlist, ip, ttol, tol);
@@ -687,20 +746,20 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
     }
 
     // Now the more general cases
-    switch (s->s_os->draw_mode) {
+    switch (draw_mode) {
 	case 0:
 	case 1:
 	    // Get wireframe (for mode 1, all the non-wireframes are handled
 	    // by the above BOT/POLY/BREP cases
 	    wireframe_plot(s, v, ip);
-	    s->s_os->draw_mode = 0;
+	    scene_draw_mode_set(s, 0);
 	    break;
 	case 2:
 	    // Shade everything except pipe, don't evaluate, fall
 	    // back to wireframe in case of failure
 	    if (prim_tess(s, ip) < 0) {
 		wireframe_plot(s, v, ip);
-		s->s_os->draw_mode = 0;
+		scene_draw_mode_set(s, 0);
 	    } else {
 		s->current = 1;
 	    }
@@ -715,7 +774,7 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
 	    // un-hidden wireframe in case of failure
 	    if (prim_tess(s, ip) < 0) {
 		wireframe_plot(s, v, ip);
-		s->s_os->draw_mode = 0;
+		scene_draw_mode_set(s, 0);
 	    } else {
 		s->current = 1;
 	    }
@@ -752,7 +811,7 @@ tree_color(struct directory *dp, struct draw_data_t *dd)
     struct bu_attribute_value_set c_avs = BU_AVS_INIT_ZERO;
 
     // Easy answer - if we're overridden, dd color is already set.
-    if (dd->g->s_os->color_override)
+    if (scene_color_override(dd->g))
 	return;
 
     // Not overridden by settings.  Next question - are we under an inherit?
@@ -934,7 +993,7 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 
     // If we're skipping subtractions and we have a subtraction op there's no
     // point in going further.
-    if (dd->g->s_os->draw_non_subtract_only && dd->bool_op == 4) {
+    if (scene_draw_non_subtract_only(dd->g) && dd->bool_op == 4) {
 	return;
     }
 
@@ -976,7 +1035,7 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 	s->bsg.bsg_kind = BV_DBOBJ_BASED;
 	s->current = 0;
 	s->s_changed++;
-	if (!s->s_os->draw_solid_lines_only) {
+	if (!scene_draw_solid_lines_only(s)) {
 	    s->s_soldash = (dd->bool_op == 4) ? 1 : 0;
 	}
 	bu_color_to_rgb_chars(&dd->c, s->s_color);

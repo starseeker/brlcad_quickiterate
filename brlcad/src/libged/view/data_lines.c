@@ -39,6 +39,8 @@
 
 #include "common.h"
 
+#include "bsg/appearance.h"
+
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
@@ -197,10 +199,10 @@ _view_dlines_cmd_line_width(void *bs, int argc, const char **argv)
     if (argc == 1) {
 	struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
 	if (s) {
-	    /* Phase 12: read line width via BSG settings accessor. */
-	    struct bsg_settings sinfo;
-	    bsg_node_settings_get((const bsg_node *)s, &sinfo);
-	    bu_vls_printf(gedp->ged_result_str, "%d", sinfo.line_width);
+	    struct bsg_appearance app;
+	    bsg_appearance_init(&app);
+	    (void)bsg_node_appearance_get((const bsg_node *)s, &app);
+	    bu_vls_printf(gedp->ged_result_str, "%d", app.line_width);
 	} else {
 	    bu_vls_printf(gedp->ged_result_str, "0");
 	}
@@ -271,10 +273,10 @@ _view_dlines_cmd_points(void *bs, int argc, const char **argv)
 	    saved_color[0] = (int)old_s->s_color[0];
 	    saved_color[1] = (int)old_s->s_color[1];
 	    saved_color[2] = (int)old_s->s_color[2];
-	    /* Phase 12: read line width via BSG settings accessor. */
-	    struct bsg_settings sinfo;
-	    bsg_node_settings_get((const bsg_node *)old_s, &sinfo);
-	    saved_lw = sinfo.line_width;
+	    struct bsg_appearance app;
+	    bsg_appearance_init(&app);
+	    (void)bsg_node_appearance_get((const bsg_node *)old_s, &app);
+	    saved_lw = app.line_width;
 	}
 
 	if (ac < 2) {

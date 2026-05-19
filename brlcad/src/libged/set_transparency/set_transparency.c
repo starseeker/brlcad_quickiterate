@@ -25,7 +25,7 @@
 
 #include "common.h"
 
-#include "bsg/settings.h"
+#include "bsg/material.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
 
@@ -59,11 +59,12 @@ set_transparency_cb(struct bv_scene_obj *sp, void *userdata)
 	return 1; /* continue */
 
     /* found a match */
-    /* Phase 12: write transparency via BSG settings accessor. */
-    struct bsg_settings sinfo;
-    bsg_node_settings_get((const bsg_node *)sp, &sinfo);
-    sinfo.transparency = (fastf_t)data->transparency;
-    bsg_node_settings_set((bsg_node *)sp, &sinfo);
+    struct bsg_material mat;
+    bsg_material_init(&mat);
+    (void)bsg_node_material_get((const bsg_node *)sp, &mat);
+    mat.transparency = (fastf_t)data->transparency;
+    mat.rgba[3] = (mat.transparency <= 0.0) ? 0 : ((mat.transparency >= 1.0) ? 255 : (unsigned char)(mat.transparency * 255.0));
+    bsg_node_material_set((bsg_node *)sp, &mat);
 
     return 1; /* continue */
 }
