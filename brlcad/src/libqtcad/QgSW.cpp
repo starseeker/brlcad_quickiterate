@@ -68,7 +68,7 @@ qtcad_dm_painter_image(struct dm *dmp, int flip_vertically)
     if (!dmp)
 	return QImage();
 
-    unsigned char *dm_image = NULL;
+    unsigned char *dm_image = nullptr;
     if (dm_get_display_image(dmp, &dm_image, flip_vertically, 1) || !dm_image)
 	return QImage();
 
