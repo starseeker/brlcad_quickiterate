@@ -34,6 +34,7 @@
 #include "bu/hash.h"
 #include "bu/vls.h"
 #include "bv/defines.h"
+#include "bsg/settings.h"
 #include "dm/defines.h"
 
 #ifndef DM_VIEW_H
@@ -73,7 +74,7 @@ DM_EXPORT extern void dm_draw_scene_obj(struct dm *dmp,
 					struct bv_scene_obj *s,
 					struct bview *v,
 					int force_draw,
-					struct bv_obj_settings *obj_settings);
+					const struct bsg_settings *obj_settings);
 
 /* As a temporary measure, require client codes to specifically ask to enable
  * the bits that require librt in the headers if they're not going to be

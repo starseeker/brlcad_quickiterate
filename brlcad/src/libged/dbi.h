@@ -57,6 +57,7 @@
 #include <queue>
 
 #include "bv/lod.h"
+#include "bsg/settings.h"
 #include "ged/defines.h"
 
 /* ---- Phase 1-A: Typed hash wrappers ---------------------------------- */
@@ -434,7 +435,7 @@ class GED_EXPORT BViewState {
 	// Adds path to the BViewState container, but doesn't trigger a re-draw - that
 	// should be done once all paths to be added in a given draw cycle are added.
 	// The actual drawing (and mode specifications) are done with redraw and a
-	// supplied bv_obj_settings structure.
+	// supplied bsg_settings structure.
 	void add_path(const char *path);
 	void add_hpath(std::vector<unsigned long long> &path_hashes);
 
@@ -468,7 +469,7 @@ class GED_EXPORT BViewState {
 	// A View State redraw can impact multiple views with a shared state - most of
 	// the elements will be the same, but adaptive plotting will be view specific even
 	// with otherwise common objects - we must update accordingly.
-	unsigned long long redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *> &views, int no_autoview);
+	unsigned long long redraw(const struct bsg_settings *vs, std::unordered_set<struct bview *> &views, int no_autoview);
 
 	// Phase 3.5: Drain completed pipeline results from DrawPipeline.
 	// Delegates to DbiState::drain_geom_results().
@@ -522,7 +523,7 @@ class GED_EXPORT BViewState {
 		unsigned long long chash,
 		int curr_mode,
 		struct bview *v,
-		struct bv_obj_settings *vs,
+		const struct bsg_settings *vs,
 		matp_t m,
 		std::vector<unsigned long long> &path_hashes,
 		std::unordered_set<struct bview *> &views,
@@ -534,7 +535,7 @@ class GED_EXPORT BViewState {
 		unsigned long long c_hash,
 		int curr_mode,
 		struct bview *v,
-		struct bv_obj_settings *vs,
+		const struct bsg_settings *vs,
 		matp_t m,
 		matp_t lm,
 		std::vector<unsigned long long> &path_hashes,
@@ -545,7 +546,7 @@ class GED_EXPORT BViewState {
 	struct bv_scene_obj * scene_obj(
 		std::unordered_set<struct bv_scene_obj *> &objs,
 		int curr_mode,
-		struct bv_obj_settings *vs,
+		const struct bsg_settings *vs,
 		matp_t m,
 		std::vector<unsigned long long> &path_hashes,
 		std::unordered_set<struct bview *> &views,
