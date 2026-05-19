@@ -55,6 +55,7 @@
 #include "common.h"
 
 #include "bu/app.h"
+#include "bu/str.h"
 
 extern "C" {
 #include "../include/private.h"
@@ -107,9 +108,7 @@ _qtgl_texture_enabled(void)
      * variable in privileged execution contexts. */
     if (!ev || !ev[0])
 	return 1; /* Default to texture-backed blit path for better incremental update performance. */
-    if (!strcmp(ev, "0") || !strcmp(ev, "false") ||
-	!strcmp(ev, "False") || !strcmp(ev, "off") ||
-	!strcmp(ev, "OFF"))
+    if (!bu_str_true(ev))
 	return 0;
     return 1;
 }
@@ -505,8 +504,8 @@ fb_qtgl_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
     qi->mw = new QgGLWin(ifp);
     {
 	qreal dpr = qi->mw->canvas->devicePixelRatioF();
-	int lw = qMax(1, qCeil(((qreal)width) / dpr));
-	int lh = qMax(1, qCeil(((qreal)height) / dpr));
+	int lw = qMax(1, static_cast<int>(std::ceil(((qreal)width) / dpr)));
+	int lh = qMax(1, static_cast<int>(std::ceil(((qreal)height) / dpr)));
 	qi->mw->canvas->setFixedSize(lw, lh);
     }
     qi->mw->adjustSize();

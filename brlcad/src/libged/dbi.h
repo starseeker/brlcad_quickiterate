@@ -177,8 +177,8 @@ public:
 
 /* ---- Phase 1-E: DrawList --------------------------------------------- */
 
-/* Draw state values returned by DrawList::query() */
-enum class DrawState { NOT_DRAWN = 0, FULLY_DRAWN = 1, PARTIALLY_DRAWN = 2 };
+/* Draw state values returned by DrawList::draw_state() */
+enum class GedDrawState { NOT_DRAWN = 0, FULLY_DRAWN = 1, PARTIALLY_DRAWN = 2 };
 
 /* Optional per-path draw settings override */
 struct DrawSettings {
@@ -221,7 +221,7 @@ public:
     void clear(int mode);
 
     /* Query draw state of a path hash */
-    DrawState query(unsigned long long path_hash, int mode = -1) const;
+    GedDrawState draw_state(unsigned long long path_hash, int mode = -1) const;
 
     /* Return drawn path-hash vectors, optionally filtered by mode */
     std::vector<std::vector<unsigned long long>> drawn_path_hashes(int mode = -1) const;

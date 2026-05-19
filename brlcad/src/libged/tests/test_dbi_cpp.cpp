@@ -543,7 +543,7 @@ test_observer(const char *moss_g_path)
 	std::vector<unsigned long long> test_path = {allg_hash};
 	dl.add(test_path, 1);
 	CHECK(dl.count() == 1, "DrawList must have 1 entry after add");
-	CHECK(dl.query(allg_hash, 1) == DrawState::FULLY_DRAWN,
+	CHECK(dl.draw_state(allg_hash, 1) == GedDrawState::FULLY_DRAWN,
 	      "added path must be FULLY_DRAWN");
 	dl.clear();
 	CHECK(dl.empty(), "DrawList must be empty after clear");

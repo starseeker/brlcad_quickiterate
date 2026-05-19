@@ -58,8 +58,8 @@ qtcad_render_size(const QWidget *w)
 	return QSize();
 
     qreal dpr = w->devicePixelRatioF();
-    return QSize(qMax(1, qCeil(w->width() * dpr)),
-		 qMax(1, qCeil(w->height() * dpr)));
+    return QSize(qMax(1, static_cast<int>(std::ceil(w->width() * dpr))),
+		 qMax(1, static_cast<int>(std::ceil(w->height() * dpr))));
 }
 }
 

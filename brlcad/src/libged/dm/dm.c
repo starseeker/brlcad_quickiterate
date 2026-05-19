@@ -710,6 +710,7 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
     if (BU_STR_EQUAL(argv[0], "qtgl")) ged_rt_fb_set(gedp, "/dev/qtgl");
     if (BU_STR_EQUAL(argv[0], "ogl")) ged_rt_fb_set(gedp, "/dev/ogl");
     if (BU_STR_EQUAL(argv[0], "wgl")) ged_rt_fb_set(gedp, "/dev/wgl");
+
     const char *cbav[4] = {"dm", "attach", argv[0], bu_vls_cstr(&dm_name)};
     _dm_cmd_during_clbk(gd, 4, cbav);
 

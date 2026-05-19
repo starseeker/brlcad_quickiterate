@@ -108,8 +108,8 @@ qtgl_configureWin(struct dm *dmp, int UNUSED(force))
 	return BRLCAD_ERROR;
     }
 
-    int width = qMax(1, qCeil(privars->qw->width() * privars->qw->devicePixelRatioF()));
-    int height = qMax(1, qCeil(privars->qw->height() * privars->qw->devicePixelRatioF()));
+    int width = qMax(1, static_cast<int>(std::ceil(privars->qw->width() * privars->qw->devicePixelRatioF())));
+    int height = qMax(1, static_cast<int>(std::ceil(privars->qw->height() * privars->qw->devicePixelRatioF())));
     gl_reshape(dmp, width, height);
 
     /* this is where font information is set up, if not already done */

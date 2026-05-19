@@ -428,8 +428,8 @@ fb_swrast_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
 
     {
 	qreal dpr = qi->mw->canvas->devicePixelRatioF();
-	int lw = qMax(1, qCeil(((qreal)width) / dpr));
-	int lh = qMax(1, qCeil(((qreal)height) / dpr));
+	int lw = qMax(1, static_cast<int>(std::ceil(((qreal)width) / dpr)));
+	int lh = qMax(1, static_cast<int>(std::ceil(((qreal)height) / dpr)));
 	qi->mw->canvas->setFixedSize(lw, lh);
 	qi->mw->canvas->v->gv_width = width;
 	qi->mw->canvas->v->gv_height = height;

@@ -4635,15 +4635,15 @@ DrawList::rebuild_index() const
     dirty_ = false;
 }
 
-DrawState
-DrawList::query(unsigned long long path_hash, int mode) const
+GedDrawState
+DrawList::draw_state(unsigned long long path_hash, int mode) const
 {
     if (dirty_) rebuild_index();
     auto it = drawn_hash_modes_.find(path_hash);
-    if (it == drawn_hash_modes_.end()) return DrawState::NOT_DRAWN;
-    if (mode < 0) return DrawState::FULLY_DRAWN;
-    if (it->second.find(mode) != it->second.end()) return DrawState::FULLY_DRAWN;
-    return DrawState::NOT_DRAWN;
+    if (it == drawn_hash_modes_.end()) return GedDrawState::NOT_DRAWN;
+    if (mode < 0) return GedDrawState::FULLY_DRAWN;
+    if (it->second.find(mode) != it->second.end()) return GedDrawState::FULLY_DRAWN;
+    return GedDrawState::NOT_DRAWN;
 }
 
 std::vector<std::vector<unsigned long long>>
