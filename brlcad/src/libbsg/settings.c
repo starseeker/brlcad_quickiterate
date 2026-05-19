@@ -60,14 +60,14 @@ bsg_settings_init(struct bsg_settings *s)
 int
 bsg_node_settings_get(const bsg_node *n, struct bsg_settings *out)
 {
-    struct bsg_appearance appearance;
-    struct bsg_material material;
+    struct bsg_appearance app;
+    struct bsg_material mat;
     if (!out)
 	return 0;
 
     bsg_settings_init(out);
-    bsg_appearance_init(&appearance);
-    bsg_material_init(&material);
+    bsg_appearance_init(&app);
+    bsg_material_init(&mat);
     if (!n)
 	return 0;
 
@@ -75,21 +75,21 @@ bsg_node_settings_get(const bsg_node *n, struct bsg_settings *out)
     const struct bsg_settings *settings = (s->s_os) ? s->s_os : &s->s_local_os;
 
     *out = *settings;
-    (void)bsg_node_appearance_get(n, &appearance);
-    (void)bsg_node_material_get(n, &material);
+    (void)bsg_node_appearance_get(n, &app);
+    (void)bsg_node_material_get(n, &mat);
 
-    out->draw_mode = appearance.draw_mode;
-    out->line_width = appearance.line_width;
-    out->arrow_tip_length = appearance.arrow_tip_length;
-    out->arrow_tip_width = appearance.arrow_tip_width;
-    out->draw_solid_lines_only = appearance.draw_solid_lines_only;
-    out->draw_non_subtract_only = appearance.draw_non_subtract_only;
-    out->transparency = material.transparency;
-    out->color_override = material.use_override_color ? 1 : 0;
-    if (material.use_override_color) {
-	out->color[0] = material.override_rgb[0];
-	out->color[1] = material.override_rgb[1];
-	out->color[2] = material.override_rgb[2];
+    out->draw_mode = app.draw_mode;
+    out->line_width = app.line_width;
+    out->arrow_tip_length = app.arrow_tip_length;
+    out->arrow_tip_width = app.arrow_tip_width;
+    out->draw_solid_lines_only = app.draw_solid_lines_only;
+    out->draw_non_subtract_only = app.draw_non_subtract_only;
+    out->transparency = mat.transparency;
+    out->color_override = mat.use_override_color ? 1 : 0;
+    if (mat.use_override_color) {
+	out->color[0] = mat.override_rgb[0];
+	out->color[1] = mat.override_rgb[1];
+	out->color[2] = mat.override_rgb[2];
     }
 
     return 1;
@@ -99,34 +99,34 @@ bsg_node_settings_get(const bsg_node *n, struct bsg_settings *out)
 void
 bsg_node_settings_set(bsg_node *n, const struct bsg_settings *s)
 {
-    struct bsg_appearance appearance;
-    struct bsg_material material;
+    struct bsg_appearance app;
+    struct bsg_material mat;
     if (!n || !s)
 	return;
 
     struct bv_scene_obj *obj = (struct bv_scene_obj *)n;
-    bsg_appearance_init(&appearance);
-    bsg_material_init(&material);
-    (void)bsg_node_appearance_get(n, &appearance);
-    (void)bsg_node_material_get(n, &material);
+    bsg_appearance_init(&app);
+    bsg_material_init(&mat);
+    (void)bsg_node_appearance_get(n, &app);
+    (void)bsg_node_material_get(n, &mat);
 
     obj->s_local_os = *s;
     obj->s_os = &obj->s_local_os;
 
-    appearance.draw_mode = s->draw_mode;
-    appearance.line_width = s->line_width;
-    appearance.arrow_tip_length = s->arrow_tip_length;
-    appearance.arrow_tip_width = s->arrow_tip_width;
-    appearance.draw_solid_lines_only = s->draw_solid_lines_only;
-    appearance.draw_non_subtract_only = s->draw_non_subtract_only;
-    bsg_node_appearance_set(n, &appearance);
+    app.draw_mode = s->draw_mode;
+    app.line_width = s->line_width;
+    app.arrow_tip_length = s->arrow_tip_length;
+    app.arrow_tip_width = s->arrow_tip_width;
+    app.draw_solid_lines_only = s->draw_solid_lines_only;
+    app.draw_non_subtract_only = s->draw_non_subtract_only;
+    bsg_node_appearance_set(n, &app);
 
-    material.transparency = s->transparency;
-    material.use_override_color = s->color_override ? 1 : 0;
-    material.override_rgb[0] = s->color[0];
-    material.override_rgb[1] = s->color[1];
-    material.override_rgb[2] = s->color[2];
-    bsg_node_material_set(n, &material);
+    mat.transparency = s->transparency;
+    mat.use_override_color = s->color_override ? 1 : 0;
+    mat.override_rgb[0] = s->color[0];
+    mat.override_rgb[1] = s->color[1];
+    mat.override_rgb[2] = s->color[2];
+    bsg_node_material_set(n, &mat);
 }
 
 int

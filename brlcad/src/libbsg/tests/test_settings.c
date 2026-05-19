@@ -248,10 +248,6 @@ test_settings_set(void)
     bsg_node_settings_set(shape, &s);
 
     struct bv_scene_obj *obj = (struct bv_scene_obj *)shape;
-    struct bsg_appearance a;
-    struct bsg_material m;
-    bsg_appearance_init(&a);
-    bsg_material_init(&m);
     if (obj->s_os != &obj->s_local_os)
 	FAIL("s_os not updated to &s_local_os");
     if (obj->s_local_os.color[0] != 99 || obj->s_local_os.color[1] != 88 || obj->s_local_os.color[2] != 77)
@@ -266,6 +262,10 @@ test_settings_set(void)
 	FAIL("line_width not written");
     if (obj->s_local_os.mixed_modes != 1)
 	FAIL("mixed_modes not written");
+    struct bsg_appearance a;
+    struct bsg_material m;
+    bsg_appearance_init(&a);
+    bsg_material_init(&m);
     if (!bsg_node_appearance_get((const bsg_node *)shape, &a))
 	FAIL("appearance sidecar not populated");
     if (!bsg_node_material_get((const bsg_node *)shape, &m))
