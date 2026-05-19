@@ -63,7 +63,7 @@ gl_swrast_database_wireframe(struct dm *dmp, struct bv_scene_obj *s)
     if (!(s->bsg.bsg_kind & BV_DB_OBJS))
 	return 0;
 
-    return (s->s_os->s_dmode == 0 || s->s_os->s_dmode == 3);
+    return (s->s_os->draw_mode == 0 || s->s_os->draw_mode == 3);
 }
 
 static int
@@ -73,7 +73,7 @@ gl_swrast_wireframe_obj(struct dm *dmp, struct bv_scene_obj *s)
 	return 0;
     if (!(s->bsg.bsg_kind & BV_DB_OBJS))
 	return 0;
-    return (s->s_os->s_dmode == 0 || s->s_os->s_dmode == 3);
+    return (s->s_os->draw_mode == 0 || s->s_os->draw_mode == 3);
 }
 
 static inline void
@@ -315,7 +315,7 @@ swrast_draw_vlist_fast(struct dm *dmp, struct bv_vlist *vp)
  */
 struct gl_backend_handle {
     unsigned int dlist;     /* compiled GL display list index, 0 if none */
-    int dlist_mode;         /* mode the list was compiled in (s_os->s_dmode) */
+    int dlist_mode;         /* mode the list was compiled in (s_os->draw_mode) */
     int dlist_stale;        /* set by invalidate_obj; next draw regenerates */
 };
 
@@ -444,7 +444,7 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
     const point_t *points_orig = lod->points_orig;
     const vect_t *normals = lod->normals;
     struct bv_scene_obj *s = lod->s;
-    int mode = s->s_os->s_dmode;
+    int mode = s->s_os->draw_mode;
     mat_t save_mat, draw_mat;
 
     struct gl_vars *mvars = (struct gl_vars *)dmp->i->m_vars;
@@ -813,7 +813,7 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 		restoreShadeModel = 1;
 	    }
 	}
-	if (s->s_os->s_dmode == 4) {
+	if (s->s_os->draw_mode == 4) {
 	    /* Hidden-line mode always uses the explicit vlist path so the
 	     * line/edge drawing logic in dm_draw_vlist_hidden_line runs. */
 	    dm_draw_vlist_hidden_line(dmp, (struct bv_vlist *)payload_vhead);

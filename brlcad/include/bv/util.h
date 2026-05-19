@@ -105,7 +105,7 @@ BV_EXPORT extern void bv_view_set_center_vec(struct bview *v, const point_t cent
 /* Copy settings (potentially) common to the view and scene objects.
  * Return 0 if no changes were made to dest.  If dest did have one
  * or more settings updated from src, return 1. */
-BV_EXPORT extern int bv_obj_settings_sync(struct bv_obj_settings *dest, struct bv_obj_settings *src);
+BV_EXPORT extern int bsg_settings_sync(struct bsg_settings *dest, struct bsg_settings *src);
 
 /* Sync values within the bv, perform callbacks if any are defined */
 BV_EXPORT extern void bv_update(struct bview *gvp);

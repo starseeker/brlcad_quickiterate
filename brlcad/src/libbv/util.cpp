@@ -1050,30 +1050,30 @@ bv_update(struct bview *gvp)
 }
 
 int
-bv_obj_settings_sync(struct bv_obj_settings *dest, struct bv_obj_settings *src)
+bsg_settings_sync(struct bsg_settings *dest, struct bsg_settings *src)
 {
     int ret = 0;
     if (!dest || !src)
 	return ret;
 
-    if (dest->s_line_width != src->s_line_width) {
-	dest->s_line_width = src->s_line_width;
+    if (dest->line_width != src->line_width) {
+	dest->line_width = src->line_width;
 	ret = 1;
     }
-    if (!NEAR_EQUAL(dest->s_arrow_tip_length, src->s_arrow_tip_length, SMALL_FASTF)) {
-	dest->s_arrow_tip_length = src->s_arrow_tip_length;
+    if (!NEAR_EQUAL(dest->arrow_tip_length, src->arrow_tip_length, SMALL_FASTF)) {
+	dest->arrow_tip_length = src->arrow_tip_length;
 	ret = 1;
     }
-    if (!NEAR_EQUAL(dest->s_arrow_tip_width, src->s_arrow_tip_width, SMALL_FASTF)) {
-	dest->s_arrow_tip_width = src->s_arrow_tip_width;
+    if (!NEAR_EQUAL(dest->arrow_tip_width, src->arrow_tip_width, SMALL_FASTF)) {
+	dest->arrow_tip_width = src->arrow_tip_width;
 	ret = 1;
     }
     if (!NEAR_EQUAL(dest->transparency, src->transparency, SMALL_FASTF)) {
 	dest->transparency = src->transparency;
 	ret = 1;
     }
-    if (dest->s_dmode != src->s_dmode) {
-	dest->s_dmode = src->s_dmode;
+    if (dest->draw_mode != src->draw_mode) {
+	dest->draw_mode = src->draw_mode;
 	ret = 1;
     }
     if (dest->color_override != src->color_override) {
@@ -1981,8 +1981,8 @@ bv_view_obj_set_line_width(struct bv_scene_obj *s, int line_width)
 	/* By convention bv_obj_reset() sets s_os = &s->s_local_os, but other
 	 * code paths in this file defensively fall back to s_local_os when
 	 * s_os is unset; do the same here. */
-	struct bv_obj_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
-	os->s_line_width = line_width;
+	struct bsg_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
+	os->line_width = line_width;
     }
     s->s_changed++;
     bv_obj_stale(s);
@@ -2079,8 +2079,8 @@ bv_obj_reset(struct bv_scene_obj *s)
 	BU_VLS_INIT(&s->bsg.bsg_name);
     bu_vls_trunc(&s->bsg.bsg_name, 0);
 
-    struct bv_obj_settings defaults = BV_OBJ_SETTINGS_INIT;
-    bv_obj_settings_sync(&s->s_local_os, &defaults);
+    struct bsg_settings defaults = BSG_SETTINGS_INIT;
+    bsg_settings_sync(&s->s_local_os, &defaults);
     s->s_os = &s->s_local_os;
     s->s_inherit_settings = 0;
 
@@ -2531,7 +2531,7 @@ bv_view_objs_visit_db(struct bview *v,
 void
 bv_obj_sync(struct bv_scene_obj *dest, struct bv_scene_obj *src)
 {
-    bv_obj_settings_sync(dest->s_os, src->s_os);
+    bsg_settings_sync(dest->s_os, src->s_os);
     VMOVE(dest->s_center, src->s_center);
     VMOVE(dest->s_color, src->s_color);
     VMOVE(dest->bmin, src->bmin);

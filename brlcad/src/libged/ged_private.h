@@ -241,7 +241,7 @@ struct draw_data_t {
     struct db_i *dbip;
     struct bv_scene_group *g;
     struct bview *v;
-    struct bv_obj_settings *vs;
+    struct bsg_settings *vs;
     const struct bn_tol *tol;
     const struct bg_tess_tol *ttol;
     struct bu_color c;

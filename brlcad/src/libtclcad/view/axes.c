@@ -608,7 +608,7 @@ to_data_axes_func(Tcl_Interp *interp,
 	    /* T3: read line_width from BSG object settings. */
 	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
 	    if (_s && _s->s_os)
-		bu_vls_printf(gedp->ged_result_str, "%d", _s->s_os->s_line_width);
+		bu_vls_printf(gedp->ged_result_str, "%d", _s->s_os->line_width);
 	    else
 		bu_vls_printf(gedp->ged_result_str, "0");
 	    return BRLCAD_OK;

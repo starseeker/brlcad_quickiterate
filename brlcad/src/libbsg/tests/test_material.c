@@ -116,7 +116,7 @@ test_appearance_mapping(void)
     (void)bsg_node_appearance_get(shape, &out);
     if (out.line_width != 4 || out.draw_mode != 3)
 	FAIL("appearance getter");
-    if (((struct bv_scene_obj *)shape)->s_os->s_line_width != 4)
+    if (((struct bv_scene_obj *)shape)->s_os->line_width != 4)
 	FAIL("legacy line width sync");
     if (((struct bv_scene_obj *)shape)->s_soldash != 1)
 	FAIL("legacy soldash sync");

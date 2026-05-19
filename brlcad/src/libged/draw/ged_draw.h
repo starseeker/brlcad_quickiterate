@@ -76,7 +76,7 @@ struct _ged_client_data {
     int draw_edge_uses;
     int do_not_draw_nmg_solids_during_debugging;
 
-    struct bv_obj_settings vs;
+    struct bsg_settings vs;
 };
 
 struct ged_command_tab {

@@ -330,7 +330,7 @@ rt_generic_scene_obj(struct bv_scene_obj *s, struct directory *dp, struct db_i *
     }
 #endif
 
-    switch (s->s_os->s_dmode) {
+    switch (s->s_os->draw_mode) {
         case 2:
         case 4:
 	    // Shaded mode and hidden line mode need shaded eval (although they
@@ -338,7 +338,7 @@ rt_generic_scene_obj(struct bv_scene_obj *s, struct directory *dp, struct db_i *
 	    // in case of tessellation failure.
 	    ret = rt_shaded_plot(s, &intern, ttol, tol);
             if (ret != BRLCAD_OK) {
-                s->s_os->s_dmode = 0;
+                s->s_os->draw_mode = 0;
 		ret = rt_wireframe_plot(s, &intern, ttol, tol, v);
 	    }
             break;
@@ -356,7 +356,7 @@ rt_generic_scene_obj(struct bv_scene_obj *s, struct directory *dp, struct db_i *
             break;
         default:
             // Default to wireframe
-            s->s_os->s_dmode = 0;
+            s->s_os->draw_mode = 0;
             ret = rt_wireframe_plot(s, &intern, ttol, tol, v);
             break;
     }

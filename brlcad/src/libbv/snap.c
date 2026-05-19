@@ -186,8 +186,8 @@ bv_snap_lines_3d(point_t *out_pt, struct bview *v, point_t *p)
 		    if (gv_s->gv_snap_flags == BV_SNAP_VIEW && (!(so->bsg.bsg_kind & BV_VIEW_OBJS)))
 			continue;
 		}
-		struct bv_obj_settings *s_os = (so->s_os) ? so->s_os : &so->s_local_os;
-		s->ctol_sq = line_tol_sq(v, (s_os->s_line_width) ? s_os->s_line_width : 1);
+		struct bsg_settings *s_os = (so->s_os) ? so->s_os : &so->s_local_os;
+		s->ctol_sq = line_tol_sq(v, (s_os->line_width) ? s_os->line_width : 1);
 		ret += _find_closest_obj_point(s, p, so);
 	    }
 	} else {

@@ -33,7 +33,6 @@
 #include "bv/defines.h"
 #include "bv/util.h"
 #include "bv/view_sets.h"
-#include "bsg/settings.h"
 
 static void
 _bv_adc_state_hash(struct bu_data_hash_state *state, struct bv_adc_state *v)
@@ -105,13 +104,13 @@ _bv_interactive_rect_state_hash(struct bu_data_hash_state *state, struct bv_inte
 }
 
 static void
-_bv_obj_settings_hash(struct bu_data_hash_state *state, struct bv_obj_settings *v)
+_bsg_settings_hash(struct bu_data_hash_state *state, struct bsg_settings *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(struct bv_obj_settings));
+    bu_data_hash_update(state, v, sizeof(struct bsg_settings));
 }
 
 static int
@@ -148,15 +147,13 @@ bv_scene_obj_hash(struct bu_data_hash_state *state, struct bv_scene_obj *s)
     }
     struct bsg_settings effective_settings;
     struct bsg_settings local_settings;
-    bsg_settings_init(&local_settings);
-    bsg_settings_from_legacy_obj_settings(&s->s_local_os, &local_settings);
-    bsg_settings_init(&effective_settings);
-    bsg_node_settings_get((const bsg_node *)s, &effective_settings);
+    local_settings = s->s_local_os;
+    effective_settings = (s->s_os) ? *s->s_os : s->s_local_os;
     /* Preserve legacy behavior: local settings are always hashed, and inherited
      * settings only add extra entropy when they differ from local storage. */
     if (!_bsg_settings_equal(&effective_settings, &local_settings))
 	bu_data_hash_update(state, &effective_settings, sizeof(struct bsg_settings));
-    _bv_obj_settings_hash(state, &s->s_local_os);
+    _bsg_settings_hash(state, &s->s_local_os);
 }
 
 void
