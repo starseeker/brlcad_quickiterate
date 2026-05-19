@@ -66,6 +66,8 @@ bsg_node_settings_get(const bsg_node *n, struct bsg_settings *out)
 	return 0;
 
     bsg_settings_init(out);
+    bsg_appearance_init(&appearance);
+    bsg_material_init(&material);
     if (!n)
 	return 0;
 
@@ -103,6 +105,8 @@ bsg_node_settings_set(bsg_node *n, const struct bsg_settings *s)
 	return;
 
     struct bv_scene_obj *obj = (struct bv_scene_obj *)n;
+    bsg_appearance_init(&appearance);
+    bsg_material_init(&material);
     (void)bsg_node_appearance_get(n, &appearance);
     (void)bsg_node_material_get(n, &material);
 

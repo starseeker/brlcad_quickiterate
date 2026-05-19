@@ -135,7 +135,9 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
 
     // Set up drawing settings
     unsigned char wcolor[3] = {255,255,255};
-    struct bsg_settings vs = BSG_SETTINGS_INIT;
+    struct bsg_settings vs;
+    bsg_node_settings_get((const bsg_node *)g, &vs);
+    bsg_settings_init(&vs);
     bsg_node_settings_set((bsg_node *)g, &vs);
 
     // We have a tree walk ahead to populate the wireframe - set up the client
