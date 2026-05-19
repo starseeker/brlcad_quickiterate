@@ -155,6 +155,142 @@ Deliverables:
 Exit criteria:
 - No unknown raw-field ownership remains.
 
+Phase 0 execution update - 2026-05-19
+------------------------------------
+Status:
+- DONE for the current tree snapshot.  The inventory below re-ran the Phase 0
+  searches against non-test `.c`, `.cpp`, and `.h` files under `src/` and
+  `include/`.
+
+Updated raw-field inventory:
+- `s_os` / `s_local_os`: 46 matches in 14 files
+  (`src/libbsg/appearance.c`, `src/libbsg/material.c`,
+  `src/libbsg/settings.c`, `src/libbv/hash.c`, `src/libbv/snap.c`,
+  `src/libbv/util.cpp`, `src/libdm/X/dm-X.c`, `src/libdm/dm-gl_lod.cpp`,
+  `src/libdm/view.c`, `src/libged/bsg_ged_draw.c`, `src/libged/draw.cpp`,
+  `src/libged/view/gobjs.cpp`, `src/librt/primitives/generic.c`,
+  `src/libtclcad/view/axes.c`)
+- `s_path`: 23 matches in 7 files
+  (`src/libbv/util.cpp`, `src/libbv/vlist.c`, `src/libged/draw.cpp`,
+  `src/libged/points_eval.c`, `src/libged/view/gobjs.cpp`,
+  `src/libged/view/objs.cpp`, `src/libged/wireframe_eval.c`)
+- `dp`: 190 matches in 25 files
+  (`src/libbsg/draw_set.c`, `src/libbsg/overlay.c`, `src/libbv/util.cpp`,
+  `src/libged/bot/bot.cpp`, `src/libged/bot/check.cpp`,
+  `src/libged/bot/decimate.cpp`, `src/libged/bot/exterior.cpp`,
+  `src/libged/bot/extrude.cpp`, `src/libged/bot/remesh.cpp`,
+  `src/libged/bot/repair.cpp`, `src/libged/bot/smooth.cpp`,
+  `src/libged/bot/subdivide.cpp`, `src/libged/brep/brep.cpp`,
+  `src/libged/brep/tikz.cpp`, `src/libged/dbi_state.cpp`,
+  `src/libged/draw.cpp`, `src/libged/edit/edit.cpp`,
+  `src/libged/illum/illum.c`, `src/libged/nmg/nmg.c`,
+  `src/libged/npush/npush.cpp`, `src/libged/points_eval.c`,
+  `src/libged/xpush/xpush.c`, `src/libqtcad/QgModel.cpp`,
+  `src/mged/chgview.c`, `src/mged/rtif.c`)
+- `s_mat`: 21 matches in 7 files
+  (`src/libbsg/node.c`, `src/libbsg/node_transform.c`,
+  `src/libbv/util.cpp`, `src/libdm/dm-gl_lod.cpp`,
+  `src/libged/dbi_state.cpp`, `src/libged/draw.cpp`,
+  `src/libged/draw/draw.c`)
+- `s_i_data`: 71 matches in 22 files
+  (`src/libbsg/bsg_private.h`, `src/libbsg/draw_set.c`,
+  `src/libbsg/lod.cpp`, `src/libbsg/lod_node.c`, `src/libbsg/node.c`,
+  `src/libbv/polygon.c`, `src/libbv/polygon_op.cpp`,
+  `src/libbv/util.cpp`, `src/libdm/axes.c`, `src/libged/bsg_ged_draw.c`,
+  `src/libged/dbi_state.cpp`, `src/libged/draw.cpp`,
+  `src/libged/ged_private.h`, `src/libged/points_eval.c`,
+  `src/libged/view/axes.c`, `src/libged/view/gobjs.cpp`,
+  `src/libged/view/labels.c`, `src/libged/wireframe_eval.c`,
+  `src/librt/primitives/sketch/polygons.c`, `src/libtclcad/commands.c`,
+  `src/libtclcad/mouse.c`, `src/libtclcad/view/labels.c`)
+- `s_vlist` / `s_vlen`: 134 matches in 36 files
+  (`src/libanalyze/nirt/nirt.cpp`, `src/libbsg/draw_set.c`,
+  `src/libbsg/overlay.c`, `src/libbsg/payload.c`, `src/libbv/hash.c`,
+  `src/libbv/polygon.c`, `src/libbv/snap.c`, `src/libbv/util.cpp`,
+  `src/libbv/vlist.c`, `src/libdm/X/dm-X.c`, `src/libdm/dm-gl_lod.cpp`,
+  `src/libdm/view.c`, `src/libged/bsg_ged_draw.c`, `src/libged/draw.cpp`,
+  `src/libged/draw/draw.c`, `src/libged/ged.cpp`, `src/libged/illum/illum.c`,
+  `src/libged/plot/plot.c`, `src/libged/png/png.c`, `src/libged/ps/ps.c`,
+  `src/libged/select/select.c`, `src/libged/solid_report/solid_report.c`,
+  `src/libged/view/axes.c`, `src/libged/view/data_lines.c`,
+  `src/libged/view/labels.c`, `src/libged/view/lines.c`,
+  `src/libged/view/objs.cpp`, `src/libged/wireframe_eval.c`,
+  `src/librt/primitives/generic.c`, `src/librt/primitives/sample.c`,
+  `src/libtclcad/bsg_move_helpers.h`, `src/libtclcad/polygons.c`,
+  `src/libtclcad/view/arrows.c`, `src/mged/dodraw.c`, `src/mged/plot.c`,
+  `src/mged/rtif.c`)
+- `s_color` / `s_color_rev`: 99 matches in 22 files
+  (`include/bsg/defines.h`, `src/libbsg/field.c`, `src/libbsg/material.c`,
+  `src/libbv/polygon.c`, `src/libbv/util.cpp`, `src/libbv/vlist.c`,
+  `src/libged/bot/dump/bot_dump.cpp`, `src/libged/bsg_ged_draw.c`,
+  `src/libged/dbi_state.cpp`, `src/libged/draw.cpp`,
+  `src/libged/plot/plot.c`, `src/libged/png/png.c`, `src/libged/ps/ps.c`,
+  `src/libged/solid_report/solid_report.c`, `src/libged/view/axes.c`,
+  `src/libged/view/data_lines.c`, `src/libged/view/labels.c`,
+  `src/libged/view/objs.cpp`, `src/libged/view/polygons.c`,
+  `src/librt/primitives/sketch/polygons.c`, `src/libtclcad/view/axes.c`,
+  `src/libtclcad/view/labels.c`)
+- `s_flag` / `s_iflag` / `s_force_draw`: the legacy `s_*` names are already
+  gone from non-test code.  The remaining raw visibility/highlight/force-draw
+  traffic is against embedded `bsg_node` storage:
+  - `bsg_flag`: 23 matches in 9 files
+  - `bsg_iflag`: 13 matches in 7 files
+  - `bsg_force_draw`: 4 matches in 2 files
+  - explicit `bsg.bsg_*` member access: 32 matches in 12 files
+- `s_v`: 113 matches in 21 files
+  (`include/bsg/view_scope.h`, `src/libbsg/scene_graph.cpp`,
+  `src/libbsg/sensor.c`, `src/libbsg/view_scope.c`, `src/libbv/lod.cpp`,
+  `src/libbv/polygon.c`, `src/libbv/polygon_op.cpp`,
+  `src/libbv/util.cpp`, `src/libbv/vlist.c`, `src/libdm/dm-gl_lod.cpp`,
+  `src/libdm/view.c`, `src/libged/dbi_state.cpp`, `src/libged/draw.cpp`,
+  `src/libged/view/objs.cpp`, `src/libged/view/polygons.c`,
+  `src/libqtcad/QgPolyFilter.cpp`, `src/librt/primitives/generic.c`,
+  `src/librt/primitives/sketch/polygons.c`,
+  `src/qged/plugins/edit/ell/QEll.cpp`,
+  `src/qged/plugins/polygon/QPolyCreate.cpp`,
+  `src/qged/plugins/polygon/QPolyMod.cpp`)
+- `s_backend`: 15 matches in 2 files
+  (`src/libbv/util.cpp`, `src/libdm/dm-gl_lod.cpp`)
+
+Field-to-BSG-owner mapping:
+
+| Raw field / semantic | BSG owner or boundary | Phase 0 classification | Notes |
+| --- | --- | --- | --- |
+| `s_os` / `s_local_os` | `bsg_settings`, with permanent split across `bsg_appearance` and `bsg_material` | already has a BSG API | Storage is still compatibility-owned by `bv_scene_obj`; remaining raw callers are concentrated in libbv/libdm/libged compatibility code. |
+| `s_path` | `bsg_identity` source-path metadata | already has a BSG API | Path-string identity exists, but live `db_full_path` payloads still sit in `s_path` for draw/update callbacks. |
+| `dp` | source metadata under `bsg_identity` or a follow-on source-object API | needs a BSG API | Current identity APIs do not replace the widespread typed `struct directory *` usage. |
+| `s_mat` | `bsg_node_transform_get/set()` | already has a BSG API | Remaining raw touches are transitional implementation and legacy draw/edit paths. |
+| `s_i_data` | `bsg_node_user_data_get/set()` plus typed `bsg_payload_*` APIs | needs a BSG API | Generic opaque storage exists, but many callers still depend on typed legacy payload structs. |
+| `s_vlist` / `s_vlen` | `bsg_payload_vlist_*` and broader payload ownership | already has a BSG API | Payload access exists, but most renderer/export code still reads legacy vlist storage directly. |
+| `s_color` / `s_color_rev` | `bsg_material` and `bsg_node_revision(..., BSG_NODE_REV_MATERIAL)` | already has a BSG API | Material/revision accessors exist; raw writes remain in compatibility and serialization paths. |
+| visibility (`s_flag` -> `bsg_flag`) | `bsg_node_visible()` and `bsg_node_set_visible()` | already has a BSG API | The old `s_flag` name is obsolete; remaining raw uses are against the embedded `bsg_node` core field. |
+| highlight (`s_iflag` -> `bsg_iflag`) | temporary `bsg_node_legacy_illum*()` bridge; eventual selection/highlight API | compatibility-only and can remain temporarily | This is the main semantic still waiting on a final BSG selection/highlight home. |
+| force-draw (`s_force_draw` -> `bsg_force_draw`) | `bsg_node_force_draw()` and `bsg_node_set_force_draw()` | already has a BSG API | The legacy `s_force_draw` name is obsolete; only a small compat surface remains. |
+| `s_v` | `BSG_NODE_VIEW_SCOPE` semantics and future view/edit-context APIs | compatibility-only and can remain temporarily | View ownership is still stored directly on `bv_scene_obj` because multiple producers and editors depend on it. |
+| `s_backend` | backend lifecycle helpers today; eventual renderer-owned attachment API | compatibility-only and can remain temporarily | The lifecycle is already centralized, but storage still lives on `bv_scene_obj`. |
+
+Compatibility-only fields that must remain until final cutover:
+- `s_os` / `s_local_os`: required until appearance/material callers stop doing
+  bundle-copy/reset/sync work through legacy storage.
+- `s_path`: required until draw/update callbacks stop passing live
+  `db_full_path` objects through scene nodes.
+- `s_i_data`: still carries legacy view-object payload structs that do not yet
+  have one-for-one typed BSG payload replacements.
+- `s_vlist` / `s_vlen`: renderer, export, and reporting code still expects the
+  legacy vlist container to exist on the object.
+- `bsg_iflag`: highlight state still needs a permanent non-compat selection or
+  render-state home.
+- `s_v`: current view-scoped edit and producer logic still uses direct
+  per-object view ownership.
+- `s_backend`: renderer cache lifetime is centralized, but the cache storage is
+  still a compatibility slot on `bv_scene_obj`.
+
+Phase 0 conclusion:
+- Raw-field ownership is now mapped for the targeted fields.
+- The largest remaining semantic gap is `dp`, followed by typed replacements for
+  `s_i_data` users and eventual removal of the remaining compatibility storage
+  slots (`s_path`, `s_v`, `s_backend`, and the legacy settings bundle).
+
 
 Phase 1 - Finish the Settings Semantic Split
 --------------------------------------------
@@ -506,4 +642,3 @@ long-term direction. Accordingly:
 - use compatibility shims only to ease the transition
 - favor BSG-native ownership, allocation, and payload APIs even if they require
   more short-term changes
-
