@@ -1162,6 +1162,10 @@ Remaining open items:
    primary BSG type.
 2. Remove deprecated BSG flags / `bv_obj_settings` once all consumers use BSG
    typed accessors — requires surveying remaining direct `s_os->*` accesses:
+   * Phase 12 follow-on migration completed for API boundaries:
+     `dm_draw_scene_obj` now accepts typed `bsg_settings`, and
+     `BViewState::redraw`/`scene_obj`/`walk_tree`/`gather_paths` now consume
+     `const bsg_settings *` (draw2/test callers updated accordingly).
    * `src/libbv/polygon.c` line-width initialization now goes through the
      existing libbv accessor `bv_view_obj_set_line_width`, avoiding a new
      `libbv` → `libbsg` dependency while keeping BSG hooks synchronized.
