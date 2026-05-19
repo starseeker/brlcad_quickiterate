@@ -32,18 +32,20 @@
 #include "rt/primitives/sketch.h"
 
 #define TEST_DB_VERSION 5
+#define TEMP_FILE_NAME_OVERHEAD 128
 
 static void
 temp_g_path(char *ofile, const char *prefix)
 {
     char tmpname[MAXPATHLEN] = {0};
-    if (strlen(prefix) + 128 >= MAXPATHLEN)
+    if (strlen(prefix) + TEMP_FILE_NAME_OVERHEAD >= MAXPATHLEN)
 	bu_exit(EXIT_FAILURE, "Temporary file prefix too long: %s\n", prefix);
     bu_strlcpy(tmpname, prefix, MAXPATHLEN);
     bu_temp_file_name(tmpname, MAXPATHLEN);
     bu_dir(ofile, MAXPATHLEN, BU_DIR_TEMP, tmpname, NULL);
 }
 
+/* Compare model-space points using the standard BN distance tolerance. */
 static int
 points_match(point_t a, point_t b)
 {
@@ -125,6 +127,7 @@ test_non_origin_plane_roundtrip(void)
     VSET(p->polygon.contour[0].point[1], 15.0, 21.0, 30.0);
     VSET(p->polygon.contour[0].point[2], 11.0, 26.0, 30.0);
 
+    /* Offset from the origin to verify sketch export doesn't bake plane origin into axes. */
     point_t plane_pt = {0.0, 0.0, 30.0};
     vect_t plane_n = {0.0, 0.0, 1.0};
 
