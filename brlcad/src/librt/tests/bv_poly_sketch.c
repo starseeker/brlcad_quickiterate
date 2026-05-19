@@ -43,6 +43,7 @@ compare_scene_polygons(struct bv_scene_obj *orig, struct bv_scene_obj *rt, const
 	if (pcnt != rp->polygon.contour[i].num_points)
 	    bu_exit(EXIT_FAILURE, "%s: contour point count changed\n", msg);
 
+	int contour_match = 0;
 	for (size_t offset = 0; offset < pcnt; offset++) {
 	    int match = 1;
 	    for (size_t j = 0; j < pcnt; j++) {
@@ -52,8 +53,10 @@ compare_scene_polygons(struct bv_scene_obj *orig, struct bv_scene_obj *rt, const
 		    break;
 		}
 	    }
-	    if (match)
-		goto next_contour;
+	    if (match) {
+		contour_match = 1;
+		break;
+	    }
 
 	    match = 1;
 	    for (size_t j = 0; j < pcnt; j++) {
@@ -63,14 +66,14 @@ compare_scene_polygons(struct bv_scene_obj *orig, struct bv_scene_obj *rt, const
 		    break;
 		}
 	    }
-	    if (match)
-		goto next_contour;
+	    if (match) {
+		contour_match = 1;
+		break;
+	    }
 	}
 
-	bu_exit(EXIT_FAILURE, "%s: contour %zu points moved\n", msg, i);
-
-next_contour:
-	continue;
+	if (!contour_match)
+	    bu_exit(EXIT_FAILURE, "%s: contour %zu points moved\n", msg, i);
     }
 }
 
