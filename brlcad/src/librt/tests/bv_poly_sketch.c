@@ -20,14 +20,25 @@
 
 #include "common.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "vmath.h"
 #include "bu/app.h"
+#include "bu/file.h"
 #include "bv.h"
 #include "bg/plane.h"
 #include "raytrace.h"
 #include "rt/primitives/sketch.h"
+
+static void
+temp_g_path(char *ofile, const char *prefix)
+{
+    char tmpname[MAXPATHLEN] = {0};
+    snprintf(tmpname, MAXPATHLEN, "%s", prefix);
+    bu_temp_file_name(tmpname, MAXPATHLEN);
+    bu_dir(ofile, MAXPATHLEN, BU_DIR_TEMP, tmpname, NULL);
+}
 
 static void
 compare_scene_polygons(struct bv_scene_obj *orig, struct bv_scene_obj *rt, const char *msg)
@@ -81,7 +92,7 @@ static void
 test_non_origin_plane_roundtrip(void)
 {
     char ofile[MAXPATHLEN];
-    bu_dir(ofile, MAXPATHLEN, BU_DIR_CURR, "non_origin_poly_sketch_out.g", NULL);
+    temp_g_path(ofile, "non_origin_poly_sketch_out");
     struct rt_wdb *wfp = wdb_fopen_v(ofile, 5);
     if (!wfp)
 	bu_exit(EXIT_FAILURE, "Failed to create output database %s\n", ofile);
@@ -123,6 +134,7 @@ test_non_origin_plane_roundtrip(void)
     compare_scene_polygons(pobj, rtobj, "non-origin plane polygon roundtrip");
 
     db_close(wfp->dbip);
+    bu_file_delete(ofile);
 }
 
 int
@@ -165,7 +177,7 @@ main(int argc, char *argv[])
 	bu_exit(EXIT_FAILURE, "Failed to create scene object from poly.s\n");
 
     char ofile[MAXPATHLEN];
-    bu_dir(ofile, MAXPATHLEN, BU_DIR_CURR, "poly_sketch_out.g", NULL);
+    temp_g_path(ofile, "poly_sketch_out");
     struct rt_wdb *wfp = wdb_fopen_v(ofile, 5);
     if (!wfp)
 	bu_exit(EXIT_FAILURE, "Failed to create output database %s\n", ofile);
@@ -182,6 +194,7 @@ main(int argc, char *argv[])
 
     db_close(dbip);
     db_close(wfp->dbip);
+    bu_file_delete(ofile);
 
     test_non_origin_plane_roundtrip();
 
