@@ -72,10 +72,10 @@ qtcad_dm_painter_image(struct dm *dmp, int flip)
     if (dm_get_display_image(dmp, &dm_image, flip, 1) || !dm_image)
 	return QImage();
 
-    /* Normalize the DM's raw RGBA bytes into a painter-friendly format rather
-     * than relying on Qt's direct RGBX8888 handling of external memory. */
+    /* Convert the DM's raw RGBA bytes into an owned, painter-friendly image
+     * rather than relying on Qt's direct RGBX8888 handling of external memory. */
     QImage raw(dm_image, dm_get_width(dmp), dm_get_height(dmp), QImage::Format_RGBA8888);
-    QImage image = raw.convertToFormat(QImage::Format_RGB32);
+    QImage image = raw.copy().convertToFormat(QImage::Format_RGB32);
     bu_free(dm_image, "dm display image");
 
     return image;
