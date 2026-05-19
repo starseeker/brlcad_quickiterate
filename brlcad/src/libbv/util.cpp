@@ -1060,6 +1060,10 @@ _bsg_settings_sync(struct bsg_settings *dest, const struct bsg_settings *src)
 	dest->line_width = src->line_width;
 	ret = 1;
     }
+    if (dest->mixed_modes != src->mixed_modes) {
+	dest->mixed_modes = src->mixed_modes;
+	ret = 1;
+    }
     if (!NEAR_EQUAL(dest->arrow_tip_length, src->arrow_tip_length, SMALL_FASTF)) {
 	dest->arrow_tip_length = src->arrow_tip_length;
 	ret = 1;
