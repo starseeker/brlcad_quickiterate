@@ -103,9 +103,9 @@ test_non_origin_plane_roundtrip(void)
 
     point_t plane_pt = {0.0, 0.0, 30.0};
     vect_t plane_n = {0.0, 0.0, 1.0};
-    bg_plane_pt_nrml(&p->vp, plane_pt, plane_n);
 
     struct bv_scene_obj *pobj = bv_create_polygon_obj(v, 0, p);
+    /* bv_create_polygon_obj initializes from the view; reset to the test plane. */
     bg_plane_pt_nrml(&p->vp, plane_pt, plane_n);
     bv_polygon_vlist(pobj);
 
