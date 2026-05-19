@@ -127,8 +127,8 @@ bv_scene_obj_hash(struct bu_data_hash_state *state, struct bv_scene_obj *s)
 	bu_data_hash_update(state, tvp, sizeof(struct bv_vlist));
     }
     struct bsg_settings os;
-    if (bsg_node_settings_get((const bsg_node *)s, &os))
-	bu_data_hash_update(state, &os, sizeof(struct bsg_settings));
+    bsg_node_settings_get((const bsg_node *)s, &os);
+    bu_data_hash_update(state, &os, sizeof(struct bsg_settings));
     _bv_obj_settings_hash(state, &s->s_local_os);
 }
 
