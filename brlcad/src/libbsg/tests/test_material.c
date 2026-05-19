@@ -124,7 +124,7 @@ test_appearance_mapping(void)
 	FAIL("legacy line width sync");
     if (((struct bv_scene_obj *)shape)->s_soldash != 1)
 	FAIL("legacy soldash sync");
-    if (((struct bv_scene_obj *)shape)->s_local_os.transparency != 1.0)
+    if (!NEAR_EQUAL(((struct bv_scene_obj *)shape)->s_local_os.transparency, 1.0, SMALL_FASTF))
 	FAIL("appearance should not own transparency mirror");
 
     bsg_shape_destroy(shape);

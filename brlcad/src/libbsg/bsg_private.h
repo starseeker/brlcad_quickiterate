@@ -120,8 +120,9 @@ _bsg_settings_local_get_or_create(bsg_node *n)
     if (!core)
 	return NULL;
     if (!core->settings_local) {
+	struct bsg_settings defaults = BSG_SETTINGS_INIT;
 	BU_ALLOC(core->settings_local, struct bsg_settings);
-	*(core->settings_local) = BSG_SETTINGS_INIT;
+	*(core->settings_local) = defaults;
     }
     return core->settings_local;
 }
@@ -133,8 +134,9 @@ _bsg_settings_effective_get_or_create(bsg_node *n)
     if (!core)
 	return NULL;
     if (!core->settings_effective) {
+	struct bsg_settings defaults = BSG_SETTINGS_INIT;
 	BU_ALLOC(core->settings_effective, struct bsg_settings);
-	*(core->settings_effective) = BSG_SETTINGS_INIT;
+	*(core->settings_effective) = defaults;
     }
     return core->settings_effective;
 }
