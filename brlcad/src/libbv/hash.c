@@ -33,6 +33,7 @@
 #include "bv/defines.h"
 #include "bv/util.h"
 #include "bv/view_sets.h"
+#include "bsg/settings.h"
 
 static void
 _bv_adc_state_hash(struct bu_data_hash_state *state, struct bv_adc_state *v)
@@ -113,6 +114,26 @@ _bv_obj_settings_hash(struct bu_data_hash_state *state, struct bv_obj_settings *
     bu_data_hash_update(state, v, sizeof(struct bv_obj_settings));
 }
 
+static int
+_bsg_settings_equal(const struct bsg_settings *a, const struct bsg_settings *b)
+{
+    if (!a || !b)
+	return 0;
+
+    return (a->draw_mode == b->draw_mode
+	    && a->mixed_modes == b->mixed_modes
+	    && NEAR_EQUAL(a->transparency, b->transparency, SMALL_FASTF)
+	    && a->color_override == b->color_override
+	    && a->color[0] == b->color[0]
+	    && a->color[1] == b->color[1]
+	    && a->color[2] == b->color[2]
+	    && a->line_width == b->line_width
+	    && NEAR_EQUAL(a->arrow_tip_length, b->arrow_tip_length, SMALL_FASTF)
+	    && NEAR_EQUAL(a->arrow_tip_width, b->arrow_tip_width, SMALL_FASTF)
+	    && a->draw_solid_lines_only == b->draw_solid_lines_only
+	    && a->draw_non_subtract_only == b->draw_non_subtract_only);
+}
+
 void
 bv_scene_obj_hash(struct bu_data_hash_state *state, struct bv_scene_obj *s)
 {
@@ -125,8 +146,16 @@ bv_scene_obj_hash(struct bu_data_hash_state *state, struct bv_scene_obj *s)
     for (BU_LIST_FOR(tvp, bv_vlist, &((struct bv_vlist *)&s->s_vlist)->l)) {
 	bu_data_hash_update(state, tvp, sizeof(struct bv_vlist));
     }
-    if (s->s_os)
-	_bv_obj_settings_hash(state, s->s_os);
+    struct bsg_settings effective_settings;
+    struct bsg_settings local_settings;
+    bsg_settings_init(&local_settings);
+    bsg_settings_from_legacy_obj_settings(&s->s_local_os, &local_settings);
+    bsg_settings_init(&effective_settings);
+    bsg_node_settings_get((const bsg_node *)s, &effective_settings);
+    /* Preserve legacy behavior: local settings are always hashed, and inherited
+     * settings only add extra entropy when they differ from local storage. */
+    if (!_bsg_settings_equal(&effective_settings, &local_settings))
+	bu_data_hash_update(state, &effective_settings, sizeof(struct bsg_settings));
     _bv_obj_settings_hash(state, &s->s_local_os);
 }
 

@@ -108,6 +108,38 @@ bool alphanum_cmp(const std::string &a, const std::string &b)
     return alphanum_impl(a.c_str(), b.c_str(), NULL) < 0;
 }
 
+static void
+_bsg_settings_copy_if_changed(struct bv_scene_obj *s, const struct bsg_settings *vs, std::unordered_set<struct bv_scene_obj *> &objs)
+{
+    if (!s || !vs)
+	return;
+
+    struct bsg_settings curr;
+    bsg_node_settings_get((const bsg_node *)s, &curr);
+    int changed = 0;
+
+    if (curr.draw_mode != vs->draw_mode) { curr.draw_mode = vs->draw_mode; changed = 1; }
+    if (curr.mixed_modes != vs->mixed_modes) { curr.mixed_modes = vs->mixed_modes; changed = 1; }
+    if (!NEAR_EQUAL(curr.transparency, vs->transparency, SMALL_FASTF)) { curr.transparency = vs->transparency; changed = 1; }
+    if (curr.color_override != vs->color_override) { curr.color_override = vs->color_override; changed = 1; }
+    if (curr.color[0] != vs->color[0] || curr.color[1] != vs->color[1] || curr.color[2] != vs->color[2]) {
+	curr.color[0] = vs->color[0];
+	curr.color[1] = vs->color[1];
+	curr.color[2] = vs->color[2];
+	changed = 1;
+    }
+    if (curr.line_width != vs->line_width) { curr.line_width = vs->line_width; changed = 1; }
+    if (!NEAR_EQUAL(curr.arrow_tip_length, vs->arrow_tip_length, SMALL_FASTF)) { curr.arrow_tip_length = vs->arrow_tip_length; changed = 1; }
+    if (!NEAR_EQUAL(curr.arrow_tip_width, vs->arrow_tip_width, SMALL_FASTF)) { curr.arrow_tip_width = vs->arrow_tip_width; changed = 1; }
+    if (curr.draw_solid_lines_only != vs->draw_solid_lines_only) { curr.draw_solid_lines_only = vs->draw_solid_lines_only; changed = 1; }
+    if (curr.draw_non_subtract_only != vs->draw_non_subtract_only) { curr.draw_non_subtract_only = vs->draw_non_subtract_only; changed = 1; }
+
+    if (changed) {
+	bsg_node_settings_set((bsg_node *)s, &curr);
+	objs.insert(s);
+    }
+}
+
 struct walk_data {
     DbiState *dbis = NULL;
     std::unordered_map<unsigned long long, unsigned long long> i_count;
@@ -2966,7 +2998,7 @@ struct bv_scene_obj *
 BViewState::scene_obj(
 	std::unordered_set<struct bv_scene_obj *> &objs,
 	int curr_mode,
-	struct bv_obj_settings *vs,
+	const struct bsg_settings *vs,
 	matp_t m,
        	std::vector<unsigned long long> &path_hashes,
 	std::unordered_set<struct bview *> &views,
@@ -3006,7 +3038,7 @@ BViewState::scene_obj(
 	    // Already have scene object - check it against vs
 	    // settings to see if we need to update
 	    sp = s_map[phash][curr_mode];
-	    if (vs && vs->s_dmode == curr_mode) {
+	    if (vs && vs->draw_mode == curr_mode) {
 		if (sp->s_soldash && vs->draw_non_subtract_only) {
 		    if (sp->bsg.bsg_flag != DOWN)
 			sp->bsg.bsg_flag = DOWN;
@@ -3014,8 +3046,7 @@ BViewState::scene_obj(
 		    if (sp->bsg.bsg_flag != UP)
 			sp->bsg.bsg_flag = UP;
 		}
-		if (bv_obj_settings_sync(sp->s_os, vs))
-		    objs.insert(sp);
+		_bsg_settings_copy_if_changed(sp, vs, objs);
 	    }
 
 	    // Most view setting changes won't alter geometry, and adaptive
@@ -3102,8 +3133,8 @@ BViewState::scene_obj(
 	struct bsg_settings sinfo;
 	bsg_node_settings_get((const bsg_node *)sp, &sinfo);
 	sinfo.draw_mode = curr_mode;
-	if (vs && vs->s_line_width)
-	    sinfo.line_width = vs->s_line_width;
+	if (vs && vs->line_width)
+	    sinfo.line_width = vs->line_width;
 	if (vs)
 	    sinfo.transparency = (fastf_t)vs->transparency;
 	bsg_node_settings_set((bsg_node *)sp, &sinfo);
@@ -3137,7 +3168,7 @@ BViewState::scene_obj(
     }
 
     // Align with vs draw_non_subtract_only settings
-    if (vs->s_dmode == curr_mode) {
+    if (vs && vs->draw_mode == curr_mode) {
         if (sp->s_soldash && vs->draw_non_subtract_only) {
             if (sp->bsg.bsg_flag != DOWN)
                 sp->bsg.bsg_flag = DOWN;
@@ -3177,7 +3208,7 @@ BViewState::walk_tree(
 	unsigned long long chash,
 	int curr_mode,
 	struct bview *v,
-	struct bv_obj_settings *vs,
+	const struct bsg_settings *vs,
 	matp_t m,
        	std::vector<unsigned long long> &path_hashes,
 	std::unordered_set<struct bview *> &views,
@@ -3215,7 +3246,7 @@ BViewState::gather_paths(
 	unsigned long long c_hash,
 	int curr_mode,
 	struct bview *v,
-	struct bv_obj_settings *vs,
+	const struct bsg_settings *vs,
 	matp_t m,
        	matp_t lm,
 	std::vector<unsigned long long> &path_hashes,
@@ -3507,7 +3538,7 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 }
 
 unsigned long long
-BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *> &views, int no_autoview)
+BViewState::redraw(const struct bsg_settings *vs, std::unordered_set<struct bview *> &views, int no_autoview)
 {
     bv_log(1, "BViewState::redraw");
     // We (well, callers) need to be able to tell if the redraw pass actually
@@ -3697,14 +3728,14 @@ BViewState::redraw(struct bv_obj_settings *vs, std::unordered_set<struct bview *
 	    mat_t m;
 	    MAT_IDN(m);
 	    dbis->get_path_matrix(m, cpath);
-	    if ((vs->s_dmode == 3 || vs->s_dmode == 5)) {
+	    if ((vs->draw_mode == 3 || vs->draw_mode == 5)) {
 		dbis->get_path_matrix(m, cpath);
-		scene_obj(objs, vs->s_dmode, vs, m, cpath, views, v);
+		scene_obj(objs, vs->draw_mode, vs, m, cpath, views, v);
 		continue;
 	    }
 	    unsigned long long ihash = cpath[cpath.size() - 1];
 	    cpath.pop_back();
-	    gather_paths(objs, ihash, vs->s_dmode, v, vs, m, NULL, cpath, views, &ret);
+	    gather_paths(objs, ihash, vs->draw_mode, v, vs, m, NULL, cpath, views, &ret);
 	}
     }
     // Staged paths are now added (as long as settings were supplied) - clear the queue

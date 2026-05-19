@@ -1162,10 +1162,13 @@ Remaining open items:
    primary BSG type.
 2. Remove deprecated BSG flags / `bv_obj_settings` once all consumers use BSG
    typed accessors — requires surveying remaining direct `s_os->*` accesses:
+   * Phase 12 follow-on migration completed for API boundaries:
+     `dm_draw_scene_obj` now accepts typed `bsg_settings`, and
+     `BViewState::redraw`/`scene_obj`/`walk_tree`/`gather_paths` now consume
+     `const bsg_settings *` (draw2/test callers updated accordingly).
    * `src/libbv/polygon.c` line-width initialization now goes through the
      existing libbv accessor `bv_view_obj_set_line_width`, avoiding a new
      `libbv` → `libbsg` dependency while keeping BSG hooks synchronized.
-   * `src/libbv/hash.c`: `s_os` NULL-check.
    * `src/libbsg/tests/test_material.c` legacy field probe (test-only).
 3. Remove old GED selection hashes / `gv_selected` (see Phases 6F, 5 above).
 4. Update public docs/man pages for view object, draw, erase, selection, and
@@ -1176,8 +1179,8 @@ Acceptance criteria status:
 - BSG is the documented public scene graph API: YES (guardrail comment in
   bv/defines.h; all new code uses BSG APIs).
 - libbv no longer exposes public scene-object internals as primary API: PARTIAL
-  (`libbv/hash.c` still probes `s_os` directly; the polygon line-width
-  initializer now uses the libbv accessor path).
+  (polygon line-width initialization now uses the libbv accessor path; test-only
+  legacy probes remain in libbsg material tests).
 - Consumer code compiles and passes tests without new compatibility-only direct
   field access: YES (core non-Qt targets build clean; 21/21 libbsg_* pass).
 
@@ -1724,7 +1727,7 @@ What is partially complete:
 
 - No open partial items are currently tracked for Phases 1-9.
 - Phase 12 partial remaining items (see Phase 12 section for full list):
-  - `libbv/hash.c` `s_os` NULL-check — low-priority, structural.
+  - No open `libbv/hash.c` compatibility probes remain.
 - Phase 11 complete status:
   - 11A libbsg internal direct-field sweep: done (accessor migration in core
     traversal/search/render paths).
@@ -1783,7 +1786,6 @@ What is partially complete:
 What is not yet implemented in this roadmap:
 
 - Phase 12 remaining items:
-  - `libbv/hash.c` `s_os` NULL-check — low-priority, structural.
   - Remove `bv_obj_settings` struct entirely once `libbv` polygon initializer
     cleanup is carried through all remaining compatibility call sites.
 - Phase 13 deprecation and readiness gate execution.
@@ -1794,9 +1796,8 @@ Immediate Next-Session Stage Prompts
 Use these as concrete "small-unit" prompts for the next work sessions.
 
 1. Phase 12 compatibility cleanup:
-   Resolve the remaining `libbv/hash.c` `s_os` structural probe and continue the
-   removal path for `bv_obj_settings` compatibility once the last compatibility
-   callers are identified.
+   Continue the removal path for `bv_obj_settings` compatibility once the last
+   compatibility callers are identified.
 
 2. Phase 13 readiness gate:
    Execute Phase 13 deprecation tagging (mark old `bv_scene_obj` direct-access

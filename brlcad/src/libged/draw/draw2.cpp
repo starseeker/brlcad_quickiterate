@@ -46,7 +46,7 @@
 static int
 draw_opt_color(struct bu_vls *msg, size_t argc, const char **argv, void *data)
 {
-    struct bv_obj_settings *vs = (struct bv_obj_settings *)data;
+    struct bsg_settings *vs = (struct bsg_settings *)data;
     struct bu_color c;
     int ret = bu_opt_color(msg, argc, argv, (void *)&c);
     if (ret == 1 || ret == 3) {
@@ -132,7 +132,8 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     /* User settings may override various options - set up to collect them.
      * Option defaults may be overridden for the purposes of the current draw
      * command by command line options. */
-    struct bv_obj_settings vs = BV_OBJ_SETTINGS_INIT;
+    struct bsg_settings vs;
+    bsg_settings_init(&vs);
 
     int drawing_modes[6] = {-1, 0, 0, 0, 0, 0};
     struct bu_opt_desc d[18];
@@ -151,7 +152,7 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     BU_OPT(d[12], "S", "no-subtract",   "",                 NULL, &vs.draw_non_subtract_only,  "Do not draw subtraction solids");
     BU_OPT(d[13],  "", "no-dash",       "",                 NULL, &vs.draw_solid_lines_only,  "Use solid lines rather than dashed for subtraction solids");
     BU_OPT(d[14], "C", "color",         "r/g/b", &draw_opt_color, &vs,                "Override object colors");
-    BU_OPT(d[15],  "", "line-width",   "#",          &bu_opt_int, &vs.s_line_width,   "Override default line width");
+    BU_OPT(d[15],  "", "line-width",   "#",          &bu_opt_int, &vs.line_width,   "Override default line width");
     BU_OPT(d[16], "R", "no-autoview",   "",                 NULL, &no_autoview,       "Do not calculate automatic view, even if initial scene is empty.");
     BU_OPT_NULL(d[17]);
 
@@ -200,7 +201,7 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
 	}
     }
     if (drawing_modes[0] > -1) {
-	vs.s_dmode = drawing_modes[0];
+	vs.draw_mode = drawing_modes[0];
     }
 
     // Before we start doing anything with the object set, record if things are

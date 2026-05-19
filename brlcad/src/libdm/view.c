@@ -593,22 +593,14 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 }
 
 void
-dm_draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int force_draw, struct bv_obj_settings *obj_settings)
+dm_draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int force_draw, const struct bsg_settings *obj_settings)
 {
     /* Public single-pass API — preserves legacy behaviour: draw any
      * object regardless of transparency, restore gv_model2view after
      * any edit-matrix swap.
      *
-     * Phase 12: convert the legacy bv_obj_settings pointer to a typed
-     * bsg_settings snapshot at the public API boundary so the internal
-     * traversal only sees BSG types. */
-    struct bsg_settings _settings;
-    const struct bsg_settings *settings_ptr = NULL;
-    if (obj_settings) {
-	bsg_settings_from_legacy_obj_settings(obj_settings, &_settings);
-	settings_ptr = &_settings;
-    }
-    _dm_draw_scene_obj_internal(dmp, s, v, force_draw, settings_ptr,
+     * Phase 12+: internal traversal takes only typed bsg_settings snapshots. */
+    _dm_draw_scene_obj_internal(dmp, s, v, force_draw, obj_settings,
 				/*transparency_pass=*/0, /*cur_mat=*/NULL);
 }
 
