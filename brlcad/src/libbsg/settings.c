@@ -123,9 +123,11 @@ bsg_node_settings_set(bsg_node *n, const struct bsg_settings *s)
 
     mat.transparency = s->transparency;
     mat.use_override_color = s->color_override ? 1 : 0;
-    mat.override_rgb[0] = s->color[0];
-    mat.override_rgb[1] = s->color[1];
-    mat.override_rgb[2] = s->color[2];
+    if (mat.use_override_color) {
+	mat.override_rgb[0] = s->color[0];
+	mat.override_rgb[1] = s->color[1];
+	mat.override_rgb[2] = s->color[2];
+    }
     bsg_node_material_set(n, &mat);
 }
 

@@ -136,6 +136,7 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
     // Set up drawing settings
     unsigned char wcolor[3] = {255,255,255};
     struct bsg_settings vs;
+    /* New transient gobjs start from the standard wireframe defaults. */
     bsg_settings_init(&vs);
     bsg_node_settings_set((bsg_node *)g, &vs);
 
