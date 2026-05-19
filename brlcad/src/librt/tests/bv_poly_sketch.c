@@ -20,34 +20,32 @@
 
 #include "common.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "vmath.h"
 #include "bu/app.h"
 #include "bu/file.h"
-#include "bu/str.h"
 #include "bv.h"
 #include "bg/plane.h"
 #include "raytrace.h"
 #include "rt/primitives/sketch.h"
 
 #define TEST_DB_VERSION 5
-#define TEMP_FILE_NAME_OVERHEAD 128
 
 static void
-temp_g_path(char *ofile, const char *prefix)
+temp_g_path(char *ofile)
 {
-    char tmpname[MAXPATHLEN] = {0};
-    if (strlen(prefix) + TEMP_FILE_NAME_OVERHEAD >= MAXPATHLEN)
-	bu_exit(EXIT_FAILURE, "Temporary file prefix too long: %s\n", prefix);
-    bu_strlcpy(tmpname, prefix, MAXPATHLEN);
-    bu_temp_file_name(tmpname, MAXPATHLEN);
-    bu_dir(ofile, MAXPATHLEN, BU_DIR_TEMP, tmpname, NULL);
+    FILE *fp = bu_temp_file(ofile, MAXPATHLEN);
+    if (!fp)
+	bu_exit(EXIT_FAILURE, "Failed to create temporary output path\n");
+    fclose(fp);
+    bu_file_delete(ofile);
 }
 
 /* Compare model-space points using the standard BN distance tolerance. */
 static int
-points_match(point_t a, point_t b)
+points_within_tolerance(point_t a, point_t b)
 {
     return NEAR_ZERO(DIST_PNT_PNT(a, b), BN_TOL_DIST);
 }
@@ -71,7 +69,7 @@ compare_scene_polygons(struct bv_scene_obj *orig, struct bv_scene_obj *rt, const
 	    int match = 1;
 	    for (size_t j = 0; j < pcnt; j++) {
 		size_t rj = (offset + j) % pcnt;
-		if (!points_match(op->polygon.contour[i].point[j], rp->polygon.contour[i].point[rj])) {
+		if (!points_within_tolerance(op->polygon.contour[i].point[j], rp->polygon.contour[i].point[rj])) {
 		    match = 0;
 		    break;
 		}
@@ -84,7 +82,7 @@ compare_scene_polygons(struct bv_scene_obj *orig, struct bv_scene_obj *rt, const
 	    match = 1;
 	    for (size_t j = 0; j < pcnt; j++) {
 		size_t rj = (offset + pcnt - j) % pcnt;
-		if (!points_match(op->polygon.contour[i].point[j], rp->polygon.contour[i].point[rj])) {
+		if (!points_within_tolerance(op->polygon.contour[i].point[j], rp->polygon.contour[i].point[rj])) {
 		    match = 0;
 		    break;
 		}
@@ -104,7 +102,7 @@ static void
 test_non_origin_plane_roundtrip(void)
 {
     char ofile[MAXPATHLEN];
-    temp_g_path(ofile, "non_origin_poly_sketch_out");
+    temp_g_path(ofile);
     struct rt_wdb *wfp = wdb_fopen_v(ofile, TEST_DB_VERSION);
     if (!wfp)
 	bu_exit(EXIT_FAILURE, "Failed to create output database %s\n", ofile);
@@ -127,7 +125,7 @@ test_non_origin_plane_roundtrip(void)
     VSET(p->polygon.contour[0].point[1], 15.0, 21.0, 30.0);
     VSET(p->polygon.contour[0].point[2], 11.0, 26.0, 30.0);
 
-    /* Offset from the origin to verify sketch export doesn't bake plane origin into axes. */
+    /* Z-offset verifies sketch export doesn't bake the plane origin into axes. */
     point_t plane_pt = {0.0, 0.0, 30.0};
     vect_t plane_n = {0.0, 0.0, 1.0};
 
@@ -190,7 +188,7 @@ main(int argc, char *argv[])
 	bu_exit(EXIT_FAILURE, "Failed to create scene object from poly.s\n");
 
     char ofile[MAXPATHLEN];
-    temp_g_path(ofile, "poly_sketch_out");
+    temp_g_path(ofile);
     struct rt_wdb *wfp = wdb_fopen_v(ofile, TEST_DB_VERSION);
     if (!wfp)
 	bu_exit(EXIT_FAILURE, "Failed to create output database %s\n", ofile);
