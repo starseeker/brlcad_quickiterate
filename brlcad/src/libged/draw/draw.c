@@ -33,7 +33,9 @@
 #include "bu/parallel.h"
 #include "bu/time.h"
 #include "raytrace.h"
+#include "bsg/appearance.h"
 #include "bsg/identity.h"
+#include "bsg/material.h"
 #include "bsg/node.h"
 #include "bsg/payload.h"
 #include "bsg/settings.h"
@@ -160,13 +162,18 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
 
     solid_set_color_info(sp, wireframe_color_override, tsp);
 
-    /* Phase 12: write draw settings via BSG settings accessor. */
     {
-	struct bsg_settings sinfo;
-	bsg_node_settings_get((const bsg_node *)sp, &sinfo);
-	sinfo.transparency = (fastf_t)dgcdp->vs.transparency;
-	sinfo.draw_mode    = dgcdp->vs.draw_mode;
-	bsg_node_settings_set((bsg_node *)sp, &sinfo);
+	struct bsg_material mat;
+	struct bsg_appearance app;
+	bsg_material_init(&mat);
+	bsg_appearance_init(&app);
+	(void)bsg_node_material_get((const bsg_node *)sp, &mat);
+	(void)bsg_node_appearance_get((const bsg_node *)sp, &app);
+	mat.transparency = (fastf_t)dgcdp->vs.transparency;
+	mat.rgba[3] = bsg_material_alpha_from_transparency(mat.transparency);
+	app.draw_mode = dgcdp->vs.draw_mode;
+	bsg_node_material_set((bsg_node *)sp, &mat);
+	bsg_node_appearance_set((bsg_node *)sp, &app);
     }
 
     /* append solid to display list */
@@ -492,13 +499,18 @@ append_solid_to_display_list(
 	}
     }
 
-    /* Phase 12: write draw settings via BSG settings accessor. */
     {
-	struct bsg_settings sinfo;
-	bsg_node_settings_get((const bsg_node *)sp, &sinfo);
-	sinfo.transparency = (fastf_t)bv_data->transparency;
-	sinfo.draw_mode    = bv_data->dmode;
-	bsg_node_settings_set((bsg_node *)sp, &sinfo);
+	struct bsg_material mat;
+	struct bsg_appearance app;
+	bsg_material_init(&mat);
+	bsg_appearance_init(&app);
+	(void)bsg_node_material_get((const bsg_node *)sp, &mat);
+	(void)bsg_node_appearance_get((const bsg_node *)sp, &app);
+	mat.transparency = (fastf_t)bv_data->transparency;
+	mat.rgba[3] = bsg_material_alpha_from_transparency(mat.transparency);
+	app.draw_mode = bv_data->dmode;
+	bsg_node_material_set((bsg_node *)sp, &mat);
+	bsg_node_appearance_set((bsg_node *)sp, &app);
     }
     MAT_COPY(sp->s_mat, tsp->ts_mat);
 

@@ -42,7 +42,6 @@ extern "C" {
 #include "bsg/defines.h"
 #include "bsg/appearance.h"
 #include "bsg/node.h"
-#include "bsg/settings.h"
 #include "raytrace.h"
 #include "ged/bsg_ged_draw.h"
 }
@@ -164,10 +163,10 @@ _view_obj_mode_string(struct bu_vls *out, struct bv_scene_obj *s)
 	bu_vls_printf(out, "unknown");
 	return;
     }
-    /* Phase 12: read draw mode via BSG settings accessor. */
-    struct bsg_settings sinfo;
-    bsg_node_settings_get((const bsg_node *)s, &sinfo);
-    switch (sinfo.draw_mode) {
+    struct bsg_appearance app;
+    bsg_appearance_init(&app);
+    (void)bsg_node_appearance_get((const bsg_node *)s, &app);
+    switch (app.draw_mode) {
 	case _GED_WIREFRAME:
 	    bu_vls_printf(out, "wireframe");
 	    break;

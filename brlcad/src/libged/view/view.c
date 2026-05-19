@@ -33,7 +33,7 @@
 #include "bu/malloc.h"
 #include "bu/vls.h"
 
-#include "bsg/settings.h"
+#include "bsg/appearance.h"
 #include "bsg/node.h"
 #include "bsg/selection.h"
 #include "ged/bsg_ged_draw.h"
@@ -166,10 +166,10 @@ _view_independent_collect_paths(struct _view_independent_path **paths,
 	    char *fpath = db_path_to_string(&bdata->s_fullpath);
 	    const char *npath = (fpath && fpath[0] == '/') ? fpath + 1 : fpath;
 	    if (npath && strlen(npath)) {
-		/* Phase 12: read draw mode via BSG settings accessor. */
-		struct bsg_settings sinfo;
-		bsg_node_settings_get((const bsg_node *)node, &sinfo);
-		int mode = sinfo.draw_mode;
+		struct bsg_appearance app;
+		bsg_appearance_init(&app);
+		(void)bsg_node_appearance_get((const bsg_node *)node, &app);
+		int mode = app.draw_mode;
 		int ret = _view_independent_paths_add(paths, path_cnt, path_cap, npath, mode);
 		if (fpath)
 		    bu_free(fpath, "db path string");

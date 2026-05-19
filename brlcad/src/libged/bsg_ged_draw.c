@@ -1016,16 +1016,16 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     sp->s_old.s_dflag        = 0;
     sp->s_old.s_cflag        = 0;
     sp->s_old.s_wflag        = 0;
-    sp->s_os->transparency   = transparency;
-    sp->s_os->draw_mode        = dmode;
-
     struct bsg_material m;
     bsg_material_from_legacy_obj((const bsg_node *)sp, &m);
+    m.transparency = transparency;
+    m.rgba[3] = bsg_material_alpha_from_transparency(m.transparency);
     m.revision = (uint64_t)sp->s_color_rev;
     bsg_node_material_set((bsg_node *)sp, &m);
 
     struct bsg_appearance a;
     bsg_appearance_from_legacy_obj_settings((const bsg_node *)sp, &a);
+    a.draw_mode = dmode;
     bsg_node_appearance_set((bsg_node *)sp, &a);
 
     if (csoltab) {

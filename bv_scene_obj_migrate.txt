@@ -350,15 +350,35 @@ Completed in this pass:
   boundary instead of syncing raw `s_os` storage directly.
 - `src/libbsg/tests/test_settings.c` now covers the semantic sidecar mapping and
   the `mixed_modes` sync path.
+- libdm/libged call sites that only need semantic draw state now query
+  `bsg_appearance` / `bsg_material` directly instead of reading or mutating the
+  legacy settings bundle:
+  - `src/libdm/dm-gl_lod.cpp`
+  - `src/libdm/X/dm-X.c`
+  - `src/libged/bsg_ged_draw.c`
+  - `src/libged/bot/dump/bot_dump.cpp`
+  - `src/libged/draw.cpp`
+  - `src/libged/draw/draw.c`
+  - `src/libged/how/how.c`
+  - `src/libged/set_transparency/set_transparency.c`
+  - `src/libged/view/data_lines.c`
+  - `src/libged/view/objs.cpp`
+  - `src/libged/view/view.c`
 
 What remains for Phase 1:
-- `mixed_modes` is still stored only in the legacy compatibility bundle; it has
-  not yet been promoted into a dedicated draw-policy/request object.
-- Transparency is still mirrored through `bsg_appearance` for compatibility
-  even though the preferred semantic owner is `bsg_material`.
 - Additional callers still construct and pass `struct bsg_settings` snapshots as
-  operational state; those broader API-shape cleanups belong to subsequent
-  follow-on work after this compatibility tightening.
+  operational state (`src/libdm/view.c`, `src/libged/dbi_state.cpp`,
+  `src/libged/draw.cpp` parent propagation, `src/libged/view/gobjs.cpp`,
+  `src/libbv/util.cpp`, `src/libbv/hash.c`, `src/libbv/snap.c`); those broader
+  API-shape cleanups belong to subsequent follow-on work after this compatibility
+  tightening.
+- The remaining semantic-owner cleanup items are now assigned to later phases:
+  - `mixed_modes` promotion into a dedicated draw-policy/request object moves to
+    Phase 2, where the inherited settings snapshots are already scheduled to be
+    split into independent appearance/material/policy flows.
+  - transparency mirroring through `bsg_appearance` moves to Phase 4, where the
+    storage transition already calls for transparency to resolve solely through
+    `bsg_material`.
 
 
 Phase 2 - Eliminate Remaining Raw s_os/s_local_os Consumers
@@ -376,14 +396,21 @@ libbv:
   hashing helper if still needed.
 
 libdm:
-- dm-gl_lod.cpp: replace raw draw_mode/transparency reads with resolved
-  appearance/material queries or with pre-resolved render-action state.
-- X/dm-X.c: replace draw_mode raw check with appearance query.
+- view.c: retire inherited `struct bsg_settings` snapshots once appearance,
+  material, and any future draw-policy object can be threaded independently.
+- Promote `mixed_modes` out of the legacy settings bundle while doing that split,
+  so inherited draw state carries an explicit draw-policy/request object instead
+  of a compatibility snapshot field.
 
 libged:
-- draw.cpp: replace raw draw_mode, color_override, draw_non_subtract_only, and
-  draw_solid_lines_only accesses with appearance/material APIs.
-- bsg_ged_draw.c: replace direct assignments to sp->s_os with BSG setter calls.
+- draw.cpp: reduce parent/child settings bundle propagation to semantic
+  appearance/material (plus future draw-policy) transfer where bundle copy is no
+  longer needed.
+- draw/draw.c and dbi_state.cpp: stop using transient `struct bsg_settings`
+  snapshots for draw-mode/transparency/line-width updates once the caller-side
+  request shape is split.
+- Remaining command/API layers that still speak `struct bsg_settings` should be
+  limited to true compatibility/bundle-copy cases only.
 
 Tasks:
 - Provide missing BSG getters/setters needed by those callers.
@@ -444,6 +471,8 @@ Recommended direction:
 - Eliminate s_local_os as embedded storage.
 - Resolve inherit_settings through bsg_appearance.
 - Resolve color override and transparency through bsg_material.
+- Remove the current compatibility mirroring of transparency through
+  `bsg_appearance`, leaving `bsg_material` as the sole semantic owner.
 - Retire bsg_settings_sync from public usage patterns once bundle copying is no
   longer the normal mechanism.
 
@@ -652,19 +681,24 @@ Recommended Immediate Next Steps
    - src/libbv/snap.c
    - src/libbv/util.cpp
    - src/libbv/hash.c
-   - src/libdm/dm-gl_lod.cpp
-   - src/libdm/X/dm-X.c
-   - src/libged/draw.cpp
-   - src/libged/bsg_ged_draw.c
+   - src/libdm/view.c
+   - src/libged/dbi_state.cpp
+   - src/libged/draw.cpp (parent/child settings propagation only)
+   - src/libged/view/gobjs.cpp
 
-2. Decide the permanent home of mixed_modes.
+2. Promote `mixed_modes` into the Phase 2 draw-policy/request split so inherited
+   draw state no longer depends on the legacy compatibility bundle.
 
 3. Choose the storage transition mechanism:
    - shared transitional header
    - compat-sidecar storage
    - direct move to BSG-owned sidecars
 
-4. After those are complete, move struct bsg_settings out of bv/defines.h.
+4. In Phase 4, remove transparency mirroring through `bsg_appearance` and leave
+   `bsg_material` as the sole semantic owner before retiring embedded settings
+   storage.
+
+5. After those are complete, move struct bsg_settings out of bv/defines.h.
 
 
 Decision Point

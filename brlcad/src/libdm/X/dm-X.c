@@ -69,6 +69,7 @@
 #include "bu/malloc.h"
 #include "bu/str.h"
 #include "bn.h"
+#include "bsg/appearance.h"
 #include "dm.h"
 #include "../null/dm-Null.h"
 #include "./fb_X.h"
@@ -2151,7 +2152,10 @@ static int
 X_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 {
     if (bu_list_len(&s->s_vlist)) {
-	if (s->s_os->draw_mode == 4)
+	struct bsg_appearance app;
+	bsg_appearance_init(&app);
+	(void)bsg_node_appearance_get((const bsg_node *)s, &app);
+	if (app.draw_mode == 4)
 	    dm_draw_vlist_hidden_line(dmp, (struct bv_vlist *)&s->s_vlist);
 	else
 	    dm_draw_vlist(dmp, (struct bv_vlist *)&s->s_vlist);
