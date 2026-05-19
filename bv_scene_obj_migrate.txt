@@ -537,8 +537,7 @@ Exit criteria:
 Phase 4 execution update - 2026-05-19
 ------------------------------------
 Status:
-- PARTIAL.  The storage-owner transition is now in place, but the remaining
-  caller-side request-shape cleanup is still pending.
+- DONE for the remaining Phase 4 storage-owner and request-shape cleanup.
 
 Completed in this pass:
 - Added BSG-owned transitional settings sidecars on `struct bsg_node`:
@@ -564,6 +563,23 @@ Completed in this pass:
   - `src/libbsg/tests/test_settings.c`
   - `src/libbsg/tests/test_material.c`
   - `src/libbsg/tests/test_node_core.c`
+- Added a split internal draw-request/draw-policy API in
+  `include/bsg/settings.h` / `src/libbsg/settings.c`:
+  - `struct bsg_draw_policy`
+  - `struct bsg_draw_request`
+  - `bsg_draw_request_from_settings()`
+  - `bsg_node_draw_policy_get/set()`
+  - `bsg_node_draw_request_get/set()`
+- Converted the remaining Phase 4 internal libdm/libged redraw paths so they no
+  longer operate on whole `struct bsg_settings` bundles:
+  - `src/libdm/view.c`
+  - `src/libged/dbi_state.cpp`
+  - `src/libged/draw.cpp`
+  - `src/libged/view/gobjs.cpp`
+- Kept `dm_draw_scene_obj()` and `BViewState::redraw()` accepting
+  `struct bsg_settings` at their compatibility entry points, but they now split
+  those bundles into appearance/material/policy request data immediately rather
+  than threading full settings snapshots through the operational redraw logic.
 
 Resulting boundary:
 - `s_local_os` and `s_os` remain as mirrored compatibility snapshots on
@@ -572,27 +588,21 @@ Resulting boundary:
   compatibility helpers.
 - `s_inherit_settings` is still mirrored on `bv_scene_obj`, but the active owner
   for inheritance semantics remains `bsg_appearance.inherit_settings`.
-
-What remains for Phase 4:
-- The inherited-settings/request-shape cleanup is still pending in the
-  higher-level draw callers that traffic in full `struct bsg_settings` bundles:
-  - `src/libdm/view.c`
-  - `src/libged/dbi_state.cpp`
-  - `src/libged/draw.cpp`
-  - `src/libged/view/gobjs.cpp`
-- `mixed_modes` still lives in the compatibility bundle; it has not yet been
-  promoted into a dedicated draw-policy/request object.
-- Legacy raw mirrors (`s_local_os`, `s_os`, `s_inherit_settings`) are still
-  present for compatibility and have not yet been deleted from `bv_scene_obj`.
+- Internal redraw/traversal paths now carry:
+  - `bsg_appearance` for style/inheritance
+  - `bsg_material` for color/transparency
+  - `bsg_draw_policy` for `mixed_modes`
+  instead of passing full `bsg_settings` bundles as operational state.
 
 Moved to subsequent phases:
-- The remaining caller/API-shape work is now better tracked with Phase 5, since
-  the storage-owner transition is no longer the main blocker:
-  - retire the remaining command/draw paths that still pass whole
-    `struct bsg_settings` bundles operationally
-  - promote `mixed_modes` into a dedicated draw-policy/request object
-  - remove the legacy mirrored fields from `bv_scene_obj` once those callers are
-    gone
+- `mixed_modes` now has a dedicated draw-policy API boundary, but it still uses
+  compatibility-backed storage in the settings sidecar.  Physically separating
+  that storage remains later work.
+- Legacy raw mirrors (`s_local_os`, `s_os`, `s_inherit_settings`) are still
+  present only for compatibility and are now Phase 5+ / Phase 7 cleanup items.
+- Any remaining public compatibility entry points that still accept
+  `struct bsg_settings` are now intentional compatibility boundaries rather than
+  internal operational dependencies.
 
 
 Phase 5 - Promote BSG Node Ownership Over Remaining Raw Fields

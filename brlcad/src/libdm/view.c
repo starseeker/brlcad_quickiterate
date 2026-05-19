@@ -481,7 +481,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
     // children tables to provide some control
     for (size_t i = 0; i < bsg_node_child_count((const bsg_node *)s); i++) {
 	struct bv_scene_obj *s_c = (struct bv_scene_obj *)bsg_node_child((const bsg_node *)s, i);
-	_dm_draw_scene_obj_internal(dmp, s_c, v, do_force_draw, inherited_settings,
+	_dm_draw_scene_obj_internal(dmp, s_c, v, do_force_draw, inherited_request,
 				    transparency_pass, cur_mat);
     }
 
