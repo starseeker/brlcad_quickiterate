@@ -38,7 +38,7 @@ temp_g_path(char *ofile)
 {
     FILE *fp = bu_temp_file(ofile, MAXPATHLEN);
     if (!fp)
-	bu_exit(EXIT_FAILURE, "Failed to create temporary output path\n");
+	bu_exit(EXIT_FAILURE, "Failed to create temporary file\n");
     fclose(fp);
     bu_file_delete(ofile);
 }
@@ -125,7 +125,8 @@ test_non_origin_plane_roundtrip(void)
     VSET(p->polygon.contour[0].point[1], 15.0, 21.0, 30.0);
     VSET(p->polygon.contour[0].point[2], 11.0, 26.0, 30.0);
 
-    /* Z-offset verifies sketch export doesn't bake the plane origin into axes. */
+    /* Z=30 gives a non-zero plane origin, verifying exported axes are relative
+     * to the sketch origin rather than world origin. */
     point_t plane_pt = {0.0, 0.0, 30.0};
     vect_t plane_n = {0.0, 0.0, 1.0};
 

@@ -375,11 +375,11 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bv_scene_obj
 
     /* Plane origin is sketch origin */
     bg_plane_pt_at(&sketch_ip->V, &p->vp, 0, 0);
-    point_t u_axis_end_point, v_axis_end_point;
-    bg_plane_pt_at(&u_axis_end_point, &p->vp, 1, 0);
-    bg_plane_pt_at(&v_axis_end_point, &p->vp, 0, 1);
-    VSUB2(sketch_ip->u_vec, u_axis_end_point, sketch_ip->V);
-    VSUB2(sketch_ip->v_vec, v_axis_end_point, sketch_ip->V);
+    point_t u_end, v_end;
+    bg_plane_pt_at(&u_end, &p->vp, 1, 0);
+    bg_plane_pt_at(&v_end, &p->vp, 0, 1);
+    VSUB2(sketch_ip->u_vec, u_end, sketch_ip->V);
+    VSUB2(sketch_ip->v_vec, v_end, sketch_ip->V);
 
     int n = 0;
     for (size_t j = 0; j < p->polygon.num_contours; ++j) {
