@@ -61,6 +61,25 @@ qtcad_render_size(const QWidget *w)
     return QSize(qMax(1, static_cast<int>(std::ceil(w->width() * dpr))),
 		 qMax(1, static_cast<int>(std::ceil(w->height() * dpr))));
 }
+
+QImage
+qtcad_dm_painter_image(struct dm *dmp, int flip)
+{
+    if (!dmp)
+	return QImage();
+
+    unsigned char *dm_image = NULL;
+    if (dm_get_display_image(dmp, &dm_image, flip, 1) || !dm_image)
+	return QImage();
+
+    /* Normalize the DM's raw RGBA bytes into a painter-friendly format rather
+     * than relying on Qt's direct RGBX8888 handling of external memory. */
+    QImage raw(dm_image, dm_get_width(dmp), dm_get_height(dmp), QImage::Format_RGBA8888);
+    QImage image = raw.convertToFormat(QImage::Format_RGB32);
+    bu_free(dm_image, "dm display image");
+
+    return image;
+}
 }
 
 QgSW::QgSW(QWidget *parent, struct fb *fbp)
@@ -215,12 +234,10 @@ void QgSW::paintEvent(QPaintEvent *e)
     dm_draw_objs(v, draw_custom, draw_udata);
     dm_draw_end(dmp);
 
-    // Set up a QImage with the rendered output..
-    unsigned char *dm_image;
-    if (dm_get_display_image(dmp, &dm_image, 0, 1)) {
+    QImage image = qtcad_dm_painter_image(dmp, 0);
+    if (image.isNull()) {
 	return;
     }
-    QImage image(dm_image, dm_get_width(dmp), dm_get_height(dmp), QImage::Format_RGBX8888);
     image.setDevicePixelRatio(devicePixelRatioF());
     QPainter painter(this);
     painter.translate(0, height());
@@ -442,12 +459,10 @@ bool QgSW::diff_hashes()
 }
 
 void QgSW::save_image() {
-    // Set up a QImage with the rendered output..
-    unsigned char *dm_image;
-    if (dm_get_display_image(dmp, &dm_image, 0, 1)) {
+    QImage image = qtcad_dm_painter_image(dmp, 0);
+    if (image.isNull()) {
 	return;
     }
-    QImage image(dm_image, dm_get_width(dmp), dm_get_height(dmp), QImage::Format_RGBX8888);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 9, 0)
     image.flipped(Qt::Vertical).save("file.png");
 #else
