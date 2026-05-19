@@ -116,10 +116,16 @@ test_appearance_mapping(void)
     (void)bsg_node_appearance_get(shape, &out);
     if (out.line_width != 4 || out.draw_mode != 3)
 	FAIL("appearance getter");
+    if (!((struct bv_scene_obj *)shape)->bsg.settings_local)
+	FAIL("settings sidecar not created by appearance_set");
+    if (((struct bv_scene_obj *)shape)->bsg.settings_local->line_width != 4)
+	FAIL("BSG settings line width sync");
     if (((struct bv_scene_obj *)shape)->s_os->line_width != 4)
 	FAIL("legacy line width sync");
     if (((struct bv_scene_obj *)shape)->s_soldash != 1)
 	FAIL("legacy soldash sync");
+    if (((struct bv_scene_obj *)shape)->s_local_os.transparency != 1.0)
+	FAIL("appearance should not own transparency mirror");
 
     bsg_shape_destroy(shape);
     bsg_scene_root_destroy(root);

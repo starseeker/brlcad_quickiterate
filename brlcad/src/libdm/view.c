@@ -453,7 +453,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
     struct bsg_appearance appearance;
     bsg_node_material_get((const bsg_node *)s, &material);
     bsg_node_appearance_get((const bsg_node *)s, &appearance);
-    fastf_t obj_transparency = appearance.transparency;
+    fastf_t obj_transparency = material.transparency;
 
     /* Phase 1 (BSG render contract): transparency-pass filter.  Note we
      * *do* still recurse into children — a non-leaf scene-obj may have

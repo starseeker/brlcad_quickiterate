@@ -148,7 +148,7 @@ bsg_material_from_legacy_obj(const bsg_node *n, struct bsg_material *out)
 	return;
 
     const struct bv_scene_obj *s = (const struct bv_scene_obj *)n;
-    const struct bsg_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
+    const struct bsg_settings *os = _bsg_settings_effective(n);
 
     out->rgba[0] = s->s_color[0];
     out->rgba[1] = s->s_color[1];
@@ -179,7 +179,10 @@ bsg_material_to_legacy_obj(bsg_node *n, const struct bsg_material *m)
 	return;
 
     struct bv_scene_obj *s = (struct bv_scene_obj *)n;
-    struct bsg_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
+    struct bsg_settings *os = _bsg_settings_local_get_or_create(n);
+    struct bsg_settings *effective = _bsg_settings_effective_get_or_create(n);
+    if (!os || !effective)
+	return;
 
     s->s_color[0] = m->rgba[0];
     s->s_color[1] = m->rgba[1];
@@ -187,16 +190,23 @@ bsg_material_to_legacy_obj(bsg_node *n, const struct bsg_material *m)
     s->s_color_rev = (uint32_t)m->revision;
 
     os->transparency = _material_clamp_transparency(m->transparency);
+    effective->transparency = os->transparency;
     if (m->use_override_color) {
 	os->color_override = 1;
 	os->color[0] = m->override_rgb[0];
 	os->color[1] = m->override_rgb[1];
 	os->color[2] = m->override_rgb[2];
+	effective->color_override = 1;
+	effective->color[0] = os->color[0];
+	effective->color[1] = os->color[1];
+	effective->color[2] = os->color[2];
     } else {
 	os->color_override = 0;
+	effective->color_override = 0;
     }
 
     s->s_old.s_cflag = m->use_geometry_default_color ? 1 : 0;
+    _bsg_settings_legacy_sync(n);
 }
 
 

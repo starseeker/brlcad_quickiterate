@@ -152,9 +152,11 @@ _go_draw_solid_cb(bsg_node *n, void *ud)
 
     /* Phase 11D: resolve transparency and line style from BSG appearance. */
     struct bsg_appearance _app;
+    struct bsg_material _mat;
     bsg_node_appearance_get((const bsg_node *)sp, &_app);
-    if (d->transparency_pass == 1 && _app.transparency < 1.0) return 1;
-    if (d->transparency_pass == 2 && ZERO(_app.transparency - 1.0)) return 1;
+    bsg_node_material_get((const bsg_node *)sp, &_mat);
+    if (d->transparency_pass == 1 && _mat.transparency < 1.0) return 1;
+    if (d->transparency_pass == 2 && ZERO(_mat.transparency - 1.0)) return 1;
 
     int _soldash = (_app.line_style == BSG_APPEARANCE_LINE_DASHED) ? 1 : 0;
     if (d->line_style != _soldash) {
@@ -266,14 +268,16 @@ to_edit_redraw(struct ged *gedp,
 		int arg = 0;
 
 		av[arg++] = (char *)argv[0];
-		/* Phase 11D: read draw mode and transparency from BSG appearance. */
+		/* Phase 11D: read draw mode from appearance and transparency from material. */
 		struct bsg_appearance _sp_app;
+		struct bsg_material _sp_mat;
 		bsg_node_appearance_get((const bsg_node *)sp, &_sp_app);
+		bsg_node_material_get((const bsg_node *)sp, &_sp_mat);
 		if (_sp_app.draw_mode == 4) {
 		    av[arg++] = "-h";
 		} else {
 		    bu_vls_printf(&mflag, "-m%d", _sp_app.draw_mode);
-		    bu_vls_printf(&xflag, "-x%f", _sp_app.transparency);
+		    bu_vls_printf(&xflag, "-x%f", _sp_mat.transparency);
 		    av[arg++] = bu_vls_addr(&mflag);
 		    av[arg++] = bu_vls_addr(&xflag);
 		}

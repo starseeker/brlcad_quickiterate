@@ -41,16 +41,6 @@
 
 static int _bsg_view_obj_appearance_hook_enabled = 0;
 
-static fastf_t
-_appearance_clamp_transparency(fastf_t t)
-{
-    if (t < 0.0)
-	return 0.0;
-    if (t > 1.0)
-	return 1.0;
-    return t;
-}
-
 /* Return the appearance struct for @p n from the core, or NULL if unset. */
 static struct bsg_appearance *
 _bsg_appearance_sc_get(const bsg_node *n)
@@ -116,12 +106,11 @@ bsg_appearance_from_legacy_obj_settings(const bsg_node *n, struct bsg_appearance
 	return;
 
     const struct bv_scene_obj *s = (const struct bv_scene_obj *)n;
-    const struct bsg_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
+    const struct bsg_settings *os = _bsg_settings_effective(n);
 
     out->draw_mode = os->draw_mode;
     out->line_width = os->line_width;
     out->line_style = s->s_soldash ? BSG_APPEARANCE_LINE_DASHED : BSG_APPEARANCE_LINE_SOLID;
-    out->transparency = _appearance_clamp_transparency(os->transparency);
     out->inherit_settings = s->s_inherit_settings ? 1 : 0;
     out->arrow_tip_length = os->arrow_tip_length;
     out->arrow_tip_width = os->arrow_tip_width;
@@ -138,18 +127,27 @@ bsg_appearance_to_legacy_obj_settings(bsg_node *n, const struct bsg_appearance *
 	return;
 
     struct bv_scene_obj *s = (struct bv_scene_obj *)n;
-    struct bsg_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
+    struct bsg_settings *os = _bsg_settings_local_get_or_create(n);
+    struct bsg_settings *effective = _bsg_settings_effective_get_or_create(n);
+    if (!os || !effective)
+	return;
 
     os->draw_mode = a->draw_mode;
     os->line_width = a->line_width;
-    os->transparency = _appearance_clamp_transparency(a->transparency);
     os->arrow_tip_length = a->arrow_tip_length;
     os->arrow_tip_width = a->arrow_tip_width;
     os->draw_solid_lines_only = a->draw_solid_lines_only;
     os->draw_non_subtract_only = a->draw_non_subtract_only;
+    effective->draw_mode = os->draw_mode;
+    effective->line_width = os->line_width;
+    effective->arrow_tip_length = os->arrow_tip_length;
+    effective->arrow_tip_width = os->arrow_tip_width;
+    effective->draw_solid_lines_only = os->draw_solid_lines_only;
+    effective->draw_non_subtract_only = os->draw_non_subtract_only;
     s->s_soldash = (a->line_style == BSG_APPEARANCE_LINE_DASHED) ? 1 : 0;
     s->s_inherit_settings = a->inherit_settings ? 1 : 0;
     s->s_arrow = a->draw_arrows ? 1 : 0;
+    _bsg_settings_legacy_sync(n);
 }
 
 

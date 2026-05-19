@@ -28,6 +28,7 @@
 
 #include <string.h>
 
+#include "bu/malloc.h"
 #include "bv/defines.h"
 #include "bsg/defines.h"
 #include "bsg/draw_ctx.h"
@@ -88,6 +89,68 @@ _bsg_core_ensure(bsg_node *n)
     n->bsg_core_free_fn = _bsg_core_release;
     n->bsg_magic = BSG_NODE_CORE_MAGIC;
     return n;
+}
+
+static inline const struct bsg_settings *
+_bsg_settings_local(const bsg_node *n)
+{
+    const struct bv_scene_obj *s = (const struct bv_scene_obj *)n;
+    if (!s)
+	return NULL;
+    if (n->settings_local)
+	return n->settings_local;
+    return &s->s_local_os;
+}
+
+static inline const struct bsg_settings *
+_bsg_settings_effective(const bsg_node *n)
+{
+    const struct bv_scene_obj *s = (const struct bv_scene_obj *)n;
+    if (!s)
+	return NULL;
+    if (n->settings_effective)
+	return n->settings_effective;
+    return (s->s_os) ? s->s_os : &s->s_local_os;
+}
+
+static inline struct bsg_settings *
+_bsg_settings_local_get_or_create(bsg_node *n)
+{
+    bsg_node *core = _bsg_core_ensure(n);
+    if (!core)
+	return NULL;
+    if (!core->settings_local) {
+	BU_ALLOC(core->settings_local, struct bsg_settings);
+	*(core->settings_local) = BSG_SETTINGS_INIT;
+    }
+    return core->settings_local;
+}
+
+static inline struct bsg_settings *
+_bsg_settings_effective_get_or_create(bsg_node *n)
+{
+    bsg_node *core = _bsg_core_ensure(n);
+    if (!core)
+	return NULL;
+    if (!core->settings_effective) {
+	BU_ALLOC(core->settings_effective, struct bsg_settings);
+	*(core->settings_effective) = BSG_SETTINGS_INIT;
+    }
+    return core->settings_effective;
+}
+
+static inline void
+_bsg_settings_legacy_sync(bsg_node *n)
+{
+    struct bv_scene_obj *s = (struct bv_scene_obj *)n;
+    const struct bsg_settings *local = _bsg_settings_local(n);
+    const struct bsg_settings *effective = _bsg_settings_effective(n);
+
+    if (!s || !local || !effective)
+	return;
+
+    s->s_local_os = *local;
+    s->s_os = &s->s_local_os;
 }
 
 #endif /* LIBBSG_BSG_PRIVATE_H */

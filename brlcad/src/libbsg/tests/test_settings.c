@@ -26,7 +26,7 @@
  *  12B - bsg_settings storage directly carries all fields.
  *  12C - bsg_node_settings_get reads from s_os when set.
  *  12D - bsg_node_settings_get reads from s_local_os when s_os is NULL.
- *  12E - bsg_node_settings_set writes to s_local_os, updates s_os, and syncs semantic sidecars.
+ *  12E - bsg_node_settings_set populates BSG-owned settings sidecars, mirrors legacy local storage, and syncs semantic sidecars.
  *  12F - bsg_settings_sync copies mixed_modes.
  *  12G - NULL-safety: all public functions tolerate NULL arguments.
  *  12H - bv compatibility settings shims expose effective/local/reset behavior.
@@ -221,7 +221,7 @@ test_get_from_s_local_os(void)
 
 
 /* ------------------------------------------------------------------ */
-/* Test 12E: bsg_node_settings_set writes s_local_os and updates s_os  */
+/* Test 12E: bsg_node_settings_set populates sidecars and legacy mirror */
 /* ------------------------------------------------------------------ */
 
 static int
@@ -249,20 +249,26 @@ test_settings_set(void)
     bsg_node_settings_set(shape, &s);
 
     struct bv_scene_obj *obj = (struct bv_scene_obj *)shape;
+    if (!obj->bsg.settings_local || !obj->bsg.settings_effective)
+	FAIL("BSG settings sidecars not populated");
     if (obj->s_os != &obj->s_local_os)
-	FAIL("s_os not updated to &s_local_os");
+	FAIL("legacy s_os not updated to local mirror");
+    if (obj->bsg.settings_local->color[0] != 99 || obj->bsg.settings_local->color[1] != 88 || obj->bsg.settings_local->color[2] != 77)
+	FAIL("color not written to settings_local");
+    if (obj->bsg.settings_effective->mixed_modes != 1)
+	FAIL("mixed_modes not written to effective settings");
     if (obj->s_local_os.color[0] != 99 || obj->s_local_os.color[1] != 88 || obj->s_local_os.color[2] != 77)
-	FAIL("color not written to s_local_os");
+	FAIL("color not mirrored to legacy local storage");
     if (obj->s_local_os.transparency < 0.29 || obj->s_local_os.transparency > 0.31)
-	FAIL("transparency not written to s_local_os");
+	FAIL("transparency not mirrored to legacy local storage");
     if (obj->s_local_os.color_override != 1)
 	FAIL("color_override not written");
     if (obj->s_local_os.draw_mode != 2)
-	FAIL("draw_mode not written");
+	FAIL("draw_mode not mirrored to legacy local storage");
     if (obj->s_local_os.line_width != 5)
-	FAIL("line_width not written");
+	FAIL("line_width not mirrored to legacy local storage");
     if (obj->s_local_os.mixed_modes != 1)
-	FAIL("mixed_modes not written");
+	FAIL("mixed_modes not mirrored to legacy local storage");
     struct bsg_appearance a;
     struct bsg_material m;
     bsg_appearance_init(&a);
@@ -395,6 +401,8 @@ test_bv_settings_helpers(void)
     out.draw_mode = 3;
     out.mixed_modes = 1;
     bv_scene_obj_settings_set(obj, &out);
+    if (!obj->bsg.settings_local || !obj->bsg.settings_effective)
+	FAIL("compat helper did not create BSG settings sidecars");
     if (obj->s_os != &obj->s_local_os)
 	FAIL("settings_set did not restore s_os to local storage");
     if (obj->s_local_os.line_width != 5 || obj->s_local_os.draw_mode != 3 || obj->s_local_os.mixed_modes != 1)

@@ -62,6 +62,16 @@ _bsg_core_release(struct bsg_node *core)
     if (!core)
 	return;
 
+    if (core->settings_local) {
+	bu_free(core->settings_local, "bsg_node settings_local");
+	core->settings_local = NULL;
+    }
+
+    if (core->settings_effective) {
+	bu_free(core->settings_effective, "bsg_node settings_effective");
+	core->settings_effective = NULL;
+    }
+
     if (core->material) {
 	bu_free(core->material, "bsg_node material");
 	core->material = NULL;
