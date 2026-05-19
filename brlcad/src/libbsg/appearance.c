@@ -116,15 +116,15 @@ bsg_appearance_from_legacy_obj_settings(const bsg_node *n, struct bsg_appearance
 	return;
 
     const struct bv_scene_obj *s = (const struct bv_scene_obj *)n;
-    const struct bv_obj_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
+    const struct bsg_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
 
-    out->draw_mode = os->s_dmode;
-    out->line_width = os->s_line_width;
+    out->draw_mode = os->draw_mode;
+    out->line_width = os->line_width;
     out->line_style = s->s_soldash ? BSG_APPEARANCE_LINE_DASHED : BSG_APPEARANCE_LINE_SOLID;
     out->transparency = _appearance_clamp_transparency(os->transparency);
     out->inherit_settings = s->s_inherit_settings ? 1 : 0;
-    out->arrow_tip_length = os->s_arrow_tip_length;
-    out->arrow_tip_width = os->s_arrow_tip_width;
+    out->arrow_tip_length = os->arrow_tip_length;
+    out->arrow_tip_width = os->arrow_tip_width;
     out->draw_arrows = s->s_arrow ? 1 : 0;
     out->draw_solid_lines_only = os->draw_solid_lines_only;
     out->draw_non_subtract_only = os->draw_non_subtract_only;
@@ -138,13 +138,13 @@ bsg_appearance_to_legacy_obj_settings(bsg_node *n, const struct bsg_appearance *
 	return;
 
     struct bv_scene_obj *s = (struct bv_scene_obj *)n;
-    struct bv_obj_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
+    struct bsg_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
 
-    os->s_dmode = a->draw_mode;
-    os->s_line_width = a->line_width;
+    os->draw_mode = a->draw_mode;
+    os->line_width = a->line_width;
     os->transparency = _appearance_clamp_transparency(a->transparency);
-    os->s_arrow_tip_length = a->arrow_tip_length;
-    os->s_arrow_tip_width = a->arrow_tip_width;
+    os->arrow_tip_length = a->arrow_tip_length;
+    os->arrow_tip_width = a->arrow_tip_width;
     os->draw_solid_lines_only = a->draw_solid_lines_only;
     os->draw_non_subtract_only = a->draw_non_subtract_only;
     s->s_soldash = (a->line_style == BSG_APPEARANCE_LINE_DASHED) ? 1 : 0;

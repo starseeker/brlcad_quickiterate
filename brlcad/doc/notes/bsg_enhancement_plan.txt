@@ -51,9 +51,9 @@ Important current facts from the codebase:
   visibility, highlight state, colors, material revision stamps, line style,
   arrows, adaptive plotting snapshots, object settings, children, parent,
   allocation-pool ownership, object-table ownership, draw data, and user data.
-- `include/bv/defines.h` has `struct bv_obj_settings` carrying draw mode,
-  transparency, color override, color, line width, arrow dimensions, and
-  subtraction visualization policy.
+- `include/bv/defines.h` stores object draw settings as `struct bsg_settings`
+  on `struct bv_scene_obj`; the old `struct bv_obj_settings` compatibility type
+  has been removed.
 - `include/bsg/field.h` has a small SoField-like field notification API, but it
   currently covers only flag, color, visibility, transform, and children.
 - `include/bsg/sensor.h` has a useful Inventor-like FieldSensor/NodeSensor idea,
@@ -209,14 +209,14 @@ Current `bv_scene_obj` fields and target BSG concepts:
 - `vlfree`, `free_scene_obj`, `otbl` -> storage/allocation compatibility,
   not public BSG semantics.
 
-Current `bv_obj_settings` fields and target BSG concepts:
+Current object-settings fields and target BSG concepts:
 
-- `s_dmode` -> `bsg_appearance.draw_mode`.
+- `bsg_settings.draw_mode` -> `bsg_appearance.draw_mode`.
 - `mixed_modes` -> appearance or producer policy.
 - `transparency` -> material alpha or appearance transparency override.
 - `color_override`, `color` -> material binding or explicit color override.
-- `s_line_width` -> appearance line width.
-- `s_arrow_tip_length`, `s_arrow_tip_width` -> arrow/overlay appearance.
+- `bsg_settings.line_width` -> appearance line width.
+- `bsg_settings.arrow_tip_length`, `bsg_settings.arrow_tip_width` -> arrow/overlay appearance.
 - `draw_solid_lines_only`, `draw_non_subtract_only` -> CAD boolean display
   policy in appearance or draw policy.
 
@@ -244,7 +244,7 @@ The exact filenames can evolve, but this is the intended public shape:
 - `include/bsg/action.h`: action/traversal interfaces.
 - `include/bsg/render.h`: renderer-facing callbacks and scene render contract.
 - `include/bsg/compat.h`: temporary compatibility helpers for old
-  `bv_scene_obj` and `bv_obj_settings` storage.
+  `bv_scene_obj` storage.
 
 Do not include all new headers from `include/bsg.h` immediately if that would
 destabilize builds. Add them to the umbrella header when their APIs are stable.
@@ -532,7 +532,7 @@ Tasks:
 
 1. Add `material.h/.c` and `appearance.h/.c`.
 2. Add tests that map material/appearance to and from current `s_color` and
-   `bv_obj_settings` storage.
+   BSG settings storage.
 3. Modify `bv_view_obj_set_color` and `bv_view_obj_set_line_width` to call the
    BSG material/appearance APIs and then update compatibility fields.
 4. Modify `dm_draw_scene_obj` color and line-width resolution to use BSG
@@ -554,8 +554,9 @@ Acceptance criteria:
 
 - Existing pixel tests remain stable.
 - Material revision behavior remains correct for `mater`, `color`, and redraw.
-- No consumer has to inspect `bv_obj_settings` to get draw mode, transparency,
-  color override, or line width unless explicitly marked compatibility code.
+- No consumer has to inspect non-BSG settings storage to get draw mode,
+  transparency, color override, or line width unless explicitly marked
+  compatibility code.
 
 
 Phase 4: BSG Payloads and Geometry Containers
@@ -1106,7 +1107,7 @@ Acceptance criteria:
 
 Phase 12: Deprecation and Removal
 ---------------------------------
-STATUS: DONE (core `bsg_settings` API and primary consumer migration complete)
+STATUS: DONE (`bv_obj_settings` removed; `bsg_settings` is the only object-settings type)
 
 Objective:
 Remove transitional compatibility once consumers are migrated.
@@ -1114,26 +1115,25 @@ Remove transitional compatibility once consumers are migrated.
 Tasks accomplished in this phase:
 
 12A. BSG settings-inheritance accessor — DONE
-  - Introduced `struct bsg_settings` (include/bsg/settings.h) mirroring all
-    fields of `bv_obj_settings`, plus full conversion helpers:
-    `bsg_settings_init`, `bsg_settings_from_legacy_obj_settings`,
-    `bsg_settings_to_legacy_obj_settings`, `bsg_node_settings_get`,
-    `bsg_node_settings_set`.
-  - Storage is backed by `bv_scene_obj::s_os`/`s_local_os` (no ABI change to
-    `bsg_node_core` required in this phase).
+  - Introduced `struct bsg_settings` carrying draw mode, mixed-mode policy,
+    transparency, color override, line width, arrow dimensions, and subtraction
+    visualization policy.
+  - Removed the final conversion helpers
+    `bsg_settings_from_legacy_obj_settings` and
+    `bsg_settings_to_legacy_obj_settings`; no public C API now takes
+    `struct bv_obj_settings`.
+  - `bv_scene_obj::s_os`/`s_local_os` now point to/store `struct bsg_settings`
+    directly, eliminating the transitional compatibility settings type while
+    preserving the existing scene-object storage layout pattern.
   - Added `src/libbsg/settings.c` implementing the API.
   - Added `include/bsg/settings.h` and installed as part of BSG public headers.
   - Test suite: `src/libbsg/tests/test_settings.c` (6 test cases covering init
-    defaults, legacy round-trip, get from s_os, get from s_local_os, set, and
-    NULL safety); passes as `libbsg_settings` ctest entry.
+    defaults, direct settings storage, get from s_os, get from s_local_os, set,
+    and NULL safety); passes as `libbsg_settings` ctest entry.
 
 12B. libdm/view.c inherit_settings migration — DONE
-  - Changed `_dm_draw_scene_obj_internal` internal signature from
-    `struct bv_obj_settings *obj_settings` to
-    `const struct bsg_settings *inherited_settings`.
-  - `dm_draw_scene_obj` (public API) converts `struct bv_obj_settings *` →
-    `struct bsg_settings` at the boundary via
-    `bsg_settings_from_legacy_obj_settings`.
+  - Changed `_dm_draw_scene_obj_internal` and `dm_draw_scene_obj` to take
+    `const struct bsg_settings *` inherited settings directly.
   - All three `s->s_os` pointer usage sites in the traversal path migrated:
     `_bsg_view_traverse_impl`, `_dm_rop_draw_payload`, `_dm_rop_draw_overlay`
     now call `bsg_node_settings_get` instead of passing `s->s_os` directly.
@@ -1160,8 +1160,8 @@ Remaining open items:
 1. Continue reducing public-header compatibility exposure around
    `struct bv_scene_obj` now that Phase 10E has made `struct bsg_node` the
    primary BSG type.
-2. Remove deprecated BSG flags / `bv_obj_settings` once all consumers use BSG
-   typed accessors — requires surveying remaining direct `s_os->*` accesses:
+2. Remove deprecated BSG flags once all remaining structural compatibility
+   fields have BSG accessors:
    * Phase 12 follow-on migration completed for API boundaries:
      `dm_draw_scene_obj` now accepts typed `bsg_settings`, and
      `BViewState::redraw`/`scene_obj`/`walk_tree`/`gather_paths` now consume
@@ -1169,7 +1169,10 @@ Remaining open items:
    * `src/libbv/polygon.c` line-width initialization now goes through the
      existing libbv accessor `bv_view_obj_set_line_width`, avoiding a new
      `libbv` → `libbsg` dependency while keeping BSG hooks synchronized.
-   * `src/libbsg/tests/test_material.c` legacy field probe (test-only).
+    * Final `bv_obj_settings` compatibility callers were identified and removed
+      from libbv reset/sync/hash/snap paths, libbsg settings/material/appearance
+      paths, libged draw contexts, libdm/librt draw-mode checks, and the
+      test-only material/settings probes.
 3. Remove old GED selection hashes / `gv_selected` (see Phases 6F, 5 above).
 4. Update public docs/man pages for view object, draw, erase, selection, and
    material behavior (ongoing; doc/notes are updated incrementally).
@@ -1179,8 +1182,8 @@ Acceptance criteria status:
 - BSG is the documented public scene graph API: YES (guardrail comment in
   bv/defines.h; all new code uses BSG APIs).
 - libbv no longer exposes public scene-object internals as primary API: PARTIAL
-  (polygon line-width initialization now uses the libbv accessor path; test-only
-  legacy probes remain in libbsg material tests).
+  (the `bv_obj_settings` type is gone; broader `bv_scene_obj` field exposure is
+  still transitional).
 - Consumer code compiles and passes tests without new compatibility-only direct
   field access: YES (core non-Qt targets build clean; 21/21 libbsg_* pass).
 
@@ -1425,10 +1428,10 @@ What is complete or substantially complete:
 - Phase 3 material/appearance API is implemented:
   - `include/bsg/material.h` + `src/libbsg/material.c` add side-car-backed
     material storage with compatibility mapping to legacy `s_color`,
-    `s_color_rev`, and `bv_obj_settings::transparency/color_override`.
+    `s_color_rev`, and BSG settings transparency/color override.
   - `include/bsg/appearance.h` + `src/libbsg/appearance.c` add side-car-backed
-    appearance storage with compatibility mapping to legacy draw-mode,
-    line-width, line-style, and related `bv_obj_settings` fields.
+    appearance storage with compatibility mapping to draw-mode, line-width,
+    line-style, and related BSG settings fields.
   - `src/libbv/util.cpp` typed setters (`bv_view_obj_set_color`,
     `bv_view_obj_set_line_width`) now support BSG hook bridges configured by
     libbsg so view-object color/line-width mutations flow through BSG material
@@ -1726,8 +1729,9 @@ What is complete or substantially complete:
 What is partially complete:
 
 - No open partial items are currently tracked for Phases 1-9.
-- Phase 12 partial remaining items (see Phase 12 section for full list):
-  - No open `libbv/hash.c` compatibility probes remain.
+- Phase 12 partial remaining items:
+  - None.  The `bv_obj_settings` compatibility type and conversion helpers have
+    been removed.
 - Phase 11 complete status:
   - 11A libbsg internal direct-field sweep: done (accessor migration in core
     traversal/search/render paths).
@@ -1785,9 +1789,6 @@ What is partially complete:
 
 What is not yet implemented in this roadmap:
 
-- Phase 12 remaining items:
-  - Remove `bv_obj_settings` struct entirely once `libbv` polygon initializer
-    cleanup is carried through all remaining compatibility call sites.
 - Phase 13 deprecation and readiness gate execution.
 
 
@@ -1795,11 +1796,11 @@ Immediate Next-Session Stage Prompts
 -------------------------------------
 Use these as concrete "small-unit" prompts for the next work sessions.
 
-1. Phase 12 compatibility cleanup:
-   Continue the removal path for `bv_obj_settings` compatibility once the last
-   compatibility callers are identified.
-
-2. Phase 13 readiness gate:
+1. Phase 13 readiness gate:
    Execute Phase 13 deprecation tagging (mark old `bv_scene_obj` direct-access
-   patterns as `/** @deprecated */`) now that the Phase 11E Qt sweep is done
-   and Qt-capable validation can run.
+   patterns as `/** @deprecated */`) now that Phase 12 `bv_obj_settings`
+   removal is complete.
+
+2. Public documentation refresh:
+   Update user-facing view/draw/material documentation to describe BSG-backed
+   scene-object settings and the remaining `bv_scene_obj` compatibility window.

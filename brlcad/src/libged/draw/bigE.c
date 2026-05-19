@@ -2010,7 +2010,7 @@ ged_E_core(struct ged *gedp, int argc, const char *argv[])
     dgcdp->do_polysolids = 0;
     dgcdp->vs.color_override = 0;
     dgcdp->vs.transparency = 0;
-    dgcdp->vs.s_dmode = _GED_BOOL_EVAL;
+    dgcdp->vs.draw_mode = _GED_BOOL_EVAL;
 
     /* Parse options. */
     bu_optind = 1;          /* re-init bu_getopt() */

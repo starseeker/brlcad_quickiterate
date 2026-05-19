@@ -171,7 +171,7 @@ typedef struct {
  *    complex polygon state; target for a future ABI-break session).
  *
  * Remaining work: migrate labels size getter (needs font-size field in
- * bv_obj_settings or bv_label, ABI break); migrate polygon state.
+ * BSG settings or bv_label, ABI break); migrate polygon state.
  *
  * Do not add new producers that touch these fields; do not add new fields
  * here.  New view-only adornment storage belongs in the BSG tree. */

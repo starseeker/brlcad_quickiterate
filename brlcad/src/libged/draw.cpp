@@ -42,6 +42,7 @@
 #include "bv/defines.h"
 #include "bg/sat.h"
 #include "bv/lod.h"
+#include "bsg/settings.h"
 #include "nmg.h"
 #include "rt/view.h"
 
@@ -594,7 +595,7 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
 
     /* Mode 3 generates an evaluated wireframe rather than drawing
      * the individual solid wireframes */
-    if (s->s_os->s_dmode == 3) {
+    if (s->s_os->draw_mode == 3) {
 	draw_m3(s);
 	bv_scene_obj_bound(s, v);
 	s->current = 1;
@@ -602,7 +603,7 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
     }
 
     /* Mode 5 draws a point cloud in lieu of wireframes */
-    if (s->s_os->s_dmode == 5) {
+    if (s->s_os->draw_mode == 5) {
 	draw_points(s);
 	bv_scene_obj_bound(s, v);
 	s->current = 1;
@@ -625,7 +626,7 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
     // Adaptive BoTs have specialized LoD routines to help cope with very large
     // data sets, both for wireframe and shaded mode.
     if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT && v && v->gv_s->adaptive_plot_mesh &&
-       (s->s_os->s_dmode == 0 || s->s_os->s_dmode == 1)) {
+       (s->s_os->draw_mode == 0 || s->s_os->draw_mode == 1)) {
 	bot_adaptive_plot(s, v);
 	return;
     }
@@ -633,7 +634,7 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
     // Adaptive BReps have specialized LoD routines to manage shaded displays, which
     // can involve slow and large mesh generations.  BRep wireframes are based on the
     // NURBS data, so this is used only for shaded mode
-    if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BREP && v && v->gv_s->adaptive_plot_mesh && s->s_os->s_dmode == 1) {
+    if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BREP && v && v->gv_s->adaptive_plot_mesh && s->s_os->draw_mode == 1) {
 	brep_adaptive_plot(s, v);
 	return;
     }
@@ -666,7 +667,7 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
 
     // For anything other than mode 0, we call specific routines for
     // some of the primitives.
-    if (s->s_os->s_dmode > 0) {
+    if (s->s_os->draw_mode > 0) {
 	switch (ip->idb_minor_type) {
 	    case DB5_MINORTYPE_BRLCAD_BOT:
 		(void)rt_bot_plot_poly(&s->s_vlist, ip, ttol, tol);
@@ -686,20 +687,20 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
     }
 
     // Now the more general cases
-    switch (s->s_os->s_dmode) {
+    switch (s->s_os->draw_mode) {
 	case 0:
 	case 1:
 	    // Get wireframe (for mode 1, all the non-wireframes are handled
 	    // by the above BOT/POLY/BREP cases
 	    wireframe_plot(s, v, ip);
-	    s->s_os->s_dmode = 0;
+	    s->s_os->draw_mode = 0;
 	    break;
 	case 2:
 	    // Shade everything except pipe, don't evaluate, fall
 	    // back to wireframe in case of failure
 	    if (prim_tess(s, ip) < 0) {
 		wireframe_plot(s, v, ip);
-		s->s_os->s_dmode = 0;
+		s->s_os->draw_mode = 0;
 	    } else {
 		s->current = 1;
 	    }
@@ -714,7 +715,7 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
 	    // un-hidden wireframe in case of failure
 	    if (prim_tess(s, ip) < 0) {
 		wireframe_plot(s, v, ip);
-		s->s_os->s_dmode = 0;
+		s->s_os->draw_mode = 0;
 	    } else {
 		s->current = 1;
 	    }
@@ -969,7 +970,7 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 	db_dup_full_path((struct db_full_path *)s->s_path, path);
 
 	MAT_COPY(s->s_mat, *curr_mat);
-	bv_obj_settings_sync(s->s_os, dd->g->s_os);
+	bsg_settings_sync(s->s_os, dd->g->s_os);
 	s->bsg.bsg_kind = BV_DBOBJ_BASED;
 	s->current = 0;
 	s->s_changed++;

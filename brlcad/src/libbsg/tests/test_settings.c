@@ -23,7 +23,7 @@
  *
  * These tests verify:
  *  12A - bsg_settings_init returns safe defaults.
- *  12B - bsg_settings_from/to_legacy_obj_settings round-trip all fields.
+ *  12B - bsg_settings storage directly carries all fields.
  *  12C - bsg_node_settings_get reads from s_os when set.
  *  12D - bsg_node_settings_get reads from s_local_os when s_os is NULL.
  *  12E - bsg_node_settings_set writes to s_local_os and updates s_os.
@@ -94,66 +94,46 @@ test_settings_init(void)
 
 
 /* ------------------------------------------------------------------ */
-/* Test 12B: round-trip through legacy bv_obj_settings                  */
+/* Test 12B: direct bsg_settings storage                                */
 /* ------------------------------------------------------------------ */
 
 static int
-test_legacy_roundtrip(void)
+test_settings_storage(void)
 {
-    printf("=== Test 12B: legacy round-trip ===\n");
+    printf("=== Test 12B: direct settings storage ===\n");
 
-    struct bv_obj_settings os;
     struct bsg_settings s;
     struct bsg_settings back;
-    struct bv_obj_settings os2;
 
-    memset(&os, 0, sizeof(os));
-    os.s_dmode             = 2;
-    os.mixed_modes         = 1;
-    os.transparency        = 0.5;
-    os.color_override      = 1;
-    os.color[0]            = 10;
-    os.color[1]            = 20;
-    os.color[2]            = 30;
-    os.s_line_width        = 3;
-    os.s_arrow_tip_length  = 0.1;
-    os.s_arrow_tip_width   = 0.05;
-    os.draw_solid_lines_only   = 1;
-    os.draw_non_subtract_only  = 1;
+    bsg_settings_init(&s);
+    s.draw_mode             = 2;
+    s.mixed_modes           = 1;
+    s.transparency          = 0.5;
+    s.color_override        = 1;
+    s.color[0]              = 10;
+    s.color[1]              = 20;
+    s.color[2]              = 30;
+    s.line_width            = 3;
+    s.arrow_tip_length      = 0.1;
+    s.arrow_tip_width       = 0.05;
+    s.draw_solid_lines_only = 1;
+    s.draw_non_subtract_only = 1;
 
-    bsg_settings_from_legacy_obj_settings(&os, &s);
+    back = s;
 
-    if (s.draw_mode != 2)              FAIL("draw_mode from legacy");
-    if (s.mixed_modes != 1)            FAIL("mixed_modes from legacy");
-    if (s.transparency < 0.49)         FAIL("transparency from legacy low");
-    if (s.transparency > 0.51)         FAIL("transparency from legacy high");
-    if (s.color_override != 1)         FAIL("color_override from legacy");
-    if (s.color[0] != 10)              FAIL("color[0] from legacy");
-    if (s.color[1] != 20)              FAIL("color[1] from legacy");
-    if (s.color[2] != 30)              FAIL("color[2] from legacy");
-    if (s.line_width != 3)             FAIL("line_width from legacy");
-    if (s.draw_solid_lines_only != 1)  FAIL("draw_solid_lines_only from legacy");
-    if (s.draw_non_subtract_only != 1) FAIL("draw_non_subtract_only from legacy");
+    if (back.draw_mode != 2)              FAIL("draw_mode copy");
+    if (back.mixed_modes != 1)            FAIL("mixed_modes copy");
+    if (back.transparency < 0.49)         FAIL("transparency copy low");
+    if (back.transparency > 0.51)         FAIL("transparency copy high");
+    if (back.color_override != 1)         FAIL("color_override copy");
+    if (back.color[0] != 10)              FAIL("color[0] copy");
+    if (back.color[1] != 20)              FAIL("color[1] copy");
+    if (back.color[2] != 30)              FAIL("color[2] copy");
+    if (back.line_width != 3)             FAIL("line_width copy");
+    if (back.draw_solid_lines_only != 1)  FAIL("draw_solid_lines_only copy");
+    if (back.draw_non_subtract_only != 1) FAIL("draw_non_subtract_only copy");
 
-    /* Round-trip back */
-    memset(&os2, 0, sizeof(os2));
-    bsg_settings_to_legacy_obj_settings(&s, &os2);
-    if (os2.s_dmode != 2)              FAIL("s_dmode to legacy");
-    if (os2.color[0] != 10)            FAIL("color[0] to legacy");
-    if (os2.color[1] != 20)            FAIL("color[1] to legacy");
-    if (os2.color[2] != 30)            FAIL("color[2] to legacy");
-    if (os2.transparency < 0.49)       FAIL("transparency to legacy low");
-    if (os2.transparency > 0.51)       FAIL("transparency to legacy high");
-    if (os2.draw_solid_lines_only != 1) FAIL("draw_solid_lines_only to legacy");
-
-    /* NULL safety */
-    bsg_settings_from_legacy_obj_settings(NULL, &back);
-    if (back.transparency < 0.999) FAIL("null-os transparency should default to 1.0");
-    bsg_settings_from_legacy_obj_settings(&os, NULL); /* should not crash */
-    bsg_settings_to_legacy_obj_settings(NULL, &os2);  /* should not crash */
-    bsg_settings_to_legacy_obj_settings(&s, NULL);    /* should not crash */
-
-    PASS("legacy_roundtrip");
+    PASS("settings_storage");
     return 0;
 }
 
@@ -272,10 +252,10 @@ test_settings_set(void)
 	FAIL("transparency not written to s_local_os");
     if (obj->s_local_os.color_override != 1)
 	FAIL("color_override not written");
-    if (obj->s_local_os.s_dmode != 2)
-	FAIL("s_dmode not written");
-    if (obj->s_local_os.s_line_width != 5)
-	FAIL("s_line_width not written");
+    if (obj->s_local_os.draw_mode != 2)
+	FAIL("draw_mode not written");
+    if (obj->s_local_os.line_width != 5)
+	FAIL("line_width not written");
 
     /* Round-trip via getter */
     struct bsg_settings out;
@@ -329,7 +309,7 @@ main(int argc, char *argv[])
 
     int failures = 0;
     failures += test_settings_init();
-    failures += test_legacy_roundtrip();
+    failures += test_settings_storage();
     failures += test_get_from_s_os();
     failures += test_get_from_s_local_os();
     failures += test_settings_set();

@@ -141,7 +141,7 @@ bsg_material_from_legacy_obj(const bsg_node *n, struct bsg_material *out)
 	return;
 
     const struct bv_scene_obj *s = (const struct bv_scene_obj *)n;
-    const struct bv_obj_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
+    const struct bsg_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
 
     out->rgba[0] = s->s_color[0];
     out->rgba[1] = s->s_color[1];
@@ -172,7 +172,7 @@ bsg_material_to_legacy_obj(bsg_node *n, const struct bsg_material *m)
 	return;
 
     struct bv_scene_obj *s = (struct bv_scene_obj *)n;
-    struct bv_obj_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
+    struct bsg_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
 
     s->s_color[0] = m->rgba[0];
     s->s_color[1] = m->rgba[1];

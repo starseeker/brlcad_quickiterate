@@ -42,6 +42,7 @@
 #include "bu/vls.h"
 #include "bv.h"
 #include "bsg/defines.h"
+#include "bsg/settings.h"
 
 #include "../ged_private.h"
 #include "./ged_view.h"
@@ -134,8 +135,8 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
 
     // Set up drawing settings
     unsigned char wcolor[3] = {255,255,255};
-    struct bv_obj_settings vs = BV_OBJ_SETTINGS_INIT;
-    bv_obj_settings_sync(g->s_os, &vs);
+    struct bsg_settings vs = BSG_SETTINGS_INIT;
+    bsg_settings_sync(g->s_os, &vs);
 
     // We have a tree walk ahead to populate the wireframe - set up the client
     // data structure.

@@ -21,12 +21,7 @@
  *
  * Phase 12: BSG settings-inheritance API.
  *
- * Provides a typed BSG wrapper around the legacy @c bv_obj_settings
- * "inherited-settings" concept so that libdm traversal no longer passes
- * raw @c bv_obj_settings pointers down the scene tree.
- *
- * Storage is backed by @c bv_scene_obj::s_os / @c s_local_os so that no
- * ABI change to @c bsg_node_core is required in this phase.
+ * Provides the typed BSG "inherited-settings" concept used by libdm traversal.
  */
 
 #include "common.h"
@@ -35,6 +30,7 @@
 
 #include "bv/defines.h"
 #include "bsg/settings.h"
+#include "vmath.h"
 
 #include "./bsg_private.h"
 
@@ -59,54 +55,6 @@ bsg_settings_init(struct bsg_settings *s)
 }
 
 
-void
-bsg_settings_from_legacy_obj_settings(const struct bv_obj_settings *os,
-				      struct bsg_settings *out)
-{
-    if (!out)
-	return;
-
-    bsg_settings_init(out);
-    if (!os)
-	return;
-
-    out->draw_mode             = os->s_dmode;
-    out->mixed_modes           = os->mixed_modes;
-    out->transparency          = os->transparency;
-    out->color_override        = os->color_override;
-    out->color[0]              = os->color[0];
-    out->color[1]              = os->color[1];
-    out->color[2]              = os->color[2];
-    out->line_width            = os->s_line_width;
-    out->arrow_tip_length      = os->s_arrow_tip_length;
-    out->arrow_tip_width       = os->s_arrow_tip_width;
-    out->draw_solid_lines_only = os->draw_solid_lines_only;
-    out->draw_non_subtract_only = os->draw_non_subtract_only;
-}
-
-
-void
-bsg_settings_to_legacy_obj_settings(const struct bsg_settings *s,
-				    struct bv_obj_settings *os)
-{
-    if (!s || !os)
-	return;
-
-    os->s_dmode              = s->draw_mode;
-    os->mixed_modes          = s->mixed_modes;
-    os->transparency         = s->transparency;
-    os->color_override       = s->color_override;
-    os->color[0]             = s->color[0];
-    os->color[1]             = s->color[1];
-    os->color[2]             = s->color[2];
-    os->s_line_width         = s->line_width;
-    os->s_arrow_tip_length   = s->arrow_tip_length;
-    os->s_arrow_tip_width    = s->arrow_tip_width;
-    os->draw_solid_lines_only  = s->draw_solid_lines_only;
-    os->draw_non_subtract_only = s->draw_non_subtract_only;
-}
-
-
 int
 bsg_node_settings_get(const bsg_node *n, struct bsg_settings *out)
 {
@@ -118,9 +66,9 @@ bsg_node_settings_get(const bsg_node *n, struct bsg_settings *out)
 	return 0;
 
     const struct bv_scene_obj *s = (const struct bv_scene_obj *)n;
-    const struct bv_obj_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
+    const struct bsg_settings *settings = (s->s_os) ? s->s_os : &s->s_local_os;
 
-    bsg_settings_from_legacy_obj_settings(os, out);
+    *out = *settings;
     return 1;
 }
 
@@ -132,8 +80,55 @@ bsg_node_settings_set(bsg_node *n, const struct bsg_settings *s)
 	return;
 
     struct bv_scene_obj *obj = (struct bv_scene_obj *)n;
-    bsg_settings_to_legacy_obj_settings(s, &obj->s_local_os);
+    obj->s_local_os = *s;
     obj->s_os = &obj->s_local_os;
+}
+
+int
+bsg_settings_sync(struct bsg_settings *dest, struct bsg_settings *src)
+{
+    int ret = 0;
+    if (!dest || !src)
+	return ret;
+
+    if (dest->line_width != src->line_width) {
+	dest->line_width = src->line_width;
+	ret = 1;
+    }
+    if (!NEAR_EQUAL(dest->arrow_tip_length, src->arrow_tip_length, SMALL_FASTF)) {
+	dest->arrow_tip_length = src->arrow_tip_length;
+	ret = 1;
+    }
+    if (!NEAR_EQUAL(dest->arrow_tip_width, src->arrow_tip_width, SMALL_FASTF)) {
+	dest->arrow_tip_width = src->arrow_tip_width;
+	ret = 1;
+    }
+    if (!NEAR_EQUAL(dest->transparency, src->transparency, SMALL_FASTF)) {
+	dest->transparency = src->transparency;
+	ret = 1;
+    }
+    if (dest->draw_mode != src->draw_mode) {
+	dest->draw_mode = src->draw_mode;
+	ret = 1;
+    }
+    if (dest->color_override != src->color_override) {
+	dest->color_override = src->color_override;
+	ret = 1;
+    }
+    if (!VNEAR_EQUAL(dest->color, src->color, SMALL_FASTF)) {
+	VMOVE(dest->color, src->color);
+	ret = 1;
+    }
+    if (dest->draw_solid_lines_only != src->draw_solid_lines_only) {
+	dest->draw_solid_lines_only = src->draw_solid_lines_only;
+	ret = 1;
+    }
+    if (dest->draw_non_subtract_only != src->draw_non_subtract_only) {
+	dest->draw_non_subtract_only = src->draw_non_subtract_only;
+	ret = 1;
+    }
+
+    return ret;
 }
 
 

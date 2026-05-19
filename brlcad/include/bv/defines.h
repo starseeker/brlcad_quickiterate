@@ -125,14 +125,16 @@ struct bv_axes {
     int       tick_major_color[3];
 };
 
-// Many settings have application level defaults that can be overridden for
-// individual scene objects.
-//
-// TODO - once this settles down, it will probably warrant a bu_structparse
-// for value setting
-struct bv_obj_settings {
+/**
+ * BSG settings-inheritance snapshot.
+ *
+ * Many settings have application level defaults that can be overridden for
+ * individual scene objects.  struct bv_scene_obj stores these as BSG settings
+ * so callers do not need a separate compatibility object-settings type.
+ */
+struct bsg_settings {
 
-    int s_dmode;         	/**< @brief  draw modes (TODO - are these accurate?):
+    int draw_mode;         	/**< @brief  draw modes (TODO - are these accurate?):
 				 *            0 - wireframe
 				 *	      1 - shaded bots and polysolids only (booleans NOT evaluated)
 				 *	      2 - shaded (booleans NOT evaluated)
@@ -145,13 +147,13 @@ struct bv_obj_settings {
     int color_override;
     unsigned char color[3];	/**< @brief  color to draw as */
 
-    int s_line_width;		/**< @brief  current line width */
-    fastf_t s_arrow_tip_length; /**< @brief  arrow tip length */
-    fastf_t s_arrow_tip_width;  /**< @brief  arrow tip width */
+    int line_width;		/**< @brief  current line width */
+    fastf_t arrow_tip_length; /**< @brief  arrow tip length */
+    fastf_t arrow_tip_width;  /**< @brief  arrow tip width */
     int draw_solid_lines_only;   /**< @brief do not use dashed lines for subtraction solids */
     int draw_non_subtract_only;  /**< @brief do not visualize subtraction solids */
 };
-#define BV_OBJ_SETTINGS_INIT {0, 0, 1.0, 0, {255, 0, 0}, 1, 0.0, 0.0, 0, 0}
+#define BSG_SETTINGS_INIT {0, 0, 1.0, 0, {255, 255, 255}, 1, 0.0, 0.0, 0, 0}
 
 
 /* Note that it is possible for a view object to be view-only (not
@@ -420,8 +422,8 @@ struct bv_scene_obj  {
 
     /* Scene object settings which also (potentially) have global defaults but
      * may be overridden locally */
-    struct bv_obj_settings *s_os;
-    struct bv_obj_settings s_local_os;
+    struct bsg_settings *s_os;
+    struct bsg_settings s_local_os;
     int s_inherit_settings;           /**< @brief  Use current obj settings when drawing children instead of their settings */
 
     /* Settings that may be less necessary... */

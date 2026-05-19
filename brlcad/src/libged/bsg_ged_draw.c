@@ -1017,7 +1017,7 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     sp->s_old.s_cflag        = 0;
     sp->s_old.s_wflag        = 0;
     sp->s_os->transparency   = transparency;
-    sp->s_os->s_dmode        = dmode;
+    sp->s_os->draw_mode        = dmode;
 
     struct bsg_material m;
     bsg_material_from_legacy_obj((const bsg_node *)sp, &m);
