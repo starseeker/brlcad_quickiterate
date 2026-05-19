@@ -250,6 +250,8 @@ test_settings_set(void)
     struct bv_scene_obj *obj = (struct bv_scene_obj *)shape;
     struct bsg_appearance a;
     struct bsg_material m;
+    bsg_appearance_init(&a);
+    bsg_material_init(&m);
     if (obj->s_os != &obj->s_local_os)
 	FAIL("s_os not updated to &s_local_os");
     if (obj->s_local_os.color[0] != 99 || obj->s_local_os.color[1] != 88 || obj->s_local_os.color[2] != 77)

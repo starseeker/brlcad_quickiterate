@@ -111,7 +111,6 @@ bsg_node_settings_set(bsg_node *n, const struct bsg_settings *s)
 
     appearance.draw_mode = s->draw_mode;
     appearance.line_width = s->line_width;
-    appearance.transparency = s->transparency;
     appearance.arrow_tip_length = s->arrow_tip_length;
     appearance.arrow_tip_width = s->arrow_tip_width;
     appearance.draw_solid_lines_only = s->draw_solid_lines_only;
