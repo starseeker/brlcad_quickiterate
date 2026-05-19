@@ -20,22 +20,24 @@
 
 #include "common.h"
 
-#include <stdio.h>
 #include <string.h>
 
 #include "vmath.h"
 #include "bu/app.h"
 #include "bu/file.h"
+#include "bu/str.h"
 #include "bv.h"
 #include "bg/plane.h"
 #include "raytrace.h"
 #include "rt/primitives/sketch.h"
 
+#define TEST_DB_VERSION 5
+
 static void
 temp_g_path(char *ofile, const char *prefix)
 {
     char tmpname[MAXPATHLEN] = {0};
-    snprintf(tmpname, MAXPATHLEN, "%s", prefix);
+    bu_strlcpy(tmpname, prefix, MAXPATHLEN);
     bu_temp_file_name(tmpname, MAXPATHLEN);
     bu_dir(ofile, MAXPATHLEN, BU_DIR_TEMP, tmpname, NULL);
 }
@@ -93,7 +95,7 @@ test_non_origin_plane_roundtrip(void)
 {
     char ofile[MAXPATHLEN];
     temp_g_path(ofile, "non_origin_poly_sketch_out");
-    struct rt_wdb *wfp = wdb_fopen_v(ofile, 5);
+    struct rt_wdb *wfp = wdb_fopen_v(ofile, TEST_DB_VERSION);
     if (!wfp)
 	bu_exit(EXIT_FAILURE, "Failed to create output database %s\n", ofile);
 
@@ -178,7 +180,7 @@ main(int argc, char *argv[])
 
     char ofile[MAXPATHLEN];
     temp_g_path(ofile, "poly_sketch_out");
-    struct rt_wdb *wfp = wdb_fopen_v(ofile, 5);
+    struct rt_wdb *wfp = wdb_fopen_v(ofile, TEST_DB_VERSION);
     if (!wfp)
 	bu_exit(EXIT_FAILURE, "Failed to create output database %s\n", ofile);
 
