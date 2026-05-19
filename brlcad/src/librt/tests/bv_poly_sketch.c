@@ -39,13 +39,38 @@ compare_scene_polygons(struct bv_scene_obj *orig, struct bv_scene_obj *rt, const
 	bu_exit(EXIT_FAILURE, "%s: contour count changed\n", msg);
 
     for (size_t i = 0; i < op->polygon.num_contours; i++) {
-	if (op->polygon.contour[i].num_points != rp->polygon.contour[i].num_points)
+	size_t pcnt = op->polygon.contour[i].num_points;
+	if (pcnt != rp->polygon.contour[i].num_points)
 	    bu_exit(EXIT_FAILURE, "%s: contour point count changed\n", msg);
 
-	for (size_t j = 0; j < op->polygon.contour[i].num_points; j++) {
-	    if (!NEAR_ZERO(DIST_PNT_PNT(op->polygon.contour[i].point[j], rp->polygon.contour[i].point[j]), BN_TOL_DIST))
-		bu_exit(EXIT_FAILURE, "%s: point [%zu][%zu] moved\n", msg, i, j);
+	for (size_t offset = 0; offset < pcnt; offset++) {
+	    int match = 1;
+	    for (size_t j = 0; j < pcnt; j++) {
+		size_t rj = (offset + j) % pcnt;
+		if (!NEAR_ZERO(DIST_PNT_PNT(op->polygon.contour[i].point[j], rp->polygon.contour[i].point[rj]), BN_TOL_DIST)) {
+		    match = 0;
+		    break;
+		}
+	    }
+	    if (match)
+		goto next_contour;
+
+	    match = 1;
+	    for (size_t j = 0; j < pcnt; j++) {
+		size_t rj = (offset + pcnt - j) % pcnt;
+		if (!NEAR_ZERO(DIST_PNT_PNT(op->polygon.contour[i].point[j], rp->polygon.contour[i].point[rj]), BN_TOL_DIST)) {
+		    match = 0;
+		    break;
+		}
+	    }
+	    if (match)
+		goto next_contour;
 	}
+
+	bu_exit(EXIT_FAILURE, "%s: contour %zu points moved\n", msg, i);
+
+next_contour:
+	continue;
     }
 }
 
