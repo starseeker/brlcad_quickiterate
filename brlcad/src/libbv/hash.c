@@ -114,6 +114,30 @@ _bv_obj_settings_hash(struct bu_data_hash_state *state, struct bv_obj_settings *
     bu_data_hash_update(state, v, sizeof(struct bv_obj_settings));
 }
 
+static int
+_bsg_settings_equal(const struct bsg_settings *a, const struct bsg_settings *b)
+{
+    if (!a || !b)
+	return 0;
+
+    int same_transparency = (memcmp(&a->transparency, &b->transparency, sizeof(fastf_t)) == 0);
+    int same_arrow_tip_length = (memcmp(&a->arrow_tip_length, &b->arrow_tip_length, sizeof(fastf_t)) == 0);
+    int same_arrow_tip_width = (memcmp(&a->arrow_tip_width, &b->arrow_tip_width, sizeof(fastf_t)) == 0);
+
+    return (a->draw_mode == b->draw_mode
+	    && a->mixed_modes == b->mixed_modes
+	    && same_transparency
+	    && a->color_override == b->color_override
+	    && a->color[0] == b->color[0]
+	    && a->color[1] == b->color[1]
+	    && a->color[2] == b->color[2]
+	    && a->line_width == b->line_width
+	    && same_arrow_tip_length
+	    && same_arrow_tip_width
+	    && a->draw_solid_lines_only == b->draw_solid_lines_only
+	    && a->draw_non_subtract_only == b->draw_non_subtract_only);
+}
+
 void
 bv_scene_obj_hash(struct bu_data_hash_state *state, struct bv_scene_obj *s)
 {
@@ -126,14 +150,14 @@ bv_scene_obj_hash(struct bu_data_hash_state *state, struct bv_scene_obj *s)
     for (BU_LIST_FOR(tvp, bv_vlist, &((struct bv_vlist *)&s->s_vlist)->l)) {
 	bu_data_hash_update(state, tvp, sizeof(struct bv_vlist));
     }
-    struct bsg_settings effective_os;
-    struct bsg_settings local_os;
-    bsg_settings_init(&local_os);
-    bsg_settings_from_legacy_obj_settings(&s->s_local_os, &local_os);
-    bsg_settings_init(&effective_os);
-    bsg_node_settings_get((const bsg_node *)s, &effective_os);
-    if (memcmp(&effective_os, &local_os, sizeof(struct bsg_settings)) != 0)
-	bu_data_hash_update(state, &effective_os, sizeof(struct bsg_settings));
+    struct bsg_settings effective_settings;
+    struct bsg_settings local_settings;
+    bsg_settings_init(&local_settings);
+    bsg_settings_from_legacy_obj_settings(&s->s_local_os, &local_settings);
+    bsg_settings_init(&effective_settings);
+    bsg_node_settings_get((const bsg_node *)s, &effective_settings);
+    if (!_bsg_settings_equal(&effective_settings, &local_settings))
+	bu_data_hash_update(state, &effective_settings, sizeof(struct bsg_settings));
     _bv_obj_settings_hash(state, &s->s_local_os);
 }
 
