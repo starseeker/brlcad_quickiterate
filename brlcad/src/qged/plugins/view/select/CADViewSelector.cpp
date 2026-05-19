@@ -200,8 +200,7 @@ CADViewSelector::do_view_update(unsigned long long flags)
     if (!gedp || !gedp->dbi_state)
 	return;
 
-    DbiState *dbis = (DbiState *)gedp->dbi_state;
-    BSelectState *ss = dbis->find_selected_state(NULL);
+    BSelectState *ss = ((DbiState *)gedp->dbi_state)->find_selected_state(NULL);
     if (!ss)
 	return;
 
@@ -210,13 +209,8 @@ CADViewSelector::do_view_update(unsigned long long flags)
 	group_contents->clear();
 	ohash = chash;
 
-	std::set<std::string> ordered_paths;
-	std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator s_it;
-	for (s_it = ss->selected.begin(); s_it != ss->selected.end(); s_it++) {
-	    std::string spath = std::string(dbis->pathstr(s_it->second));
-	    ordered_paths.insert(spath);
-	}
-	std::set<std::string>::iterator o_it;
+	std::vector<std::string> ordered_paths = ss->selected_paths();
+	std::vector<std::string>::iterator o_it;
 	for (o_it = ordered_paths.begin(); o_it != ordered_paths.end(); o_it++) {
 	    group_contents->addItem(QString(o_it->c_str()));
 	}
@@ -321,21 +315,19 @@ CADViewSelector::do_draw_selections()
 
     DbiState *dbis = (DbiState *)gedp->dbi_state;
     BSelectState *ss = dbis->find_selected_state(NULL);
-    if (!ss || !ss->selected.size())
+    std::vector<std::string> paths = (ss) ? ss->selected_paths() : std::vector<std::string>();
+    if (paths.empty())
 	return;
 
-    const char **av = (const char **)bu_calloc(ss->selected.size()+2, sizeof(char *), "av");
+    const char **av = (const char **)bu_calloc(paths.size()+2, sizeof(char *), "av");
     av[0] = bu_strdup("draw");
 
-    int i = 0;
-    std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator s_it;
-    for (s_it = ss->selected.begin(); s_it != ss->selected.end(); s_it++) {
-	av[i+1] = bu_strdup(dbis->pathstr(s_it->second));
-	i++;
+    for (size_t i = 0; i < paths.size(); i++) {
+	av[i+1] = bu_strdup(paths[i].c_str());
     }
 
-    ged_exec_draw(gedp, (int)(ss->selected.size()+1), av);
-    for (size_t j = 0; j < ss->selected.size()+1; j++) {
+    ged_exec_draw(gedp, (int)(paths.size()+1), av);
+    for (size_t j = 0; j < paths.size()+1; j++) {
 	bu_free((void *)av[j], "path");
     }
     bu_free(av, "av");
@@ -351,21 +343,19 @@ CADViewSelector::do_erase_selections()
 
     DbiState *dbis = (DbiState *)gedp->dbi_state;
     BSelectState *ss = dbis->find_selected_state(NULL);
-    if (!ss || !ss->selected.size())
+    std::vector<std::string> paths = (ss) ? ss->selected_paths() : std::vector<std::string>();
+    if (paths.empty())
 	return;
 
-    const char **av = (const char **)bu_calloc(ss->selected.size()+2, sizeof(char *), "av");
+    const char **av = (const char **)bu_calloc(paths.size()+2, sizeof(char *), "av");
     av[0] = bu_strdup("erase");
 
-    int i = 0;
-    std::unordered_map<unsigned long long, std::vector<unsigned long long>>::iterator s_it;
-    for (s_it = ss->selected.begin(); s_it != ss->selected.end(); s_it++) {
-	av[i+1] = bu_strdup(dbis->pathstr(s_it->second));
-	i++;
+    for (size_t i = 0; i < paths.size(); i++) {
+	av[i+1] = bu_strdup(paths[i].c_str());
     }
 
-    ged_exec_erase(gedp, (int)(ss->selected.size()+1), av);
-    for (size_t j = 0; j < ss->selected.size()+1; j++) {
+    ged_exec_erase(gedp, (int)(paths.size()+1), av);
+    for (size_t j = 0; j < paths.size()+1; j++) {
 	bu_free((void *)av[j], "path");
     }
     bu_free(av, "av");

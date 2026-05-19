@@ -400,9 +400,6 @@ bv_init(struct bview *gvp, struct bview_set *s)
     /* Initialize local settings */
     bv_settings_init(&gvp->gv_ls);
 
-    // TODO - unimplemented
-    gvp->gv_ls.gv_selected = NULL;
-
     /* Out of the gate we don't have any shared settings */
     gvp->gv_s = &gvp->gv_ls;
 
@@ -494,12 +491,6 @@ bv_free(struct bview *gvp)
 	bu_ptbl_free(&gvp->gv_s->gv_snap_objs);
     if (gvp->gv_s != &gvp->gv_ls)
 	bu_ptbl_free(&gvp->gv_ls.gv_snap_objs);
-
-    if (gvp->gv_ls.gv_selected) {
-	bu_ptbl_free(gvp->gv_ls.gv_selected);
-	BU_PUT(gvp->gv_ls.gv_selected, struct bu_ptbl);
-	gvp->gv_ls.gv_selected = NULL;
-    }
 
     if (gvp->callbacks) {
 	bu_ptbl_free(gvp->callbacks);

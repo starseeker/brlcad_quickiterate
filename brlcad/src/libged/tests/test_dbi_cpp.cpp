@@ -556,13 +556,13 @@ test_observer(const char *moss_g_path)
     if (ss) {
 	bool sel = ss->select("all.g/platform.r", true);
 	CHECK(sel, "select('all.g/platform.r') must return true");
-	CHECK(!ss->selected.empty(), "selected map must be non-empty after select");
+	CHECK(!ss->selected_map().empty(), "selected map must be non-empty after select");
 	CHECK(ss->state_hash_val() != 0, "state_hash_val must be non-zero with a selection");
 	auto paths = ss->selected_paths();
 	CHECK(!paths.empty(), "selected_paths() must be non-empty");
 	bool desel = ss->deselect("all.g/platform.r", true);
 	CHECK(desel, "deselect('all.g/platform.r') must return true");
-	CHECK(ss->selected.empty(), "selected map must be empty after deselect");
+	CHECK(ss->selected_map().empty(), "selected map must be empty after deselect");
 	bu_log("  PASS: SelectionSet select/deselect/state_hash_val\n");
     }
 

@@ -144,13 +144,6 @@ bv_settings_hash(struct bu_data_hash_state *state, struct bview_settings *s)
     _bv_other_state_hash(state, &s->gv_view_scale);
     _bv_interactive_rect_state_hash(state, &s->gv_rect);
 
-#if 0
-    for (size_t i = 0; i < BU_PTBL_LEN(v->gv_selected); i++) {
-	long *p = BU_PTBL_GET(v->gv_selected, i);
-	bu_data_hash_update(state, p, sizeof(long *));
-    }
-#endif
-
 }
 
 /* Phase B: callback for bv_view_objs_visit_db in bv_hash. */
