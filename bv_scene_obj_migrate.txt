@@ -326,6 +326,40 @@ Tasks by library:
 Exit criteria:
 - No new code relies on bsg_settings as the canonical semantic type.
 
+Phase 1 execution update - 2026-05-19
+------------------------------------
+Status:
+- PARTIAL, with the settings compatibility layer now shifted further toward the
+  intended semantic split.
+
+Completed in this pass:
+- `src/libbsg/settings.c` now treats `bsg_settings` as a compatibility snapshot
+  synthesized from the semantic owners that already exist:
+  - appearance-backed fields (`draw_mode`, `line_width`,
+    `arrow_tip_length`, `arrow_tip_width`,
+    `draw_solid_lines_only`, `draw_non_subtract_only`)
+  - material-backed fields (`transparency`, `color_override`, explicit
+    override color)
+- `bsg_node_settings_set()` now pushes those semantic fields through the
+  appearance/material sidecars while preserving `mixed_modes` in the
+  compatibility bundle.
+- `bsg_settings_sync()` now copies `mixed_modes`, so the compatibility helper no
+  longer drops the producer-side add-mode flag.
+- `src/libged/view/gobjs.cpp` and `src/libged/draw.cpp` now route group/child
+  settings propagation through the `bsg_node_settings_get/set()` compatibility
+  boundary instead of syncing raw `s_os` storage directly.
+- `src/libbsg/tests/test_settings.c` now covers the semantic sidecar mapping and
+  the `mixed_modes` sync path.
+
+What remains for Phase 1:
+- `mixed_modes` is still stored only in the legacy compatibility bundle; it has
+  not yet been promoted into a dedicated draw-policy/request object.
+- Transparency is still mirrored through `bsg_appearance` for compatibility
+  even though the preferred semantic owner is `bsg_material`.
+- Additional callers still construct and pass `struct bsg_settings` snapshots as
+  operational state; those broader API-shape cleanups belong to subsequent
+  follow-on work after this compatibility tightening.
+
 
 Phase 2 - Eliminate Remaining Raw s_os/s_local_os Consumers
 -----------------------------------------------------------

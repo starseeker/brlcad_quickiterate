@@ -26,8 +26,9 @@
  *  12B - bsg_settings storage directly carries all fields.
  *  12C - bsg_node_settings_get reads from s_os when set.
  *  12D - bsg_node_settings_get reads from s_local_os when s_os is NULL.
- *  12E - bsg_node_settings_set writes to s_local_os and updates s_os.
- *  12F - NULL-safety: all public functions tolerate NULL arguments.
+ *  12E - bsg_node_settings_set writes to s_local_os, updates s_os, and syncs semantic sidecars.
+ *  12F - bsg_settings_sync copies mixed_modes.
+ *  12G - NULL-safety: all public functions tolerate NULL arguments.
  */
 
 #include "common.h"
@@ -39,6 +40,8 @@
 #include "bu/malloc.h"
 #include "bv/defines.h"
 #include "bv/util.h"
+#include "bsg/appearance.h"
+#include "bsg/material.h"
 #include "bsg/node_shape.h"
 #include "bsg/settings.h"
 #include "bsg/util.h"
@@ -240,6 +243,7 @@ test_settings_set(void)
     s.color_override  = 1;
     s.draw_mode       = 2;
     s.line_width      = 5;
+    s.mixed_modes     = 1;
 
     bsg_node_settings_set(shape, &s);
 
@@ -256,6 +260,24 @@ test_settings_set(void)
 	FAIL("draw_mode not written");
     if (obj->s_local_os.line_width != 5)
 	FAIL("line_width not written");
+    if (obj->s_local_os.mixed_modes != 1)
+	FAIL("mixed_modes not written");
+    struct bsg_appearance a;
+    struct bsg_material m;
+    bsg_appearance_init(&a);
+    bsg_material_init(&m);
+    if (!bsg_node_appearance_get((const bsg_node *)shape, &a))
+	FAIL("appearance sidecar not populated");
+    if (!bsg_node_material_get((const bsg_node *)shape, &m))
+	FAIL("material sidecar not populated");
+    if (a.draw_mode != 2 || a.line_width != 5)
+	FAIL("appearance semantic mapping");
+    if (!m.use_override_color)
+	FAIL("material override mapping");
+    if (m.override_rgb[0] != 99 || m.override_rgb[1] != 88 || m.override_rgb[2] != 77)
+	FAIL("material override color mapping");
+    if (m.transparency < 0.29 || m.transparency > 0.31)
+	FAIL("material transparency mapping");
 
     /* Round-trip via getter */
     struct bsg_settings out;
@@ -263,6 +285,9 @@ test_settings_set(void)
     if (out.color[0] != 99)       FAIL("getter after set color[0]");
     if (out.color_override != 1)  FAIL("getter after set color_override");
     if (out.line_width != 5)      FAIL("getter after set line_width");
+    if (out.mixed_modes != 1)     FAIL("getter after set mixed_modes");
+    if (out.transparency < 0.29 || out.transparency > 0.31)
+	FAIL("getter after set transparency");
 
     bsg_shape_destroy(shape);
     bsg_scene_root_destroy(root);
@@ -273,13 +298,43 @@ test_settings_set(void)
 
 
 /* ------------------------------------------------------------------ */
-/* Test 12F: NULL safety                                                */
+/* Test 12F: bsg_settings_sync                                          */
+/* ------------------------------------------------------------------ */
+
+static int
+test_settings_sync(void)
+{
+    printf("=== Test 12F: bsg_settings_sync ===\n");
+
+    struct bsg_settings dest;
+    struct bsg_settings src;
+    bsg_settings_init(&dest);
+    bsg_settings_init(&src);
+
+    src.mixed_modes = 1;
+    src.draw_mode = 4;
+
+    int changed = bsg_settings_sync(&dest, &src);
+    if (!changed)
+	FAIL("settings_sync should report change");
+    if (dest.mixed_modes != 1)
+	FAIL("mixed_modes sync");
+    if (dest.draw_mode != 4)
+	FAIL("draw_mode sync");
+
+    PASS("settings_sync");
+    return 0;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Test 12G: NULL safety                                                */
 /* ------------------------------------------------------------------ */
 
 static int
 test_null_safety(void)
 {
-    printf("=== Test 12F: NULL safety ===\n");
+    printf("=== Test 12G: NULL safety ===\n");
 
     struct bsg_settings s;
     bsg_settings_init(&s);
@@ -313,6 +368,7 @@ main(int argc, char *argv[])
     failures += test_get_from_s_os();
     failures += test_get_from_s_local_os();
     failures += test_settings_set();
+    failures += test_settings_sync();
     failures += test_null_safety();
 
     if (failures) {
