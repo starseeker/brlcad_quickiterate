@@ -499,18 +499,11 @@ Recommended Immediate Next Steps
 
 Decision Point
 --------------
-If the project is willing to remove bv_scene_obj completely, that is the better
-long-term direction.  In that case:
+The project is willing to remove bv_scene_obj completely - it is the better
+long-term direction. Accordingly: 
 
 - do not optimize for preserving bv_scene_obj as a permanent storage type
 - use compatibility shims only to ease the transition
 - favor BSG-native ownership, allocation, and payload APIs even if they require
   more short-term changes
 
-If the project wants a lower-risk intermediate landing first, stop after:
-- removing raw settings users
-- moving bsg_settings out of bv/defines.h
-- storing legacy compatibility state outside the public bv_scene_obj layout
-
-That gives a useful partial win without requiring immediate full elimination of
-bv_scene_obj.
