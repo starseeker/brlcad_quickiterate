@@ -1050,7 +1050,7 @@ bv_update(struct bview *gvp)
 }
 
 static int
-_bsg_settings_sync(struct bsg_settings *dest, struct bsg_settings *src)
+_bsg_settings_sync(struct bsg_settings *dest, const struct bsg_settings *src)
 {
     int ret = 0;
     if (!dest || !src)
@@ -1094,6 +1094,43 @@ _bsg_settings_sync(struct bsg_settings *dest, struct bsg_settings *src)
     }
 
     return ret;
+}
+
+int
+bv_scene_obj_settings_get(const struct bv_scene_obj *s, struct bsg_settings *out)
+{
+    if (!s || !out)
+	return 0;
+
+    *out = (s->s_os) ? *s->s_os : s->s_local_os;
+    return 1;
+}
+
+int
+bv_scene_obj_settings_local_get(const struct bv_scene_obj *s, struct bsg_settings *out)
+{
+    if (!s || !out)
+	return 0;
+
+    *out = s->s_local_os;
+    return 1;
+}
+
+void
+bv_scene_obj_settings_set(struct bv_scene_obj *s, const struct bsg_settings *settings)
+{
+    if (!s || !settings)
+	return;
+
+    _bsg_settings_sync(&s->s_local_os, settings);
+    s->s_os = &s->s_local_os;
+}
+
+void
+bv_scene_obj_settings_reset(struct bv_scene_obj *s)
+{
+    struct bsg_settings defaults = BSG_SETTINGS_INIT;
+    bv_scene_obj_settings_set(s, &defaults);
 }
 
 int
@@ -1978,11 +2015,10 @@ bv_view_obj_set_line_width(struct bv_scene_obj *s, int line_width)
 	line_width = 0;
     int handled = (_bv_view_obj_line_width_hook) ? _bv_view_obj_line_width_hook(s, line_width) : 0;
     if (!handled) {
-	/* By convention bv_obj_reset() sets s_os = &s->s_local_os, but other
-	 * code paths in this file defensively fall back to s_local_os when
-	 * s_os is unset; do the same here. */
-	struct bsg_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
-	os->line_width = line_width;
+	struct bsg_settings os = BSG_SETTINGS_INIT;
+	(void)bv_scene_obj_settings_get(s, &os);
+	os.line_width = line_width;
+	bv_scene_obj_settings_set(s, &os);
     }
     s->s_changed++;
     bv_obj_stale(s);
@@ -2079,9 +2115,7 @@ bv_obj_reset(struct bv_scene_obj *s)
 	BU_VLS_INIT(&s->bsg.bsg_name);
     bu_vls_trunc(&s->bsg.bsg_name, 0);
 
-    struct bsg_settings defaults = BSG_SETTINGS_INIT;
-    _bsg_settings_sync(&s->s_local_os, &defaults);
-    s->s_os = &s->s_local_os;
+    bv_scene_obj_settings_reset(s);
     s->s_inherit_settings = 0;
 
     MAT_IDN(s->s_mat);
@@ -2531,7 +2565,9 @@ bv_view_objs_visit_db(struct bview *v,
 void
 bv_obj_sync(struct bv_scene_obj *dest, struct bv_scene_obj *src)
 {
-    _bsg_settings_sync(dest->s_os, src->s_os);
+    struct bsg_settings src_settings = BSG_SETTINGS_INIT;
+    if (bv_scene_obj_settings_get(src, &src_settings))
+	bv_scene_obj_settings_set(dest, &src_settings);
     VMOVE(dest->s_center, src->s_center);
     VMOVE(dest->s_color, src->s_color);
     VMOVE(dest->bmin, src->bmin);

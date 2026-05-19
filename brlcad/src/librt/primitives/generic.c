@@ -32,6 +32,7 @@
 
 
 #include "bn.h"
+#include "bv/util.h"
 #include "raytrace.h"
 
 /**
@@ -330,7 +331,10 @@ rt_generic_scene_obj(struct bv_scene_obj *s, struct directory *dp, struct db_i *
     }
 #endif
 
-    switch (s->s_os->draw_mode) {
+    struct bsg_settings s_settings = BSG_SETTINGS_INIT;
+    (void)bv_scene_obj_settings_get(s, &s_settings);
+
+    switch (s_settings.draw_mode) {
         case 2:
         case 4:
 	    // Shaded mode and hidden line mode need shaded eval (although they
@@ -338,7 +342,8 @@ rt_generic_scene_obj(struct bv_scene_obj *s, struct directory *dp, struct db_i *
 	    // in case of tessellation failure.
 	    ret = rt_shaded_plot(s, &intern, ttol, tol);
             if (ret != BRLCAD_OK) {
-                s->s_os->draw_mode = 0;
+                s_settings.draw_mode = 0;
+		bv_scene_obj_settings_set(s, &s_settings);
 		ret = rt_wireframe_plot(s, &intern, ttol, tol, v);
 	    }
             break;
@@ -356,7 +361,8 @@ rt_generic_scene_obj(struct bv_scene_obj *s, struct directory *dp, struct db_i *
             break;
         default:
             // Default to wireframe
-            s->s_os->draw_mode = 0;
+            s_settings.draw_mode = 0;
+	    bv_scene_obj_settings_set(s, &s_settings);
             ret = rt_wireframe_plot(s, &intern, ttol, tol, v);
             break;
     }

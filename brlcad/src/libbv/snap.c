@@ -181,15 +181,16 @@ bv_snap_lines_3d(point_t *out_pt, struct bview *v, point_t *p)
 	    for (size_t i = 0; i < BU_PTBL_LEN(&gv_s->gv_snap_objs); i++) {
 		struct bv_scene_obj *so = (struct bv_scene_obj *)BU_PTBL_GET(&gv_s->gv_snap_objs, i);
 		if (gv_s->gv_snap_flags) {
-		    if (gv_s->gv_snap_flags == BV_SNAP_DB && (!(so->bsg.bsg_kind & BV_DB_OBJS)))
-			continue;
-		    if (gv_s->gv_snap_flags == BV_SNAP_VIEW && (!(so->bsg.bsg_kind & BV_VIEW_OBJS)))
-			continue;
-		}
-		struct bsg_settings *s_os = (so->s_os) ? so->s_os : &so->s_local_os;
-		s->ctol_sq = line_tol_sq(v, (s_os->line_width) ? s_os->line_width : 1);
-		ret += _find_closest_obj_point(s, p, so);
+		if (gv_s->gv_snap_flags == BV_SNAP_DB && (!(so->bsg.bsg_kind & BV_DB_OBJS)))
+		    continue;
+		if (gv_s->gv_snap_flags == BV_SNAP_VIEW && (!(so->bsg.bsg_kind & BV_VIEW_OBJS)))
+		    continue;
 	    }
+	    struct bsg_settings so_settings = BSG_SETTINGS_INIT;
+	    (void)bv_scene_obj_settings_get(so, &so_settings);
+	    s->ctol_sq = line_tol_sq(v, (so_settings.line_width) ? so_settings.line_width : 1);
+	    ret += _find_closest_obj_point(s, p, so);
+	}
 	} else {
 	    if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_DB)) {
 		/* Phase B: use bv_view_objs_visit_db to traverse BSG tree when

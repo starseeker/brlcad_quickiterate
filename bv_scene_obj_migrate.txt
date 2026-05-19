@@ -374,8 +374,9 @@ What remains for Phase 1:
   tightening.
 - The remaining semantic-owner cleanup items are now assigned to later phases:
   - `mixed_modes` promotion into a dedicated draw-policy/request object moves to
-    Phase 2, where the inherited settings snapshots are already scheduled to be
-    split into independent appearance/material/policy flows.
+    Phase 4, where replacing `bv_scene_obj`-owned settings storage already
+    requires the compatibility bundle to be split into independent
+    appearance/material/policy flows.
   - transparency mirroring through `bsg_appearance` moves to Phase 4, where the
     storage transition already calls for transparency to resolve solely through
     `bsg_material`.
@@ -396,30 +397,73 @@ libbv:
   hashing helper if still needed.
 
 libdm:
-- view.c: retire inherited `struct bsg_settings` snapshots once appearance,
-  material, and any future draw-policy object can be threaded independently.
-- Promote `mixed_modes` out of the legacy settings bundle while doing that split,
-  so inherited draw state carries an explicit draw-policy/request object instead
-  of a compatibility snapshot field.
+- Moved to Phase 4 in the 2026-05-19 execution update:
+  - view.c: retire inherited `struct bsg_settings` snapshots once appearance,
+    material, and any future draw-policy object can be threaded independently.
+  - Promote `mixed_modes` out of the legacy settings bundle while doing that
+    split, so inherited draw state carries an explicit draw-policy/request
+    object instead of a compatibility snapshot field.
 
 libged:
-- draw.cpp: reduce parent/child settings bundle propagation to semantic
-  appearance/material (plus future draw-policy) transfer where bundle copy is no
-  longer needed.
-- draw/draw.c and dbi_state.cpp: stop using transient `struct bsg_settings`
-  snapshots for draw-mode/transparency/line-width updates once the caller-side
-  request shape is split.
-- Remaining command/API layers that still speak `struct bsg_settings` should be
-  limited to true compatibility/bundle-copy cases only.
+- Moved to Phase 4 in the 2026-05-19 execution update:
+  - draw.cpp: reduce parent/child settings bundle propagation to semantic
+    appearance/material (plus future draw-policy) transfer where bundle copy is
+    no longer needed.
+  - draw/draw.c and dbi_state.cpp: stop using transient `struct bsg_settings`
+    snapshots for draw-mode/transparency/line-width updates once the caller-side
+    request shape is split.
+  - Remaining command/API layers that still speak `struct bsg_settings` should
+    be limited to true compatibility/bundle-copy cases only.
 
 Tasks:
-- Provide missing BSG getters/setters needed by those callers.
+- Provide missing BSG getters/setters or compatibility shims needed by those
+  callers.
 - Convert each caller and validate behavior after each cluster.
 - Add regression tests where existing BSG test coverage is missing.
 
 Exit criteria:
 - Non-test code outside compatibility modules no longer reads or writes
   s_os/s_local_os directly.
+
+Phase 2 execution update - 2026-05-19
+------------------------------------
+Status:
+- DONE for the direct raw-storage caller cleanup originally targeted here.
+- The broader inherited-settings request-shape split is still pending, but it is
+  now tracked under Phase 4 rather than Phase 2 because it no longer blocks raw
+  `s_os` / `s_local_os` access removal.
+
+Completed in this pass:
+- Added compatibility helper accessors in `include/bv/util.h` /
+  `src/libbv/util.cpp` for effective/local settings reads plus reset/set flows:
+  - `bv_scene_obj_settings_get()`
+  - `bv_scene_obj_settings_local_get()`
+  - `bv_scene_obj_settings_set()`
+  - `bv_scene_obj_settings_reset()`
+- Converted the remaining non-test raw callers over to those helpers:
+  - `src/libbv/snap.c`
+  - `src/libbv/hash.c`
+  - `src/libbv/util.cpp`
+  - `src/librt/primitives/generic.c`
+  - `src/libtclcad/view/axes.c`
+- Expanded `src/libbsg/tests/test_settings.c` so the compatibility helper
+  boundary is regression-tested.
+
+Resulting boundary:
+- Non-test direct `s_os` / `s_local_os` touches are now limited to:
+  - `src/libbsg/appearance.c`
+  - `src/libbsg/material.c`
+  - `src/libbsg/settings.c`
+  - `src/libbv/util.cpp` (the compatibility shim implementation itself)
+- Those remaining accesses are the semantic/storage-owner or compatibility-shim
+  implementations rather than scattered callers.
+
+Moved to subsequent phases:
+- The libdm/libged inherited settings snapshot plumbing is no longer a raw
+  storage access problem; it is the larger compatibility-bundle retirement and
+  request-shape split problem.
+- That work now belongs to Phase 4 alongside the storage replacement, including
+  `mixed_modes` promotion into a dedicated draw-policy/request object.
 
 
 Phase 3 - Introduce a Compatibility Header Boundary
@@ -677,16 +721,13 @@ Recommended practical order:
 
 Recommended Immediate Next Steps
 --------------------------------
-1. Convert the remaining raw settings users:
-   - src/libbv/snap.c
-   - src/libbv/util.cpp
-   - src/libbv/hash.c
+1. Start the Phase 4 storage/request-shape work:
    - src/libdm/view.c
    - src/libged/dbi_state.cpp
    - src/libged/draw.cpp (parent/child settings propagation only)
    - src/libged/view/gobjs.cpp
 
-2. Promote `mixed_modes` into the Phase 2 draw-policy/request split so inherited
+2. Promote `mixed_modes` into the Phase 4 draw-policy/request split so inherited
    draw state no longer depends on the legacy compatibility bundle.
 
 3. Choose the storage transition mechanism:
