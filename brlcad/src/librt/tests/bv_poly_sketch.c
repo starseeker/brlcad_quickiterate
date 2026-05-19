@@ -37,9 +37,17 @@ static void
 temp_g_path(char *ofile, const char *prefix)
 {
     char tmpname[MAXPATHLEN] = {0};
+    if (strlen(prefix) + 128 >= MAXPATHLEN)
+	bu_exit(EXIT_FAILURE, "Temporary file prefix too long: %s\n", prefix);
     bu_strlcpy(tmpname, prefix, MAXPATHLEN);
     bu_temp_file_name(tmpname, MAXPATHLEN);
     bu_dir(ofile, MAXPATHLEN, BU_DIR_TEMP, tmpname, NULL);
+}
+
+static int
+points_match(point_t a, point_t b)
+{
+    return NEAR_ZERO(DIST_PNT_PNT(a, b), BN_TOL_DIST);
 }
 
 static void
@@ -61,7 +69,7 @@ compare_scene_polygons(struct bv_scene_obj *orig, struct bv_scene_obj *rt, const
 	    int match = 1;
 	    for (size_t j = 0; j < pcnt; j++) {
 		size_t rj = (offset + j) % pcnt;
-		if (!NEAR_ZERO(DIST_PNT_PNT(op->polygon.contour[i].point[j], rp->polygon.contour[i].point[rj]), BN_TOL_DIST)) {
+		if (!points_match(op->polygon.contour[i].point[j], rp->polygon.contour[i].point[rj])) {
 		    match = 0;
 		    break;
 		}
@@ -74,7 +82,7 @@ compare_scene_polygons(struct bv_scene_obj *orig, struct bv_scene_obj *rt, const
 	    match = 1;
 	    for (size_t j = 0; j < pcnt; j++) {
 		size_t rj = (offset + pcnt - j) % pcnt;
-		if (!NEAR_ZERO(DIST_PNT_PNT(op->polygon.contour[i].point[j], rp->polygon.contour[i].point[rj]), BN_TOL_DIST)) {
+		if (!points_match(op->polygon.contour[i].point[j], rp->polygon.contour[i].point[rj])) {
 		    match = 0;
 		    break;
 		}
