@@ -52,10 +52,11 @@ int
 qged_post_opendb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp), void *ctx)
 {
     QgEdApp *a = (QgEdApp *)ctx;
-    emit a->dbi_update(a->mdl->gedp->dbip);
+    if (a && a->mdl && a->mdl->gedp)
+	emit a->dbi_update(a->mdl->gedp->dbip);
     if (!a->w)
 	return BRLCAD_OK;
-    if (!a->mdl->gedp->dbip) {
+    if (!a->mdl || !a->mdl->gedp || !a->mdl->gedp->dbip) {
 	a->w->statusBar()->showMessage("open failed");
 	return BRLCAD_OK;
     }
@@ -74,7 +75,7 @@ int
 qged_post_closedb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp), void *ctx)
 {
     QgEdApp *a = (QgEdApp *)ctx;
-    if (a && a->mdl)
+    if (a && a->mdl && a->mdl->gedp)
 	emit a->dbi_update(a->mdl->gedp->dbip);
     return BRLCAD_OK;
 }
@@ -642,6 +643,12 @@ QgEdApp::run_qcmd(const QString &command)
     char **av = (char **)bu_calloc(strlen(input) + 1, sizeof(char *), "argv array");
     int ac = bu_argv_from_string(av, strlen(input), input);
     struct bu_vls msg = BU_VLS_INIT_ZERO;
+    auto cleanup_qcmd = [&]() {
+	bu_free((void *)cmd, "cmd");
+	bu_vls_free(&msg);
+	bu_free(input, "input copy");
+	bu_free(av, "input argv");
+    };
 
     if (ac > 0 && BU_STR_EQUAL(av[0], "plugins")) {
 	QString out;
@@ -658,10 +665,7 @@ QgEdApp::run_qcmd(const QString &command)
 		console->printString(err);
 	    console->prompt("$ ");
 	}
-	bu_free((void *)cmd, "cmd");
-	bu_vls_free(&msg);
-	bu_free(input, "input copy");
-	bu_free(av, "input argv");
+	cleanup_qcmd();
 	return;
     }
 
@@ -689,10 +693,7 @@ QgEdApp::run_qcmd(const QString &command)
 	bu_vls_trunc(mdl->gedp->ged_result_str, 0);
     }
 
-    bu_free((void *)cmd, "cmd");
-    bu_vls_free(&msg);
-    bu_free(input, "input copy");
-    bu_free(av, "input argv");
+    cleanup_qcmd();
 }
 
 void
