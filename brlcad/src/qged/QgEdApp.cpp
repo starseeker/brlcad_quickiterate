@@ -206,9 +206,9 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
 	}
 	bu_log("%s", msg.toLocal8Bit().constData());
     };
-    /* bu_dir(NULL, ...) returns a static buffer, so copy it immediately. */
-    const char *plugin_dir = bu_dir(NULL, 0, BU_DIR_LIBEXEC, "qged", NULL);
-    QString plugin_dir_path = (plugin_dir) ? QString::fromLocal8Bit(plugin_dir) : QString();
+    char plugin_dir[MAXPATHLEN] = {0};
+    bu_dir(plugin_dir, MAXPATHLEN, BU_DIR_LIBEXEC, "qged", NULL);
+    QString plugin_dir_path = QString::fromLocal8Bit(plugin_dir);
     QStringList plugin_search_dirs;
     if (!plugin_dir_path.isEmpty())
 	plugin_search_dirs.append(plugin_dir_path);
@@ -377,10 +377,6 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
 }
 
 QgEdApp::~QgEdApp() {
-    m_plugin_context.gedAccessor = std::function<struct ged *()>();
-    m_plugin_context.viewAccessor = std::function<struct bview *()>();
-    m_plugin_context.model = NULL;
-    m_plugin_context.notifier = NULL;
     delete mdl;
     // TODO - free rt_vlfree?
 }
@@ -651,6 +647,7 @@ QgEdApp::run_qcmd(const QString &command)
 	QString out;
 	QString err;
 	QStringList plugin_argv;
+	plugin_argv.reserve(ac - 1);
 	for (int i = 1; i < ac; ++i)
 	    plugin_argv.append(QString::fromLocal8Bit(av[i]));
 	QgPluginCommands::run(m_plugin_manager, plugin_argv, &out, &err);
