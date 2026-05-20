@@ -202,7 +202,7 @@ QPolyCreate::QPolyCreate()
     circle_mode->setChecked(true);
     toplevel_config(true);
 
-    pcf = new QPolyCreateFilter();
+    pcf = new QgPolyCreateFilter();
 }
 
 QPolyCreate::~QPolyCreate()

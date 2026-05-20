@@ -109,9 +109,8 @@
 
 class QTCAD_EXPORT QgModel;
 
-class QTCAD_EXPORT QgItem
-{
-    public:
+class QTCAD_EXPORT QgItem {
+public:
 	explicit QgItem(unsigned long long hash, QgModel *ictx);
 	~QgItem();
 
@@ -124,9 +123,9 @@ class QTCAD_EXPORT QgItem
 	 * for this instance.
 	 */
 	unsigned long long ihash = 0;
-	QgModel *mdl = NULL;
+	QgModel *mdl = nullptr;
 
-	QgItem *parentItem = NULL;
+	QgItem *parentItem = nullptr;
 	std::vector<unsigned long long> path_items();
 	unsigned long long path_hash();
 
@@ -162,7 +161,7 @@ class QTCAD_EXPORT QgItem
 	// displaying while librt does work on the instances.
 	struct bu_vls name = BU_VLS_INIT_ZERO;
 	db_op_t op = DB_OP_UNION;
-	struct directory *dp = NULL;
+	struct directory *dp = nullptr;
 	QImage icon;
 	//int draw_state = 0;
 	//bool select_state = false;
@@ -206,17 +205,18 @@ class QTCAD_EXPORT QgItem
  * created lazily in response to view requests, working from a seed set created
  * from the top level objects in a database.
  */
-class QTCAD_EXPORT QgModel : public QAbstractItemModel
-{
-    Q_OBJECT
+class QTCAD_EXPORT QgModel : public QAbstractItemModel {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(QgModel)
 
-    public:
-	explicit QgModel(QObject *p = NULL, const char *npath = NULL);
+
+public:
+	explicit QgModel(QObject *p = nullptr, const char *npath = nullptr);
 	~QgModel();
 
 	// .g Db interface and containers
 	int run_cmd(struct bu_vls *msg, int argc, const char **argv);
-	struct ged *gedp = NULL;
+	struct ged *gedp = nullptr;
 
 	// Updates to .g models are potentially far-reaching - in principle, a
 	// single GED command execution can change every item in the database.
@@ -243,13 +243,13 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel
 	QgItem *getItem(const QModelIndex &index) const;
 
 	enum CADDataRoles {
-	    BoolInternalRole = Qt::UserRole + 1000,
-	    BoolDisplayRole = Qt::UserRole + 1001,
-	    DirectoryInternalRole = Qt::UserRole + 1002,
-	    TypeIconDisplayRole = Qt::UserRole + 1003,
-	    HighlightDisplayRole = Qt::UserRole + 1004,
-	    DrawnDisplayRole = Qt::UserRole + 1005,
-	    SelectDisplayRole = Qt::UserRole + 1006
+		BoolInternalRole = Qt::UserRole + 1000,
+		BoolDisplayRole = Qt::UserRole + 1001,
+		DirectoryInternalRole = Qt::UserRole + 1002,
+		TypeIconDisplayRole = Qt::UserRole + 1003,
+		HighlightDisplayRole = Qt::UserRole + 1004,
+		DrawnDisplayRole = Qt::UserRole + 1005,
+		SelectDisplayRole = Qt::UserRole + 1006
 	};
 
 	// Return data used for displaying each individual entry
@@ -292,7 +292,7 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel
 	std::unordered_set<struct directory *> changed_dp;
 
 	// Convenience container holding all active QgItems
-	std::unordered_set<QgItem *> *items = NULL;
+	std::unordered_set<QgItem *> *items = nullptr;
 
 	// Sorted QgItem pointers corresponding to the tops instances
 	std::vector<QgItem *> tops_items;
@@ -301,7 +301,7 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel
 	// listing or the full object listing as the "seed" set
 	int flatten_hierarchy = 0;
 
-    signals:
+signals:
 	// Emitted if the commands think they may have changed the database
 	// structure in some way.
 	void mdl_changed_db(void *);
@@ -322,7 +322,7 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel
 	void opened_item(QgItem *);
 
 
-    public slots:
+public slots:
 	int draw_action();
 	int draw(const char *path);
 	int erase_action();
@@ -331,7 +331,7 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel
 	void item_collapsed(const QModelIndex &index);
 	void item_expanded(const QModelIndex &index);
 
-    private:
+private:
 	int NodeRow(QgItem *node) const;
 	QModelIndex index(int row, int column, const QModelIndex &p) const override;
 	QModelIndex parent(const QModelIndex &child) const override;
@@ -340,8 +340,8 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel
 	void item_rebuild(QgItem *item);
 
 	QgItem *rootItem;
-	struct bview *empty_gvp = NULL;
-	struct db_i *model_dbip = NULL;
+	struct bview *empty_gvp = nullptr;
+	struct db_i *model_dbip = nullptr;
 };
 
 #endif //QGMODEL_H

@@ -102,7 +102,7 @@ class QPolyCreate : public QWidget
 	bool do_bool = false;
 
 	QgPolyFilter *cf = NULL;
-	QPolyCreateFilter *pcf;
+	QgPolyCreateFilter *pcf;
 };
 
 #endif //QPOLYCREATE_H

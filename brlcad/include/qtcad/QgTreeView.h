@@ -39,27 +39,28 @@
 #include "qtcad/QgModel.h"
 
 
-class QTCAD_EXPORT QgTreeView : public QTreeView
-{
-    Q_OBJECT
+class QTCAD_EXPORT QgTreeView : public QTreeView {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(QgTreeView)
 
-    public:
+
+public:
 	QgTreeView(QWidget *pparent, QgModel *treemodel);
 	~QgTreeView() {};
 
 	QModelIndex selected();
 
 	void drawBranches(QPainter* painter, const QRect& rrect, const QModelIndex& index) const override;
-	QgModel *m = NULL;
+	QgModel *m = nullptr;
 
-    protected:
+protected:
 	void resizeEvent(QResizeEvent *pevent) override;
 	void mousePressEvent(QMouseEvent *e) override;
 
-    signals:
+signals:
 	void view_changed(unsigned long long);
 
-    public slots:
+public slots:
 	void tree_column_size(const QModelIndex &index);
 	void context_menu(const QPoint &point);
 	//void expand_path(QString path);
@@ -71,22 +72,26 @@ class QTCAD_EXPORT QgTreeView : public QTreeView
 	void qgitem_select_sync(QgItem *);
 	void do_view_update(unsigned long long);
 
-    private:
+private:
 	void header_state();
 	QModelIndex cached_selection_idx = QModelIndex();
 };
 
-class QTCAD_EXPORT gObjDelegate : public QStyledItemDelegate
-{
-    Q_OBJECT
+class QTCAD_EXPORT gObjDelegate : public QStyledItemDelegate {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(gObjDelegate)
 
-    public:
-	gObjDelegate(QgTreeView *tv = NULL, QWidget *pparent = 0) : QStyledItemDelegate(pparent) {cadtreeview = tv  ;}
+
+public:
+	gObjDelegate(QgTreeView *tv = nullptr, QWidget *pparent = 0) : QStyledItemDelegate(pparent)
+	{
+		cadtreeview = tv  ;
+	}
 
 	void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const;
 	QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const;
 
-	QgTreeView *cadtreeview = NULL;
+	QgTreeView *cadtreeview = nullptr;
 };
 
 #endif //QGTREEVIEW_H
