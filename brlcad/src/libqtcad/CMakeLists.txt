@@ -51,11 +51,16 @@ set(
   QgKeyVal.cpp
   QgMeasureFilter.cpp
   QgModel.cpp
+  QgPaletteController.cpp
+  QgPluginCommands.cpp
+  QgPluginContext.cpp
+  QgPluginManager.cpp
   QgPolyFilter.cpp
   QgQuadView.cpp
   QgSW.cpp
   QgSelectFilter.cpp
   QgSketchFilter.cpp
+  QgToolBase.cpp
   QgToolPalette.cpp
   QgTreeSelectionModel.cpp
   QgTreeView.cpp
@@ -87,11 +92,15 @@ set(
   QgKeyVal
   QgMeasureFilter
   QgModel
+  QgPaletteController
+  QgPluginContext
+  QgPluginManager
   QgPolyFilter
   QgQuadView
   QgSW
   QgSelectFilter
   QgSketchFilter
+  QgToolBase
   QgToolPalette
   QgTreeSelectionModel
   QgTreeView
