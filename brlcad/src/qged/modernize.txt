@@ -74,8 +74,13 @@ Still using the legacy qged path:
   plugins/polygon, plugins/view/info, plugins/view/measure,
   plugins/view/select, plugins/view/settings, and plugins/edit/ell.
 * qged does not yet create a QgPluginContext, own a QgPluginManager, wire
-  QgPluginCommands into the console, or use qged-owned category strings such as
-  "qged.view" and "qged.object".
+  qged-owned category strings such as "qged.view" and "qged.object".
+* QgEdApp now owns a QgPluginNotifier, QgPluginContext, and QgPluginManager.
+  The manager scans qged's libexec plugin directory for Qt plugins while the
+  legacy palette loader remains active for existing qged_plugin_info plugins.
+* qged now routes console `plugins ...` commands through libqtcad's
+  QgPluginCommands and forwards existing db/view/settings notifications through
+  QgPluginNotifier, but no in-tree qged plugins have been converted yet.
 * The current qged_plugin CMake helper still creates plain shared libraries; it
   does not yet manage Qt plugin metadata JSON, plugin IIDs, AUTOMOC needs, or
   category/version metadata.

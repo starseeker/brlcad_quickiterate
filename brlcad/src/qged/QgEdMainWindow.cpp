@@ -50,8 +50,11 @@ qged_dm_during_clbk(int ac, const char **av, void *u1, void *u2)
         return BRLCAD_OK;
 
     QgEdApp *ap = (QgEdApp *)qApp;
-    if (ap)
+    if (ap) {
+	if (ap->pluginNotifier())
+	    emit ap->pluginNotifier()->settingsChanged();
         emit ap->view_update(QG_VIEW_REFRESH);
+    }
 
     return BRLCAD_OK;
 }
