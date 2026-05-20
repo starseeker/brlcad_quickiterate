@@ -71,7 +71,6 @@ public:
 	void get_viewport_image(QImage &img);
 
 	void aet(double a, double e, double t);
-	/* nullptr is accepted to clear any externally supplied view binding. */
 	int currentView() const
 	{
 		return current;
@@ -80,6 +79,7 @@ public:
 	{
 		current = active;
 	}
+	/* nullptr is accepted to clear any externally supplied view binding. */
 	void set_view(struct bview *nv);
 	void setDisplayManagerSet(struct bu_ptbl *set)
 	{

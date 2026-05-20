@@ -62,7 +62,6 @@ public:
 
 	void aet(double a, double e, double t);
 	void save_image();
-	/* nullptr is accepted to clear any externally supplied view binding. */
 	int currentView() const
 	{
 		return current;
@@ -71,6 +70,7 @@ public:
 	{
 		current = active;
 	}
+	/* nullptr is accepted to clear any externally supplied view binding. */
 	void set_view(struct bview *nv);
 	void setDisplayManagerSet(struct bu_ptbl *set)
 	{
