@@ -35,6 +35,8 @@
 #include <string.h>
 #include <time.h>
 
+#include "bsg/node.h"
+#include "bsg/payload.h"
 #include "bu/debug.h"
 #include "bu/getopt.h"
 #include "vmath.h"
@@ -1797,11 +1799,13 @@ draw_m3(struct bv_scene_obj *s)
 
     struct bigE_data dgcdp;
 
-    struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
+    struct draw_update_data_t *d = (struct draw_update_data_t *)bsg_node_user_data_get((const bsg_node *)s);
+    if (!d)
+	return BRLCAD_ERROR;
 
     dgcdp.dbip = d->dbip;
     dgcdp.do_polysolids = 0;
-    dgcdp.fp = (struct db_full_path *)s->s_path;
+    dgcdp.fp = (struct db_full_path *)bsg_node_source_path_get((const bsg_node *)s);
     dgcdp.tol = d->tol;
     dgcdp.ttol = d->ttol;
     dgcdp.vlfree = s->vlfree;
@@ -1837,6 +1841,13 @@ draw_m3(struct bv_scene_obj *s)
 	return BRLCAD_ERROR;
     }
 
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)s);
+    if (!vhead) {
+	rt_free_rti(dgcdp.rtip);
+	bu_ptbl_free(&dgcdp.leaf_list);
+	return BRLCAD_ERROR;
+    }
+
     struct region *rp;
     union E_tree *eptr;
 
@@ -1847,7 +1858,7 @@ draw_m3(struct bv_scene_obj *s)
 	if (dgcdp.num_halfs)
 	    fix_halfs(&dgcdp);
 
-	Eplot(eptr, &s->s_vlist, &dgcdp);
+	Eplot(eptr, vhead, &dgcdp);
 	free_etree(eptr, &dgcdp);
 	bu_ptbl_reset(&dgcdp.leaf_list);
     }

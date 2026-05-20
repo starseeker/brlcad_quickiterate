@@ -45,6 +45,7 @@
 #include "bsg/appearance.h"
 #include "bsg/material.h"
 #include "bsg/node.h"
+#include "bsg/payload.h"
 #include "bsg/settings.h"
 #include "nmg.h"
 #include "rt/view.h"
@@ -53,12 +54,30 @@
 #include "../librt/librt_private.h"
 #include "./ged_private.h"
 
+static struct draw_update_data_t *
+scene_draw_update_data(const struct bv_scene_obj *s)
+{
+    return (struct draw_update_data_t *)bsg_node_user_data_get((const bsg_node *)s);
+}
+
+static struct db_full_path *
+scene_source_path(const struct bv_scene_obj *s)
+{
+    return (struct db_full_path *)bsg_node_source_path_get((const bsg_node *)s);
+}
+
+static struct directory *
+scene_directory(const struct bv_scene_obj *s)
+{
+    struct db_full_path *fp = scene_source_path(s);
+    return (fp) ? DB_FULL_PATH_CUR_DIR(fp) : (struct directory *)bsg_node_app_data_get((const bsg_node *)s);
+}
+
 static int
 prim_tess(struct bv_scene_obj *s, struct rt_db_internal *ip)
 {
-    struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
-    struct db_full_path *fp = (struct db_full_path *)s->s_path;
-    struct directory *dp = (fp) ? DB_FULL_PATH_CUR_DIR(fp) : (struct directory *)s->dp;
+    struct draw_update_data_t *d = scene_draw_update_data(s);
+    struct directory *dp = scene_directory(s);
     const struct bn_tol *tol = d->tol;
     const struct bg_tess_tol *ttol = d->ttol;
     RT_CK_DB_INTERNAL(ip);
@@ -78,7 +97,12 @@ prim_tess(struct bv_scene_obj *s, struct rt_db_internal *ip)
     }
 
     NMG_CK_REGION(r);
-    nmg_r_to_vlist(&s->s_vlist, r, NMG_VLIST_STYLE_POLYGON, s->vlfree);
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)s);
+    if (!vhead) {
+	nmg_km(m);
+	return -1;
+    }
+    nmg_r_to_vlist(vhead, r, NMG_VLIST_STYLE_POLYGON, s->vlfree);
     nmg_km(m);
 
     s->current = 1;
@@ -93,18 +117,19 @@ draw_free_data(struct bv_scene_obj *s)
     if (!s)
 	return;
 
-    if (s->s_path) {
-	struct db_full_path *sfp = (struct db_full_path *)s->s_path;
+    struct db_full_path *sfp = scene_source_path(s);
+    if (sfp) {
 	db_free_full_path(sfp);
 	BU_PUT(sfp, struct db_full_path);
+	bsg_node_source_path_set((bsg_node *)s, NULL);
     }
 
     /* free drawing info */
-    struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
+    struct draw_update_data_t *d = scene_draw_update_data(s);
     if (!d)
 	return;
     BU_PUT(d, struct draw_update_data_t);
-    s->s_i_data = NULL;
+    bsg_node_user_data_set((bsg_node *)s, NULL);
 }
 
 static void
@@ -221,15 +246,17 @@ csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int flag)
 
     // Clear out existing vlists
     struct bu_list *p;
-    while (BU_LIST_WHILE(p, bu_list, &vo->s_vlist)) {
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)vo);
+    if (!vhead)
+	return 0;
+    while (BU_LIST_WHILE(p, bu_list, vhead)) {
 	BU_LIST_DEQUEUE(p);
 	struct bv_vlist *pv = (struct bv_vlist *)p;
 	BU_FREE(pv, struct bv_vlist);
     }
 
-    struct draw_update_data_t *d = (struct draw_update_data_t *)vo->s_i_data;
-    struct db_full_path *fp = (struct db_full_path *)vo->s_path;
-    struct directory *dp = (fp) ? DB_FULL_PATH_CUR_DIR(fp) : (struct directory *)vo->dp;
+    struct draw_update_data_t *d = scene_draw_update_data(vo);
+    struct directory *dp = scene_directory(vo);
     struct db_i *dbip = d->dbip;
     struct rt_db_internal dbintern;
     RT_DB_INTERNAL_INIT(&dbintern);
@@ -239,7 +266,7 @@ csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int flag)
 	return 0;
 
     if (ip->idb_meth->ft_adaptive_plot) {
-	ip->idb_meth->ft_adaptive_plot(&vo->s_vlist, ip, d->tol, v, vo->s_size);
+	ip->idb_meth->ft_adaptive_plot(vhead, ip, d->tol, v, vo->s_size);
 	bv_obj_stale(vo);
     }
 
@@ -329,12 +356,11 @@ bot_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 	s->csg_obj = 0;
 	s->mesh_obj = 1;
 
-	struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
+	struct draw_update_data_t *d = scene_draw_update_data(s);
 	if (!d || !d->mesh_c)
 	    return;
 	struct db_i *dbip = d->dbip;
-	struct db_full_path *fp = (struct db_full_path *)s->s_path;
-	struct directory *dp = (fp) ? DB_FULL_PATH_CUR_DIR(fp) : (struct directory *)s->dp;
+	struct directory *dp = scene_directory(s);
 
 	if (!dp)
 	    return;
@@ -408,8 +434,10 @@ bot_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 	// instances in the scene can be placed with matrices, we must apply the
 	// s_mat transformation to the "baseline" LoD bbox info to get the correct
 	// box for the instance.
-	MAT4X3PNT(s->bmin, s->s_mat, lod->bmin);
-	MAT4X3PNT(s->bmax, s->s_mat, lod->bmax);
+	mat_t s_mat;
+	bsg_node_transform_get((const bsg_node *)s, s_mat);
+	MAT4X3PNT(s->bmin, s_mat, lod->bmin);
+	MAT4X3PNT(s->bmax, s_mat, lod->bmax);
 
 	// Record the necessary information for full detail information recovery.  We
 	// don't duplicate the full mesh detail in the on-disk LoD storage, since we
@@ -445,7 +473,7 @@ brep_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 {
     if (!s || !v)
 	return;
-    struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
+    struct draw_update_data_t *d = scene_draw_update_data(s);
     if (!d || !d->mesh_c)
 	return;
     bv_log(1, "brep_adaptive_plot %s[%s]", bu_vls_cstr(&s->bsg.bsg_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
@@ -456,8 +484,7 @@ brep_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
     if (!s->draw_data) {
 
 	struct db_i *dbip = d->dbip;
-	struct db_full_path *fp = (struct db_full_path *)s->s_path;
-	struct directory *dp = (fp) ? DB_FULL_PATH_CUR_DIR(fp) : (struct directory *)s->dp;
+	struct directory *dp = scene_directory(s);
 
 	if (!dp)
 	    return;
@@ -544,8 +571,10 @@ brep_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 	// instances in the scene can be placed with matrices, we must apply the
 	// s_mat transformation to the "baseline" LoD bbox info to get the correct
 	// box for the instance.
-	MAT4X3PNT(s->bmin, s->s_mat, lod->bmin);
-	MAT4X3PNT(s->bmax, s->s_mat, lod->bmax);
+	mat_t s_mat;
+	bsg_node_transform_get((const bsg_node *)s, s_mat);
+	MAT4X3PNT(s->bmin, s_mat, lod->bmin);
+	MAT4X3PNT(s->bmax, s_mat, lod->bmax);
 
 	// Record the necessary information for full detail information recovery.  We
 	// don't duplicate the full mesh detail in the on-disk LoD storage, since we
@@ -581,7 +610,10 @@ static void
 wireframe_plot(struct bv_scene_obj *s, struct bview *v, struct rt_db_internal *ip)
 {
     bv_log(1, "wireframe_plot %s[%s]", bu_vls_cstr(&s->bsg.bsg_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
-    struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
+    struct draw_update_data_t *d = scene_draw_update_data(s);
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)s);
+    if (!d || !vhead)
+	return;
     const struct bn_tol *tol = d->tol;
     const struct bg_tess_tol *ttol = d->ttol;
     s->csg_obj = 1;
@@ -590,7 +622,7 @@ wireframe_plot(struct bv_scene_obj *s, struct bview *v, struct rt_db_internal *i
     // Standard (view independent) wireframe
     if (!v || !v->gv_s->adaptive_plot_csg) {
 	if (ip->idb_meth->ft_plot) {
-	    ip->idb_meth->ft_plot(&s->s_vlist, ip, ttol, tol, s->s_v);
+	    ip->idb_meth->ft_plot(vhead, ip, ttol, tol, s->s_v);
 	    // Because this data is view independent, it only needs to be
 	    // generated once rather than per-view.
 	    s->current = 1;
@@ -607,7 +639,7 @@ wireframe_plot(struct bv_scene_obj *s, struct bview *v, struct rt_db_internal *i
     // If we've got this far, we have no adaptive plotting capability for this
     // object.  Do the normal plot rather than show nothing.
     if (ip->idb_meth->ft_plot) {
-	ip->idb_meth->ft_plot(&s->s_vlist, ip, ttol, tol, s->s_v);
+	ip->idb_meth->ft_plot(vhead, ip, ttol, tol, s->s_v);
 	// Because this data is view independent, it only needs to be
 	// generated once rather than per-view.
 	s->current = 1;
@@ -637,7 +669,7 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
     // If we have a scene object without drawing data, it is most likely
     // a container holding other objects we do need to draw.  Iterate over
     // any children and trigger their drawing operations.
-    struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
+    struct draw_update_data_t *d = scene_draw_update_data(s);
     if (!d) {
 	for (size_t i = 0; i < BU_PTBL_LEN(&s->bsg.bsg_children); i++) {
 	    struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&s->bsg.bsg_children, i);
@@ -675,10 +707,10 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
      * special handling of difficult drawing cases.  Look for those as well.
      **************************************************************************/
     struct db_i *dbip = d->dbip;
-    struct db_full_path *fp = (struct db_full_path *)s->s_path;
+    struct db_full_path *fp = scene_source_path(s);
     if (fp && fp->fp_len <= 0)
 	return;
-    struct directory *dp = (fp) ? DB_FULL_PATH_CUR_DIR(fp) : (struct directory *)s->dp;
+    struct directory *dp = scene_directory(s);
     if (!dp)
 	return;
 
@@ -708,7 +740,9 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
     struct rt_db_internal dbintern;
     RT_DB_INTERNAL_INIT(&dbintern);
     struct rt_db_internal *ip = &dbintern;
-    int ret = rt_db_get_internal(ip, dp, dbip, s->s_mat);
+    mat_t s_mat;
+    bsg_node_transform_get((const bsg_node *)s, s_mat);
+    int ret = rt_db_get_internal(ip, dp, dbip, s_mat);
     if (ret < 0)
 	return;
 
@@ -730,15 +764,15 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
     if (draw_mode > 0) {
 	switch (ip->idb_minor_type) {
 	    case DB5_MINORTYPE_BRLCAD_BOT:
-		(void)rt_bot_plot_poly(&s->s_vlist, ip, ttol, tol);
+		(void)rt_bot_plot_poly(bsg_node_vlist_head((bsg_node *)s), ip, ttol, tol);
 		goto geom_done;
 		break;
 	    case DB5_MINORTYPE_BRLCAD_POLY:
-		(void)rt_pg_plot_poly(&s->s_vlist, ip, ttol, tol);
+		(void)rt_pg_plot_poly(bsg_node_vlist_head((bsg_node *)s), ip, ttol, tol);
 		goto geom_done;
 		break;
 	    case DB5_MINORTYPE_BRLCAD_BREP:
-		(void)rt_brep_plot_poly(&s->s_vlist, dp, ip, ttol, tol, NULL);
+		(void)rt_brep_plot_poly(bsg_node_vlist_head((bsg_node *)s), dp, ip, ttol, tol, NULL);
 		goto geom_done;
 		break;
 	    default:
@@ -1026,11 +1060,13 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 	struct bv_scene_obj *s = bv_obj_get_child(dd->g);
 	struct bsg_draw_request parent_request;
 	db_path_to_vls(&s->bsg.bsg_name, path);
-	BU_GET(s->s_path, struct db_full_path);
-	db_full_path_init((struct db_full_path *)s->s_path);
-	db_dup_full_path((struct db_full_path *)s->s_path, path);
-
-	MAT_COPY(s->s_mat, *curr_mat);
+	struct db_full_path *sfp = NULL;
+	BU_GET(sfp, struct db_full_path);
+	db_full_path_init(sfp);
+	db_dup_full_path(sfp, path);
+	bsg_node_source_path_set((bsg_node *)s, (void *)sfp);
+	bsg_node_app_data_set((bsg_node *)s, (void *)DB_FULL_PATH_CUR_DIR(path));
+	bsg_node_transform_set((bsg_node *)s, *curr_mat);
 	bsg_node_draw_request_get((const bsg_node *)dd->g, &parent_request);
 	bsg_node_draw_request_set((bsg_node *)s, &parent_request);
 	s->bsg.bsg_kind = BV_DBOBJ_BASED;
@@ -1048,12 +1084,12 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 	// Stash the information needed for a draw update callback
 	struct draw_update_data_t *ud;
 	BU_GET(ud, struct draw_update_data_t);
-	ud->fp = (struct db_full_path *)s->s_path;
+	ud->fp = (struct db_full_path *)bsg_node_source_path_get((const bsg_node *)s);
 	ud->dbip = dd->dbip;
 	ud->tol = dd->tol;
 	ud->ttol = dd->ttol;
 	ud->mesh_c = dd->mesh_c;
-	s->s_i_data = (void *)ud;
+	bsg_node_user_data_set((bsg_node *)s, (void *)ud);
 	bsg_node_set_free_callback((bsg_node *)s, (bsg_node_free_fn)&draw_free_data);
 
 	// Let the object know about its size

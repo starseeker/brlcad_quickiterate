@@ -691,6 +691,18 @@ Completed in this session:
   - `src/libdm/axes.c` now reads axes payload data through BSG user-data.
   - `src/libdm/X/dm-X.c` now pulls drawable vlist heads through the BSG payload
     accessor path instead of directly traversing `s_vlist`.
+- Converted the core GED draw/eval metadata path off direct scene-object
+  metadata fields:
+  - `src/libged/points_eval.c` and `wireframe_eval.c` now read draw-update
+    state and source-path information through BSG user-data/source-path
+    accessors instead of direct `s_i_data` / `s_path` / `dp` access.
+  - `src/libged/draw/draw.c` now uses BSG transform and vlist-count accessors
+    in its shared draw bookkeeping instead of directly maintaining `s_mat` and
+    `s_vlen`.
+  - `src/libged/draw.cpp` now populates and consumes draw-object source-path,
+    app-data, transform, and update-data state through the BSG accessor
+    boundary instead of directly assigning `s_path`, `dp`, `s_mat`, and
+    `s_i_data`.
 
 Resulting boundary:
 - Non-test code now treats lifecycle/update hooks as BSG APIs even though the
@@ -705,9 +717,12 @@ Resulting boundary:
   the higher-level Qt/GED polygon tooling is now on the same BSG view boundary.
 - Simple view-overlay helpers now use the same BSG user-data/vlist/material
   boundaries as the rest of the migrated non-test tooling.
-- Remaining Phase 5 work is now concentrated in draw/eval/render/editor callers
-  that still reach into compatibility storage for scene matrices, source paths,
-  app data, backend handles, and vlist bookkeeping.
+- The central GED draw/eval path now routes source-path, app-data, transform,
+  and vlist-count bookkeeping through BSG accessors rather than direct
+  compatibility fields.
+- Remaining Phase 5 work is now concentrated in render/editor callers and
+  residual draw paths that still reach into compatibility storage for backend
+  handles, direct vlist heads, and other unmigrated raw fields.
 
 Moved to subsequent phases:
 - Physically relocating lifecycle callback storage off `bv_scene_obj` remains
@@ -728,6 +743,9 @@ Validation:
   - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
 - Additional overlay-object validation:
   - Built: `libbsg`, `libdm`, `libged`, `ged_test_bsg_view_obj`.
+  - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
+- Additional draw/eval metadata validation:
+  - Built: `libbsg`, `libged`, `ged_test_bsg_view_obj`.
   - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
 
 

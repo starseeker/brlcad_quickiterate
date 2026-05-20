@@ -131,11 +131,11 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     bsg_node_set_free_callback((bsg_node *)sp, (bsg_node_free_fn)ged_bv_illum_free_cb);
 
 
-    if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
-	sp->s_vlen = 0;
-
     struct bv_vlist *bvv = (struct bv_vlist *)vhead;
-    sp->s_vlen += bv_vlist_cmd_cnt(bvv);
+    if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
+	bsg_node_vlist_count_set((bsg_node *)sp, 0);
+    bsg_node_vlist_count_set((bsg_node *)sp,
+	    bsg_node_vlist_count((const bsg_node *)sp) + bv_vlist_cmd_cnt(bvv));
     BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
     _draw_payload_vlist_touch(sp);
 
@@ -219,8 +219,10 @@ draw_solid_wireframe(struct bv_scene_obj *sp, struct bview *gvp, struct db_i *db
 	return -1;
     struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)sp);
 
+    mat_t sp_mat;
+    bsg_node_transform_get((const bsg_node *)sp, sp_mat);
     ret = rt_db_get_internal(ip, DB_FULL_PATH_CUR_DIR(&bdata->s_fullpath),
-			     dbip, sp->s_mat);
+			     dbip, sp_mat);
 
     if (ret < 0) {
 	return -1;
@@ -242,11 +244,11 @@ draw_solid_wireframe(struct bv_scene_obj *sp, struct bview *gvp, struct db_i *db
     }
 
     /* add plot to solid */
-    if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
-	sp->s_vlen = 0;
-
     struct bv_vlist *bvv = (struct bv_vlist *)&vhead;
-    sp->s_vlen += bv_vlist_cmd_cnt(bvv);
+    if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
+	bsg_node_vlist_count_set((bsg_node *)sp, 0);
+    bsg_node_vlist_count_set((bsg_node *)sp,
+	    bsg_node_vlist_count((const bsg_node *)sp) + bv_vlist_cmd_cnt(bvv));
     BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
     _draw_payload_vlist_touch(sp);
 
@@ -405,11 +407,11 @@ append_solid_to_display_list(
             return TREE_NULL;
         }
 
-	if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
-	    sp->s_vlen = 0;
-
 	struct bv_vlist *bvv = (struct bv_vlist *)&vhead;
-	sp->s_vlen += bv_vlist_cmd_cnt(bvv);
+	if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
+	    bsg_node_vlist_count_set((bsg_node *)sp, 0);
+	bsg_node_vlist_count_set((bsg_node *)sp,
+		bsg_node_vlist_count((const bsg_node *)sp) + bv_vlist_cmd_cnt(bvv));
 	BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
 	_draw_payload_vlist_touch(sp);
 
@@ -421,7 +423,7 @@ append_solid_to_display_list(
         }
     }
 
-    sp->s_vlen = 0;
+    bsg_node_vlist_count_set((bsg_node *)sp, 0);
     db_dup_full_path(&bdata->s_fullpath, pathp);
 
     /* Phase 2C: assign BSG identity from DB path */
@@ -512,7 +514,7 @@ append_solid_to_display_list(
 	bsg_node_material_set((bsg_node *)sp, &mat);
 	bsg_node_appearance_set((bsg_node *)sp, &app);
     }
-    MAT_COPY(sp->s_mat, tsp->ts_mat);
+    bsg_node_transform_set((bsg_node *)sp, tsp->ts_mat);
 
     /* append solid to display list */
     bu_semaphore_acquire(RT_SEM_MODEL);
