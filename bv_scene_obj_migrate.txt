@@ -825,6 +825,66 @@ Requirements:
 Exit criteria:
 - New code can allocate, manipulate, and free scene nodes entirely through BSG.
 
+Phase 6 execution update - 2026-05-20
+------------------------------------
+Status:
+- IN PROGRESS.  A first-class BSG node allocation/release boundary now exists
+  for the core typed-node helpers and their immediate libbsg callers, but
+  legacy recycle/reset ownership still lives in libbv compatibility code.
+
+Completed in this session:
+- Added generic BSG lifecycle entry points in `include/bsg/node.h` /
+  `src/libbsg/node.c`:
+  - `bsg_node_create()`
+  - `bsg_node_create_child()`
+  - `bsg_node_clear_children()`
+  - `bsg_node_destroy()`
+- Switched the typed libbsg node helpers to allocate and release through that
+  boundary instead of directly calling `bv_obj_create()` / `bv_obj_put()`:
+  - `src/libbsg/node_group.c`
+  - `src/libbsg/node_shape.c`
+  - `src/libbsg/node_transform.c`
+  - `src/libbsg/view_scope.c`
+  - `src/libbsg/lod_node.c`
+  - `src/libbsg/sensor.c`
+- Migrated the core libbsg lifecycle/plumbing callers that were still reaching
+  straight into libbv allocation APIs:
+  - `src/libbsg/scene_graph.cpp` now creates standalone draw roots through
+    `bsg_node_create_child()`.
+  - `src/libbsg/draw_set.c` and `src/libbsg/overlay.c` now allocate internal
+    group/overlay children through the same BSG child-node factory.
+- Updated the Phase 6/view-scope/scene-graph tests to exercise the new
+  lifecycle helpers and the borrowed-child detach semantics rather than direct
+  `bv_obj_*` calls.
+
+Resulting boundary:
+- New libbsg code can allocate ordinary view-owned nodes and draw-tree child
+  nodes through BSG lifecycle helpers without naming libbv allocation APIs.
+- Borrowed-child containers now have a dedicated BSG detach/reset helper
+  (`bsg_node_clear_children()`), so destroying groups/transforms/view scopes
+  no longer leaves child parent links pointing at freed containers.
+- Direct `bv_obj_create()` / `bv_obj_put()` traffic inside libbsg is now
+  confined to compatibility-focused tests plus the low-level recycle/free-list
+  implementation that still lives outside the new BSG lifecycle wrapper.
+
+Moved to subsequent phases:
+- Making `bv_obj_reset()` / `bv_obj_put()` true wrappers over BSG-owned
+  lifecycle internals still requires disentangling the remaining free-list and
+  recycle logic in `src/libbv/util.cpp`, `src/libbsg/draw_set.c`, and
+  `src/libbsg/overlay.c`; that stays as later Phase 6 / Phase 7 ownership
+  work.
+- Scene-root destruction remains a compatibility boundary because
+  `gv_draw_root` ownership is still coordinated with legacy GED/libbv draw-tree
+  setup rather than a fully BSG-native root allocator.
+
+Validation:
+- Qt-enabled configure succeeded with `bext_output/install`.
+- Built: `libbsg`, `test_bsg_node`, `test_bsg_scene_graph`, `test_bsg_phase6`,
+  `test_bsg_selection`, `test_bsg_lod_node`, `test_bsg_view_scope`,
+  `test_bsg_node_core`.
+- `ctest --output-on-failure -R '^(libbsg_node|libbsg_scene_graph|libbsg_phase6|libbsg_selection|libbsg_lod_node|libbsg_view_scope|libbsg_node_core)$'`
+  passed.
+
 
 Phase 7 - Narrow bv_scene_obj to a Compatibility Wrapper
 -------------------------------------------------------
