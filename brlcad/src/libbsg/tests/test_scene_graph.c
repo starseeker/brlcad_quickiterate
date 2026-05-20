@@ -275,7 +275,7 @@ test_sensor_fire(void)
     }
 
     sensor_child->bsg.bsg_kind    |= BSG_NODE_SENSOR;
-    sensor_child->s_update_callback = sensor_callback;
+    bsg_node_set_update_callback((bsg_node *)sensor_child, (bsg_node_update_fn)sensor_callback);
     bu_ptbl_ins(&((struct bv_scene_obj *)root)->bsg.bsg_children, (long *)sensor_child);
 
     bsg_sensor_fire(root, v);

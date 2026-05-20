@@ -392,6 +392,33 @@ bsg_node_invoke_free_callback(bsg_node *n)
 }
 
 
+void
+bsg_node_set_update_callback(bsg_node *n, bsg_node_update_fn cb)
+{
+    if (!n)
+	return;
+
+    ((struct bv_scene_obj *)n)->s_update_callback =
+	(int (*)(struct bv_scene_obj *, struct bview *, int))cb;
+}
+
+
+int
+bsg_node_invoke_update_callback(bsg_node *n, struct bview *v, int flags)
+{
+    struct bv_scene_obj *s;
+
+    if (!n)
+	return 0;
+
+    s = (struct bv_scene_obj *)n;
+    if (!s->s_update_callback)
+	return 0;
+
+    return s->s_update_callback(s, v, flags);
+}
+
+
 int
 bsg_node_legacy_eflag(const bsg_node *n)
 {

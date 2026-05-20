@@ -42,6 +42,7 @@
 #include "bu/vls.h"
 #include "bv.h"
 #include "bsg/defines.h"
+#include "bsg/node.h"
 #include "bsg/settings.h"
 
 #include "../ged_private.h"
@@ -131,7 +132,7 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
     db_full_path_init((struct db_full_path *)g->s_path);
     db_dup_full_path((struct db_full_path *)g->s_path, fp);
     g->s_i_data = (void *)ip;
-    g->s_free_callback = &gobjs_scene_free;
+    bsg_node_set_free_callback((bsg_node *)g, (bsg_node_free_fn)&gobjs_scene_free);
 
     // Set up drawing settings
     unsigned char wcolor[3] = {255,255,255};

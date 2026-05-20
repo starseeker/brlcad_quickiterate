@@ -302,7 +302,7 @@ QPolyCreateFilter::finalize(bool)
 
     // No longer need mouse movements to adjust parameters - turn off callback
     if (wp)
-	wp->s_update_callback = NULL;
+	bsg_node_set_update_callback((bsg_node *)wp, NULL);
 
     emit view_updated(QG_VIEW_REFRESH);
     emit finalized((icnt > 0) ? true : false);

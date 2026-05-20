@@ -208,8 +208,8 @@ bsg_sensor_fire(bsg_node *root, struct bview *v)
 	bsg_sensor_fire((bsg_node *)child, v);
 
 	/* Fire the sensor callback on this node if applicable. */
-	if ((child->bsg.bsg_kind & BSG_NODE_SENSOR) && child->s_update_callback)
-	    child->s_update_callback(child, v, 0);
+	if (child->bsg.bsg_kind & BSG_NODE_SENSOR)
+	    bsg_node_invoke_update_callback((bsg_node *)child, v, 0);
     }
 }
 

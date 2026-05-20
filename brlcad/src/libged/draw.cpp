@@ -44,6 +44,7 @@
 #include "bv/lod.h"
 #include "bsg/appearance.h"
 #include "bsg/material.h"
+#include "bsg/node.h"
 #include "bsg/settings.h"
 #include "nmg.h"
 #include "rt/view.h"
@@ -424,7 +425,7 @@ bot_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 	bv_mesh_lod_detail_clear_clbk(lod, &bot_mesh_info_clear_clbk);
 	bv_mesh_lod_detail_free_clbk(lod, &bot_mesh_info_free_clbk);
 
-	s->s_free_callback = &mesh_lod_draw_free;
+	bsg_node_set_free_callback((bsg_node *)s, (bsg_node_free_fn)&mesh_lod_draw_free);
 
 	// Initialize the LoD data to the current view
 	int level = bv_mesh_lod_view(s, v, 0);
@@ -560,7 +561,7 @@ brep_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 	bv_mesh_lod_detail_clear_clbk(lod, &bot_mesh_info_clear_clbk);
 	bv_mesh_lod_detail_free_clbk(lod, &bot_mesh_info_free_clbk);
 
-	s->s_free_callback = &mesh_lod_draw_free;
+	bsg_node_set_free_callback((bsg_node *)s, (bsg_node_free_fn)&mesh_lod_draw_free);
 
 	// Initialize the LoD data to the current view
 	int level = bv_mesh_lod_view(s, v, 0);
@@ -1053,7 +1054,7 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 	ud->ttol = dd->ttol;
 	ud->mesh_c = dd->mesh_c;
 	s->s_i_data = (void *)ud;
-	s->s_free_callback = &draw_free_data;
+	bsg_node_set_free_callback((bsg_node *)s, (bsg_node_free_fn)&draw_free_data);
 
 	// Let the object know about its size
 	if (dd->s_size && dd->s_size->find(DB_FULL_PATH_CUR_DIR(path)) != dd->s_size->end()) {

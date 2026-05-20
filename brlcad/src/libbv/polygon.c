@@ -38,6 +38,7 @@
 #include "bg/plane.h"
 #include "bg/polygon.h"
 #include "bv/defines.h"
+#include "bsg/node.h"
 #include "bv/polygon.h"
 #include "bv/snap.h"
 
@@ -198,7 +199,7 @@ bv_create_polygon_obj(struct bview *v, int flags, struct bv_polygon *p)
     s->s_color[1] = 255;
     s->s_color[2] = 0;
     s->s_i_data = (void *)p;
-    s->s_update_callback = &bv_update_polygon;
+    bsg_node_set_update_callback((bsg_node *)s, (bsg_node_update_fn)&bv_update_polygon);
 
     /* Have new polygon, now update view object vlist */
     bv_polygon_vlist(s);

@@ -38,6 +38,7 @@
 #include "bv/defines.h"
 #include "bv/snap.h"
 #include "bv/util.h"
+#include "bsg/node.h"
 #include "bv/view_sets.h"
 #include "bv/vlist.h"
 #include "bsg/defines.h"
@@ -478,8 +479,7 @@ bv_free(struct bview *gvp)
     while (BU_LIST_NOT_HEAD(sp, &gvp->gv_objs.free_scene_obj->bsg.l)) {
 	nsp = BU_LIST_PNEXT(bv_scene_obj, sp);
 	BU_LIST_DEQUEUE(&((sp)->bsg.l));
-	if (sp->s_free_callback)
-	    (*sp->s_free_callback)(sp);
+	bsg_node_invoke_free_callback((bsg_node *)sp);
 	/* Phase 11: release backend state via the generic contract. */
 	bv_scene_obj_release_backend(sp);
 	bu_ptbl_free(&sp->bsg.bsg_children);
@@ -1560,7 +1560,7 @@ bv_obj_create(struct bview *v, int type)
 
     // Zero out callback pointers
     s->bsg.bsg_kind = 0;
-    s->s_free_callback = NULL;
+    bsg_node_set_free_callback((bsg_node *)s, NULL);
     /* Phase 11: zero the backend slot so any prior owner state is dropped. */
     s->s_backend = NULL;
 
@@ -2146,9 +2146,8 @@ bv_obj_reset(struct bv_scene_obj *s)
     bu_ptbl_reset(&s->bsg.bsg_children);
 
     // If we have a callback for the internal data, use it
-    if (s->s_free_callback)
-	(*s->s_free_callback)(s);
-    s->s_free_callback = NULL;
+    bsg_node_invoke_free_callback((bsg_node *)s);
+    bsg_node_set_free_callback((bsg_node *)s, NULL);
 
     // Phase 11: release any backend-owned per-shape state via the generic
     // contract.
@@ -2201,7 +2200,7 @@ bv_obj_reset(struct bv_scene_obj *s)
     s->s_path = NULL;
     s->s_size = 0;
     s->s_soldash = 0;
-    s->s_update_callback = NULL;
+    bsg_node_set_update_callback((bsg_node *)s, NULL);
     s->s_v = NULL;
     s->view_scale = 0;
 

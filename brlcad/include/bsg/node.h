@@ -37,6 +37,8 @@
 #include "bsg/defines.h"
 #include "bsg/field.h"
 
+struct bview;
+
 __BEGIN_DECLS
 
 BSG_EXPORT extern unsigned long long
@@ -177,6 +179,14 @@ bsg_node_ged_data_set(bsg_node *n, void *data);
 typedef void (*bsg_node_free_fn)(bsg_node *);
 
 /**
+ * Function pointer type for node update/generator callbacks.
+ *
+ * This is the typed BSG wrapper for the legacy bv_scene_obj::s_update_callback
+ * signature.
+ */
+typedef int (*bsg_node_update_fn)(bsg_node *, struct bview *, int);
+
+/**
  * Register a lifecycle callback to be invoked just before @p n is freed.
  *
  * Maps to bv_scene_obj::s_free_callback.  Pass NULL to clear any existing
@@ -194,6 +204,24 @@ bsg_node_set_free_callback(bsg_node *n, bsg_node_free_fn cb);
  */
 BSG_EXPORT extern void
 bsg_node_invoke_free_callback(bsg_node *n);
+
+/**
+ * Register a payload/update callback on @p n.
+ *
+ * Maps to bv_scene_obj::s_update_callback.  Pass NULL to clear any existing
+ * callback.  No-op if @p n is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_set_update_callback(bsg_node *n, bsg_node_update_fn cb);
+
+/**
+ * Invoke the update callback registered on @p n, if any.
+ *
+ * Returns the callback result when one is installed, otherwise 0.  NULL nodes
+ * also return 0.
+ */
+BSG_EXPORT extern int
+bsg_node_invoke_update_callback(bsg_node *n, struct bview *v, int flags);
 
 /**
  * Return the legacy "E-flag" for @p n (bv_scene_obj::s_old.s_Eflag).

@@ -59,6 +59,7 @@
 #include "ged/view.h"
 #include "ged/bsg_ged_draw.h"
 #include "./ged_private.h"
+#include "bsg/node.h"
 #include "bsg/selection.h"
 #include "bsg/util.h"
 #include "bsg/draw_set.h"
@@ -2489,7 +2490,7 @@ _bview_state_attach_leaf(struct ged *gedp,
     }
     bdata->gedp = gedp;
     db_dup_full_path(&bdata->s_fullpath, &leaf_dfp);
-    sp->s_free_callback = ged_bv_illum_free_cb;
+    bsg_node_set_free_callback((bsg_node *)sp, (bsg_node_free_fn)ged_bv_illum_free_cb);
 
     /* Build a single-component db_full_path for the top-level group
      * (the user-typed root, e.g. "all.g") and look it up / create it. */

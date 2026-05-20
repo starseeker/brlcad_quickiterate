@@ -28,6 +28,7 @@
 #include "vmath.h"
 #include "bu/log.h"
 #include "bu/malloc.h"
+#include "bsg/node.h"
 #include "bu/str.h"
 #include "bn/mat.h"
 #include "bv/defines.h"
@@ -60,8 +61,7 @@ bv_set_free(struct bview_set *s)
 	while (BU_LIST_NOT_HEAD(sp, &s->i->free_scene_obj->bsg.l)) {
 	    nsp = BU_LIST_PNEXT(bv_scene_obj, sp);
 	    BU_LIST_DEQUEUE(&((sp)->bsg.l));
-	    if (sp->s_free_callback)
-		(*sp->s_free_callback)(sp);
+	    bsg_node_invoke_free_callback((bsg_node *)sp);
 	    /* Phase 11: route backend release through the generic contract. */
 	    bv_scene_obj_release_backend(sp);
 	    bu_ptbl_free(&sp->bsg.bsg_children);

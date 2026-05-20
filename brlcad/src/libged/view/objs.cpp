@@ -444,8 +444,7 @@ update_recurse(struct bv_scene_obj *s, struct bview *v, int flags)
     }
     s->s_changed = 0;
     s->s_v = v;
-    if (s->s_update_callback)
-	(*s->s_update_callback)(s, v, 0);
+    bsg_node_invoke_update_callback((bsg_node *)s, v, 0);
 }
 
 int

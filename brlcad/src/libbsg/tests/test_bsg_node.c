@@ -65,6 +65,9 @@ free_view(struct bview *v)
 
 static int s_field_hits = 0;
 static bsg_field_id_t s_last_field = BSG_FIELD_UNKNOWN;
+static int s_free_hits = 0;
+static int s_update_hits = 0;
+static int s_update_flags = 0;
 
 static int
 field_cb(bsg_node *UNUSED(n), bsg_field_id_t fid, void *UNUSED(data))
@@ -79,6 +82,20 @@ reset_field_callback_state(void)
 {
     s_field_hits = 0;
     s_last_field = BSG_FIELD_UNKNOWN;
+}
+
+static void
+free_cb(bsg_node *UNUSED(n))
+{
+    s_free_hits++;
+}
+
+static int
+update_cb(bsg_node *UNUSED(n), struct bview *UNUSED(v), int flags)
+{
+    s_update_hits++;
+    s_update_flags = flags;
+    return flags + 1;
 }
 
 static int
@@ -174,6 +191,10 @@ test_null_safety(void)
     bsg_node_transform_get(NULL, mat);
     bsg_node_transform_set(NULL, mat);
     bsg_node_user_data_set(NULL, &mat);
+    bsg_node_set_free_callback(NULL, free_cb);
+    bsg_node_set_update_callback(NULL, update_cb);
+    if (bsg_node_invoke_update_callback(NULL, NULL, 0) != 0) FAIL("update_callback(NULL)");
+    bsg_node_invoke_free_callback(NULL);
     bsg_node_bounds_get(NULL, bmin, bmax);
     bsg_node_bounds_set(NULL, bmin, bmax);
     bsg_node_mark_stale(NULL);
@@ -361,6 +382,43 @@ test_field_notifications(void)
     return 0;
 }
 
+static int
+test_lifecycle_callbacks(void)
+{
+    printf("=== Test 6: lifecycle_callbacks ===\n");
+
+    struct bview *v = make_view();
+    bsg_node *shape = bsg_shape_create(v);
+    if (!shape) FAIL("create shape");
+
+    s_free_hits = 0;
+    s_update_hits = 0;
+    s_update_flags = 0;
+
+    bsg_node_set_free_callback(shape, free_cb);
+    bsg_node_invoke_free_callback(shape);
+    if (s_free_hits != 1) FAIL("free callback invoke");
+
+    bsg_node_set_update_callback(shape, update_cb);
+    if (bsg_node_invoke_update_callback(shape, v, 7) != 8)
+	FAIL("update callback result");
+    if (s_update_hits != 1 || s_update_flags != 7)
+	FAIL("update callback invoke");
+
+    bsg_node_set_free_callback(shape, NULL);
+    bsg_node_set_update_callback(shape, NULL);
+    if (bsg_node_invoke_update_callback(shape, v, 3) != 0)
+	FAIL("cleared update callback");
+    bsg_node_invoke_free_callback(shape);
+    if (s_free_hits != 1) FAIL("cleared free callback");
+
+    bsg_shape_destroy(shape);
+    free_view(v);
+
+    PASS("lifecycle_callbacks");
+    return 0;
+}
+
 int
 main(int UNUSED(argc), const char **argv)
 {
@@ -372,6 +430,7 @@ main(int UNUSED(argc), const char **argv)
     failures += test_children_and_transform();
     failures += test_bounds_and_user_data();
     failures += test_field_notifications();
+    failures += test_lifecycle_callbacks();
 
     if (failures) {
 	printf("FAIL: %d test group(s) failed\n", failures);

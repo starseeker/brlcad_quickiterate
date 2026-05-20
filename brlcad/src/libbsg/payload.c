@@ -628,10 +628,8 @@ bsg_payload_dispatch(void *dmp, bsg_node *node, struct bview *v)
 	return;
 
     s = (struct bv_scene_obj *)node;
-    if (s->s_update_callback) {
-	(void)dmp;
-	(*s->s_update_callback)(s, v, 0);
-    }
+    (void)dmp;
+    bsg_node_invoke_update_callback((bsg_node *)s, v, 0);
 }
 
 /*

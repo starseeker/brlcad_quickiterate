@@ -195,8 +195,7 @@ bsg_free_children_recursive(bsg_node *gn, struct bv_scene_obj *fso)
 	     * fires the illumination-clear registered as ged_bv_illum_free_cb
 	     * at shape-creation time (Phase 7 Steps 8-9). */
 	    bv_scene_obj_release_backend(child);
-	    if (child->s_free_callback)
-		(*child->s_free_callback)(child);
+	    bsg_node_invoke_free_callback((bsg_node *)child);
 	    child->bsg.bsg_parent = NULL;
 	    struct bv_scene_obj *sfso = fso ? fso : child->free_scene_obj;
 	    if (sfso)
@@ -320,8 +319,7 @@ bsg_erase_nested_subpath(bsg_node *parent_node,
 		    (struct bv_scene_obj *)BU_PTBL_GET(&snap, j);
 		/* Phase 11: route teardown through the backend contract. */
 		bv_scene_obj_release_backend(sp);
-		if (sp->s_free_callback)
-		    (*sp->s_free_callback)(sp);
+		bsg_node_invoke_free_callback((bsg_node *)sp);
 		bu_ptbl_rm(&cur->bsg.bsg_children, (const long *)sp);
 		/* cur is in the tree; bump rev then clear parent */
 		bsg_bump_rev_node((bsg_node *)cur);
