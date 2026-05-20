@@ -135,7 +135,7 @@ QgEdPalette::makeCurrent(QWidget *w)
 	emit interaction_mode(m_mode);
     } else {
 	if (selected)
-	    selected->button->setStyleSheet("");
+	    selected->buttonWidget()->setStyleSheet("");
     }
 }
 
@@ -153,4 +153,3 @@ QgEdPalette::~QgEdPalette()
  * End:
  * ex: shiftwidth=4 tabstop=8
  */
-
