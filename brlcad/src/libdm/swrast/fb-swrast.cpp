@@ -421,10 +421,9 @@ fb_swrast_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
 
     struct bview *canvas_view = qi->mw->canvas->view();
     if (!canvas_view) {
-	delete qi->mw;
-	qi->mw = NULL;
-	delete qi->qapp;
-	qi->qapp = NULL;
+	qt_destroy(qi);
+	free(ifp->i->pp);
+	ifp->i->pp = NULL;
 	return -1;
     }
     bv_init(canvas_view, NULL);
