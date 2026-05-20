@@ -227,13 +227,12 @@ test_find_by_type(void)
     if (found && !notfound)
 	bu_log("  PASS: find_by_type\n");
 
-    /* Cleanup: clear bsg_root and draw-root pointers; gv_free() handles the
-     * rest.  The child object and fake draw root are freed when the view's
-     * free pool is collected.  We do NOT destroy individual child objects
-     * here — let free_view() sweep the pool. */
+    /* Cleanup: bsg_scene_root_destroy clears the bsg_root alias; then destroy
+     * the synthetic draw root explicitly since this test allocated it. */
     bsg_scene_root_destroy(root);
     v->gv_draw_root = NULL;
     bsg_node_identity_clear(root);
+    bsg_node_destroy(root);
     free_view(v);
 }
 

@@ -133,8 +133,9 @@ bsg_bump_rev_node(bsg_node *n);
  * Recursively free all descendant nodes of @p g (shapes and nested
  * sub-groups) without freeing @p g itself.
  *
- * @p fso is retained for ABI/source compatibility and is currently
- * ignored; child recycling routes through bsg_node_destroy().
+ * @p fso is DEPRECATED and retained only for ABI/source compatibility.
+ * It is currently ignored; child recycling routes through
+ * bsg_node_destroy().  Planned removal target: Phase 8 cutover.
  *
  * Group nodes are freed recursively.
  *
