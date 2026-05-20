@@ -33,6 +33,8 @@
 #include "bu/color.h"
 #include "bu/opt.h"
 #include "bu/vls.h"
+#include "bsg/node.h"
+#include "bsg/payload.h"
 #include "bv.h"
 
 #include "../ged_private.h"
@@ -126,9 +128,14 @@ _label_cmd_create(void *bs, int argc, const char **argv)
 	bu_vls_printf(gedp->ged_result_str, "Failed to create %s\n", gd->vobj);
 	return BRLCAD_ERROR;
     }
-    BU_LIST_INIT(&(s->s_vlist));
-    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p, BV_VLIST_LINE_MOVE);
-    VSET(s->s_color, 255, 255, 0);
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)s);
+    if (!vhead) {
+	bu_vls_printf(gedp->ged_result_str, "Failed to initialize %s vlist payload\n", gd->vobj);
+	return BRLCAD_ERROR;
+    }
+    BU_LIST_INIT(vhead);
+    BV_ADD_VLIST(s->vlfree, vhead, p, BV_VLIST_LINE_MOVE);
+    bv_view_obj_set_color(s, 255, 255, 0);
 
     struct bv_label *l;
     BU_GET(l, struct bv_label);
@@ -139,7 +146,7 @@ _label_cmd_create(void *bs, int argc, const char **argv)
 	VMOVE(l->target, target);
 	l->line_flag = 1;
     }
-    s->s_i_data = (void *)l;
+    bsg_node_user_data_set((bsg_node *)s, (void *)l);
 
     return BRLCAD_OK;
 }

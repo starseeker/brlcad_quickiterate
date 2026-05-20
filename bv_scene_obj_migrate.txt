@@ -683,6 +683,14 @@ Completed in this session:
     of direct `s_v` reads/writes.
   - `src/libged/view/polygons.c` now uses BSG view accessors for command-side
     mouse/update flow and area calculations.
+- Converted the remaining simple overlay-object helpers off raw payload and
+  user-data storage:
+  - `src/libged/view/axes.c`, `labels.c`, `lines.c`, and `data_lines.c` now
+    use BSG user-data, vlist payload, and material accessors instead of direct
+    `s_i_data`, `s_vlist`, and `s_color` access.
+  - `src/libdm/axes.c` now reads axes payload data through BSG user-data.
+  - `src/libdm/X/dm-X.c` now pulls drawable vlist heads through the BSG payload
+    accessor path instead of directly traversing `s_vlist`.
 
 Resulting boundary:
 - Non-test code now treats lifecycle/update hooks as BSG APIs even though the
@@ -695,8 +703,11 @@ Resulting boundary:
 - The core libbv polygon implementation no longer depends on direct
   `bv_scene_obj` raw-field access for its scene payload/view/appearance data;
   the higher-level Qt/GED polygon tooling is now on the same BSG view boundary.
-- Remaining Phase 5 work is now concentrated in non-polygon caller cutover
-  elsewhere in view/render/editor code.
+- Simple view-overlay helpers now use the same BSG user-data/vlist/material
+  boundaries as the rest of the migrated non-test tooling.
+- Remaining Phase 5 work is now concentrated in draw/eval/render/editor callers
+  that still reach into compatibility storage for scene matrices, source paths,
+  app data, backend handles, and vlist bookkeeping.
 
 Moved to subsequent phases:
 - Physically relocating lifecycle callback storage off `bv_scene_obj` remains
@@ -714,6 +725,9 @@ Validation:
   passed.
 - Additional polygon-tooling validation:
   - Built: `libged`, `libqtcad`, `qged_polygon`, `ged_test_bsg_view_obj`.
+  - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
+- Additional overlay-object validation:
+  - Built: `libbsg`, `libdm`, `libged`, `ged_test_bsg_view_obj`.
   - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
 
 

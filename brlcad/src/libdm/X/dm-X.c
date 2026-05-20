@@ -70,6 +70,7 @@
 #include "bu/str.h"
 #include "bn.h"
 #include "bsg/appearance.h"
+#include "bsg/payload.h"
 #include "dm.h"
 #include "../null/dm-Null.h"
 #include "./fb_X.h"
@@ -2151,14 +2152,17 @@ X_event_cmp(struct dm *dmp, dm_event_t type, int event)
 static int
 X_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 {
-    if (bu_list_len(&s->s_vlist)) {
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)s);
+    if (!vhead)
+	return BRLCAD_ERROR;
+    if (bu_list_len(vhead)) {
 	struct bsg_appearance app;
 	bsg_appearance_init(&app);
 	(void)bsg_node_appearance_get((const bsg_node *)s, &app);
 	if (app.draw_mode == 4)
-	    dm_draw_vlist_hidden_line(dmp, (struct bv_vlist *)&s->s_vlist);
+	    dm_draw_vlist_hidden_line(dmp, (struct bv_vlist *)vhead);
 	else
-	    dm_draw_vlist(dmp, (struct bv_vlist *)&s->s_vlist);
+	    dm_draw_vlist(dmp, (struct bv_vlist *)vhead);
 	return BRLCAD_OK;
     }
     return BRLCAD_ERROR;

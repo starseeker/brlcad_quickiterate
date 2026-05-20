@@ -35,10 +35,18 @@
 #include "bu/color.h"
 #include "bu/opt.h"
 #include "bu/vls.h"
+#include "bsg/node.h"
+#include "bsg/payload.h"
 #include "bv.h"
 
 #include "../ged_private.h"
 #include "./ged_view.h"
+
+static struct bv_axes *
+_view_axes_data(struct bv_scene_obj *s)
+{
+    return (struct bv_axes *)bsg_node_user_data_get((const bsg_node *)s);
+}
 
 int
 _axes_cmd_create(void *bs, int argc, const char **argv)
@@ -79,9 +87,14 @@ _axes_cmd_create(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    BU_LIST_INIT(&(s->s_vlist));
-    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p, BV_VLIST_LINE_MOVE);
-    VSET(s->s_color, 255, 255, 0);
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)s);
+    if (!vhead) {
+	bu_vls_printf(gedp->ged_result_str, "Failed to initialize %s vlist payload\n", gd->vobj);
+	return BRLCAD_ERROR;
+    }
+    BU_LIST_INIT(vhead);
+    BV_ADD_VLIST(s->vlfree, vhead, p, BV_VLIST_LINE_MOVE);
+    bv_view_obj_set_color(s, 255, 255, 0);
 
     struct bv_axes *l;
     BU_GET(l, struct bv_axes);
@@ -89,7 +102,7 @@ _axes_cmd_create(void *bs, int argc, const char **argv)
     l->line_width = 1;
     l->axes_size = 10;
     VSET(l->axes_color, 255, 255, 0);
-    s->s_i_data = (void *)l;
+    bsg_node_user_data_set((bsg_node *)s, (void *)l);
 
     return BRLCAD_OK;
 }
@@ -114,11 +127,13 @@ _axes_cmd_pos(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object named %s does not exist\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    if (!(s->bsg.bsg_kind & BV_AXES)) {
+    if (!bsg_node_has_kind((const bsg_node *)s, BV_AXES)) {
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    struct bv_axes *a = (struct bv_axes *)s->s_i_data;
+    struct bv_axes *a = _view_axes_data(s);
+    if (!a)
+	return BRLCAD_ERROR;
     if (argc == 0) {
 	bu_vls_printf(gedp->ged_result_str, "%f %f %f\n", V3ARGS(a->axes_pos));
 	return BRLCAD_OK;
@@ -161,11 +176,13 @@ _axes_cmd_size(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object named %s does not exist\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    if (!(s->bsg.bsg_kind & BV_AXES)) {
+    if (!bsg_node_has_kind((const bsg_node *)s, BV_AXES)) {
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    struct bv_axes *a = (struct bv_axes *)s->s_i_data;
+    struct bv_axes *a = _view_axes_data(s);
+    if (!a)
+	return BRLCAD_ERROR;
      if (argc == 0) {
 	bu_vls_printf(gedp->ged_result_str, "%f\n", a->axes_size);
 	return BRLCAD_OK;
@@ -207,11 +224,13 @@ _axes_cmd_linewidth(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object named %s does not exist\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    if (!(s->bsg.bsg_kind & BV_AXES)) {
+    if (!bsg_node_has_kind((const bsg_node *)s, BV_AXES)) {
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    struct bv_axes *a = (struct bv_axes *)s->s_i_data;
+    struct bv_axes *a = _view_axes_data(s);
+    if (!a)
+	return BRLCAD_ERROR;
      if (argc == 0) {
 	bu_vls_printf(gedp->ged_result_str, "%d\n", a->line_width);
 	return BRLCAD_OK;
@@ -258,11 +277,13 @@ _axes_cmd_axes_color(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object named %s does not exist\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    if (!(s->bsg.bsg_kind & BV_AXES)) {
+    if (!bsg_node_has_kind((const bsg_node *)s, BV_AXES)) {
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    struct bv_axes *a = (struct bv_axes *)s->s_i_data;
+    struct bv_axes *a = _view_axes_data(s);
+    if (!a)
+	return BRLCAD_ERROR;
      if (argc == 0) {
 	bu_vls_printf(gedp->ged_result_str, "%d %d %d\n", a->axes_color[0], a->axes_color[1], a->axes_color[2]);
 	return BRLCAD_OK;
