@@ -29,7 +29,7 @@ set(
 )
 
 # Note - libwdb_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
-brlcad_addlib(libwdb "${LIBWDB_SOURCES}" "" "" ""
+brlcad_addlib(libwdb "${LIBWDB_SOURCES}" "" ""
   PUBLIC_LIBS ${libwdb_deps}
   PRIVATE_LIBS OPENNURBS::OPENNURBS ${OPENNURBS_LIBRARIES}
 )

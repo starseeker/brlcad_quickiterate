@@ -100,7 +100,7 @@ if(BRLCAD_ENABLE_OSL)
     ${OPENIMAGEIO_INCLUDES}
   )
 
-  brlcad_addlib(liboslrend "${OSLRT_SOURCES}" "" "" "${OSL_LOCAL_INCLUDE_DIRS}"
+  brlcad_addlib(liboslrend "${OSLRT_SOURCES}" "" "${OSL_LOCAL_INCLUDE_DIRS}"
     PRIVATE_LIBS ${OSLRT_LIBS}
   )
 
@@ -122,7 +122,7 @@ if(BRLCAD_ENABLE_TCL)
   set(olibs_private ${olibs_private} ${TCL_LIBRARY})
 endif(BRLCAD_ENABLE_TCL)
 
-brlcad_addlib(liboptical "${LIBOPTICAL_SOURCES}" "" "" "${LOCAL_OPTICAL_INCLUDE_DIRS}"
+brlcad_addlib(liboptical "${LIBOPTICAL_SOURCES}" "" "${LOCAL_OPTICAL_INCLUDE_DIRS}"
   PUBLIC_LIBS ${olibs_public}
   PRIVATE_LIBS ${olibs_private}
 )

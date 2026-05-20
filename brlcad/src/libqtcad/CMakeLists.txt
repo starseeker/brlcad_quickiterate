@@ -117,8 +117,7 @@ if(BRLCAD_ENABLE_QT)
   endif(Qt6Widgets_FOUND)
   set(QTCAD_SRCS ${QTCAD_SRCS} ${qtcad_moc_srcs} ${qtcad_qrc})
 
-  brlcad_addlib(libqtcad "${QTCAD_SRCS}" "" "${QG_DIRS}" ""
-    SHARED
+  brlcad_addlib(libqtcad "${QTCAD_SRCS}" "" "${QG_DIRS}" SHARED
     PUBLIC_LIBS ${QTCAD_PUBLIC_LIBS}
   )
   set_target_properties(libqtcad PROPERTIES VERSION 20.0.1 SOVERSION 20)

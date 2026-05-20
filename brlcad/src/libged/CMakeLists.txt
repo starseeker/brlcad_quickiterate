@@ -357,7 +357,7 @@ set(
   ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-brlcad_addlib(libged "${LIBGED_SOURCES}" "" "" "${GED_LOCAL_INCLUDE_DIRS}"
+brlcad_addlib(libged "${LIBGED_SOURCES}" "" "${GED_LOCAL_INCLUDE_DIRS}"
   PUBLIC_LIBS ${GED_PUBLIC_LIBS}
   PRIVATE_LIBS ${GED_PRIVATE_LIBS}
   UNITY_BUILD_SKIP ged_init.cpp

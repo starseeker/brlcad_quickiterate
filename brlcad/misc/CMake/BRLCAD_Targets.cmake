@@ -475,7 +475,6 @@ function(
     BRLCAD_ADDLIB
     libname
     srcslist
-    libslist
     include_dirs
     local_include_dirs
   )
@@ -501,16 +500,10 @@ function(
     set(SUBFOLDER "/${L_FOLDER}")
   endif(L_FOLDER)
 
-  # Determine library dependency visibility.  If no explicit list is
-  # supplied, use the legacy argument behavior where libslist is public.
+  # Determine library dependency visibility from explicit lists.
   set(_public_libs ${L_PUBLIC_LIBS})
   set(_private_libs ${L_PRIVATE_LIBS})
   set(_interface_libs ${L_INTERFACE_LIBS})
-  if(NOT _public_libs AND NOT _private_libs AND NOT _interface_libs)
-    if(NOT "${libslist}" STREQUAL "" AND NOT "${libslist}" STREQUAL "NONE")
-      set(_public_libs ${libslist})
-    endif()
-  endif()
 
   # Resolve dependencies for shared and static variants.
   brlcad_resolve_libdeps(SHARED_PUBLIC_LIBS SHARED ${_public_libs})

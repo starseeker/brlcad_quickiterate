@@ -58,7 +58,7 @@ cmakefiles(
 )
 
 # Note - libnmg_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
-brlcad_addlib(libnmg "${LIBNMG_SOURCES}" "" "" ""
+brlcad_addlib(libnmg "${LIBNMG_SOURCES}" "" ""
   PUBLIC_LIBS ${libnmg_deps}
   PRIVATE_LIBS ${STDCXX_LIBRARIES}
 )
