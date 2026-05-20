@@ -36,43 +36,45 @@
 
 #include "qtcad/defines.h"
 
-class QTCAD_EXPORT QgAccordionObject : public QWidget
-{
-    Q_OBJECT
+class QTCAD_EXPORT QgAccordionObject : public QWidget {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(QgAccordionObject)
 
-    public:
+
+public:
 	QgAccordionObject(QWidget *pparent = 0, QWidget *object = 0, QString header_title = QString(""));
 	~QgAccordionObject();
 	QPushButton *toggle;
 	QScrollArea *objscrollarea;
 
-    signals:
+signals:
 	void select(QgAccordionObject *);
 
-    public slots:
+public slots:
 	void toggleVisibility();
 
-    private:
+private:
 	QVBoxLayout *objlayout;
 	QString title;
 };
 
-class QTCAD_EXPORT QgAccordion : public QWidget
-{
-    Q_OBJECT
+class QTCAD_EXPORT QgAccordion : public QWidget {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(QgAccordion)
 
-    public:
+
+public:
 	QgAccordion(QWidget *pparent = 0);
 	~QgAccordion();
 	void addObject(QgAccordionObject *object);
 
-    public slots:
+public slots:
 	void open(QgAccordionObject *);
 
-    private:
-        QSet<QgAccordionObject *> objs;
-        QgAccordionObject *selected = NULL;
-        QVBoxLayout *mlayout;
+private:
+	QSet<QgAccordionObject *> objs;
+	QgAccordionObject *selected = nullptr;
+	QVBoxLayout *mlayout;
 };
 
 #endif /* QGACCORDIANWIDGET_H */

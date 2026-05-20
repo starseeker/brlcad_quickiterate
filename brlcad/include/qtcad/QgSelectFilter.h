@@ -43,22 +43,27 @@ extern "C" {
 #include "qtcad/defines.h"
 
 // Filters designed for specific editing modes
-class QTCAD_EXPORT QgSelectFilter : public QObject
-{
-    Q_OBJECT
+class QTCAD_EXPORT QgSelectFilter : public QObject {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(QgSelectFilter)
+
 
     public:
+	QgSelectFilter() = default;
 	// Primary mouse interaction.  This differs a bit for the
 	// various selection types, hence the virtual definition
 	// in the base class.
-	virtual bool eventFilter(QObject *, QEvent *) { return false; }
+	bool eventFilter(QObject *, QEvent *) override
+	{
+		return false;
+	}
 
 	// Recover info from view (common logic for all selection modes)
 	QMouseEvent *view_sync(QEvent *e);
 
 	struct bu_ptbl selected_set = BU_PTBL_INIT_ZERO;
 
-	struct bview *v = NULL;
+	struct bview *v = nullptr;
 
 	// Whenever we're doing selections, we may want either all the objects
 	// that match the selection criteria, or just the "closest" object.
@@ -66,38 +71,41 @@ class QTCAD_EXPORT QgSelectFilter : public QObject
 	// caller to request the more limited result as well.
 	bool first_only = false;
 
-    signals:
-        void view_updated(int);
+signals:
+	void view_updated(int);
 };
 
-class QTCAD_EXPORT QgSelectPntFilter: public QgSelectFilter
-{
-    Q_OBJECT
+class QTCAD_EXPORT QgSelectPntFilter: public QgSelectFilter {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(QgSelectPntFilter)
 
-    public:
-	bool eventFilter(QObject *, QEvent *e);
+
+public:
+	bool eventFilter(QObject *, QEvent *e) override;
 };
 
-class QTCAD_EXPORT QgSelectBoxFilter: public QgSelectFilter
-{
-    Q_OBJECT
+class QTCAD_EXPORT QgSelectBoxFilter: public QgSelectFilter {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(QgSelectBoxFilter)
 
-    public:
-	bool eventFilter(QObject *, QEvent *e);
 
-    private:
+public:
+	bool eventFilter(QObject *, QEvent *e) override;
+
+private:
 	fastf_t px = -FLT_MAX;
 	fastf_t py = -FLT_MAX;
 };
 
-class QTCAD_EXPORT QgSelectRayFilter: public QgSelectFilter
-{
-    Q_OBJECT
+class QTCAD_EXPORT QgSelectRayFilter: public QgSelectFilter {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(QgSelectRayFilter)
 
-    public:
-	bool eventFilter(QObject *, QEvent *e);
 
-	struct db_i *dbip = NULL;
+public:
+	bool eventFilter(QObject *, QEvent *e) override;
+
+	struct db_i *dbip = nullptr;
 };
 
 #endif /* QGSELECTFILTER_H */
@@ -110,4 +118,3 @@ class QTCAD_EXPORT QgSelectRayFilter: public QgSelectFilter
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

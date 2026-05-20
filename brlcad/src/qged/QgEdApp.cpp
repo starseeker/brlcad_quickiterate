@@ -112,7 +112,7 @@ qt_delete_io_handler(struct ged_subprocess *p, bu_process_io_t t)
     auto it = c->listeners.find(std::make_pair(p, (int)t));
     if (it == c->listeners.end())
 	return;
-    QConsoleListener *l = it->second;
+    QgConsoleListener *l = it->second;
 
     // Stop the QSocketNotifier from firing again on the worker thread
     // *immediately*.  This must happen on whatever thread we are called
@@ -125,7 +125,7 @@ qt_delete_io_handler(struct ged_subprocess *p, bu_process_io_t t)
     //  1. The GUI thread (e.g. ged_close, or QgConsole::detach finishing
     //     up a queued is_finished signal).  We can finish synchronously.
     //
-    //  2. The QConsoleListener::m_thread worker thread, via
+    //  2. The QgConsoleListener::m_thread worker thread, via
     //     _ged_rt_output_handler2 dispatched from the QSocketNotifier
     //     activated() lambda.  Anything touching Qt widgets (including
     //     the per-subprocess end_clbk, which in qged drives QAction

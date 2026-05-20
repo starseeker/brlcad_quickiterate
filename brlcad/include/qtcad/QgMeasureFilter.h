@@ -44,15 +44,17 @@ extern "C" {
 #include "qtcad/defines.h"
 
 // Filters designed for specific editing modes
-class QTCAD_EXPORT QgMeasureFilter : public QObject
-{
-    Q_OBJECT
+class QTCAD_EXPORT QgMeasureFilter : public QObject {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(QgMeasureFilter)
+
 
     public:
+	QgMeasureFilter() = default;
 	// Primary mouse interaction.  As it happens the 2D and 3D mouse event
 	// filtering is the same, so this is not a virtual function.  See
 	// get_point for the 2D/3D specific logic.
-	bool eventFilter(QObject *, QEvent *);
+	bool eventFilter(QObject *, QEvent *) override;
 
 	// Initialization common to the various polygon filter types
 	QMouseEvent *view_sync(QEvent *e);
@@ -72,7 +74,10 @@ class QTCAD_EXPORT QgMeasureFilter : public QObject
 
 	// 2D and 3D point interrogation is different - hence this
 	// is a virtual method to be customized for 2D and 3D
-	virtual bool get_point() { return false; };
+	virtual bool get_point()
+	{
+		return false;
+	};
 	point_t mpnt;
 
 	// If the client code only wants a simple length measurement,
@@ -81,52 +86,54 @@ class QTCAD_EXPORT QgMeasureFilter : public QObject
 	// binding behavior accordingly.
 	bool length_only = false;
 
-    signals:
-        void view_updated(int);
+signals:
+	void view_updated(int);
 
-    public:
-	struct bview *v = NULL;
-	struct bv_scene_obj *s = NULL;
+public:
+	struct bview *v = nullptr;
+	struct bv_scene_obj *s = nullptr;
 	std::string oname = std::string("tool:measurement");
 
-    public slots:
+public slots:
 	void update_color(struct bu_color *);
 
-    private:
+private:
 	point_t p1 = VINIT_ZERO;
 	point_t p2 = VINIT_ZERO;
 	point_t p3 = VINIT_ZERO;
 };
 
-class QTCAD_EXPORT QMeasure2DFilter : public QgMeasureFilter
-{
-    Q_OBJECT
+class QTCAD_EXPORT QMeasure2DFilter : public QgMeasureFilter {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(QMeasure2DFilter)
 
-    public:
-	bool eventFilter(QObject *, QEvent *e);
 
-    private:
+public:
+	bool eventFilter(QObject *, QEvent *e) override;
+
+private:
 	bool get_point();
 };
 
 
-class QTCAD_EXPORT QMeasure3DFilter : public QgMeasureFilter
-{
-    Q_OBJECT
+class QTCAD_EXPORT QMeasure3DFilter : public QgMeasureFilter {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(QMeasure3DFilter)
 
-    public:
+
+public:
 	QMeasure3DFilter();
 	~QMeasure3DFilter();
-	bool eventFilter(QObject *, QEvent *e);
-	struct db_i *dbip = NULL;
+	bool eventFilter(QObject *, QEvent *e) override;
+	struct db_i *dbip = nullptr;
 
-    private:
+private:
 	bool get_point();
 
 	int prev_cnt = 0;
 	struct bu_ptbl scene_obj_set = BU_PTBL_INIT_ZERO;
-	struct application *ap = NULL;
-	struct rt_i *rtip = NULL;
+	struct application *ap = nullptr;
+	struct rt_i *rtip = nullptr;
 };
 
 #endif /* QGMEASUREFILTER_H */
@@ -139,4 +146,3 @@ class QTCAD_EXPORT QMeasure3DFilter : public QgMeasureFilter
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

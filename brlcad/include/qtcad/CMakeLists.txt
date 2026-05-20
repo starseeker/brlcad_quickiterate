@@ -30,6 +30,7 @@ set(
   QgToolPalette.h
   QgTreeSelectionModel.h
   QgTreeView.h
+  QgTypes.h
   QgUtil.h
   QgView.h
   QgViewCtrl.h

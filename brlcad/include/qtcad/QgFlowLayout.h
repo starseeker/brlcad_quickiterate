@@ -48,9 +48,8 @@
 #include <QStyle>
 #include "qtcad/defines.h"
 
-class QTCAD_EXPORT QgFlowLayout : public QLayout
-{
-    public:
+class QTCAD_EXPORT QgFlowLayout : public QLayout {
+public:
 	explicit QgFlowLayout(QWidget *parent, int margin = -1, int hSpacing = -1, int vSpacing = -1);
 	explicit QgFlowLayout(int margin = -1, int hSpacing = -1, int vSpacing = -1);
 	~QgFlowLayout();
@@ -70,7 +69,7 @@ class QTCAD_EXPORT QgFlowLayout : public QLayout
 	QSize sizeHint() const;
 	QLayoutItem *takeAt(int index);
 
-    private:
+private:
 	int doLayout(const QRect &rect, bool testOnly) const;
 	int smartSpacing(QStyle::PixelMetric pm) const;
 
