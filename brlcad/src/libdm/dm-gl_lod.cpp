@@ -402,6 +402,7 @@ gl_backend_handle_release(struct bv_scene_obj *s, int enqueue_delete)
 {
     if (!s)
 	return;
+    struct bview *sv = bsg_node_view_get((const bsg_node *)s);
     /* Do not recurse into children here.  Backend release is triggered per
      * object by higher-level scene teardown paths (e.g. bv_obj_put on each
      * leaf).  Recursing from a parent can double-release child backend state,
@@ -410,8 +411,8 @@ gl_backend_handle_release(struct bv_scene_obj *s, int enqueue_delete)
     if (be && be->type_tag == BV_BACKEND_GL) {
 	struct gl_backend_handle *h = (struct gl_backend_handle *)be->handle;
 	if (h) {
-	    if (enqueue_delete && h->dlist && s->s_v && s->s_v->dmp)
-		gl_dlist_delete_enqueue((struct dm *)s->s_v->dmp, h->dlist);
+	    if (enqueue_delete && h->dlist && sv && sv->dmp)
+		gl_dlist_delete_enqueue((struct dm *)sv->dmp, h->dlist);
 	    h->dlist = 0;
 	    BU_PUT(h, struct gl_backend_handle);
 	    be->handle = NULL;
@@ -484,6 +485,7 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
     const point_t *points_orig = lod->points_orig;
     const vect_t *normals = lod->normals;
     struct bv_scene_obj *s = lod->s;
+    struct bview *sv = bsg_node_view_get((const bsg_node *)s);
     int mode = scene_draw_mode(s);
     mat_t save_mat, draw_mat, obj_mat;
 
@@ -493,6 +495,8 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
     GLfloat originalLineWidth;
 
     if (mode < 0 || mode > 1)
+	return BRLCAD_ERROR;
+    if (!sv)
 	return BRLCAD_ERROR;
 
     glGetFloatv(GL_LINE_WIDTH, &originalLineWidth);
@@ -578,8 +582,8 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
     if (h && h->dlist) {
 	if (mode == h->dlist_mode) {
 	    //bu_log("use dlist %d\n", h->dlist);
-	    MAT_COPY(save_mat, s->s_v->gv_model2view);
-	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, obj_mat);
+	    MAT_COPY(save_mat, sv->gv_model2view);
+	    bn_mat_mul(draw_mat, sv->gv_model2view, obj_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(h->dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
@@ -615,8 +619,8 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
     } else {
 	bu_log("Not using dlist\n");
 	// Straight-up drawing - set up the matrix
-	MAT_COPY(save_mat, s->s_v->gv_model2view);
-	bn_mat_mul(draw_mat, s->s_v->gv_model2view, obj_mat);
+	MAT_COPY(save_mat, sv->gv_model2view);
+	bn_mat_mul(draw_mat, sv->gv_model2view, obj_mat);
 	dm_loadmatrix(dmp, draw_mat, 0);
     }
 
@@ -658,8 +662,8 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
 		bv_mesh_lod_memshrink(s);
 	    }
 
-	    MAT_COPY(save_mat, s->s_v->gv_model2view);
-	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, obj_mat);
+	    MAT_COPY(save_mat, sv->gv_model2view);
+	    bn_mat_mul(draw_mat, sv->gv_model2view, obj_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(h->dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
@@ -768,8 +772,8 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
 	    /* notify registered sensors that the dlist was regenerated */
 	    dm_fire_dlist_sensors(dmp);
 
-	    MAT_COPY(save_mat, s->s_v->gv_model2view);
-	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, obj_mat);
+	    MAT_COPY(save_mat, sv->gv_model2view);
+	    bn_mat_mul(draw_mat, sv->gv_model2view, obj_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(h->dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);

@@ -976,9 +976,15 @@ Completed in this session:
     has-groups) to use `bsg_node *` directly.
   - Compatibility API edges (`ged_dl`, `bsg_view_obj_root`) now cast at the
     boundary while keeping existing signatures.
+- Additional bsg-first narrowing in libdm:
+  - `src/libdm/view.c`: label drawing now resolves the owning view through
+    `bsg_node_view_get()` and no longer reads `bv_scene_obj::s_v` directly.
+  - `src/libdm/dm-gl_lod.cpp`: GL backend teardown and LoD draw-matrix paths
+    now pull view pointers via `bsg_node_view_get()` instead of raw `s_v`
+    storage.
 
 Validation update:
-- Built: `libged`, `ged_test_bsg_view_obj`.
+- Built: `libdm`, `ged_test_bsg_view_obj`.
 - `ctest --output-on-failure -R '^(libbsg_scene_graph|libbsg_phase6|libbsg_selection|ged_test_bsg_view_obj)$'`
   passed.
 
