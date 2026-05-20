@@ -494,9 +494,9 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
     static float black[4] = {0.0, 0.0, 0.0, 0.0};
     GLfloat originalLineWidth;
 
-    if (mode < 0 || mode > 1)
-	return BRLCAD_ERROR;
     if (!sv)
+	return BRLCAD_ERROR;
+    if (mode < 0 || mode > 1)
 	return BRLCAD_ERROR;
 
     glGetFloatv(GL_LINE_WIDTH, &originalLineWidth);
