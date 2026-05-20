@@ -39,6 +39,7 @@
 #include "bv/snap.h"
 #include "bv/util.h"
 #include "bsg/node.h"
+#include "bsg/payload.h"
 #include "bv/view_sets.h"
 #include "bv/vlist.h"
 #include "bsg/defines.h"
@@ -1869,7 +1870,7 @@ bv_view_obj_labels_sync(struct bview *v,
 	l->line_flag = 0;
 	l->anchor    = BV_ANCHOR_AUTO;
 	l->arrow     = 0;
-	child->s_i_data = (void *)l;
+	bsg_node_user_data_set((bsg_node *)child, (void *)l);
     }
 }
 
@@ -2122,7 +2123,7 @@ bv_obj_get_child(struct bv_scene_obj *sp)
     bu_vls_sprintf(&s->bsg.bsg_name, "child:%s:%zd", bu_vls_cstr(&sp->bsg.bsg_name), BU_PTBL_LEN(&sp->bsg.bsg_children));
 
     s->s_v = sp->s_v;
-    s->dp = sp->dp;
+    bsg_node_app_data_set((bsg_node *)s, bsg_node_app_data_get((const bsg_node *)sp));
     s->free_scene_obj = sp->free_scene_obj;
     s->vlfree = sp->vlfree;
 
@@ -2156,8 +2157,8 @@ bv_obj_reset(struct bv_scene_obj *s)
     // If we have a label, do the label freeing steps
     // TODO - this should be using the free callback rather
     // than special casing...
-    if ((s->bsg.bsg_kind & BV_LABELS) && s->s_i_data) {
-	struct bv_label *la = (struct bv_label *)s->s_i_data;
+    if ((s->bsg.bsg_kind & BV_LABELS) && bsg_node_user_data_get((const bsg_node *)s)) {
+	struct bv_label *la = (struct bv_label *)bsg_node_user_data_get((const bsg_node *)s);
 	bu_vls_free(&la->label);
 	BU_PUT(la, struct bv_label);
     }
@@ -2392,7 +2393,7 @@ _bv_lod_node_active_level(struct bv_scene_obj *lod, struct bview *v)
     if (!lod || !(lod->bsg.bsg_kind & BSG_NODE_LOD) || !v)
 	return -1;
 
-    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)lod->s_i_data;
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)bsg_node_user_data_get((const bsg_node *)lod);
     if (!pl)
 	return -1;
 
@@ -2442,21 +2443,26 @@ bv_scene_obj_bound(struct bv_scene_obj *sp, struct bview *v)
 	    point_t obmin, obmax;
 	    VMOVE(obmin, i->bmin);
 	    VMOVE(obmax, i->bmax);
+	    mat_t s_mat;
+	    bsg_node_transform_get((const bsg_node *)s, s_mat);
 	    // Apply the scene matrix to the bounding box values to bound this
 	    // instance, since the mesh LoD data is based on the
 	    // non-instanced mesh.
-	    MAT4X3PNT(s->bmin, s->s_mat, obmin);
-	    MAT4X3PNT(s->bmax, s->s_mat, obmax);
+	    MAT4X3PNT(s->bmin, s_mat, obmin);
+	    MAT4X3PNT(s->bmax, s_mat, obmax);
 	    calc = 1;
 	}
-    } else if (!calc && bu_list_len(&s->s_vlist)) {
-	int dismode;
-	cmd = bv_vlist_bbox(&s->s_vlist, &s->bmin, &s->bmax, NULL, &dismode);
-	if (cmd) {
-	    bu_log("unknown vlist op %d\n", cmd);
+    } else if (!calc) {
+	struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)s);
+	if (bu_list_len(vhead)) {
+	    int dismode;
+	    cmd = bv_vlist_bbox(vhead, &s->bmin, &s->bmax, NULL, &dismode);
+	    if (cmd) {
+		bu_log("unknown vlist op %d\n", cmd);
+	    }
+	    s->s_displayobj = dismode;
+	    calc = 1;
 	}
-	s->s_displayobj = dismode;
-	calc = 1;
     }
     if (calc) {
 	s->s_center[X] = (s->bmin[X] + s->bmax[X]) * 0.5;
@@ -2494,8 +2500,9 @@ bv_vZ_calc(struct bv_scene_obj *s, struct bview *v, int mode)
 
     double calc_val = (calc_mode) ? -DBL_MAX : DBL_MAX;
     int have_val = 0;
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)s);
     struct bv_vlist *tvp;
-    for (BU_LIST_FOR(tvp, bv_vlist, &((struct bv_vlist *)(&s->s_vlist))->l)) {
+    for (BU_LIST_FOR(tvp, bv_vlist, vhead)) {
 	size_t nused = tvp->nused;
 	point_t *lpt = tvp->pt;
 	for (size_t l = 0; l < nused; l++, lpt++) {
@@ -2637,7 +2644,9 @@ bv_obj_sync(struct bv_scene_obj *dest, struct bv_scene_obj *src)
     VMOVE(dest->s_color, src->s_color);
     VMOVE(dest->bmin, src->bmin);
     VMOVE(dest->bmax, src->bmax);
-    MAT_COPY(dest->s_mat, src->s_mat);
+    mat_t src_mat;
+    bsg_node_transform_get((const bsg_node *)src, src_mat);
+    bsg_node_transform_set((bsg_node *)dest, src_mat);
     dest->s_size = src->s_size;
     dest->s_soldash = src->s_soldash;
     dest->s_arrow = src->s_arrow;

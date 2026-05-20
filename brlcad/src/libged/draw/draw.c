@@ -132,11 +132,12 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
 
 
     struct bv_vlist *bvv = (struct bv_vlist *)vhead;
-    if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
+    struct bu_list *sp_vhead = bsg_node_vlist_head((bsg_node *)sp);
+    if (BU_LIST_IS_EMPTY(sp_vhead))
 	bsg_node_vlist_count_set((bsg_node *)sp, 0);
     bsg_node_vlist_count_set((bsg_node *)sp,
 	    bsg_node_vlist_count((const bsg_node *)sp) + bv_vlist_cmd_cnt(bvv));
-    BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
+    BU_LIST_APPEND_LIST(sp_vhead, &(bvv->l));
     _draw_payload_vlist_touch(sp);
 
     bv_scene_obj_bound(sp, dgcdp->v);
@@ -245,11 +246,12 @@ draw_solid_wireframe(struct bv_scene_obj *sp, struct bview *gvp, struct db_i *db
 
     /* add plot to solid */
     struct bv_vlist *bvv = (struct bv_vlist *)&vhead;
-    if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
+    struct bu_list *sp_vhead = bsg_node_vlist_head((bsg_node *)sp);
+    if (BU_LIST_IS_EMPTY(sp_vhead))
 	bsg_node_vlist_count_set((bsg_node *)sp, 0);
     bsg_node_vlist_count_set((bsg_node *)sp,
 	    bsg_node_vlist_count((const bsg_node *)sp) + bv_vlist_cmd_cnt(bvv));
-    BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
+    BU_LIST_APPEND_LIST(sp_vhead, &(bvv->l));
     _draw_payload_vlist_touch(sp);
 
     return 0;
@@ -263,8 +265,9 @@ redraw_solid(struct bv_scene_obj *sp, struct db_i *dbip, struct db_tree_state *t
     bsg_node_settings_get((const bsg_node *)sp, &_redraw_sinfo);
     if (_redraw_sinfo.draw_mode == _GED_WIREFRAME) {
 	/* replot wireframe */
-	if (BU_LIST_NON_EMPTY(&sp->s_vlist)) {
-	    BV_FREE_VLIST(vlfree, &sp->s_vlist);
+	struct bu_list *sp_vhead = bsg_node_vlist_head((bsg_node *)sp);
+	if (BU_LIST_NON_EMPTY(sp_vhead)) {
+	    BV_FREE_VLIST(vlfree, sp_vhead);
 	}
 	return draw_solid_wireframe(sp, gvp, dbip, tsp->ts_tol, tsp->ts_ttol);
     }
@@ -408,16 +411,17 @@ append_solid_to_display_list(
         }
 
 	struct bv_vlist *bvv = (struct bv_vlist *)&vhead;
-	if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
+	struct bu_list *sp_vhead = bsg_node_vlist_head((bsg_node *)sp);
+	if (BU_LIST_IS_EMPTY(sp_vhead))
 	    bsg_node_vlist_count_set((bsg_node *)sp, 0);
 	bsg_node_vlist_count_set((bsg_node *)sp,
 		bsg_node_vlist_count((const bsg_node *)sp) + bv_vlist_cmd_cnt(bvv));
-	BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
+	BU_LIST_APPEND_LIST(sp_vhead, &(bvv->l));
 	_draw_payload_vlist_touch(sp);
 
 	bv_scene_obj_bound(sp, bv_data->v);
 
-        while (BU_LIST_WHILE(vp, bv_vlist, &(sp->s_vlist))) {
+        while (BU_LIST_WHILE(vp, bv_vlist, sp_vhead)) {
             BU_LIST_DEQUEUE(&vp->l);
             bu_free(vp, "solid vp");
         }

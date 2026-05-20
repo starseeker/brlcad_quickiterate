@@ -33,6 +33,7 @@
 #include "bsg/light.h"
 #include "bsg/material.h"
 #include "bsg/node.h"
+#include "bsg/payload.h"
 #include "bsg/render.h"
 #include "bsg/selection.h"
 #include "bsg/settings.h"
@@ -111,13 +112,7 @@ _independent_root_skip_child(struct bv_scene_obj *s)
 void
 dm_add_arrows(struct dm *dmp, struct bv_scene_obj *s)
 {
-    struct bu_list *vhead = &s->s_vlist;
-    struct bsg_payload *payload = bsg_node_payload_get((const bsg_node *)s);
-    if (payload && bsg_payload_type(payload) == BSG_PAYLOAD_TYPE_VLIST) {
-	struct bu_list *ph = bsg_payload_vlist_head(payload);
-	if (ph)
-	    vhead = ph;
-    }
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)s);
 
     struct bsg_appearance appearance;
     bsg_node_appearance_get((const bsg_node *)s, &appearance);

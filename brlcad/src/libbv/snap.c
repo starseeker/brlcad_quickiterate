@@ -30,6 +30,7 @@
 #include <string.h>
 #include <errno.h>
 
+#include "bsg/payload.h"
 #include "bu/opt.h"
 #include "bu/ptbl.h"
 #include "bu/vls.h"
@@ -62,11 +63,12 @@ _find_closest_obj_point(struct bv_cp_info *s, point_t *p, struct bv_scene_obj *o
     int ret = 0;
     if (!s || !p || !o)
 	return 0;
-    if (!bu_list_len(&o->s_vlist))
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)o);
+    if (!bu_list_len(vhead))
 	return 0;
 
     struct bv_vlist *tvp;
-    for (BU_LIST_FOR(tvp, bv_vlist, &o->s_vlist)) {
+    for (BU_LIST_FOR(tvp, bv_vlist, vhead)) {
 	int nused = tvp->nused;
 	int *cmd = tvp->cmd;
 	point_t *pt = tvp->pt;

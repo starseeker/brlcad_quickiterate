@@ -26,6 +26,7 @@
 #include "common.h"
 #include <string.h>
 #include "vmath.h"
+#include "bsg/payload.h"
 #include "bu/hash.h"
 #include "bu/log.h"
 #include "bn/mat.h"
@@ -141,8 +142,9 @@ bv_scene_obj_hash(struct bu_data_hash_state *state, struct bv_scene_obj *s)
 	return;
 
     bu_data_hash_update(state, s, sizeof(struct bv_scene_obj));
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)s);
     struct bv_vlist *tvp;
-    for (BU_LIST_FOR(tvp, bv_vlist, &((struct bv_vlist *)&s->s_vlist)->l)) {
+    for (BU_LIST_FOR(tvp, bv_vlist, vhead)) {
 	bu_data_hash_update(state, tvp, sizeof(struct bv_vlist));
     }
     struct bsg_settings effective_settings = BSG_SETTINGS_INIT;

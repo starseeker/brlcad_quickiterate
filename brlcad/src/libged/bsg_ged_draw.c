@@ -923,10 +923,13 @@ _bsg_payload_vlist_touch(struct bv_scene_obj *sp)
 static void
 solid_append_vlist(struct bv_scene_obj *sp, struct bv_vlist *vlist)
 {
-    if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
-        sp->s_vlen = 0;
-    sp->s_vlen += bv_vlist_cmd_cnt(vlist);
-    BU_LIST_APPEND_LIST(&(sp->s_vlist), &(vlist->l));
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)sp);
+
+    if (BU_LIST_IS_EMPTY(vhead))
+        bsg_node_vlist_count_set((bsg_node *)sp, 0);
+    bsg_node_vlist_count_set((bsg_node *)sp,
+	    bsg_node_vlist_count((const bsg_node *)sp) + bv_vlist_cmd_cnt(vlist));
+    BU_LIST_APPEND_LIST(vhead, &(vlist->l));
     _bsg_payload_vlist_touch(sp);
 }
 
@@ -934,9 +937,12 @@ static void
 solid_copy_vlist(struct db_i *UNUSED(dbip), struct bv_scene_obj *sp,
                  struct bv_vlist *vlist, struct bu_list *vlfree)
 {
-    BU_LIST_INIT(&(sp->s_vlist));
-    bv_vlist_copy(vlfree, &(sp->s_vlist), (struct bu_list *)vlist);
-    sp->s_vlen = bv_vlist_cmd_cnt((struct bv_vlist *)(&(sp->s_vlist)));
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)sp);
+
+    BU_LIST_INIT(vhead);
+    bv_vlist_copy(vlfree, vhead, (struct bu_list *)vlist);
+    bsg_node_vlist_count_set((bsg_node *)sp,
+	    bv_vlist_cmd_cnt((struct bv_vlist *)vhead));
     _bsg_payload_vlist_touch(sp);
 }
 
@@ -1020,7 +1026,6 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     bsg_material_from_legacy_obj((const bsg_node *)sp, &m);
     m.transparency = transparency;
     m.rgba[3] = bsg_material_alpha_from_transparency(m.transparency);
-    m.revision = (uint64_t)sp->s_color_rev;
     bsg_node_material_set((bsg_node *)sp, &m);
 
     struct bsg_appearance a;
@@ -1031,7 +1036,6 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     if (csoltab) {
         color_soltab(gedp->dbip, sp);
         bsg_material_from_legacy_obj((const bsg_node *)sp, &m);
-        m.revision = (uint64_t)sp->s_color_rev;
         bsg_node_material_set((bsg_node *)sp, &m);
     }
 
@@ -1242,7 +1246,7 @@ _color_solid_cb(bsg_node *n, void *ud)
      * material-change events (via bsg_view_obj_bump_mater_rev), not by the
      * sweep itself, so shapes stamped at the current revision will be skipped
      * on every subsequent call until another material change occurs. */
-    if ((uint64_t)sp->s_color_rev == ctx->mater_rev)
+    if (bsg_node_material_revision((const bsg_node *)sp) == ctx->mater_rev)
         return 1;
 
     color_soltab(ctx->dbip, sp);
