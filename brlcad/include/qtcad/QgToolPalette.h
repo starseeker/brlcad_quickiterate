@@ -89,6 +89,7 @@ public:
 	{
 		return button;
 	}
+	/* May be nullptr for placeholder elements constructed without a control widget. */
 	QWidget *controlsWidget() const
 	{
 		return controls;

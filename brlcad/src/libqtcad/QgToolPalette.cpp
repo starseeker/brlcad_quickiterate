@@ -89,8 +89,6 @@ void
 QgToolPaletteElement::setControls(QWidget *n_control)
 {
 	controls = n_control;
-	if (controls)
-	    controls->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
 }
 
 void
@@ -281,6 +279,7 @@ QgToolPalette::palette_displayElement(QgToolPaletteElement *element)
 			}
 			control_container->takeWidget();
 			control_container->setWidget(element->controlsWidget());
+			element->controlsWidget()->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
 			element->controlsWidget()->show();
 			element->do_element_unhide(nullptr);
 			control_container->verticalScrollBar()->setSliderPosition(element->scrollPosition());

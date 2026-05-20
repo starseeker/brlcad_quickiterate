@@ -641,6 +641,8 @@ QgEdApp::element_selected(QgToolPaletteElement *el)
 {
     QTCAD_SLOT("QgEdApp::element_selected", 1);
     QWidget *controls = el->controlsWidget();
+    // Palette elements may legitimately omit a controls widget and expose only
+    // button-driven behavior, so guard that case before manipulating visibility.
     if (!controls || !controls->isVisible()) {
 	// Apparently this can happen when we have docked widgets
 	// closed and we click on the border between the view and
