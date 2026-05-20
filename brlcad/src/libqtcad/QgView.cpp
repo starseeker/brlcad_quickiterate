@@ -328,8 +328,12 @@ QgView::clear_event_filter(QObject *o)
 			filters.clear();
 		}
 	}
-	if (o)
-		filters.erase(std::remove(filters.begin(), filters.end(), o), filters.end());
+	if (o) {
+		auto fit = std::find(filters.begin(), filters.end(), o);
+		if (fit != filters.end())
+			filters.erase(fit);
+	}
+	/* Passing nullptr is the documented "clear all managed filters" mode. */
 	if (!o || curr_event_filter == o)
 		curr_event_filter = nullptr;
 }
