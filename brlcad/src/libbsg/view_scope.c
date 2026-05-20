@@ -50,7 +50,7 @@ bsg_view_scope_create(struct bview *v)
     bsg_node_set_kind((bsg_node *)s, BSG_NODE_VIEW_SCOPE);
     bsg_node_set_visible((bsg_node *)s, 1);
     /* s_v is already set by bv_obj_create to v; make the ownership explicit. */
-    s->s_v          = v;
+    bsg_node_view_set((bsg_node *)s, v);
 
     return (bsg_node *)s;
 }
@@ -62,16 +62,15 @@ bsg_view_scope_visible(bsg_node *node, struct bview *v)
     if (!node)
 	return 0;
 
-    struct bv_scene_obj *s = (struct bv_scene_obj *)node;
     if (!bsg_node_has_kind(node, BSG_NODE_VIEW_SCOPE))
 	return 0;
 
     /* NULL owner means "shared" — visible to every view. */
-    if (s->s_v == NULL)
+    if (bsg_node_view_get(node) == NULL)
 	return 1;
 
     /* View-private: only visible to the owning view. */
-    return (s->s_v == v) ? 1 : 0;
+    return (bsg_node_view_get(node) == v) ? 1 : 0;
 }
 
 

@@ -248,6 +248,35 @@ bsg_node_material_set(bsg_node *n, const struct bsg_material *m)
 }
 
 
+uint64_t
+bsg_node_material_revision(const bsg_node *n)
+{
+    struct bsg_material m;
+
+    if (!n)
+	return 0;
+
+    bsg_material_init(&m);
+    (void)bsg_node_material_get(n, &m);
+    return m.revision;
+}
+
+
+void
+bsg_node_set_material_revision(bsg_node *n, uint64_t revision)
+{
+    struct bsg_material m;
+
+    if (!n)
+	return;
+
+    bsg_material_init(&m);
+    (void)bsg_node_material_get(n, &m);
+    m.revision = revision;
+    bsg_node_material_set(n, &m);
+}
+
+
 void
 bsg_node_material_resolve(const bsg_node *n, const struct bsg_material *parent, struct bsg_material *out)
 {

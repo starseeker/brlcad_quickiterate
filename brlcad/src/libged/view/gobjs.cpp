@@ -42,6 +42,7 @@
 #include "bu/vls.h"
 #include "bv.h"
 #include "bsg/defines.h"
+#include "bsg/node.h"
 #include "bsg/settings.h"
 
 #include "../ged_private.h"
@@ -52,8 +53,8 @@ gobjs_scene_free(struct bv_scene_obj *s)
 {
     if (!s)
 	return;
-    if (s->s_path) {
-	struct db_full_path *sfp = (struct db_full_path *)s->s_path;
+    if (bsg_node_source_path_get((const bsg_node *)s)) {
+	struct db_full_path *sfp = (struct db_full_path *)bsg_node_source_path_get((const bsg_node *)s);
 	db_free_full_path(sfp);
 	BU_PUT(sfp, struct db_full_path);
     }
@@ -127,11 +128,13 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
     struct bv_scene_group *g = (struct bv_scene_group *)bv_view_obj_overlay_create(v, argv[1], 0);
     if (!g)
 	return BRLCAD_ERROR;
-    BU_GET(g->s_path, struct db_full_path);
-    db_full_path_init((struct db_full_path *)g->s_path);
-    db_dup_full_path((struct db_full_path *)g->s_path, fp);
-    g->s_i_data = (void *)ip;
-    g->s_free_callback = &gobjs_scene_free;
+    struct db_full_path *gpath = NULL;
+    BU_GET(gpath, struct db_full_path);
+    db_full_path_init(gpath);
+    db_dup_full_path(gpath, fp);
+    bsg_node_source_path_set((bsg_node *)g, gpath);
+    bsg_node_user_data_set((bsg_node *)g, (void *)ip);
+    bsg_node_set_free_callback((bsg_node *)g, (bsg_node_free_fn)&gobjs_scene_free);
 
     // Set up drawing settings
     unsigned char wcolor[3] = {255,255,255};

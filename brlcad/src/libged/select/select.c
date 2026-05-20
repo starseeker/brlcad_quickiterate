@@ -28,6 +28,7 @@
 #include <string.h>
 
 
+#include "bsg/payload.h"
 #include "bu/getopt.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
@@ -133,11 +134,12 @@ dl_select_cb(struct bv_scene_obj *sp, void *userdata)
 
     point_t vmin, vmax;
     struct bv_vlist *vp;
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)sp);
 
     vmax[X] = vmax[Y] = vmax[Z] = -INFINITY;
     vmin[X] = vmin[Y] = vmin[Z] =  INFINITY;
 
-    for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+    for (BU_LIST_FOR(vp, bv_vlist, vhead)) {
 	size_t j;
 	size_t nused = vp->nused;
 	int *cmd = vp->cmd;
@@ -263,8 +265,9 @@ dl_select_partial_cb(struct bv_scene_obj *sp, void *userdata)
     struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
 
     struct bv_vlist *vp;
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)sp);
 
-    for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+    for (BU_LIST_FOR(vp, bv_vlist, vhead)) {
 	size_t j;
 	size_t nused = vp->nused;
 	int *cmd = vp->cmd;

@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "bsg/node.h"
 #include "vmath.h"
 #include "rt/geom.h"
 #include "raytrace.h"
@@ -45,12 +46,12 @@ draw_points(struct bv_scene_obj *s)
     if (!s)
 	return BRLCAD_OK; /* nothing to do is fine */
 
-    struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
+    struct draw_update_data_t *d = (struct draw_update_data_t *)bsg_node_user_data_get((const bsg_node *)s);
     if (!d)
 	return BRLCAD_OK; /* nothing to do is fine */
 
-    struct db_full_path *fp = (struct db_full_path *)s->s_path;
-    struct directory *dp = (fp) ? DB_FULL_PATH_CUR_DIR(fp) : (struct directory *)s->dp;
+    struct db_full_path *fp = (struct db_full_path *)bsg_node_source_path_get((const bsg_node *)s);
+    struct directory *dp = (fp) ? DB_FULL_PATH_CUR_DIR(fp) : (struct directory *)bsg_node_app_data_get((const bsg_node *)s);
     if (!dp)
 	return BRLCAD_OK; /* nothing to do is fine */
 

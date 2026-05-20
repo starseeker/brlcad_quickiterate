@@ -129,7 +129,7 @@ bsg_group_ensure_child(bsg_node *parent, struct bview *v,
     bsg_node_set_kind((bsg_node *)child, BSG_NODE_GROUP);
     bsg_node_set_visible((bsg_node *)child, 1);
     child->bsg.bsg_iflag = DOWN;
-    child->dp = dp_hint;
+    bsg_node_app_data_set((bsg_node *)child, dp_hint);
     bsg_node_set_name((bsg_node *)child, name);
     bsg_node_add_child(parent, (bsg_node *)child);
 
@@ -157,8 +157,8 @@ bsg_bump_rev_node(bsg_node *n)
     while (cur->bsg.bsg_parent)
 	cur = (struct bv_scene_obj *)cur->bsg.bsg_parent;
     /* cur is the draw root; s_i_data holds the bsg_draw_ctx */
-    if (cur->s_i_data) {
-	struct bsg_draw_ctx *ctx = (struct bsg_draw_ctx *)cur->s_i_data;
+    if (bsg_node_user_data_get((const bsg_node *)cur)) {
+	struct bsg_draw_ctx *ctx = (struct bsg_draw_ctx *)bsg_node_user_data_get((const bsg_node *)cur);
 	if (ctx->draw_rev)
 	    ++(*ctx->draw_rev);
     }
@@ -195,8 +195,7 @@ bsg_free_children_recursive(bsg_node *gn, struct bv_scene_obj *fso)
 	     * fires the illumination-clear registered as ged_bv_illum_free_cb
 	     * at shape-creation time (Phase 7 Steps 8-9). */
 	    bv_scene_obj_release_backend(child);
-	    if (child->s_free_callback)
-		(*child->s_free_callback)(child);
+	    bsg_node_invoke_free_callback((bsg_node *)child);
 	    child->bsg.bsg_parent = NULL;
 	    struct bv_scene_obj *sfso = fso ? fso : child->free_scene_obj;
 	    if (sfso)
@@ -320,8 +319,7 @@ bsg_erase_nested_subpath(bsg_node *parent_node,
 		    (struct bv_scene_obj *)BU_PTBL_GET(&snap, j);
 		/* Phase 11: route teardown through the backend contract. */
 		bv_scene_obj_release_backend(sp);
-		if (sp->s_free_callback)
-		    (*sp->s_free_callback)(sp);
+		bsg_node_invoke_free_callback((bsg_node *)sp);
 		bu_ptbl_rm(&cur->bsg.bsg_children, (const long *)sp);
 		/* cur is in the tree; bump rev then clear parent */
 		bsg_bump_rev_node((bsg_node *)cur);

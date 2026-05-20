@@ -40,6 +40,9 @@
 #include "common.h"
 
 #include "bsg/appearance.h"
+#include "bsg/material.h"
+#include "bsg/node.h"
+#include "bsg/payload.h"
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -80,9 +83,13 @@ _rebuild_bsg_dlines(struct bview *v, const char *bsg_name,
     if (!s)
 	return;
 
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)s);
+    if (!vhead)
+	return;
+
     for (int i = 0; i + 1 < npts; i += 2) {
-	BV_ADD_VLIST(s->vlfree, &s->s_vlist, pts[i],   BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(s->vlfree, &s->s_vlist, pts[i+1], BV_VLIST_LINE_DRAW);
+	BV_ADD_VLIST(s->vlfree, vhead, pts[i],   BV_VLIST_LINE_MOVE);
+	BV_ADD_VLIST(s->vlfree, vhead, pts[i+1], BV_VLIST_LINE_DRAW);
     }
 
     if (color)
@@ -154,11 +161,15 @@ _view_dlines_cmd_color(void *bs, int argc, const char **argv)
 
     if (argc == 1) {
 	struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
-	if (s)
-	    bu_vls_printf(gedp->ged_result_str, "%d %d %d",
-			  (int)s->s_color[0], (int)s->s_color[1], (int)s->s_color[2]);
-	else
+	if (!s) {
 	    bu_vls_printf(gedp->ged_result_str, "0 0 0");
+	} else {
+	    struct bsg_material m;
+	    bsg_material_init(&m);
+	    (void)bsg_node_material_get((const bsg_node *)s, &m);
+	    bu_vls_printf(gedp->ged_result_str, "%d %d %d",
+			  (int)m.rgba[0], (int)m.rgba[1], (int)m.rgba[2]);
+	}
 	return BRLCAD_OK;
     }
 
@@ -239,9 +250,12 @@ _view_dlines_cmd_points(void *bs, int argc, const char **argv)
 	/* Read: walk the BSG vlist. */
 	struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
 	if (s) {
+	    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)s);
+	    if (!vhead)
+		return BRLCAD_OK;
 	    struct bv_vlist *vp;
 	    size_t j;
-	    for (BU_LIST_FOR(vp, bv_vlist, &s->s_vlist)) {
+	    for (BU_LIST_FOR(vp, bv_vlist, vhead)) {
 		for (j = 0; j < (size_t)vp->nused; j++) {
 		    bu_vls_printf(gedp->ged_result_str, " {%lf %lf %lf} ", V3ARGS(vp->pt[j]));
 		}
@@ -270,9 +284,12 @@ _view_dlines_cmd_points(void *bs, int argc, const char **argv)
 	int saved_lw = 0;
 	struct bv_scene_obj *old_s = bv_view_obj_find(v, vs->bsg_name);
 	if (old_s) {
-	    saved_color[0] = (int)old_s->s_color[0];
-	    saved_color[1] = (int)old_s->s_color[1];
-	    saved_color[2] = (int)old_s->s_color[2];
+	    struct bsg_material m;
+	    bsg_material_init(&m);
+	    (void)bsg_node_material_get((const bsg_node *)old_s, &m);
+	    saved_color[0] = (int)m.rgba[0];
+	    saved_color[1] = (int)m.rgba[1];
+	    saved_color[2] = (int)m.rgba[2];
 	    struct bsg_appearance app;
 	    bsg_appearance_init(&app);
 	    (void)bsg_node_appearance_get((const bsg_node *)old_s, &app);

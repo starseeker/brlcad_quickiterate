@@ -126,7 +126,7 @@ _alloc_sensor_node(bsg_node *root, unsigned long long stype)
 	return NULL;
 
     struct bv_scene_obj *r = (struct bv_scene_obj *)root;
-    struct bview *v = r->s_v;
+    struct bview *v = bsg_node_view_get((const bsg_node *)r);
     if (!v)
 	return NULL;
 

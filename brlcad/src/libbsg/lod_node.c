@@ -74,7 +74,7 @@ _lod_node_free_cb(struct bv_scene_obj *s)
 {
     if (!s)
 	return;
-    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)s->s_i_data;
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)bsg_node_user_data_get((const bsg_node *)s);
     if (!pl)
 	return;
 
@@ -84,7 +84,7 @@ _lod_node_free_cb(struct bv_scene_obj *s)
 
     bu_free(pl->cursors, "bsg_lod_payload cursors");
     bu_free(pl, "bsg_lod_payload");
-    s->s_i_data = NULL;
+    bsg_node_user_data_set((bsg_node *)s, NULL);
 }
 
 
@@ -121,7 +121,7 @@ bsg_lod_node_create(struct bview *v)
     pl->cursor_count = 0;
 
     bsg_node_user_data_set((bsg_node *)n, pl);
-    n->s_free_callback = _lod_node_free_cb;  /* no BSG accessor for lifecycle callbacks yet */
+    bsg_node_set_free_callback((bsg_node *)n, (bsg_node_free_fn)_lod_node_free_cb);
 
     return (bsg_node *)n;
 }

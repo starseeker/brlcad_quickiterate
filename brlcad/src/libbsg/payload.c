@@ -396,6 +396,48 @@ bsg_payload_vlist_from_node(bsg_node *n)
     return p;
 }
 
+struct bu_list *
+bsg_node_vlist_head(bsg_node *n)
+{
+    struct bsg_payload *p;
+
+    if (!n)
+	return NULL;
+
+    p = bsg_payload_vlist_from_node(n);
+    return bsg_payload_vlist_head(p);
+}
+
+
+size_t
+bsg_node_vlist_count(const bsg_node *n)
+{
+    struct bsg_payload *p;
+
+    if (!n)
+	return 0;
+
+    p = bsg_node_payload_get(n);
+    if (!p || p->type != BSG_PAYLOAD_TYPE_VLIST)
+	return 0;
+
+    return bsg_payload_vlist_count(p);
+}
+
+
+void
+bsg_node_vlist_count_set(bsg_node *n, size_t count)
+{
+    struct bv_scene_obj *s;
+
+    if (!n)
+	return;
+
+    s = (struct bv_scene_obj *)n;
+    s->s_vlen = count;
+}
+
+
 void
 bsg_payload_vlist_set(struct bsg_payload *payload, struct bu_list *vhead)
 {
@@ -628,10 +670,8 @@ bsg_payload_dispatch(void *dmp, bsg_node *node, struct bview *v)
 	return;
 
     s = (struct bv_scene_obj *)node;
-    if (s->s_update_callback) {
-	(void)dmp;
-	(*s->s_update_callback)(s, v, 0);
-    }
+    (void)dmp;
+    bsg_node_invoke_update_callback((bsg_node *)s, v, 0);
 }
 
 /*

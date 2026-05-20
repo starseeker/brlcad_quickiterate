@@ -644,6 +644,163 @@ Exit criteria:
 - All non-test callers use BSG APIs instead of raw bv_scene_obj fields for
   semantics.
 
+Phase 5 execution update - 2026-05-20
+------------------------------------
+Status:
+- IN PROGRESS.  The lifecycle/update-callback slice is now DONE for non-test
+  callers; the broader raw-field migration listed above remains active.
+
+Completed in this session:
+- Added typed BSG lifecycle accessors for legacy update callbacks:
+  - `bsg_node_set_update_callback()`
+  - `bsg_node_invoke_update_callback()`
+- Switched non-test lifecycle call sites in libbsg/libbv/libged/libqtcad to
+  use BSG accessors instead of directly assigning or invoking
+  `s_update_callback` / `s_free_callback`.
+- Updated the libbsg node tests and scene-graph sensor test coverage to exercise
+  the new callback boundary directly.
+- Added additional Phase 5 compatibility accessors for:
+  - source-path storage (`s_path`)
+  - app/source object data (`dp`)
+  - per-node view context (`s_v`)
+  - backend attachment (`s_backend`)
+  - vlist access/count helpers (`s_vlist` / `s_vlen`)
+  - material revision helpers (`s_color_rev`)
+  - appearance convenience helpers for dashed/arrow state (`s_soldash` / `s_arrow`)
+- Started converting non-test callers to those accessors in libbsg/libged.
+- Converted the libbv polygon subsystem to the BSG accessor boundary:
+  - `polygon.c` now uses BSG user-data, view, vlist, material, and appearance
+    APIs instead of directly reading/writing `s_i_data`, `s_v`, `s_vlist`,
+    `s_color`, and `s_soldash`.
+  - `polygon_op.cpp` now uses BSG user-data/view accessors instead of direct
+    `s_i_data` / `s_v` access.
+- Converted the remaining higher-level polygon tooling off direct scene-view
+  access:
+  - `src/libqtcad/QgPolyFilter.cpp` now uses BSG view accessors for polygon
+    update dispatch and view attachment.
+  - `src/qged/plugins/polygon/QPolyCreate.cpp` and
+    `src/qged/plugins/polygon/QPolyMod.cpp` now use BSG view accessors instead
+    of direct `s_v` reads/writes.
+  - `src/libged/view/polygons.c` now uses BSG view accessors for command-side
+    mouse/update flow and area calculations.
+- Converted the remaining simple overlay-object helpers off raw payload and
+  user-data storage:
+  - `src/libged/view/axes.c`, `labels.c`, `lines.c`, and `data_lines.c` now
+    use BSG user-data, vlist payload, and material accessors instead of direct
+    `s_i_data`, `s_vlist`, and `s_color` access.
+  - `src/libdm/axes.c` now reads axes payload data through BSG user-data.
+  - `src/libdm/X/dm-X.c` now pulls drawable vlist heads through the BSG payload
+    accessor path instead of directly traversing `s_vlist`.
+- Converted the core GED draw/eval metadata path off direct scene-object
+  metadata fields:
+  - `src/libged/points_eval.c` and `wireframe_eval.c` now read draw-update
+    state and source-path information through BSG user-data/source-path
+    accessors instead of direct `s_i_data` / `s_path` / `dp` access.
+  - `src/libged/draw/draw.c` now uses BSG transform and vlist-count accessors
+    in its shared draw bookkeeping instead of directly maintaining `s_mat` and
+    `s_vlen`.
+  - `src/libged/draw.cpp` now populates and consumes draw-object source-path,
+    app-data, transform, and update-data state through the BSG accessor
+    boundary instead of directly assigning `s_path`, `dp`, `s_mat`, and
+    `s_i_data`.
+- Converted the GL LoD renderer backend path off direct compatibility-field
+  access:
+  - `src/libdm/dm-gl_lod.cpp` now routes renderer backend handles through
+    `bsg_node_backend_get/set`, reads object transforms through
+    `bsg_node_transform_get`, and falls back to `bsg_node_vlist_head` instead
+    of directly touching `s_backend`, `s_mat`, and `s_vlist`.
+  - `src/libged/tests/draw/bsg_view_obj.cpp` now exercises the renderer
+    backend contract through the same BSG backend accessors instead of directly
+    assigning or asserting on `s_backend`.
+- Converted a coherent libged report/export slice off direct vlist-head access:
+  - `src/libged/solid_report/solid_report.c`, `plot/plot.c`, `png/png.c`, and
+    `ps/ps.c` now obtain scene vlists through `bsg_node_vlist_head` instead of
+    directly walking `s_vlist`.
+- Converted a small editor helper slice off direct vlist-head access:
+  - `src/libged/select/select.c` and `illum/illum.c` now read scene vlists
+    through `bsg_node_vlist_head`, including the `labelvert` path that passes
+    those vlists into `rt_label_vlist_verts`.
+- Converted the residual ordinary draw/view/helper callers off direct
+  compatibility-field access:
+  - `src/libged/draw/draw.c` now appends, frees, and drains scene vlists
+    through `bsg_node_vlist_head` while continuing to maintain vlist counts via
+    the BSG payload boundary.
+  - `src/libged/dbi_state.cpp` now stores draw setup directory/app-data,
+    update-data, and transforms through `bsg_node_app_data_set`,
+    `bsg_node_user_data_set`, and `bsg_node_transform_set`.
+  - `src/libged/bsg_ged_draw.c` now routes overlay/custom-solid vlist and
+    material-revision bookkeeping through `bsg_node_vlist_head`,
+    `bsg_node_vlist_count_set`, and `bsg_node_material_revision` rather than
+    directly reading `s_vlist`, `s_vlen`, or `s_color_rev`.
+  - `src/libbv/hash.c`, `snap.c`, and `util.cpp` plus `src/libdm/view.c` now
+    consume scene vlists, transforms, and user/app-data through the same BSG
+    payload/node accessor boundary.
+
+Resulting boundary:
+- Non-test code now treats lifecycle/update hooks as BSG APIs even though the
+  underlying compatibility storage still lives on `bv_scene_obj`.
+- Direct `s_free_callback` / `s_update_callback` traffic is now confined to the
+  compatibility implementation in `src/libbsg/node.c`, legacy-storage reset
+  paths, and tests/comments.
+- The remaining raw-field work is now primarily broad caller cutover across
+  view/render/editor code rather than missing BSG API surface.
+- The core libbv polygon implementation no longer depends on direct
+  `bv_scene_obj` raw-field access for its scene payload/view/appearance data;
+  the higher-level Qt/GED polygon tooling is now on the same BSG view boundary.
+- Simple view-overlay helpers now use the same BSG user-data/vlist/material
+  boundaries as the rest of the migrated non-test tooling.
+- The central GED draw/eval path now routes source-path, app-data, transform,
+  and vlist-count bookkeeping through BSG accessors rather than direct
+  compatibility fields.
+- The GL LoD renderer now uses the same BSG backend/transform/vlist boundaries
+  as the migrated GED draw path instead of reaching directly into compatibility
+  storage for those fields.
+- The report/export callers migrated in this slice now share the same BSG
+  vlist boundary as the draw path rather than directly traversing compatibility
+  storage.
+- The editor helpers migrated in this slice now share that same BSG vlist
+  boundary instead of directly reading compatibility storage.
+- The remaining non-test raw-field accesses are now confined to compatibility
+  allocation/reset/plumbing code that still owns the underlying legacy storage,
+  rather than ordinary draw/view/editor/render callers.
+
+Moved to subsequent phases:
+- Physically relocating lifecycle callback storage off `bv_scene_obj` remains
+  later work for the Phase 6/Phase 7 ownership and compatibility-wrapper
+  cleanup, since the new BSG APIs still bridge to the existing struct fields.
+- The residual raw-field storage that remains in `src/libbv/util.cpp`,
+  `src/libbv/vlist.c`, and the free-list helpers in `src/libged/bsg_ged_draw.c`
+  is now compatibility implementation detail for later ownership/allocation
+  phases rather than open ordinary-caller Phase 5 work.
+
+Validation:
+- Qt-enabled configure succeeded with `bext_output/install`.
+- Built: `libbsg`, `libbv`, `libged`, `libqtcad`,
+  `test_bsg_node`, `test_bsg_scene_graph`, `ged_test_bsg_view_obj`.
+- `ctest --output-on-failure -R '^(libbsg_node|libbsg_scene_graph|ged_test_bsg_view_obj)$'`
+  passed.
+- Additional polygon-tooling validation:
+  - Built: `libged`, `libqtcad`, `qged_polygon`, `ged_test_bsg_view_obj`.
+  - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
+- Additional overlay-object validation:
+  - Built: `libbsg`, `libdm`, `libged`, `ged_test_bsg_view_obj`.
+  - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
+- Additional draw/eval metadata validation:
+  - Built: `libbsg`, `libged`, `ged_test_bsg_view_obj`.
+  - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
+- Additional GL LoD backend validation:
+  - Built: `libbsg`, `libdm`, `libged`, `ged_test_bsg_view_obj`.
+  - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
+- Additional report/export vlist validation:
+  - Built: `libged`, `ged_test_bsg_view_obj`.
+  - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
+- Additional editor vlist validation:
+  - Built: `libged`, `ged_test_bsg_view_obj`.
+  - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
+- Additional residual caller cleanup validation:
+  - Built: `libbv`, `libdm`, `libged`, `ged_test_bsg_view_obj`.
+  - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
+
 
 Phase 6 - Create a First-Class BSG Allocation and Lifecycle Model
 -----------------------------------------------------------------

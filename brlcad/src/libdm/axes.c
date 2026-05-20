@@ -31,6 +31,7 @@
 #include "vmath.h"
 #include "bn.h"
 #include "raytrace.h"
+#include "bsg/node.h"
 #include "dm.h"
 #include "bv/defines.h"
 #include "./include/private.h"
@@ -38,10 +39,12 @@
 void
 dm_draw_scene_axes(struct dm *dmp,  struct bv_scene_obj *s)
 {
-    if (!(s->bsg.bsg_kind & BV_AXES))
+    if (!bsg_node_has_kind((const bsg_node *)s, BV_AXES))
 	return;
 
-    struct bv_axes *bndasp = (struct bv_axes *)s->s_i_data;
+    struct bv_axes *bndasp = (struct bv_axes *)bsg_node_user_data_get((const bsg_node *)s);
+    if (!bndasp)
+	return;
     fastf_t halfAxesSize;		/* half the length of an axis */
     point_t ptA, ptB;
     /* Save the line attributes */

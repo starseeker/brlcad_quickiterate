@@ -131,12 +131,13 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     bsg_node_set_free_callback((bsg_node *)sp, (bsg_node_free_fn)ged_bv_illum_free_cb);
 
 
-    if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
-	sp->s_vlen = 0;
-
     struct bv_vlist *bvv = (struct bv_vlist *)vhead;
-    sp->s_vlen += bv_vlist_cmd_cnt(bvv);
-    BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
+    struct bu_list *sp_vhead = bsg_node_vlist_head((bsg_node *)sp);
+    if (BU_LIST_IS_EMPTY(sp_vhead))
+	bsg_node_vlist_count_set((bsg_node *)sp, 0);
+    bsg_node_vlist_count_set((bsg_node *)sp,
+	    bsg_node_vlist_count((const bsg_node *)sp) + bv_vlist_cmd_cnt(bvv));
+    BU_LIST_APPEND_LIST(sp_vhead, &(bvv->l));
     _draw_payload_vlist_touch(sp);
 
     bv_scene_obj_bound(sp, dgcdp->v);
@@ -219,8 +220,10 @@ draw_solid_wireframe(struct bv_scene_obj *sp, struct bview *gvp, struct db_i *db
 	return -1;
     struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)sp);
 
+    mat_t sp_mat;
+    bsg_node_transform_get((const bsg_node *)sp, sp_mat);
     ret = rt_db_get_internal(ip, DB_FULL_PATH_CUR_DIR(&bdata->s_fullpath),
-			     dbip, sp->s_mat);
+			     dbip, sp_mat);
 
     if (ret < 0) {
 	return -1;
@@ -242,12 +245,13 @@ draw_solid_wireframe(struct bv_scene_obj *sp, struct bview *gvp, struct db_i *db
     }
 
     /* add plot to solid */
-    if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
-	sp->s_vlen = 0;
-
     struct bv_vlist *bvv = (struct bv_vlist *)&vhead;
-    sp->s_vlen += bv_vlist_cmd_cnt(bvv);
-    BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
+    struct bu_list *sp_vhead = bsg_node_vlist_head((bsg_node *)sp);
+    if (BU_LIST_IS_EMPTY(sp_vhead))
+	bsg_node_vlist_count_set((bsg_node *)sp, 0);
+    bsg_node_vlist_count_set((bsg_node *)sp,
+	    bsg_node_vlist_count((const bsg_node *)sp) + bv_vlist_cmd_cnt(bvv));
+    BU_LIST_APPEND_LIST(sp_vhead, &(bvv->l));
     _draw_payload_vlist_touch(sp);
 
     return 0;
@@ -261,8 +265,9 @@ redraw_solid(struct bv_scene_obj *sp, struct db_i *dbip, struct db_tree_state *t
     bsg_node_settings_get((const bsg_node *)sp, &_redraw_sinfo);
     if (_redraw_sinfo.draw_mode == _GED_WIREFRAME) {
 	/* replot wireframe */
-	if (BU_LIST_NON_EMPTY(&sp->s_vlist)) {
-	    BV_FREE_VLIST(vlfree, &sp->s_vlist);
+	struct bu_list *sp_vhead = bsg_node_vlist_head((bsg_node *)sp);
+	if (BU_LIST_NON_EMPTY(sp_vhead)) {
+	    BV_FREE_VLIST(vlfree, sp_vhead);
 	}
 	return draw_solid_wireframe(sp, gvp, dbip, tsp->ts_tol, tsp->ts_ttol);
     }
@@ -405,23 +410,24 @@ append_solid_to_display_list(
             return TREE_NULL;
         }
 
-	if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
-	    sp->s_vlen = 0;
-
 	struct bv_vlist *bvv = (struct bv_vlist *)&vhead;
-	sp->s_vlen += bv_vlist_cmd_cnt(bvv);
-	BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
+	struct bu_list *sp_vhead = bsg_node_vlist_head((bsg_node *)sp);
+	if (BU_LIST_IS_EMPTY(sp_vhead))
+	    bsg_node_vlist_count_set((bsg_node *)sp, 0);
+	bsg_node_vlist_count_set((bsg_node *)sp,
+		bsg_node_vlist_count((const bsg_node *)sp) + bv_vlist_cmd_cnt(bvv));
+	BU_LIST_APPEND_LIST(sp_vhead, &(bvv->l));
 	_draw_payload_vlist_touch(sp);
 
 	bv_scene_obj_bound(sp, bv_data->v);
 
-        while (BU_LIST_WHILE(vp, bv_vlist, &(sp->s_vlist))) {
+        while (BU_LIST_WHILE(vp, bv_vlist, sp_vhead)) {
             BU_LIST_DEQUEUE(&vp->l);
             bu_free(vp, "solid vp");
         }
     }
 
-    sp->s_vlen = 0;
+    bsg_node_vlist_count_set((bsg_node *)sp, 0);
     db_dup_full_path(&bdata->s_fullpath, pathp);
 
     /* Phase 2C: assign BSG identity from DB path */
@@ -512,7 +518,7 @@ append_solid_to_display_list(
 	bsg_node_material_set((bsg_node *)sp, &mat);
 	bsg_node_appearance_set((bsg_node *)sp, &app);
     }
-    MAT_COPY(sp->s_mat, tsp->ts_mat);
+    bsg_node_transform_set((bsg_node *)sp, tsp->ts_mat);
 
     /* append solid to display list */
     bu_semaphore_acquire(RT_SEM_MODEL);

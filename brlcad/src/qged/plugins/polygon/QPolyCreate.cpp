@@ -48,6 +48,27 @@ _qpolycreate_poly(struct bv_scene_obj *obj)
     return (struct bv_polygon *)bsg_node_user_data_get((const bsg_node *)obj);
 }
 
+static struct bview *
+_qpolycreate_view(struct bv_scene_obj *obj)
+{
+    return bsg_node_view_get((const bsg_node *)obj);
+}
+
+static void
+_qpolycreate_view_set(struct bv_scene_obj *obj, struct bview *v)
+{
+    bsg_node_view_set((bsg_node *)obj, v);
+}
+
+static int
+_qpolycreate_update(struct bv_scene_obj *obj, struct bview *v, int utype)
+{
+    struct bview *ov = _qpolycreate_view(obj);
+    if (!ov)
+	ov = v;
+    return bv_update_polygon(obj, ov, utype);
+}
+
 static int
 _qpolycreate_is_poly(struct bv_scene_obj *obj)
 {
@@ -78,7 +99,7 @@ _qpolycreate_clear_pts_cb(struct bv_scene_obj *obj, void *data)
 	*s->draw_change = true;
 	ip->curr_point_i = -1;
 	ip->curr_contour_i = 0;
-	bv_update_polygon(obj, obj->s_v, BV_POLYGON_UPDATE_PROPS_ONLY);
+	_qpolycreate_update(obj, NULL, BV_POLYGON_UPDATE_PROPS_ONLY);
     }
     return 1;
 }
@@ -314,7 +335,7 @@ QPolyCreate::do_vpoly_copy()
     bu_vls_free(&vname);
     if (!p)
 	return;
-    p->s_v = gedp->ged_gvp;
+    _qpolycreate_view_set(p, gedp->ged_gvp);
 
     // Done processing view object - increment name
     poly_cnt++;
@@ -364,7 +385,7 @@ QPolyCreate::do_import_sketch()
     bu_vls_free(&vname);
     if (!p)
 	return;
-    p->s_v = gedp->ged_gvp;
+    _qpolycreate_view_set(p, gedp->ged_gvp);
 
     // Done processing view object - increment name
     poly_cnt++;
@@ -585,7 +606,7 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
     // If we're mid-creation (i.e. p != NULL) we need to keep processing the
     // polygon from the last event - otherwise, start fresh with p == NULL
     cf->wp = p;
-    cf->v = (p) ? p->s_v : gedp->ged_gvp;
+    cf->v = (p && _qpolycreate_view(p)) ? _qpolycreate_view(p) : gedp->ged_gvp;
     checkbox_refresh(0);
 
     // Connect whatever the current filter is to pass on updating signals from

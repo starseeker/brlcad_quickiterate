@@ -43,6 +43,27 @@ _qgpoly_poly(struct bv_scene_obj *obj)
     return (struct bv_polygon *)bsg_node_user_data_get((const bsg_node *)obj);
 }
 
+static struct bview *
+_qgpoly_view(struct bv_scene_obj *obj)
+{
+    return bsg_node_view_get((const bsg_node *)obj);
+}
+
+static void
+_qgpoly_view_set(struct bv_scene_obj *obj, struct bview *v)
+{
+    bsg_node_view_set((bsg_node *)obj, v);
+}
+
+static int
+_qgpoly_update(struct bv_scene_obj *obj, struct bview *v, int utype)
+{
+    struct bview *ov = _qgpoly_view(obj);
+    if (!ov)
+	ov = v;
+    return bv_update_polygon(obj, ov, utype);
+}
+
 static void
 _qgpoly_edge_color(struct bu_color *c, const struct bv_scene_obj *obj)
 {
@@ -111,7 +132,7 @@ QgPolyFilter::close_polygon()
 	}
 
 	ip->polygon.contour[0].open = 0;
-	bv_update_polygon(wp, wp->s_v, BV_POLYGON_UPDATE_DEFAULT);
+	_qgpoly_update(wp, v, BV_POLYGON_UPDATE_DEFAULT);
     }
 
     return true;
@@ -133,7 +154,7 @@ QPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 	    bv_screen_pt(&v->gv_point, v->gv_mouse_x, v->gv_mouse_y, v);
 
 	    wp = bv_create_polygon(v, BV_VIEW_OBJS, ptype, &v->gv_point);
-	    wp->s_v = v;
+	    _qgpoly_view_set(wp, v);
 
 	    struct bv_polygon *ip = _qgpoly_poly(wp);
 	    if (ptype == BV_POLYGON_GENERAL) {
@@ -164,11 +185,11 @@ QPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 	    // Set fill
 	    if (fill_poly && !ip->fill_flag) {
 		ip->fill_flag = 1;
-		bv_update_polygon(wp, wp->s_v, BV_POLYGON_UPDATE_PROPS_ONLY);
+		_qgpoly_update(wp, v, BV_POLYGON_UPDATE_PROPS_ONLY);
 	    }
 	    if (!fill_poly && ip->fill_flag) {
 		ip->fill_flag = 0;
-		bv_update_polygon(wp, wp->s_v, BV_POLYGON_UPDATE_DEFAULT);
+		_qgpoly_update(wp, v, BV_POLYGON_UPDATE_DEFAULT);
 	    }
 
 	    // Name appropriately
@@ -187,9 +208,12 @@ QPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 	// left clicks will append new points
 	struct bv_polygon *ip = _qgpoly_poly(wp);
 	if (ip->type == BV_POLYGON_GENERAL) {
-	    wp->s_v->gv_mouse_x = v->gv_mouse_x;
-	    wp->s_v->gv_mouse_y = v->gv_mouse_y;
-	    bv_update_polygon(wp, wp->s_v, BV_POLYGON_UPDATE_PT_APPEND);
+	    struct bview *ov = _qgpoly_view(wp);
+	    if (ov) {
+		ov->gv_mouse_x = v->gv_mouse_x;
+		ov->gv_mouse_y = v->gv_mouse_y;
+	    }
+	    _qgpoly_update(wp, v, BV_POLYGON_UPDATE_PT_APPEND);
 	    emit view_updated(QG_VIEW_REFRESH);
 	    return true;
 	}
@@ -235,7 +259,7 @@ QPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 	// For every other polygon type, call the libbv update routine
 	// with the view's x,y coordinates
 	if (m_e->buttons().testFlag(Qt::LeftButton) && m_e->modifiers() == Qt::NoModifier) {
-	    bv_update_polygon(wp, wp->s_v, BV_POLYGON_UPDATE_DEFAULT);
+	    _qgpoly_update(wp, v, BV_POLYGON_UPDATE_DEFAULT);
 	    emit view_updated(QG_VIEW_REFRESH);
 	    return true;
 	}
@@ -302,7 +326,7 @@ QPolyCreateFilter::finalize(bool)
 
     // No longer need mouse movements to adjust parameters - turn off callback
     if (wp)
-	wp->s_update_callback = NULL;
+	bsg_node_set_update_callback((bsg_node *)wp, NULL);
 
     emit view_updated(QG_VIEW_REFRESH);
     emit finalized((icnt > 0) ? true : false);
@@ -334,7 +358,7 @@ QPolyUpdateFilter::eventFilter(QObject *, QEvent *e)
 	// For every other polygon type, call the libbv update routine
 	// with the view's x,y coordinates
 	if (m_e->buttons().testFlag(Qt::LeftButton) && m_e->modifiers() == Qt::NoModifier) {
-	    bv_update_polygon(wp, wp->s_v, BV_POLYGON_UPDATE_DEFAULT);
+	    _qgpoly_update(wp, v, BV_POLYGON_UPDATE_DEFAULT);
 	    emit view_updated(QG_VIEW_REFRESH);
 	    return true;
 	}
@@ -389,14 +413,14 @@ QPolyPointFilter::eventFilter(QObject *, QEvent *e)
     // If we have a Left release, clear point selection
     if (m_e->type() == QEvent::MouseButtonRelease) {
 	vp->curr_point_i = -1;
-	bv_update_polygon(wp, wp->s_v, BV_POLYGON_UPDATE_PT_SELECT_CLEAR);
+	_qgpoly_update(wp, v, BV_POLYGON_UPDATE_PT_SELECT_CLEAR);
 	emit view_updated(QG_VIEW_REFRESH);
 	return true;
     }
 
     // Left press selects a point
     if (m_e->type() == QEvent::MouseButtonPress && m_e->buttons().testFlag(Qt::LeftButton)) {
-	bv_update_polygon(wp, wp->s_v, BV_POLYGON_UPDATE_PT_SELECT);
+	_qgpoly_update(wp, v, BV_POLYGON_UPDATE_PT_SELECT);
 	emit view_updated(QG_VIEW_REFRESH);
 	return true;
     }
@@ -412,7 +436,7 @@ QPolyPointFilter::eventFilter(QObject *, QEvent *e)
 	    return true;
 	}
 	if (m_e->buttons().testFlag(Qt::LeftButton) && m_e->modifiers() == Qt::NoModifier) {
-	    bv_update_polygon(wp, wp->s_v, BV_POLYGON_UPDATE_PT_MOVE);
+	    _qgpoly_update(wp, v, BV_POLYGON_UPDATE_PT_MOVE);
 	    emit view_updated(QG_VIEW_REFRESH);
 	    return true;
 	}

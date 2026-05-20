@@ -37,6 +37,7 @@ extern "C" {
 #include "bv/lod.h"
 #include "bsg/appearance.h"
 #include "bsg/material.h"
+#include "bsg/node.h"
 #include "bsg/payload.h"
 #include "dm.h"
 #include "./dm-gl.h"
@@ -72,6 +73,18 @@ scene_transparency(const struct bv_scene_obj *s)
 	return 1.0;
     (void)bsg_node_material_get((const bsg_node *)s, &mat);
     return mat.transparency;
+}
+
+static struct bv_obj_backend *
+scene_backend_get(const struct bv_scene_obj *s)
+{
+    return bsg_node_backend_get((const bsg_node *)s);
+}
+
+static void
+scene_transform_get(const struct bv_scene_obj *s, mat_t mat)
+{
+    bsg_node_transform_get((const bsg_node *)s, mat);
 }
 
 static int
@@ -325,7 +338,7 @@ swrast_draw_vlist_fast(struct dm *dmp, struct bv_vlist *vp)
  *
  * The GL family of display managers (dm-gl, dm-qtgl, dm-glx, dm-wgl,
  * dm-swrast) caches its per-shape OpenGL display list and the mode it was
- * compiled in here, attached to the generic bv_scene_obj::s_backend slot.
+ * compiled in here, attached through the generic BSG backend descriptor path.
  * This replaces the BV_DEPRECATED s_dlist / s_dlist_mode / s_dlist_stale
  * fields that previously lived on every scene object.
  *
@@ -356,15 +369,15 @@ gl_backend_handle_get(struct bv_scene_obj *s, bool create)
 {
     if (!s)
 	return NULL;
-    if (s->s_backend) {
-	if (s->s_backend->type_tag != BV_BACKEND_GL)
+    struct bv_obj_backend *be = scene_backend_get(s);
+    if (be) {
+	if (be->type_tag != BV_BACKEND_GL)
 	    return NULL;
-	return (struct gl_backend_handle *)s->s_backend->handle;
+	return (struct gl_backend_handle *)be->handle;
     }
     if (!create)
 	return NULL;
 
-    struct bv_obj_backend *be;
     BU_GET(be, struct bv_obj_backend);
     be->type_tag = BV_BACKEND_GL;
     be->free = gl_backend_release_obj_free;
@@ -376,7 +389,7 @@ gl_backend_handle_get(struct bv_scene_obj *s, bool create)
     h->dlist_mode = 0;
     h->dlist_stale = 0;
     be->handle = h;
-    s->s_backend = be;
+    bsg_node_backend_set((bsg_node *)s, be);
     return h;
 }
 
@@ -393,17 +406,18 @@ gl_backend_handle_release(struct bv_scene_obj *s, int enqueue_delete)
      * object by higher-level scene teardown paths (e.g. bv_obj_put on each
      * leaf).  Recursing from a parent can double-release child backend state,
      * leading to stale GL list IDs reaching glDeleteLists. */
-    if (s->s_backend && s->s_backend->type_tag == BV_BACKEND_GL) {
-	struct gl_backend_handle *h = (struct gl_backend_handle *)s->s_backend->handle;
+    struct bv_obj_backend *be = scene_backend_get(s);
+    if (be && be->type_tag == BV_BACKEND_GL) {
+	struct gl_backend_handle *h = (struct gl_backend_handle *)be->handle;
 	if (h) {
 	    if (enqueue_delete && h->dlist && s->s_v && s->s_v->dmp)
 		gl_dlist_delete_enqueue((struct dm *)s->s_v->dmp, h->dlist);
 	    h->dlist = 0;
 	    BU_PUT(h, struct gl_backend_handle);
-	    s->s_backend->handle = NULL;
+	    be->handle = NULL;
 	}
-	BU_PUT(s->s_backend, struct bv_obj_backend);
-	s->s_backend = NULL;
+	BU_PUT(be, struct bv_obj_backend);
+	bsg_node_backend_set((bsg_node *)s, NULL);
     }
 }
 
@@ -471,7 +485,7 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
     const vect_t *normals = lod->normals;
     struct bv_scene_obj *s = lod->s;
     int mode = scene_draw_mode(s);
-    mat_t save_mat, draw_mat;
+    mat_t save_mat, draw_mat, obj_mat;
 
     struct gl_vars *mvars = (struct gl_vars *)dmp->i->m_vars;
     GLdouble dpt[3];
@@ -512,6 +526,7 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
 	    normals = lod->normals;
 	}
     }
+    scene_transform_get(s, obj_mat);
 
     // We don't want color to be part of the dlist, to allow the app
     // to change it without regeneration - hence, we need to do it
@@ -564,7 +579,7 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
 	if (mode == h->dlist_mode) {
 	    //bu_log("use dlist %d\n", h->dlist);
 	    MAT_COPY(save_mat, s->s_v->gv_model2view);
-	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
+	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, obj_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(h->dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
@@ -601,7 +616,7 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
 	bu_log("Not using dlist\n");
 	// Straight-up drawing - set up the matrix
 	MAT_COPY(save_mat, s->s_v->gv_model2view);
-	bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
+	bn_mat_mul(draw_mat, s->s_v->gv_model2view, obj_mat);
 	dm_loadmatrix(dmp, draw_mat, 0);
     }
 
@@ -644,7 +659,7 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
 	    }
 
 	    MAT_COPY(save_mat, s->s_v->gv_model2view);
-	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
+	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, obj_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(h->dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
@@ -754,7 +769,7 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
 	    dm_fire_dlist_sensors(dmp);
 
 	    MAT_COPY(save_mat, s->s_v->gv_model2view);
-	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, s->s_mat);
+	    bn_mat_mul(draw_mat, s->s_v->gv_model2view, obj_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(h->dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
@@ -808,7 +823,7 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 	payload_vhead = bsg_payload_vlist_head(payload);
     }
     if (!payload_vhead) {
-	payload_vhead = &s->s_vlist;
+	payload_vhead = bsg_node_vlist_head((bsg_node *)s);
     }
 
     // "Standard" vlist object drawing

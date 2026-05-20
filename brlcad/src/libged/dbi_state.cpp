@@ -59,6 +59,7 @@
 #include "ged/view.h"
 #include "ged/bsg_ged_draw.h"
 #include "./ged_private.h"
+#include "bsg/node.h"
 #include "bsg/selection.h"
 #include "bsg/util.h"
 #include "bsg/draw_set.h"
@@ -2489,7 +2490,7 @@ _bview_state_attach_leaf(struct ged *gedp,
     }
     bdata->gedp = gedp;
     db_dup_full_path(&bdata->s_fullpath, &leaf_dfp);
-    sp->s_free_callback = ged_bv_illum_free_cb;
+    bsg_node_set_free_callback((bsg_node *)sp, (bsg_node_free_fn)ged_bv_illum_free_cb);
 
     /* Build a single-component db_full_path for the top-level group
      * (the user-typed root, e.g. "all.g") and look it up / create it. */
@@ -3114,8 +3115,8 @@ BViewState::scene_obj(
     ud->tol = &wdbp->wdb_tol;
     ud->ttol = &wdbp->wdb_ttol;
     ud->mesh_c = dbis->gedp->ged_lod;
-    sp->dp = dp;
-    sp->s_i_data = (void *)ud;
+    bsg_node_app_data_set((bsg_node *)sp, (void *)dp);
+    bsg_node_user_data_set((bsg_node *)sp, (void *)ud);
 
     // Get color from path, unless we're overridden
     struct bu_color c;
@@ -3149,9 +3150,11 @@ BViewState::scene_obj(
 
     // Tell scene object what the current matrix is
     if (m) {
-	MAT_COPY(sp->s_mat, m);
+	bsg_node_transform_set((bsg_node *)sp, m);
     } else {
-	dbis->get_path_matrix(sp->s_mat, path_hashes);
+	mat_t sp_mat;
+	dbis->get_path_matrix(sp_mat, path_hashes);
+	bsg_node_transform_set((bsg_node *)sp, sp_mat);
     }
 
     // Assign the bounding box (needed for pre-adaptive-plot
@@ -3510,15 +3513,15 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 		continue;
 	    struct bv_scene_obj *nso = bv_obj_get_unregistered(v, BV_DB_OBJS);
 	    bv_obj_sync(nso, s);
-	    nso->s_i_data = s->s_i_data;
-	    s->s_i_data = NULL;
+	    bsg_node_user_data_set((bsg_node *)nso, bsg_node_user_data_get((const bsg_node *)s));
+	    bsg_node_user_data_set((bsg_node *)s, NULL);
 	    s_map[*k_it].erase(mm_it->first);
 	    ret = GED_DBISTATE_VIEW_CHANGE;
 
 	    // print path name, set view - otherwise empty
 	    dbis->print_path(&nso->bsg.bsg_name, cp);
 	    nso->s_v = v;
-	    nso->dp = s->dp;
+	    bsg_node_app_data_set((bsg_node *)nso, bsg_node_app_data_get((const bsg_node *)s));
 	    s_map[*k_it][mm_it->first] = nso;
 
 	    /* Phase B: replace the BSG-attached predecessor with the new
