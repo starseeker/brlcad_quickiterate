@@ -1,249 +1,237 @@
-Proposed modernization
-
-The goal is a single, typed, extensible host-side plugin framework, written in idiomatic Qt6 / C++17, that subsumes the current QgEdPalette ad-hoc loader, addresses the four extension kinds called out in plugin.h's own TODO, and decouples plugin discovery from the palette widgets.
-1. Use Qt's native plugin system instead of hand-rolled bu_dlopen
-
-Replace the qged_plugin_info() C ABI with Qt's QPluginLoader + Q_PLUGIN_METADATA. Reasons:
-
-    Qt already solves cross-platform dlopen/LoadLibrary, symbol lookup, ABI tagging, JSON metadata embedded in the .so, lazy loading (read metadata without running code), and unloading.
-    Metadata (name, category, version, description, icon path, shortcut, dependencies, "available when" predicates) can be queried without dlopening the library, which makes "list plugins" / settings UIs cheap and prevents loading plugins the user has disabled.
-    A single IID per extension-point lets QPluginLoader::instance() return a strongly-typed QObject* we qobject_cast to the right interface — no more void*.
-
-The existing in-tree plugin libraries stay as separate shared libraries shipped under LIBEXEC/qged/, but the CMake helper changes from qged_plugin() to a thin wrapper that:
-
-    adds AUTOMOC (or explicit qt6_wrap_cpp),
-    attaches a JSON metadata file,
-    links against a new public interface library libqged_plugin_api.
-
-2. Define a small set of typed extension-point interfaces
-
-Introduce a new public header set (e.g. include/qged/PluginApi.h) that lives outside src/qged/plugins/ so third-party plugins do not need to dig into the application source. The interfaces are pure-virtual QObjects declared with Q_DECLARE_INTERFACE. Each addresses one of the four "logical candidates" already enumerated in plugin.h:
-
-    IQgedToolFactory — produces a tool that lives inside a palette (replaces QGED_VC_TOOL_PLUGIN / QGED_OC_TOOL_PLUGIN).
-    IQgedPanelFactory — produces a QDockWidget-style panel (the "attributes dialog" use case in the TODO).
-    IQgedDialogFactory — produces a free-floating top-level dialog launched from a menu (heavy procedural-geometry tools, reports, etc.).
-    IQgedCommand — registers a ged-style command callable from the QGED console. (Where appropriate, prefer extending the libged plugin mechanism instead; this interface exists for commands that genuinely need app-level state such as the current view, the tree selection, or the main window.)
-
-Each interface provides:
-
-    A descriptor() returning a small immutable QgedPluginDescriptor (id, displayName, category, iconName, shortcutHint, requiresOpenDb, requiresView, sortKey, description, vendor, version).
-    A create(QgedPluginContext &ctx, QObject *parent) factory method. Plugins return a QObject* whose lifetime is owned by parent (Qt parent-child) — no raw void*, no ambiguity.
-    An optional isApplicable(const QgedPluginContext &) const predicate so the host can grey out / hide tools when no .g is open, no view exists, etc.
-
-3. Pass an explicit context object to every plugin
-
-Define QgedPluginContext carrying:
-
-    the QgEdApp * (read-only accessor),
-    the active ged * (or a function to query the current one),
-    the active bview * accessor,
-    the QgModel *,
-    a logger (QgedLog) so plugins do not call bu_log directly,
-    a way to publish/subscribe to view / db changes (a small typed signals object),
-    a QgedActionRegistry for installing menu items, shortcuts, and event filters on the active view in a managed way.
-
-Plugins must use only what the context exposes, so the application's internal QApplication / MainWindow layout can change without breaking plugins.
-4. Replace use_event_filter boolean with a typed contract
-
-Introduce IQgedViewEventFilter (a QObject subclass with the four-or-five callbacks the existing event filters use). A tool that needs to filter view events overrides a virtual viewEventFilter() on its tool factory's product, returning a non-null pointer if it wants events. The host installs/uninstalls it on the current view automatically when the tool becomes active/inactive, and tracks ownership through Qt parentage. This removes the magic public bool on QgToolPaletteElement.
-5. Replace the QGED_*_TOOL_PLUGIN magic numbers with category strings
-
-The current scheme conflates "API version" and "plugin type" by multiplying constants together. Replace with:
-
-    A single integer QGED_PLUGIN_API_VERSION checked by the loader against the plugin's JSON metadata. Mismatch ⇒ refuse to instantiate, log a clear message.
-    A category string in the metadata, e.g. "view", "object", "measure", "selection". Palettes are configured by category, not by hard-coded magic numbers, so adding a new palette ("annotation tools," "raytrace tools") is configuration, not a code change.
-    Within a category, ordering uses descriptor().sortKey (a stable integer) plus descriptor().id (alphabetical tiebreaker) — fully deterministic.
-
-6. Introduce a single QgedPluginManager (replacing in-line loading in QgEdPalette)
-
-This is the central change that retires the current QgEdPalette loader.
-
-QgedPluginManager (a QObject singleton owned by QgEdApp) is responsible for:
-
-    Scanning LIBEXEC/qged/ exactly once at startup, parsing JSON metadata via QPluginLoader::metaData() without instantiating the plugins.
-    Honouring user settings (a QSettings-backed allowlist/denylist) so individual plugins can be disabled.
-    Caching QPluginLoader instances; calling loader->instance() lazily on first use, and unload() on shutdown — fixing the current dlopen leak and the double-load.
-    Maintaining per-extension-point registries (QVector<IQgedToolFactory*>, etc.) and emitting factoryRegistered / factoryUnregistered signals.
-    Providing a typed query API: factoriesByCategory("view"), commandsByName("nirt"), etc.
-    Optionally supporting in-tree, statically-linked plugins through Q_IMPORT_PLUGIN macros for builds where shared plugins are inconvenient (Windows installer scenarios, fully-static builds). The interface stays the same.
-
-7. Decouple palette population from plugin discovery
-
-QgEdPalette becomes a pure view widget (a QgToolPalette instance configured with a category). A new QgedPaletteController (non-widget) asks the plugin manager for all factories in its configured category, instantiates them on demand, owns the resulting tool objects, manages "current tool" state, and forwards selection events to the active view's event-filter slot.
-
-Concretely:
-
-    QgEdMainWindow no longer instantiates QgEdPalette(QGED_VC_TOOL_PLUGIN, …); it instantiates QgedPaletteController("view", …) and QgedPaletteController("object", …).
-    The hard-coded 0/2 integers in QgEdMainWindow::InteractionMode() are replaced by the category string the active controller advertises.
-    Cross-palette deselection moves out of QgEdMainWindow into the manager, which knows about all controllers.
-
-8. Encapsulate common signal wiring
-
-The repeated boilerplate in every *_tool.cpp (six or seven QObject::connect calls) collapses into a QgedToolBase : public QObject, public IQgedTool provided by libqged_plugin_api. Plugins subclass it, override createWidget(ctx), viewEventFilter(), and (optionally) refresh(). The base class:
-
-    Connects the host's view_update, element_unhide, and db_update signals into virtual hooks the plugin overrides as needed.
-    Re-emits the plugin's "I changed the view" notification as the standard viewChanged(unsigned long long) signal the host listens to.
-
-After this, a polygon-tool plugin's _tool.cpp shrinks from ~80 lines of QObject::connect glue to a small subclass declaration plus Q_PLUGIN_METADATA(IID "..." FILE "polygon-create.json").
-9. Lifetime and ownership rules — made explicit
-
-Document and enforce in the API:
-
-    Every QObject a plugin creates is parented to the QObject* parent passed into create(ctx, parent) (typically the controller).
-    The plugin shared library is kept loaded by QgedPluginManager for the lifetime of QApplication; it is only unload()ed during QgedPluginManager's destructor, after all plugin-owned QObjects have been deleted.
-    No global static QObjects are allowed inside plugin libraries (a static-analysis lint can be added to validate_style).
-
-10. Introspection and diagnostics
-
-Add a plugins ged-style command (registered through the new manager) that supports plugins list, plugins info <id>, plugins enable <id>, plugins disable <id>, plugins reload. This is currently impossible because there is no manager object to ask. Combined with a minimal preferences page, this gives users (and the test harness) first-class visibility into the loaded plugin set.
-11. Migration strategy (minimal-change, incremental)
-
-The plugin set is small (three subtrees: polygon/, view/{info,measure,select,settings}/, edit/ell/), so a staged migration is realistic without flag-day pain:
-
-    Land libqged_plugin_api (headers + base classes) and QgedPluginManager next to the existing loader. Have the manager also recognize legacy qged_plugin_info symbols so old plugins keep working unchanged.
-    Refactor QgEdPalette to consult the manager rather than scanning LIBEXEC itself; this immediately fixes the double-dlopen and the dlopen-leak.
-    Port the in-tree plugins one at a time to the new interfaces, deleting their qged_plugin_info exports.
-    Remove the legacy compatibility shim and the magic-number QGED_*_TOOL_PLUGIN constants from plugin.h.
-    Use the new manager to add the missing extension kinds (IQgedPanelFactory, IQgedDialogFactory, IQgedCommand), closing out item #16 of the qged TODO and items #18–24 (raytrace control panel, dedication dialog, sketch editor, etc.) which currently have nowhere clean to live.
-
-Net effect
-
-    One typed, Qt-native plugin contract instead of a void *(*)() cast.
-    One central plugin manager with deterministic ordering, lazy loading, single-load, clean unload, allow/deny lists, and introspection.
-    Four extension-point interfaces covering all the use cases plugin.h already calls out as missing.
-    Palettes become dumb views over a category; QgEdMainWindow and QgEdApp lose their hard-coded knowledge of "exactly two palettes" and the use_event_filter boolean trick.
-    Plugin authors write ~10 lines of glue instead of ~80, get strong typing for the host context, and gain access to dock-widget, dialog, and command extension points they currently cannot use.
-
-
-Plane refinement:
-
-Where each piece belongs
-
-The guiding rule: anything that does not need to know "I am qged" belongs in libqtcad. Anything that hard-codes qged's specific palettes, menus, main window layout, or category names belongs in src/qged.
-
-Goes into libqtcad / include/qtcad  (reusable across qged, a future Qt Archer, embedded Qt panels in other tools, and third-party hosts)
-
-
-
-    Plugin API headers — include/qtcad/QgPluginApi.h (and a small QgPluginDescriptor.h, QgPluginContext.h):
-
-
-        QgPluginDescriptor (id, displayName, category, iconName, shortcutHint, sortKey, requiresOpenDb, requiresView, description, vendor, version).
-
-        QgPluginContext — passes a ged * accessor, current bview * accessor, a QgModel *, a QgLog sink, and a subscribe/notify object for view/db change signals. No QgEdApp reference — the context is host-agnostic. qged populates it; another host can populate it differently.
-
-        Pure-virtual QObject interfaces with Q_DECLARE_INTERFACE:
-
-            IQgToolFactory — palette-style tool factory.
-
-            IQgPanelFactory — QDockWidget-style panel.
-
-            IQgDialogFactory — free-floating dialog.
-
-            IQgCommand — ged-style command callable from a QgConsole.
-
-            IQgViewEventFilter — typed contract replacing the public use_event_filter bool on QgToolPaletteElement.
-
-
-
-        A single QGTCAD_PLUGIN_API_VERSION integer compiled into the API header (BRL-CAD-version-stamped) so the manager can refuse mismatched plugins cleanly.
-
-
-
-
-    QgToolBase (QObject) — concrete helper base, also in libqtcad. Hides the six-or-seven QObject::connect lines every current *_tool.cpp repeats (element_view_update, view_changed, settings_changed, view_updated, element_unhide, etc.) behind a few virtual hooks (createWidget, viewEventFilter, refresh, onDbChanged, onViewChanged). Polygon-tool, ell-tool, etc., become small subclasses.
-
-
-
-    QgPluginManager (QObject) — generic loader:
-
-
-        Built on QPluginLoader + Q_PLUGIN_METADATA (JSON metadata read without dlopen-ing the body).
-
-        Takes a list of search directories at construction (the host says where to look, libqtcad does not hard-code LIBEXEC/qged).
-
-        Lazy instance(), single-load, clean unload() in dtor, allow/deny list backed by a QSettings group whose name the host supplies.
-
-        Deterministic ordering via descriptor().sortKey then id.
-
-        Typed query API: factories<IQgToolFactory>("view"), commands(), etc.
-
-        Emits factoryRegistered / factoryUnregistered signals.
-
-        Supports both shared-object plugins and statically-linked plugins via Q_IMPORT_PLUGIN — important for any future fully-static or Windows-installer build.
-
-
-
-
-    QgPaletteController (QObject) — generic controller already promoted out of qged. Wraps a QgToolPalette widget and a QgPluginManager + a category name. Owns instantiated tool objects via Qt parentage, manages "current tool" state, installs/uninstalls IQgViewEventFilter on the active QgView automatically when a tool becomes active. This is what makes the qged-side code shrink to almost nothing.
-
-
-
-    QgPluginCommands — a small library of pre-built ged-style subcommands the host can plug into its console: plugins list, plugins info <id>, plugins enable/disable <id>, plugins reload. Implemented against QgPluginManager, so any libqtcad-based host gets the same diagnostics without re-implementing them.
-
-
-
-    Move QgToolPalette's implementation detail cleanups that fall out of the refactor:
-
-
-        Drop public use_event_filter from QgToolPaletteElement in favour of the IQgViewEventFilter interface implemented on the controller side.
-
-        Make QgToolPaletteElement's view-changed signal forwarding explicit (it already half-does this; the new base class makes it the only contract).
-
-
-
-
-Stays in src/qged  (qged-specific composition)
-
-
-    QgEdApp chooses the libexec search path (LIBEXEC/qged), constructs the QgPluginContext (wiring its ged*, QgModel, view accessors, logger), creates the QgPluginManager, and registers the plugins console command via QgPluginCommands.
-
-    QgEdMainWindow instantiates two QgPaletteControllers by category name (e.g. "qged.view" and "qged.object") instead of two hand-rolled QgEdPalette(QGED_VC_TOOL_PLUGIN,…) widgets. The hard-coded 0 / 2 magic numbers in InteractionMode() are replaced by asking each controller for its category id, so adding a third palette is one line.
-
-    QgEdFilter keeps its app-specific routing logic; it just consumes the typed IQgViewEventFilter the controller hands it instead of looking at a public bool.
-
-    The qged tool plugins themselves (plugins/polygon/*, plugins/view/{info,measure,select,settings}, plugins/edit/ell) stay where they are. Each *_tool.cpp is rewritten as a QgToolBase subclass with Q_PLUGIN_METADATA(IID "org.brlcad.qtcad.IQgToolFactory/1" FILE "polygon-create.json"). Their JSON metadata files declare category: "qged.view" (or "qged.object") — i.e. qged owns its own category namespace, but the plumbing is shared.
-
-
-Why this split is the right one
-
-
-    Reuse target #1: Archer. The TODO list (#20 in qged/TODO) calls out Combination Editor, BoT Edit, Build Pattern, Overlap, Sketch editor, and the Raytrace control panel as Qt widgets to be ported. Several of those are natural plugins; an Archer-on-Qt host should be able to load exactly the same .sos qged loads (plus its own). Putting the framework in libqtcad makes that a one-line addition (QgPluginManager(LIBEXEC/archer)) instead of a fork.
-
-    Reuse target #2: small embedded Qt panels. brlman already links libqtcad. A future help/inspection tool that wants tool-palette behaviour gets it for free.
-
-    Reuse target #3: third-party hosts. With the API in include/qtcad/, an external Qt application that already uses libqtcad widgets can host BRL-CAD plugin tools without depending on anything inside src/qged.
-
-    No circular dependency. libqtcad already depends on libged/libbv/libdm; everything QgPluginContext exposes (ged*, bview*, QgModel, logger) lives at or below libqtcad's level. qged remains a consumer of libqtcad with no new coupling.
-
-    Category namespacing belongs to the host, not the library. Using strings like "qged.view" rather than baked-in enums means Archer (or a third party) can define "archer.modeling", "archer.analysis", etc., without touching libqtcad headers.
-
-
-Adjusted migration order
-
-
-    libqtcad first — land QgPluginDescriptor, QgPluginContext, the four interfaces, QgToolBase, QgPluginManager, QgPaletteController, and QgPluginCommands as new headers/sources under include/qtcad and src/libqtcad. No behaviour change for qged yet.
-
-    qged adopts the manager behind QgEdPalette's current loader as a compatibility shim that still understands the legacy qged_plugin_info C ABI. This immediately fixes the double-dlopen and the dlopen leak, with no plugin source changes.
-
-    Port the in-tree qged plugins one subdir at a time to IQgToolFactory + QgToolBase + Q_PLUGIN_METADATA, deleting the legacy qged_plugin_info exports as each is converted.
-
-    Retire the compatibility shim and plugins/plugin.h's QGED_*_TOOL_PLUGIN magic numbers. plugins/plugin.h ends up either deleted or reduced to a one-line include of the libqtcad header.
-
-    Use the new extension points (IQgPanelFactory, IQgDialogFactory, IQgCommand) to land qged TODO items #18 (raytrace control), #19 (dedication dialog), #24 (sketch editor), and #22 (dock-widget polish) that currently have nowhere clean to live.
-
-    Wire Archer (when its Qt port reaches that stage) to construct its own QgPluginManager against a different libexec directory, validating reuse.
-
-
-What does not move
-
-
-    The qged-specific assembly of menus, dock layout, main-window geometry, splash, and the two-palette UX is intentionally kept in src/qged. Pushing those into libqtcad would re-create the original coupling problem in a different place: libqtcad would start dictating how a host looks rather than what reusable parts it can compose.
-
-
-Net effect compared with the previous plan
-
-Same public design, same migration ergonomics, but the API headers live under include/qtcad/ and the manager/controller/base-class live in libqtcad. qged keeps only the choices that are genuinely qged's (where to look on disk, which categories to surface, how its main window is laid out, how its console talks to commands). Any other Qt-based BRL-CAD host — Archer first — can adopt the same framework by passing a different search path and choosing its own category names, with zero duplicated code.
-
-
-
+qged modernization plan
+=======================
+
+Goal
+----
+
+Modernize qged's plugin and palette infrastructure into a single typed,
+Qt-native, host-extensible framework.  Reusable host-neutral pieces belong in
+libqtcad/include/qtcad; qged should keep only qged-specific composition choices
+such as search paths, category names, menu/dock layout, and application signal
+routing.
+
+The final design should replace the legacy qged_plugin_info() C ABI,
+QGED_*_TOOL_PLUGIN magic numbers, QgEdPalette's direct bu_dlopen scanning, and
+QgToolPaletteElement::use_event_filter with Qt plugin metadata, typed
+interfaces, deterministic plugin management, and explicit lifecycle ownership.
+
+
+Current state
+-------------
+
+Completed initial libqtcad work:
+
+* Public qtcad plugin headers exist under include/qtcad:
+  QgPluginApi.h, QgPluginDescriptor.h, QgPluginContext.h,
+  QgPluginInterfaces.h, QgPluginManager.h, QgPaletteController.h,
+  QgPluginCommands.h, and QgToolBase.h.
+* QgPluginDescriptor records plugin id, display name, host-defined category,
+  icon, shortcut hint, sort key, requires-open-db/requires-view flags,
+  description, vendor, and version.
+* QgPluginContext is host-agnostic.  It exposes ged* and bview* accessors, an
+  optional QgModel, a QgPluginNotifier for db/view/settings signals, a hostName,
+  and a log sink.  It does not depend on QgEdApp.
+* QgPluginInterfaces.h defines QGTCAD_PLUGIN_API_VERSION and the typed
+  Q_DECLARE_INTERFACE contracts:
+  IQgToolFactory, IQgPanelFactory, IQgDialogFactory, IQgCommand, and
+  IQgViewEventFilter.
+* QgPluginManager is implemented in libqtcad.  It scans host-supplied
+  directories with QPluginLoader, reads JSON metadata before instantiation,
+  supports static plugins, performs API-version checks, provides deterministic
+  descriptor ordering, exposes typed factory queries, persists enable/disable
+  state through QSettings, and provides diagnostics.
+* QgPaletteController is implemented in libqtcad.  It connects a QgToolPalette,
+  QgPluginManager, category, QgPluginContext, and active QgView; creates
+  QgToolBase tools on demand; tracks the current tool; and attaches/detaches
+  IQgViewEventFilter implementations.
+* QgToolBase is implemented in libqtcad.  It centralizes common
+  QgToolPaletteElement wiring and exposes virtual hooks such as createWidget(),
+  viewEventFilter(), refresh(), onDbChanged(), onViewChanged(), and
+  onSettingsChanged().
+* QgPluginCommands is implemented in libqtcad for host use:
+  plugins list, plugins info <id>, plugins enable <id>, plugins disable <id>,
+  and plugins reload.
+* The new libqtcad sources and headers are already listed in the libqtcad CMake
+  build/install files.
+
+Still using the legacy qged path:
+
+* QgEdPalette still scans LIBEXEC/qged itself, opens each plugin with
+  bu_dlopen, looks up qged_plugin_info, instantiates QgToolPaletteElement
+  objects through void* function pointers, and never owns loading through
+  QgPluginManager.
+* src/qged/plugins/plugin.h still defines the legacy qged_plugin/qged_tool ABI
+  and the QGED_CMD_PLUGIN, QGED_VC_TOOL_PLUGIN, and QGED_OC_TOOL_PLUGIN magic
+  constants.
+* QgEdMainWindow still constructs two QgEdPalette instances directly with
+  QGED_VC_TOOL_PLUGIN and QGED_OC_TOOL_PLUGIN, and qged still treats palette
+  identity as an integer interaction mode.
+* QgToolPaletteElement still exposes the public use_event_filter flag.
+  QgEdApp::element_selected still installs event filters by testing that flag
+  and using the element controls widget as the filter object.
+* All current in-tree qged plugins are still legacy shared libraries exporting
+  qged_plugin_info:
+  plugins/polygon, plugins/view/info, plugins/view/measure,
+  plugins/view/select, plugins/view/settings, and plugins/edit/ell.
+* qged does not yet create a QgPluginContext, own a QgPluginManager, wire
+  QgPluginCommands into the console, or use qged-owned category strings such as
+  "qged.view" and "qged.object".
+* The current qged_plugin CMake helper still creates plain shared libraries; it
+  does not yet manage Qt plugin metadata JSON, plugin IIDs, AUTOMOC needs, or
+  category/version metadata.
+
+
+Target architecture
+-------------------
+
+libqtcad owns all reusable infrastructure:
+
+* Public API and metadata:
+  QgPluginDescriptor, QgPluginContext, QgPluginNotifier,
+  QGTCAD_PLUGIN_API_VERSION, and the typed IQg* interfaces.
+* Plugin loading:
+  QgPluginManager uses QPluginLoader/Q_PLUGIN_METADATA, supports host-supplied
+  search directories, lazy instance() loading, static plugins, deterministic
+  ordering, QSettings-backed enable/disable state, diagnostics, and clean
+  shutdown.
+* Palette-tool support:
+  QgToolBase provides common tool signal wiring and QgPaletteController manages
+  category-based palette population, current-tool state, and typed view event
+  filter attachment.
+* Diagnostics:
+  QgPluginCommands provides reusable "plugins ..." subcommands for any
+  libqtcad-based host with a console.
+
+qged owns only qged-specific composition:
+
+* QgEdApp chooses the qged plugin search path, constructs and owns a
+  QgPluginContext, creates the QgPluginManager, supplies qged logging, emits
+  QgPluginNotifier signals, and wires QgPluginCommands into the qged console.
+* QgEdMainWindow creates qged's palettes/docks and associates them with
+  qged-owned category names such as "qged.view" and "qged.object".
+* qged plugins remain under src/qged/plugins but become Qt plugins implementing
+  IQgToolFactory and returning QgToolBase subclasses.  Their JSON metadata
+  declares qged category names, plugin ids, display labels, ordering, API
+  version, and applicability flags.
+* qged-specific menus, dock layout, main-window geometry, splash behavior,
+  and two-palette UX stay in src/qged.  They must not move into libqtcad.
+
+
+Implementation plan
+-------------------
+
+1. Harden and test the existing libqtcad base.
+
+   * Add focused tests for QgPluginManager metadata parsing, deterministic
+     ordering, enable/disable persistence, API-version rejection, diagnostic
+     output, and static/shared plugin discovery where practical.
+   * Add focused tests or small harness coverage for QgPaletteController and
+     QgToolBase lifecycle behavior: tool creation, repeated populate(), current
+     tool changes, and IQgViewEventFilter attach/detach when the active view
+     changes.
+   * Confirm ownership rules in code and docs: plugin-created QObject instances
+     are parented to the caller/controller, plugin libraries remain loaded until
+     all plugin-owned QObjects are destroyed, and global static QObjects are not
+     allowed in plugin libraries.
+
+2. Adapt qged to own the new host context and manager without changing plugin
+   behavior yet.
+
+   * Add QgEdApp-owned QgPluginNotifier, QgPluginContext, and QgPluginManager.
+     Populate the context with the current ged*, current bview*, QgModel,
+     qged log sink, and hostName "qged".
+   * Use the qged libexec plugin directory as the manager search path, but keep
+     legacy palette loading active until qged plugins are ported.
+   * Wire qged's existing db/view/settings update points to QgPluginNotifier.
+   * Wire QgPluginCommands into the qged console so users and tests can inspect
+     discovered Qt plugins as soon as the first converted plugin exists.
+
+3. Introduce qged category names and palette-controller composition.
+
+   * Define qged category names centrally, initially "qged.view" and
+     "qged.object".
+   * Convert QgEdMainWindow to compose QgToolPalette plus QgPaletteController
+     for those categories instead of constructing QgEdPalette with
+     QGED_*_TOOL_PLUGIN integers.
+   * Keep cross-palette deselection and current-tool behavior in controller/app
+     logic rather than in plugin discovery code.
+   * Replace integer palette identity assumptions in interaction-mode paths with
+     explicit category/controller state.  Preserve any existing integer model
+     fields only as temporary compatibility state if needed.
+
+4. Provide a temporary legacy compatibility path.
+
+   * While old plugins remain, either keep QgEdPalette as a legacy-only adapter
+     or add a qged-side adapter that presents qged_plugin_info tools through the
+     new palette/controller path.
+   * The compatibility path must own dlopen handles centrally and close them at
+     shutdown; it should eliminate the current repeated direct scan/load logic
+     from QgEdPalette.
+   * Do not put qged_plugin_info compatibility into libqtcad unless it can be
+     done without exposing qged-specific ABI details in public qtcad headers.
+
+5. Port in-tree qged plugins incrementally.
+
+   * Update the qged_plugin CMake helper, or add a new helper, to build Qt
+     plugins with the needed AUTOMOC/wrap_cpp handling, Q_PLUGIN_METADATA JSON
+     files, correct IID, API version metadata, and libqtcad linkage.
+   * Port one plugin subtree at a time to IQgToolFactory plus QgToolBase:
+     view/info, view/settings, view/select, view/measure, polygon, then
+     edit/ell.  Keep each converted plugin in its existing source subtree.
+   * Give every factory a stable id, category, displayName, sortKey, iconName,
+     requiresOpenDb/requiresView flags, and description.
+   * Replace ad-hoc signal wiring in each *_tool.cpp with QgToolBase hooks.
+   * Replace each use_event_filter assignment with a QObject implementing
+     IQgViewEventFilter returned by QgToolBase::viewEventFilter().
+   * Delete each plugin's qged_plugin_info export when that plugin is converted.
+
+6. Retire the legacy ABI and palette implementation.
+
+   * Remove QgEdPalette's bu_dlopen/qged_plugin_info scanning path once all
+     in-tree plugins are converted and no compatibility window is needed.
+   * Delete or reduce src/qged/plugins/plugin.h to a compatibility include only
+     if external consumers still need a transition period; otherwise remove the
+     QGED_*_TOOL_PLUGIN constants and qged_plugin/qged_tool structs.
+   * Remove QgToolPaletteElement::use_event_filter and the corresponding
+     QgEdApp::element_selected flag handling.
+   * Remove any remaining palette-priority ordering and replace it with
+     QgPluginDescriptor::sortKey plus id tie-breaking.
+   * Remove obsolete QGED_PLUGIN_SUFFIX build definitions and legacy plugin
+     filename scanning support.
+
+7. Add the non-tool extension points qged needs.
+
+   * Use IQgPanelFactory for dockable panels such as raytrace controls,
+     attributes-like panels, and other qged TODO items that belong in docks.
+   * Use IQgDialogFactory for full top-level dialogs such as dedication,
+     procedural geometry, report, or sketch-editing tools.
+   * Use IQgCommand only for console commands that genuinely need qged/libqtcad
+     application state; prefer libged plugins for ordinary ged commands.
+   * Add menu/toolbar integration through qged-owned composition code rather
+     than hard-coding menu structure in libqtcad.
+
+8. Validate reuse outside qged.
+
+   * Keep qged category names namespaced and host-owned.  Do not add qged
+     categories or qged main-window assumptions to libqtcad.
+   * When the Qt Archer path is ready, wire it to its own QgPluginManager search
+     directory and host categories to prove the qtcad framework is reusable.
+   * Preserve the ability for smaller libqtcad-based tools to use
+     QgPluginManager, QgPaletteController, QgToolBase, and QgPluginCommands
+     without linking qged.
+
+
+Validation expectations
+-----------------------
+
+For every implementation slice, configure and build with Qt enabled.  At
+minimum, build the touched qtcad/qged targets and relevant plugin targets:
+libqtcad, qged, qged_plugins, and any converted plugin library.  When touching
+display-manager or view-event-filter behavior, also build dm-qtgl, dm-swrast,
+qged, and the relevant libqtcad/qged tests.  Run available tests that exercise
+the touched area, especially any new QgPluginManager/QgPaletteController tests
+and existing qged/libqtcad headless tests.
+
+Do not build or validate the non-Qt path for this work unless specifically
+requested; this modernization is Qt-specific and should use
+BRLCAD_ENABLE_QT=ON.
