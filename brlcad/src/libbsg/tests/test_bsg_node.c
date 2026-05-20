@@ -193,7 +193,7 @@ test_null_safety(void)
     bsg_node_user_data_set(NULL, &mat);
     bsg_node_set_free_callback(NULL, free_cb);
     bsg_node_set_update_callback(NULL, update_cb);
-    if (bsg_node_invoke_update_callback(NULL, NULL, 0) != 0) FAIL("update_callback(NULL)");
+    if (bsg_node_invoke_update_callback(NULL, NULL, 0) != 0) FAIL("NULL node update_callback should return 0");
     bsg_node_invoke_free_callback(NULL);
     bsg_node_bounds_get(NULL, bmin, bmax);
     bsg_node_bounds_set(NULL, bmin, bmax);
@@ -408,9 +408,9 @@ test_lifecycle_callbacks(void)
     bsg_node_set_free_callback(shape, NULL);
     bsg_node_set_update_callback(shape, NULL);
     if (bsg_node_invoke_update_callback(shape, v, 3) != 0)
-	FAIL("cleared update callback");
+	FAIL("cleared update callback should return 0");
     bsg_node_invoke_free_callback(shape);
-    if (s_free_hits != 1) FAIL("cleared free callback");
+    if (s_free_hits != 1) FAIL("cleared free callback should not invoke");
 
     bsg_shape_destroy(shape);
     free_view(v);
