@@ -101,8 +101,8 @@ QgGL::~QgGL()
 void
 QgGL::set_view(struct bview *nv)
 {
-	/* A nullptr assignment explicitly clears any external view binding. */
 	if (!nv) {
+		/* A nullptr assignment explicitly clears any external view binding. */
 		v = nullptr;
 		return;
 	}

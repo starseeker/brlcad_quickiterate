@@ -105,8 +105,8 @@ QgSW::~QgSW()
 void
 QgSW::set_view(struct bview *nv)
 {
-	/* A nullptr assignment explicitly clears any external view binding. */
 	if (!nv) {
+		/* A nullptr assignment explicitly clears any external view binding. */
 		v = nullptr;
 		return;
 	}
