@@ -420,8 +420,13 @@ fb_swrast_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
     qi->mw = new QgSWWin(ifp);
 
     struct bview *canvas_view = qi->mw->canvas->view();
-    if (!canvas_view)
+    if (!canvas_view) {
+	delete qi->mw;
+	qi->mw = NULL;
+	delete qi->qapp;
+	qi->qapp = NULL;
 	return -1;
+    }
     bv_init(canvas_view, NULL);
     canvas_view->gv_s->gv_fb_mode = 1;
     canvas_view->gv_width = width;

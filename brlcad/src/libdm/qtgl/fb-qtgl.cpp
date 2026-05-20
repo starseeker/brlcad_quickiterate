@@ -524,8 +524,10 @@ fb_qtgl_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
     if (!dmp)
 	return -1;
     struct bview *canvas_view = qi->mw->canvas->view();
-    if (!canvas_view)
+    if (!canvas_view) {
+	dm_close(dmp);
 	return -1;
+    }
     canvas_view->gv_s->gv_fb_mode = 1;
 
     struct fb_platform_specific fbps;
