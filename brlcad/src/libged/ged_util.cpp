@@ -2640,7 +2640,7 @@ ged_dl(struct ged *gedp)
 {
     if (!gedp || !gedp->i || !gedp->i->ged_gdp)
 	return NULL;
-    return gedp->i->ged_gdp->gd_draw_root;
+    return (struct bv_scene_obj *)gedp->i->ged_gdp->gd_draw_root;
 }
 
 void

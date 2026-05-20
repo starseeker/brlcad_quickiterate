@@ -965,6 +965,22 @@ Completed in this session:
 - Updated compatibility-facing API documentation in
   `include/bsg/draw_set.h` to reflect that recursive free helpers now route
   teardown through the BSG lifecycle boundary.
+- Additional bsg-first narrowing in libged:
+  - `src/libged/ged_private.h`: `gd_draw_root` storage is now `bsg_node *`
+    instead of `struct bv_scene_obj *`.
+  - `src/libged/bsg_ged_draw.c`: removed remaining direct `FREE_BV_SCENE_OBJ`
+    recycling in group-erase/zap paths, routing detached group teardown through
+    `bsg_node_destroy()`.
+  - `src/libged/bsg_ged_draw.c`: switched multiple draw-root traversal paths
+    (`is_nonempty`, first-solid/snapshot helpers, foreach-group, append-last,
+    has-groups) to use `bsg_node *` directly.
+  - Compatibility API edges (`ged_dl`, `bsg_view_obj_root`) now cast at the
+    boundary while keeping existing signatures.
+
+Validation update:
+- Built: `libged`, `ged_test_bsg_view_obj`.
+- `ctest --output-on-failure -R '^(libbsg_scene_graph|libbsg_phase6|libbsg_selection|ged_test_bsg_view_obj)$'`
+  passed.
 
 Remaining Phase 7 work:
 - Continue reducing direct struct-layout dependency in libdm/libged/qged call

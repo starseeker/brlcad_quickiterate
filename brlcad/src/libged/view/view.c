@@ -300,7 +300,7 @@ _view_cmd_independent(void *bs, int argc, const char **argv)
 	size_t path_cap = 0;
 	if (gedp->i->ged_gdp->gd_draw_root) {
 	    int ret = _view_independent_collect_paths(&paths, &path_cnt, &path_cap,
-		    gedp->i->ged_gdp->gd_draw_root);
+		    (struct bv_scene_obj *)gedp->i->ged_gdp->gd_draw_root);
 	    if (ret != BRLCAD_OK) {
 		_view_independent_paths_free(paths, path_cnt);
 		bu_vls_printf(gedp->ged_result_str, "failed to snapshot shared draw state\n");
