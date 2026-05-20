@@ -304,6 +304,9 @@ void
 dm_draw_label(struct dm *dmp, struct bv_scene_obj *s)
 {
     struct bv_label *l = (struct bv_label *)bsg_node_user_data_get((const bsg_node *)s);
+    struct bview *sv = bsg_node_view_get((const bsg_node *)s);
+    if (!sv)
+	return;
 
     /* Phase 11C: resolve label color from BSG material. */
     struct bsg_material material;
@@ -317,7 +320,7 @@ dm_draw_label(struct dm *dmp, struct bv_scene_obj *s)
     (void)dm_set_fg(dmp, r, g, b, 1, 1.0);
 
     point_t vpoint;
-    MAT4X3PNT(vpoint, s->s_v->gv_model2view, l->p);
+    MAT4X3PNT(vpoint, sv->gv_model2view, l->p);
 
     // Check that we can calculate the bbox before drawing text
     vect2d_t bmin = V2INIT_ZERO;
@@ -359,11 +362,11 @@ dm_draw_label(struct dm *dmp, struct bv_scene_obj *s)
 	    for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
 		    point_t t3d, tpt;
-		    if (bv_screen_to_view(s->s_v, &t3d[0], &t3d[1], (int)xvals[i], (int)yvals[j]) < 0) {
+		    if (bv_screen_to_view(sv, &t3d[0], &t3d[1], (int)xvals[i], (int)yvals[j]) < 0) {
 			return;
 		    }
 		    t3d[2] = 0;
-		    MAT4X3PNT(tpt, s->s_v->gv_view2model, t3d);
+		    MAT4X3PNT(tpt, sv->gv_view2model, t3d);
 		    double dsq = DIST_PNT_PNT_SQ(tpt, l->target);
 		    if (dsq < closest_dist) {
 			V2SET(anchor, xvals[i], yvals[j]);
@@ -405,8 +408,8 @@ dm_draw_label(struct dm *dmp, struct bv_scene_obj *s)
 		    return;
 	    }
 	}
-	bv_screen_to_view(s->s_v, &l3d[0], &l3d[1], (int)anchor[0], (int)anchor[1]);
-	MAT4X3PNT(mpt, s->s_v->gv_view2model, l3d);
+	bv_screen_to_view(sv, &l3d[0], &l3d[1], (int)anchor[0], (int)anchor[1]);
+	MAT4X3PNT(mpt, sv->gv_view2model, l3d);
     } else {
 	VMOVE(mpt, l->p);
     }
