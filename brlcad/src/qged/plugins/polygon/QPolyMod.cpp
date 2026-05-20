@@ -49,6 +49,21 @@ _qpolymod_poly(struct bv_scene_obj *obj)
     return (struct bv_polygon *)bsg_node_user_data_get((const bsg_node *)obj);
 }
 
+static struct bview *
+_qpolymod_view(struct bv_scene_obj *obj)
+{
+    return bsg_node_view_get((const bsg_node *)obj);
+}
+
+static int
+_qpolymod_update(struct bv_scene_obj *obj, struct bview *v, int utype)
+{
+    struct bview *ov = _qpolymod_view(obj);
+    if (!ov)
+	ov = v;
+    return bv_update_polygon(obj, ov, utype);
+}
+
 static int
 _qpolymod_is_poly(struct bv_scene_obj *obj)
 {
@@ -97,7 +112,7 @@ _qpolymod_clear_pts_cb(struct bv_scene_obj *obj, void *data)
 	bu_log("Clear pnt selection\n");
 	ip->curr_point_i = -1;
 	ip->curr_contour_i = 0;
-	bv_update_polygon(obj, obj->s_v, BV_POLYGON_UPDATE_PROPS_ONLY);
+	_qpolymod_update(obj, NULL, BV_POLYGON_UPDATE_PROPS_ONLY);
     }
     return 1;
 }
@@ -364,7 +379,7 @@ QPolyMod::polygon_update_props()
     }
 
     // TODO - this should be a visual-properties-only update, but libbg doesn't support that yet.
-    bv_update_polygon(p, p->s_v, BV_POLYGON_UPDATE_PROPS_ONLY);
+    _qpolymod_update(p, _qpolymod_view(p), BV_POLYGON_UPDATE_PROPS_ONLY);
     emit view_updated(QG_VIEW_REFRESH);
 }
 
@@ -426,7 +441,7 @@ QPolyMod::clear_pnt_selection(bool checked)
     ip->curr_point_i = -1;
     ip->curr_contour_i = 0;
 
-    bv_update_polygon(p, p->s_v, BV_POLYGON_UPDATE_PROPS_ONLY);
+    _qpolymod_update(p, _qpolymod_view(p), BV_POLYGON_UPDATE_PROPS_ONLY);
 
     QgModel *m = ((QgEdApp *)qApp)->mdl;
     if (!m)
@@ -588,7 +603,7 @@ QPolyMod::toggle_closed_poly(bool checked)
     }
 
     if (p) {
-	bv_update_polygon(p, p->s_v, BV_POLYGON_UPDATE_DEFAULT);
+	_qpolymod_update(p, gedp->ged_gvp, BV_POLYGON_UPDATE_DEFAULT);
     }
 
     toplevel_config(false);
@@ -1006,7 +1021,7 @@ QPolyMod::eventFilter(QObject *, QEvent *e)
 
     // Set libqtcad know what the current polygon is
     cf->wp = p;
-    cf->v = (p) ? p->s_v : gedp->ged_gvp;
+    cf->v = (p && _qpolymod_view(p)) ? _qpolymod_view(p) : gedp->ged_gvp;
     cf->ptype = (ip) ? ip->type : BV_POLYGON_GENERAL;
     checkbox_refresh(0);
 

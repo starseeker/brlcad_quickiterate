@@ -674,6 +674,15 @@ Completed in this session:
     `s_color`, and `s_soldash`.
   - `polygon_op.cpp` now uses BSG user-data/view accessors instead of direct
     `s_i_data` / `s_v` access.
+- Converted the remaining higher-level polygon tooling off direct scene-view
+  access:
+  - `src/libqtcad/QgPolyFilter.cpp` now uses BSG view accessors for polygon
+    update dispatch and view attachment.
+  - `src/qged/plugins/polygon/QPolyCreate.cpp` and
+    `src/qged/plugins/polygon/QPolyMod.cpp` now use BSG view accessors instead
+    of direct `s_v` reads/writes.
+  - `src/libged/view/polygons.c` now uses BSG view accessors for command-side
+    mouse/update flow and area calculations.
 
 Resulting boundary:
 - Non-test code now treats lifecycle/update hooks as BSG APIs even though the
@@ -682,11 +691,12 @@ Resulting boundary:
   compatibility implementation in `src/libbsg/node.c`, legacy-storage reset
   paths, and tests/comments.
 - The remaining raw-field work is now primarily broad caller cutover across
-  polygon/view/render/editor code rather than missing BSG API surface.
+  view/render/editor code rather than missing BSG API surface.
 - The core libbv polygon implementation no longer depends on direct
   `bv_scene_obj` raw-field access for its scene payload/view/appearance data;
-  remaining polygon-related Phase 5 work is now concentrated in higher-level Qt
-  and GED polygon tooling that still reaches into compatibility storage.
+  the higher-level Qt/GED polygon tooling is now on the same BSG view boundary.
+- Remaining Phase 5 work is now concentrated in non-polygon caller cutover
+  elsewhere in view/render/editor code.
 
 Moved to subsequent phases:
 - Physically relocating lifecycle callback storage off `bv_scene_obj` remains
@@ -702,6 +712,9 @@ Validation:
   `test_bsg_node`, `test_bsg_scene_graph`, `ged_test_bsg_view_obj`.
 - `ctest --output-on-failure -R '^(libbsg_node|libbsg_scene_graph|ged_test_bsg_view_obj)$'`
   passed.
+- Additional polygon-tooling validation:
+  - Built: `libged`, `libqtcad`, `qged_polygon`, `ged_test_bsg_view_obj`.
+  - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
 
 
 Phase 6 - Create a First-Class BSG Allocation and Lifecycle Model

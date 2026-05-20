@@ -53,6 +53,32 @@ _ged_view_polygon(struct bv_scene_obj *s)
     return (struct bv_polygon *)bsg_node_user_data_get((const bsg_node *)s);
 }
 
+static struct bview *
+_ged_view_polygon_view(struct bv_scene_obj *s)
+{
+    if (!s)
+	return NULL;
+    return bsg_node_view_get((const bsg_node *)s);
+}
+
+static int
+_ged_view_polygon_update(struct bv_scene_obj *s, int utype)
+{
+    return bv_update_polygon(s, _ged_view_polygon_view(s), utype);
+}
+
+static void
+_ged_view_polygon_mouse(struct bv_scene_obj *s, struct bview *v, int x, int y)
+{
+    struct bview *ov = _ged_view_polygon_view(s);
+    if (!ov)
+	return;
+
+    ov->gv_mouse_x = x;
+    ov->gv_mouse_y = y;
+    bv_screen_pt(&ov->gv_point, (fastf_t)x, (fastf_t)y, v);
+}
+
 int
 _poly_cmd_create(void *bs, int argc, const char **argv)
 {
@@ -179,11 +205,9 @@ _poly_cmd_select(void *bs, int argc, const char **argv)
     }
 
     p->curr_contour_i = contour_ind;
-    s->s_v->gv_mouse_x = x;
-    s->s_v->gv_mouse_y = y;
-    bv_screen_pt(&s->s_v->gv_point, (fastf_t)x, (fastf_t)y, gedp->ged_gvp);
+    _ged_view_polygon_mouse(s, gedp->ged_gvp, x, y);
 
-    bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_PT_SELECT);
+    _ged_view_polygon_update(s, BV_POLYGON_UPDATE_PT_SELECT);
 
     return BRLCAD_OK;
 }
@@ -245,10 +269,8 @@ _poly_cmd_append(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    s->s_v->gv_mouse_x = x;
-    s->s_v->gv_mouse_y = y;
-    bv_screen_pt(&s->s_v->gv_point, (fastf_t)x, (fastf_t)y, gedp->ged_gvp);
-    bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_PT_APPEND);
+    _ged_view_polygon_mouse(s, gedp->ged_gvp, x, y);
+    _ged_view_polygon_update(s, BV_POLYGON_UPDATE_PT_APPEND);
 
     return BRLCAD_OK;
 }
@@ -297,10 +319,8 @@ _poly_cmd_move(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    s->s_v->gv_mouse_x = x;
-    s->s_v->gv_mouse_y = y;
-    bv_screen_pt(&s->s_v->gv_point, (fastf_t)x, (fastf_t)y, gedp->ged_gvp);
-    bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_PT_MOVE);
+    _ged_view_polygon_mouse(s, gedp->ged_gvp, x, y);
+    _ged_view_polygon_update(s, BV_POLYGON_UPDATE_PT_MOVE);
 
     return BRLCAD_OK;
 }
@@ -333,7 +353,7 @@ _poly_cmd_clear(void *bs, int argc, const char **argv)
 
     polyA->curr_contour_i = 0;
     polyA->curr_point_i = -1;
-    bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    _ged_view_polygon_update(s, BV_POLYGON_UPDATE_DEFAULT);
 
     return BRLCAD_OK;
 }
@@ -389,7 +409,7 @@ _poly_cmd_close(void *bs, int argc, const char **argv)
        polyA->polygon.contour[ind].open = 0;
    }
 
-    bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    _ged_view_polygon_update(s, BV_POLYGON_UPDATE_DEFAULT);
 
     return BRLCAD_OK;
 }
@@ -446,7 +466,7 @@ _poly_cmd_open(void *bs, int argc, const char **argv)
        polyA->polygon.contour[ind].open = 1;
    }
 
-    bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    _ged_view_polygon_update(s, BV_POLYGON_UPDATE_DEFAULT);
 
     return BRLCAD_OK;
 }
@@ -477,7 +497,10 @@ _poly_cmd_area(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    double area = bg_find_polygon_area(&p->polygon, CLIPPER_MAX, &p->vp, s->s_v->gv_scale);
+    struct bview *ov = _ged_view_polygon_view(s);
+    if (!ov)
+	return BRLCAD_ERROR;
+    double area = bg_find_polygon_area(&p->polygon, CLIPPER_MAX, &p->vp, ov->gv_scale);
 
     if (gedp->dbip) {
 	bu_vls_printf(gedp->ged_result_str, "%g", area * gedp->dbip->dbi_base2local);
@@ -679,7 +702,7 @@ _poly_cmd_fill(void *bs, int argc, const char **argv)
 
     if (argc == 1 && BU_STR_EQUAL(argv[0], "0")) {
 	p->fill_flag = 0;
-	bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
+	_ged_view_polygon_update(s, BV_POLYGON_UPDATE_DEFAULT);
 	return BRLCAD_OK;
     }
 
@@ -705,7 +728,7 @@ _poly_cmd_fill(void *bs, int argc, const char **argv)
     p->fill_flag = 1;
     V2MOVE(p->fill_dir, vdir);
     p->fill_delta = vdelta;
-    bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    _ged_view_polygon_update(s, BV_POLYGON_UPDATE_DEFAULT);
 
     return BRLCAD_OK;
 }
@@ -839,7 +862,7 @@ _poly_cmd_csg(void *bs, int argc, const char **argv)
     polyA->type = BV_POLYGON_GENERAL;
 
     BU_PUT(cp, struct bg_polygon);
-    bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    _ged_view_polygon_update(s, BV_POLYGON_UPDATE_DEFAULT);
 
     return BRLCAD_OK;
 }
