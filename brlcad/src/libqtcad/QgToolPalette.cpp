@@ -281,7 +281,6 @@ QgToolPalette::palette_displayElement(QgToolPaletteElement *element)
 			}
 			control_container->takeWidget();
 			control_container->setWidget(element->controlsWidget());
-			element->controlsWidget()->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
 			element->controlsWidget()->show();
 			element->do_element_unhide(nullptr);
 			control_container->verticalScrollBar()->setSliderPosition(element->scrollPosition());
@@ -308,4 +307,3 @@ QgToolPalette::palette_displayElement(QgToolPaletteElement *element)
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-
