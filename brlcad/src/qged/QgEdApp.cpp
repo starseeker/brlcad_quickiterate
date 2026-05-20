@@ -190,7 +190,7 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
     QObject::connect(this, &QgEdApp::dbi_update, m_plugin_notifier, &QgPluginNotifier::dbChanged);
     QObject::connect(this, &QgEdApp::view_update, m_plugin_notifier, &QgPluginNotifier::viewUpdated);
     m_plugin_context.gedAccessor = [this]() -> struct ged * {
-	return (mdl) ? mdl->gedp : GED_NULL;
+	return (mdl && mdl->gedp) ? mdl->gedp : GED_NULL;
     };
     m_plugin_context.viewAccessor = [this]() -> struct bview * {
 	/* Prefer the main window's current display when it exists; before window
@@ -645,7 +645,7 @@ QgEdApp::run_qcmd(const QString &command)
     char **av = (char **)bu_calloc(strlen(input) + 1, sizeof(char *), "argv array");
     int ac = bu_argv_from_string(av, strlen(input), input);
     struct bu_vls msg = BU_VLS_INIT_ZERO;
-    auto cleanup_qcmd = [cmd, &msg, input, av]() {
+    auto cleanup_resources = [cmd, &msg, input, av]() {
 	bu_free((void *)cmd, "cmd");
 	bu_vls_free(&msg);
 	bu_free(input, "input copy");
@@ -656,6 +656,7 @@ QgEdApp::run_qcmd(const QString &command)
 	QString out;
 	QString err;
 	QStringList plugin_argv;
+	/* Reserve only the subcommand arguments; argv[0] is "plugins". */
 	plugin_argv.reserve(ac - 1);
 	for (int i = 1; i < ac; ++i)
 	    plugin_argv.append(QString::fromLocal8Bit(av[i]));
@@ -667,7 +668,7 @@ QgEdApp::run_qcmd(const QString &command)
 		console->printString(err);
 	    console->prompt("$ ");
 	}
-	cleanup_qcmd();
+	cleanup_resources();
 	return;
     }
 
@@ -695,7 +696,7 @@ QgEdApp::run_qcmd(const QString &command)
 	bu_vls_trunc(mdl->gedp->ged_result_str, 0);
     }
 
-    cleanup_qcmd();
+    cleanup_resources();
 }
 
 void
