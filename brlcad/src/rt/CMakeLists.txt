@@ -14,7 +14,7 @@ set(
   worker.c
 )
 
-brlcad_addlib(librtuif "${LIBRTUIF_SOURCES}" "" "" "${CMAKE_CURRENT_SOURCE_DIR}"
+brlcad_addlib(librtuif "${LIBRTUIF_SOURCES}" "" "${CMAKE_CURRENT_SOURCE_DIR}"
   STATIC NO_INSTALL
   PRIVATE_LIBS librt ${M_LIBRARY}
 )

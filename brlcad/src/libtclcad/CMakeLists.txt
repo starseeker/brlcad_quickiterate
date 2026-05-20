@@ -64,7 +64,7 @@ if(BRLCAD_ENABLE_TCL)
     set(TCLCAD_PUBLIC_LIBS ${TCLCAD_PUBLIC_LIBS} ${TK_LIBRARY})
   endif(TK_LIBRARY)
 
-  brlcad_addlib(libtclcad "${LIBTCLCAD_SRCS}" "" "${TCLCAD_INCLUDE_DIRS}" "${TCLCAD_LOCAL_INCLUDE_DIRS}"
+  brlcad_addlib(libtclcad "${LIBTCLCAD_SRCS}" "${TCLCAD_INCLUDE_DIRS}" "${TCLCAD_LOCAL_INCLUDE_DIRS}"
     PUBLIC_LIBS ${TCLCAD_PUBLIC_LIBS}
     PRIVATE_LIBS ${TCLCAD_PRIVATE_LIBS}
     # refresh.c defines DM_WITH_RT before including dm/view.h to expose

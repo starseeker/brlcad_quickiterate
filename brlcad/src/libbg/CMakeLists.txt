@@ -104,7 +104,7 @@ set(BG_INCLUDE_DIRS
   ${GEOGRAM_AMGCL_INCLUDE_DIR}
   )
 
-brlcad_addlib(libbg "${LIBBG_SOURCES}" "" "" "${BG_INCLUDE_DIRS}"
+brlcad_addlib(libbg "${LIBBG_SOURCES}" "" "${BG_INCLUDE_DIRS}"
   PUBLIC_LIBS ${BG_PUBLIC_LIBS}
   PRIVATE_LIBS ${BG_PRIVATE_LIBS}
   # These files define macros that conflict when batched into the same unity TU:

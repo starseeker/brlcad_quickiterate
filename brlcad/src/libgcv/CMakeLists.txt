@@ -12,7 +12,7 @@ set(
 )
 
 # Note - libgcv_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
-brlcad_addlib(libgcv "${LIBGCV_SOURCES}" "" "" ""
+brlcad_addlib(libgcv "${LIBGCV_SOURCES}" "" ""
   SHARED_SRCS "${GCV_SO_SRCS}" STATIC_SRCS "${GCV_STATIC_SRCS}"
   PUBLIC_LIBS ${libgcv_deps}
 )
