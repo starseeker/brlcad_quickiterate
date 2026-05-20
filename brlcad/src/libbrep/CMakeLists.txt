@@ -49,10 +49,9 @@ set(BREP_LOCAL_INCLUDE_DIRS
   ${GTE_INCLUDE_DIR})
 
 # Note - libbrep_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
-set(BREP_PUBLIC_LIBS ${libbrep_deps})
+set(BREP_PUBLIC_LIBS ${libbrep_deps} OPENNURBS::OPENNURBS)
 set(
   BREP_PRIVATE_LIBS
-  ${OPENNURBS_LIBRARIES}
   ${WINSOCK_LIB}
   ${RPCRT_LIB}
   ${STDCXX_LIBRARIES}

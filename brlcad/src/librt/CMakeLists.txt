@@ -418,13 +418,12 @@ if(BRLCAD_ENABLE_SPR)
 endif(BRLCAD_ENABLE_SPR)
 
 # Note - librt_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
-set(LIBRT_PUBLIC_LIBS ${librt_deps})
+set(LIBRT_PUBLIC_LIBS ${librt_deps} OPENNURBS::OPENNURBS)
 set(
   LIBRT_PRIVATE_LIBS
   ${OPENCL_LIBS}
-  ${OPENNURBS_LIBRARIES}
   mmesh::mmesh
-  ${REGEX_LIBRARIES}
+  REGEX::REGEX
   ${WINSOCK_LIB}
   ${RPCRT_LIB}
   ${STDCXX_LIBRARIES}

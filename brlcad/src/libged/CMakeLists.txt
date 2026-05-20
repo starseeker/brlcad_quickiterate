@@ -338,9 +338,9 @@ set_property(
 set(GED_PUBLIC_LIBS ${libged_deps})
 set(
   GED_PRIVATE_LIBS
-  ${PNG_LIBRARIES}
-  ${LMDB_LIBRARIES}
-  ${REGEX_LIBRARIES}
+  PNG::PNG
+  LMDB::LMDB
+  REGEX::REGEX
   ${WINSOCK_LIB}
   ${M_LIBRARY}
 )
