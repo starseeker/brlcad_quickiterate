@@ -13,12 +13,20 @@ set(
   QgKeyVal.h
   QgMeasureFilter.h
   QgModel.h
+  QgPaletteController.h
+  QgPluginApi.h
+  QgPluginCommands.h
+  QgPluginContext.h
+  QgPluginDescriptor.h
+  QgPluginInterfaces.h
+  QgPluginManager.h
   QgPolyFilter.h
   QgQuadView.h
   QgSW.h
   QgSelectFilter.h
   QgSignalFlags.h
   QgSketchFilter.h
+  QgToolBase.h
   QgToolPalette.h
   QgTreeSelectionModel.h
   QgTreeView.h
