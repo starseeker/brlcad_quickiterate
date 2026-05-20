@@ -25,8 +25,12 @@
 
 #include <QTimer>
 #include <QMessageBox>
+#include "qtcad/QgPaletteController.h"
+#include "qtcad/QgToolBase.h"
 #include "qtcad/QgViewCtrl.h"
 #include "qtcad/QgTreeSelectionModel.h"
+#include "plugins/plugin.h"
+#include "QgEdCategories.h"
 #include "QgEdMainWindow.h"
 #include "QgEdApp.h"
 
@@ -147,6 +151,17 @@ QgEdMainWindow::CreateWidgets(int canvas_type)
     // default we are viewing, not editing
     vc->makeCurrent(vc);
 
+    // Create palette controllers for the two qged palette categories.
+    // Ownership is via Qt parentage (parent = this).  populate() is
+    // called once in ConnectWidgets() after the plugin manager has been
+    // fully wired.  Active view is set in ConnectWidgets() too.
+    vc_ctrl = new QgPaletteController(vc, ap->pluginManager(),
+				      QStringLiteral(QGED_CATEGORY_VIEW),
+				      ap->pluginContext(), this);
+    oc_ctrl = new QgPaletteController(oc, ap->pluginManager(),
+				      QStringLiteral(QGED_CATEGORY_OBJECT),
+				      ap->pluginContext(), this);
+
     // Command console
     console = new QgConsole(console_dock);
     console->prompt("$ ");
@@ -265,12 +280,38 @@ QgEdMainWindow::ConnectWidgets()
     // Make the connection so the view control can change the mouse mode of the Quad View
     QObject::connect(vcw, &QgViewCtrl::lmouse_mode, c4, &QgQuadView::set_lmouse_move_default);
 
-    // The makeCurrent connections enforce an either/or paradigm
-    // for the view and object editing panels.
-    connect(vc, &QgEdPalette::current, oc, &QgEdPalette::makeCurrent);
-    connect(vc, &QgEdPalette::current, vc, &QgEdPalette::makeCurrent);
-    connect(oc, &QgEdPalette::current, oc, &QgEdPalette::makeCurrent);
-    connect(oc, &QgEdPalette::current, vc, &QgEdPalette::makeCurrent);
+    // Cross-palette deselection: only one palette should appear "active"
+    // (highlighted tool button) at a time.  The old QgEdPalette::current
+    // signal was never emitted, so those connections were dead.  Replace
+    // them with working palette_element_selected lambdas (legacy tools)
+    // and QgPaletteController::currentToolChanged lambdas (new Qt plugin
+    // tools).
+    //
+    // When vc selects any element, tell oc to visually deselect.
+    QObject::connect(vc, &QgToolPalette::palette_element_selected,
+		     this, [this](QgToolPaletteElement *) { oc->makeCurrent(vc); });
+    // When oc selects any element, tell vc to visually deselect.
+    QObject::connect(oc, &QgToolPalette::palette_element_selected,
+		     this, [this](QgToolPaletteElement *) { vc->makeCurrent(oc); });
+    // When a new-style tool in vc_ctrl is activated, deselect oc.
+    QObject::connect(vc_ctrl, &QgPaletteController::currentToolChanged,
+		     this, [this](QgToolBase *) { oc->makeCurrent(vc); });
+    // When a new-style tool in oc_ctrl is activated, deselect vc.
+    QObject::connect(oc_ctrl, &QgPaletteController::currentToolChanged,
+		     this, [this](QgToolBase *) { vc->makeCurrent(oc); });
+
+    // Set initial active view on both controllers so that any immediately
+    // populated Qt plugin tools can attach their view event filters.
+    QgView *init_view = c4->get();
+    if (init_view) {
+	vc_ctrl->setActiveView(init_view);
+	oc_ctrl->setActiveView(init_view);
+    }
+
+    // Populate both controllers from any Qt plugins already discovered.
+    // (No converted plugins exist yet; this is a no-op until Phase 5.)
+    vc_ctrl->populate();
+    oc_ctrl->populate();
 
     // Now that we've got everything set up, connect the palette selection
     // signals so they can update the view event filter as needed.  We don't do
@@ -501,27 +542,43 @@ QgEdMainWindow::IndicateRaytraceDone()
     vcw->raytrace_done();
 }
 
-int
-QgEdMainWindow::InteractionMode(QPoint &gpos)
+QString
+QgEdMainWindow::ActivePaletteCategory(QPoint &gpos)
 {
     if (vc) {
-	QWidget *vcp = vc;
-	QRect lrect = vcp->geometry();
-	QPoint mpos = vcp->mapFromGlobal(gpos);
-	if (lrect.contains(mpos)) {
-	    return 0;
-	}
+	QRect lrect = vc->geometry();
+	QPoint mpos = vc->mapFromGlobal(gpos);
+	if (lrect.contains(mpos))
+	    return QStringLiteral(QGED_CATEGORY_VIEW);
     }
 
     if (oc) {
-	QWidget *ocp = oc;
-	QRect lrect = ocp->geometry();
-	QPoint mpos = ocp->mapFromGlobal(gpos);
-	if (lrect.contains(mpos)) {
-	    return 2;
-	}
+	QRect lrect = oc->geometry();
+	QPoint mpos = oc->mapFromGlobal(gpos);
+	if (lrect.contains(mpos))
+	    return QStringLiteral(QGED_CATEGORY_OBJECT);
     }
 
+    return QString();
+}
+
+void
+QgEdMainWindow::setActiveView(QgView *view)
+{
+    if (vc_ctrl)
+	vc_ctrl->setActiveView(view);
+    if (oc_ctrl)
+	oc_ctrl->setActiveView(view);
+}
+
+int
+QgEdMainWindow::InteractionMode(QPoint &gpos)
+{
+    QString cat = ActivePaletteCategory(gpos);
+    if (cat == QStringLiteral(QGED_CATEGORY_VIEW))
+	return 0;
+    if (cat == QStringLiteral(QGED_CATEGORY_OBJECT))
+	return 2;
     return -1;
 }
 

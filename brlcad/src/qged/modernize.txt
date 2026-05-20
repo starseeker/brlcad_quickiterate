@@ -84,6 +84,19 @@ Still using the legacy qged path:
 * The current qged_plugin CMake helper still creates plain shared libraries; it
   does not yet manage Qt plugin metadata JSON, plugin IIDs, AUTOMOC needs, or
   category/version metadata.
+* QgEdCategories.h defines qged's two category name constants:
+  QGED_CATEGORY_VIEW ("qged.view") and QGED_CATEGORY_OBJECT ("qged.object").
+* QgEdMainWindow now constructs and owns QgPaletteController instances
+  (vc_ctrl and oc_ctrl) for the "qged.view" and "qged.object" categories.
+  Both controllers are wired to the active QgView (updated on every quad-view
+  change) and populated from QgPluginManager.  Cross-palette deselection is
+  now driven by working palette_element_selected and currentToolChanged
+  connections rather than the previously-dead QgEdPalette::current signals.
+* InteractionMode() is now derived from ActivePaletteCategory(), which returns
+  the category string for the palette under the cursor.  QgModel::interaction_mode
+  integers are preserved as a temporary compatibility field.
+* QgEdPalette's legacy bu_dlopen/qged_plugin_info scanning and the QGED_*_TOOL_PLUGIN
+  integer constants are still active (Phase 4 provides the compatibility adapter).
 
 
 Target architecture

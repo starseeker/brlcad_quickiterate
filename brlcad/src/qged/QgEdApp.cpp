@@ -30,6 +30,7 @@
 #include <QPlainTextEdit>
 #include <QTextStream>
 #include <QThread>
+#include "brlcad_version.h"
 #include "bu/malloc.h"
 #include "bu/file.h"
 #include "qtcad/QgGeomImport.h"
@@ -407,6 +408,8 @@ QgEdApp::do_quad_view_change(QgView *cv)
 {
     QTCAD_SLOT("QgEdApp::do_quad_view_change", 1);
     mdl->gedp->ged_gvp = cv->view();
+    if (w)
+	w->setActiveView(cv);
     if (m_plugin_notifier)
 	emit m_plugin_notifier->viewChanged();
     emit view_update(QG_VIEW_REFRESH);

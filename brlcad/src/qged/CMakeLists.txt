@@ -102,6 +102,7 @@ set(
   ${moc_headers}
   BUILDING_QT
   CMakeLists.txt
+  QgEdCategories.h
   TODO
   fonts/Inconsolata-LICENSE.txt
   fonts/Inconsolata.otf
