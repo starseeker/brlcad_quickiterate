@@ -103,4 +103,12 @@ class QTCAD_EXPORT QgKeyValView : public QTreeView
 
 #endif /* QGKEYVAL_H */
 
-
+/*
+ * Local Variables:
+ * mode: C++
+ * tab-width: 8
+ * indent-tabs-mode: t
+ * c-file-style: "stroustrup"
+ * End:
+ * ex: shiftwidth=4 tabstop=8
+ */

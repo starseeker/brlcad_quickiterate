@@ -313,10 +313,6 @@ class QTCAD_EXPORT QgModel : public QAbstractItemModel
 	// do so, it may emit this signal
 	void view_change(unsigned long long);
 
-	// Emit when some model action change will require a view to update
-	// its awareness of what is drawn
-	void view_changed(unsigned long long);
-
 	// Let the tree view know it has highlighting work to do it wouldn't
 	// otherwise see
 	void check_highlights();

@@ -209,7 +209,7 @@ class QTCAD_EXPORT QgToolPalette: public QWidget
 
 /*
  * Local Variables:
- * mode: C
+ * mode: C++
  * tab-width: 8
  * indent-tabs-mode: t
  * c-file-style: "stroustrup"
