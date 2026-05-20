@@ -418,8 +418,15 @@ fb_swrast_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
 #ifdef SWRAST_QT
     qi->qapp = new QApplication(qi->ac, qi->av);
     qi->mw = new QgSWWin(ifp);
+    QgSW *canvas = qi->mw->canvasWidget();
+    if (!canvas) {
+	qt_destroy(qi);
+	free(ifp->i->pp);
+	ifp->i->pp = NULL;
+	return -1;
+    }
 
-    struct bview *canvas_view = qi->mw->canvas->view();
+    struct bview *canvas_view = canvas->view();
     if (!canvas_view) {
 	qt_destroy(qi);
 	free(ifp->i->pp);
@@ -433,10 +440,10 @@ fb_swrast_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
 
 
     {
-	qreal dpr = qi->mw->canvas->devicePixelRatioF();
+	qreal dpr = canvas->devicePixelRatioF();
 	int lw = qMax(1, static_cast<int>(std::ceil(((qreal)width) / dpr)));
 	int lh = qMax(1, static_cast<int>(std::ceil(((qreal)height) / dpr)));
-	qi->mw->canvas->setFixedSize(lw, lh);
+	canvas->setFixedSize(lw, lh);
 	canvas_view->gv_width = width;
 	canvas_view->gv_height = height;
     }
