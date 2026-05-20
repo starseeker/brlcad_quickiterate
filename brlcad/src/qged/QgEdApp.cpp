@@ -170,6 +170,25 @@ qt_delete_io_handler(struct ged_subprocess *p, bu_process_io_t t)
     }
 }
 
+struct qged_qcmd_cleanup {
+    const char *cmd = NULL;
+    struct bu_vls *msg = NULL;
+    char *input = NULL;
+    char **av = NULL;
+
+    ~qged_qcmd_cleanup()
+    {
+	if (cmd)
+	    bu_free((void *)cmd, "cmd");
+	if (msg)
+	    bu_vls_free(msg);
+	if (input)
+	    bu_free(input, "input copy");
+	if (av)
+	    bu_free(av, "input argv");
+    }
+};
+
 
 QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QApplication(argc, argv)
 {
@@ -189,6 +208,8 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
     m_plugin_notifier = new QgPluginNotifier(this);
     QObject::connect(this, &QgEdApp::dbi_update, m_plugin_notifier, &QgPluginNotifier::dbChanged);
     QObject::connect(this, &QgEdApp::view_update, m_plugin_notifier, &QgPluginNotifier::viewUpdated);
+    /* QgEdApp owns mdl for the lifetime of the application; the accessor
+     * re-reads the member so future replacements are observed as well. */
     m_plugin_context.gedAccessor = [this]() -> struct ged * {
 	return (mdl && mdl->gedp) ? mdl->gedp : GED_NULL;
     };
@@ -645,19 +666,14 @@ QgEdApp::run_qcmd(const QString &command)
     char **av = (char **)bu_calloc(strlen(input) + 1, sizeof(char *), "argv array");
     int ac = bu_argv_from_string(av, strlen(input), input);
     struct bu_vls msg = BU_VLS_INIT_ZERO;
-    auto cleanup_resources = [cmd, &msg, input, av]() {
-	bu_free((void *)cmd, "cmd");
-	bu_vls_free(&msg);
-	bu_free(input, "input copy");
-	bu_free(av, "input argv");
-    };
+    struct qged_qcmd_cleanup cleanup = {cmd, &msg, input, av};
 
     if (ac > 0 && BU_STR_EQUAL(av[0], "plugins")) {
 	QString out;
 	QString err;
 	QStringList plugin_argv;
-	/* Reserve only the subcommand arguments; argv[0] is "plugins". */
-	plugin_argv.reserve(ac - 1);
+	if (ac > 1)
+	    plugin_argv.reserve(ac - 1);
 	for (int i = 1; i < ac; ++i)
 	    plugin_argv.append(QString::fromLocal8Bit(av[i]));
 	QgPluginCommands::run(m_plugin_manager, plugin_argv, &out, &err);
@@ -668,7 +684,6 @@ QgEdApp::run_qcmd(const QString &command)
 		console->printString(err);
 	    console->prompt("$ ");
 	}
-	cleanup_resources();
 	return;
     }
 
@@ -695,8 +710,6 @@ QgEdApp::run_qcmd(const QString &command)
     if (mdl && mdl->gedp) {
 	bu_vls_trunc(mdl->gedp->ged_result_str, 0);
     }
-
-    cleanup_resources();
 }
 
 void
