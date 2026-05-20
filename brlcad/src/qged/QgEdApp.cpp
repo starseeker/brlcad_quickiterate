@@ -172,7 +172,6 @@ qt_delete_io_handler(struct ged_subprocess *p, bu_process_io_t t)
 
 struct qged_qcmd_cleanup {
     const char *cmd = NULL;
-    struct bu_vls *msg = NULL;
     char *input = NULL;
     char **av = NULL;
 
@@ -180,8 +179,6 @@ struct qged_qcmd_cleanup {
     {
 	if (cmd)
 	    bu_free((void *)cmd, "cmd");
-	if (msg)
-	    bu_vls_free(msg);
 	if (input)
 	    bu_free(input, "input copy");
 	if (av)
@@ -666,7 +663,7 @@ QgEdApp::run_qcmd(const QString &command)
     char **av = (char **)bu_calloc(strlen(input) + 1, sizeof(char *), "argv array");
     int ac = bu_argv_from_string(av, strlen(input), input);
     struct bu_vls msg = BU_VLS_INIT_ZERO;
-    struct qged_qcmd_cleanup cleanup = {cmd, &msg, input, av};
+    struct qged_qcmd_cleanup cleanup = {cmd, input, av};
 
     if (ac > 0 && BU_STR_EQUAL(av[0], "plugins")) {
 	QString out;
@@ -684,6 +681,7 @@ QgEdApp::run_qcmd(const QString &command)
 		console->printString(err);
 	    console->prompt("$ ");
 	}
+	bu_vls_free(&msg);
 	return;
     }
 
@@ -710,6 +708,7 @@ QgEdApp::run_qcmd(const QString &command)
     if (mdl && mdl->gedp) {
 	bu_vls_trunc(mdl->gedp->ged_result_str, 0);
     }
+    bu_vls_free(&msg);
 }
 
 void
