@@ -260,10 +260,12 @@ QgToolPalette::palette_displayElement(QgToolPaletteElement *element)
 {
 	QTCAD_SLOT("QgToolPalette::palette_displayElement", 1);
 	if (element) {
+		QWidget *controls = element->controlsWidget();
 		if (element == selected) {
 			if (!always_selected) {
 				if (element->buttonWidget()->isChecked()) element->buttonWidget()->setChecked(false);
-				element->controlsWidget()->hide();
+				if (controls)
+					controls->hide();
 				selected = nullptr;
 			}
 			else {
@@ -274,13 +276,16 @@ QgToolPalette::palette_displayElement(QgToolPaletteElement *element)
 			if (!element->buttonWidget()->isChecked()) element->buttonWidget()->setChecked(true);
 			if (selected && element != selected) {
 				selected->setScrollPosition(control_container->verticalScrollBar()->sliderPosition());
-				selected->controlsWidget()->hide();
+				if (selected->controlsWidget())
+					selected->controlsWidget()->hide();
 				if (selected->buttonWidget()->isChecked()) selected->buttonWidget()->setChecked(false);
 			}
 			control_container->takeWidget();
-			control_container->setWidget(element->controlsWidget());
-			element->controlsWidget()->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
-			element->controlsWidget()->show();
+			if (controls) {
+				control_container->setWidget(controls);
+				controls->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+				controls->show();
+			}
 			element->do_element_unhide(nullptr);
 			control_container->verticalScrollBar()->setSliderPosition(element->scrollPosition());
 			selected = element;
