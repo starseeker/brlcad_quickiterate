@@ -34,6 +34,7 @@
 #include "bv/plot3.h"
 #include "bg/clip.h"
 
+#include "bsg/payload.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
 
@@ -63,6 +64,7 @@ static int
 plot_floating_cb(struct bv_scene_obj *sp, void *userdata)
 {
     struct plot_data *pd = (struct plot_data *)userdata;
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)sp);
 
     pl_color(pd->fp,
 	     sp->s_color[0],
@@ -75,7 +77,7 @@ plot_floating_cb(struct bv_scene_obj *sp, void *userdata)
 	    pl_linmod(pd->fp, "solid");
 	pd->Dashing = sp->s_soldash;
     }
-    bv_vlist_to_uplot(pd->fp, &(sp->s_vlist));
+    bv_vlist_to_uplot(pd->fp, vhead);
     return 1; /* continue */
 }
 
@@ -85,6 +87,7 @@ plot_integer_cb(struct bv_scene_obj *sp, void *userdata)
 {
     struct plot_data *pd = (struct plot_data *)userdata;
     struct bv_vlist *vp;
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)sp);
     vect_t last = VINIT_ZERO;
     vect_t fin;
     vect_t start;
@@ -96,7 +99,7 @@ plot_integer_cb(struct bv_scene_obj *sp, void *userdata)
 	    pl_linmod(pd->fp, "solid");
 	pd->Dashing = sp->s_soldash;
     }
-    for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+    for (BU_LIST_FOR(vp, bv_vlist, vhead)) {
 	size_t i;
 	size_t nused = vp->nused;
 	int *cmd = vp->cmd;

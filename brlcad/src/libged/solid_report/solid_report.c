@@ -27,6 +27,7 @@
 
 #include <stdlib.h>
 
+#include "bsg/payload.h"
 #include "bu/opt.h"
 #include "ged.h"
 #include "ged/bsg_ged_draw.h"
@@ -47,6 +48,7 @@ solid_report_cb(struct bv_scene_obj *sp, void *userdata)
 {
     struct solid_report_data *data = (struct solid_report_data *)userdata;
     struct bv_vlist *vp;
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)sp);
 
     if (!data->vlcmds) {
 	size_t nvlist;
@@ -97,7 +99,7 @@ solid_report_cb(struct bv_scene_obj *sp, void *userdata)
 	/* Print the actual vector list */
 	nvlist = 0;
 	npts = 0;
-	for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+	for (BU_LIST_FOR(vp, bv_vlist, vhead)) {
 	    size_t i;
 	    size_t nused = vp->nused;
 	    int *cmd = vp->cmd;
@@ -118,7 +120,7 @@ solid_report_cb(struct bv_scene_obj *sp, void *userdata)
 	}
 
 	bu_vls_printf(data->vls, "  %zu vlist structures, %zu pts\n", nvlist, npts);
-	bu_vls_printf(data->vls, "  %zu pts (via bv_ck_vlist)\n", bv_ck_vlist(&(sp->s_vlist)));
+	bu_vls_printf(data->vls, "  %zu pts (via bv_ck_vlist)\n", bv_ck_vlist(vhead));
     } else {
 	/* Print vlist cmds */
 	bu_vls_printf(data->vls, "-1 %d %d %d\n",
@@ -127,7 +129,7 @@ solid_report_cb(struct bv_scene_obj *sp, void *userdata)
 		      sp->s_color[2]);
 
 	/* Print the actual vector list */
-	for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+	for (BU_LIST_FOR(vp, bv_vlist, vhead)) {
 	    size_t i;
 	    size_t nused = vp->nused;
 	    int *cmd = vp->cmd;
@@ -228,4 +230,3 @@ GED_DECLARE_PLUGIN_MANIFEST("libged_solid_report", 1, GED_SOLID_REPORT_COMMANDS)
  * End:
  * ex: shiftwidth=4 tabstop=8
  */
-
