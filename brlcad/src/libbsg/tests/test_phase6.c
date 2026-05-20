@@ -34,6 +34,7 @@
 #include "bsg/defines.h"
 #include "bsg/util.h"
 #include "bsg/field.h"
+#include "bsg/node.h"
 #include "bsg/sensor.h"
 #include "bsg/node_group.h"
 #include "bsg/node_shape.h"

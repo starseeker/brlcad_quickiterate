@@ -885,6 +885,46 @@ Validation:
 - `ctest --output-on-failure -R '^(libbsg_node|libbsg_scene_graph|libbsg_phase6|libbsg_selection|libbsg_lod_node|libbsg_view_scope|libbsg_node_core)$'`
   passed.
 
+Phase 6 completion update - 2026-05-20
+--------------------------------------
+Status:
+- DONE for the active libbsg/libged lifecycle boundary work tracked in this
+  phase.  Allocation and teardown in the core BSG draw-tree helpers now route
+  through the BSG lifecycle API rather than manual free-list recycling code.
+
+Completed in this session:
+- Finished the previously deferred lifecycle recycle paths in libbsg:
+  - `src/libbsg/draw_set.c` no longer uses its local `FREE_BV_SCENE_OBJ`
+    recycle macro in draw-tree erase/free paths; it now unlinks nodes with
+    BSG APIs and releases them through `bsg_node_destroy()`.
+  - `src/libbsg/overlay.c` now follows the same unlink/destroy boundary for
+    overlay erase and overlay-group removal paths.
+- Updated the GED draw-root creation path to use the BSG child-node allocator:
+  - `src/libged/bsg_ged_draw.c` now allocates the draw root with
+    `bsg_node_create_child(..., BSG_NODE_ROOT | BSG_NODE_GROUP)` and sets
+    visibility through `bsg_node_set_visible()`.
+
+Resulting boundary:
+- libbsg draw-tree mutation helpers no longer carry bespoke free-list recycling
+  implementations as first-class behavior; teardown is now consistently routed
+  through `bsg_node_destroy()` compatibility boundaries.
+- The per-GED draw-root creation path now uses the same BSG allocation
+  boundary as standalone scene-root creation.
+
+Moved to Phase 7+:
+- Full transfer of low-level compatibility ownership out of
+  `src/libbv/util.cpp` (`bv_obj_reset()` / `bv_obj_put()` internals) remains
+  Phase 7+ compatibility-wrapper work.
+- Scene-root ownership orchestration across shared/multi-view and GED-managed
+  draw roots remains a compatibility concern for later ownership-cutover work.
+
+Validation:
+- Qt-enabled configure succeeded with `bext_output/install`.
+- Built: `libbsg`, `libged`, `test_bsg_scene_graph`, `test_bsg_phase6`,
+  `test_bsg_selection`, `ged_test_bsg_view_obj`.
+- `ctest --output-on-failure -R '^(libbsg_scene_graph|libbsg_phase6|libbsg_selection|ged_test_bsg_view_obj)$'`
+  passed.
+
 
 Phase 7 - Narrow bv_scene_obj to a Compatibility Wrapper
 -------------------------------------------------------
@@ -906,6 +946,31 @@ Recommended milestone:
 
 Exit criteria:
 - bv_scene_obj is a transitional wrapper, not the semantic model.
+
+Phase 7 execution update - 2026-05-20
+-------------------------------------
+Status:
+- IN PROGRESS.  The compatibility-wrapper narrowing has started by moving
+  additional lifecycle and root-allocation paths onto BSG APIs, while broader
+  struct-layout encapsulation remains pending.
+
+Completed in this session:
+- Reduced direct `bv_scene_obj` lifecycle/layout dependence in active
+  draw-path code:
+  - `src/libbsg/draw_set.c` and `src/libbsg/overlay.c` now unlink through BSG
+    parent/child APIs and destroy through `bsg_node_destroy()` rather than
+    manually appending to free lists.
+  - `src/libged/bsg_ged_draw.c` now creates draw roots via
+    `bsg_node_create_child()` and tags them as `BSG_NODE_ROOT`.
+- Updated compatibility-facing API documentation in
+  `include/bsg/draw_set.h` to reflect that recursive free helpers now route
+  teardown through the BSG lifecycle boundary.
+
+Remaining Phase 7 work:
+- Continue reducing direct struct-layout dependency in libdm/libged/qged call
+  paths that still read/write `bv_scene_obj` storage directly.
+- Isolate or encapsulate remaining compatibility fields that are still
+  semantically live outside dedicated compatibility bridges.
 
 
 Phase 8 - Final Cutover: Remove bv_scene_obj as the Backing Store

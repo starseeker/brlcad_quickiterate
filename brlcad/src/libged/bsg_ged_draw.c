@@ -33,7 +33,7 @@
  *               └─ BSG_NODE_SHAPE bv_scene_obj leaves
  *                    └─ parent = containing sub-group
  *
- * Group nodes are allocated via bv_obj_create(v, BV_CHILD_OBJS) so
+ * Group nodes are allocated via bsg_node_create_child(v, BSG_NODE_GROUP) so
  * they are NOT inserted into any view object table.  Shape nodes are
  * allocated via bv_obj_get_unregistered(v, BV_DB_OBJS) — they have
  * s_type_flags = BV_DB_OBJS but are NOT inserted into any gv_objs ptbl.
@@ -358,12 +358,12 @@ _sg_root(struct ged *gedp)
     if (!v)
         return NULL;
 
-    struct bv_scene_obj *root = bv_obj_create(v, BV_CHILD_OBJS);
+    struct bv_scene_obj *root = (struct bv_scene_obj *)bsg_node_create_child(
+	v, BSG_NODE_ROOT | BSG_NODE_GROUP);
     if (!root)
         return NULL;
 
-    bsg_node_set_kind((bsg_node *)root, BSG_NODE_GROUP);
-    root->bsg.bsg_flag = UP;
+    bsg_node_set_visible((bsg_node *)root, 1);
     bsg_node_set_name((bsg_node *)root, "_draw_root");
 
     gedp->i->ged_gdp->gd_draw_root = root;
