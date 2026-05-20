@@ -31,6 +31,7 @@
 #include "vmath.h"
 #include "bu/log.h"
 #include "bu/malloc.h"
+#include "bsg/node.h"
 #include "bv/polygon.h"
 #include "bv/util.h"
 
@@ -49,8 +50,8 @@ bv_polygon_csg(struct bv_scene_obj *target, struct bv_scene_obj *stencil, bg_cli
     if (op == bg_None)
 	return 0;
 
-    struct bv_polygon *polyA = (struct bv_polygon *)target->s_i_data;
-    struct bv_polygon *polyB = (struct bv_polygon *)stencil->s_i_data;
+    struct bv_polygon *polyA = (struct bv_polygon *)bsg_node_user_data_get((const bsg_node *)target);
+    struct bv_polygon *polyB = (struct bv_polygon *)bsg_node_user_data_get((const bsg_node *)stencil);
     if (!polyA || !polyB)
 	return 0;
 
@@ -64,9 +65,10 @@ bv_polygon_csg(struct bv_scene_obj *target, struct bv_scene_obj *stencil, bg_cli
     // and our op is a union, we still want to proceed even without an overlap.
     if (polyA->polygon.num_contours || op != bg_Union) {
 	const struct bn_tol poly_tol = BN_TOL_INIT_TOL;
-	if (!stencil->s_v)
+	struct bview *stencil_view = bsg_node_view_get((const bsg_node *)stencil);
+	if (!stencil_view)
 	    return 0;
-	int ovlp = bg_polygons_overlap(&polyA->polygon, &polyB->polygon, &polyA->vp, &poly_tol, stencil->s_v->gv_scale);
+	int ovlp = bg_polygons_overlap(&polyA->polygon, &polyB->polygon, &polyA->vp, &poly_tol, stencil_view->gv_scale);
 	if (!ovlp)
 	    return 0;
     } else {
@@ -86,7 +88,7 @@ bv_polygon_csg(struct bv_scene_obj *target, struct bv_scene_obj *stencil, bg_cli
 	polyA->curr_point_i = polyB->curr_point_i;
 	VMOVE(polyA->origin_point, polyB->origin_point);
 	HMOVE(polyA->vp, polyB->vp);
-	bv_update_polygon(target, target->s_v, BV_POLYGON_UPDATE_DEFAULT);
+	bv_update_polygon(target, bsg_node_view_get((const bsg_node *)target), BV_POLYGON_UPDATE_DEFAULT);
 	return 1;
     }
 
@@ -107,7 +109,7 @@ bv_polygon_csg(struct bv_scene_obj *target, struct bv_scene_obj *stencil, bg_cli
     polyA->type = BV_POLYGON_GENERAL;
 
     // Make sure everything's current
-    bv_update_polygon(target, target->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    bv_update_polygon(target, bsg_node_view_get((const bsg_node *)target), BV_POLYGON_UPDATE_DEFAULT);
 
     return 1;
 }

@@ -668,6 +668,12 @@ Completed in this session:
   - material revision helpers (`s_color_rev`)
   - appearance convenience helpers for dashed/arrow state (`s_soldash` / `s_arrow`)
 - Started converting non-test callers to those accessors in libbsg/libged.
+- Converted the libbv polygon subsystem to the BSG accessor boundary:
+  - `polygon.c` now uses BSG user-data, view, vlist, material, and appearance
+    APIs instead of directly reading/writing `s_i_data`, `s_v`, `s_vlist`,
+    `s_color`, and `s_soldash`.
+  - `polygon_op.cpp` now uses BSG user-data/view accessors instead of direct
+    `s_i_data` / `s_v` access.
 
 Resulting boundary:
 - Non-test code now treats lifecycle/update hooks as BSG APIs even though the
@@ -677,6 +683,10 @@ Resulting boundary:
   paths, and tests/comments.
 - The remaining raw-field work is now primarily broad caller cutover across
   polygon/view/render/editor code rather than missing BSG API surface.
+- The core libbv polygon implementation no longer depends on direct
+  `bv_scene_obj` raw-field access for its scene payload/view/appearance data;
+  remaining polygon-related Phase 5 work is now concentrated in higher-level Qt
+  and GED polygon tooling that still reaches into compatibility storage.
 
 Moved to subsequent phases:
 - Physically relocating lifecycle callback storage off `bv_scene_obj` remains
