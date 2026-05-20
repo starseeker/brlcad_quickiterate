@@ -34,7 +34,9 @@
 #define BSG_SETTINGS_H
 
 #include "common.h"
+#include "bsg/appearance.h"
 #include "bsg/defines.h"
+#include "bsg/material.h"
 #include "bsg/settings_types.h"
 
 __BEGIN_DECLS
@@ -67,6 +69,51 @@ bsg_node_settings_set(bsg_node *n, const struct bsg_settings *s);
  */
 BSG_EXPORT extern int
 bsg_settings_sync(struct bsg_settings *dest, struct bsg_settings *src);
+
+/**
+ * Internal draw-policy split for the Phase 4 request-shape cleanup.
+ *
+ * mixed_modes remains compatibility-backed for now, but higher-level draw
+ * callers use this policy object rather than passing full bsg_settings bundles
+ * operationally.
+ */
+struct bsg_draw_policy {
+    int mixed_modes;
+};
+
+BSG_EXPORT extern void
+bsg_draw_policy_init(struct bsg_draw_policy *p);
+
+BSG_EXPORT extern int
+bsg_node_draw_policy_get(const bsg_node *n, struct bsg_draw_policy *out);
+
+BSG_EXPORT extern void
+bsg_node_draw_policy_set(bsg_node *n, const struct bsg_draw_policy *p);
+
+/**
+ * Split draw request used by libdm/libged internal redraw paths.
+ *
+ * This separates operational draw-state flow into appearance, material, and
+ * policy components while keeping struct bsg_settings as a compatibility
+ * boundary for older entry points.
+ */
+struct bsg_draw_request {
+    struct bsg_appearance appearance;
+    struct bsg_material material;
+    struct bsg_draw_policy policy;
+};
+
+BSG_EXPORT extern void
+bsg_draw_request_init(struct bsg_draw_request *r);
+
+BSG_EXPORT extern void
+bsg_draw_request_from_settings(struct bsg_draw_request *out, const struct bsg_settings *s);
+
+BSG_EXPORT extern int
+bsg_node_draw_request_get(const bsg_node *n, struct bsg_draw_request *out);
+
+BSG_EXPORT extern void
+bsg_node_draw_request_set(bsg_node *n, const struct bsg_draw_request *r);
 
 __END_DECLS
 

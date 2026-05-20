@@ -1023,15 +1023,15 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 	// job here will just be to set up the key data for later use...
 
 	struct bv_scene_obj *s = bv_obj_get_child(dd->g);
-	struct bsg_settings parent_settings;
+	struct bsg_draw_request parent_request;
 	db_path_to_vls(&s->bsg.bsg_name, path);
 	BU_GET(s->s_path, struct db_full_path);
 	db_full_path_init((struct db_full_path *)s->s_path);
 	db_dup_full_path((struct db_full_path *)s->s_path, path);
 
 	MAT_COPY(s->s_mat, *curr_mat);
-	bsg_node_settings_get((const bsg_node *)dd->g, &parent_settings);
-	bsg_node_settings_set((bsg_node *)s, &parent_settings);
+	bsg_node_draw_request_get((const bsg_node *)dd->g, &parent_request);
+	bsg_node_draw_request_set((bsg_node *)s, &parent_request);
 	s->bsg.bsg_kind = BV_DBOBJ_BASED;
 	s->current = 0;
 	s->s_changed++;

@@ -1100,11 +1100,52 @@ _bsg_settings_sync(struct bsg_settings *dest, const struct bsg_settings *src)
     return ret;
 }
 
+static struct bsg_settings *
+_bv_settings_local_get_or_create(struct bv_scene_obj *s)
+{
+    if (!s)
+	return NULL;
+    if (!s->bsg.settings_local) {
+	BU_ALLOC(s->bsg.settings_local, struct bsg_settings);
+	*(s->bsg.settings_local) = s->s_local_os;
+    }
+    return s->bsg.settings_local;
+}
+
+static struct bsg_settings *
+_bv_settings_effective_get_or_create(struct bv_scene_obj *s)
+{
+    if (!s)
+	return NULL;
+    if (!s->bsg.settings_effective) {
+	BU_ALLOC(s->bsg.settings_effective, struct bsg_settings);
+	*(s->bsg.settings_effective) = (s->s_os) ? *s->s_os : s->s_local_os;
+    }
+    return s->bsg.settings_effective;
+}
+
+static void
+_bv_settings_legacy_sync(struct bv_scene_obj *s)
+{
+    const struct bsg_settings *local;
+    if (!s)
+	return;
+
+    local = (s->bsg.settings_local) ? s->bsg.settings_local : &s->s_local_os;
+    s->s_local_os = *local;
+    s->s_os = &s->s_local_os;
+}
+
 int
 bv_scene_obj_settings_get(const struct bv_scene_obj *s, struct bsg_settings *out)
 {
     if (!s || !out)
 	return 0;
+
+    if (s->bsg.settings_effective) {
+	*out = *s->bsg.settings_effective;
+	return 1;
+    }
 
     *out = (s->s_os) ? *s->s_os : s->s_local_os;
     return 1;
@@ -1116,6 +1157,11 @@ bv_scene_obj_settings_local_get(const struct bv_scene_obj *s, struct bsg_setting
     if (!s || !out)
 	return 0;
 
+    if (s->bsg.settings_local) {
+	*out = *s->bsg.settings_local;
+	return 1;
+    }
+
     *out = s->s_local_os;
     return 1;
 }
@@ -1123,11 +1169,19 @@ bv_scene_obj_settings_local_get(const struct bv_scene_obj *s, struct bsg_setting
 void
 bv_scene_obj_settings_set(struct bv_scene_obj *s, const struct bsg_settings *settings)
 {
+    struct bsg_settings *local;
+    struct bsg_settings *effective;
     if (!s || !settings)
 	return;
 
-    _bsg_settings_sync(&s->s_local_os, settings);
-    s->s_os = &s->s_local_os;
+    local = _bv_settings_local_get_or_create(s);
+    effective = _bv_settings_effective_get_or_create(s);
+    if (!local || !effective)
+	return;
+
+    _bsg_settings_sync(local, settings);
+    *effective = *local;
+    _bv_settings_legacy_sync(s);
 }
 
 void
@@ -2158,6 +2212,14 @@ bv_obj_reset(struct bv_scene_obj *s)
     if (s->bsg.bsg_magic == BSG_NODE_CORE_MAGIC &&
 	    s->bsg.bsg_core_free_fn)
 	s->bsg.bsg_core_free_fn(&s->bsg);
+    if (s->bsg.settings_local) {
+	bu_free(s->bsg.settings_local, "bsg_node settings_local");
+	s->bsg.settings_local = NULL;
+    }
+    if (s->bsg.settings_effective) {
+	bu_free(s->bsg.settings_effective, "bsg_node settings_effective");
+	s->bsg.settings_effective = NULL;
+    }
     s->bsg.bsg_magic = 0;
     s->bsg.have_identity = 0;
     s->bsg.identity_node_id = 0;

@@ -242,6 +242,8 @@ struct bsg_node {
     uint64_t identity_instance_id;
     int identity_source_kind;      /**< @brief enum bsg_source_kind value */
     uint64_t revisions[BSG_NODE_REV_MAX];
+    struct bsg_settings *settings_local;     /**< @brief transitional BSG-owned local settings snapshot */
+    struct bsg_settings *settings_effective; /**< @brief transitional BSG-owned effective settings snapshot */
     void *material;
     void *appearance;
     void *payload;

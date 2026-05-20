@@ -534,6 +534,77 @@ Exit criteria:
 - bv_scene_obj no longer uniquely owns settings state.
 
 
+Phase 4 execution update - 2026-05-19
+------------------------------------
+Status:
+- DONE for the remaining Phase 4 storage-owner and request-shape cleanup.
+
+Completed in this pass:
+- Added BSG-owned transitional settings sidecars on `struct bsg_node`:
+  - `settings_local`
+  - `settings_effective`
+- Updated the libbsg core lifecycle so those sidecars are initialized on demand
+  and released with the other BSG-owned node sidecars.
+- Reworked the compatibility helpers in `src/libbv/util.cpp` so
+  `bv_scene_obj_settings_get()`, `bv_scene_obj_settings_local_get()`,
+  `bv_scene_obj_settings_set()`, and `bv_scene_obj_settings_reset()` now use the
+  BSG-owned sidecars as the authoritative storage while still mirroring
+  `s_local_os` / `s_os` for legacy callers.
+- Updated `src/libbsg/settings.c`, `src/libbsg/appearance.c`, and
+  `src/libbsg/material.c` so settings/material/appearance synchronization flows
+  through the BSG-owned sidecars first rather than treating `bv_scene_obj` as the
+  unique owner.
+- Removed the active transparency mirroring dependency on `bsg_appearance`:
+  - material now remains the semantic transparency owner
+  - the render paths in `src/libbsg/render.c`, `src/libdm/view.c`, and
+    `src/libtclcad/view/draw.c` now resolve transparency from `bsg_material`
+    instead of appearance state
+- Expanded regression coverage in:
+  - `src/libbsg/tests/test_settings.c`
+  - `src/libbsg/tests/test_material.c`
+  - `src/libbsg/tests/test_node_core.c`
+- Added a split internal draw-request/draw-policy API in
+  `include/bsg/settings.h` / `src/libbsg/settings.c`:
+  - `struct bsg_draw_policy`
+  - `struct bsg_draw_request`
+  - `bsg_draw_request_from_settings()`
+  - `bsg_node_draw_policy_get/set()`
+  - `bsg_node_draw_request_get/set()`
+- Converted the remaining Phase 4 internal libdm/libged redraw paths so they no
+  longer operate on whole `struct bsg_settings` bundles:
+  - `src/libdm/view.c`
+  - `src/libged/dbi_state.cpp`
+  - `src/libged/draw.cpp`
+  - `src/libged/view/gobjs.cpp`
+- Kept `dm_draw_scene_obj()` and `BViewState::redraw()` accepting
+  `struct bsg_settings` at their compatibility entry points, but they now split
+  those bundles into appearance/material/policy request data immediately rather
+  than threading full settings snapshots through the operational redraw logic.
+
+Resulting boundary:
+- `s_local_os` and `s_os` remain as mirrored compatibility snapshots on
+  `bv_scene_obj`, but they are no longer the authoritative owner once a node has
+  been touched by the BSG settings/material/appearance APIs or the libbv
+  compatibility helpers.
+- `s_inherit_settings` is still mirrored on `bv_scene_obj`, but the active owner
+  for inheritance semantics remains `bsg_appearance.inherit_settings`.
+- Internal redraw/traversal paths now carry:
+  - `bsg_appearance` for style/inheritance
+  - `bsg_material` for color/transparency
+  - `bsg_draw_policy` for `mixed_modes`
+  instead of passing full `bsg_settings` bundles as operational state.
+
+Moved to subsequent phases:
+- `mixed_modes` now has a dedicated draw-policy API boundary, but it still uses
+  compatibility-backed storage in the settings sidecar.  Physically separating
+  that storage remains later work.
+- Legacy raw mirrors (`s_local_os`, `s_os`, `s_inherit_settings`) are still
+  present only for compatibility and are now Phase 5+ / Phase 7 cleanup items.
+- Any remaining public compatibility entry points that still accept
+  `struct bsg_settings` are now intentional compatibility boundaries rather than
+  internal operational dependencies.
+
+
 Phase 5 - Promote BSG Node Ownership Over Remaining Raw Fields
 --------------------------------------------------------------
 Objective:

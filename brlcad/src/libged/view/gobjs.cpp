@@ -135,10 +135,10 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
 
     // Set up drawing settings
     unsigned char wcolor[3] = {255,255,255};
-    struct bsg_settings vs;
+    struct bsg_draw_request vr;
     /* New transient gobjs start from the standard wireframe defaults. */
-    bsg_settings_init(&vs);
-    bsg_node_settings_set((bsg_node *)g, &vs);
+    bsg_draw_request_init(&vr);
+    bsg_node_draw_request_set((bsg_node *)g, &vr);
 
     // We have a tree walk ahead to populate the wireframe - set up the client
     // data structure.
@@ -153,7 +153,7 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
     dd.bound_only = 0;
     dd.s_size = &s_size;
     bu_color_from_rgb_chars(&dd.c, wcolor);
-    dd.vs = &vs;
+    dd.vs = NULL;
     dd.g = g;
 
     // Create a wireframe from the current state of the specified object

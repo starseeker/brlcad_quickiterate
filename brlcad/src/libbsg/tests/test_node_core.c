@@ -24,7 +24,7 @@
  * These tests verify:
  *  10A - struct bsg_node_core is present in bv_scene_obj.
  *  10B - kind and parent BSG accessors round-trip through bsg_core.
- *  10C - material, appearance, and payload pointers are stored in bsg_core
+ *  10C - settings, material, appearance, and payload pointers are stored in bsg_core
  *        and are freed by bv_obj_reset() (via _bsg_core_release).
  *  10D - identity fields and revision counters are stored inline in bsg_core;
  *        identity_clear does NOT reset revisions (Phase 10D semantic).
@@ -49,6 +49,7 @@
 #include "bsg/node_core.h"
 #include "bsg/node_group.h"
 #include "bsg/payload.h"
+#include "bsg/settings.h"
 
 #define PASS(msg) do { printf("  PASS: %s\n", (msg)); } while (0)
 #define FAIL(msg) do { printf("  FAIL: %s\n", (msg)); return 1; } while (0)
@@ -168,7 +169,7 @@ test_kind_parent_routing(void)
 
 
 /* ------------------------------------------------------------------ */
-/* Test 10C: material, appearance, payload stored in bsg_core           */
+/* Test 10C: settings, material, appearance, payload stored in bsg_core */
 /* ------------------------------------------------------------------ */
 
 static int
@@ -183,6 +184,21 @@ test_sidecars_in_core(void)
 	FAIL("create node");
     }
 
+    /* --- settings --- */
+    struct bsg_settings s_in, s_out;
+    bsg_settings_init(&s_in);
+    s_in.line_width = 6;
+    s_in.draw_mode = 2;
+    bsg_node_settings_set(n, &s_in);
+
+    bsg_node *core = bsg_node_core_get(n);
+    if (!core || !core->settings_local || !core->settings_effective)
+	FAIL("settings pointers not in core after settings_set");
+    if (!bsg_node_settings_get(n, &s_out))
+	FAIL("settings_get should return 1 for BSG-set settings");
+    if (s_out.line_width != 6 || s_out.draw_mode != 2)
+	FAIL("settings content round-trip via core");
+
     /* --- material --- */
     struct bsg_material m_in, m_out;
     bsg_material_init(&m_in);
@@ -192,7 +208,7 @@ test_sidecars_in_core(void)
     bsg_node_material_set(n, &m_in);
 
     /* Core should now have the material pointer. */
-    bsg_node *core = bsg_node_core_get(n);
+    core = bsg_node_core_get(n);
     if (!core || !core->material)
 	FAIL("material pointer not in core after set");
 

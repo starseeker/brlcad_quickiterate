@@ -71,8 +71,7 @@ bsg_node_settings_get(const bsg_node *n, struct bsg_settings *out)
     if (!n)
 	return 0;
 
-    const struct bv_scene_obj *s = (const struct bv_scene_obj *)n;
-    const struct bsg_settings *settings = (s->s_os) ? s->s_os : &s->s_local_os;
+    const struct bsg_settings *settings = _bsg_settings_effective(n);
 
     *out = *settings;
     (void)bsg_node_appearance_get(n, &app);
@@ -101,17 +100,23 @@ bsg_node_settings_set(bsg_node *n, const struct bsg_settings *s)
 {
     struct bsg_appearance app;
     struct bsg_material mat;
+    struct bsg_settings *local;
+    struct bsg_settings *effective;
     if (!n || !s)
 	return;
 
-    struct bv_scene_obj *obj = (struct bv_scene_obj *)n;
     bsg_appearance_init(&app);
     bsg_material_init(&mat);
     (void)bsg_node_appearance_get(n, &app);
     (void)bsg_node_material_get(n, &mat);
 
-    obj->s_local_os = *s;
-    obj->s_os = &obj->s_local_os;
+    local = _bsg_settings_local_get_or_create(n);
+    effective = _bsg_settings_effective_get_or_create(n);
+    if (!local || !effective)
+	return;
+
+    *local = *s;
+    *effective = *s;
 
     app.draw_mode = s->draw_mode;
     app.line_width = s->line_width;
@@ -129,6 +134,7 @@ bsg_node_settings_set(bsg_node *n, const struct bsg_settings *s)
 	mat.override_rgb[2] = s->color[2];
     }
     bsg_node_material_set(n, &mat);
+    _bsg_settings_legacy_sync(n);
 }
 
 int
@@ -180,6 +186,118 @@ bsg_settings_sync(struct bsg_settings *dest, struct bsg_settings *src)
     }
 
     return ret;
+}
+
+void
+bsg_draw_policy_init(struct bsg_draw_policy *p)
+{
+    if (!p)
+	return;
+    p->mixed_modes = 0;
+}
+
+
+int
+bsg_node_draw_policy_get(const bsg_node *n, struct bsg_draw_policy *out)
+{
+    const struct bsg_settings *settings;
+    if (!n || !out)
+	return 0;
+
+    bsg_draw_policy_init(out);
+    settings = _bsg_settings_effective(n);
+    if (!settings)
+	return 0;
+
+    out->mixed_modes = settings->mixed_modes;
+    return 1;
+}
+
+
+void
+bsg_node_draw_policy_set(bsg_node *n, const struct bsg_draw_policy *p)
+{
+    struct bsg_settings *local;
+    struct bsg_settings *effective;
+    if (!n || !p)
+	return;
+
+    local = _bsg_settings_local_get_or_create(n);
+    effective = _bsg_settings_effective_get_or_create(n);
+    if (!local || !effective)
+	return;
+
+    local->mixed_modes = p->mixed_modes ? 1 : 0;
+    effective->mixed_modes = local->mixed_modes;
+    _bsg_settings_legacy_sync(n);
+}
+
+
+void
+bsg_draw_request_init(struct bsg_draw_request *r)
+{
+    if (!r)
+	return;
+    bsg_appearance_init(&r->appearance);
+    bsg_material_init(&r->material);
+    bsg_draw_policy_init(&r->policy);
+}
+
+
+void
+bsg_draw_request_from_settings(struct bsg_draw_request *out, const struct bsg_settings *s)
+{
+    if (!out)
+	return;
+
+    bsg_draw_request_init(out);
+    if (!s)
+	return;
+
+    out->appearance.draw_mode = s->draw_mode;
+    out->appearance.line_width = s->line_width;
+    out->appearance.arrow_tip_length = s->arrow_tip_length;
+    out->appearance.arrow_tip_width = s->arrow_tip_width;
+    out->appearance.draw_solid_lines_only = s->draw_solid_lines_only;
+    out->appearance.draw_non_subtract_only = s->draw_non_subtract_only;
+
+    out->material.transparency = s->transparency;
+    out->material.rgba[3] = bsg_material_alpha_from_transparency(out->material.transparency);
+    out->material.use_override_color = s->color_override ? 1 : 0;
+    if (out->material.use_override_color) {
+	out->material.override_rgb[0] = s->color[0];
+	out->material.override_rgb[1] = s->color[1];
+	out->material.override_rgb[2] = s->color[2];
+	out->material.source_kind = BSG_MATERIAL_SOURCE_EXPLICIT_OVERRIDE;
+    }
+
+    out->policy.mixed_modes = s->mixed_modes ? 1 : 0;
+}
+
+
+int
+bsg_node_draw_request_get(const bsg_node *n, struct bsg_draw_request *out)
+{
+    if (!n || !out)
+	return 0;
+
+    bsg_draw_request_init(out);
+    (void)bsg_node_appearance_get(n, &out->appearance);
+    (void)bsg_node_material_get(n, &out->material);
+    (void)bsg_node_draw_policy_get(n, &out->policy);
+    return 1;
+}
+
+
+void
+bsg_node_draw_request_set(bsg_node *n, const struct bsg_draw_request *r)
+{
+    if (!n || !r)
+	return;
+
+    bsg_node_appearance_set(n, &r->appearance);
+    bsg_node_material_set(n, &r->material);
+    bsg_node_draw_policy_set(n, &r->policy);
 }
 
 
