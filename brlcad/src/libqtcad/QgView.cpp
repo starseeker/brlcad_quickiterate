@@ -308,7 +308,6 @@ QgView::clear_event_filter(QObject *o)
 	if (canvas_gl) {
 		if (o) {
 			canvas_gl->removeEventFilter(o);
-			filters.erase(std::remove(filters.begin(), filters.end(), o), filters.end());
 		}
 		else {
 			for (size_t i = 0; i < filters.size(); i++) {
@@ -321,7 +320,6 @@ QgView::clear_event_filter(QObject *o)
 	if (canvas_sw) {
 		if (o) {
 			canvas_sw->removeEventFilter(o);
-			filters.erase(std::remove(filters.begin(), filters.end(), o), filters.end());
 		}
 		else {
 			for (size_t i = 0; i < filters.size(); i++) {
@@ -330,6 +328,8 @@ QgView::clear_event_filter(QObject *o)
 			filters.clear();
 		}
 	}
+	if (o)
+		filters.erase(std::remove(filters.begin(), filters.end(), o), filters.end());
 	if (!o || curr_event_filter == o)
 		curr_event_filter = nullptr;
 }
