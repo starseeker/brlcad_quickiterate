@@ -703,6 +703,15 @@ Completed in this session:
     app-data, transform, and update-data state through the BSG accessor
     boundary instead of directly assigning `s_path`, `dp`, `s_mat`, and
     `s_i_data`.
+- Converted the GL LoD renderer backend path off direct compatibility-field
+  access:
+  - `src/libdm/dm-gl_lod.cpp` now routes renderer backend handles through
+    `bsg_node_backend_get/set`, reads object transforms through
+    `bsg_node_transform_get`, and falls back to `bsg_node_vlist_head` instead
+    of directly touching `s_backend`, `s_mat`, and `s_vlist`.
+  - `src/libged/tests/draw/bsg_view_obj.cpp` now exercises the renderer
+    backend contract through the same BSG backend accessors instead of directly
+    assigning or asserting on `s_backend`.
 
 Resulting boundary:
 - Non-test code now treats lifecycle/update hooks as BSG APIs even though the
@@ -720,17 +729,21 @@ Resulting boundary:
 - The central GED draw/eval path now routes source-path, app-data, transform,
   and vlist-count bookkeeping through BSG accessors rather than direct
   compatibility fields.
-- Remaining Phase 5 work is now concentrated in render/editor callers and
-  residual draw paths that still reach into compatibility storage for backend
-  handles, direct vlist heads, and other unmigrated raw fields.
+- The GL LoD renderer now uses the same BSG backend/transform/vlist boundaries
+  as the migrated GED draw path instead of reaching directly into compatibility
+  storage for those fields.
+- Remaining Phase 5 work is now concentrated in editor callers and residual
+  draw/report/export paths that still reach into compatibility storage for
+  direct vlist traversal and other unmigrated raw fields.
 
 Moved to subsequent phases:
 - Physically relocating lifecycle callback storage off `bv_scene_obj` remains
   later work for the Phase 6/Phase 7 ownership and compatibility-wrapper
   cleanup, since the new BSG APIs still bridge to the existing struct fields.
-- The rest of the Phase 5 raw-field inventory (`s_name`, `s_path`, `dp`,
-  `s_mat`, `s_i_data`, `s_vlist`/`s_vlen`, `s_color_rev`, `s_backend`, etc.)
-  is unchanged by this slice and remains open Phase 5 work.
+- The remaining Phase 5 raw-field inventory (`s_name`, `s_path`, `dp`,
+  `s_i_data`, direct `s_vlist` traversal in non-migrated callers,
+  `s_color_rev`, and other residual compatibility-field reads) remains open
+  Phase 5 work.
 
 Validation:
 - Qt-enabled configure succeeded with `bext_output/install`.
@@ -746,6 +759,9 @@ Validation:
   - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
 - Additional draw/eval metadata validation:
   - Built: `libbsg`, `libged`, `ged_test_bsg_view_obj`.
+  - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
+- Additional GL LoD backend validation:
+  - Built: `libbsg`, `libdm`, `libged`, `ged_test_bsg_view_obj`.
   - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
 
 

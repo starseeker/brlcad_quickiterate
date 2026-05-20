@@ -1054,7 +1054,7 @@ main(int ac, char *av[])
 
     /* ---------------------------------------------------------------- *
      * [16] Phase 11: renderer-backend contract.                         *
-     *      Stub a dm_backend_ops, attach an s_backend descriptor on a  *
+     *      Stub a dm_backend_ops, attach a backend descriptor on a     *
      *      shape, and verify that bv_scene_obj_invalidate_backend /    *
      *      bv_scene_obj_release_backend fire the new ops.              *
      * ---------------------------------------------------------------- */
@@ -1085,15 +1085,18 @@ main(int ac, char *av[])
 	 * struct bv_obj_backend signature in include/bv/defines.h. */
 	struct phase11_helpers {
 	    static void backend_free(struct bv_scene_obj *s) {
+		struct bv_obj_backend *be = bsg_node_backend_get((const bsg_node *)s);
 		struct phase11_state *p = (struct phase11_state *)
-		    s->s_backend->handle;
+		    be->handle;
 		p->free_calls++;
 		p->last_obj = s;
-		BU_PUT(s->s_backend, struct bv_obj_backend);
+		BU_PUT(be, struct bv_obj_backend);
+		bsg_node_backend_set((bsg_node *)s, NULL);
 	    }
 	    static void backend_invalidate(struct bv_scene_obj *s) {
+		struct bv_obj_backend *be = bsg_node_backend_get((const bsg_node *)s);
 		struct phase11_state *p = (struct phase11_state *)
-		    s->s_backend->handle;
+		    be->handle;
 		p->invalidate_calls++;
 		p->last_obj = s;
 	    }
@@ -1106,7 +1109,7 @@ main(int ac, char *av[])
 	be->handle     = &st;
 	be->free       = phase11_helpers::backend_free;
 	be->invalidate = phase11_helpers::backend_invalidate;
-	target->s_backend = be;
+	bsg_node_backend_set((bsg_node *)target, be);
 
 	/* Sub-test 1: invalidate fires the new contract callback. */
 	bv_scene_obj_invalidate_backend(target);
@@ -1120,18 +1123,18 @@ main(int ac, char *av[])
 	ASSERT(st.invalidate_calls == 1);
 
 	/* Sub-test 3: release_backend fires the new free and clears the
-	 * s_backend slot. */
+	 * backend slot. */
 	bv_scene_obj_release_backend(target);
 	ASSERT(st.free_calls == 1);
-	ASSERT(target->s_backend == NULL);
+	ASSERT(bsg_node_backend_get((const bsg_node *)target) == NULL);
 
 	/* Sub-test 4: release_backend on an object with no backend slot
 	 * is a safe no-op. */
 	struct bv_scene_obj *bare = bsg_view_obj_next_solid(gedp, target);
 	if (bare && bare != target) {
-	    bare->s_backend = NULL;
+	    bsg_node_backend_set((bsg_node *)bare, NULL);
 	    bv_scene_obj_release_backend(bare);
-	    ASSERT(bare->s_backend == NULL);
+	    ASSERT(bsg_node_backend_get((const bsg_node *)bare) == NULL);
 	}
 
 	/* Sub-test 5: dm-side dispatch wrappers tolerate a NULL dmp. */
