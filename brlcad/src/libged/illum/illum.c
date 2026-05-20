@@ -26,6 +26,7 @@
 #include "common.h"
 #include <string.h>
 
+#include "bsg/payload.h"
 #include "dm.h" // For labelvert - see if we really need the dm_set_dirty call there...
 
 #include "ged.h"
@@ -45,11 +46,12 @@ static int
 labelvert_solid_cb(struct bv_scene_obj *sp, void *userdata)
 {
     struct labelvert_data *lvd = (struct labelvert_data *)userdata;
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)sp);
     if (!sp->s_u_data)
 	return 1; /* continue */
     struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
     if (db_full_path_search(&bdata->s_fullpath, lvd->dp)) {
-	rt_label_vlist_verts(lvd->vbp, &sp->s_vlist, lvd->mat, lvd->scale, lvd->base2local);
+	rt_label_vlist_verts(lvd->vbp, vhead, lvd->mat, lvd->scale, lvd->base2local);
     }
     return 1; /* continue */
 }

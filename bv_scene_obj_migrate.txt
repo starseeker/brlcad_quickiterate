@@ -716,6 +716,10 @@ Completed in this session:
   - `src/libged/solid_report/solid_report.c`, `plot/plot.c`, `png/png.c`, and
     `ps/ps.c` now obtain scene vlists through `bsg_node_vlist_head` instead of
     directly walking `s_vlist`.
+- Converted a small editor helper slice off direct vlist-head access:
+  - `src/libged/select/select.c` and `illum/illum.c` now read scene vlists
+    through `bsg_node_vlist_head`, including the `labelvert` path that passes
+    those vlists into `rt_label_vlist_verts`.
 
 Resulting boundary:
 - Non-test code now treats lifecycle/update hooks as BSG APIs even though the
@@ -739,9 +743,11 @@ Resulting boundary:
 - The report/export callers migrated in this slice now share the same BSG
   vlist boundary as the draw path rather than directly traversing compatibility
   storage.
-- Remaining Phase 5 work is now concentrated in editor callers and the smaller
-  set of residual draw/report/export paths that still reach into compatibility
-  storage for direct vlist traversal and other unmigrated raw fields.
+- The editor helpers migrated in this slice now share that same BSG vlist
+  boundary instead of directly reading compatibility storage.
+- Remaining Phase 5 work is now concentrated in compatibility-owned draw setup
+  paths and the smaller residual set of direct-vlist or other compatibility
+  field accesses that have not yet moved behind BSG APIs.
 
 Moved to subsequent phases:
 - Physically relocating lifecycle callback storage off `bv_scene_obj` remains
@@ -771,6 +777,9 @@ Validation:
   - Built: `libbsg`, `libdm`, `libged`, `ged_test_bsg_view_obj`.
   - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
 - Additional report/export vlist validation:
+  - Built: `libged`, `ged_test_bsg_view_obj`.
+  - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
+- Additional editor vlist validation:
   - Built: `libged`, `ged_test_bsg_view_obj`.
   - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
 
