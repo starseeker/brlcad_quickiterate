@@ -204,12 +204,35 @@ Implementation plan
 
 5. Port in-tree qged plugins incrementally.
 
+   COMPLETED: view/info, view/settings, view/select, view/measure.
+
+   * Updated qged_plugin CMake helper targets now add the factory header to
+     qt6_wrap_cpp (moc), register the JSON metadata file in ignore_srcs, and
+     record moc_*Factory.cpp_parameters in distclean.
+   * All four view plugins ported to IQgToolFactory / QgToolBase:
+     - QgToolBase::paletteElement() made virtual so tool subclasses can
+       override it to wire extra signals (settings_changed, view_changed,
+       view_updated) to element_view_changed AFTER the element is created.
+     - view/info: ViewInfoFactory.h + view_info.json; CADViewModel uses
+       QgPluginContext::getView() instead of casting qApp; qged_plugin_info
+       export removed.
+     - view/settings: ViewSettingsFactory.h + view_settings.json; paletteElement()
+       override wires settings_changed → element_view_changed; qApp removed.
+     - view/select: ViewSelectFactory.h + select.json; implements
+       IQgViewEventFilter; attachToView/detachFromView install the CADViewSelector
+       widget as the Qt event filter on the active QgView; CADViewSelector
+       uses QgPluginContext::getGed() throughout instead of the gedp member.
+     - view/measure: ViewMeasureFactory.h + measure.json; implements
+       IQgViewEventFilter; attaches CADViewMeasure as the event filter on the
+       active QgView; CADViewMeasure uses QgPluginContext::getGed().
+   * Remaining: polygon, edit/ell (next phases).
+
    * Update the qged_plugin CMake helper, or add a new helper, to build Qt
      plugins with the needed AUTOMOC/wrap_cpp handling, Q_PLUGIN_METADATA JSON
      files, correct IID, API version metadata, and libqtcad linkage.
    * Port one plugin subtree at a time to IQgToolFactory plus QgToolBase:
-     view/info, view/settings, view/select, view/measure, polygon, then
-     edit/ell.  Keep each converted plugin in its existing source subtree.
+     polygon, then edit/ell.  Keep each converted plugin in its existing
+     source subtree.
    * Give every factory a stable id, category, displayName, sortKey, iconName,
      requiresOpenDb/requiresView flags, and description.
    * Replace ad-hoc signal wiring in each *_tool.cpp with QgToolBase hooks.

@@ -32,6 +32,8 @@
 #include "qtcad/QgColorRGB.h"
 #include "qtcad/QgMeasureFilter.h"
 
+class QgPluginContext;
+
 class CADViewMeasure : public QWidget
 {
     Q_OBJECT
@@ -39,6 +41,8 @@ class CADViewMeasure : public QWidget
     public:
 	CADViewMeasure(QWidget *p = 0);
 	~CADViewMeasure();
+
+	void setContext(QgPluginContext *ctx) { m_ctx = ctx; }
 
 	QCheckBox *measure_3d;
 
@@ -71,6 +75,7 @@ class CADViewMeasure : public QWidget
 	QgMeasureFilter *mf = NULL;
 	QMeasure2DFilter *f2d = NULL;
 	QMeasure3DFilter *f3d = NULL;
+	QgPluginContext *m_ctx = nullptr;
 };
 
 // Local Variables:

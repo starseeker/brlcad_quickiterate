@@ -35,6 +35,8 @@
 #include "ged.h"
 #endif
 
+class QgPluginContext;
+
 class CADViewModel : public QgKeyValModel
 {
     Q_OBJECT
@@ -43,9 +45,16 @@ class CADViewModel : public QgKeyValModel
 	explicit CADViewModel(QObject *parent = 0);
 	~CADViewModel();
 
+	/* Supply the host context so refresh() can reach the active view
+	 * without casting qApp to a qged-specific type. */
+	void setContext(QgPluginContext *ctx) { m_ctx = ctx; }
+
     public slots:
 	void refresh(unsigned long long);
 	void update();
+
+    private:
+	QgPluginContext *m_ctx = nullptr;
 };
 
 #endif /*CADVIEWMODEL_H*/
