@@ -58,6 +58,7 @@
 #include "bv/util.h"
 #include "bsg/defines.h"
 #include "bsg/identity.h"
+#include "bsg/node.h"
 #include "bsg/util.h"
 
 static int g_fail = 0;

@@ -57,6 +57,7 @@
 #include "bsg/appearance.h"
 #include "bsg/identity.h"
 #include "bsg/material.h"
+#include "bsg/node.h"
 #include "bsg/selection.h"
 #include "bsg/util.h"
 #include "bsg/visit.h"

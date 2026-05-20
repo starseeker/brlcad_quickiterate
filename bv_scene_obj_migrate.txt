@@ -644,6 +644,44 @@ Exit criteria:
 - All non-test callers use BSG APIs instead of raw bv_scene_obj fields for
   semantics.
 
+Phase 5 execution update - 2026-05-20
+------------------------------------
+Status:
+- IN PROGRESS.  The lifecycle/update-callback slice is now DONE for non-test
+  callers; the broader raw-field migration listed above remains active.
+
+Completed in this session:
+- Added typed BSG lifecycle accessors for legacy update callbacks:
+  - `bsg_node_set_update_callback()`
+  - `bsg_node_invoke_update_callback()`
+- Switched non-test lifecycle call sites in libbsg/libbv/libged/libqtcad to
+  use BSG accessors instead of directly assigning or invoking
+  `s_update_callback` / `s_free_callback`.
+- Updated the libbsg node tests and scene-graph sensor test coverage to exercise
+  the new callback boundary directly.
+
+Resulting boundary:
+- Non-test code now treats lifecycle/update hooks as BSG APIs even though the
+  underlying compatibility storage still lives on `bv_scene_obj`.
+- Direct `s_free_callback` / `s_update_callback` traffic is now confined to the
+  compatibility implementation in `src/libbsg/node.c`, legacy-storage reset
+  paths, and tests/comments.
+
+Moved to subsequent phases:
+- Physically relocating lifecycle callback storage off `bv_scene_obj` remains
+  later work for the Phase 6/Phase 7 ownership and compatibility-wrapper
+  cleanup, since the new BSG APIs still bridge to the existing struct fields.
+- The rest of the Phase 5 raw-field inventory (`s_name`, `s_path`, `dp`,
+  `s_mat`, `s_i_data`, `s_vlist`/`s_vlen`, `s_color_rev`, `s_backend`, etc.)
+  is unchanged by this slice and remains open Phase 5 work.
+
+Validation:
+- Qt-enabled configure succeeded with `bext_output/install`.
+- Built: `libbsg`, `libbv`, `libged`, `libqtcad`,
+  `test_bsg_node`, `test_bsg_scene_graph`, `ged_test_bsg_view_obj`.
+- `ctest --output-on-failure -R '^(libbsg_node|libbsg_scene_graph|ged_test_bsg_view_obj)$'`
+  passed.
+
 
 Phase 6 - Create a First-Class BSG Allocation and Lifecycle Model
 -----------------------------------------------------------------
