@@ -15,6 +15,7 @@ set(
   QgEdMainWindow.cpp
   QgEdApp.cpp
   QgEdFilter.cpp
+  QgEdLegacyLoader.cpp
   fbserv.cpp
   QgEdPalette.cpp
 )
@@ -35,7 +36,7 @@ if(BRLCAD_ENABLE_QT)
   # Let the plugin lookup know what the platform's extension is so it knows
   # what plugin filenames to look for
   set_property(
-    SOURCE QgEdPalette.cpp
+    SOURCE QgEdLegacyLoader.cpp
     APPEND
     PROPERTY COMPILE_DEFINITIONS "QGED_PLUGIN_SUFFIX=\"${CMAKE_SHARED_LIBRARY_SUFFIX}\""
   )
@@ -103,6 +104,7 @@ set(
   BUILDING_QT
   CMakeLists.txt
   QgEdCategories.h
+  QgEdLegacyLoader.h
   TODO
   fonts/Inconsolata-LICENSE.txt
   fonts/Inconsolata.otf

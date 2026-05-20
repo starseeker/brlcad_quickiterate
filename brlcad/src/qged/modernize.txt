@@ -97,6 +97,20 @@ Still using the legacy qged path:
   integers are preserved as a temporary compatibility field.
 * QgEdPalette's legacy bu_dlopen/qged_plugin_info scanning and the QGED_*_TOOL_PLUGIN
   integer constants are still active (Phase 4 provides the compatibility adapter).
+* QgEdLegacyLoader centralizes the legacy qged_plugin_info scanning that was
+  previously duplicated in each QgEdPalette constructor:
+  - Scans LIBEXEC/qged once for all legacy plugin files instead of once per palette.
+  - Routes QgToolPaletteElement objects to vc or oc based on each plugin's api_version
+    field (QGED_VC_TOOL_PLUGIN vs QGED_OC_TOOL_PLUGIN).
+  - Owns all dlopen handles in a std::vector<void*> and closes them on destruction,
+    eliminating the previous handle leak.
+  - Files that lack the qged_plugin_info symbol (i.e. future Qt plugins) are
+    silently skipped so QgPluginManager can load them separately.
+  - QgEdPalette constructor is now a thin wrapper around QgToolPalette; all
+    scanning logic has been removed from it.
+  - m_legacy_loader is a QgEdLegacyLoader member of QgEdMainWindow (parented to it);
+    Qt destroys it before vc/oc per child-list ordering, ensuring plugin-mapped code
+    remains valid while palette elements exist.
 
 
 Target architecture

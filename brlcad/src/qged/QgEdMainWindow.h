@@ -56,6 +56,7 @@
 #include "QgEdPalette.h"
 
 class QgPaletteController;
+class QgEdLegacyLoader;
 
 class QgEdMainWindow : public QMainWindow
 {
@@ -145,6 +146,14 @@ class QgEdMainWindow : public QMainWindow
 	 * Keep NULL until then to avoid dangling use during construction. */
 	QgPaletteController *vc_ctrl = NULL;
 	QgPaletteController *oc_ctrl = NULL;
+
+	/* Legacy loader: scans LIBEXEC/qged for qged_plugin_info plugins,
+	 * routes elements to vc/oc, owns all dlopen handles until destruction.
+	 * Parented to QgEdApp (not to this) so Qt destroys it AFTER the main
+	 * window (and therefore after vc/oc and their tool elements).  Keeping
+	 * this pointer here is purely for documentation; the loader's Qt parent
+	 * controls its lifetime. */
+	QgEdLegacyLoader *m_legacy_loader = NULL;
 
 	QgTreeView *treeview = NULL;
 

@@ -31,6 +31,7 @@
 #include "qtcad/QgTreeSelectionModel.h"
 #include "plugins/plugin.h"
 #include "QgEdCategories.h"
+#include "QgEdLegacyLoader.h"
 #include "QgEdMainWindow.h"
 #include "QgEdApp.h"
 
@@ -147,6 +148,19 @@ QgEdMainWindow::CreateWidgets(int canvas_type)
     ocd = new QDockWidget("Object Editing", this);
     ocd->setObjectName("Object_Editing");
     ocd->setWidget(oc);
+
+    // Populate both palettes from legacy qged_plugin_info plugins.
+    // QgEdLegacyLoader scans LIBEXEC/qged once, routes each tool element to
+    // the correct palette (vc or oc) by plugin type, and owns the dlopen
+    // handles until the loader is destroyed.
+    //
+    // Ownership note: the loader is parented to qApp (not to this), so that
+    // Qt destroys it AFTER QgEdMainWindow (and therefore after vc/oc and their
+    // tool elements).  This ensures plugin-mapped code remains valid as long as
+    // any element widget created from it is still alive.
+    m_legacy_loader = new QgEdLegacyLoader(ap);
+    m_legacy_loader->populate(vc, oc);
+
     // We start out with the View Control panel as the current panel - by
     // default we are viewing, not editing
     vc->makeCurrent(vc);
