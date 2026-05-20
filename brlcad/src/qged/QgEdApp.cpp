@@ -650,15 +650,11 @@ QgEdApp::element_selected(QgToolPaletteElement *el)
 
     QgView *curr_view = w->CurrentDisplay();
 
-    if (curr_view->curr_event_filter) {
-	curr_view->clear_event_filter(curr_view->curr_event_filter);
-	curr_view->curr_event_filter = NULL;
-    }
+    if (curr_view->active_event_filter())
+	curr_view->clear_event_filter(curr_view->active_event_filter());
 
-    if (el->use_event_filter) {
+    if (el->use_event_filter)
 	curr_view->add_event_filter(el->controls);
-	curr_view->curr_event_filter = el->controls;
-    }
     if (curr_view->view()) {
 	curr_view->view()->gv_width = curr_view->width();
 	curr_view->view()->gv_height = curr_view->height();

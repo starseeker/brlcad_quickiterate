@@ -77,7 +77,10 @@ public:
 
 	void aet(double a, double e, double t);
 
-	QObject *curr_event_filter = nullptr;
+	QObject *active_event_filter() const
+	{
+		return curr_event_filter;
+	}
 	void set_draw_custom(void (*draw_custom)(struct bview *, void *), void *draw_udata);
 
 	// Wrappers around Qt's facility for adding eventFilter objects to
@@ -113,6 +116,7 @@ private:
 #ifdef BRLCAD_OPENGL
 	QgGL *canvas_gl = nullptr;
 #endif
+	QObject *curr_event_filter = nullptr;
 	std::vector<QObject *> filters;
 };
 

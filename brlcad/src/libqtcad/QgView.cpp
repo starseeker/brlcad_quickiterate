@@ -36,6 +36,8 @@ extern "C" {
 #include "bu/malloc.h"
 }
 
+#include <algorithm>
+
 
 QgView::QgView(QWidget *parent, int type, struct fb *fbp)
 	: QWidget(parent)
@@ -306,6 +308,7 @@ QgView::clear_event_filter(QObject *o)
 	if (canvas_gl) {
 		if (o) {
 			canvas_gl->removeEventFilter(o);
+			filters.erase(std::remove(filters.begin(), filters.end(), o), filters.end());
 		}
 		else {
 			for (size_t i = 0; i < filters.size(); i++) {
@@ -318,6 +321,7 @@ QgView::clear_event_filter(QObject *o)
 	if (canvas_sw) {
 		if (o) {
 			canvas_sw->removeEventFilter(o);
+			filters.erase(std::remove(filters.begin(), filters.end(), o), filters.end());
 		}
 		else {
 			for (size_t i = 0; i < filters.size(); i++) {
@@ -326,7 +330,8 @@ QgView::clear_event_filter(QObject *o)
 			filters.clear();
 		}
 	}
-	curr_event_filter = nullptr;
+	if (!o || curr_event_filter == o)
+		curr_event_filter = nullptr;
 }
 
 void
