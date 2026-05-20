@@ -28,19 +28,16 @@
  * supplies the GED-specific context (db_lookup, vlist callbacks) while
  * delegating all BSG tree manipulation to this library.
  *
- * Dependencies: libbv (bv_obj_create, bv/defines.h), bu (bu_ptbl, bu_vls).
+ * Dependencies: libbv (bv/defines.h backing storage), bu (bu_ptbl, bu_vls).
  * No librt, no libged.
  */
 
 #include "common.h"
 
-#include "bu/list.h"
 #include "bu/ptbl.h"
 #include "bu/str.h"
 #include "bu/vls.h"
 #include "bv/defines.h"
-#include "bv/util.h"
-#include "bv/vlist.h"
 
 #include "bsg/defines.h"
 #include "bsg/action.h"
@@ -48,28 +45,11 @@
 #include "bsg/draw_set.h"
 #include "bsg/node.h"
 #include "bsg/payload.h"
-#include "bsg_private.h"
 
 
 /* ------------------------------------------------------------------ */
 /* Internal helpers                                                    */
 /* ------------------------------------------------------------------ */
-
-/*
- * FREE_BV_SCENE_OBJ: recycle a bv_scene_obj back into the free-pool
- * list @p fp and free its vlist data using the vlist pool @p vlf.
- *
- * This mirrors the identical macro defined in src/libged/bsg_view_obj.c
- * and src/libbv/vlist.c.  It is defined here as a file-private macro so
- * that libbsg/draw_set.c can call it without pulling in libged or librt.
- */
-#define FREE_BV_SCENE_OBJ(p, fp, vlf) { \
-    BU_LIST_APPEND(fp, &((p)->bsg.l)); \
-    BV_FREE_VLIST(vlf, &((p)->s_vlist)); }
-
-
-/* ------------------------------------------------------------------ */
-
 
 int
 bsg_draw_tree_depth(const bsg_node *g)
@@ -121,13 +101,11 @@ bsg_group_ensure_child(bsg_node *parent, struct bview *v,
     if (!v)
 	return NULL;
 
-    /* Allocate a new GROUP node through libbv. */
-    struct bv_scene_obj *child = bv_obj_create(v, BV_CHILD_OBJS);
+    /* Allocate a new GROUP node through the BSG lifecycle boundary. */
+    struct bv_scene_obj *child = (struct bv_scene_obj *)bsg_node_create_child(v, BSG_NODE_GROUP);
     if (!child)
 	return NULL;
 
-    bsg_node_set_kind((bsg_node *)child, BSG_NODE_GROUP);
-    bsg_node_set_visible((bsg_node *)child, 1);
     child->bsg.bsg_iflag = DOWN;
     bsg_node_app_data_set((bsg_node *)child, dp_hint);
     bsg_node_set_name((bsg_node *)child, name);
@@ -166,7 +144,7 @@ bsg_bump_rev_node(bsg_node *n)
 
 
 void
-bsg_free_children_recursive(bsg_node *gn, struct bv_scene_obj *fso)
+bsg_free_children_recursive(bsg_node *gn, struct bv_scene_obj *UNUSED(fso))
 {
     struct bv_scene_obj *g = (struct bv_scene_obj *)gn;
 
@@ -183,23 +161,12 @@ bsg_free_children_recursive(bsg_node *gn, struct bv_scene_obj *fso)
 	struct bv_scene_obj *child =
 	    (struct bv_scene_obj *)BU_PTBL_GET(&snap, i);
 	if (child->bsg.bsg_kind & BSG_NODE_GROUP) {
-	    bsg_free_children_recursive((bsg_node *)child, fso);
-	    child->bsg.bsg_parent = NULL;
-	    struct bv_scene_obj *cfso = child->free_scene_obj;
-	    if (cfso)
-		FREE_BV_SCENE_OBJ(child, &cfso->bsg.l, child->vlfree);
+	    bsg_free_children_recursive((bsg_node *)child, NULL);
+	    bsg_node_remove_child(gn, (bsg_node *)child);
+	    bsg_node_destroy((bsg_node *)child);
 	} else {
-	    /* Fire per-object teardown callbacks before recycling.
-	     * Phase 11: bv_scene_obj_release_backend releases display-list
-	     * GPU resources via the new backend contract.  s_free_callback
-	     * fires the illumination-clear registered as ged_bv_illum_free_cb
-	     * at shape-creation time (Phase 7 Steps 8-9). */
-	    bv_scene_obj_release_backend(child);
-	    bsg_node_invoke_free_callback((bsg_node *)child);
-	    child->bsg.bsg_parent = NULL;
-	    struct bv_scene_obj *sfso = fso ? fso : child->free_scene_obj;
-	    if (sfso)
-		FREE_BV_SCENE_OBJ(child, &sfso->bsg.l, child->vlfree);
+	    bsg_node_remove_child(gn, (bsg_node *)child);
+	    bsg_node_destroy((bsg_node *)child);
 	}
     }
     bu_ptbl_free(&snap);
@@ -214,13 +181,7 @@ bsg_free_group_contents(bsg_node *gn)
     if (!g || BU_PTBL_LEN(&g->bsg.bsg_children) == 0)
 	return;
 
-    /* Obtain the free-object pool pointer from the draw-tree context
-     * stored in the root's s_i_data.  Fall back to the group's own
-     * free_scene_obj if no context is present. */
-    struct bsg_draw_ctx *ctx = _ctx_of_node((bsg_node *)g);
-    struct bv_scene_obj *fso = (ctx && ctx->fso) ? ctx->fso : g->free_scene_obj;
-
-    bsg_free_children_recursive(gn, fso);
+    bsg_free_children_recursive(gn, NULL);
 }
 
 
@@ -234,18 +195,14 @@ bsg_free_group(bsg_node *gn)
     bsg_free_group_contents(gn);
 
     struct bv_scene_obj *parent = (struct bv_scene_obj *)g->bsg.bsg_parent;
-    if (parent)
-	bu_ptbl_rm(&parent->bsg.bsg_children, (const long *)g);
+    if (parent) {
+	/* Removing this subtree invalidates ancestors' bbox caches. */
+	bsg_bump_rev_node((bsg_node *)parent);
+	bsg_node_bbox_invalidate((bsg_node *)parent);
+	bsg_node_remove_child((bsg_node *)parent, gn);
+    }
 
-    /* g->bsg.bsg_parent is still set at this point; walk up to root for ctx */
-    bsg_bump_rev_node(gn);
-    /* Phase 9.1: removing this subtree invalidates ancestors' bbox caches. */
-    bsg_node_bbox_invalidate(gn);
-
-    g->bsg.bsg_parent = NULL;
-    struct bv_scene_obj *fso = g->free_scene_obj;
-    if (fso)
-	FREE_BV_SCENE_OBJ(g, &fso->bsg.l, g->vlfree);
+    bsg_node_destroy(gn);
 }
 
 
@@ -290,21 +247,15 @@ bsg_erase_nested_subpath(bsg_node *parent_node,
 	if (child_group) {
 	    /* Case (a): a group node with this name — free its entire subtree */
 	    bsg_free_group_contents((bsg_node *)child_group);
-	    bu_ptbl_rm(&cur->bsg.bsg_children, (const long *)child_group);
 	    /* cur is still in the tree; bump rev before clearing parent */
 	    bsg_bump_rev_node((bsg_node *)cur);
 	    /* Phase 9.1: shrinking cur invalidates its (and ancestors') bbox cache. */
 	    bsg_node_bbox_invalidate((bsg_node *)cur);
-	    child_group->bsg.bsg_parent = NULL;
-	    struct bv_scene_obj *cfso = child_group->free_scene_obj;
-	    if (cfso)
-		FREE_BV_SCENE_OBJ(child_group, &cfso->bsg.l, child_group->vlfree);
+	    bsg_node_remove_child((bsg_node *)cur, (bsg_node *)child_group);
+	    bsg_node_destroy((bsg_node *)child_group);
 	} else {
 	    /* Case (b): the final component is a leaf primitive — erase
 	     * matching BSG_NODE_SHAPE children by calling match_fn. */
-	    struct bsg_draw_ctx *ctx = _ctx_of_node((bsg_node *)cur);
-	    struct bv_scene_obj *fso = (ctx && ctx->fso) ? ctx->fso : NULL;
-
 	    struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
 	    for (size_t j = 0; j < BU_PTBL_LEN(&cur->bsg.bsg_children); j++) {
 		struct bv_scene_obj *c =
@@ -317,18 +268,12 @@ bsg_erase_nested_subpath(bsg_node *parent_node,
 	    for (size_t j = 0; j < BU_PTBL_LEN(&snap); j++) {
 		struct bv_scene_obj *sp =
 		    (struct bv_scene_obj *)BU_PTBL_GET(&snap, j);
-		/* Phase 11: route teardown through the backend contract. */
-		bv_scene_obj_release_backend(sp);
-		bsg_node_invoke_free_callback((bsg_node *)sp);
-		bu_ptbl_rm(&cur->bsg.bsg_children, (const long *)sp);
 		/* cur is in the tree; bump rev then clear parent */
 		bsg_bump_rev_node((bsg_node *)cur);
 		/* Phase 9.1: shrinking cur invalidates its (and ancestors') bbox cache. */
 		bsg_node_bbox_invalidate((bsg_node *)cur);
-		sp->bsg.bsg_parent = NULL;
-		struct bv_scene_obj *sfso = fso ? fso : sp->free_scene_obj;
-		if (sfso)
-		    FREE_BV_SCENE_OBJ(sp, &sfso->bsg.l, sp->vlfree);
+		bsg_node_remove_child((bsg_node *)cur, (bsg_node *)sp);
+		bsg_node_destroy((bsg_node *)sp);
 	    }
 	    bu_ptbl_free(&snap);
 	}

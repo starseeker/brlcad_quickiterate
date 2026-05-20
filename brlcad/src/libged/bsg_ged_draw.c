@@ -33,7 +33,7 @@
  *               └─ BSG_NODE_SHAPE bv_scene_obj leaves
  *                    └─ parent = containing sub-group
  *
- * Group nodes are allocated via bv_obj_create(v, BV_CHILD_OBJS) so
+ * Group nodes are allocated via bsg_node_create_child(v, BSG_NODE_GROUP) so
  * they are NOT inserted into any view object table.  Shape nodes are
  * allocated via bv_obj_get_unregistered(v, BV_DB_OBJS) — they have
  * s_type_flags = BV_DB_OBJS but are NOT inserted into any gv_objs ptbl.
@@ -78,12 +78,9 @@
 /* ------------------------------------------------------------------ */
 
 #define FIRST_SOLID(_bdata)  ((_bdata)->s_fullpath.fp_names[0])
-#define FREE_BV_SCENE_OBJ(p, fp, vlf) { \
-        BU_LIST_APPEND(fp, &((p)->bsg.l)); \
-        BV_FREE_VLIST(vlf, &((p)->s_vlist)); }
 
 static void
-_bsg_draw_root_identity_assign(struct bv_scene_obj *root)
+_bsg_draw_root_identity_assign(bsg_node *root)
 {
     struct bsg_identity id;
 
@@ -91,7 +88,7 @@ _bsg_draw_root_identity_assign(struct bv_scene_obj *root)
 	return;
 
     bsg_identity_from_path_str(&id, "_draw_root", BSG_SOURCE_GENERATED);
-    bsg_node_identity_set((bsg_node *)root, &id);
+    bsg_node_identity_set(root, &id);
 }
 
 /* Thin wrapper: delegates to bsg_bump_rev_node() in libbsg/draw_set.c.
@@ -337,7 +334,7 @@ ged_lod_adaptive_toggle_sync(struct bv_scene_obj *lod, struct bview *v, int adap
  * gedp->ged_gvp->bsg_root (Phase F alias) so that the BSG render
  * path in dm_draw_objs can traverse it directly (Phase 7 step 7 A3).
  */
-static struct bv_scene_obj *
+static bsg_node *
 _sg_root(struct ged *gedp)
 {
     bsg_identity_enable_view_obj_derivation();
@@ -348,7 +345,7 @@ _sg_root(struct ged *gedp)
 	if (v) {
 	    /* Phase F aliasing: bsg_root and gv_draw_root intentionally point to
 	     * the same shared draw-tree root for the active GED view. */
-	    v->gv_draw_root = gedp->i->ged_gdp->gd_draw_root;
+	    v->gv_draw_root = (struct bv_scene_obj *)gedp->i->ged_gdp->gd_draw_root;
 	    v->bsg_root = gedp->i->ged_gdp->gd_draw_root;
 	}
         return gedp->i->ged_gdp->gd_draw_root;
@@ -358,13 +355,13 @@ _sg_root(struct ged *gedp)
     if (!v)
         return NULL;
 
-    struct bv_scene_obj *root = bv_obj_create(v, BV_CHILD_OBJS);
+    bsg_node *root = bsg_node_create_child(
+	v, BSG_NODE_ROOT | BSG_NODE_GROUP);
     if (!root)
         return NULL;
 
-    bsg_node_set_kind((bsg_node *)root, BSG_NODE_GROUP);
-    root->bsg.bsg_flag = UP;
-    bsg_node_set_name((bsg_node *)root, "_draw_root");
+    bsg_node_set_visible(root, 1);
+    bsg_node_set_name(root, "_draw_root");
 
     gedp->i->ged_gdp->gd_draw_root = root;
 
@@ -375,14 +372,14 @@ _sg_root(struct ged *gedp)
      * recycle nodes without calling bv_set_fsos (which needs gedp). */
     gedp->i->ged_gdp->bsg_ctx.draw_rev = &gedp->i->ged_gdp->gd_draw_rev;
     gedp->i->ged_gdp->bsg_ctx.fso      = bv_set_fsos(&gedp->ged_views);
-    bsg_node_user_data_set((bsg_node *)root, &gedp->i->ged_gdp->bsg_ctx);
+    bsg_node_user_data_set(root, &gedp->i->ged_gdp->bsg_ctx);
 
     /* A3: register in the view so that the BSG render loop can traverse the
      * draw tree directly without reading gv_objs (Phase 7 step 7 A3).
      * Phase F: bsg_root is an alias for gv_draw_root — same pointer, same
      * children list, maintained live by draw/erase mutations.  No per-frame
      * bsg_scene_root_sync rebuild is needed. */
-    v->gv_draw_root = root;
+    v->gv_draw_root = (struct bv_scene_obj *)root;
     v->bsg_root = root;
     _bsg_draw_root_identity_assign(root);
 
@@ -402,18 +399,17 @@ _sg_root(struct ged *gedp)
 static struct bv_scene_obj *
 _sg_overlay_root(struct ged *gedp)
 {
-    struct bv_scene_obj *root = _sg_root(gedp);
+    bsg_node *root = _sg_root(gedp);
     if (!root)
         return NULL;
     return (struct bv_scene_obj *)bsg_ensure_overlay_group(
-        (bsg_node *)root, gedp->ged_gvp);
+        root, gedp->ged_gvp);
 }
 
 static void
 _sg_erase_overlay_by_name(struct ged *gedp, const char *name)
 {
-    bsg_erase_overlay_by_name(
-        (bsg_node *)gedp->i->ged_gdp->gd_draw_root, name);
+    bsg_erase_overlay_by_name(gedp->i->ged_gdp->gd_draw_root, name);
 }
 
 /*
@@ -527,7 +523,7 @@ _sg_find_or_create_child_group(struct ged *gedp, struct bv_scene_obj *parent,
 static struct bv_scene_obj *
 _sg_add_path(struct ged *gedp, const char *name)
 {
-    struct bv_scene_obj *root = _sg_root(gedp);
+    struct bv_scene_obj *root = (struct bv_scene_obj *)_sg_root(gedp);
     if (!root)
         return NULL;
     struct bv_scene_obj *base = root;
@@ -653,7 +649,7 @@ _sg_erase_nested_subpath(struct bv_scene_obj *parent,
 static void
 _sg_erase_path(struct ged *gedp, const char *path)
 {
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return;
 
@@ -662,8 +658,8 @@ _sg_erase_path(struct ged *gedp, const char *path)
     int found_subpath = (db_string_to_path(&subpath, dbip, path) == 0);
 
     struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
-    for (size_t i = 0; i < bsg_node_child_count((const bsg_node *)root); i++) {
-        struct bv_scene_obj *g = (struct bv_scene_obj *)bsg_node_child((const bsg_node *)root, i);
+    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
+        struct bv_scene_obj *g = (struct bv_scene_obj *)bsg_node_child(root, i);
         if (!BU_STR_EQUAL("_overlays", bsg_node_name((const bsg_node *)g)))
             bu_ptbl_ins(&snap, (long *)g);
     }
@@ -726,9 +722,7 @@ _sg_erase_subgroups_by_name(struct ged *gedp, struct bv_scene_obj *parent,
             bsg_node_remove_child((bsg_node *)parent, (bsg_node *)c);
             /* parent is in the tree */
             _sg_bump_rev_node(parent);
-            struct bv_scene_obj *fso = c->free_scene_obj;
-            if (fso)
-                FREE_BV_SCENE_OBJ(c, &fso->bsg.l, c->vlfree);
+            bsg_node_destroy((bsg_node *)c);
         } else {
             _sg_erase_subgroups_by_name(gedp, c, name);
         }
@@ -740,15 +734,15 @@ _sg_erase_subgroups_by_name(struct ged *gedp, struct bv_scene_obj *parent,
 static void
 _sg_erase_all_names(struct ged *gedp, const char *name)
 {
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return;
 
     _sg_erase_overlay_by_name(gedp, name);
 
     struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
-    for (size_t i = 0; i < bsg_node_child_count((const bsg_node *)root); i++) {
-        struct bv_scene_obj *g = (struct bv_scene_obj *)bsg_node_child((const bsg_node *)root, i);
+    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
+        struct bv_scene_obj *g = (struct bv_scene_obj *)bsg_node_child(root, i);
         if (!BU_STR_EQUAL("_overlays", bsg_node_name((const bsg_node *)g)))
             bu_ptbl_ins(&snap, (long *)g);
     }
@@ -785,7 +779,7 @@ _sg_erase_all_names(struct ged *gedp, const char *name)
 static void
 _sg_erase_all_paths(struct ged *gedp, const char *path)
 {
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return;
 
@@ -795,16 +789,16 @@ _sg_erase_all_paths(struct ged *gedp, const char *path)
     if (db_string_to_path(&subpath, dbip, path) != 0)
         return;
 
-    for (size_t i = 0; i < bsg_node_child_count((const bsg_node *)root); i++) {
-        struct bv_scene_obj *g = (struct bv_scene_obj *)bsg_node_child((const bsg_node *)root, i);
+    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
+        struct bv_scene_obj *g = (struct bv_scene_obj *)bsg_node_child(root, i);
         bsg_node_set_legacy_illum((bsg_node *)g, 0);
     }
 
     int restart;
     do {
         restart = 0;
-        for (size_t i = 0; i < bsg_node_child_count((const bsg_node *)root); i++) {
-            struct bv_scene_obj *g = (struct bv_scene_obj *)bsg_node_child((const bsg_node *)root, i);
+        for (size_t i = 0; i < bsg_node_child_count(root); i++) {
+            struct bv_scene_obj *g = (struct bv_scene_obj *)bsg_node_child(root, i);
             if (bsg_node_legacy_illum((const bsg_node *)g))
                 continue;
             bsg_node_set_legacy_illum((bsg_node *)g, 1);
@@ -849,12 +843,12 @@ _sg_erase_all_paths(struct ged *gedp, const char *path)
 static int
 _sg_bounding_sph(struct ged *gedp, vect_t *min, vect_t *max, int pflag)
 {
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
 
     /* Phase 9.1: delegate to the libbsg cached aggregator.
      * - pflag == 0 (no overlays): uses per-group bbox cache, O(touched).
      * - pflag != 0 (include overlays): full walk, no cache (rare path). */
-    return bsg_subtree_bbox((bsg_node *)root, min, max, pflag);
+    return bsg_subtree_bbox(root, min, max, pflag);
 }
 
 
@@ -1058,11 +1052,11 @@ _iflag_solid_cb(bsg_node *n, void *ud)
 static void
 _sg_set_iflag(struct ged *gedp, int iflag)
 {
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return;
     char flag = (char)iflag;
-    bsg_visit((bsg_node *)root, BSG_NODE_SHAPE, _iflag_solid_cb, &flag);
+    bsg_visit(root, BSG_NODE_SHAPE, _iflag_solid_cb, &flag);
 }
 
 
@@ -1260,13 +1254,13 @@ _color_solid_cb(bsg_node *n, void *ud)
 static void
 _sg_color_soltab(struct ged *gedp)
 {
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return;
     struct _color_ctx ctx;
     ctx.dbip      = gedp->dbip;
     ctx.mater_rev = gedp->i->ged_gdp->gd_mater_rev;
-    bsg_visit((bsg_node *)root, BSG_NODE_SHAPE, _color_solid_cb, &ctx);
+    bsg_visit(root, BSG_NODE_SHAPE, _color_solid_cb, &ctx);
     /* B4 activation: do NOT bump gd_mater_rev here.  The counter is
      * event-driven — only bsg_view_obj_bump_mater_rev() (called by
      * material-change commands) advances it. */
@@ -1282,7 +1276,7 @@ bsg_view_obj_ensure_root(struct ged *gedp)
 {
     if (!gedp)
         return NULL;
-    return _sg_root(gedp);
+    return (struct bv_scene_obj *)_sg_root(gedp);
 }
 
 
@@ -1291,7 +1285,7 @@ bsg_view_obj_root(struct ged *gedp)
 {
     if (!gedp)
         return NULL;
-    return gedp->i->ged_gdp->gd_draw_root;
+    return (struct bv_scene_obj *)gedp->i->ged_gdp->gd_draw_root;
 }
 
 
@@ -1468,11 +1462,11 @@ bsg_view_obj_is_nonempty(struct ged *gedp)
 {
     if (!gedp)
         return 0;
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return 0;
     int found = 0;
-    bsg_visit((bsg_node *)root, BSG_NODE_SHAPE, _any_solid_cb, &found);
+    bsg_visit(root, BSG_NODE_SHAPE, _any_solid_cb, &found);
     return found;
 }
 
@@ -1492,11 +1486,11 @@ bsg_view_obj_first_solid(struct ged *gedp)
 {
     if (!gedp)
         return NULL;
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return NULL;
-    for (size_t gi = 0; gi < bsg_node_child_count((const bsg_node *)root); gi++) {
-        struct bv_scene_obj *g = (struct bv_scene_obj *)bsg_node_child((const bsg_node *)root, gi);
+    for (size_t gi = 0; gi < bsg_node_child_count(root); gi++) {
+        struct bv_scene_obj *g = (struct bv_scene_obj *)bsg_node_child(root, gi);
         if (BU_STR_EQUAL("_overlays", bsg_node_name((const bsg_node *)g)))
             continue;
         struct _first_solid_data d = { NULL };
@@ -1525,11 +1519,11 @@ _snap_solid_cb(bsg_node *n, void *ud)
 static void
 _sg_build_solid_snapshot(struct ged *gedp, struct bu_ptbl *out)
 {
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return;
-    for (size_t gi = 0; gi < bsg_node_child_count((const bsg_node *)root); gi++) {
-        struct bv_scene_obj *g = (struct bv_scene_obj *)bsg_node_child((const bsg_node *)root, gi);
+    for (size_t gi = 0; gi < bsg_node_child_count(root); gi++) {
+        struct bv_scene_obj *g = (struct bv_scene_obj *)bsg_node_child(root, gi);
         if (BU_STR_EQUAL("_overlays", bsg_node_name((const bsg_node *)g)))
             continue;
         bsg_visit((bsg_node *)g, BSG_NODE_SHAPE, _snap_solid_cb, (void *)out);
@@ -1668,12 +1662,12 @@ bsg_view_obj_foreach_group(struct ged *gedp,
     if (!gedp || !cb)
         return;
 
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return;
 
-    for (size_t gi = 0; gi < bsg_node_child_count((const bsg_node *)root); gi++) {
-        struct bv_scene_obj *g = (struct bv_scene_obj *)bsg_node_child((const bsg_node *)root, gi);
+    for (size_t gi = 0; gi < bsg_node_child_count(root); gi++) {
+        struct bv_scene_obj *g = (struct bv_scene_obj *)bsg_node_child(root, gi);
         if (!(*cb)(g, userdata))
             return;
     }
@@ -1735,13 +1729,13 @@ bsg_view_obj_append_to_last_group(struct ged *gedp, struct bv_scene_obj *sp)
     if (!gedp || !sp)
         return;
 
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
-    if (!root || bsg_node_child_count((const bsg_node *)root) == 0)
+    bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
+    if (!root || bsg_node_child_count(root) == 0)
         return;
 
     struct bv_scene_obj *g = (struct bv_scene_obj *)bsg_node_child(
-	(const bsg_node *)root,
-	bsg_node_child_count((const bsg_node *)root) - 1);
+	root,
+	bsg_node_child_count(root) - 1);
     bsg_view_obj_append_solid_to_group(gedp, g, sp);
 }
 
@@ -1808,23 +1802,21 @@ bsg_view_obj_zap(struct ged *gedp)
     if (!gedp)
         return;
 
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return;
 
     /* Snapshot so we can safely modify children during iteration */
     struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
-    for (size_t i = 0; i < bsg_node_child_count((const bsg_node *)root); i++)
-        bu_ptbl_ins(&snap, (long *)bsg_node_child((const bsg_node *)root, i));
+    for (size_t i = 0; i < bsg_node_child_count(root); i++)
+        bu_ptbl_ins(&snap, (long *)bsg_node_child(root, i));
 
     for (size_t gi = 0; gi < BU_PTBL_LEN(&snap); gi++) {
         struct bv_scene_obj *g =
             (struct bv_scene_obj *)BU_PTBL_GET(&snap, gi);
         _sg_free_group_contents(g);
-        bsg_node_remove_child((bsg_node *)root, (bsg_node *)g);
-        struct bv_scene_obj *fso = g->free_scene_obj;
-        if (fso)
-            FREE_BV_SCENE_OBJ(g, &fso->bsg.l, g->vlfree);
+        bsg_node_remove_child(root, (bsg_node *)g);
+        bsg_node_destroy((bsg_node *)g);
     }
     bu_ptbl_free(&snap);
 
@@ -1851,10 +1843,10 @@ bsg_view_obj_has_groups(struct ged *gedp)
 {
     if (!gedp || !gedp->i || !gedp->i->ged_gdp)
         return 0;
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return 0;
-    return (bsg_node_child_count((const bsg_node *)root) > 0) ? 1 : 0;
+    return (bsg_node_child_count(root) > 0) ? 1 : 0;
 }
 
 

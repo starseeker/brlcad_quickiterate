@@ -37,6 +37,66 @@
 
 #include "./bsg_private.h"
 
+static struct bv_scene_obj *
+_bsg_node_alloc(struct bview *v, unsigned long long kind, int as_draw_child)
+{
+    struct bv_scene_obj *s = NULL;
+
+    if (!v)
+	return NULL;
+
+    s = bv_obj_get_unregistered(v, as_draw_child ? BV_CHILD_OBJS : (BV_VIEW_OBJS | BV_LOCAL_OBJS));
+    if (!s)
+	return NULL;
+
+    bsg_node_set_kind((bsg_node *)s, kind);
+    bsg_node_set_visible((bsg_node *)s, 1);
+    return s;
+}
+
+
+bsg_node *
+bsg_node_create(struct bview *v, unsigned long long kind)
+{
+    return (bsg_node *)_bsg_node_alloc(v, kind, 0);
+}
+
+
+bsg_node *
+bsg_node_create_child(struct bview *v, unsigned long long kind)
+{
+    return (bsg_node *)_bsg_node_alloc(v, kind, 1);
+}
+
+
+void
+bsg_node_clear_children(bsg_node *n)
+{
+    struct bv_scene_obj *s;
+
+    if (!n)
+	return;
+
+    s = (struct bv_scene_obj *)n;
+    for (size_t i = 0; i < BU_PTBL_LEN(&s->bsg.bsg_children); i++) {
+	bsg_node *child = (bsg_node *)BU_PTBL_GET(&s->bsg.bsg_children, i);
+	if (child && ((struct bv_scene_obj *)child)->bsg.bsg_parent == n)
+	    ((struct bv_scene_obj *)child)->bsg.bsg_parent = NULL;
+    }
+    bu_ptbl_reset(&s->bsg.bsg_children);
+    bsg_node_field_touch(n, BSG_FIELD_CHILDREN);
+}
+
+
+void
+bsg_node_destroy(bsg_node *n)
+{
+    if (!n)
+	return;
+
+    bv_obj_put((struct bv_scene_obj *)n);
+}
+
 
 unsigned long long
 bsg_node_kind(const bsg_node *n)

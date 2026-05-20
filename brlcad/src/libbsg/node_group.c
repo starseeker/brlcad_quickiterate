@@ -26,9 +26,6 @@
 
 #include "common.h"
 
-#include "bu/ptbl.h"
-#include "bv/defines.h"
-#include "bv/util.h"
 #include "bsg/defines.h"
 #include "bsg/node.h"
 #include "bsg/node_group.h"
@@ -37,16 +34,7 @@
 bsg_node *
 bsg_group_create(struct bview *v)
 {
-    if (!v)
-	return NULL;
-
-    struct bv_scene_obj *g = bv_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-    if (!g)
-	return NULL;
-
-    bsg_node_set_kind((bsg_node *)g, BSG_NODE_GROUP);
-    bsg_node_set_visible((bsg_node *)g, 1);
-    return (bsg_node *)g;
+    return bsg_node_create(v, BSG_NODE_GROUP);
 }
 
 
@@ -76,12 +64,8 @@ bsg_group_destroy(bsg_node *group)
     if (!group)
 	return;
 
-    struct bv_scene_obj *g = (struct bv_scene_obj *)group;
-
-    /* Clear the children list (borrowed references — do not free). */
-    bu_ptbl_reset(&g->bsg.bsg_children);
-
-    bv_obj_put(g);
+    bsg_node_clear_children(group);
+    bsg_node_destroy(group);
 }
 
 /*

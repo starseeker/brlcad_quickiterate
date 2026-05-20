@@ -118,13 +118,11 @@ bsg_scene_root_create(struct bview *v)
     if (!v->gv_draw_root) {
 	/* This path is for non-GED callers.  GED command flows continue to use
 	 * libged's _sg_root() so gd_draw_root and bsg_draw_ctx are installed. */
-	struct bv_scene_obj *root = bv_obj_get_unregistered(v, BV_CHILD_OBJS);
+	struct bv_scene_obj *root = (struct bv_scene_obj *)bsg_node_create_child(v, BSG_NODE_ROOT | BSG_NODE_GROUP);
 	if (!root) {
 	    bu_log("bsg_scene_root_create: failed to allocate standalone draw root\n");
 	    return NULL;
 	}
-	root->bsg.bsg_kind = BSG_NODE_GROUP;
-	root->bsg.bsg_flag = UP;
 	root->bsg.bsg_parent = NULL;
 	bu_vls_sprintf(&root->bsg.bsg_name, "_draw_root");
 	v->gv_draw_root = root;

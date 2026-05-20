@@ -28,7 +28,7 @@
  * removes the last overlay-management code from the GED layer that carries
  * no GED-specific logic.
  *
- * Dependencies: libbv (bv_obj_create, bv/defines.h), bu (bu_ptbl, bu_str).
+ * Dependencies: libbv (bv/defines.h backing storage), bu (bu_ptbl, bu_str).
  * No librt, no libged.
  */
 
@@ -38,33 +38,11 @@
 #include "bu/str.h"
 #include "bu/vls.h"
 #include "bv/defines.h"
-#include "bv/util.h"
-#include "bv/vlist.h"
 
 #include "bsg/defines.h"
-#include "bsg/draw_ctx.h"
 #include "bsg/draw_set.h"
 #include "bsg/node.h"
 #include "bsg/overlay.h"
-#include "bsg_private.h"
-
-
-/* ------------------------------------------------------------------ */
-/* Internal helpers                                                    */
-/* ------------------------------------------------------------------ */
-
-/*
- * FREE_BV_SCENE_OBJ: recycle a bv_scene_obj back into the free-pool
- * list @p fp and free its vlist data using the vlist pool @p vlf.
- *
- * Mirrors the identical macro in libbsg/draw_set.c.
- */
-#define FREE_BV_SCENE_OBJ(p, fp, vlf) { \
-    BU_LIST_APPEND(fp, &((p)->bsg.l)); \
-    BV_FREE_VLIST(vlf, &((p)->s_vlist)); }
-
-
-/* ------------------------------------------------------------------ */
 
 bsg_node *
 bsg_find_overlay_group(bsg_node *draw_root)
@@ -93,12 +71,10 @@ bsg_ensure_overlay_group(bsg_node *draw_root, struct bview *v)
     if (!v)
 	return NULL;
 
-    struct bv_scene_obj *ov = bv_obj_create(v, BV_CHILD_OBJS);
+    struct bv_scene_obj *ov = (struct bv_scene_obj *)bsg_node_create_child(v, BSG_NODE_GROUP);
     if (!ov)
 	return NULL;
 
-    bsg_node_set_kind((bsg_node *)ov, BSG_NODE_GROUP);
-    bsg_node_set_visible((bsg_node *)ov, 1);
     bsg_node_app_data_set((bsg_node *)ov, NULL);
     bsg_node_set_name((bsg_node *)ov, "_overlays");
     bsg_node_add_child(draw_root, (bsg_node *)ov);
@@ -119,9 +95,6 @@ bsg_erase_overlay_by_name(bsg_node *draw_root, const char *name)
     if (!ov)
 	return;
 
-    struct bsg_draw_ctx *ctx = _ctx_of_node((bsg_node *)root);
-    struct bv_scene_obj *fso = (ctx && ctx->fso) ? ctx->fso : NULL;
-
     struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
     for (size_t i = 0; i < BU_PTBL_LEN(&ov->bsg.bsg_children); i++)
 	bu_ptbl_ins(&snap, BU_PTBL_GET(&ov->bsg.bsg_children, i));
@@ -132,25 +105,17 @@ bsg_erase_overlay_by_name(bsg_node *draw_root, const char *name)
 	if (!BU_STR_EQUAL(name, bu_vls_cstr(&sp->bsg.bsg_name)))
 	    continue;
 
-	/* Phase 11: release backend resources via the generic contract. */
-	bv_scene_obj_release_backend(sp);
-	bu_ptbl_rm(&ov->bsg.bsg_children, (const long *)sp);
+	bsg_node_remove_child((bsg_node *)ov, (bsg_node *)sp);
 	/* bump rev via root (sp->bsg.bsg_parent now being cleared) */
 	bsg_bump_rev_node(draw_root);
-	sp->bsg.bsg_parent = NULL;
-	struct bv_scene_obj *sfso = fso ? fso : sp->free_scene_obj;
-	if (sfso)
-	    FREE_BV_SCENE_OBJ(sp, &sfso->bsg.l, sp->vlfree);
+	bsg_node_destroy((bsg_node *)sp);
     }
     bu_ptbl_free(&snap);
 
     /* Remove empty _overlays group from root */
     if (BU_PTBL_LEN(&ov->bsg.bsg_children) == 0) {
-	bu_ptbl_rm(&root->bsg.bsg_children, (const long *)ov);
-	ov->bsg.bsg_parent = NULL;
-	struct bv_scene_obj *ofso = ov->free_scene_obj;
-	if (ofso)
-	    FREE_BV_SCENE_OBJ(ov, &ofso->bsg.l, ov->vlfree);
+	bsg_node_remove_child((bsg_node *)root, (bsg_node *)ov);
+	bsg_node_destroy((bsg_node *)ov);
     }
 }
 

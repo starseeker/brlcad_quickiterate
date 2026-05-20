@@ -90,16 +90,13 @@ free_view(struct bview *v)
 }
 
 /* Create a minimal synthetic draw-root group on a view so that
- * bsg_scene_root_create can wire bsg_root to it.  The caller owns the
- * returned node and must free it with bv_obj_put() when done. */
+ * bsg_scene_root_create can wire bsg_root to it. */
 static struct bv_scene_obj *
 attach_fake_draw_root(struct bview *v)
 {
-    struct bv_scene_obj *dr = bv_obj_create(v, BV_CHILD_OBJS);
+    struct bv_scene_obj *dr = (struct bv_scene_obj *)bsg_node_create_child(v, BSG_NODE_GROUP);
     if (!dr)
 	return NULL;
-    dr->bsg.bsg_kind = BSG_NODE_GROUP;
-    dr->bsg.bsg_flag       = UP;
     v->gv_draw_root  = dr;
     return dr;
 }
@@ -125,7 +122,7 @@ test_create_alias(void)
     bsg_scene_root_destroy(root);
     v->gv_draw_root = NULL;
     bsg_node_identity_clear(root);
-    bv_obj_put((struct bv_scene_obj *)root);
+    bsg_node_destroy(root);
 
     /* Set up a fake draw root and re-run */
     struct bv_scene_obj *dr = attach_fake_draw_root(v);
@@ -155,7 +152,7 @@ test_create_alias(void)
      * free it, as it is owned by the draw-tree lifecycle). */
     v->gv_draw_root = NULL;
     bsg_node_identity_clear((bsg_node *)dr);
-    bv_obj_put(dr);
+    bsg_node_destroy((bsg_node *)dr);
     free_view(v);
 }
 
@@ -192,7 +189,7 @@ test_sync_noop(void)
     bsg_scene_root_destroy(root);
     v->gv_draw_root = NULL;
     bsg_node_identity_clear((bsg_node *)dr);
-    bv_obj_put(dr);
+    bsg_node_destroy((bsg_node *)dr);
     free_view(v);
 }
 
@@ -207,15 +204,14 @@ test_find_by_type(void)
     if (!dr) { g_fail++; free_view(v); return; }
 
     bsg_node *root = bsg_scene_root_create(v);
-    if (!root) { g_fail++; v->gv_draw_root = NULL; bv_obj_put(dr); free_view(v); return; }
+    if (!root) { g_fail++; v->gv_draw_root = NULL; bsg_node_destroy((bsg_node *)dr); free_view(v); return; }
 
     /* Add a child directly to root->bsg.bsg_children with a specific type flag.
      * Phase F: root IS the draw root, so this is identical to adding a
      * child to the draw tree. */
-    struct bv_scene_obj *child = bv_obj_create(v, BV_CHILD_OBJS);
-    if (!child) { g_fail++; bsg_scene_root_destroy(root); v->gv_draw_root = NULL; bv_obj_put(dr); free_view(v); return; }
+    struct bv_scene_obj *child = (struct bv_scene_obj *)bsg_node_create_child(v, BSG_NODE_SHAPE);
+    if (!child) { g_fail++; bsg_scene_root_destroy(root); v->gv_draw_root = NULL; bsg_node_destroy((bsg_node *)dr); free_view(v); return; }
 
-    child->bsg.bsg_kind |= BSG_NODE_SHAPE;
     bu_ptbl_ins(&((struct bv_scene_obj *)root)->bsg.bsg_children, (long *)child);
 
     bsg_node *found = bsg_view_find_by_type(root, BSG_NODE_SHAPE);
@@ -231,13 +227,12 @@ test_find_by_type(void)
     if (found && !notfound)
 	bu_log("  PASS: find_by_type\n");
 
-    /* Cleanup: clear bsg_root and draw-root pointers; gv_free() handles the
-     * rest.  The child object and fake draw root are freed when the view's
-     * free pool is collected.  We do NOT call bv_obj_put on individual child
-     * objects here — let free_view() sweep the pool. */
+    /* Cleanup: bsg_scene_root_destroy clears the bsg_root alias; then destroy
+     * the synthetic draw root explicitly since this test allocated it. */
     bsg_scene_root_destroy(root);
     v->gv_draw_root = NULL;
     bsg_node_identity_clear(root);
+    bsg_node_destroy(root);
     free_view(v);
 }
 
@@ -266,7 +261,7 @@ test_sensor_fire(void)
     if (!root) { g_fail++; v->gv_draw_root = NULL; free_view(v); return; }
 
     /* Add a sensor child directly to root->bsg.bsg_children. */
-    struct bv_scene_obj *sensor_child = bv_obj_create(v, BV_CHILD_OBJS);
+    struct bv_scene_obj *sensor_child = (struct bv_scene_obj *)bsg_node_create_child(v, BSG_NODE_SENSOR);
     if (!sensor_child) {
 	g_fail++;
 	bsg_scene_root_destroy(root);
@@ -275,7 +270,6 @@ test_sensor_fire(void)
 	return;
     }
 
-    sensor_child->bsg.bsg_kind    |= BSG_NODE_SENSOR;
     bsg_node_set_update_callback((bsg_node *)sensor_child, (bsg_node_update_fn)sensor_callback);
     bu_ptbl_ins(&((struct bv_scene_obj *)root)->bsg.bsg_children, (long *)sensor_child);
 

@@ -34,6 +34,7 @@
 #include "bsg/defines.h"
 #include "bsg/util.h"
 #include "bsg/field.h"
+#include "bsg/node.h"
 #include "bsg/sensor.h"
 #include "bsg/node_group.h"
 #include "bsg/node_shape.h"
@@ -242,6 +243,13 @@ test_group_create_add_remove(void)
 
     bsg_group_remove_child(grp, child1);
     if (BU_PTBL_LEN(&g->bsg.bsg_children) != 1) FAIL("expected 1 child after remove");
+    if (bsg_node_parent(child1) != NULL) FAIL("removed child parent should be NULL");
+
+    bsg_group_add_child(grp, child1);
+    bsg_node_clear_children(grp);
+    if (BU_PTBL_LEN(&g->bsg.bsg_children) != 0) FAIL("clear_children should empty child table");
+    if (bsg_node_parent(child1) != NULL) FAIL("clear_children should detach child1");
+    if (bsg_node_parent(child2) != NULL) FAIL("clear_children should detach child2");
 
     bsg_group_destroy(child1);
     bsg_group_destroy(child2);

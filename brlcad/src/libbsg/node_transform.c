@@ -27,8 +27,6 @@
 #include "common.h"
 
 #include "vmath.h"
-#include "bv/defines.h"
-#include "bv/util.h"
 #include "bsg/defines.h"
 #include "bsg/node.h"
 #include "bsg/node_transform.h"
@@ -37,15 +35,10 @@
 bsg_node *
 bsg_transform_create(struct bview *v)
 {
-    if (!v)
-	return NULL;
-
-    struct bv_scene_obj *t = bv_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    struct bv_scene_obj *t = (struct bv_scene_obj *)bsg_node_create(v, BSG_NODE_TRANSFORM);
     if (!t)
 	return NULL;
 
-    bsg_node_set_kind((bsg_node *)t, BSG_NODE_TRANSFORM);
-    bsg_node_set_visible((bsg_node *)t, 1);
     MAT_IDN(t->s_mat);
     return (bsg_node *)t;
 }
@@ -68,12 +61,8 @@ bsg_transform_get_matrix(const bsg_node *transform, mat_t mat)
 void
 bsg_transform_destroy(bsg_node *transform)
 {
-    if (!transform)
-	return;
-
-    struct bv_scene_obj *t = (struct bv_scene_obj *)transform;
-    bu_ptbl_reset(&t->bsg.bsg_children);
-    bv_obj_put(t);
+    bsg_node_clear_children(transform);
+    bsg_node_destroy(transform);
 }
 
 /*

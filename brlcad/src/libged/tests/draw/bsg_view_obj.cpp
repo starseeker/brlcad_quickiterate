@@ -737,7 +737,7 @@ main(int ac, char *av[])
 
 	/* gv_draw_root must be set now (registered by _sg_root via ensure_root) */
 	ASSERT(v->gv_draw_root != NULL);
-	ASSERT(v->gv_draw_root == gedp->i->ged_gdp->gd_draw_root);
+	ASSERT((bsg_node *)v->gv_draw_root == gedp->i->ged_gdp->gd_draw_root);
 
 	/* Phase F: bsg_root is now an alias for gv_draw_root */
 	ASSERT(v->bsg_root != NULL);
@@ -813,7 +813,7 @@ main(int ac, char *av[])
 	    ged_exec(gedp, 2, dav);
 	}
 
-	struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+	struct bv_scene_obj *root = (struct bv_scene_obj *)gedp->i->ged_gdp->gd_draw_root;
 	ASSERT(root != NULL);
 
 	/* First query: cache is cold, must compute. */
@@ -885,7 +885,7 @@ main(int ac, char *av[])
 	 * exercise the bookkeeping directly so the test runs without a
 	 * display manager (the off-screen swrast path is exercised by
 	 * ged_test_mged_shaded_mode_bsg). */
-	struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+	struct bv_scene_obj *root = (struct bv_scene_obj *)gedp->i->ged_gdp->gd_draw_root;
 	ASSERT(root != NULL);
 
 	/* Bump frame, stamp every drawn shape's s_drawn_rev to match. */
@@ -958,7 +958,7 @@ main(int ac, char *av[])
 	}
 
 	/* Locate a shape under the draw root. */
-	struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+	struct bv_scene_obj *root = (struct bv_scene_obj *)gedp->i->ged_gdp->gd_draw_root;
 	ASSERT(root != NULL);
 	struct bv_scene_obj *target = bsg_view_obj_first_solid(gedp);
 	ASSERT(target != NULL);
