@@ -649,9 +649,10 @@ QgEdApp::element_selected(QgToolPaletteElement *el)
     }
 
     QgView *curr_view = w->CurrentDisplay();
+    QObject *active_filter = curr_view->active_event_filter();
 
-    if (curr_view->active_event_filter())
-	curr_view->clear_event_filter(curr_view->active_event_filter());
+    if (active_filter)
+	curr_view->clear_event_filter(active_filter);
 
     if (el->use_event_filter)
 	curr_view->add_event_filter(el->controls);
