@@ -419,11 +419,13 @@ fb_swrast_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
     qi->qapp = new QApplication(qi->ac, qi->av);
     qi->mw = new QgSWWin(ifp);
 
-    BU_GET(qi->mw->canvas->v, struct bview);
-    bv_init(qi->mw->canvas->v, NULL);
-    qi->mw->canvas->v->gv_s->gv_fb_mode = 1;
-    qi->mw->canvas->v->gv_width = width;
-    qi->mw->canvas->v->gv_height = height;
+    struct bview *canvas_view = qi->mw->canvas->view();
+    if (!canvas_view)
+	return -1;
+    bv_init(canvas_view, NULL);
+    canvas_view->gv_s->gv_fb_mode = 1;
+    canvas_view->gv_width = width;
+    canvas_view->gv_height = height;
 
 
     {
@@ -431,8 +433,8 @@ fb_swrast_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
 	int lw = qMax(1, static_cast<int>(std::ceil(((qreal)width) / dpr)));
 	int lh = qMax(1, static_cast<int>(std::ceil(((qreal)height) / dpr)));
 	qi->mw->canvas->setFixedSize(lw, lh);
-	qi->mw->canvas->v->gv_width = width;
-	qi->mw->canvas->v->gv_height = height;
+	canvas_view->gv_width = width;
+	canvas_view->gv_height = height;
     }
     qi->mw->adjustSize();
     qi->mw->setFixedSize(qi->mw->size());
@@ -441,7 +443,7 @@ fb_swrast_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
 
     // Do the standard libdm attach to get our rendering backend.
     const char *acmd = "attach";
-    struct dm *dmp = dm_open((void *)qi->mw->canvas->v, NULL, "swrast", 1, &acmd);
+    struct dm *dmp = dm_open((void *)canvas_view, NULL, "swrast", 1, &acmd);
     if (!dmp)
 	return -1;
 

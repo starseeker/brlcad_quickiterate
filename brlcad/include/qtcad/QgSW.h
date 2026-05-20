@@ -71,15 +71,24 @@ public:
 	void get_viewport_image(QImage &img);
 
 	void aet(double a, double e, double t);
-
-	int current = 1;
-	struct bview *v = nullptr;
-	struct dm *dmp = nullptr;
-	struct fb *ifp = nullptr;
-	struct bu_ptbl *dm_set = nullptr;
-
-	void (*draw_custom)(struct bview *, void *) = nullptr;
-	void *draw_udata = nullptr;
+	int currentView() const
+	{
+		return current;
+	}
+	void set_current(int active)
+	{
+		current = active;
+	}
+	void set_view(struct bview *nv);
+	void setDisplayManagerSet(struct bu_ptbl *set)
+	{
+		dm_set = set;
+	}
+	void set_draw_custom(void (*draw_func)(struct bview *, void *), void *udata)
+	{
+		draw_custom = draw_func;
+		draw_udata = udata;
+	}
 
 	void enableDefaultKeyBindings();
 	void disableDefaultKeyBindings();
@@ -120,6 +129,13 @@ protected:
 	void wheelEvent(QWheelEvent *e) override;
 
 private:
+	int current = 1;
+	struct bview *v = nullptr;
+	struct dm *dmp = nullptr;
+	struct fb *ifp = nullptr;
+	struct bu_ptbl *dm_set = nullptr;
+	void (*draw_custom)(struct bview *, void *) = nullptr;
+	void *draw_udata = nullptr;
 	unsigned long long prev_dhash = 0;
 	unsigned long long prev_vhash = 0;
 

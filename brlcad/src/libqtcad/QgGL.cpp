@@ -98,6 +98,19 @@ QgGL::~QgGL()
 	BU_PUT(local_v, struct bv);
 }
 
+void
+QgGL::set_view(struct bview *nv)
+{
+	v = nv;
+	if (!dmp || !v)
+		return;
+
+	v->dmp = dmp;
+	dm_configure_win(dmp, 0);
+	v->gv_width = dm_get_width(dmp);
+	v->gv_height = dm_get_height(dmp);
+}
+
 
 void QgGL::paintGL()
 {
