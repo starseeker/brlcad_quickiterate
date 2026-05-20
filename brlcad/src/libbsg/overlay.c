@@ -93,12 +93,10 @@ bsg_ensure_overlay_group(bsg_node *draw_root, struct bview *v)
     if (!v)
 	return NULL;
 
-    struct bv_scene_obj *ov = bv_obj_create(v, BV_CHILD_OBJS);
+    struct bv_scene_obj *ov = (struct bv_scene_obj *)bsg_node_create_child(v, BSG_NODE_GROUP);
     if (!ov)
 	return NULL;
 
-    bsg_node_set_kind((bsg_node *)ov, BSG_NODE_GROUP);
-    bsg_node_set_visible((bsg_node *)ov, 1);
     bsg_node_app_data_set((bsg_node *)ov, NULL);
     bsg_node_set_name((bsg_node *)ov, "_overlays");
     bsg_node_add_child(draw_root, (bsg_node *)ov);

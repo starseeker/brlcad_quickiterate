@@ -43,6 +43,47 @@ struct bv_obj_backend;
 
 __BEGIN_DECLS
 
+/**
+ * Allocate an unregistered BSG-owned node of the requested major kind.
+ *
+ * The returned node participates in the normal view-object free pool but is
+ * not inserted into any legacy gv_objs table.  Intended for standalone BSG
+ * node kinds such as groups, shapes, transforms, sensors, and view scopes.
+ *
+ * Returns NULL on failure or when @p v is NULL.
+ */
+BSG_EXPORT extern bsg_node *
+bsg_node_create(struct bview *v, unsigned long long kind);
+
+/**
+ * Allocate an unregistered draw-tree child node of the requested major kind.
+ *
+ * This is the BSG lifecycle entry point for nodes that should live only by
+ * virtue of a parent/child relationship (for example draw-root helper groups).
+ * Returns NULL on failure or when @p v is NULL.
+ */
+BSG_EXPORT extern bsg_node *
+bsg_node_create_child(struct bview *v, unsigned long long kind);
+
+/**
+ * Clear @p n's child table without destroying the child nodes themselves.
+ *
+ * Any child whose parent pointer still references @p n is detached first so no
+ * stale parent link remains after the table is reset.  No-op for NULL nodes.
+ */
+BSG_EXPORT extern void
+bsg_node_clear_children(bsg_node *n);
+
+/**
+ * Release @p n through the compatibility backing store lifecycle.
+ *
+ * This is the preferred BSG lifecycle exit point for standalone node handles.
+ * It delegates to the current bv_scene_obj backing storage while keeping that
+ * compatibility detail out of libbsg callers.  No-op for NULL nodes.
+ */
+BSG_EXPORT extern void
+bsg_node_destroy(bsg_node *n);
+
 BSG_EXPORT extern unsigned long long
 bsg_node_kind(const bsg_node *n);
 

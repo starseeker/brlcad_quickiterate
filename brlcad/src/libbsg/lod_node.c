@@ -38,9 +38,6 @@
 
 #include "bu/malloc.h"
 #include "bu/ptbl.h"
-#include "bv/defines.h"
-#include "bv/util.h"
-
 #include "bsg/defines.h"
 #include "bsg/draw_set.h"
 #include "bsg/lod_ops.h"
@@ -95,16 +92,9 @@ _lod_node_free_cb(struct bv_scene_obj *s)
 bsg_node *
 bsg_lod_node_create(struct bview *v)
 {
-    if (!v)
-	return NULL;
-
-    /* Allocate as a view object so it participates in the normal pool. */
-    struct bv_scene_obj *n = bv_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    struct bv_scene_obj *n = (struct bv_scene_obj *)bsg_node_create(v, BSG_NODE_LOD);
     if (!n)
 	return NULL;
-
-    bsg_node_set_kind((bsg_node *)n, BSG_NODE_LOD);
-    bsg_node_set_visible((bsg_node *)n, 1);
 
     /* Allocate the payload. */
     struct bsg_lod_payload *pl;

@@ -215,15 +215,17 @@ test_destroy(void)
     bsg_node *scope = bsg_view_scope_create(v);
     CHECK(scope != NULL, "create");
 
-    /* Add a dummy child reference (just the pointer — we own it). */
+    /* Add a dummy child reference and verify destroy detaches it. */
     bsg_node *child = bsg_group_create(v);
     CHECK(child != NULL, "child create");
-    bu_ptbl_ins(&((struct bv_scene_obj *)scope)->bsg.bsg_children, (long *)child);
+    bsg_group_add_child(scope, child);
     CHECK(BU_PTBL_LEN(&((struct bv_scene_obj *)scope)->bsg.bsg_children) == 1,
 	  "one child before destroy");
+    CHECK(bsg_node_parent(child) == scope, "child parent set before destroy");
 
     /* destroy resets children and frees the node. */
     bsg_view_scope_destroy(scope);
+    CHECK(bsg_node_parent(child) == NULL, "destroy detaches borrowed child");
 
     /* Clean up the child separately. */
     bsg_group_destroy(child);

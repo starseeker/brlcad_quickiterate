@@ -121,13 +121,11 @@ bsg_group_ensure_child(bsg_node *parent, struct bview *v,
     if (!v)
 	return NULL;
 
-    /* Allocate a new GROUP node through libbv. */
-    struct bv_scene_obj *child = bv_obj_create(v, BV_CHILD_OBJS);
+    /* Allocate a new GROUP node through the BSG lifecycle boundary. */
+    struct bv_scene_obj *child = (struct bv_scene_obj *)bsg_node_create_child(v, BSG_NODE_GROUP);
     if (!child)
 	return NULL;
 
-    bsg_node_set_kind((bsg_node *)child, BSG_NODE_GROUP);
-    bsg_node_set_visible((bsg_node *)child, 1);
     child->bsg.bsg_iflag = DOWN;
     bsg_node_app_data_set((bsg_node *)child, dp_hint);
     bsg_node_set_name((bsg_node *)child, name);

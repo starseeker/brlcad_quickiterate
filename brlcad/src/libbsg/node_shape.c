@@ -26,9 +26,6 @@
 
 #include "common.h"
 
-#include "bu/list.h"
-#include "bv/defines.h"
-#include "bv/util.h"
 #include "bv/vlist.h"
 #include "bsg/defines.h"
 #include "bsg/node.h"
@@ -39,16 +36,7 @@
 bsg_node *
 bsg_shape_create(struct bview *v)
 {
-    if (!v)
-	return NULL;
-
-    struct bv_scene_obj *s = bv_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
-    if (!s)
-	return NULL;
-
-    bsg_node_set_kind((bsg_node *)s, BSG_NODE_SHAPE);
-    bsg_node_set_visible((bsg_node *)s, 1);
-    return (bsg_node *)s;
+    return bsg_node_create(v, BSG_NODE_SHAPE);
 }
 
 
@@ -70,10 +58,7 @@ bsg_shape_set_vlist(bsg_node *shape, struct bu_list *vhead)
 void
 bsg_shape_destroy(bsg_node *shape)
 {
-    if (!shape)
-	return;
-
-    bv_obj_put((struct bv_scene_obj *)shape);
+    bsg_node_destroy(shape);
 }
 
 /*
