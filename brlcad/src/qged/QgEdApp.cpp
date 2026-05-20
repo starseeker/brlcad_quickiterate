@@ -190,6 +190,8 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
 	return (mdl) ? mdl->gedp : GED_NULL;
     };
     m_plugin_context.viewAccessor = [this]() -> struct bview * {
+	/* Prefer the main window's current display when it exists; before window
+	 * construction falls back to the model's current ged view pointer. */
 	if (w)
 	    return w->CurrentView();
 	return (mdl && mdl->gedp) ? mdl->gedp->ged_gvp : NULL;
@@ -204,10 +206,12 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
 	}
 	bu_log("%s", msg.toLocal8Bit().constData());
     };
+    /* bu_dir(NULL, ...) returns a static buffer, so copy it immediately. */
     const char *plugin_dir = bu_dir(NULL, 0, BU_DIR_LIBEXEC, "qged", NULL);
+    QString plugin_dir_path = (plugin_dir) ? QString::fromLocal8Bit(plugin_dir) : QString();
     QStringList plugin_search_dirs;
-    if (plugin_dir && plugin_dir[0] != '\0')
-	plugin_search_dirs.append(QString::fromLocal8Bit(plugin_dir));
+    if (!plugin_dir_path.isEmpty())
+	plugin_search_dirs.append(plugin_dir_path);
     m_plugin_manager = new QgPluginManager(plugin_search_dirs, QStringLiteral("qged/plugins"), this);
 
     // Install a filter to handle the top level key bindings and other
@@ -373,6 +377,10 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
 }
 
 QgEdApp::~QgEdApp() {
+    m_plugin_context.gedAccessor = std::function<struct ged *()>();
+    m_plugin_context.viewAccessor = std::function<struct bview *()>();
+    m_plugin_context.model = NULL;
+    m_plugin_context.notifier = NULL;
     delete mdl;
     // TODO - free rt_vlfree?
 }
