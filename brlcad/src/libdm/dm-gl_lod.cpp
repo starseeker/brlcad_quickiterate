@@ -76,7 +76,7 @@ scene_transparency(const struct bv_scene_obj *s)
 }
 
 static struct bv_obj_backend *
-scene_backend(const struct bv_scene_obj *s)
+scene_backend_get(const struct bv_scene_obj *s)
 {
     return bsg_node_backend_get((const bsg_node *)s);
 }
@@ -369,7 +369,7 @@ gl_backend_handle_get(struct bv_scene_obj *s, bool create)
 {
     if (!s)
 	return NULL;
-    struct bv_obj_backend *be = scene_backend(s);
+    struct bv_obj_backend *be = scene_backend_get(s);
     if (be) {
 	if (be->type_tag != BV_BACKEND_GL)
 	    return NULL;
@@ -406,7 +406,7 @@ gl_backend_handle_release(struct bv_scene_obj *s, int enqueue_delete)
      * object by higher-level scene teardown paths (e.g. bv_obj_put on each
      * leaf).  Recursing from a parent can double-release child backend state,
      * leading to stale GL list IDs reaching glDeleteLists. */
-    struct bv_obj_backend *be = scene_backend(s);
+    struct bv_obj_backend *be = scene_backend_get(s);
     if (be && be->type_tag == BV_BACKEND_GL) {
 	struct gl_backend_handle *h = (struct gl_backend_handle *)be->handle;
 	if (h) {
@@ -498,7 +498,6 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
     glGetFloatv(GL_LINE_WIDTH, &originalLineWidth);
 
     gl_debug_print(dmp, "gl_draw_tri", dmp->i->dm_debugLevel);
-    scene_transform_get(s, obj_mat);
 
     struct gl_backend_handle *h = gl_backend_handle_get(s, false);
 
@@ -527,6 +526,7 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
 	    normals = lod->normals;
 	}
     }
+    scene_transform_get(s, obj_mat);
 
     // We don't want color to be part of the dlist, to allow the app
     // to change it without regeneration - hence, we need to do it
@@ -825,8 +825,6 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
     if (!payload_vhead) {
 	payload_vhead = bsg_node_vlist_head((bsg_node *)s);
     }
-    if (!payload_vhead)
-	return BRLCAD_ERROR;
 
     // "Standard" vlist object drawing
     if (bu_list_len(payload_vhead)) {
