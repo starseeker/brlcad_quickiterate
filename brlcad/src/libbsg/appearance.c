@@ -189,6 +189,64 @@ bsg_node_appearance_set(bsg_node *n, const struct bsg_appearance *a)
 }
 
 
+enum bsg_appearance_line_style
+bsg_node_line_style(const bsg_node *n)
+{
+    struct bsg_appearance a;
+
+    if (!n)
+	return BSG_APPEARANCE_LINE_SOLID;
+
+    bsg_appearance_init(&a);
+    (void)bsg_node_appearance_get(n, &a);
+    return a.line_style;
+}
+
+
+void
+bsg_node_set_line_style(bsg_node *n, enum bsg_appearance_line_style style)
+{
+    struct bsg_appearance a;
+
+    if (!n)
+	return;
+
+    bsg_appearance_init(&a);
+    (void)bsg_node_appearance_get(n, &a);
+    a.line_style = style;
+    bsg_node_appearance_set(n, &a);
+}
+
+
+int
+bsg_node_draw_arrows(const bsg_node *n)
+{
+    struct bsg_appearance a;
+
+    if (!n)
+	return 0;
+
+    bsg_appearance_init(&a);
+    (void)bsg_node_appearance_get(n, &a);
+    return a.draw_arrows ? 1 : 0;
+}
+
+
+void
+bsg_node_set_draw_arrows(bsg_node *n, int draw_arrows)
+{
+    struct bsg_appearance a;
+
+    if (!n)
+	return;
+
+    bsg_appearance_init(&a);
+    (void)bsg_node_appearance_get(n, &a);
+    a.draw_arrows = draw_arrows ? 1 : 0;
+    bsg_node_appearance_set(n, &a);
+}
+
+
 void
 bsg_node_appearance_resolve(const bsg_node *n, const struct bsg_appearance *parent, struct bsg_appearance *out)
 {

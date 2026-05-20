@@ -74,7 +74,7 @@ _lod_node_free_cb(struct bv_scene_obj *s)
 {
     if (!s)
 	return;
-    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)s->s_i_data;
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)bsg_node_user_data_get((const bsg_node *)s);
     if (!pl)
 	return;
 
@@ -84,7 +84,7 @@ _lod_node_free_cb(struct bv_scene_obj *s)
 
     bu_free(pl->cursors, "bsg_lod_payload cursors");
     bu_free(pl, "bsg_lod_payload");
-    s->s_i_data = NULL;
+    bsg_node_user_data_set((bsg_node *)s, NULL);
 }
 
 

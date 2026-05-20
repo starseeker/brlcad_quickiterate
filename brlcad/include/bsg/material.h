@@ -72,6 +72,12 @@ bsg_node_material_get(const bsg_node *n, struct bsg_material *out);
 BSG_EXPORT extern void
 bsg_node_material_set(bsg_node *n, const struct bsg_material *m);
 
+BSG_EXPORT extern uint64_t
+bsg_node_material_revision(const bsg_node *n);
+
+BSG_EXPORT extern void
+bsg_node_set_material_revision(bsg_node *n, uint64_t revision);
+
 BSG_EXPORT extern void
 bsg_node_material_resolve(const bsg_node *n, const struct bsg_material *parent, struct bsg_material *out);
 

@@ -92,6 +92,15 @@ bsg_payload_bounds(const struct bsg_payload *payload, point_t *bmin, point_t *bm
 BSG_EXPORT extern struct bsg_payload *
 bsg_payload_vlist_from_node(bsg_node *n);
 
+BSG_EXPORT extern struct bu_list *
+bsg_node_vlist_head(bsg_node *n);
+
+BSG_EXPORT extern size_t
+bsg_node_vlist_count(const bsg_node *n);
+
+BSG_EXPORT extern void
+bsg_node_vlist_count_set(bsg_node *n, size_t count);
+
 BSG_EXPORT extern void
 bsg_payload_vlist_set(struct bsg_payload *payload, struct bu_list *vhead);
 

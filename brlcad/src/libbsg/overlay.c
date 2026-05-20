@@ -99,7 +99,7 @@ bsg_ensure_overlay_group(bsg_node *draw_root, struct bview *v)
 
     bsg_node_set_kind((bsg_node *)ov, BSG_NODE_GROUP);
     bsg_node_set_visible((bsg_node *)ov, 1);
-    ov->dp = NULL;  /* Phase 2: dp identity handled by bsg_identity, no accessor yet */
+    bsg_node_app_data_set((bsg_node *)ov, NULL);
     bsg_node_set_name((bsg_node *)ov, "_overlays");
     bsg_node_add_child(draw_root, (bsg_node *)ov);
 

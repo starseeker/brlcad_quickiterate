@@ -60,6 +60,18 @@ bsg_node_appearance_get(const bsg_node *n, struct bsg_appearance *out);
 BSG_EXPORT extern void
 bsg_node_appearance_set(bsg_node *n, const struct bsg_appearance *a);
 
+BSG_EXPORT extern enum bsg_appearance_line_style
+bsg_node_line_style(const bsg_node *n);
+
+BSG_EXPORT extern void
+bsg_node_set_line_style(bsg_node *n, enum bsg_appearance_line_style style);
+
+BSG_EXPORT extern int
+bsg_node_draw_arrows(const bsg_node *n);
+
+BSG_EXPORT extern void
+bsg_node_set_draw_arrows(bsg_node *n, int draw_arrows);
+
 BSG_EXPORT extern void
 bsg_node_appearance_resolve(const bsg_node *n, const struct bsg_appearance *parent, struct bsg_appearance *out);
 

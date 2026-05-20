@@ -166,8 +166,9 @@ bsg_scene_root_destroy(bsg_node *root)
      * bv_obj_put here — that would free the live draw-tree root.  Just clear
      * the view's back-reference. */
     struct bv_scene_obj *r = (struct bv_scene_obj *)root;
-    if (r->s_v && r->s_v->bsg_root == root)
-	r->s_v->bsg_root = NULL;
+    struct bview *v = bsg_node_view_get((const bsg_node *)r);
+    if (v && v->bsg_root == root)
+	v->bsg_root = NULL;
 }
 
 

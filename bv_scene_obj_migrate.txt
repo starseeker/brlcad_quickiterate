@@ -659,6 +659,15 @@ Completed in this session:
   `s_update_callback` / `s_free_callback`.
 - Updated the libbsg node tests and scene-graph sensor test coverage to exercise
   the new callback boundary directly.
+- Added additional Phase 5 compatibility accessors for:
+  - source-path storage (`s_path`)
+  - app/source object data (`dp`)
+  - per-node view context (`s_v`)
+  - backend attachment (`s_backend`)
+  - vlist access/count helpers (`s_vlist` / `s_vlen`)
+  - material revision helpers (`s_color_rev`)
+  - appearance convenience helpers for dashed/arrow state (`s_soldash` / `s_arrow`)
+- Started converting non-test callers to those accessors in libbsg/libged.
 
 Resulting boundary:
 - Non-test code now treats lifecycle/update hooks as BSG APIs even though the
@@ -666,6 +675,8 @@ Resulting boundary:
 - Direct `s_free_callback` / `s_update_callback` traffic is now confined to the
   compatibility implementation in `src/libbsg/node.c`, legacy-storage reset
   paths, and tests/comments.
+- The remaining raw-field work is now primarily broad caller cutover across
+  polygon/view/render/editor code rather than missing BSG API surface.
 
 Moved to subsequent phases:
 - Physically relocating lifecycle callback storage off `bv_scene_obj` remains

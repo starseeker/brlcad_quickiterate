@@ -39,6 +39,7 @@
 #include "bsg/defines.h"
 #include "bsg/lod.h"
 #include "bsg/lod_ops.h"
+#include "bsg/node.h"
 
 
 /* ------------------------------------------------------------------ */
@@ -55,7 +56,7 @@ _lod_update_recursive(bsg_node *node, struct bview *v)
 
     if (n->bsg.bsg_kind & BSG_NODE_LOD) {
 	struct bsg_lod_payload *pl =
-	    (struct bsg_lod_payload *)n->s_i_data;
+	    (struct bsg_lod_payload *)bsg_node_user_data_get((const bsg_node *)n);
 	if (pl && pl->ops) {
 	    /* Ensure a cursor exists for this view. */
 	    bsg_lod_node_get_cursor(node, v);
@@ -109,7 +110,7 @@ bsg_lod_stale(bsg_node *n, struct bview *v)
     if (!(s->bsg.bsg_kind & BSG_NODE_LOD))
 	return 0;
 
-    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)s->s_i_data;
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)bsg_node_user_data_get((const bsg_node *)s);
     if (!pl || !pl->ops || !pl->ops->is_stale)
 	return 0;
 

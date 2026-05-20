@@ -129,7 +129,7 @@ bsg_group_ensure_child(bsg_node *parent, struct bview *v,
     bsg_node_set_kind((bsg_node *)child, BSG_NODE_GROUP);
     bsg_node_set_visible((bsg_node *)child, 1);
     child->bsg.bsg_iflag = DOWN;
-    child->dp = dp_hint;
+    bsg_node_app_data_set((bsg_node *)child, dp_hint);
     bsg_node_set_name((bsg_node *)child, name);
     bsg_node_add_child(parent, (bsg_node *)child);
 
@@ -157,8 +157,8 @@ bsg_bump_rev_node(bsg_node *n)
     while (cur->bsg.bsg_parent)
 	cur = (struct bv_scene_obj *)cur->bsg.bsg_parent;
     /* cur is the draw root; s_i_data holds the bsg_draw_ctx */
-    if (cur->s_i_data) {
-	struct bsg_draw_ctx *ctx = (struct bsg_draw_ctx *)cur->s_i_data;
+    if (bsg_node_user_data_get((const bsg_node *)cur)) {
+	struct bsg_draw_ctx *ctx = (struct bsg_draw_ctx *)bsg_node_user_data_get((const bsg_node *)cur);
 	if (ctx->draw_rev)
 	    ++(*ctx->draw_rev);
     }

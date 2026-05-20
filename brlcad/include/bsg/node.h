@@ -34,10 +34,12 @@
 
 #include "common.h"
 #include "vmath.h"
+#include "bu/list.h"
 #include "bsg/defines.h"
 #include "bsg/field.h"
 
 struct bview;
+struct bv_obj_backend;
 
 __BEGIN_DECLS
 
@@ -91,6 +93,30 @@ bsg_node_user_data_get(const bsg_node *n);
 
 BSG_EXPORT extern void
 bsg_node_user_data_set(bsg_node *n, void *data);
+
+BSG_EXPORT extern void *
+bsg_node_source_path_get(const bsg_node *n);
+
+BSG_EXPORT extern void
+bsg_node_source_path_set(bsg_node *n, void *path);
+
+BSG_EXPORT extern void *
+bsg_node_app_data_get(const bsg_node *n);
+
+BSG_EXPORT extern void
+bsg_node_app_data_set(bsg_node *n, void *data);
+
+BSG_EXPORT extern struct bview *
+bsg_node_view_get(const bsg_node *n);
+
+BSG_EXPORT extern void
+bsg_node_view_set(bsg_node *n, struct bview *v);
+
+BSG_EXPORT extern struct bv_obj_backend *
+bsg_node_backend_get(const bsg_node *n);
+
+BSG_EXPORT extern void
+bsg_node_backend_set(bsg_node *n, struct bv_obj_backend *backend);
 
 BSG_EXPORT extern void
 bsg_node_bounds_get(const bsg_node *n, point_t bmin, point_t bmax);

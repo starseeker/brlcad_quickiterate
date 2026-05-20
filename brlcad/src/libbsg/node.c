@@ -249,6 +249,86 @@ bsg_node_user_data_set(bsg_node *n, void *data)
 }
 
 
+void *
+bsg_node_source_path_get(const bsg_node *n)
+{
+    if (!n)
+	return NULL;
+
+    return ((const struct bv_scene_obj *)n)->s_path;
+}
+
+
+void
+bsg_node_source_path_set(bsg_node *n, void *path)
+{
+    if (!n)
+	return;
+
+    ((struct bv_scene_obj *)n)->s_path = path;
+}
+
+
+void *
+bsg_node_app_data_get(const bsg_node *n)
+{
+    if (!n)
+	return NULL;
+
+    return ((const struct bv_scene_obj *)n)->dp;
+}
+
+
+void
+bsg_node_app_data_set(bsg_node *n, void *data)
+{
+    if (!n)
+	return;
+
+    ((struct bv_scene_obj *)n)->dp = data;
+}
+
+
+struct bview *
+bsg_node_view_get(const bsg_node *n)
+{
+    if (!n)
+	return NULL;
+
+    return ((const struct bv_scene_obj *)n)->s_v;
+}
+
+
+void
+bsg_node_view_set(bsg_node *n, struct bview *v)
+{
+    if (!n)
+	return;
+
+    ((struct bv_scene_obj *)n)->s_v = v;
+}
+
+
+struct bv_obj_backend *
+bsg_node_backend_get(const bsg_node *n)
+{
+    if (!n)
+	return NULL;
+
+    return ((const struct bv_scene_obj *)n)->s_backend;
+}
+
+
+void
+bsg_node_backend_set(bsg_node *n, struct bv_obj_backend *backend)
+{
+    if (!n)
+	return;
+
+    ((struct bv_scene_obj *)n)->s_backend = backend;
+}
+
+
 void
 bsg_node_bounds_get(const bsg_node *n, point_t bmin, point_t bmax)
 {

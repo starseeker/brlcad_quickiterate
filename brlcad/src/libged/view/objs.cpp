@@ -42,6 +42,7 @@ extern "C" {
 #include "bsg/defines.h"
 #include "bsg/appearance.h"
 #include "bsg/node.h"
+#include "bsg/payload.h"
 #include "raytrace.h"
 #include "ged/bsg_ged_draw.h"
 }
@@ -76,12 +77,15 @@ _view_obj_walk_bsg(struct view_obj_walk_state &w, struct bv_scene_obj *root)
 	struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&root->bsg.bsg_children, i);
 	if (!c)
 	    continue;
-	if (bsg_node_has_kind((const bsg_node *)c, BSG_NODE_VIEW_SCOPE) && c->s_v && c->s_v != w.v)
+	if (bsg_node_has_kind((const bsg_node *)c, BSG_NODE_VIEW_SCOPE)
+	    && bsg_node_view_get((const bsg_node *)c)
+	    && bsg_node_view_get((const bsg_node *)c) != w.v)
 	    continue;
 
 	struct bv_scene_obj *s = c;
-	if (bsg_node_has_kind((const bsg_node *)c, BSG_NODE_VIEW_REF) && c->s_path)
-	    s = (struct bv_scene_obj *)c->s_path;
+	if (bsg_node_has_kind((const bsg_node *)c, BSG_NODE_VIEW_REF)
+	    && bsg_node_source_path_get((const bsg_node *)c))
+	    s = (struct bv_scene_obj *)bsg_node_source_path_get((const bsg_node *)c);
 
 	if (s && BU_VLS_IS_INITIALIZED(&s->bsg.bsg_name)) {
 	    int is_view = bsg_node_has_kind((const bsg_node *)s, BV_VIEW_OBJS);
@@ -357,16 +361,16 @@ _objs_cmd_arrow(void *bs, int argc, const char **argv)
     }
 
     if (argc == 0) {
-	bu_vls_printf(gedp->ged_result_str, "%d\n", s->s_arrow);
+	bu_vls_printf(gedp->ged_result_str, "%d\n", bsg_node_draw_arrows((const bsg_node *)s));
 	return BRLCAD_OK;
     }
 
     if (BU_STR_EQUAL(argv[0], "0")) {
-	s->s_arrow = 0;
+	bsg_node_set_draw_arrows((bsg_node *)s, 0);
 	return BRLCAD_OK;
     }
     if (BU_STR_EQUAL(argv[0], "1")) {
-	s->s_arrow = 1;
+	bsg_node_set_draw_arrows((bsg_node *)s, 1);
 	return BRLCAD_OK;
     }
     if (BU_STR_EQUAL(argv[0], "width"))  {
@@ -431,7 +435,7 @@ _objs_cmd_lcnt(void *bs, int argc, const char **argv)
 	bu_vls_printf(gedp->ged_result_str, "No view object named %s\n", gd->vobj);
 	return BRLCAD_ERROR;
     }
-    bu_vls_printf(gedp->ged_result_str, "%d\n", bu_list_len(&s->s_vlist));
+    bu_vls_printf(gedp->ged_result_str, "%d\n", bu_list_len(bsg_node_vlist_head((bsg_node *)s)));
     return BRLCAD_OK;
 }
 
@@ -443,7 +447,7 @@ update_recurse(struct bv_scene_obj *s, struct bview *v, int flags)
 	update_recurse(sc, v, flags);
     }
     s->s_changed = 0;
-    s->s_v = v;
+    bsg_node_view_set((bsg_node *)s, v);
     bsg_node_invoke_update_callback((bsg_node *)s, v, 0);
 }
 
