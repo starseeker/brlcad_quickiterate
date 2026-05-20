@@ -27,7 +27,7 @@ set(
 )
 
 # Note - libicv_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
-set(ICV_LIBS ${libicv_deps} ${PNG_LIBRARIES} ${NETPBM_LIBRARY} ${JPEG_LIBRARIES})
+set(ICV_LIBS ${libicv_deps} PNG::PNG NETPBM::NETPBM JPEG::JPEG)
 set(LOCAL_ICV_INCLUDE_DIRS ${PNG_INCLUDE_DIRS} ${NETPBM_INCLUDE_DIR} ${JPEG_INCLUDE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
 brlcad_addlib(libicv "${LIBICV_SOURCES}" "" "${LOCAL_ICV_INCLUDE_DIRS}"
