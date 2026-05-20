@@ -52,7 +52,9 @@ int
 qged_post_opendb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp), void *ctx)
 {
     QgEdApp *a = (QgEdApp *)ctx;
-    if (a && a->mdl && a->mdl->gedp)
+    if (!a)
+	return BRLCAD_OK;
+    if (a->mdl && a->mdl->gedp)
 	emit a->dbi_update(a->mdl->gedp->dbip);
     if (!a->w)
 	return BRLCAD_OK;
@@ -75,8 +77,8 @@ int
 qged_post_closedb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp), void *ctx)
 {
     QgEdApp *a = (QgEdApp *)ctx;
-    if (a && a->mdl && a->mdl->gedp)
-	emit a->dbi_update(a->mdl->gedp->dbip);
+    if (a)
+	emit a->dbi_update(DBI_NULL);
     return BRLCAD_OK;
 }
 
@@ -643,7 +645,7 @@ QgEdApp::run_qcmd(const QString &command)
     char **av = (char **)bu_calloc(strlen(input) + 1, sizeof(char *), "argv array");
     int ac = bu_argv_from_string(av, strlen(input), input);
     struct bu_vls msg = BU_VLS_INIT_ZERO;
-    auto cleanup_qcmd = [&]() {
+    auto cleanup_qcmd = [cmd, &msg, input, av]() {
 	bu_free((void *)cmd, "cmd");
 	bu_vls_free(&msg);
 	bu_free(input, "input copy");
