@@ -38,8 +38,8 @@
  **
  ****************************************************************************/
 
-#ifndef QgFLOWLAYOUTH
-#define QgFLOWLAYOUTH
+#ifndef QGFLOWLAYOUT_H
+#define QGFLOWLAYOUT_H
 
 #include "common.h"
 
@@ -79,12 +79,12 @@ class QTCAD_EXPORT QgFlowLayout : public QLayout
 	int m_vSpace;
 };
 
-#endif // QgFLOWLAYOUTH
+#endif // QGFLOWLAYOUT_H
 
 
 /*
  * Local Variables:
- * mode: C
+ * mode: C++
  * tab-width: 8
  * indent-tabs-mode: t
  * c-file-style: "stroustrup"

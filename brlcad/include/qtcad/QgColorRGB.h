@@ -65,11 +65,11 @@ class QTCAD_EXPORT QgColorRGB: public QWidget
 	QColor qc;
 };
 
-#endif /* QACCORDIANWIDGET_H */
+#endif /* QGCOLORRGB_H */
 
 /*
  * Local Variables:
- * mode: C
+ * mode: C++
  * tab-width: 8
  * indent-tabs-mode: t
  * c-file-style: "stroustrup"

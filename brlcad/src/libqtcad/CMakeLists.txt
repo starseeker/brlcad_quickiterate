@@ -141,6 +141,7 @@ add_subdirectory(tests)
 set(
   qtcad_ignore_srcs
   CMakeLists.txt
+  README
   ${qtcad_srcs}
   ${qtcad_moc_hdrs}
   bindings.h
