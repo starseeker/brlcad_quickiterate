@@ -82,12 +82,7 @@
 #define QGSIGNALFLAGS_H
 
 #include "common.h"
-
-#define QG_VIEW_REFRESH  0x00000001  // Potential camera updates, no structural changes
-#define QG_VIEW_DRAWN    0x00000002  // Used when what is drawn in the scene changes
-#define QG_VIEW_SELECT   0x00000004  // Used when what is selected changes
-#define QG_VIEW_MODE     0x00000008  // Used when mode-aware highlighting or drawing changes
-#define QG_VIEW_DB       0x00000010  // Used when .g database content changes
+#include "qtcad/QgTypes.h"
 
 #endif // QGSIGNALFLAGS_H
 /*

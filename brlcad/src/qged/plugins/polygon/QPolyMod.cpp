@@ -220,10 +220,10 @@ QPolyMod::QPolyMod()
     mod_names_reset();
     toplevel_config(true);
 
-    puf = new QPolyUpdateFilter();
-    psf = new QPolySelectFilter();
-    ppf = new QPolyPointFilter();
-    pmf = new QPolyMoveFilter();
+    puf = new QgPolyUpdateFilter();
+    psf = new QgPolySelectFilter();
+    ppf = new QgPolyPointFilter();
+    pmf = new QgPolyMoveFilter();
 }
 
 QPolyMod::~QPolyMod()

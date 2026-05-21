@@ -39,23 +39,19 @@ extern "C" {
 #include <QObject>
 #include <QWidget>
 #include "qtcad/defines.h"
+#include "qtcad/QgTypes.h"
 #include "qtcad/QgSW.h"
 #ifdef BRLCAD_OPENGL
 #  include "qtcad/QgGL.h"
 #endif
 
-#define QgView_AUTO 0
-#define QgView_SW 1
-#ifdef BRLCAD_OPENGL
-#  define QgView_GL 2
-#endif
+class QTCAD_EXPORT QgView : public QWidget {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(QgView)
 
-class QTCAD_EXPORT QgView : public QWidget
-{
-    Q_OBJECT
 
-    public:
-	explicit QgView(QWidget *parent = nullptr, int type = 0, struct fb *fbp = NULL);
+public:
+	explicit QgView(QWidget *parent = nullptr, int type = QgView_AUTO, struct fb *fbp = nullptr);
 	~QgView();
 
 	int view_type();
@@ -81,7 +77,7 @@ class QTCAD_EXPORT QgView : public QWidget
 
 	void aet(double a, double e, double t);
 
-	QObject *curr_event_filter = NULL;
+	QObject *curr_event_filter = nullptr;
 	void set_draw_custom(void (*draw_custom)(struct bview *, void *), void *draw_udata);
 
 	// Wrappers around Qt's facility for adding eventFilter objects to
@@ -89,7 +85,7 @@ class QTCAD_EXPORT QgView : public QWidget
 	// disabled in QgView windows.
 	void add_event_filter(QObject *);
 
-	// If a filter object is supplied, remove just that filter.  If NULL is
+	// If a filter object is supplied, remove just that filter.  If nullptr is
 	// passed in, remove all filters added using add_event_filter.  Does
 	// not clear all event filters of any sort (i.e. internal filters used
 	// by Qt), just those managed using these methods.
@@ -101,21 +97,21 @@ class QTCAD_EXPORT QgView : public QWidget
 	void enableDefaultMouseBindings();
 	void disableDefaultMouseBindings();
 
-    signals:
+signals:
 	void changed(QgView *);
 	void init_done();
 
-    public slots:
+public slots:
 	void need_update(unsigned long long);
 	void do_view_changed();
 	void do_init_done();
 	void set_lmouse_move_default(int);
 
-    private:
-        QBoxLayout *l = NULL;
-	QgSW *canvas_sw = NULL;
+private:
+	QBoxLayout *l = nullptr;
+	QgSW *canvas_sw = nullptr;
 #ifdef BRLCAD_OPENGL
-        QgGL *canvas_gl = NULL;
+	QgGL *canvas_gl = nullptr;
 #endif
 	std::vector<QObject *> filters;
 };
@@ -130,4 +126,3 @@ class QTCAD_EXPORT QgView : public QWidget
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

@@ -106,7 +106,7 @@ class QPolyCreate : public QWidget
 	bool do_bool = false;
 
 	QgPolyFilter *cf = NULL;
-	QPolyCreateFilter *pcf;
+	QgPolyCreateFilter *pcf;
 	QgPluginContext *m_ctx = nullptr;
 
 	struct ged *getGed() const;

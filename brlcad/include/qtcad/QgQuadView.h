@@ -35,6 +35,7 @@ extern "C" {
 }
 
 #include "qtcad/defines.h"
+#include "qtcad/QgTypes.h"
 #include "qtcad/QgView.h"
 
 // Abbreviations:
@@ -44,16 +45,12 @@ extern "C" {
 // ll == 2 == Lower Left Quadrant
 // lr == 3 == Lower Right Quadrant
 
-#define UPPER_RIGHT_QUADRANT 0
-#define UPPER_LEFT_QUADRANT 1
-#define LOWER_LEFT_QUADRANT 2
-#define LOWER_RIGHT_QUADRANT 3
+class QTCAD_EXPORT QgQuadView : public QWidget {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(QgQuadView)
 
-class QTCAD_EXPORT QgQuadView : public QWidget
-{
-    Q_OBJECT
 
-    public:
+public:
 	explicit QgQuadView(QWidget *parent, struct ged *gedpRef, int type);
 	~QgQuadView();
 
@@ -73,9 +70,9 @@ class QTCAD_EXPORT QgQuadView : public QWidget
 	void select(const char *id); // valid inputs: ur, ul, ll and lr
 	int get_selected(); // returns UPPER_RIGHT_QUADRANT, UPPER_LEFT_QUADRANT, LOWER_LEFT_QUADRANT, or LOWER_RIGHT_QUADRANT
 
-        void changeToSingleFrame();
-        void changeToQuadFrame();
-        void changeToResizeableQuadFrame();
+	void changeToSingleFrame();
+	void changeToQuadFrame();
+	void changeToResizeableQuadFrame();
 
 	void enableDefaultKeyBindings();
 	void disableDefaultKeyBindings();
@@ -83,40 +80,40 @@ class QTCAD_EXPORT QgQuadView : public QWidget
 	void enableDefaultMouseBindings();
 	void disableDefaultMouseBindings();
 
-    signals:
+signals:
 	void changed(QgView *);
 	void selected(QgView *);
 	void init_done();
 
-    public slots:
+public slots:
 	void do_view_update(unsigned long long);
-        void do_view_changed();
+	void do_view_changed();
 	void do_init_done();
 	void set_lmouse_move_default(int);
 
-    private:
-        bool eventFilter(QObject*, QEvent*);
-        QgView *createView(unsigned int index);
-        QGridLayout *createLayout();
+private:
+	bool eventFilter(QObject*, QEvent*);
+	QgView *createView(unsigned int index);
+	QGridLayout *createLayout();
 
-        int graphicsType = QgView_SW;
-        // Holds up to 4 views in single view only the first view is constructed
-        // The other views are constructed if quad view mode is selected by the user
+	int graphicsType = QgView_SW;
+	// Holds up to 4 views in single view only the first view is constructed
+	// The other views are constructed if quad view mode is selected by the user
 	QgView *views[4] = {nullptr, nullptr, nullptr, nullptr};
-        QgView *currentView;
-        // We need to hang on to this because we don't create the other quad views until the user switches mode
-        struct ged *gedp;
+	QgView *currentView;
+	// We need to hang on to this because we don't create the other quad views until the user switches mode
+	struct ged *gedp;
 
-        // Hang on to these pointers so when we need to clean up memory we have them
-        QGridLayout *currentLayout = nullptr;
+	// Hang on to these pointers so when we need to clean up memory we have them
+	QGridLayout *currentLayout = nullptr;
 	// Note that we use QWidget here rather than QSpacerItem in order to allow
 	// for color control to indicate active quadrants without having to resize
 	// the windows in response to a selection.
-        QWidget *spacerTop = nullptr;
-        QWidget *spacerBottom = nullptr;
-        QWidget *spacerLeft = nullptr;
-        QWidget *spacerRight = nullptr;
-        QWidget *spacerCenter = nullptr;
+	QWidget *spacerTop = nullptr;
+	QWidget *spacerBottom = nullptr;
+	QWidget *spacerLeft = nullptr;
+	QWidget *spacerRight = nullptr;
+	QWidget *spacerCenter = nullptr;
 
 	// Flag for initializations of sub-widgets
 	bool init_done_flag = false;
@@ -132,4 +129,3 @@ class QTCAD_EXPORT QgQuadView : public QWidget
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

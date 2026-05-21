@@ -41,29 +41,34 @@ extern "C" {
 #include "qtcad/defines.h"
 
 // Filters designed for specific editing modes
-class QTCAD_EXPORT QgPolyFilter : public QObject
-{
-    Q_OBJECT
+class QTCAD_EXPORT QgPolyFilter : public QObject {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(QgPolyFilter)
+
 
     public:
+	QgPolyFilter() = default;
 	// Initialization common to the various polygon filter types
 	QMouseEvent *view_sync(QEvent *e);
 
 	// We want to be able to swap derived QgPolyFilter classes in
 	// parent calling code - make eventFilter virtual to help
 	// simplify doing so.
-	virtual bool eventFilter(QObject *, QEvent *) { return false; };
+	bool eventFilter(QObject *, QEvent *) override
+	{
+		return false;
+	};
 
-    signals:
-        void view_updated(int);
-        void finalized(bool);
+signals:
+	void view_updated(int);
+	void finalized(bool);
 
-    public:
+public:
 	bool close_polygon();
 
-	struct bview *v = NULL;
+	struct bview *v = nullptr;
 	bg_clip_t op = bg_None;
-	struct bv_scene_obj *wp = NULL;
+	struct bv_scene_obj *wp = nullptr;
 	int ptype = BV_POLYGON_CIRCLE;
 	bool close_general_poly = true; // set to false if application wants to allow non-closed polygons
 	struct bu_color fill_color = BU_COLOR_BLUE;
@@ -76,52 +81,63 @@ class QTCAD_EXPORT QgPolyFilter : public QObject
 	std::string vname;
 };
 
-class QTCAD_EXPORT QPolyCreateFilter : public QgPolyFilter
-{
-    Q_OBJECT
+class QTCAD_EXPORT QgPolyCreateFilter : public QgPolyFilter {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(QgPolyCreateFilter)
 
-    public:
-	bool eventFilter(QObject *, QEvent *e);
+
+public:
+	bool eventFilter(QObject *, QEvent *e) override;
 	void finalize(bool);
 
 	struct bu_ptbl bool_objs = BU_PTBL_INIT_ZERO;
 };
 
-class QTCAD_EXPORT QPolyUpdateFilter : public QgPolyFilter
-{
-    Q_OBJECT
+class QTCAD_EXPORT QgPolyUpdateFilter : public QgPolyFilter {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(QgPolyUpdateFilter)
 
-    public:
-	bool eventFilter(QObject *, QEvent *e);
+
+public:
+	bool eventFilter(QObject *, QEvent *e) override;
 
 	struct bu_ptbl bool_objs = BU_PTBL_INIT_ZERO;
 };
 
-class QTCAD_EXPORT QPolySelectFilter : public QgPolyFilter
-{
-    Q_OBJECT
+class QTCAD_EXPORT QgPolySelectFilter : public QgPolyFilter {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(QgPolySelectFilter)
 
-    public:
-	bool eventFilter(QObject *, QEvent *e);
+
+public:
+	bool eventFilter(QObject *, QEvent *e) override;
 };
 
-class QTCAD_EXPORT QPolyPointFilter : public QgPolyFilter
-{
-    Q_OBJECT
+class QTCAD_EXPORT QgPolyPointFilter : public QgPolyFilter {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(QgPolyPointFilter)
 
-    public:
-	bool eventFilter(QObject *, QEvent *e);
+
+public:
+	bool eventFilter(QObject *, QEvent *e) override;
 };
 
-class QTCAD_EXPORT QPolyMoveFilter : public QgPolyFilter
-{
-    Q_OBJECT
+class QTCAD_EXPORT QgPolyMoveFilter : public QgPolyFilter {
+	Q_OBJECT
+	Q_DISABLE_COPY_MOVE(QgPolyMoveFilter)
 
-    public:
-	bool eventFilter(QObject *, QEvent *e);
+
+public:
+	bool eventFilter(QObject *, QEvent *e) override;
 	struct bu_ptbl move_objs = BU_PTBL_INIT_ZERO;
 };
 
+
+using QPolyCreateFilter = QgPolyCreateFilter;
+using QPolyUpdateFilter = QgPolyUpdateFilter;
+using QPolySelectFilter = QgPolySelectFilter;
+using QPolyPointFilter = QgPolyPointFilter;
+using QPolyMoveFilter = QgPolyMoveFilter;
 
 #endif /* QGPOLYFILTER_H */
 
@@ -133,4 +149,3 @@ class QTCAD_EXPORT QPolyMoveFilter : public QgPolyFilter
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

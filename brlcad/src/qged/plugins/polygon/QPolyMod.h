@@ -113,10 +113,10 @@ class QPolyMod : public QWidget
 	bool do_bool = false;
 
 	QgPolyFilter *cf = NULL;
-	QPolyUpdateFilter *puf;
-	QPolySelectFilter *psf;
-	QPolyPointFilter *ppf;
-	QPolyMoveFilter *pmf;
+	QgPolyUpdateFilter *puf;
+	QgPolySelectFilter *psf;
+	QgPolyPointFilter *ppf;
+	QgPolyMoveFilter *pmf;
 	QgPluginContext *m_ctx = nullptr;
 
 	struct ged *getGed() const;
