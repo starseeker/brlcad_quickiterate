@@ -686,6 +686,18 @@ brlcad_add_test(NAME bu_opt_3_vect_02  COMMAND bu_test opt 3 V 2)
 brlcad_add_test(NAME bu_opt_3_vect_03  COMMAND bu_test opt 3 V 3)
 brlcad_add_test(NAME bu_opt_3_vect_04  COMMAND bu_test opt 3 V 4)
 
+brlcad_add_test(NAME bu_opt_4_json_schema       COMMAND bu_test opt 4 schema 0)
+brlcad_add_test(NAME bu_opt_4_validate_valid    COMMAND bu_test opt 4 schema 1)
+brlcad_add_test(NAME bu_opt_4_validate_bad_opt  COMMAND bu_test opt 4 schema 2)
+brlcad_add_test(NAME bu_opt_4_validate_need_arg COMMAND bu_test opt 4 schema 3)
+brlcad_add_test(NAME bu_opt_4_validate_operand  COMMAND bu_test opt 4 schema 4)
+brlcad_add_test(NAME bu_opt_4_validate_too_many COMMAND bu_test opt 4 schema 5)
+brlcad_add_test(NAME bu_opt_4_validate_repeat   COMMAND bu_test opt 4 schema 6)
+brlcad_add_test(NAME bu_opt_4_validate_repeated COMMAND bu_test opt 4 schema 7)
+brlcad_add_test(NAME bu_opt_4_validate_subcmd   COMMAND bu_test opt 4 schema 8)
+brlcad_add_test(NAME bu_opt_4_validate_nested   COMMAND bu_test opt 4 schema 9)
+brlcad_add_test(NAME bu_opt_4_validate_string   COMMAND bu_test opt 4 schema 10)
+
 #
 #  *********** datetime.c tests ************
 #

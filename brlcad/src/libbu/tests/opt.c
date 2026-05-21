@@ -892,6 +892,152 @@ desc_3(int test_num)
 }
 
 
+static int
+desc_4(int test_num)
+{
+    int help = 0;
+    int verbose = 0;
+    const char *output = NULL;
+    const char *mode = NULL;
+    struct bu_color color = BU_COLOR_INIT_ZERO;
+    struct bu_opt_validate_result vr = BU_OPT_VALIDATE_RESULT_INIT;
+    int ret = 0;
+    char *json = NULL;
+    const char *expected_json = "{\"schema\":\"bu_opt\",\"version\":1,\"command\":{\"name\":\"testcmd\",\"help\":\"Test command\",\"options\":[{\"short\":\"h\",\"long\":\"help\",\"argument\":\"flag\",\"argument_help\":\"\",\"argument_type\":\"bool\",\"repeat\":false,\"help\":\"Print help string and exit.\",\"aliases\":[\"h\",\"help\",\"?\",\"HELP\"]},{\"short\":\"v\",\"long\":\"verbose\",\"argument\":\"optional\",\"argument_help\":\"[#]\",\"argument_type\":\"integer\",\"repeat\":true,\"help\":\"Set verbosity\",\"aliases\":[\"v\",\"verbose\"]},{\"short\":\"o\",\"long\":\"output\",\"argument\":\"required\",\"argument_help\":\"file\",\"argument_type\":\"file_path\",\"repeat\":false,\"help\":\"Output file\",\"aliases\":[\"o\",\"output\"]},{\"short\":\"C\",\"long\":\"color\",\"argument\":\"required\",\"argument_help\":\"r/g/b\",\"argument_type\":\"color\",\"repeat\":false,\"help\":\"Set color\",\"aliases\":[\"C\",\"color\"]}],\"operands\":[{\"name\":\"object\",\"type\":\"db_object\",\"min\":1,\"max\":2,\"help\":\"Database object\"}],\"subcommands\":[{\"name\":\"list\",\"help\":\"List things\",\"options\":[{\"short\":\"l\",\"long\":\"long\",\"argument\":\"flag\",\"argument_help\":\"\",\"argument_type\":\"bool\",\"repeat\":false,\"help\":\"Long listing\",\"aliases\":[\"l\",\"long\"]}],\"operands\":[{\"name\":\"pattern\",\"type\":\"keyword\",\"min\":0,\"max\":1,\"help\":\"Optional pattern\"}],\"subcommands\":[{\"name\":\"deep\",\"help\":\"Nested command\",\"options\":[{\"short\":\"m\",\"long\":\"mode\",\"argument\":\"required\",\"argument_help\":\"mode\",\"argument_type\":\"keyword\",\"repeat\":false,\"help\":\"Mode\",\"aliases\":[\"m\",\"mode\"]}],\"operands\":[],\"subcommands\":[]}]}]}}";
+
+    struct bu_opt_desc root_opts[] = {
+	{"h", "help", "", NULL, (void *)&help, help_str},
+	{"?", "HELP", "", NULL, (void *)&help, help_str},
+	{"v", "verbose", "[#]", &d1_verb, (void *)&verbose, "Set verbosity"},
+	{"o", "output", "file", &bu_opt_str, (void *)&output, "Output file"},
+	{"C", "color", "r/g/b", &dc_color, (void *)&color, "Set color"},
+	BU_OPT_DESC_NULL
+    };
+    struct bu_opt_desc_meta root_meta[] = {
+	{"v", "verbose", BU_OPT_ARG_OPTIONAL, BU_OPT_VAL_INTEGER, 1},
+	{"o", "output", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_FILE_PATH, 0},
+	{"C", "color", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_COLOR, 0},
+	BU_OPT_DESC_META_NULL
+    };
+    struct bu_opt_operand_desc root_operands[] = {
+	{"object", BU_OPT_VAL_DB_OBJECT, 1, 2, "Database object"},
+	BU_OPT_OPERAND_DESC_NULL
+    };
+    struct bu_opt_desc list_opts[] = {
+	{"l", "long", "", NULL, (void *)&help, "Long listing"},
+	BU_OPT_DESC_NULL
+    };
+    struct bu_opt_operand_desc list_operands[] = {
+	{"pattern", BU_OPT_VAL_KEYWORD, 0, 1, "Optional pattern"},
+	BU_OPT_OPERAND_DESC_NULL
+    };
+    struct bu_opt_desc deep_opts[] = {
+	{"m", "mode", "mode", &bu_opt_str, (void *)&mode, "Mode"},
+	BU_OPT_DESC_NULL
+    };
+    struct bu_opt_desc_meta deep_meta[] = {
+	{"m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_KEYWORD, 0},
+	BU_OPT_DESC_META_NULL
+    };
+    struct bu_opt_cmd_desc deep_cmds[] = {
+	{"deep", "Nested command", deep_opts, deep_meta, NULL, NULL},
+	BU_OPT_CMD_DESC_NULL
+    };
+    struct bu_opt_cmd_desc subcmds[] = {
+	{"list", "List things", list_opts, NULL, list_operands, deep_cmds},
+	BU_OPT_CMD_DESC_NULL
+    };
+    struct bu_opt_cmd_desc cmd = {"testcmd", "Test command", root_opts, root_meta, root_operands, subcmds};
+
+    switch (test_num) {
+	case 0:
+	    json = bu_opt_describe_json(&cmd);
+	    ret = (!json || !BU_STR_EQUAL(json, expected_json));
+	    if (ret) {
+		bu_log("JSON mismatch:\nexpected: %s\n     got: %s\n", expected_json, json ? json : "(null)");
+	    }
+	    bu_free(json, "json");
+	    break;
+	case 1:
+	{
+	    const char *av[] = {"-v", "2", "--output", "out.g", "obj"};
+	    (void)bu_opt_validate_argv(&cmd, 5, av, 5, &vr);
+	    ret = !(vr.state == BU_OPT_VALIDATE_VALID);
+	    break;
+	}
+	case 2:
+	{
+	    const char *av[] = {"--bogus", "obj"};
+	    (void)bu_opt_validate_argv(&cmd, 2, av, 0, &vr);
+	    ret = !(vr.state == BU_OPT_VALIDATE_INVALID && vr.token_start == 0);
+	    break;
+	}
+	case 3:
+	{
+	    const char *av[] = {"--output"};
+	    (void)bu_opt_validate_argv(&cmd, 1, av, 1, &vr);
+	    ret = !(vr.state == BU_OPT_VALIDATE_INCOMPLETE && (vr.expected & BU_OPT_EXPECT_OPTION_ARG));
+	    break;
+	}
+	case 4:
+	{
+	    const char *av[] = {"--output", "out.g"};
+	    (void)bu_opt_validate_argv(&cmd, 2, av, 2, &vr);
+	    ret = !(vr.state == BU_OPT_VALIDATE_INCOMPLETE && (vr.expected & BU_OPT_EXPECT_OPERAND));
+	    break;
+	}
+	case 5:
+	{
+	    const char *av[] = {"obj1", "obj2", "obj3"};
+	    (void)bu_opt_validate_argv(&cmd, 3, av, 3, &vr);
+	    ret = !(vr.state == BU_OPT_VALIDATE_INVALID);
+	    break;
+	}
+	case 6:
+	{
+	    const char *av[] = {"--output", "a", "--output", "b", "obj"};
+	    (void)bu_opt_validate_argv(&cmd, 5, av, 2, &vr);
+	    ret = !(vr.state == BU_OPT_VALIDATE_INVALID);
+	    break;
+	}
+	case 7:
+	{
+	    const char *av[] = {"-v", "1", "-v", "2", "obj"};
+	    (void)bu_opt_validate_argv(&cmd, 5, av, 5, &vr);
+	    ret = !(vr.state == BU_OPT_VALIDATE_VALID);
+	    break;
+	}
+	case 8:
+	{
+	    const char *av[] = {"list", "--long"};
+	    (void)bu_opt_validate_argv(&cmd, 2, av, 2, &vr);
+	    ret = !(vr.state == BU_OPT_VALIDATE_VALID);
+	    break;
+	}
+	case 9:
+	{
+	    const char *av[] = {"list", "deep", "--mode", "fast"};
+	    (void)bu_opt_validate_argv(&cmd, 4, av, 4, &vr);
+	    ret = !(vr.state == BU_OPT_VALIDATE_VALID);
+	    break;
+	}
+	case 10:
+	    (void)bu_opt_validate_string(&cmd, "--output", 8, &vr);
+	    ret = !(vr.state == BU_OPT_VALIDATE_INCOMPLETE && (vr.expected & BU_OPT_EXPECT_OPTION_ARG));
+	    break;
+	default:
+	    ret = -1;
+	    break;
+    }
+
+    if (ret) {
+	bu_log("bu_opt metadata test %d failed: state=%d start=%zu end=%zu expected=%u hint=%s\n", test_num, vr.state, vr.token_start, vr.token_end, vr.expected, vr.hint ? vr.hint : "(null)");
+    }
+
+    return ret;
+}
+
+
 int
 main(int argc, char *argv[])
 {
@@ -937,6 +1083,9 @@ main(int argc, char *argv[])
 	    break;
 	case 3:
 	    return desc_3(test_num);
+	    break;
+	case 4:
+	    return desc_4(test_num);
 	    break;
     }
 
