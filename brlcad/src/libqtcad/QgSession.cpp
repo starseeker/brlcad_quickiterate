@@ -65,7 +65,7 @@ session_icon_key(struct directory *dp, struct db_i *dbip)
 	/* get_arb_type reads the actual geometry to determine ARB4-8 or 0. */
 	const struct bn_tol arb_tol = BN_TOL_INIT_TOL;
 	struct rt_db_internal intern;
-	if (rt_db_get_internal(&intern, dp, dbip, (fastf_t *)nullptr) >= 0) {
+	if (rt_db_get_internal(&intern, dp, dbip, static_cast<fastf_t *>(nullptr)) >= 0) {
 	    sub = rt_arb_std_type(&intern, &arb_tol);
 	    rt_db_free_internal(&intern);
 	}

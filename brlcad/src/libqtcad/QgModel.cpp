@@ -324,10 +324,6 @@ QgModel::QgModel(QObject *p, const char *npath)
 	m_session = new QgSession(this);
 	struct ged *gedp = m_session->ged();
 
-	// Set up new cmd data (not yet done by default in ged_init
-	gedp->new_cmd_forms = 1;
-	bu_setenv("DM_SWRAST", "1", 1);
-
 	/* Phase D: independent state is managed via BSG scope; no direct flag. */
 
 	// Set up the root item

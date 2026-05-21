@@ -161,7 +161,6 @@ set(
   bindings.cpp
   QgCanvasInput.h
   QgCanvasState.h
-  QgSession.cpp
   qtcad_resources.qrc
   QgGL.cpp
 )
