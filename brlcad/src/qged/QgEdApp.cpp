@@ -35,10 +35,12 @@
 #include "bu/file.h"
 #include "qtcad/QgGeomImport.h"
 #include "qtcad/QgPluginCommands.h"
+#include "qtcad/QgPluginInterfaces.h"
 #include "qtcad/QgPluginManager.h"
 #include "qtcad/QgTreeSelectionModel.h"
 #include "QgEdApp.h"
 #include "fbserv.h"
+#include "QgEdCategories.h"
 #include "QgEdFilter.h"
 
 #include "../libged/dbi.h"
@@ -686,6 +688,44 @@ QgEdApp::run_qcmd(const QString &command)
 	}
 	bu_vls_free(&msg);
 	return;
+    }
+
+    if (ac > 0 && m_plugin_manager) {
+	QString verb = QString::fromLocal8Bit(av[0]);
+	QString out;
+	QString err;
+	QStringList plugin_argv;
+	plugin_argv.reserve(ac);
+	for (int i = 0; i < ac; ++i)
+	    plugin_argv.append(QString::fromLocal8Bit(av[i]));
+
+	IQgCommand *plugin_cmd = NULL;
+	QList<IQgCommand *> cmds =
+	    m_plugin_manager->factories<IQgCommand>(QStringLiteral(QGED_CATEGORY_COMMAND));
+	for (IQgCommand *plugin_factory : cmds) {
+	    if (!plugin_factory)
+		continue;
+	    if (plugin_factory->verb() == verb || plugin_factory->aliases().contains(verb)) {
+		plugin_cmd = plugin_factory;
+		break;
+	    }
+	}
+
+	if (plugin_cmd) {
+	    int ret = plugin_cmd->run(&m_plugin_context, plugin_argv, &out, &err);
+	    if (console) {
+		if (!out.isEmpty())
+		    console->printString(out);
+		if (!err.isEmpty())
+		    console->printString(err);
+		console->prompt("$ ");
+	    }
+	    if (mdl && mdl->gedp)
+		bu_vls_trunc(mdl->gedp->ged_result_str, 0);
+	    bu_vls_free(&msg);
+	    (void)ret;
+	    return;
+	}
     }
 
     // Run as a GED command.

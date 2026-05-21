@@ -32,6 +32,7 @@
 #include <QAction>
 #include <QDockWidget>
 #include <QFileDialog>
+#include <QHash>
 #include <QHeaderView>
 #include <QMainWindow>
 #include <QMenu>
@@ -117,6 +118,12 @@ class QgEdMainWindow : public QMainWindow
 	void LocateWidgets();
 	void ConnectWidgets();
 	void SetupMenu();
+	void clearPluginPanels();
+	void populatePluginPanels();
+	void clearPluginDialogs();
+	void populatePluginDialogs();
+	void rebuildPluginExtensions();
+	void launchPluginDialog(const QString &id);
 
 	// Menu actions
 	QAction *cad_open;
@@ -156,8 +163,12 @@ class QgEdMainWindow : public QMainWindow
 	QDockWidget *uattrd = NULL;
 	QDockWidget *vcd = NULL;
 	QMenu *vm_panels = NULL;
+	QAction *vm_panels_plugin_separator = NULL;
+	QMenu *tm_dialogs = NULL;
 	QgDockWidget *console_dock = NULL;
 	QgDockWidget *tree_dock = NULL;
+	QHash<QString, QDockWidget *> m_plugin_panels;
+	QHash<QString, QAction *> m_plugin_dialog_actions;
 };
 
 #endif /* QGEDMAINWINDOW_H */

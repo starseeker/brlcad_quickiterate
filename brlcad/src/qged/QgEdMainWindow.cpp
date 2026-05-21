@@ -24,8 +24,11 @@
  */
 
 #include <QTimer>
+#include <QDialog>
 #include <QMessageBox>
 #include "qtcad/QgPaletteController.h"
+#include "qtcad/QgPluginInterfaces.h"
+#include "qtcad/QgPluginManager.h"
 #include "qtcad/QgToolBase.h"
 #include "qtcad/QgViewCtrl.h"
 #include "qtcad/QgTreeSelectionModel.h"
@@ -307,6 +310,11 @@ QgEdMainWindow::ConnectWidgets()
     // Populate both controllers from the discovered Qt plugins.
     vc_ctrl->populate();
     oc_ctrl->populate();
+    rebuildPluginExtensions();
+    QObject::connect(ap->pluginManager(), &QgPluginManager::factoryRegistered,
+		     this, [this](const QString &) { rebuildPluginExtensions(); });
+    QObject::connect(ap->pluginManager(), &QgPluginManager::factoryUnregistered,
+		     this, [this](const QString &) { rebuildPluginExtensions(); });
 
     // The tools in the view and edit panels may have consequences for the view.
     // Connect to the palette signals and slots (the individual tool connections
@@ -384,9 +392,145 @@ QgEdMainWindow::SetupMenu()
     view_menu->addAction(vm_treeview_mode_toggle);
     vm_panels = view_menu->addMenu("Panels");
 
+    QMenu *tools_menu = menuBar()->addMenu("Tools");
+    tm_dialogs = tools_menu->addMenu("Dialogs");
+    tm_dialogs->setEnabled(false);
+
     menuBar()->addSeparator();
 
     menuBar()->addMenu("Help");
+}
+
+void
+QgEdMainWindow::clearPluginPanels()
+{
+    if (vm_panels_plugin_separator && vm_panels) {
+	vm_panels->removeAction(vm_panels_plugin_separator);
+	delete vm_panels_plugin_separator;
+	vm_panels_plugin_separator = NULL;
+    }
+
+    for (auto it = m_plugin_panels.begin(); it != m_plugin_panels.end(); ++it) {
+	QDockWidget *dock = it.value();
+	if (!dock)
+	    continue;
+	if (vm_panels)
+	    vm_panels->removeAction(dock->toggleViewAction());
+	removeDockWidget(dock);
+	dock->deleteLater();
+    }
+    m_plugin_panels.clear();
+}
+
+void
+QgEdMainWindow::populatePluginPanels()
+{
+    QgEdApp *ap = (QgEdApp *)qApp;
+    if (!ap || !ap->pluginManager() || !vm_panels)
+	return;
+
+    QList<QgPluginDescriptor> descs =
+	ap->pluginManager()->descriptors(QStringLiteral(QGED_CATEGORY_PANEL));
+    if (descs.isEmpty())
+	return;
+
+    vm_panels_plugin_separator = new QAction(this);
+    vm_panels_plugin_separator->setSeparator(true);
+    vm_panels->addAction(vm_panels_plugin_separator);
+
+    for (const QgPluginDescriptor &desc : descs) {
+	QObject *obj = ap->pluginManager()->instance(desc.id);
+	IQgPanelFactory *fac = obj ? qobject_cast<IQgPanelFactory *>(obj) : NULL;
+	if (!fac)
+	    continue;
+	QDockWidget *dock = fac->create(ap->pluginContext(), this);
+	if (!dock)
+	    continue;
+	if (dock->objectName().isEmpty())
+	    dock->setObjectName(desc.id);
+	if (dock->windowTitle().isEmpty())
+	    dock->setWindowTitle(desc.displayName);
+	addDockWidget(Qt::LeftDockWidgetArea, dock);
+	dock->hide();
+	vm_panels->addAction(dock->toggleViewAction());
+	m_plugin_panels.insert(desc.id, dock);
+    }
+}
+
+void
+QgEdMainWindow::clearPluginDialogs()
+{
+    for (auto it = m_plugin_dialog_actions.begin(); it != m_plugin_dialog_actions.end(); ++it) {
+	QAction *act = it.value();
+	if (!act)
+	    continue;
+	if (tm_dialogs)
+	    tm_dialogs->removeAction(act);
+	delete act;
+    }
+    m_plugin_dialog_actions.clear();
+    if (tm_dialogs)
+	tm_dialogs->setEnabled(false);
+}
+
+void
+QgEdMainWindow::populatePluginDialogs()
+{
+    QgEdApp *ap = (QgEdApp *)qApp;
+    if (!ap || !ap->pluginManager() || !tm_dialogs)
+	return;
+
+    QList<QgPluginDescriptor> descs =
+	ap->pluginManager()->descriptors(QStringLiteral(QGED_CATEGORY_DIALOG));
+    for (const QgPluginDescriptor &desc : descs) {
+	QObject *obj = ap->pluginManager()->instance(desc.id);
+	IQgDialogFactory *fac = obj ? qobject_cast<IQgDialogFactory *>(obj) : NULL;
+	if (!fac)
+	    continue;
+	QAction *act = new QAction(desc.displayName, tm_dialogs);
+	if (!desc.description.isEmpty())
+	    act->setToolTip(desc.description);
+	QObject::connect(act, &QAction::triggered,
+			 this, [this, id = desc.id]() { launchPluginDialog(id); });
+	tm_dialogs->addAction(act);
+	m_plugin_dialog_actions.insert(desc.id, act);
+    }
+
+    tm_dialogs->setEnabled(!m_plugin_dialog_actions.isEmpty());
+}
+
+void
+QgEdMainWindow::rebuildPluginExtensions()
+{
+    clearPluginPanels();
+    clearPluginDialogs();
+    populatePluginPanels();
+    populatePluginDialogs();
+}
+
+void
+QgEdMainWindow::launchPluginDialog(const QString &id)
+{
+    QgEdApp *ap = (QgEdApp *)qApp;
+    if (!ap || !ap->pluginManager())
+	return;
+
+    QObject *obj = ap->pluginManager()->instance(id);
+    IQgDialogFactory *fac = obj ? qobject_cast<IQgDialogFactory *>(obj) : NULL;
+    if (!fac)
+	return;
+
+    QDialog *dialog = fac->create(ap->pluginContext(), this);
+    if (!dialog)
+	return;
+
+    QgPluginDescriptor desc = ap->pluginManager()->descriptor(id);
+    if (dialog->windowTitle().isEmpty())
+	dialog->setWindowTitle(desc.displayName);
+    dialog->setAttribute(Qt::WA_DeleteOnClose, true);
+    dialog->show();
+    dialog->raise();
+    dialog->activateWindow();
 }
 
 

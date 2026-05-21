@@ -261,14 +261,23 @@ Implementation plan
 
 7. Add the non-tool extension points qged needs.
 
-   * Use IQgPanelFactory for dockable panels such as raytrace controls,
-     attributes-like panels, and other qged TODO items that belong in docks.
-   * Use IQgDialogFactory for full top-level dialogs such as dedication,
-     procedural geometry, report, or sketch-editing tools.
-   * Use IQgCommand only for console commands that genuinely need qged/libqtcad
-     application state; prefer libged plugins for ordinary ged commands.
-   * Add menu/toolbar integration through qged-owned composition code rather
-     than hard-coding menu structure in libqtcad.
+   INITIAL SLICE COMPLETED:
+   * qged now owns three additional host categories: qged.panel,
+     qged.dialog, and qged.command.
+   * QgEdMainWindow composes IQgPanelFactory plugins into the existing
+     View->Panels dock menu and IQgDialogFactory plugins into a qged-owned
+     Tools->Dialogs menu.
+   * QgEdApp dispatches IQgCommand plugins from the qged console before
+     falling back to libged commands.
+   * Added small in-tree sample non-tool plugins:
+     - org.brlcad.qged.panel.host_status
+     - org.brlcad.qged.dialog.host_status
+     - org.brlcad.qged.command.host_status
+     These exercise the non-tool interfaces with a shared host-status
+     widget/summary implementation driven by QgPluginContext.
+   * Future slices can now port real qged panels/dialogs/commands onto this
+     host-owned composition path without adding qged-specific assumptions to
+     libqtcad.
 
 8. Validate reuse outside qged.
 
