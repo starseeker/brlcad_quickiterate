@@ -2501,7 +2501,7 @@ _bview_state_attach_leaf(struct ged *gedp,
     db_add_node_to_full_path(&top_dfp, top_dp);
 
     struct bview *cv = gedp->ged_gvp;
-    gedp->ged_gvp = sp->s_v;
+    gedp->ged_gvp = bsg_node_view_get((const bsg_node *)sp);
     struct bv_scene_obj *gdlp =
 	bsg_view_obj_lookup_or_add_dbpath(gedp, &top_dfp);
     db_free_full_path(&top_dfp);
@@ -3538,7 +3538,7 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 
 	    // print path name, set view - otherwise empty
 	    dbis->print_path(&nso->bsg.bsg_name, cp);
-	    nso->s_v = v;
+	    bsg_node_view_set((bsg_node *)nso, v);
 	    bsg_node_app_data_set((bsg_node *)nso, bsg_node_app_data_get((const bsg_node *)s));
 	    s_map[*k_it][mm_it->first] = nso;
 
@@ -3680,12 +3680,12 @@ BViewState::redraw(const struct bsg_settings *vs, std::unordered_set<struct bvie
 		    // Invalid - remove any scene object geometry
 		    ret = GED_DBISTATE_VIEW_CHANGE;
 		    bv_obj_reset(s);
-		    s->s_v = v;
+		    bsg_node_view_set((bsg_node *)s, v);
 		} else {
 		    s = bv_obj_get_unregistered(v, BV_DB_OBJS);
 		    // print path name, set view - otherwise empty
 		    dbis->print_path(&s->bsg.bsg_name, cp);
-		    s->s_v = v;
+		    bsg_node_view_set((bsg_node *)s, v);
 		    s_map[*iv_it][mm_it->first] = s;
 		}
 		continue;
@@ -3741,7 +3741,7 @@ BViewState::redraw(const struct bsg_settings *vs, std::unordered_set<struct bvie
 	    struct bv_scene_obj *s = bv_obj_get_unregistered(v, BV_DB_OBJS);
 	    // print path name, set view - otherwise empty
 	    dbis->print_path(&s->bsg.bsg_name, cpath);
-	    s->s_v = v;
+	    bsg_node_view_set((bsg_node *)s, v);
 	    s_map[ms_it->first][*iv_it] = s;
 
 	    // NOTE: Because there is no geometry to update, these scene objs

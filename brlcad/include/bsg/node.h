@@ -480,6 +480,22 @@ BSG_EXPORT extern void
 bsg_node_set_legacy_eflag(bsg_node *n, int eflag);
 
 /**
+ * Return the legacy wflag for @p n (@c s_old.s_wflag).
+ *
+ * Returns 0 for NULL @p n.
+ */
+BSG_EXPORT extern int
+bsg_node_legacy_wflag(const bsg_node *n);
+
+/**
+ * Set the legacy wflag on @p n (@c s_old.s_wflag).
+ *
+ * No-op if @p n is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_set_legacy_wflag(bsg_node *n, int wflag);
+
+/**
  * Return the vlist free-list pointer for @p n (@c vlfree).
  *
  * This is the allocator free-list that should be passed as the first

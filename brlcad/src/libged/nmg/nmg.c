@@ -36,6 +36,7 @@
 #include "dm.h"  // For labelface - see if the dm_set_dirty is really needed
 
 #include "ged.h"
+#include "bsg/node.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
 
@@ -113,9 +114,9 @@ labelface_solid_cb(struct bv_scene_obj *s, void *userdata)
 {
     struct labelface_data *lfd = (struct labelface_data *)userdata;
 
-    if (!s->s_u_data)
+    if (!bsg_node_ged_data_get((const bsg_node *)s))
 	return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)s->s_u_data;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((const bsg_node *)s);
     if (db_full_path_search(&bdata->s_fullpath, lfd->dp)) {
 	get_face_list(lfd->m, lfd->f_list);
 	rt_label_vlist_faces(lfd->vbp, lfd->f_list, lfd->mat, lfd->scale, lfd->dbip->dbi_base2local);

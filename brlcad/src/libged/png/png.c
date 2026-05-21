@@ -36,6 +36,7 @@
 #include "bn.h"
 #include "bg/clip.h"
 
+#include "bsg/field.h"
 #include "bsg/payload.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
@@ -264,7 +265,13 @@ draw_png_solid(fastf_t perspective, unsigned char **image, struct bv_scene_obj *
             coord1.y = start[1] * half_size + half_size;
             coord2.x = fin[0] * half_size + half_size;
             coord2.y = fin[1] * half_size + half_size;
-            draw_stroke(image, &coord1, &coord2, sp->s_color, size);
+	    {
+		unsigned char _r = 0, _g = 0, _b = 0;
+		unsigned char _rgb[3];
+		bsg_node_get_color((const bsg_node *)sp, &_r, &_g, &_b);
+		_rgb[0] = _r; _rgb[1] = _g; _rgb[2] = _b;
+		draw_stroke(image, &coord1, &coord2, _rgb, size);
+	    }
         }
     }
 }

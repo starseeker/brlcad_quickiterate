@@ -782,6 +782,26 @@ bsg_node_set_legacy_eflag(bsg_node *n, int eflag)
 }
 
 
+int
+bsg_node_legacy_wflag(const bsg_node *n)
+{
+    if (!n)
+	return 0;
+
+    return ((const struct bv_scene_obj *)n)->s_old.s_wflag ? 1 : 0;
+}
+
+
+void
+bsg_node_set_legacy_wflag(bsg_node *n, int wflag)
+{
+    if (!n)
+	return;
+
+    ((struct bv_scene_obj *)n)->s_old.s_wflag = wflag ? 1 : 0;
+}
+
+
 struct bu_list *
 bsg_node_vlfree(const bsg_node *n)
 {

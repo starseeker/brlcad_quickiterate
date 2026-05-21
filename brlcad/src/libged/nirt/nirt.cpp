@@ -55,6 +55,7 @@
 #include "vmath.h"
 
 #include "ged/bsg_ged_draw.h"
+#include "bsg/node.h"
 #include "../qray.h"
 #include "../ged_private.h"
 
@@ -63,7 +64,7 @@ static int
 set_wflag_cb(struct bv_scene_obj *sp, void *userdata)
 {
     int wflag = *(int *)userdata;
-    sp->s_old.s_wflag = wflag;
+    bsg_node_set_legacy_wflag((bsg_node *)sp, wflag);
     return 1; /* continue */
 }
 

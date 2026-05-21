@@ -228,7 +228,7 @@ draw_solid_wireframe(struct bv_scene_obj *sp, struct bview *gvp, struct db_i *db
     }
 
     if (gvp && gvp->gv_s->adaptive_plot_csg && ip->idb_meth->ft_adaptive_plot) {
-	ret = ip->idb_meth->ft_adaptive_plot(&vhead, ip, tol, gvp, sp->s_size);
+	ret = ip->idb_meth->ft_adaptive_plot(&vhead, ip, tol, gvp, bsg_node_size_get((const bsg_node *)sp));
     } else if (ip->idb_meth->ft_plot) {
 	ret = ip->idb_meth->ft_plot(&vhead, ip, ttol, tol, gvp);
     }
@@ -363,7 +363,7 @@ append_solid_to_display_list(
     bdata->gedp = bv_data->gedp;
     bsg_node_set_free_callback((bsg_node *)sp, (bsg_node_free_fn)ged_bv_illum_free_cb);
 
-    sp->s_size = 0;
+    bsg_node_size_set((bsg_node *)sp, 0.0);
     {
 	vect_t _ctr = VINIT_ZERO;
 	bsg_node_center_set((bsg_node *)sp, _ctr);
@@ -386,9 +386,12 @@ append_solid_to_display_list(
 	    bsg_node_center_set((bsg_node *)sp, center);
 	}
 
-        sp->s_size = max[X] - min[X];
-        V_MAX(sp->s_size, max[Y] - min[Y]);
-        V_MAX(sp->s_size, max[Z] - min[Z]);
+	{
+	    fastf_t _sz = max[X] - min[X];
+	    V_MAX(_sz, max[Y] - min[Y]);
+	    V_MAX(_sz, max[Z] - min[Z]);
+	    bsg_node_size_set((bsg_node *)sp, _sz);
+	}
     } else if (ip->idb_meth->ft_plot) {
         /* As a fallback for primitives that don't have a bbox function, use
          * the old bounding method of calculating a plot for the primitive and

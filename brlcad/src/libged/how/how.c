@@ -33,6 +33,7 @@
 #include "dm.h"
 #include "bsg/appearance.h"
 #include "bsg/material.h"
+#include "bsg/node.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
 
@@ -51,9 +52,9 @@ how_solid_cb(struct bv_scene_obj *sp, void *userdata)
     if (data->found)
 	return 0; /* stop - already found */
 
-    if (!sp->s_u_data)
+    if (!bsg_node_ged_data_get((const bsg_node *)sp))
 	return 1; /* continue */
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((const bsg_node *)sp);
 
     size_t i;
     struct directory **tmp_dpp;

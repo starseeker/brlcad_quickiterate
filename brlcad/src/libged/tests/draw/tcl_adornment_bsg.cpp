@@ -147,9 +147,9 @@ main(int ac, char *av[])
     {
 	point_t p0 = {0, 0, 0};
 	point_t p1 = {1, 0, 0};
-	BV_ADD_VLIST(obj->vlfree, &obj->s_vlist, p0, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(obj->vlfree, &obj->s_vlist, p1, BV_VLIST_LINE_DRAW);
-	ASSERT(!BU_LIST_IS_EMPTY(&obj->s_vlist));
+	BV_ADD_VLIST(bsg_node_vlfree((bsg_node *)obj), bsg_node_vlist_head((bsg_node *)obj), p0, BV_VLIST_LINE_MOVE);
+	BV_ADD_VLIST(bsg_node_vlfree((bsg_node *)obj), bsg_node_vlist_head((bsg_node *)obj), p1, BV_VLIST_LINE_DRAW);
+	ASSERT(!BU_LIST_IS_EMPTY(bsg_node_vlist_head((bsg_node *)obj)));
     }
 
     /* ------------------------------------------------------------------ *

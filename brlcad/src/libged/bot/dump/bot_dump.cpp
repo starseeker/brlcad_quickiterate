@@ -39,6 +39,7 @@
 #include "bu/units.h"
 #include "bu/path.h"
 #include "bsg/material.h"
+#include "bsg/node.h"
 #include "vmath.h"
 #include "nmg.h"
 #include "rt/geom.h"
@@ -432,9 +433,9 @@ botdump_solid_cb(struct bv_scene_obj *sp, void *userdata)
 
     MAT_IDN(mat);
 
-    if (!sp->s_u_data)
+    if (!bsg_node_ged_data_get((const bsg_node *)sp))
 	return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((const bsg_node *)sp);
 
     dp = bdata->s_fullpath.fp_names[bdata->s_fullpath.fp_len-1];
 
@@ -454,9 +455,11 @@ botdump_solid_cb(struct bv_scene_obj *sp, void *userdata)
 
     /* Write out object color */
     if (d->output_type == OTYPE_OBJ) {
-	d->obj.curr_obj_red = sp->s_color[0];
-	d->obj.curr_obj_green = sp->s_color[1];
-	d->obj.curr_obj_blue = sp->s_color[2];
+	unsigned char _r = 0, _g = 0, _b = 0;
+	bsg_node_get_color((const bsg_node *)sp, &_r, &_g, &_b);
+	d->obj.curr_obj_red = _r;
+	d->obj.curr_obj_green = _g;
+	d->obj.curr_obj_blue = _b;
 	struct bsg_material bsg_mat;
 	bsg_material_init(&bsg_mat);
 	(void)bsg_node_material_get((const bsg_node *)sp, &bsg_mat);

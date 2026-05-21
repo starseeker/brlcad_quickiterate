@@ -226,7 +226,9 @@ end:
 	if (val) {
 	    struct bu_color bc;
 	    if (bu_opt_color(NULL, 1, (const char **)&val, (void *)&bc) == 1) {
-		bu_color_to_rgb_chars(&bc, s->s_color);
+		unsigned char _rgb[3];
+		bu_color_to_rgb_chars(&bc, _rgb);
+		bsg_node_set_color((bsg_node *)s, _rgb[0], _rgb[1], _rgb[2]);
 	    }
 	}
 	val = bu_avs_get(&lavs, "POLYGON_FILL_COLOR");
