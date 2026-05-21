@@ -320,9 +320,9 @@ public:
 	{
 		return *items;
 	}
-	bool hasItem(const QgItem *item) const
+	bool hasItem(QgItem *item) const
 	{
-		return (items && item && items->find(const_cast<QgItem *>(item)) != items->end());
+		return (items && item && items->find(item) != items->end());
 	}
 	const std::vector<QgItem *> &topItems() const
 	{

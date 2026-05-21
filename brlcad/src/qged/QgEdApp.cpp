@@ -78,14 +78,14 @@ qged_post_closedb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(ged
 extern "C" void
 qt_create_io_handler(struct ged_subprocess *p, bu_process_io_t t, ged_io_func_t callback, void *data)
 {
-    if (!p || !p->p || !p->ged() || !p->ged()->ged_io_data)
+    if (!p || !p->p || !p->gedp || !p->gedp->ged_io_data)
 	return;
 
     int fd = bu_process_fileno(p->p, t);
     if (fd < 0)
 	return;
 
-    QgEdApp *ca = (QgEdApp *)p->ged()->ged_io_data;
+    QgEdApp *ca = (QgEdApp *)p->gedp->ged_io_data;
     QgConsole *c = ca->w->console;
     c->listen(fd, p, t, callback, data);
 
@@ -105,9 +105,9 @@ qt_create_io_handler(struct ged_subprocess *p, bu_process_io_t t, ged_io_func_t 
 extern "C" void
 qt_delete_io_handler(struct ged_subprocess *p, bu_process_io_t t)
 {
-    if (!p || !p->ged() || !p->ged()->ged_io_data) return;
+    if (!p || !p->gedp || !p->gedp->ged_io_data) return;
 
-    QgEdApp *ca = (QgEdApp *)p->ged()->ged_io_data;
+    QgEdApp *ca = (QgEdApp *)p->gedp->ged_io_data;
     QgConsole *c = ca->w->console;
 
     auto it = c->listeners.find(std::make_pair(p, (int)t));
