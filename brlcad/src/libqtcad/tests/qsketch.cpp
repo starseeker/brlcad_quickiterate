@@ -641,9 +641,8 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
 
     /* Cursor tracker — always installed, never consumes events */
     m_tracker = new QgSketchCursorTracker();
-    m_tracker->v  = m_bv;
     m_tracker->es = m_es;
-    m_view->add_event_filter(m_tracker);
+    m_view->installFilter(m_tracker);
     connect(m_tracker, &QgSketchCursorTracker::uv_moved,
 	    this, [this](double u, double vv) {
 		m_cursor_label->setText(
@@ -664,7 +663,7 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
 QSketchEditWindow::~QSketchEditWindow()
 {
     if (m_tracker) {
-	m_view->clear_event_filter(m_tracker);
+	m_view->clearFilter(m_tracker);
 	delete m_tracker;
     }
     clear_filter();
@@ -684,7 +683,6 @@ QSketchEditWindow::install_filter(QgSketchFilter *f)
     clear_filter();
     if (!f) return;
 
-    f->v  = m_bv;
     f->es = m_es;
 
     connect(f, &QgSketchFilter::view_updated,
@@ -692,7 +690,7 @@ QSketchEditWindow::install_filter(QgSketchFilter *f)
     connect(f, &QgSketchFilter::sketch_changed,
 	    this,  &QSketchEditWindow::on_sketch_changed);
 
-    m_view->add_event_filter(f);
+    m_view->installFilter(f);
     m_active_filter = f;
 }
 
@@ -701,7 +699,7 @@ QSketchEditWindow::clear_filter()
 {
     if (!m_active_filter) return;
 
-    m_view->clear_event_filter(m_active_filter);
+    m_view->clearFilter(m_active_filter);
     disconnect(m_active_filter, nullptr, this, nullptr);
     disconnect(m_active_filter, nullptr, m_view, nullptr);
     delete m_active_filter;

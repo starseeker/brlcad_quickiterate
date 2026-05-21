@@ -35,6 +35,7 @@
 class QgCanvasBase;
 class QImage;
 class QObject;
+class QgViewFilter;
 
 struct bview;
 struct dm;
@@ -82,12 +83,14 @@ void set_draw_custom(void (*draw_custom)(struct bview *, void *), void *draw_uda
 // widgets.  This is how custom key binding modes are enabled and
 // disabled in QgView windows.
 void add_event_filter(QObject *);
+void installFilter(QgViewFilter *);
 
 // If a filter object is supplied, remove just that filter.  If nullptr is
 // passed in, remove all filters added using add_event_filter.  Does
 // not clear all event filters of any sort (i.e. internal filters used
 // by Qt), just those managed using these methods.
 void clear_event_filter(QObject *);
+void clearFilter(QgViewFilter *);
 
 void enableDefaultKeyBindings();
 void disableDefaultKeyBindings();

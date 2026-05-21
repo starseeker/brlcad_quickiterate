@@ -70,43 +70,6 @@ closest_obj_bbox(struct bu_ptbl *sset, struct bview *v)
 	return s_closest;
 }
 
-QMouseEvent *
-QgSelectFilter::view_sync(QEvent *e)
-{
-	if (!v)
-		return nullptr;
-
-	// If we don't have one of the relevant mouse operations, there's nothing to do
-	QMouseEvent *m_e = nullptr;
-	if (e->type() == QEvent::MouseButtonPress || e->type() == QEvent::MouseButtonRelease || e->type() == QEvent::MouseButtonDblClick || e->type() == QEvent::MouseMove)
-		m_e = (QMouseEvent *)e;
-	if (!m_e)
-		return nullptr;
-
-	// We're going to need the mouse position
-	int e_x, e_y;
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-	e_x = m_e->x();
-	e_y = m_e->y();
-#else
-	e_x = m_e->position().x();
-	e_y = m_e->position().y();
-#endif
-
-	// Update relevant bview variables
-	v->gv_prevMouseX = v->gv_mouse_x;
-	v->gv_prevMouseY = v->gv_mouse_y;
-	v->gv_mouse_x = e_x;
-	v->gv_mouse_y = e_y;
-	bv_screen_pt(&v->gv_point, e_x, e_y, v);
-
-	// If we have modifiers, we're most likely doing shift grips
-	if (m_e->modifiers() != Qt::NoModifier)
-		return nullptr;
-
-	return m_e;
-}
-
 
 bool
 QgSelectPntFilter::eventFilter(QObject *, QEvent *e)
@@ -115,6 +78,7 @@ QgSelectPntFilter::eventFilter(QObject *, QEvent *e)
 	if (!m_e)
 		return false;
 
+	struct bview *v = view();
 
 	// Eat everything except the mouse release
 	if (e->type() != QEvent::MouseButtonRelease)
@@ -153,6 +117,8 @@ QgSelectBoxFilter::eventFilter(QObject *, QEvent *e)
 	QMouseEvent *m_e = view_sync(e);
 	if (!m_e)
 		return false;
+
+	struct bview *v = view();
 
 	if (!v)
 		return false;
@@ -280,6 +246,8 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
 	QMouseEvent *m_e = view_sync(e);
 	if (!m_e)
 		return false;
+
+	struct bview *v = view();
 
 	// If we're raytracing, the view itself isn't enough - we have
 	// to have the dbip as well.

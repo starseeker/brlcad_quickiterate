@@ -972,7 +972,7 @@ QPolyMod::eventFilter(QObject *, QEvent *e)
 
     // Set libqtcad know what the current polygon is
     cf->wp = p;
-    cf->v = (p) ? p->s_v : v;
+    cf->set_view((p) ? p->s_v : v);
     cf->ptype = (ip) ? ip->type : BV_POLYGON_GENERAL;
     checkbox_refresh(0);
 

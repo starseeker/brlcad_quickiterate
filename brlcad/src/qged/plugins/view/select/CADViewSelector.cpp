@@ -384,7 +384,7 @@ CADViewSelector::eventFilter(QObject *o, QEvent *e)
     }
 
     // Inform the filter of the current settings and view
-    cf->v = v;
+    cf->set_view(v);
     cf->first_only = select_all_depth_ckbx->isChecked() ? false : true;
 
     // TODO - create and/or connect the signals and slots so cf can

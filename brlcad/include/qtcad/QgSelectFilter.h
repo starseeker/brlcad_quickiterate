@@ -38,12 +38,12 @@ extern "C" {
 #include <QBoxLayout>
 #include <QEvent>
 #include <QMouseEvent>
-#include <QObject>
 #include <QWidget>
 #include "qtcad/defines.h"
+#include "qtcad/QgViewFilter.h"
 
 // Filters designed for specific editing modes
-class QTCAD_EXPORT QgSelectFilter : public QObject {
+class QTCAD_EXPORT QgSelectFilter : public QgViewFilter {
 	Q_OBJECT
 	Q_DISABLE_COPY_MOVE(QgSelectFilter)
 
@@ -58,12 +58,7 @@ class QTCAD_EXPORT QgSelectFilter : public QObject {
 		return false;
 	}
 
-	// Recover info from view (common logic for all selection modes)
-	QMouseEvent *view_sync(QEvent *e);
-
 	struct bu_ptbl selected_set = BU_PTBL_INIT_ZERO;
-
-	struct bview *v = nullptr;
 
 	// Whenever we're doing selections, we may want either all the objects
 	// that match the selection criteria, or just the "closest" object.
@@ -71,8 +66,6 @@ class QTCAD_EXPORT QgSelectFilter : public QObject {
 	// caller to request the more limited result as well.
 	bool first_only = false;
 
-signals:
-	void view_updated(int);
 };
 
 class QTCAD_EXPORT QgSelectPntFilter: public QgSelectFilter {

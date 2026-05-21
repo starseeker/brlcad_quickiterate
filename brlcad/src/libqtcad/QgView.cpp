@@ -30,6 +30,7 @@
 #include "qtcad/QgGL.h"
 #include "qtcad/QgSW.h"
 #include "qtcad/QgView.h"
+#include "qtcad/QgViewFilter.h"
 #include "qtcad/QgSignalFlags.h"
 
 extern "C" {
@@ -221,6 +222,15 @@ canvas->canvasWidget()->installEventFilter(o);
 }
 
 void
+QgView::installFilter(QgViewFilter *f)
+{
+    if (!f)
+	return;
+    f->set_view(view());
+    add_event_filter(f);
+}
+
+void
 QgView::clear_event_filter(QObject *o)
 {
     if (!canvas)
@@ -241,6 +251,15 @@ filters.clear();
     /* Passing nullptr is the documented "clear all managed filters" mode. */
     if (!o || curr_event_filter == o)
 curr_event_filter = nullptr;
+}
+
+void
+QgView::clearFilter(QgViewFilter *f)
+{
+    if (!f)
+	return;
+    clear_event_filter(f);
+    f->set_view(nullptr);
 }
 
 void

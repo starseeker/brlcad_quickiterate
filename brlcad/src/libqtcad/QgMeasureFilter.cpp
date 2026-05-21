@@ -34,43 +34,6 @@ extern "C" {
 #include "qtcad/QgMeasureFilter.h"
 #include "qtcad/QgSignalFlags.h"
 
-QMouseEvent *
-QgMeasureFilter::view_sync(QEvent *e)
-{
-	if (!v)
-		return nullptr;
-
-	// If we don't have one of the relevant mouse operations, there's nothing to do
-	QMouseEvent *m_e = nullptr;
-	if (e->type() == QEvent::MouseButtonPress || e->type() == QEvent::MouseButtonRelease || e->type() == QEvent::MouseButtonDblClick || e->type() == QEvent::MouseMove)
-		m_e = (QMouseEvent *)e;
-	if (!m_e)
-		return nullptr;
-
-	// We're going to need the mouse position
-	int e_x, e_y;
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-	e_x = m_e->x();
-	e_y = m_e->y();
-#else
-	e_x = m_e->position().x();
-	e_y = m_e->position().y();
-#endif
-
-	// Update relevant bview variables
-	v->gv_prevMouseX = v->gv_mouse_x;
-	v->gv_prevMouseY = v->gv_mouse_y;
-	v->gv_mouse_x = e_x;
-	v->gv_mouse_y = e_y;
-	bv_screen_pt(&v->gv_point, e_x, e_y, v);
-
-	// If we have modifiers, we're most likely doing shift grips
-	if (m_e->modifiers() != Qt::NoModifier)
-		return nullptr;
-
-	return m_e;
-}
-
 double
 QgMeasureFilter::length1()
 {
@@ -116,6 +79,10 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 {
 	QMouseEvent *m_e = view_sync(e);
 	if (!m_e)
+		return false;
+
+	struct bview *v = view();
+	if (!v)
 		return false;
 
 	if (e->type() == QEvent::MouseButtonPress) {
@@ -261,6 +228,7 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 bool
 QMeasure2DFilter::get_point()
 {
+	struct bview *v = view();
 	fastf_t vx, vy;
 	bv_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
 	point_t vpnt;
@@ -319,6 +287,7 @@ QMeasure3DFilter::get_point()
 	if (!dbip)
 		return false;
 
+	struct bview *v = view();
 	fastf_t vx, vy;
 	bv_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
 	point_t vpnt;

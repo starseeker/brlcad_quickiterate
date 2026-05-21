@@ -580,7 +580,7 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
     // If we're mid-creation (i.e. p != NULL) we need to keep processing the
     // polygon from the last event - otherwise, start fresh with p == NULL
     cf->wp = p;
-    cf->v = (p) ? p->s_v : v;
+    cf->set_view((p) ? p->s_v : v);
     checkbox_refresh(0);
 
     // Connect whatever the current filter is to pass on updating signals from

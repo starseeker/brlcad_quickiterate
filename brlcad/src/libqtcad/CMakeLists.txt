@@ -66,6 +66,7 @@ set(
   QgTreeView.cpp
   QgUtil.cpp
   QgView.cpp
+  QgViewFilter.cpp
   QgViewCtrl.cpp
 )
 if(OPENGL_LIBS)
@@ -105,6 +106,7 @@ set(
   QgTreeSelectionModel
   QgTreeView
   QgView
+  QgViewFilter
   QgViewCtrl
 )
 if(OPENGL_LIBS)

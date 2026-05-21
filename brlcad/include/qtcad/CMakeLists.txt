@@ -34,6 +34,7 @@ set(
   QgTypes.h
   QgUtil.h
   QgView.h
+  QgViewFilter.h
   QgViewCtrl.h
   defines.h
 )
