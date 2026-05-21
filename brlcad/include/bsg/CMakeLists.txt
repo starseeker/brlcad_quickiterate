@@ -15,6 +15,7 @@ set(
   node.h
   node_core.h
   node_group.h
+  node_type.h
   node_shape.h
   node_transform.h
   obol_node.h

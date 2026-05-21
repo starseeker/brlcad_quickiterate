@@ -29,6 +29,7 @@
 #define BSG_MATERIAL_H
 
 #include "common.h"
+#include "vmath.h"
 #include "bsg/defines.h"
 
 __BEGIN_DECLS
