@@ -22,11 +22,16 @@
  */
 
 #include "common.h"
+#include <QEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QButtonGroup>
 #include <QGroupBox>
-#include "../../../QgEdApp.h"
+#include "ged.h"
+#include "rt/db_io.h"
+#include "rt/directory.h"
+#include "qtcad/QgPluginContext.h"
+#include "qtcad/QgSignalFlags.h"
 #include "ged/bsg_ged_draw.h"
 #include "QEll.h"
 
@@ -91,13 +96,22 @@ QEll::~QEll()
     bu_vls_free(&oname);
 }
 
+struct ged *
+QEll::getGed() const
+{
+    return m_ctx ? m_ctx->getGed() : nullptr;
+}
+
+struct bview *
+QEll::getView() const
+{
+    return m_ctx ? m_ctx->getView() : nullptr;
+}
+
 void
 QEll::read_from_db()
 {
-    QgModel *m = ((QgEdApp *)qApp)->mdl;
-    if (!m)
-	return;
-    struct ged *gedp = m->gedp;
+    struct ged *gedp = getGed();
     if (!gedp)
 	return;
     struct db_i *dbip = gedp->dbip;
@@ -128,10 +142,7 @@ QEll::write_to_db()
 {
     if (!bu_vls_strlen(&oname))
 	return;
-    QgModel *m = ((QgEdApp *)qApp)->mdl;
-    if (!m)
-	return;
-    struct ged *gedp = m->gedp;
+    struct ged *gedp = getGed();
     if (!gedp)
 	return;
     struct db_i *dbip = gedp->dbip;
@@ -167,13 +178,10 @@ QEll::write_to_db()
 void
 QEll::update_obj_wireframe()
 {
-    QgModel *m = ((QgEdApp *)qApp)->mdl;
-    if (!m)
-	return;
-    struct ged *gedp = m->gedp;
+    struct ged *gedp = getGed();
     if (!gedp)
 	return;
-    struct bview *v = gedp->ged_gvp;
+    struct bview *v = getView();
     if (!v)
 	return;
 
@@ -243,13 +251,10 @@ QEll::update_obj_wireframe()
 void
 QEll::update_viewobj_name(const QString &)
 {
-    QgModel *m = ((QgEdApp *)qApp)->mdl;
-    if (!m)
-	return;
-    struct ged *gedp = m->gedp;
+    struct ged *gedp = getGed();
     if (!gedp)
 	return;
-    struct bview *v = gedp->ged_gvp;
+    struct bview *v = getView();
     if (!v)
 	return;
 

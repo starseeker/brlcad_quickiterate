@@ -33,6 +33,8 @@
 #include "raytrace.h"
 #include "qtcad/QgColorRGB.h"
 
+class QgPluginContext;
+
 class QEll : public QWidget
 {
     Q_OBJECT
@@ -40,6 +42,8 @@ class QEll : public QWidget
     public:
 	QEll();
 	~QEll();
+
+	void setContext(QgPluginContext *ctx) { m_ctx = ctx; }
 
 	// Ell origin
 	QCheckBox *O_pnt;
@@ -72,6 +76,10 @@ class QEll : public QWidget
 	struct rt_ell_internal ell;
 	struct bv_scene_obj *p = NULL;
 	struct bu_vls oname = BU_VLS_INIT_ZERO;
+	QgPluginContext *m_ctx = nullptr;
+
+	struct ged *getGed() const;
+	struct bview *getView() const;
 };
 
 #endif //QELL_H

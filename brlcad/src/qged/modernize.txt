@@ -205,7 +205,7 @@ Implementation plan
 5. Port in-tree qged plugins incrementally.
 
    COMPLETED: view/info, view/settings, view/select, view/measure,
-   polygon/create, polygon/modify.
+   polygon/create, polygon/modify, edit/ell.
 
    * Updated qged_plugin CMake helper targets now add the factory header to
      qt6_wrap_cpp (moc), register the JSON metadata file in ignore_srcs, and
@@ -237,13 +237,18 @@ Implementation plan
        implements IQgViewEventFilter, refresh() also repopulates the polygon
        list, and paletteElement() preserves the legacy element_unhide ->
        mod_names_reset wiring.
-   * Remaining: edit/ell (next phase).
+   * edit/ell: EditEllFactory.h + ell.json; QEll uses
+     QgPluginContext::getGed()/getView(); tool wrapper implements
+     IQgViewEventFilter and installs the widget as the active QgView
+     event filter.
+   * Phase 5 tool ports complete; next phase is legacy ABI/palette
+     retirement.
 
    * Update the qged_plugin CMake helper, or add a new helper, to build Qt
      plugins with the needed AUTOMOC/wrap_cpp handling, Q_PLUGIN_METADATA JSON
      files, correct IID, API version metadata, and libqtcad linkage.
-   * Port one plugin subtree at a time to IQgToolFactory plus QgToolBase:
-     edit/ell.  Keep each converted plugin in its existing source subtree.
+   * All remaining in-tree tool subtrees for this phase are now ported to
+     IQgToolFactory plus QgToolBase in their existing source subtrees.
    * Give every factory a stable id, category, displayName, sortKey, iconName,
      requiresOpenDb/requiresView flags, and description.
    * Replace ad-hoc signal wiring in each *_tool.cpp with QgToolBase hooks.
