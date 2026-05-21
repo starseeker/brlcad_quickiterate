@@ -60,7 +60,6 @@ signals:
 
 protected:
 	QMouseEvent *view_sync(QEvent *e);
-	struct bview *v = nullptr;
 
 private:
 	class QgViewFilterPrivate;

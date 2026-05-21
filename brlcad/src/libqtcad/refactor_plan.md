@@ -44,6 +44,13 @@ Current tree notes:
 
 Phase 4 — Filter hierarchy unification
 
+Current tree notes:
+- QgViewFilter base class introduced (include/qtcad/QgViewFilter.h + src/libqtcad/QgViewFilter.cpp): QObject subclass with pimpl-hidden struct bview *v, set_view()/view() accessors, common view_sync() helper, view_updated(int) signal, and Q_DISABLE_COPY_MOVE; install/remove contract documented.
+- QgPolyFilter, QgSelectFilter, QgMeasureFilter, and QgSketchFilter (and all their derived classes) now inherit QgViewFilter; duplicated per-class view_sync() implementations removed.
+- QgView gains installFilter(QgViewFilter*) and clearFilter(QgViewFilter*) typed APIs; existing generic add_event_filter(QObject*)/clear_event_filter(QObject*) retained for non-QgViewFilter callers (e.g. the default key-binding controls in QgEdApp).
+- All call sites in src/qged/plugins/{polygon,view/measure,view/select} ported to set_view() and installFilter/clearFilter; qsketch test integration updated similarly.
+- Phase 4 is complete.
+
 - Define a single QgViewFilter base in a new QgViewFilter.h: a QObject with a bview *v (pimpl-hidden), a common view_sync() helper, a view_updated(int) signal, and a documented contract for installing/removing from a QgView.
 - Refactor QgPolyFilter, QgSelectFilter, QgMeasureFilter, QgSketchFilter (and all their derived classes) onto that base; delete the duplicated view_sync() copies.
 - Move filter installation into QgView::installFilter(QgViewFilter*) rather than today's lower-level add_event_filter(QObject*) (which is too generic) — clearer ownership and lifetime.

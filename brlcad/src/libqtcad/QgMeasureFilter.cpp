@@ -81,6 +81,8 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 	if (!m_e)
 		return false;
 
+	struct bview *v = view();
+
 	if (e->type() == QEvent::MouseButtonPress) {
 		if (m_e->button() == Qt::RightButton) {
 			if (s)
@@ -224,6 +226,7 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 bool
 QMeasure2DFilter::get_point()
 {
+	struct bview *v = view();
 	fastf_t vx, vy;
 	bv_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
 	point_t vpnt;
@@ -282,6 +285,7 @@ QMeasure3DFilter::get_point()
 	if (!dbip)
 		return false;
 
+	struct bview *v = view();
 	fastf_t vx, vy;
 	bv_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
 	point_t vpnt;

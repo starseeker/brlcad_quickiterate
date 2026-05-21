@@ -48,14 +48,13 @@ QgViewFilter::~QgViewFilter()
 void
 QgViewFilter::set_view(struct bview *nv)
 {
-	v = nv;
 	m->v = nv;
 }
 
 struct bview *
 QgViewFilter::view() const
 {
-	return v;
+	return m->v;
 }
 
 QMouseEvent *

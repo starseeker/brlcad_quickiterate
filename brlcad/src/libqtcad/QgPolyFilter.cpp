@@ -68,8 +68,7 @@ QgPolyCreateFilter::eventFilter(QObject *, QEvent *e)
 	if (!m_e)
 		return false;
 
-
-	// Handle Left Click
+	struct bview *v = view();
 	if (m_e->type() == QEvent::MouseButtonPress && m_e->buttons().testFlag(Qt::LeftButton)) {
 
 		if (!wp) {
@@ -299,6 +298,7 @@ QgPolySelectFilter::eventFilter(QObject *, QEvent *e)
 	if (!m_e)
 		return false;
 
+	struct bview *v = view();
 
 	// Handle Left Click
 	if (m_e->type() == QEvent::MouseButtonPress && m_e->buttons().testFlag(Qt::LeftButton)) {
@@ -377,6 +377,8 @@ QgPolyMoveFilter::eventFilter(QObject *, QEvent *e)
 	QMouseEvent *m_e = view_sync(e);
 	if (!m_e)
 		return false;
+
+	struct bview *v = view();
 
 	// The move filter needs an active polygon to operate on
 	if (!wp && !BU_PTBL_LEN(&move_objs))

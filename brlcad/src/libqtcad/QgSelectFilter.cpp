@@ -78,6 +78,7 @@ QgSelectPntFilter::eventFilter(QObject *, QEvent *e)
 	if (!m_e)
 		return false;
 
+	struct bview *v = view();
 
 	// Eat everything except the mouse release
 	if (e->type() != QEvent::MouseButtonRelease)
@@ -116,6 +117,8 @@ QgSelectBoxFilter::eventFilter(QObject *, QEvent *e)
 	QMouseEvent *m_e = view_sync(e);
 	if (!m_e)
 		return false;
+
+	struct bview *v = view();
 
 	if (!v)
 		return false;
@@ -243,6 +246,8 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
 	QMouseEvent *m_e = view_sync(e);
 	if (!m_e)
 		return false;
+
+	struct bview *v = view();
 
 	// If we're raytracing, the view itself isn't enough - we have
 	// to have the dbip as well.
