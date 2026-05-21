@@ -25,12 +25,21 @@
 
 #include "common.h"
 
+#include <QImage>
+#include <QKeyEvent>
+#include <QMouseEvent>
 #include <QOpenGLWidget>
+#include <QResizeEvent>
+#include <QWheelEvent>
 #include <QtGlobal>
 
 extern "C" {
+#include "bu/ptbl.h"
 #include "bu/malloc.h"
+#include "bv.h"
 #include "bsg/util.h"
+#define DM_WITH_RT
+#include "dm.h"
 }
 #include "bindings.h"
 #include "qtcad/QgGL.h"
@@ -61,6 +70,7 @@ qtcad_render_size(const QWidget *w)
 QgGL::QgGL(QWidget *parent, struct fb *fbp)
 	: QOpenGLWidget(parent), ifp(fbp)
 {
+	lmouse_mode = BV_SCALE;
 	// Provide a view specific to this widget - set gedp->ged_gvp to v
 	// if this is the current view
 	BU_GET(local_v, struct bview);
@@ -96,6 +106,25 @@ QgGL::~QgGL()
 		fb_close_existing(ifp);
 	}
 	BU_PUT(local_v, struct bv);
+}
+
+void
+QgGL::set_view(struct bview *nv)
+{
+	if (!nv) {
+		/* A nullptr assignment explicitly clears any external view binding. */
+		v = nullptr;
+		return;
+	}
+
+	v = nv;
+	if (!dmp)
+		return;
+
+	v->dmp = dmp;
+	dm_configure_win(dmp, 0);
+	v->gv_width = dm_get_width(dmp);
+	v->gv_height = dm_get_height(dmp);
 }
 
 

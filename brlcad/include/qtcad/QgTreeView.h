@@ -28,10 +28,6 @@
 
 #include "common.h"
 
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <unordered_set>
 #include <QStyledItemDelegate>
 #include <QTreeView>
 
@@ -51,7 +47,8 @@ public:
 	QModelIndex selected();
 
 	void drawBranches(QPainter* painter, const QRect& rrect, const QModelIndex& index) const override;
-	QgModel *m = nullptr;
+	/* Return the QgModel backing this tree view. */
+	QgModel *cadModel() const { return m; }
 
 protected:
 	void resizeEvent(QResizeEvent *pevent) override;
@@ -75,6 +72,7 @@ public slots:
 private:
 	void header_state();
 	QModelIndex cached_selection_idx = QModelIndex();
+	QgModel *m = nullptr;
 };
 
 class QTCAD_EXPORT gObjDelegate : public QStyledItemDelegate {

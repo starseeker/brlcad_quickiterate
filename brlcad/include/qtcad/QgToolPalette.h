@@ -85,6 +85,23 @@ public:
 
 	void setButton(QgToolPaletteButton *n_button);
 	void setControls(QWidget *n_controls);
+	QgToolPaletteButton *buttonWidget() const
+	{
+		return button;
+	}
+	/* May be nullptr for placeholder elements constructed without a control widget. */
+	QWidget *controlsWidget() const
+	{
+		return controls;
+	}
+	int scrollPosition() const
+	{
+		return scroll_pos;
+	}
+	void setScrollPosition(int n_scroll_pos)
+	{
+		scroll_pos = n_scroll_pos;
+	}
 
 signals:
 	// PUBLIC, for palette:
@@ -128,10 +145,12 @@ public slots:
 	void element_view_changed(unsigned long long);
 
 public:
-	QgToolPaletteButton *button;
-	QWidget *controls;
-	int scroll_pos = 0;
+	bool use_event_filter = false;
 
+private:
+	QgToolPaletteButton *button = nullptr;
+	QWidget *controls = nullptr;
+	int scroll_pos = 0;
 };
 
 class QTCAD_EXPORT QgToolPalette: public QWidget {
@@ -168,11 +187,6 @@ public:
 	}
 
 	void resizeEvent(QResizeEvent *pevent) override;
-
-	QgToolPaletteElement *selected;
-	QString selected_style = QString("");
-
-	QVBoxLayout *mlayout;
 
 signals:
 
@@ -218,6 +232,9 @@ private:
 	int always_selected;
 	int icon_width;
 	int icon_height;
+	QgToolPaletteElement *selected = nullptr;
+	QString selected_style = QString("");
+	QVBoxLayout *mlayout = nullptr;
 	QSplitter *splitter;
 	QWidget *button_container;
 	QgFlowLayout *button_layout;

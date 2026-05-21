@@ -208,10 +208,10 @@ main(int ac, char *av[])
 	/* Bind view and create the QgSW widget */
 	QgSW sw;
 	sw.resize(512, 512);
-	gedp_sw->ged_gvp = sw.v;
-	bv_set_add_view(&gedp_sw->ged_views, sw.v);
-	sw.v->gv_base2local = gedp_sw->dbip->dbi_base2local;
-	sw.v->gv_local2base = gedp_sw->dbip->dbi_local2base;
+	gedp_sw->ged_gvp = sw.view();
+	bv_set_add_view(&gedp_sw->ged_views, sw.view());
+	sw.view()->gv_base2local = gedp_sw->dbip->dbi_base2local;
+	sw.view()->gv_local2base = gedp_sw->dbip->dbi_local2base;
 
 	/* Force first paintEvent → DM init */
 	QImage img_sw(512, 512, QImage::Format_RGB32);
@@ -219,26 +219,26 @@ main(int ac, char *av[])
 	sw.render(&img_sw);
 	QCoreApplication::processEvents();
 
-	if (!sw.dmp) {
+	if (!sw.displayManager()) {
 	    bu_log("SKIP swrast: DM did not initialise after first paint\n");
 	} else {
 	    /* Warm-up: one extra draw before timing */
 	    {
 		unsigned char *bg1, *bg2;
-		dm_get_bg(&bg1, &bg2, sw.dmp);
-		dm_set_bg(sw.dmp, bg1[0], bg1[1], bg1[2], bg2[0], bg2[1], bg2[2]);
-		dm_draw_objs(sw.v, NULL, NULL);
-		dm_draw_end(sw.dmp);
+		dm_get_bg(&bg1, &bg2, sw.displayManager());
+		dm_set_bg(sw.displayManager(), bg1[0], bg1[1], bg1[2], bg2[0], bg2[1], bg2[2]);
+		dm_draw_objs(sw.view(), NULL, NULL);
+		dm_draw_end(sw.displayManager());
 	    }
 
 	    /* Timed loop */
 	    int64_t t0 = bu_gettime();
 	    for (int i = 0; i < n_iters; i++) {
 		unsigned char *bg1, *bg2;
-		dm_get_bg(&bg1, &bg2, sw.dmp);
-		dm_set_bg(sw.dmp, bg1[0], bg1[1], bg1[2], bg2[0], bg2[1], bg2[2]);
-		dm_draw_objs(sw.v, NULL, NULL);
-		dm_draw_end(sw.dmp);
+		dm_get_bg(&bg1, &bg2, sw.displayManager());
+		dm_set_bg(sw.displayManager(), bg1[0], bg1[1], bg1[2], bg2[0], bg2[1], bg2[2]);
+		dm_draw_objs(sw.view(), NULL, NULL);
+		dm_draw_end(sw.displayManager());
 	    }
 	    int64_t elapsed_sw = bu_gettime() - t0;
 	    print_bench_result("swrast", n_iters, elapsed_sw);
@@ -266,20 +266,20 @@ main(int ac, char *av[])
     } else {
 	QgGL gl;
 	gl.resize(512, 512);
-	gedp_gl->ged_gvp = gl.v;
-	bv_set_add_view(&gedp_gl->ged_views, gl.v);
-	gl.v->gv_base2local = gedp_gl->dbip->dbi_base2local;
-	gl.v->gv_local2base = gedp_gl->dbip->dbi_local2base;
+	gedp_gl->ged_gvp = gl.view();
+	bv_set_add_view(&gedp_gl->ged_views, gl.view());
+	gl.view()->gv_base2local = gedp_gl->dbip->dbi_base2local;
+	gl.view()->gv_local2base = gedp_gl->dbip->dbi_local2base;
 
 	/* QgGL uses paintGL triggered by show() + processEvents().
 	 * On the offscreen platform a QOpenGLWidget context may not be
-	 * available — we detect that by gl.dmp remaining NULL. */
+	 * available — we detect that by gl.displayManager() remaining NULL. */
 	gl.show();
 	QCoreApplication::processEvents();
 	/* Give Qt a second attempt in case init is asynchronous */
 	QCoreApplication::processEvents();
 
-	if (!gl.dmp) {
+	if (!gl.displayManager()) {
 	    bu_log("SKIP qtgl: OpenGL context not available on this platform "
 		   "(expected in headless / CI environments — run on hardware "
 		   "with a GPU to collect qtgl timing data)\n");
@@ -287,19 +287,19 @@ main(int ac, char *av[])
 	    /* Warm-up */
 	    {
 		unsigned char *bg1, *bg2;
-		dm_get_bg(&bg1, &bg2, gl.dmp);
-		dm_set_bg(gl.dmp, bg1[0], bg1[1], bg1[2], bg2[0], bg2[1], bg2[2]);
-		dm_draw_objs(gl.v, NULL, NULL);
-		dm_draw_end(gl.dmp);
+		dm_get_bg(&bg1, &bg2, gl.displayManager());
+		dm_set_bg(gl.displayManager(), bg1[0], bg1[1], bg1[2], bg2[0], bg2[1], bg2[2]);
+		dm_draw_objs(gl.view(), NULL, NULL);
+		dm_draw_end(gl.displayManager());
 	    }
 
 	    int64_t t0 = bu_gettime();
 	    for (int i = 0; i < n_iters; i++) {
 		unsigned char *bg1, *bg2;
-		dm_get_bg(&bg1, &bg2, gl.dmp);
-		dm_set_bg(gl.dmp, bg1[0], bg1[1], bg1[2], bg2[0], bg2[1], bg2[2]);
-		dm_draw_objs(gl.v, NULL, NULL);
-		dm_draw_end(gl.dmp);
+		dm_get_bg(&bg1, &bg2, gl.displayManager());
+		dm_set_bg(gl.displayManager(), bg1[0], bg1[1], bg1[2], bg2[0], bg2[1], bg2[2]);
+		dm_draw_objs(gl.view(), NULL, NULL);
+		dm_draw_end(gl.displayManager());
 	    }
 	    int64_t elapsed_gl = bu_gettime() - t0;
 	    print_bench_result("qtgl", n_iters, elapsed_gl);

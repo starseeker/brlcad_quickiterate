@@ -37,12 +37,12 @@ QgEdPalette::makeCurrent(QWidget *w)
 {
     QTCAD_SLOT("QgEdPalette::makeCurrent", 1);
     if (w == this) {
-	if (selected)
-	    palette_displayElement(selected);
+	if (selectedElement())
+	    palette_displayElement(selectedElement());
 	emit interaction_mode(m_mode);
     } else {
-	if (selected)
-	    selected->button->setStyleSheet("");
+	if (selectedElement())
+	    selectedElement()->buttonWidget()->setStyleSheet("");
     }
 }
 

@@ -38,9 +38,9 @@
 void
 QgTreeSelectionModel::clear_all()
 {
-	QgModel *m = treeview->m;
+	QgModel *m = treeview->cadModel();
 
-	DbiState *dbis = (DbiState *)m->gedp->dbi_state;
+	DbiState *dbis = (DbiState *)m->ged()->dbi_state;
 	std::vector<BSelectState *> sv = dbis->get_selected_states(nullptr);
 	BSelectState *ss = sv[0];
 	ss->clear();
@@ -51,8 +51,8 @@ void
 QgTreeSelectionModel::select(const QItemSelection &selection, QItemSelectionModel::SelectionFlags flags)
 {
 	QTCAD_SLOT("QgTreeSelectionModel::select QItemSelection", 1);
-	QgModel *m = treeview->m;
-	struct ged *gedp = m->gedp;
+	QgModel *m = treeview->cadModel();
+	struct ged *gedp = m->ged();
 
 	DbiState *dbis = (DbiState *)gedp->dbi_state;
 	std::vector<BSelectState *> ssv = dbis->get_selected_states(nullptr);
@@ -105,15 +105,15 @@ QgTreeSelectionModel::select(const QItemSelection &selection, QItemSelectionMode
 		sflags |= QG_VIEW_REFRESH;
 
 	emit treeview->view_changed(sflags);
-	emit treeview->m->layoutChanged();
+	emit treeview->cadModel()->layoutChanged();
 }
 
 void
 QgTreeSelectionModel::select(const QModelIndex &index, QItemSelectionModel::SelectionFlags flags)
 {
 	QTCAD_SLOT("QgTreeSelectionModel::select QModelIndex", 1);
-	QgModel *m = treeview->m;
-	struct ged *gedp = m->gedp;
+	QgModel *m = treeview->cadModel();
+	struct ged *gedp = m->ged();
 
 	DbiState *dbis = (DbiState *)gedp->dbi_state;
 	std::vector<BSelectState *> ssv = dbis->get_selected_states(nullptr);
@@ -138,7 +138,7 @@ QgTreeSelectionModel::select(const QModelIndex &index, QItemSelectionModel::Sele
 			sflags |= QG_VIEW_REFRESH;
 
 		emit treeview->view_changed(sflags);
-		emit treeview->m->layoutChanged();
+		emit treeview->cadModel()->layoutChanged();
 		return;
 	}
 
@@ -154,7 +154,7 @@ QgTreeSelectionModel::select(const QModelIndex &index, QItemSelectionModel::Sele
 			if (ss->draw_sync())
 				sflags |= QG_VIEW_REFRESH;
 			emit treeview->view_changed(sflags);
-			emit treeview->m->layoutChanged();
+			emit treeview->cadModel()->layoutChanged();
 			return;
 		}
 
@@ -177,7 +177,7 @@ QgTreeSelectionModel::select(const QModelIndex &index, QItemSelectionModel::Sele
 		sflags |= QG_VIEW_REFRESH;
 
 	emit treeview->view_changed(sflags);
-	emit treeview->m->layoutChanged();
+	emit treeview->cadModel()->layoutChanged();
 }
 
 // Local Variables:

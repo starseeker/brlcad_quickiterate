@@ -72,6 +72,9 @@
 #include "qtcad/QgSignalFlags.h"
 #include "../librt/librt_private.h"
 
+/* Validate the character constant stored in QgItem::op matches the enum. */
+static_assert(DB_OP_UNION == 'u', "DB_OP_UNION enum value changed; update QgItem::op default in QgModel.h");
+
 struct QgItem_cmp {
 	inline bool operator() (const QgItem *i1, const QgItem *i2)
 	{
@@ -81,22 +84,22 @@ struct QgItem_cmp {
 			return true;
 		if (i1 && !i2)
 			return false;
-		if (!i1->ihash && !i2->ihash)
+		if (!i1->instanceHash() && !i2->instanceHash())
 			return false;
-		if (!i1->ihash && i2->ihash)
+		if (!i1->instanceHash() && i2->instanceHash())
 			return true;
-		if (i1->ihash && !i2->ihash)
+		if (i1->instanceHash() && !i2->instanceHash())
 			return false;
 
 		struct directory *inst1 = nullptr;
 		struct directory *inst2 = nullptr;
-		DbiState *ctx1 = (DbiState *)i1->mdl->gedp->dbi_state;
-		DbiState *ctx2 = (DbiState *)i2->mdl->gedp->dbi_state;
-		if (ctx1->d_map.find(i1->ihash) != ctx1->d_map.end()) {
-			inst1 = ctx1->d_map[i1->ihash];
+		DbiState *ctx1 = (DbiState *)i1->model()->ged()->dbi_state;
+		DbiState *ctx2 = (DbiState *)i2->model()->ged()->dbi_state;
+		if (ctx1->d_map.find(i1->instanceHash()) != ctx1->d_map.end()) {
+			inst1 = ctx1->d_map[i1->instanceHash()];
 		}
-		if (ctx2->d_map.find(i2->ihash) != ctx2->d_map.end()) {
-			inst2 = ctx2->d_map[i2->ihash];
+		if (ctx2->d_map.find(i2->instanceHash()) != ctx2->d_map.end()) {
+			inst2 = ctx2->d_map[i2->instanceHash()];
 		}
 
 		if (!inst1 && !inst2)
@@ -118,9 +121,14 @@ struct QgItem_cmp {
 QgItem::QgItem(unsigned long long hash, QgModel *ictx)
 {
 	mdl = ictx;
-	DbiState *ctx = (DbiState *)mdl->gedp->dbi_state;
+	DbiState *ctx = (DbiState *)mdl->ged()->dbi_state;
 	ihash = hash;
 	parentItem = nullptr;
+
+	// Allocate the name buffer
+	name_ptr = new struct bu_vls;
+	bu_vls_init(name_ptr);
+
 	if (!ctx)
 		return;
 
@@ -135,14 +143,15 @@ QgItem::QgItem(unsigned long long hash, QgModel *ictx)
 	}
 
 	// Local item information
-	ctx->print_hash(&name, ihash);
+	ctx->print_hash(name_ptr, ihash);
 	dp = ctx->get_hdp(ihash);
-	icon = QgIcon(dp, ictx->gedp->dbip);
+	icon = QgIcon(dp, ictx->ged()->dbip);
 }
 
 QgItem::~QgItem()
 {
-	bu_vls_free(&name);
+	bu_vls_free(name_ptr);
+	delete name_ptr;
 }
 
 void
@@ -234,7 +243,7 @@ unsigned long long
 QgItem::path_hash()
 {
 	std::vector<unsigned long long> pitems = path_items();
-	DbiState *dbis = (DbiState *)mdl->gedp->dbi_state;
+	DbiState *dbis = (DbiState *)mdl->ged()->dbi_state;
 	unsigned long long phash = dbis->path_hash(pitems, 0);
 	return phash;
 }
@@ -257,7 +266,7 @@ qgmodel_update_nref_callback(struct db_i *UNUSED(dbip), struct directory *parent
 
 		// If anybody was requesting an nref update, the fact that we're here
 		// means we've done it.
-		ctx->need_update_nref = false;
+		ctx->setNeedUpdateNref(false);
 	}
 }
 
@@ -266,9 +275,9 @@ qgmodel_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mo
 {
 	unsigned long long hash;
 	QgModel *mdl = (QgModel *)u_data;
-	DbiState *ctx = (DbiState *)mdl->gedp->dbi_state;
-	mdl->need_update_nref = true;
-	mdl->changed_db_flag = 1;
+	DbiState *ctx = (DbiState *)mdl->ged()->dbi_state;
+	mdl->setNeedUpdateNref(true);
+	mdl->setChangedDatabaseFlag(1);
 
 	// Clear cached GED drawing data and update
 	ctx->clear_cache(dp);
@@ -760,7 +769,7 @@ QgModel::data(const QModelIndex &index, int role) const
 	QgItem *qi= getItem(index);
 	DbiState *dbis = (DbiState *)qi->mdl->gedp->dbi_state;
 	if (role == Qt::DisplayRole)
-		return QVariant(bu_vls_cstr(&qi->name));
+		return QVariant(bu_vls_cstr(qi->name_ptr));
 	if (role == BoolInternalRole)
 		return QVariant(qi->op);
 	if (role == DirectoryInternalRole)
@@ -996,4 +1005,3 @@ QgModel::item_expanded(const QModelIndex &index)
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

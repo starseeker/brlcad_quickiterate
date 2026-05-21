@@ -29,12 +29,16 @@
 #include "bg/polygon.h"
 #include "bv.h"
 #include "raytrace.h" // For finalize polygon sketch export functionality (TODO - need to move...)
+#include "qtcad/QgGL.h"
+#include "qtcad/QgSW.h"
 #include "qtcad/QgView.h"
 #include "qtcad/QgSignalFlags.h"
 
 extern "C" {
 #include "bu/malloc.h"
 }
+
+#include <algorithm>
 
 
 QgView::QgView(QWidget *parent, int type, struct fb *fbp)
@@ -172,10 +176,10 @@ QgView::view()
 {
 #ifdef BRLCAD_OPENGL
 	if (canvas_gl)
-		return canvas_gl->v;
+		return canvas_gl->view();
 #endif
 	if (canvas_sw)
-		return canvas_sw->v;
+		return canvas_sw->view();
 
 	return nullptr;
 }
@@ -185,10 +189,10 @@ QgView::dmp()
 {
 #ifdef BRLCAD_OPENGL
 	if (canvas_gl)
-		return canvas_gl->dmp;
+		return canvas_gl->displayManager();
 #endif
 	if (canvas_sw)
-		return canvas_sw->dmp;
+		return canvas_sw->displayManager();
 
 	return nullptr;
 }
@@ -198,10 +202,10 @@ QgView::ifp()
 {
 #ifdef BRLCAD_OPENGL
 	if (canvas_gl)
-		return canvas_gl->ifp;
+		return canvas_gl->frameBuffer();
 #endif
 	if (canvas_sw)
-		return canvas_sw->ifp;
+		return canvas_sw->frameBuffer();
 
 	return nullptr;
 }
@@ -210,27 +214,11 @@ void
 QgView::set_view(struct bview *nv)
 {
 #ifdef BRLCAD_OPENGL
-	if (canvas_gl) {
-		canvas_gl->v = nv;
-		if (canvas_gl->dmp && canvas_gl->v) {
-			canvas_gl->v->dmp = canvas_gl->dmp;
-			struct dm *dmp = (struct dm *)canvas_gl->dmp;
-			dm_configure_win(dmp, 0);
-			canvas_gl->v->gv_width = dm_get_width(dmp);
-			canvas_gl->v->gv_height = dm_get_height(dmp);
-		}
-	}
+	if (canvas_gl)
+		canvas_gl->set_view(nv);
 #endif
-	if (canvas_sw) {
-		canvas_sw->v = nv;
-		if (canvas_sw->dmp && canvas_sw->v) {
-			canvas_sw->v->dmp = canvas_sw->dmp;
-			struct dm *dmp = (struct dm *)canvas_sw->dmp;
-			dm_configure_win(dmp, 0);
-			canvas_sw->v->gv_width = dm_get_width(dmp);
-			canvas_sw->v->gv_height = dm_get_height(dmp);
-		}
-	}
+	if (canvas_sw)
+		canvas_sw->set_view(nv);
 }
 
 void
@@ -278,26 +266,22 @@ void
 QgView::set_current(int i)
 {
 #ifdef BRLCAD_OPENGL
-	if (canvas_gl) {
-		canvas_gl->current = i;
-	}
+	if (canvas_gl)
+		canvas_gl->set_current(i);
 #endif
-	if (canvas_sw) {
-		canvas_sw->current = i;
-	}
+	if (canvas_sw)
+		canvas_sw->set_current(i);
 }
 
 int
 QgView::current()
 {
 #ifdef BRLCAD_OPENGL
-	if (canvas_gl) {
-		return canvas_gl->current;
-	}
+	if (canvas_gl)
+		return canvas_gl->currentView();
 #endif
-	if (canvas_sw) {
-		return canvas_sw->current;
-	}
+	if (canvas_sw)
+		return canvas_sw->currentView();
 
 	return 0;
 }
@@ -346,7 +330,14 @@ QgView::clear_event_filter(QObject *o)
 			filters.clear();
 		}
 	}
-	curr_event_filter = nullptr;
+	if (o) {
+		auto fit = std::find(filters.begin(), filters.end(), o);
+		if (fit != filters.end())
+			filters.erase(fit);
+	}
+	/* Passing nullptr is the documented "clear all managed filters" mode. */
+	if (!o || curr_event_filter == o)
+		curr_event_filter = nullptr;
 }
 
 void
@@ -355,14 +346,12 @@ QgView::set_draw_custom(void (*draw_custom)(struct bview *, void *), void *draw_
 
 #ifdef BRLCAD_OPENGL
 	if (canvas_gl) {
-		canvas_gl->draw_custom = draw_custom;
-		canvas_gl->draw_udata = draw_udata;
+		canvas_gl->set_draw_custom(draw_custom, draw_udata);
 		return;
 	}
 #endif
 	if (canvas_sw) {
-		canvas_sw->draw_custom = draw_custom;
-		canvas_sw->draw_udata = draw_udata;
+		canvas_sw->set_draw_custom(draw_custom, draw_udata);
 		return;
 	}
 }

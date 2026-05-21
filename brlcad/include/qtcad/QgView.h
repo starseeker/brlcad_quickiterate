@@ -26,24 +26,22 @@
 
 #include "common.h"
 
-extern "C" {
-#include "bu/ptbl.h"
-#include "bg/polygon.h"
-#include "bv.h"
-#include "dm.h"
-}
-
 #include <vector>
 #include <QBoxLayout>
-#include <QImage>
-#include <QObject>
 #include <QWidget>
 #include "qtcad/defines.h"
 #include "qtcad/QgTypes.h"
-#include "qtcad/QgSW.h"
+
+class QImage;
+class QObject;
+class QgSW;
 #ifdef BRLCAD_OPENGL
-#  include "qtcad/QgGL.h"
+class QgGL;
 #endif
+
+struct bview;
+struct dm;
+struct fb;
 
 class QTCAD_EXPORT QgView : public QWidget {
 	Q_OBJECT
@@ -77,7 +75,10 @@ public:
 
 	void aet(double a, double e, double t);
 
-	QObject *curr_event_filter = nullptr;
+	QObject *active_event_filter() const
+	{
+		return curr_event_filter;
+	}
 	void set_draw_custom(void (*draw_custom)(struct bview *, void *), void *draw_udata);
 
 	// Wrappers around Qt's facility for adding eventFilter objects to
@@ -113,6 +114,7 @@ private:
 #ifdef BRLCAD_OPENGL
 	QgGL *canvas_gl = nullptr;
 #endif
+	QObject *curr_event_filter = nullptr;
 	std::vector<QObject *> filters;
 };
 
