@@ -59,7 +59,7 @@ if(BRLCAD_ENABLE_TCL)
 
   # Note - libtclcad_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
   set(TCLCAD_PUBLIC_LIBS ${libtclcad_deps} ${TCL_LIBRARY})
-  set(TCLCAD_PRIVATE_LIBS ${TCLCAD_XLIBS})
+  set(TCLCAD_PRIVATE_LIBS ${TCLCAD_XLIBS} PNG::PNG)
   if(TK_LIBRARY)
     set(TCLCAD_PUBLIC_LIBS ${TCLCAD_PUBLIC_LIBS} ${TK_LIBRARY})
   endif(TK_LIBRARY)
