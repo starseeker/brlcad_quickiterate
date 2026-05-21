@@ -96,8 +96,9 @@
 #  define QTCAD_EVENT(event_name, level)
 #endif
 
+/** @} */ /* qtcad_defines */
+/** @} */ /* libqtcad */
 #endif  /* QTCAD_DEFINES_H */
-/** @} */
 
 /*
  * Local Variables:

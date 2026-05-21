@@ -92,6 +92,8 @@ if(BRLCAD_ENABLE_QT)
   set(QTCAD_LIBS ${QTCAD_LIBS} Qt6::Core Qt6::Widgets ${OPENGL_LIBS})
   set(QTCAD_SRCS ${QTCAD_SRCS} ${qtcad_qrc} ${qtcad_hdrs})
 
+  # brlcad_addlib arguments are (name, srcs, libs, includes, compile_defs, type).
+  # Link and include requirements are configured below via target_* APIs.
   brlcad_addlib(libqtcad "${QTCAD_SRCS}" "" "" "" SHARED)
   target_include_directories(libqtcad
     PUBLIC
