@@ -1,1195 +1,345 @@
-BV_SCENE_OBJ TO BSG FULL MIGRATION PLAN
-======================================
+BV_SCENE_OBJ TO BSG COMPLETION PLAN
+===================================
 
 Purpose
 -------
-Capture a complete migration plan for removing the remaining structural
-dependency on struct bv_scene_obj as the effective scene-graph node backing
-store, with particular focus on the remaining bsg_settings coupling and the
-possibility of fully retiring bv_scene_obj in favor of first-class BSG types.
+This document tracks the remaining work to remove `struct bv_scene_obj` as the
+scene-graph backing store and complete the cutover to first-class libbsg data
+structures and APIs.  It intentionally focuses on remaining work only; previous
+phase execution logs have been collapsed into the current-state summary below.
 
+Backwards compatibility is not a constraint for this effort.  Compatibility
+helpers may be used as short-lived migration tools, but the target is deletion of
+`bv_scene_obj`, not long-term preservation of a wrapper.  Removing or shrinking
+libbv scene-object functionality in favor of libbsg ownership is approved when it
+produces a cleaner result.
 
-Current Situation Summary
--------------------------
-1. bsg_settings is logically a BSG concept, but its struct definition still
-   lives in include/bv/defines.h.
+Target End State
+----------------
+- `bsg_node` is allocated, owned, traversed, mutated, and destroyed by libbsg.
+- Scene-graph semantics live in BSG-owned concepts:
+  - node identity and source metadata
+  - parent/child structure
+  - transform and bounds
+  - material and appearance
+  - payload/vlist data
+  - selection/highlight state
+  - view/edit context
+  - renderer/backend attachments
+  - lifecycle callbacks
+- libdm, libged, qged, mged, libqtcad, libtclcad, librt, and libanalyze consume
+  BSG APIs instead of `bv_scene_obj` storage.
+- `bsg/defines.h` no longer includes `bv/defines.h`.
+- `include/bv/defines.h` no longer defines scene-graph node storage.
+- `struct bsg_settings` is either deleted as a public structure or reduced to an
+  internal import/export snapshot synthesized from material, appearance, and draw
+  policy state.
 
-2. The immediate reason is storage and header layering:
-   - struct bv_scene_obj embeds:
-       struct bsg_settings *s_os;
-       struct bsg_settings  s_local_os;
-   - include/bsg/defines.h includes include/bv/defines.h.
-   - include/bsg/settings.h includes include/bsg/defines.h.
-   This means a simple move of struct bsg_settings into a libbsg header would
-   create a circular dependency unless the storage or header layout changes.
-
-3. The API migration is only partially blocked by callers.  Most high-level
-   traversal code already uses typed BSG settings accessors, but some libbv,
-   libdm, and libged code still touches bv_scene_obj settings storage directly.
-
-4. The larger migration question is broader than settings.  bsg_settings is one
-   example of a general problem: bsg_node is still physically embedded inside
-   bv_scene_obj, and many subsystems still assume bv_scene_obj is the concrete
-   node/container/payload object.
-
-
-Primary Goal
-------------
-Arrive at a design where:
-
-- BSG owns its node, material, appearance, payload, identity, and traversal
-  contracts directly.
-- bsg_settings either disappears entirely or becomes an internal transitional
-  compatibility type that is no longer defined in bv/defines.h.
-- libdm, libged, qged, mged, libqtcad, and libtclcad consume BSG APIs instead
-  of raw bv_scene_obj fields.
-- bv_scene_obj becomes either:
-  A) a temporary compatibility wrapper with no unique semantic ownership, or
-  B) removable entirely once the remaining raw-storage assumptions are gone.
-
-
-Non-Goals
----------
-- Do not attempt a big-bang rewrite.
-- Do not break existing rendering behavior, edit workflows, or display-list
-  lifecycles while refactoring ownership.
-- Do not remove compatibility fields before equivalent BSG APIs exist and have
-  been adopted by all non-test callers.
-
-
-Key Constraints and Blockers
-----------------------------
-1. Header dependency cycle
-   bsg/defines.h currently depends on bv/defines.h for struct bsg_node and the
-   current compatibility layout.
-
-2. Inline storage
-   Embedded fields in bv_scene_obj require complete type definitions at header
-   parse time, preventing simple forward-declaration-based decoupling.
-
-3. Remaining raw field access
-   The raw field inventory shows that many subsystems still touch bv_scene_obj
-   fields directly beyond settings: names, paths, transforms, payloads, flags,
-   color, backend cache, and custom data.
-
-4. Transitional mixed ownership
-   Some concepts already have BSG APIs but still write back into legacy
-   bv_scene_obj fields for compatibility.
-
-5. Unsettled semantic homes
-   Not every bsg_settings field has a final destination yet:
-   - draw_mode -> bsg_appearance
-   - line_width -> bsg_appearance
-   - arrow_tip_length / arrow_tip_width -> bsg_appearance
-   - transparency -> material or appearance, depending on final policy
-   - color_override / color -> bsg_material
-   - draw_solid_lines_only / draw_non_subtract_only -> appearance or draw policy
-   - mixed_modes -> still needs a clear permanent home
-
-
-Migration Strategy Overview
----------------------------
-Use a staged migration with two tracks:
-
-Track 1: Remove the bsg_settings dependency on bv/defines.h.
-Track 2: Remove bv_scene_obj as the concrete backing store assumption.
-
-Track 1 can deliver incremental value even if Track 2 takes longer, but Track 2
-is the cleanest long-term solution and should inform the API choices made in
-Track 1.
-
-
-Recommended End State
+Current State Summary
 ---------------------
-Recommended target architecture:
-
-1. struct bsg_node becomes the concrete first-class scene-graph node type.
-
-2. Node-associated state is owned by BSG abstractions:
-   - identity
-   - material
-   - appearance
-   - payload
-   - transform
-   - selection/highlight state
-   - renderer/backend compatibility hooks where still needed
-
-3. bv_scene_obj becomes a compatibility layer only, then is retired.
-
-4. bsg_settings is retired as a public structural dependency:
-   - either replaced entirely by material + appearance + draw policy APIs, or
-   - kept only as an internal compatibility snapshot outside bv/defines.h.
-
-
-Phase 0 - Inventory Refresh and Guardrails
-------------------------------------------
-Objective:
-Refresh the raw-field inventory and define the migration boundary before moving
-storage.
-
-Tasks:
-- Re-run the raw field inventory search and update counts/files if they have
-  drifted.
-- Classify each raw field as one of:
-  - already has a BSG API
-  - needs a BSG API
-  - compatibility-only and can remain temporarily
-  - obsolete and removable
-- Identify every site still touching:
-  - s_os / s_local_os
-  - s_path
-  - dp
-  - s_mat
-  - s_i_data
-  - s_vlist / s_vlen
-  - s_color / s_color_rev
-  - s_flag / s_iflag / s_force_draw
-  - s_v
-  - s_backend
-
-Deliverables:
-- Updated raw field inventory
-- A field-to-BSG-owner mapping table
-- A list of compatibility-only fields that must remain until final cutover
-
-Exit criteria:
-- No unknown raw-field ownership remains.
-
-Phase 0 execution update - 2026-05-19
-------------------------------------
-Status:
-- DONE for the current tree snapshot.  The inventory below re-ran the Phase 0
-  searches against non-test `.c`, `.cpp`, and `.h` files under `src/` and
-  `include/`.
-
-Updated raw-field inventory:
-- `s_os` / `s_local_os`: 46 matches in 14 files
-  (`src/libbsg/appearance.c`, `src/libbsg/material.c`,
-  `src/libbsg/settings.c`, `src/libbv/hash.c`, `src/libbv/snap.c`,
-  `src/libbv/util.cpp`, `src/libdm/X/dm-X.c`, `src/libdm/dm-gl_lod.cpp`,
-  `src/libdm/view.c`, `src/libged/bsg_ged_draw.c`, `src/libged/draw.cpp`,
-  `src/libged/view/gobjs.cpp`, `src/librt/primitives/generic.c`,
-  `src/libtclcad/view/axes.c`)
-- `s_path`: 23 matches in 7 files
-  (`src/libbv/util.cpp`, `src/libbv/vlist.c`, `src/libged/draw.cpp`,
-  `src/libged/points_eval.c`, `src/libged/view/gobjs.cpp`,
-  `src/libged/view/objs.cpp`, `src/libged/wireframe_eval.c`)
-- `dp`: 190 matches in 25 files
-  (`src/libbsg/draw_set.c`, `src/libbsg/overlay.c`, `src/libbv/util.cpp`,
-  `src/libged/bot/bot.cpp`, `src/libged/bot/check.cpp`,
-  `src/libged/bot/decimate.cpp`, `src/libged/bot/exterior.cpp`,
-  `src/libged/bot/extrude.cpp`, `src/libged/bot/remesh.cpp`,
-  `src/libged/bot/repair.cpp`, `src/libged/bot/smooth.cpp`,
-  `src/libged/bot/subdivide.cpp`, `src/libged/brep/brep.cpp`,
-  `src/libged/brep/tikz.cpp`, `src/libged/dbi_state.cpp`,
-  `src/libged/draw.cpp`, `src/libged/edit/edit.cpp`,
-  `src/libged/illum/illum.c`, `src/libged/nmg/nmg.c`,
-  `src/libged/npush/npush.cpp`, `src/libged/points_eval.c`,
-  `src/libged/xpush/xpush.c`, `src/libqtcad/QgModel.cpp`,
-  `src/mged/chgview.c`, `src/mged/rtif.c`)
-- `s_mat`: 21 matches in 7 files
-  (`src/libbsg/node.c`, `src/libbsg/node_transform.c`,
-  `src/libbv/util.cpp`, `src/libdm/dm-gl_lod.cpp`,
-  `src/libged/dbi_state.cpp`, `src/libged/draw.cpp`,
-  `src/libged/draw/draw.c`)
-- `s_i_data`: 71 matches in 22 files
-  (`src/libbsg/bsg_private.h`, `src/libbsg/draw_set.c`,
-  `src/libbsg/lod.cpp`, `src/libbsg/lod_node.c`, `src/libbsg/node.c`,
-  `src/libbv/polygon.c`, `src/libbv/polygon_op.cpp`,
-  `src/libbv/util.cpp`, `src/libdm/axes.c`, `src/libged/bsg_ged_draw.c`,
-  `src/libged/dbi_state.cpp`, `src/libged/draw.cpp`,
-  `src/libged/ged_private.h`, `src/libged/points_eval.c`,
-  `src/libged/view/axes.c`, `src/libged/view/gobjs.cpp`,
-  `src/libged/view/labels.c`, `src/libged/wireframe_eval.c`,
-  `src/librt/primitives/sketch/polygons.c`, `src/libtclcad/commands.c`,
-  `src/libtclcad/mouse.c`, `src/libtclcad/view/labels.c`)
-- `s_vlist` / `s_vlen`: 134 matches in 36 files
-  (`src/libanalyze/nirt/nirt.cpp`, `src/libbsg/draw_set.c`,
-  `src/libbsg/overlay.c`, `src/libbsg/payload.c`, `src/libbv/hash.c`,
-  `src/libbv/polygon.c`, `src/libbv/snap.c`, `src/libbv/util.cpp`,
-  `src/libbv/vlist.c`, `src/libdm/X/dm-X.c`, `src/libdm/dm-gl_lod.cpp`,
-  `src/libdm/view.c`, `src/libged/bsg_ged_draw.c`, `src/libged/draw.cpp`,
-  `src/libged/draw/draw.c`, `src/libged/ged.cpp`, `src/libged/illum/illum.c`,
-  `src/libged/plot/plot.c`, `src/libged/png/png.c`, `src/libged/ps/ps.c`,
-  `src/libged/select/select.c`, `src/libged/solid_report/solid_report.c`,
-  `src/libged/view/axes.c`, `src/libged/view/data_lines.c`,
-  `src/libged/view/labels.c`, `src/libged/view/lines.c`,
-  `src/libged/view/objs.cpp`, `src/libged/wireframe_eval.c`,
-  `src/librt/primitives/generic.c`, `src/librt/primitives/sample.c`,
-  `src/libtclcad/bsg_move_helpers.h`, `src/libtclcad/polygons.c`,
-  `src/libtclcad/view/arrows.c`, `src/mged/dodraw.c`, `src/mged/plot.c`,
-  `src/mged/rtif.c`)
-- `s_color` / `s_color_rev`: 99 matches in 22 files
-  (`include/bsg/defines.h`, `src/libbsg/field.c`, `src/libbsg/material.c`,
-  `src/libbv/polygon.c`, `src/libbv/util.cpp`, `src/libbv/vlist.c`,
-  `src/libged/bot/dump/bot_dump.cpp`, `src/libged/bsg_ged_draw.c`,
-  `src/libged/dbi_state.cpp`, `src/libged/draw.cpp`,
-  `src/libged/plot/plot.c`, `src/libged/png/png.c`, `src/libged/ps/ps.c`,
-  `src/libged/solid_report/solid_report.c`, `src/libged/view/axes.c`,
-  `src/libged/view/data_lines.c`, `src/libged/view/labels.c`,
-  `src/libged/view/objs.cpp`, `src/libged/view/polygons.c`,
-  `src/librt/primitives/sketch/polygons.c`, `src/libtclcad/view/axes.c`,
-  `src/libtclcad/view/labels.c`)
-- `s_flag` / `s_iflag` / `s_force_draw`: the legacy `s_*` names are already
-  gone from non-test code.  The remaining raw visibility/highlight/force-draw
-  traffic is against embedded `bsg_node` storage:
-  - `bsg_flag`: 23 matches in 9 files
-  - `bsg_iflag`: 13 matches in 7 files
-  - `bsg_force_draw`: 4 matches in 2 files
-  - explicit `bsg.bsg_*` member access: 32 matches in 12 files
-- `s_v`: 113 matches in 21 files
-  (`include/bsg/view_scope.h`, `src/libbsg/scene_graph.cpp`,
-  `src/libbsg/sensor.c`, `src/libbsg/view_scope.c`, `src/libbv/lod.cpp`,
-  `src/libbv/polygon.c`, `src/libbv/polygon_op.cpp`,
-  `src/libbv/util.cpp`, `src/libbv/vlist.c`, `src/libdm/dm-gl_lod.cpp`,
-  `src/libdm/view.c`, `src/libged/dbi_state.cpp`, `src/libged/draw.cpp`,
-  `src/libged/view/objs.cpp`, `src/libged/view/polygons.c`,
-  `src/libqtcad/QgPolyFilter.cpp`, `src/librt/primitives/generic.c`,
-  `src/librt/primitives/sketch/polygons.c`,
-  `src/qged/plugins/edit/ell/QEll.cpp`,
-  `src/qged/plugins/polygon/QPolyCreate.cpp`,
-  `src/qged/plugins/polygon/QPolyMod.cpp`)
-- `s_backend`: 15 matches in 2 files
-  (`src/libbv/util.cpp`, `src/libdm/dm-gl_lod.cpp`)
-
-Field-to-BSG-owner mapping:
-
-| Raw field / semantic | BSG owner or boundary | Phase 0 classification | Notes |
-| --- | --- | --- | --- |
-| `s_os` / `s_local_os` | `bsg_settings`, with permanent split across `bsg_appearance` and `bsg_material` | already has a BSG API | Storage is still compatibility-owned by `bv_scene_obj`; remaining raw callers are concentrated in libbv/libdm/libged compatibility code. |
-| `s_path` | `bsg_identity` source-path metadata | already has a BSG API | Path-string identity exists, but live `db_full_path` payloads still sit in `s_path` for draw/update callbacks. |
-| `dp` | source metadata under `bsg_identity` or a follow-on source-object API | needs a BSG API | Current identity APIs do not replace the widespread typed `struct directory *` usage. |
-| `s_mat` | `bsg_node_transform_get/set()` | already has a BSG API | Remaining raw touches are transitional implementation and legacy draw/edit paths. |
-| `s_i_data` | `bsg_node_user_data_get/set()` plus typed `bsg_payload_*` APIs | needs a BSG API | Generic opaque storage exists, but many callers still depend on typed legacy payload structs. |
-| `s_vlist` / `s_vlen` | `bsg_payload_vlist_*` and broader payload ownership | already has a BSG API | Payload access exists, but most renderer/export code still reads legacy vlist storage directly. |
-| `s_color` / `s_color_rev` | `bsg_material` and `bsg_node_revision(..., BSG_NODE_REV_MATERIAL)` | already has a BSG API | Material/revision accessors exist; raw writes remain in compatibility and serialization paths. |
-| visibility (`s_flag` -> `bsg_flag`) | `bsg_node_visible()` and `bsg_node_set_visible()` | already has a BSG API | The old `s_flag` name is obsolete; remaining raw uses are against the embedded `bsg_node` core field. |
-| highlight (`s_iflag` -> `bsg_iflag`) | temporary `bsg_node_legacy_illum*()` bridge; eventual selection/highlight API | compatibility-only and can remain temporarily | This is the main semantic still waiting on a final BSG selection/highlight home. |
-| force-draw (`s_force_draw` -> `bsg_force_draw`) | `bsg_node_force_draw()` and `bsg_node_set_force_draw()` | already has a BSG API | The legacy `s_force_draw` name is obsolete; only a small compat surface remains. |
-| `s_v` | `BSG_NODE_VIEW_SCOPE` semantics and future view/edit-context APIs | compatibility-only and can remain temporarily | View ownership is still stored directly on `bv_scene_obj` because multiple producers and editors depend on it. |
-| `s_backend` | backend lifecycle helpers today; eventual renderer-owned attachment API | compatibility-only and can remain temporarily | The lifecycle is already centralized, but storage still lives on `bv_scene_obj`. |
-
-Compatibility-only fields that must remain until final cutover:
-- `s_os` / `s_local_os`: required until appearance/material callers stop doing
-  bundle-copy/reset/sync work through legacy storage.
-- `s_path`: required until draw/update callbacks stop passing live
-  `db_full_path` objects through scene nodes.
-- `s_i_data`: still carries legacy view-object payload structs that do not yet
-  have one-for-one typed BSG payload replacements.
-- `s_vlist` / `s_vlen`: renderer, export, and reporting code still expects the
-  legacy vlist container to exist on the object.
-- `bsg_iflag`: highlight state still needs a permanent non-compat selection or
-  render-state home.
-- `s_v`: current view-scoped edit and producer logic still uses direct
-  per-object view ownership.
-- `s_backend`: renderer cache lifetime is centralized, but the cache storage is
-  still a compatibility slot on `bv_scene_obj`.
-
-Phase 0 conclusion:
-- Raw-field ownership is now mapped for the targeted fields.
-- The largest remaining semantic gap is `dp`, followed by typed replacements for
-  `s_i_data` users and eventual removal of the remaining compatibility storage
-  slots (`s_path`, `s_v`, `s_backend`, and the legacy settings bundle).
-
-
-Phase 1 - Finish the Settings Semantic Split
---------------------------------------------
-Objective:
-Stop treating bsg_settings as the long-term semantic API.
-
-Tasks:
-- Define the permanent home of every bsg_settings field.
-- Move callers away from thinking in terms of one monolithic settings blob.
-- Decide where mixed_modes belongs:
-  - bsg_appearance
-  - a producer/draw request policy object
-  - a renderer/draw command option
-
-Recommended direction:
-- Appearance:
-  draw_mode, line_width, line_style/dash policy, inherit_settings,
-  arrow_tip_length, arrow_tip_width, draw_solid_lines_only,
-  draw_non_subtract_only
-- Material:
-  transparency, color override, explicit color source
-- Producer/render policy:
-  mixed_modes
-
-Tasks by library:
-- libdm: prefer bsg_appearance_get/material_get where possible instead of
-  reading raw settings snapshots.
-- libged: replace remaining settings-centric flows with appearance/material
-  logic where no bundle copy is required.
-- libbv: isolate any remaining bundle-copy/reset logic behind compatibility
-  helpers rather than public structure ownership.
-
-Exit criteria:
-- No new code relies on bsg_settings as the canonical semantic type.
-
-Phase 1 execution update - 2026-05-19
-------------------------------------
-Status:
-- PARTIAL, with the settings compatibility layer now shifted further toward the
-  intended semantic split.
-
-Completed in this pass:
-- `src/libbsg/settings.c` now treats `bsg_settings` as a compatibility snapshot
-  synthesized from the semantic owners that already exist:
-  - appearance-backed fields (`draw_mode`, `line_width`,
-    `arrow_tip_length`, `arrow_tip_width`,
-    `draw_solid_lines_only`, `draw_non_subtract_only`)
-  - material-backed fields (`transparency`, `color_override`, explicit
-    override color)
-- `bsg_node_settings_set()` now pushes those semantic fields through the
-  appearance/material sidecars while preserving `mixed_modes` in the
-  compatibility bundle.
-- `bsg_settings_sync()` now copies `mixed_modes`, so the compatibility helper no
-  longer drops the producer-side add-mode flag.
-- `src/libged/view/gobjs.cpp` and `src/libged/draw.cpp` now route group/child
-  settings propagation through the `bsg_node_settings_get/set()` compatibility
-  boundary instead of syncing raw `s_os` storage directly.
-- `src/libbsg/tests/test_settings.c` now covers the semantic sidecar mapping and
-  the `mixed_modes` sync path.
-- libdm/libged call sites that only need semantic draw state now query
-  `bsg_appearance` / `bsg_material` directly instead of reading or mutating the
-  legacy settings bundle:
-  - `src/libdm/dm-gl_lod.cpp`
-  - `src/libdm/X/dm-X.c`
-  - `src/libged/bsg_ged_draw.c`
-  - `src/libged/bot/dump/bot_dump.cpp`
-  - `src/libged/draw.cpp`
-  - `src/libged/draw/draw.c`
-  - `src/libged/how/how.c`
-  - `src/libged/set_transparency/set_transparency.c`
-  - `src/libged/view/data_lines.c`
-  - `src/libged/view/objs.cpp`
-  - `src/libged/view/view.c`
-
-What remains for Phase 1:
-- Additional callers still construct and pass `struct bsg_settings` snapshots as
-  operational state (`src/libdm/view.c`, `src/libged/dbi_state.cpp`,
-  `src/libged/draw.cpp` parent propagation, `src/libged/view/gobjs.cpp`,
-  `src/libbv/util.cpp`, `src/libbv/hash.c`, `src/libbv/snap.c`); those broader
-  API-shape cleanups belong to subsequent follow-on work after this compatibility
-  tightening.
-- The remaining semantic-owner cleanup items are now assigned to later phases:
-  - `mixed_modes` promotion into a dedicated draw-policy/request object moves to
-    Phase 4, where replacing `bv_scene_obj`-owned settings storage already
-    requires the compatibility bundle to be split into independent
-    appearance/material/policy flows.
-  - transparency mirroring through `bsg_appearance` moves to Phase 4, where the
-    storage transition already calls for transparency to resolve solely through
-    `bsg_material`.
-
-
-Phase 2 - Eliminate Remaining Raw s_os/s_local_os Consumers
------------------------------------------------------------
-Objective:
-Remove direct settings-storage reads/writes from callers.
-
-Known remaining direct-use areas to retire first:
-
-libbv:
-- snap.c: line width for snap tolerance can move to bsg_node_appearance_get().
-- util.cpp: reset/default/sync logic should be routed through BSG-owned helper
-  functions or compatibility shims.
-- hash.c: local/effective settings hashing should move behind a libbsg or compat
-  hashing helper if still needed.
-
-libdm:
-- Moved to Phase 4 in the 2026-05-19 execution update:
-  - view.c: retire inherited `struct bsg_settings` snapshots once appearance,
-    material, and any future draw-policy object can be threaded independently.
-  - Promote `mixed_modes` out of the legacy settings bundle while doing that
-    split, so inherited draw state carries an explicit draw-policy/request
-    object instead of a compatibility snapshot field.
-
-libged:
-- Moved to Phase 4 in the 2026-05-19 execution update:
-  - draw.cpp: reduce parent/child settings bundle propagation to semantic
-    appearance/material (plus future draw-policy) transfer where bundle copy is
-    no longer needed.
-  - draw/draw.c and dbi_state.cpp: stop using transient `struct bsg_settings`
-    snapshots for draw-mode/transparency/line-width updates once the caller-side
-    request shape is split.
-  - Remaining command/API layers that still speak `struct bsg_settings` should
-    be limited to true compatibility/bundle-copy cases only.
-
-Tasks:
-- Provide missing BSG getters/setters or compatibility shims needed by those
-  callers.
-- Convert each caller and validate behavior after each cluster.
-- Add regression tests where existing BSG test coverage is missing.
-
-Exit criteria:
-- Non-test code outside compatibility modules no longer reads or writes
-  s_os/s_local_os directly.
-
-Phase 2 execution update - 2026-05-19
-------------------------------------
-Status:
-- DONE for the direct raw-storage caller cleanup originally targeted here.
-- The broader inherited-settings request-shape split is still pending, but it is
-  now tracked under Phase 4 rather than Phase 2 because it no longer blocks raw
-  `s_os` / `s_local_os` access removal.
-
-Completed in this pass:
-- Added compatibility helper accessors in `include/bv/util.h` /
-  `src/libbv/util.cpp` for effective/local settings reads plus reset/set flows:
-  - `bv_scene_obj_settings_get()`
-  - `bv_scene_obj_settings_local_get()`
-  - `bv_scene_obj_settings_set()`
-  - `bv_scene_obj_settings_reset()`
-- Converted the remaining non-test raw callers over to those helpers:
-  - `src/libbv/snap.c`
-  - `src/libbv/hash.c`
-  - `src/libbv/util.cpp`
-  - `src/librt/primitives/generic.c`
-  - `src/libtclcad/view/axes.c`
-- Expanded `src/libbsg/tests/test_settings.c` so the compatibility helper
-  boundary is regression-tested.
-
-Resulting boundary:
-- Non-test direct `s_os` / `s_local_os` touches are now limited to:
-  - `src/libbsg/appearance.c`
-  - `src/libbsg/material.c`
-  - `src/libbsg/settings.c`
-  - `src/libbv/util.cpp` (the compatibility shim implementation itself)
-- Those remaining accesses are the semantic/storage-owner or compatibility-shim
-  implementations rather than scattered callers.
-
-Moved to subsequent phases:
-- The libdm/libged inherited settings snapshot plumbing is no longer a raw
-  storage access problem; it is the larger compatibility-bundle retirement and
-  request-shape split problem.
-- That work now belongs to Phase 4 alongside the storage replacement, including
-  `mixed_modes` promotion into a dedicated draw-policy/request object.
-
-
-Phase 3 - Introduce a Compatibility Header Boundary
---------------------------------------------------
-Objective:
-Break the header cycle that keeps bsg_settings in bv/defines.h.
-
-Status:
-- DONE for the immediate header-boundary objective.
-
-Completed in this pass:
-- Added a dedicated shared header: `include/bsg/settings_types.h`.
-- Moved the `struct bsg_settings` definition and `BSG_SETTINGS_INIT` macro out
-  of `include/bv/defines.h`.
-- Updated the public headers so:
-  - `include/bv/defines.h` consumes the shared settings-types header for legacy
-    `bv_scene_obj` storage declarations.
-  - `include/bsg/settings.h` explicitly includes the shared settings-types
-    header for the public settings API.
-- Updated `include/bsg/CMakeLists.txt` so the new public header is installed.
-
-Resulting boundary:
-- `struct bsg_settings` is now defined in `include/bsg/settings_types.h`.
-- `include/bv/defines.h` no longer owns the type definition; it only includes
-  the shared type so `s_os` / `s_local_os` can keep using transitional inline
-  storage.
-
-Moved to subsequent phases:
-- The stronger Option B/Option C follow-on work is still pending:
-  - moving legacy compatibility storage declarations out of `bv_scene_obj`
-  - removing the remaining `bsg/defines.h` -> `bv/defines.h` dependency
-  - replacing inline `s_local_os` storage with BSG-owned or opaque compatibility
-    storage
-- Those broader storage-owner and header-decoupling changes now stay with Phase
-  4, because they depend on removing `bv_scene_obj` ownership rather than just
-  relocating the shared type definition.
-
-
-Phase 4 - Replace bv_scene_obj-Owned Settings Storage
-----------------------------------------------------
-Objective:
-Make settings/appearance/material state BSG-owned rather than bv_scene_obj-owned.
-
-Tasks:
-- Remove the assumption that bv_scene_obj owns:
-  - s_os
-  - s_local_os
-  - s_inherit_settings
-- Store compatibility state in one of:
-  - BSG node sidecar storage
-  - appearance/material sidecars only
-  - a dedicated compatibility extension object
-
-Recommended direction:
-- Eliminate s_local_os as embedded storage.
-- Resolve inherit_settings through bsg_appearance.
-- Resolve color override and transparency through bsg_material.
-- Remove the current compatibility mirroring of transparency through
-  `bsg_appearance`, leaving `bsg_material` as the sole semantic owner.
-- Retire bsg_settings_sync from public usage patterns once bundle copying is no
-  longer the normal mechanism.
-
-Possible temporary design:
-- A compat object owned by bsg_node_core that exposes legacy snapshots only for
-  transition code.
-
-Exit criteria:
-- bv_scene_obj no longer uniquely owns settings state.
-
-
-Phase 4 execution update - 2026-05-19
-------------------------------------
-Status:
-- DONE for the remaining Phase 4 storage-owner and request-shape cleanup.
-
-Completed in this pass:
-- Added BSG-owned transitional settings sidecars on `struct bsg_node`:
-  - `settings_local`
-  - `settings_effective`
-- Updated the libbsg core lifecycle so those sidecars are initialized on demand
-  and released with the other BSG-owned node sidecars.
-- Reworked the compatibility helpers in `src/libbv/util.cpp` so
-  `bv_scene_obj_settings_get()`, `bv_scene_obj_settings_local_get()`,
-  `bv_scene_obj_settings_set()`, and `bv_scene_obj_settings_reset()` now use the
-  BSG-owned sidecars as the authoritative storage while still mirroring
-  `s_local_os` / `s_os` for legacy callers.
-- Updated `src/libbsg/settings.c`, `src/libbsg/appearance.c`, and
-  `src/libbsg/material.c` so settings/material/appearance synchronization flows
-  through the BSG-owned sidecars first rather than treating `bv_scene_obj` as the
-  unique owner.
-- Removed the active transparency mirroring dependency on `bsg_appearance`:
-  - material now remains the semantic transparency owner
-  - the render paths in `src/libbsg/render.c`, `src/libdm/view.c`, and
-    `src/libtclcad/view/draw.c` now resolve transparency from `bsg_material`
-    instead of appearance state
-- Expanded regression coverage in:
-  - `src/libbsg/tests/test_settings.c`
-  - `src/libbsg/tests/test_material.c`
-  - `src/libbsg/tests/test_node_core.c`
-- Added a split internal draw-request/draw-policy API in
-  `include/bsg/settings.h` / `src/libbsg/settings.c`:
-  - `struct bsg_draw_policy`
-  - `struct bsg_draw_request`
-  - `bsg_draw_request_from_settings()`
-  - `bsg_node_draw_policy_get/set()`
-  - `bsg_node_draw_request_get/set()`
-- Converted the remaining Phase 4 internal libdm/libged redraw paths so they no
-  longer operate on whole `struct bsg_settings` bundles:
-  - `src/libdm/view.c`
-  - `src/libged/dbi_state.cpp`
-  - `src/libged/draw.cpp`
-  - `src/libged/view/gobjs.cpp`
-- Kept `dm_draw_scene_obj()` and `BViewState::redraw()` accepting
-  `struct bsg_settings` at their compatibility entry points, but they now split
-  those bundles into appearance/material/policy request data immediately rather
-  than threading full settings snapshots through the operational redraw logic.
-
-Resulting boundary:
-- `s_local_os` and `s_os` remain as mirrored compatibility snapshots on
-  `bv_scene_obj`, but they are no longer the authoritative owner once a node has
-  been touched by the BSG settings/material/appearance APIs or the libbv
-  compatibility helpers.
-- `s_inherit_settings` is still mirrored on `bv_scene_obj`, but the active owner
-  for inheritance semantics remains `bsg_appearance.inherit_settings`.
-- Internal redraw/traversal paths now carry:
-  - `bsg_appearance` for style/inheritance
-  - `bsg_material` for color/transparency
-  - `bsg_draw_policy` for `mixed_modes`
-  instead of passing full `bsg_settings` bundles as operational state.
-
-Moved to subsequent phases:
-- `mixed_modes` now has a dedicated draw-policy API boundary, but it still uses
-  compatibility-backed storage in the settings sidecar.  Physically separating
-  that storage remains later work.
-- Legacy raw mirrors (`s_local_os`, `s_os`, `s_inherit_settings`) are still
-  present only for compatibility and are now Phase 5+ / Phase 7 cleanup items.
-- Any remaining public compatibility entry points that still accept
-  `struct bsg_settings` are now intentional compatibility boundaries rather than
-  internal operational dependencies.
-
-
-Phase 5 - Promote BSG Node Ownership Over Remaining Raw Fields
---------------------------------------------------------------
-Objective:
-Systematically migrate all remaining bv_scene_obj raw semantics to BSG APIs.
-
-Work items by concept:
-
-Identity/path/source metadata
-- s_name -> bsg_node_name()/set_name()
-- s_path -> bsg_identity source path APIs
-- dp -> bsg_identity/source metadata APIs
-
-Transform/view ownership
-- s_mat -> bsg_node_transform_get/set()
-- s_v -> BSG view-scope semantics and edit-context APIs
-
-Payload/custom data
-- s_i_data -> typed payload/aux data APIs
-- s_vlist / s_vlen -> vlist payload APIs
-
-Visibility/highlight
-- s_flag -> bsg_node_visible()/set_visible()
-- s_force_draw -> bsg_node_force_draw()/set_force_draw()
-- s_iflag -> BSG selection/highlight compatibility APIs
-
-Material/appearance
-- s_color / s_color_rev -> bsg_material and node revision APIs
-- s_soldash / s_arrow -> bsg_appearance or overlay appearance APIs
-
-Renderer cache
-- s_backend -> explicit renderer-owned backend attachment API
-
-Lifecycle
-- s_update_callback / s_free_callback -> node payload lifecycle/update hooks
-
-Exit criteria:
-- All non-test callers use BSG APIs instead of raw bv_scene_obj fields for
-  semantics.
-
-Phase 5 execution update - 2026-05-20
-------------------------------------
-Status:
-- IN PROGRESS.  The lifecycle/update-callback slice is now DONE for non-test
-  callers; the broader raw-field migration listed above remains active.
-
-Completed in this session:
-- Added typed BSG lifecycle accessors for legacy update callbacks:
-  - `bsg_node_set_update_callback()`
-  - `bsg_node_invoke_update_callback()`
-- Switched non-test lifecycle call sites in libbsg/libbv/libged/libqtcad to
-  use BSG accessors instead of directly assigning or invoking
-  `s_update_callback` / `s_free_callback`.
-- Updated the libbsg node tests and scene-graph sensor test coverage to exercise
-  the new callback boundary directly.
-- Added additional Phase 5 compatibility accessors for:
-  - source-path storage (`s_path`)
-  - app/source object data (`dp`)
-  - per-node view context (`s_v`)
-  - backend attachment (`s_backend`)
-  - vlist access/count helpers (`s_vlist` / `s_vlen`)
-  - material revision helpers (`s_color_rev`)
-  - appearance convenience helpers for dashed/arrow state (`s_soldash` / `s_arrow`)
-- Started converting non-test callers to those accessors in libbsg/libged.
-- Converted the libbv polygon subsystem to the BSG accessor boundary:
-  - `polygon.c` now uses BSG user-data, view, vlist, material, and appearance
-    APIs instead of directly reading/writing `s_i_data`, `s_v`, `s_vlist`,
-    `s_color`, and `s_soldash`.
-  - `polygon_op.cpp` now uses BSG user-data/view accessors instead of direct
-    `s_i_data` / `s_v` access.
-- Converted the remaining higher-level polygon tooling off direct scene-view
-  access:
-  - `src/libqtcad/QgPolyFilter.cpp` now uses BSG view accessors for polygon
-    update dispatch and view attachment.
-  - `src/qged/plugins/polygon/QPolyCreate.cpp` and
-    `src/qged/plugins/polygon/QPolyMod.cpp` now use BSG view accessors instead
-    of direct `s_v` reads/writes.
-  - `src/libged/view/polygons.c` now uses BSG view accessors for command-side
-    mouse/update flow and area calculations.
-- Converted the remaining simple overlay-object helpers off raw payload and
-  user-data storage:
-  - `src/libged/view/axes.c`, `labels.c`, `lines.c`, and `data_lines.c` now
-    use BSG user-data, vlist payload, and material accessors instead of direct
-    `s_i_data`, `s_vlist`, and `s_color` access.
-  - `src/libdm/axes.c` now reads axes payload data through BSG user-data.
-  - `src/libdm/X/dm-X.c` now pulls drawable vlist heads through the BSG payload
-    accessor path instead of directly traversing `s_vlist`.
-- Converted the core GED draw/eval metadata path off direct scene-object
-  metadata fields:
-  - `src/libged/points_eval.c` and `wireframe_eval.c` now read draw-update
-    state and source-path information through BSG user-data/source-path
-    accessors instead of direct `s_i_data` / `s_path` / `dp` access.
-  - `src/libged/draw/draw.c` now uses BSG transform and vlist-count accessors
-    in its shared draw bookkeeping instead of directly maintaining `s_mat` and
-    `s_vlen`.
-  - `src/libged/draw.cpp` now populates and consumes draw-object source-path,
-    app-data, transform, and update-data state through the BSG accessor
-    boundary instead of directly assigning `s_path`, `dp`, `s_mat`, and
-    `s_i_data`.
-- Converted the GL LoD renderer backend path off direct compatibility-field
-  access:
-  - `src/libdm/dm-gl_lod.cpp` now routes renderer backend handles through
-    `bsg_node_backend_get/set`, reads object transforms through
-    `bsg_node_transform_get`, and falls back to `bsg_node_vlist_head` instead
-    of directly touching `s_backend`, `s_mat`, and `s_vlist`.
-  - `src/libged/tests/draw/bsg_view_obj.cpp` now exercises the renderer
-    backend contract through the same BSG backend accessors instead of directly
-    assigning or asserting on `s_backend`.
-- Converted a coherent libged report/export slice off direct vlist-head access:
-  - `src/libged/solid_report/solid_report.c`, `plot/plot.c`, `png/png.c`, and
-    `ps/ps.c` now obtain scene vlists through `bsg_node_vlist_head` instead of
-    directly walking `s_vlist`.
-- Converted a small editor helper slice off direct vlist-head access:
-  - `src/libged/select/select.c` and `illum/illum.c` now read scene vlists
-    through `bsg_node_vlist_head`, including the `labelvert` path that passes
-    those vlists into `rt_label_vlist_verts`.
-- Converted the residual ordinary draw/view/helper callers off direct
-  compatibility-field access:
-  - `src/libged/draw/draw.c` now appends, frees, and drains scene vlists
-    through `bsg_node_vlist_head` while continuing to maintain vlist counts via
-    the BSG payload boundary.
-  - `src/libged/dbi_state.cpp` now stores draw setup directory/app-data,
-    update-data, and transforms through `bsg_node_app_data_set`,
-    `bsg_node_user_data_set`, and `bsg_node_transform_set`.
-  - `src/libged/bsg_ged_draw.c` now routes overlay/custom-solid vlist and
-    material-revision bookkeeping through `bsg_node_vlist_head`,
-    `bsg_node_vlist_count_set`, and `bsg_node_material_revision` rather than
-    directly reading `s_vlist`, `s_vlen`, or `s_color_rev`.
-  - `src/libbv/hash.c`, `snap.c`, and `util.cpp` plus `src/libdm/view.c` now
-    consume scene vlists, transforms, and user/app-data through the same BSG
-    payload/node accessor boundary.
-
-Resulting boundary:
-- Non-test code now treats lifecycle/update hooks as BSG APIs even though the
-  underlying compatibility storage still lives on `bv_scene_obj`.
-- Direct `s_free_callback` / `s_update_callback` traffic is now confined to the
-  compatibility implementation in `src/libbsg/node.c`, legacy-storage reset
-  paths, and tests/comments.
-- The remaining raw-field work is now primarily broad caller cutover across
-  view/render/editor code rather than missing BSG API surface.
-- The core libbv polygon implementation no longer depends on direct
-  `bv_scene_obj` raw-field access for its scene payload/view/appearance data;
-  the higher-level Qt/GED polygon tooling is now on the same BSG view boundary.
-- Simple view-overlay helpers now use the same BSG user-data/vlist/material
-  boundaries as the rest of the migrated non-test tooling.
-- The central GED draw/eval path now routes source-path, app-data, transform,
-  and vlist-count bookkeeping through BSG accessors rather than direct
-  compatibility fields.
-- The GL LoD renderer now uses the same BSG backend/transform/vlist boundaries
-  as the migrated GED draw path instead of reaching directly into compatibility
-  storage for those fields.
-- The report/export callers migrated in this slice now share the same BSG
-  vlist boundary as the draw path rather than directly traversing compatibility
-  storage.
-- The editor helpers migrated in this slice now share that same BSG vlist
-  boundary instead of directly reading compatibility storage.
-- The remaining non-test raw-field accesses are now confined to compatibility
-  allocation/reset/plumbing code that still owns the underlying legacy storage,
-  rather than ordinary draw/view/editor/render callers.
-
-Moved to subsequent phases:
-- Physically relocating lifecycle callback storage off `bv_scene_obj` remains
-  later work for the Phase 6/Phase 7 ownership and compatibility-wrapper
-  cleanup, since the new BSG APIs still bridge to the existing struct fields.
-- The residual raw-field storage that remains in `src/libbv/util.cpp`,
-  `src/libbv/vlist.c`, and the free-list helpers in `src/libged/bsg_ged_draw.c`
-  is now compatibility implementation detail for later ownership/allocation
-  phases rather than open ordinary-caller Phase 5 work.
-
-Validation:
-- Qt-enabled configure succeeded with `bext_output/install`.
-- Built: `libbsg`, `libbv`, `libged`, `libqtcad`,
-  `test_bsg_node`, `test_bsg_scene_graph`, `ged_test_bsg_view_obj`.
-- `ctest --output-on-failure -R '^(libbsg_node|libbsg_scene_graph|ged_test_bsg_view_obj)$'`
-  passed.
-- Additional polygon-tooling validation:
-  - Built: `libged`, `libqtcad`, `qged_polygon`, `ged_test_bsg_view_obj`.
-  - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
-- Additional overlay-object validation:
-  - Built: `libbsg`, `libdm`, `libged`, `ged_test_bsg_view_obj`.
-  - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
-- Additional draw/eval metadata validation:
-  - Built: `libbsg`, `libged`, `ged_test_bsg_view_obj`.
-  - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
-- Additional GL LoD backend validation:
-  - Built: `libbsg`, `libdm`, `libged`, `ged_test_bsg_view_obj`.
-  - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
-- Additional report/export vlist validation:
-  - Built: `libged`, `ged_test_bsg_view_obj`.
-  - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
-- Additional editor vlist validation:
-  - Built: `libged`, `ged_test_bsg_view_obj`.
-  - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
-- Additional residual caller cleanup validation:
-  - Built: `libbv`, `libdm`, `libged`, `ged_test_bsg_view_obj`.
-  - `ctest --output-on-failure -R '^(ged_test_bsg_view_obj)$'` passed.
-
-
-Phase 6 - Create a First-Class BSG Allocation and Lifecycle Model
------------------------------------------------------------------
-Objective:
-Stop requiring libbv allocation/reset utilities as the owner of scene nodes.
-
-Tasks:
-- Introduce BSG-native node creation/destruction APIs for all major node kinds.
-- Ensure BSG owns:
-  - allocation
-  - child tables
-  - core init/release
-  - payload teardown
-  - renderer hook cleanup
-- Rework compatibility code so bv_obj_reset()/bv_obj_put() become wrappers over
-  BSG lifecycle, not the root ownership mechanism.
-
-Requirements:
-- No caller should need to know whether the node originated as a bv_scene_obj.
-- Compatibility cleanup must remain safe for legacy call sites until cutover.
-
-Exit criteria:
-- New code can allocate, manipulate, and free scene nodes entirely through BSG.
-
-Phase 6 execution update - 2026-05-20
-------------------------------------
-Status:
-- IN PROGRESS.  A first-class BSG node allocation/release boundary now exists
-  for the core typed-node helpers and their immediate libbsg callers, but
-  legacy recycle/reset ownership still lives in libbv compatibility code.
-
-Completed in this session:
-- Added generic BSG lifecycle entry points in `include/bsg/node.h` /
-  `src/libbsg/node.c`:
+Completed groundwork:
+- `struct bsg_settings` was moved out of `include/bv/defines.h` into
+  `include/bsg/settings_types.h`.
+- BSG settings sidecars (`settings_local`, `settings_effective`) now live on
+  `struct bsg_node` and are the authoritative compatibility storage for settings
+  flows.
+- Appearance, material, draw policy, payload, view, backend, callback,
+  parent/child, bounds, transform, visibility, force-draw, and legacy highlight
+  accessors exist for most formerly raw `bv_scene_obj` fields.
+- BSG lifecycle entry points exist:
   - `bsg_node_create()`
   - `bsg_node_create_child()`
   - `bsg_node_clear_children()`
   - `bsg_node_destroy()`
-- Switched the typed libbsg node helpers to allocate and release through that
-  boundary instead of directly calling `bv_obj_create()` / `bv_obj_put()`:
-  - `src/libbsg/node_group.c`
-  - `src/libbsg/node_shape.c`
-  - `src/libbsg/node_transform.c`
-  - `src/libbsg/view_scope.c`
-  - `src/libbsg/lod_node.c`
-  - `src/libbsg/sensor.c`
-- Migrated the core libbsg lifecycle/plumbing callers that were still reaching
-  straight into libbv allocation APIs:
-  - `src/libbsg/scene_graph.cpp` now creates standalone draw roots through
-    `bsg_node_create_child()`.
-  - `src/libbsg/draw_set.c` and `src/libbsg/overlay.c` now allocate internal
-    group/overlay children through the same BSG child-node factory.
-- Updated the Phase 6/view-scope/scene-graph tests to exercise the new
-  lifecycle helpers and the borrowed-child detach semantics rather than direct
-  `bv_obj_*` calls.
+- Major libbsg draw-tree allocation and teardown paths already route through the
+  BSG lifecycle boundary.
+- `struct bv_scene_obj` still embeds `struct bsg_node` as its first member, and
+  `bsg/defines.h` still includes `bv/defines.h`; this is the central structural
+  blocker.
 
-Resulting boundary:
-- New libbsg code can allocate ordinary view-owned nodes and draw-tree child
-  nodes through BSG lifecycle helpers without naming libbv allocation APIs.
-- Borrowed-child containers now have a dedicated BSG detach/reset helper
-  (`bsg_node_clear_children()`), so destroying groups/transforms/view scopes
-  no longer leaves child parent links pointing at freed containers.
-- Direct `bv_obj_create()` / `bv_obj_put()` traffic inside libbsg is now
-  confined to compatibility-focused tests plus the low-level recycle/free-list
-  implementation that still lives outside the new BSG lifecycle wrapper.
+Current Structural Blockers
+---------------------------
+1. `struct bsg_node` is still physically defined in `include/bv/defines.h`.
+2. `struct bv_scene_obj` still embeds `struct bsg_node` and many legacy fields.
+3. `include/bsg/defines.h` includes `include/bv/defines.h`, so libbsg cannot be
+   fully independent of libbv.
+4. Many public APIs still name `struct bv_scene_obj *`, even when their internals
+   already use BSG accessors.
+5. Some subsystems still use direct `bv_scene_obj` field access for data that has
+   not yet been physically moved to BSG-owned sidecars.
 
-Moved to subsequent phases:
-- Making `bv_obj_reset()` / `bv_obj_put()` true wrappers over BSG-owned
-  lifecycle internals still requires disentangling the remaining free-list and
-  recycle logic in `src/libbv/util.cpp`, `src/libbsg/draw_set.c`, and
-  `src/libbsg/overlay.c`; that stays as later Phase 6 / Phase 7 ownership
-  work.
-- Scene-root destruction remains a compatibility boundary because
-  `gv_draw_root` ownership is still coordinated with legacy GED/libbv draw-tree
-  setup rather than a fully BSG-native root allocator.
+Refreshed Remaining Direct Field Inventory
+------------------------------------------
+Snapshot: 2026-05-21, non-test `.c`, `.cpp`, `.h`, and `.hpp` files under
+`brlcad/include` and `brlcad/src`, counting direct `->field` or `.field` uses
+after stripping comments.
 
-Validation:
-- Qt-enabled configure succeeded with `bext_output/install`.
-- Built: `libbsg`, `test_bsg_node`, `test_bsg_scene_graph`, `test_bsg_phase6`,
-  `test_bsg_selection`, `test_bsg_lod_node`, `test_bsg_view_scope`,
-  `test_bsg_node_core`.
-- `ctest --output-on-failure -R '^(libbsg_node|libbsg_scene_graph|libbsg_phase6|libbsg_selection|libbsg_lod_node|libbsg_view_scope|libbsg_node_core)$'`
-  passed.
+| Field or storage | Direct uses | Files | Current meaning | Destination |
+| --- | ---: | ---: | --- | --- |
+| `s_os` | 8 | 2 | mirrored effective settings | delete after BSG settings snapshots are internal-only |
+| `s_local_os` | 11 | 2 | mirrored local settings | delete after BSG settings snapshots are internal-only |
+| `s_path` | 5 | 3 | source path/update context | BSG identity/source metadata |
+| `dp` | 181 | 23 | typed source/app object pointer | BSG source metadata or caller-owned typed context |
+| `s_mat` | 4 | 3 | object transform | `bsg_node_transform_*` plus BSG-owned storage |
+| `s_i_data` | 17 | 7 | custom payload/update data | typed BSG payloads or node user data |
+| `s_vlist` | 55 | 13 | drawable vlist storage | BSG payload/vlist ownership |
+| `s_vlen` | 5 | 3 | vlist command count | BSG payload/vlist metadata |
+| `s_color` | 87 | 17 | material color mirror | `bsg_material` only |
+| `s_color_rev` | 3 | 2 | material revision mirror | BSG material/revision state |
+| `s_flag` | 0 | 0 | legacy visibility | already replaced by BSG APIs |
+| `s_iflag` | 0 | 0 | legacy highlight flag | raw legacy field names gone; remaining access is through BSG compatibility APIs |
+| `s_force_draw` | 0 | 0 | legacy force-draw flag | already replaced by BSG APIs |
+| `s_v` | 34 | 8 | view/edit context | BSG view/edit-context API |
+| `s_backend` | 10 | 2 | renderer backend cache | BSG renderer attachment state |
+| `s_update_callback` | 3 | 1 | update callback storage | BSG payload/update hook storage |
+| `s_free_callback` | 3 | 1 | payload free callback storage | BSG payload lifecycle storage |
+| `s_size` | 365 | 45 | mixed scene-object size and unrelated struct fields | BSG bounds/size where tied to scene nodes; audit false positives separately |
+| `s_center` | 77 | 11 | scene-object center and unrelated struct fields | BSG bounds/size where tied to scene nodes; audit false positives separately |
+| `s_soldash` | 22 | 8 | line style mirror | `bsg_appearance` only |
+| `s_arrow` | 6 | 2 | arrow appearance mirror | `bsg_appearance` or overlay payload data |
+| `bmin` / `bmax` | 49 / 49 | 9 / 9 | bbox storage | BSG bounds payload/core state |
+| `have_bbox` | 12 | 5 | bbox validity | BSG bounds payload/core state |
+| `s_bbox_cached` | 5 | 1 | aggregate bbox cache | BSG group/root bounds cache |
+| `s_drawn_rev` | 2 | 1 | frame draw stamp | BSG render state |
+| `s_displayobj` | 3 | 3 | display-space payload flag | BSG payload/display flag |
+| `s_old` | 61 | 10 | old draw compatibility settings | BSG appearance/material/selection state or delete |
 
-Phase 6 completion update - 2026-05-20
---------------------------------------
-Status:
-- DONE for the active libbsg/libged lifecycle boundary work tracked in this
-  phase.  Allocation and teardown in the core BSG draw-tree helpers now route
-  through the BSG lifecycle API rather than manual free-list recycling code.
+Implementation Plan
+-------------------
 
-Completed in this session:
-- Finished the previously deferred lifecycle recycle paths in libbsg:
-  - `src/libbsg/draw_set.c` no longer uses its local `FREE_BV_SCENE_OBJ`
-    recycle macro in draw-tree erase/free paths; it now unlinks nodes with
-    BSG APIs and releases them through `bsg_node_destroy()`.
-  - `src/libbsg/overlay.c` now follows the same unlink/destroy boundary for
-    overlay erase and overlay-group removal paths.
-- Updated the GED draw-root creation path to use the BSG child-node allocator:
-  - `src/libged/bsg_ged_draw.c` now allocates the draw root with
-    `bsg_node_create_child(..., BSG_NODE_ROOT | BSG_NODE_GROUP)` and sets
-    visibility through `bsg_node_set_visible()`.
+Phase A - Move the Core BSG Type Out of libbv
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Objective: make BSG headers able to define and consume `bsg_node` without
+including `bv/defines.h`.
 
-Resulting boundary:
-- libbsg draw-tree mutation helpers no longer carry bespoke free-list recycling
-  implementations as first-class behavior; teardown is now consistently routed
-  through `bsg_node_destroy()` compatibility boundaries.
-- The per-GED draw-root creation path now uses the same BSG allocation
-  boundary as standalone scene-root creation.
-
-Moved to Phase 7+:
-- Full transfer of low-level compatibility ownership out of
-  `src/libbv/util.cpp` (`bv_obj_reset()` / `bv_obj_put()` internals) remains
-  Phase 7+ compatibility-wrapper work.
-- Scene-root ownership orchestration across shared/multi-view and GED-managed
-  draw roots remains a compatibility concern for later ownership-cutover work.
-
-Validation:
-- Qt-enabled configure succeeded with `bext_output/install`.
-- Built: `libbsg`, `libged`, `test_bsg_scene_graph`, `test_bsg_phase6`,
-  `test_bsg_selection`, `ged_test_bsg_view_obj`.
-- `ctest --output-on-failure -R '^(libbsg_scene_graph|libbsg_phase6|libbsg_selection|ged_test_bsg_view_obj)$'`
-  passed.
-
-
-Phase 7 - Narrow bv_scene_obj to a Compatibility Wrapper
--------------------------------------------------------
-Objective:
-Shrink bv_scene_obj until it contains no unique public semantics.
-
-Tasks:
-- Remove or deprecate direct public dependence on struct layout.
-- Move remaining compatibility-only fields behind opaque pointers where
-  practical.
-- Limit direct uses of bv_scene_obj to:
-  - compatibility bridges
-  - legacy adapters
-  - isolated rendering shims not yet ported
-
-Recommended milestone:
-- Compile most of libdm/libged/qged against BSG APIs without requiring direct
-  access to bv_scene_obj internals.
+Work:
+- Create a BSG-owned core type header for `struct bsg_node` and node constants.
+- Move the current `struct bsg_node` definition and BSG node constants from
+  `include/bv/defines.h` / `include/bsg/defines.h` into BSG-owned headers.
+- Update `include/bsg/defines.h` to stop including `bv/defines.h`.
+- Change `include/bv/defines.h` to include the BSG core type only for the
+  temporary `bv_scene_obj` embedding.
+- Keep `struct bv_scene_obj { struct bsg_node bsg; ... }` temporarily so the
+  first-member compatibility cast still works during following phases.
 
 Exit criteria:
-- bv_scene_obj is a transitional wrapper, not the semantic model.
+- libbsg public headers no longer depend on `bv/defines.h`.
+- libbsg builds when only BSG headers are included by BSG users.
 
-Phase 7 execution update - 2026-05-21
--------------------------------------
-Status:
-- CONTINUED.  Raw-field migration extended to libbv hashing, snapping, and
-  LoD visibility/culling helpers.
+Phase B - Stop Exporting `bv_scene_obj` from BSG APIs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Objective: make BSG APIs type-clean before changing storage layout.
 
-Completed in this session:
-- `src/libbv/hash.c`:
-  - Replaced direct `bsg.bsg_children` table walks with
-    `bsg_node_child_count()` / `bsg_node_child()`.
-- `src/libbv/polygon_op.cpp`:
-  - Replaced direct `bsg.bsg_kind` polygon checks with `bsg_node_has_kind()`.
-- `src/libbv/snap.c`:
-  - Replaced snap-mode `BV_DB_OBJS` / `BV_VIEW_OBJS` checks with
-    `bsg_node_has_kind()`.
-- `src/libbv/lod.cpp`:
-  - Replaced selected LoD child walks with `bsg_node_child_count()` /
-    `bsg_node_child()`.
-  - Replaced direct `s_center`/`s_size` and `bmin`/`bmax` visibility reads in
-    selected LoD bounding helpers with `bsg_node_bounds_get()`.
-
-Validation update:
-- Built: `libbv`, `libbsg`, `libged`, `test_bsg_node`,
-  `test_bsg_scene_graph`, `test_bsg_phase6`, `test_bsg_selection`,
-  `test_bsg_node_core`, `ged_test_bsg_view_obj`, `libqtcad`, `dm-qtgl`,
-  `dm-swrast`, `qged`, `ged_test_qged_swrast`.
-- `ctest -R "ged_test_bsg_view_obj|libbsg_node|libbsg_scene_graph|libbsg_phase6|libbsg_selection|libbsg_node_core"`
-  passed.
-- `ctest -R "ged_test_qged_swrast"` passed.
-
-
-Status:
-- CONTINUED.  Raw-field migration extended to drawing path internals in
-  libged/draw.cpp and libged/bsg_ged_draw.c.
-
-Completed in this session:
-- `src/libged/draw.cpp`:
-  - `bsg.bsg_name` writes replaced with `bsg_node_set_name()` (temp VLS).
-  - `s_v` reads in wireframe_plot/draw_scene replaced with `bsg_node_view_get()`.
-  - `s_size` read replaced with `bsg_node_size_get()`; write replaced with
-    `bsg_node_size_set()`.
-  - `bsg.bsg_kind` write replaced with `bsg_node_set_kind()`.
-  - `s_soldash` write replaced with `bsg_node_set_line_style()` using
-    `BSG_APPEARANCE_LINE_SOLID` / `BSG_APPEARANCE_LINE_DASHED`.
-  - `s_color` write now goes through `bsg_material` struct with `bsg_node_material_set()`
-    while keeping a legacy s_color sync comment for consumers that still read it.
-  - `bsg.bsg_children` BU_PTBL iteration replaced with `bsg_node_child_count()` /
-    `bsg_node_child()` in draw_scene children loop.
-  - Log messages updated to use `bsg_node_name()` instead of `bu_vls_cstr(&s->bsg.bsg_name)`.
-  - `s_v` reads in csg_wireframe_update replaced with `bsg_node_view_get()`.
-- `src/libged/bsg_ged_draw.c`:
-  - `s_soldash = 0` replaced with `bsg_node_set_line_style(...BSG_APPEARANCE_LINE_SOLID)`.
-  - `s_old.s_Eflag = 1` replaced with `bsg_node_set_legacy_eflag(..., 1)`.
-- `src/libged/bot/dump/bot_dump.cpp`:
-  - Fixed variable shadowing: `struct bsg_material mat` renamed to `bsg_mat`
-    to avoid shadowing outer `mat_t mat`.
-
-Validation update:
-- Built: `libbsg`, `libdm`, `libged`, `libqtcad`, `dm-qtgl`, `dm-swrast`, `qged`.
-- All 7 tests passed:
-  `ctest -R "ged_test_qged_swrast|libbsg_node|libbsg_scene_graph|libbsg_phase6|libbsg_selection|ged_test_bsg_view_obj|libbsg_node_core"`
-
-
-Status:
-- IN PROGRESS.  The compatibility-wrapper narrowing has started by moving
-  additional lifecycle and root-allocation paths onto BSG APIs, while broader
-  struct-layout encapsulation remains pending.
-
-Completed in this session:
-- Reduced direct `bv_scene_obj` lifecycle/layout dependence in active
-  draw-path code:
-  - `src/libbsg/draw_set.c` and `src/libbsg/overlay.c` now unlink through BSG
-    parent/child APIs and destroy through `bsg_node_destroy()` rather than
-    manually appending to free lists.
-  - `src/libged/bsg_ged_draw.c` now creates draw roots via
-    `bsg_node_create_child()` and tags them as `BSG_NODE_ROOT`.
-- Updated compatibility-facing API documentation in
-  `include/bsg/draw_set.h` to reflect that recursive free helpers now route
-  teardown through the BSG lifecycle boundary.
-- Additional bsg-first narrowing in libged:
-  - `src/libged/ged_private.h`: `gd_draw_root` storage is now `bsg_node *`
-    instead of `struct bv_scene_obj *`.
-  - `src/libged/bsg_ged_draw.c`: removed remaining direct `FREE_BV_SCENE_OBJ`
-    recycling in group-erase/zap paths, routing detached group teardown through
-    `bsg_node_destroy()`.
-  - `src/libged/bsg_ged_draw.c`: switched multiple draw-root traversal paths
-    (`is_nonempty`, first-solid/snapshot helpers, foreach-group, append-last,
-    has-groups) to use `bsg_node *` directly.
-  - Compatibility API edges (`ged_dl`, `bsg_view_obj_root`) now cast at the
-    boundary while keeping existing signatures.
-- Additional bsg-first narrowing in libdm:
-  - `src/libdm/view.c`: label drawing now resolves the owning view through
-    `bsg_node_view_get()` and no longer reads `bv_scene_obj::s_v` directly.
-  - `src/libdm/dm-gl_lod.cpp`: GL backend teardown and LoD draw-matrix paths
-    now pull view pointers via `bsg_node_view_get()` instead of raw `s_v`
-    storage.
-
-Validation update:
-- Built: `libdm`, `ged_test_bsg_view_obj`.
-- `ctest --output-on-failure -R '^(libbsg_scene_graph|libbsg_phase6|libbsg_selection|ged_test_bsg_view_obj)$'`
-  passed.
-
-Remaining Phase 7 work:
-- Continue reducing direct struct-layout dependency in libdm/libged/qged call
-  paths that still read/write `bv_scene_obj` storage directly.
-- Isolate or encapsulate remaining compatibility fields that are still
-  semantically live outside dedicated compatibility bridges.
-
-
-Phase 8 - Final Cutover: Remove bv_scene_obj as the Backing Store
------------------------------------------------------------------
-Objective:
-Make bsg_node and related BSG-owned data structures the only real scene-graph
-storage model.
-
-Tasks:
-- Remove the first-member embedding dependency:
-  current model: bv_scene_obj contains struct bsg_node as first member
-  target model: BSG nodes exist independently
-- Replace casts between bsg_node * and bv_scene_obj * with explicit conversion
-  helpers only in temporary compatibility code.
-- Update renderer and editor code to consume bsg_node/payload/material/
-  appearance abstractions directly.
-- Retire remaining compatibility-only allocation/reset paths.
-
-Compatibility plan:
-- If needed, keep a short-lived adapter that can wrap a bsg_node in a legacy
-  bv_scene_obj facade for old API entry points.
+Work:
+- Convert public libbsg signatures from `struct bv_scene_obj *` to `bsg_node *`.
+- Move unavoidable legacy conversion helpers into an explicitly named temporary
+  compatibility header/source pair.
+- Update libged/libdm/libqtcad/libtclcad callers that are already semantically
+  using BSG nodes to hold `bsg_node *` locally.
+- Keep casts only at old libbv/libged/mged API boundaries that still expose
+  `struct bv_scene_obj *`.
 
 Exit criteria:
-- Non-compat production code no longer depends on struct bv_scene_obj.
+- Non-compat libbsg headers do not mention `struct bv_scene_obj`.
+- New code can include BSG headers and use BSG nodes without pulling in libbv
+  scene-object definitions.
 
+Phase C - Move Remaining Storage Semantics to BSG Sidecars
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Objective: leave `bv_scene_obj` with no unique semantic ownership.
 
-Phase 9 - Retire Transitional APIs and Data Structures
------------------------------------------------------
-Objective:
-Remove migration scaffolding once callers are cut over.
-
-Candidates for retirement:
-- bsg_settings as a public structural type if appearance/material/policy fully
-  replace it
-- legacy conversion helpers
-- raw field compatibility macros
-- bv_scene_obj-specific wrappers that only forward into BSG
-- redundant sync/hash/reset helpers that exist solely for old storage
+Work by storage cluster:
+1. Settings and appearance mirrors
+   - Delete authoritative use of `s_os`, `s_local_os`, and `s_inherit_settings`.
+   - Make compatibility snapshot APIs synthesize from BSG sidecars only.
+   - Move remaining `s_soldash`, `s_arrow`, and `s_old` draw-style users to
+     `bsg_appearance`, `bsg_material`, selection/highlight, or deletion.
+2. Payload and vlist storage
+   - Move `s_vlist` and `s_vlen` ownership into BSG payload storage.
+   - Convert mged, libtclcad, librt, libanalyze, and residual libged callers to
+     `bsg_node_vlist_*` or typed payload APIs.
+   - Delete direct reuse-list assumptions from callers; keep allocation policy in
+     payload/lifecycle code.
+3. Source/app metadata
+   - Replace direct `dp` and `s_path` usage with a typed BSG source/context API.
+   - Separate database object identity (`struct directory *`, path) from arbitrary
+     caller app data.
+   - Convert bot/brep/nmg/edit paths, QgModel, mged ray/display paths, and draw
+     update code one cluster at a time.
+4. Material and revision mirrors
+   - Move residual `s_color` and `s_color_rev` users to `bsg_material` and BSG
+     node revision APIs.
+   - Remove legacy color mirrors after render/export/report paths no longer read
+     them.
+5. Bounds and display state
+   - Move `s_size`, `s_center`, `bmin`, `bmax`, `have_bbox`, `s_bbox_cached`,
+     `s_drawn_rev`, and `s_displayobj` scene-node uses to BSG bounds/render
+     state.
+   - Audit same-named non-scene fields separately before broad replacement.
+6. View/backend/callback state
+   - Move remaining `s_v`, `s_backend`, `s_update_callback`, and
+     `s_free_callback` storage into BSG view context, renderer attachment, and
+     payload lifecycle state.
 
 Exit criteria:
-- Public scene-graph semantics are expressed through BSG APIs only.
+- Direct field access in ordinary libdm/libged/qged/mged/libqtcad/libtclcad/
+  librt/libanalyze code is gone.
+- Any remaining direct access is isolated to a temporary compatibility source file
+  with deletion notes.
 
+Phase D - Make BSG Allocation Independent of libbv Free Lists
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Objective: make BSG lifecycle own memory, not just wrap `bv_obj_*`.
+
+Work:
+- Implement real BSG allocation/free internals for `bsg_node` and BSG sidecars.
+- Move child tables, payload teardown, backend cleanup, callback cleanup, and
+  bounds/material/appearance release fully under `bsg_node_destroy()`.
+- Change `bv_obj_create()`, `bv_obj_reset()`, and `bv_obj_put()` into temporary
+  wrappers around BSG allocation/lifecycle or delete them where callers have
+  moved to BSG.
+- Remove libbsg calls into libbv allocation/reset utilities.
+
+Exit criteria:
+- BSG nodes can be created and destroyed without allocating a `bv_scene_obj`.
+- libbsg no longer depends on libbv lifecycle implementation.
+
+Phase E - Collapse or Delete libbv Scene-Object APIs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Objective: remove libbv as a scene-graph storage layer.
+
+Work:
+- For each libbv scene-object API, choose one outcome:
+  - move implementation to libbsg and update callers;
+  - keep a non-scene libbv utility if it is genuinely view/math related;
+  - delete it.
+- Replace `bv_scene_obj` object tables and view-object helpers with BSG scene/set
+  and traversal APIs.
+- Move reusable vlist/free-list mechanics into BSG payload code or BU-level
+  utilities if still needed.
+- Remove `include/bv/defines.h` scene-object storage from public use.
+
+Exit criteria:
+- libbv no longer defines the scene-object storage type.
+- libbv no longer owns allocation, reset, traversal, or payload storage for scene
+  nodes.
+
+Phase F - Remove the First-Member Compatibility Cast
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Objective: end the `bsg_node *` / `bv_scene_obj *` equivalence.
+
+Work:
+- Remove `struct bsg_node bsg;` embedding from the retired compatibility storage.
+- Delete conversion macros/helpers that depend on first-member layout.
+- Replace old public signatures that still name `struct bv_scene_obj *` with
+  `bsg_node *` or higher-level BSG/scene-set types.
+- Delete temporary compatibility source/header files.
+
+Exit criteria:
+- The tree builds with no `struct bv_scene_obj` definition.
+- `rg "bv_scene_obj" brlcad/include brlcad/src` finds only historical comments,
+  removed-migration notes, or no matches.
+
+Phase G - Retire Transitional Settings and Compatibility APIs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Objective: remove migration scaffolding after storage cutover.
+
+Work:
+- Delete public `struct bsg_settings` if all callers use appearance/material/draw
+  policy APIs.
+- If import/export compatibility still needs settings snapshots, make the type
+  private to libbsg or a command adapter.
+- Delete redundant sync/reset/hash helpers that existed only to keep old storage
+  mirrors coherent.
+- Remove old highlight/material/appearance compatibility shims once final BSG
+  selection and render-state APIs are in use.
+
+Exit criteria:
+- Public scene-graph state is expressed only through BSG APIs and BSG-owned data
+  structures.
+
+Suggested Near-Term Work Slices
+-------------------------------
+1. Header decoupling slice:
+   - Move `struct bsg_node` and BSG constants out of `bv/defines.h`.
+   - Make `bsg/defines.h` independent from `bv/defines.h`.
+   - Validate `libbsg`, `libbv`, and BSG tests.
+2. Public BSG type cleanup slice:
+   - Convert libbsg headers and implementation-local helpers from
+     `struct bv_scene_obj *` to `bsg_node *`.
+   - Add temporary compatibility conversion helpers in one place.
+   - Validate `libbsg`, `libged`, and `ged_test_bsg_view_obj`.
+3. Payload/vlist ownership slice:
+   - Move vlist storage into BSG payload sidecars.
+   - Convert residual mged/libtclcad/librt/libanalyze direct users.
+   - Validate mged draw tests, BSG draw tests, and qged swrast.
+4. Source metadata slice:
+   - Add typed BSG source/app context APIs that replace direct `dp` and `s_path`.
+   - Convert bot/brep/nmg/edit/QgModel/draw-update users by subsystem.
+   - Validate affected libged command tests and qged model/view tests.
+5. Material/appearance/bounds mirror deletion slice:
+   - Remove residual color, style, bbox, size, display-object, and draw-revision
+     mirrors from ordinary callers.
+   - Validate libdm render paths and export/report commands.
+6. Lifecycle independence slice:
+   - Replace `bv_obj_*` internals with BSG allocation/free.
+   - Delete free-list ownership from libbv scene-object code.
+   - Validate all BSG lifecycle tests plus libged draw-root tests.
+7. Final deletion slice:
+   - Remove `struct bv_scene_obj` and compatibility casts.
+   - Rename or remove obsolete libbv APIs.
+   - Run full Qt-enabled draw-stack validation.
 
 Validation Strategy
 -------------------
-For each phase:
-- Build the smallest affected target set first.
-- Re-run libbsg tests when BSG semantics or storage change.
-- Re-run libdm/libged draw-path tests when renderer-facing behavior changes.
-- Re-run Qt-enabled targets when view/qged/libqtcad selection or display paths
-  are touched.
+Use small target/test clusters after each slice, then broaden before final
+cutover.
 
-Recommended validation groups:
-- Core:
-  libbsg, libbv, libdm, libged
-- UI/render:
-  libqtcad, dm-qtgl, dm-swrast, qged, archer
-- Draw tests:
-  ged_test_bsg_view_obj
-  ged_test_mged_bsg
-  ged_test_mged_shaded_mode_bsg
-  ged_test_tcl_adornment_bsg
-  ged_test_qged_swrast
+Core targets:
+- `libbsg`
+- `libbv`
+- `libdm`
+- `libged`
 
-Special care areas:
-- transparency pass behavior
-- highlighted object color logic
-- hidden-line mode
-- adaptive mesh/BRep rendering
+UI/render targets:
+- `libqtcad`
+- `dm-qtgl`
+- `dm-swrast`
+- `qged`
+- `archer`
+
+Core tests:
+- `libbsg_node`
+- `libbsg_node_core`
+- `libbsg_scene_graph`
+- `libbsg_phase6`
+- `libbsg_selection`
+- `libbsg_lod_node`
+- `libbsg_view_scope`
+- `ged_test_bsg_view_obj`
+
+Draw/UI tests:
+- `ged_test_qged_swrast`
+- `ged_test_mged_bsg`
+- `ged_test_mged_shaded_mode_bsg`
+- `ged_test_tcl_adornment_bsg`
+
+Special behavior to re-check after each relevant slice:
+- transparency and hidden-line behavior
+- highlighted/selected object coloring
+- adaptive wireframe and BRep rendering
 - selection/display-list invalidation
-- backend cache invalidation/cleanup
+- backend cache invalidation and cleanup
 - snap tolerance behavior tied to line width
+- mged/qged edit flows that store per-view context
 
-
-Risk Management
----------------
-High-risk changes:
-- allocation/lifecycle ownership
-- backend cache storage changes
-- payload/vlist migration
-- render-path removal of raw field assumptions
-- removal of first-member casting between bsg_node and bv_scene_obj
-
-Mitigations:
-- keep compatibility shims until all major callers are migrated
-- convert one semantic cluster at a time
-- add regression tests before removing compatibility storage
-- avoid simultaneous rewrites of payload, renderer, and lifecycle ownership
-
-
-Suggested Execution Order
--------------------------
-Recommended practical order:
-
-1. Refresh inventory and decide permanent homes for remaining settings fields.
-2. Remove all remaining raw s_os/s_local_os users in libbv/libdm/libged.
-3. Move bsg_settings definition out of bv/defines.h using an intermediate
-   compatibility header strategy if needed.
-4. Replace embedded settings storage with BSG-owned or compat-sidecar storage.
-5. Continue raw-field migration for identity, transform, payload, visibility,
-   color/material, and backend cache.
-6. Introduce BSG-native allocation/lifecycle ownership.
-7. Shrink bv_scene_obj to compatibility-only status.
-8. Remove first-member embedding/casting assumptions.
-9. Delete transitional APIs and compatibility storage.
-
-
-Recommended Immediate Next Steps
---------------------------------
-1. Start the Phase 4 storage/request-shape work:
-   - src/libdm/view.c
-   - src/libged/dbi_state.cpp
-   - src/libged/draw.cpp (parent/child settings propagation only)
-   - src/libged/view/gobjs.cpp
-
-2. Promote `mixed_modes` into the Phase 4 draw-policy/request split so inherited
-   draw state no longer depends on the legacy compatibility bundle.
-
-3. Choose the storage transition mechanism:
-   - shared transitional header
-   - compat-sidecar storage
-   - direct move to BSG-owned sidecars
-
-4. In Phase 4, remove transparency mirroring through `bsg_appearance` and leave
-   `bsg_material` as the sole semantic owner before retiring embedded settings
-   storage.
-
-5. After those are complete, move struct bsg_settings out of bv/defines.h.
-
-
-Decision Point
+Decision Rules
 --------------
-The project is willing to remove bv_scene_obj completely - it is the better
-long-term direction. Accordingly: 
-
-- do not optimize for preserving bv_scene_obj as a permanent storage type
-- use compatibility shims only to ease the transition
-- favor BSG-native ownership, allocation, and payload APIs even if they require
-  more short-term changes
+- Prefer BSG-native ownership over compatibility preservation.
+- Do not add new APIs that expose `bv_scene_obj` layout.
+- Convert one storage cluster at a time, but delete compatibility storage as soon
+  as its last caller moves.
+- If a libbv scene-object helper is only forwarding to BSG, move callers to BSG
+  and delete the helper.
+- If a libbv feature is really a renderer/view utility rather than scene storage,
+  keep or relocate it without retaining `bv_scene_obj` coupling.
