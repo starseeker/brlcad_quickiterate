@@ -300,6 +300,7 @@ set(
   LIBGED_SOURCES
   ${GED_CMD_SRC}
   ${GED_STATIC_REGISTRATION_CPP}
+  cmd_schemas.cpp
   edit_buf.cpp
   exec.cpp
   ged_init.cpp

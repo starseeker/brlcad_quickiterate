@@ -30,6 +30,15 @@ if(TARGET ged_test_plugins)
   add_dependencies(ged_test_plugins ged_plugins)
 endif(TARGET ged_test_plugins)
 
+brlcad_addexec(ged_test_cmd_schemas test_cmd_schemas.cpp libged TEST)
+if(TARGET ged_test_cmd_schemas)
+  add_dependencies(ged_test_cmd_schemas ged_plugins)
+endif(TARGET ged_test_cmd_schemas)
+brlcad_add_test(NAME ged_test_cmd_schemas COMMAND ged_test_cmd_schemas "${CMAKE_CURRENT_SOURCE_DIR}/ged_tests.g")
+if(TARGET ged_test_cmd_schemas)
+  set_property(TEST ged_test_cmd_schemas APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif(TARGET ged_test_cmd_schemas)
+
 brlcad_addexec(ged_test_material test_material.c libged TEST)
 if(TARGET ged_test_material)
   add_dependencies(ged_test_material ged_plugins)
@@ -112,6 +121,7 @@ cmakefiles(
   search_tests.g
   obb_tests.g
   ged_tests.g
+  test_cmd_schemas.cpp
   pnts_in_out.g
   ged_test_rm.c
 )
