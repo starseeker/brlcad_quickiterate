@@ -28,7 +28,11 @@
 #include <QButtonGroup>
 #include <QGroupBox>
 #include <QtGlobal>
-#include "../../QgEdApp.h"
+#include "qtcad/QgPluginContext.h"
+#include "ged.h"
+#include "rt/directory.h"
+#include "rt/db_io.h"
+#include "rt/primitives/sketch.h"
 #include "QPolyCreate.h"
 #include "qtcad/QgSignalFlags.h"
 
@@ -209,13 +213,22 @@ QPolyCreate::~QPolyCreate()
 {
 }
 
+struct ged *
+QPolyCreate::getGed() const
+{
+    return m_ctx ? m_ctx->getGed() : nullptr;
+}
+
+struct bview *
+QPolyCreate::getView() const
+{
+    return m_ctx ? m_ctx->getView() : nullptr;
+}
+
 void
 QPolyCreate::finalize(bool)
 {
-    QgModel *m = ((QgEdApp *)qApp)->mdl;
-    if (!m)
-	return;
-    struct ged *gedp = m->ged();
+    struct ged *gedp = getGed();
     if (!gedp)
 	return;
 
@@ -268,16 +281,17 @@ QPolyCreate::finalize(bool)
 void
 QPolyCreate::do_vpoly_copy()
 {
-    QgModel *m = ((QgEdApp *)qApp)->mdl;
-    if (!m)
-	return;
-    struct ged *gedp = m->ged();
+    struct ged *gedp = getGed();
     if (!gedp)
+	return;
+
+    struct bview *v = getView();
+    if (!v)
 	return;
 
     // Check if we have a name collision - if we do, it's no go
     struct bu_vls vname = BU_VLS_INIT_ZERO;
-    if (!ps->uniq_obj_name(&vname, gedp->ged_gvp)) {
+    if (!ps->uniq_obj_name(&vname, v)) {
 	bu_vls_free(&vname);
 	return;
     }
@@ -288,7 +302,7 @@ QPolyCreate::do_vpoly_copy()
 	return;
     }
     char *sname = bu_strdup(vpoly_name->text().toLocal8Bit().data());
-    struct bv_scene_obj *src_obj = bv_find_obj(gedp->ged_gvp, sname);
+    struct bv_scene_obj *src_obj = bv_find_obj(v, sname);
     bu_free(sname, "name cpy");
     if (!src_obj) {
 	bu_vls_free(&vname);
@@ -300,7 +314,7 @@ QPolyCreate::do_vpoly_copy()
     bu_vls_free(&vname);
     if (!p)
 	return;
-    p->s_v = gedp->ged_gvp;
+    p->s_v = v;
 
     // Done processing view object - increment name
     poly_cnt++;
@@ -318,16 +332,17 @@ QPolyCreate::do_vpoly_copy()
 void
 QPolyCreate::do_import_sketch()
 {
-    QgModel *m = ((QgEdApp *)qApp)->mdl;
-    if (!m)
-	return;
-    struct ged *gedp = m->ged();
+    struct ged *gedp = getGed();
     if (!gedp)
+	return;
+
+    struct bview *v = getView();
+    if (!v)
 	return;
 
     // Check if we have a name collision - if we do, it's no go
     struct bu_vls vname = BU_VLS_INIT_ZERO;
-    if (!ps->uniq_obj_name(&vname, gedp->ged_gvp)) {
+    if (!ps->uniq_obj_name(&vname, v)) {
 	bu_vls_free(&vname);
 	return;
     }
@@ -346,11 +361,11 @@ QPolyCreate::do_import_sketch()
     }
 
     // Names are valid, dp is ready - try the sketch import
-    p = db_sketch_to_scene_obj(bu_vls_cstr(&vname), gedp->dbip, dp, gedp->ged_gvp, BV_VIEW_OBJS);
+    p = db_sketch_to_scene_obj(bu_vls_cstr(&vname), gedp->dbip, dp, v, BV_VIEW_OBJS);
     bu_vls_free(&vname);
     if (!p)
 	return;
-    p->s_v = gedp->ged_gvp;
+    p->s_v = v;
 
     // Done processing view object - increment name
     poly_cnt++;
@@ -380,10 +395,7 @@ QPolyCreate::sketch_sync_str(const QString &)
 void
 QPolyCreate::sketch_sync()
 {
-    QgModel *m = ((QgEdApp *)qApp)->mdl;
-    if (!m)
-	return;
-    struct ged *gedp = m->ged();
+    struct ged *gedp = getGed();
     if (!gedp) {
 	ps->sketch_name->setPlaceholderText("No .g file open");
 	ps->sketch_name->setStyleSheet("color: rgb(200,200,200)");
@@ -504,14 +516,15 @@ QPolyCreate::view_sync_str(const QString &)
 void
 QPolyCreate::view_sync()
 {
-    QgModel *m = ((QgEdApp *)qApp)->mdl;
-    if (!m)
-	return;
-    struct ged *gedp = m->ged();
+    struct ged *gedp = getGed();
     if (!gedp)
 	return;
 
-    if (!ps->uniq_obj_name(NULL, gedp->ged_gvp)) {
+    struct bview *v = getView();
+    if (!v)
+	return;
+
+    if (!ps->uniq_obj_name(NULL, v)) {
 	ps->view_name->setStyleSheet("color: rgb(255,0,0)");
     } else {
 	ps->view_name->setStyleSheet("");
@@ -522,11 +535,9 @@ void
 QPolyCreate::toplevel_config(bool)
 {
     // Initialize
-    QgModel *m = ((QgEdApp *)qApp)->mdl;
-    if (!m)
-	return;
-    struct ged *gedp = m->ged();
-    if (!gedp)
+    struct ged *gedp = getGed();
+    struct bview *v = getView();
+    if (!gedp || !v)
 	return;
 
     if (p) {
@@ -541,7 +552,7 @@ QPolyCreate::toplevel_config(bool)
 	/* Phase A2: use bv_view_obj_visit instead of bv_view_objs ptbl. */
 	struct _qpolycreate_clear_pts cps;
 	cps.draw_change = &draw_change;
-	bv_view_obj_visit(gedp->ged_gvp, BV_VIEW_OBJ_SCOPE_ALL, _qpolycreate_clear_pts_cb, &cps);
+	bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _qpolycreate_clear_pts_cb, &cps);
     }
 
     if (draw_change && gedp)
@@ -557,13 +568,11 @@ QPolyCreate::propagate_update(int)
 bool
 QPolyCreate::eventFilter(QObject *, QEvent *e)
 {
-    QgModel *m = ((QgEdApp *)qApp)->mdl;
-    if (!m)
-	return false;
-    struct ged *gedp = m->ged();
+    struct ged *gedp = getGed();
     if (!gedp)
 	return false;
-    if (!gedp->ged_gvp)
+    struct bview *v = getView();
+    if (!v)
 	return false;
 
     cf = pcf;
@@ -571,7 +580,7 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
     // If we're mid-creation (i.e. p != NULL) we need to keep processing the
     // polygon from the last event - otherwise, start fresh with p == NULL
     cf->wp = p;
-    cf->v = (p) ? p->s_v : gedp->ged_gvp;
+    cf->v = (p) ? p->s_v : v;
     checkbox_refresh(0);
 
     // Connect whatever the current filter is to pass on updating signals from
@@ -624,7 +633,7 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
 
 	// Check if we have a name collision - if we do, it's no go
 	struct bu_vls dname = BU_VLS_INIT_ZERO;
-	if (!ps->uniq_obj_name(&dname, gedp->ged_gvp)) {
+	if (!ps->uniq_obj_name(&dname, v)) {
 	    bu_vls_free(&dname);
 	    return false;
 	}
@@ -641,7 +650,7 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
 	struct _qpolycreate_poly_collect pc;
 	pc.polys = &polyvec;
 	pc.exclude = p;
-	bv_view_obj_visit(gedp->ged_gvp, BV_VIEW_OBJ_SCOPE_ALL, _qpolycreate_poly_collect_cb, &pc);
+	bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _qpolycreate_poly_collect_cb, &pc);
 	for (auto *s : polyvec)
 	    bu_ptbl_ins(&pcf->bool_objs, (long *)s);
     }

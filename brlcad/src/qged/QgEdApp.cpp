@@ -30,13 +30,18 @@
 #include <QPlainTextEdit>
 #include <QTextStream>
 #include <QThread>
+#include "brlcad_version.h"
 #include "bu/malloc.h"
 #include "bu/file.h"
 #include "dm.h"
 #include "qtcad/QgGeomImport.h"
+#include "qtcad/QgPluginCommands.h"
+#include "qtcad/QgPluginInterfaces.h"
+#include "qtcad/QgPluginManager.h"
 #include "qtcad/QgTreeSelectionModel.h"
 #include "QgEdApp.h"
 #include "fbserv.h"
+#include "QgEdCategories.h"
 #include "QgEdFilter.h"
 
 #include "../libged/dbi.h"
@@ -51,10 +56,13 @@ int
 qged_post_opendb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp), void *ctx)
 {
     QgEdApp *a = (QgEdApp *)ctx;
-    emit a->dbi_update(a->mdl->ged()->dbip);
+    if (!a)
+	return BRLCAD_OK;
+    if (a->mdl && a->mdl->ged())
+	emit a->dbi_update(a->mdl->ged()->dbip);
     if (!a->w)
 	return BRLCAD_OK;
-    if (!a->mdl->ged()->dbip) {
+    if (!a->mdl || !a->mdl->ged() || !a->mdl->ged()->dbip) {
 	a->w->statusBar()->showMessage("open failed");
 	return BRLCAD_OK;
     }
@@ -70,8 +78,11 @@ qged_pre_closedb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp
 }
 
 int
-qged_post_closedb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp), void *UNUSED(ctx))
+qged_post_closedb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp), void *ctx)
 {
+    QgEdApp *a = (QgEdApp *)ctx;
+    if (a)
+	emit a->dbi_update(DBI_NULL);
     return BRLCAD_OK;
 }
 
@@ -163,6 +174,22 @@ qt_delete_io_handler(struct ged_subprocess *p, bu_process_io_t t)
     }
 }
 
+struct qged_qcmd_cleanup {
+    const char *cmd = NULL;
+    char *input = NULL;
+    char **av = NULL;
+
+    ~qged_qcmd_cleanup()
+    {
+	if (cmd)
+	    bu_free((void *)cmd, "cmd");
+	if (input)
+	    bu_free(input, "input copy");
+	if (av)
+	    bu_free(av, "input argv");
+    }
+};
+
 
 QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QApplication(argc, argv)
 {
@@ -179,6 +206,38 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
     bu_setenv("LIBRT_USE_COMB_INSTANCE_SPECIFIERS", "1", 1);
 
     mdl = new QgModel();
+    m_plugin_notifier = new QgPluginNotifier(this);
+    QObject::connect(this, &QgEdApp::dbi_update, m_plugin_notifier, &QgPluginNotifier::dbChanged);
+    QObject::connect(this, &QgEdApp::view_update, m_plugin_notifier, &QgPluginNotifier::viewUpdated);
+    /* QgEdApp owns mdl for the lifetime of the application; the accessor
+     * re-reads the member so future replacements are observed as well. */
+    m_plugin_context.gedAccessor = [this]() -> struct ged * {
+	return mdl ? mdl->ged() : GED_NULL;
+    };
+    m_plugin_context.viewAccessor = [this]() -> struct bview * {
+	/* Prefer the main window's current display when it exists; before window
+	 * construction falls back to the model's current ged view pointer. */
+	if (w)
+	    return w->CurrentView();
+	return (mdl && mdl->ged()) ? mdl->ged()->ged_gvp : NULL;
+    };
+    m_plugin_context.model = mdl;
+    m_plugin_context.notifier = m_plugin_notifier;
+    m_plugin_context.hostName = QStringLiteral("qged");
+    m_plugin_context.log = [this](const QString &msg) {
+	if (w && w->console) {
+	    w->console->printStringBeforePrompt(msg);
+	    return;
+	}
+	bu_log("%s", msg.toLocal8Bit().constData());
+    };
+    char plugin_dir[MAXPATHLEN] = {0};
+    bu_dir(plugin_dir, MAXPATHLEN, BU_DIR_LIBEXEC, "qged", NULL);
+    QString plugin_dir_path = QString::fromLocal8Bit(plugin_dir);
+    QStringList plugin_search_dirs;
+    if (!plugin_dir_path.isEmpty())
+	plugin_search_dirs.append(plugin_dir_path);
+    m_plugin_manager = new QgPluginManager(plugin_search_dirs, QStringLiteral("qged/plugins"), this);
 
     // Install a filter to handle the top level key bindings and other
     // interactive event management requiring global application knowledge.
@@ -352,6 +411,10 @@ QgEdApp::do_quad_view_change(QgView *cv)
 {
     QTCAD_SLOT("QgEdApp::do_quad_view_change", 1);
     mdl->ged()->ged_gvp = cv->view();
+    if (w)
+	w->setActiveView(cv);
+    if (m_plugin_notifier)
+	emit m_plugin_notifier->viewChanged();
     emit view_update(QG_VIEW_REFRESH);
 }
 
@@ -606,6 +669,65 @@ QgEdApp::run_qcmd(const QString &command)
     char **av = (char **)bu_calloc(strlen(input) + 1, sizeof(char *), "argv array");
     int ac = bu_argv_from_string(av, strlen(input), input);
     struct bu_vls msg = BU_VLS_INIT_ZERO;
+    struct qged_qcmd_cleanup cleanup = {cmd, input, av};
+
+    if (ac > 0 && BU_STR_EQUAL(av[0], "plugins")) {
+	QString out;
+	QString err;
+	QStringList plugin_argv;
+	if (ac > 1)
+	    plugin_argv.reserve(ac - 1);
+	for (int i = 1; i < ac; ++i)
+	    plugin_argv.append(QString::fromLocal8Bit(av[i]));
+	QgPluginCommands::run(m_plugin_manager, plugin_argv, &out, &err);
+	if (console) {
+	    if (!out.isEmpty())
+		console->printString(out);
+	    if (!err.isEmpty())
+		console->printString(err);
+	    console->prompt("$ ");
+	}
+	bu_vls_free(&msg);
+	return;
+    }
+
+    if (ac > 0 && m_plugin_manager) {
+	QString verb = QString::fromLocal8Bit(av[0]);
+	QString out;
+	QString err;
+	QStringList plugin_argv;
+	plugin_argv.reserve(ac);
+	for (int i = 0; i < ac; ++i)
+	    plugin_argv.append(QString::fromLocal8Bit(av[i]));
+
+	IQgCommand *plugin_cmd = NULL;
+	QList<IQgCommand *> cmds =
+	    m_plugin_manager->factories<IQgCommand>(QStringLiteral(QGED_CATEGORY_COMMAND));
+	for (IQgCommand *plugin_factory : cmds) {
+	    if (!plugin_factory)
+		continue;
+	    if (plugin_factory->verb() == verb || plugin_factory->aliases().contains(verb)) {
+		plugin_cmd = plugin_factory;
+		break;
+	    }
+	}
+
+	if (plugin_cmd) {
+	    int ret = plugin_cmd->run(&m_plugin_context, plugin_argv, &out, &err);
+	    if (console) {
+		if (!out.isEmpty())
+		    console->printString(out);
+		if (!err.isEmpty())
+		    console->printString(err);
+		console->prompt("$ ");
+	    }
+	    if (mdl && mdl->ged())
+		bu_vls_trunc(mdl->ged()->ged_result_str, 0);
+	    bu_vls_free(&msg);
+	    (void)ret;
+	    return;
+	}
+    }
 
     // Run as a GED command.
     int ret = BRLCAD_OK;
@@ -630,8 +752,6 @@ QgEdApp::run_qcmd(const QString &command)
     if (mdl && mdl->ged()) {
 	bu_vls_trunc(mdl->ged()->ged_result_str, 0);
     }
-
-    bu_free((void *)cmd, "cmd");
     bu_vls_free(&msg);
     bu_free(input, "input copy");
     bu_free(av, "input argv");
@@ -674,6 +794,8 @@ QgEdApp::write_settings()
 
     // TODO - write user settings here.  Window state saving is handled by
     // QgEdMainWindow closeEvent
+    if (m_plugin_notifier)
+	emit m_plugin_notifier->settingsChanged();
 }
 
 // Local Variables:

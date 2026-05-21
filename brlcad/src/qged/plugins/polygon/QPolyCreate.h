@@ -36,6 +36,8 @@
 #include "qtcad/QgView.h"
 #include "QPolySettings.h"
 
+class QgPluginContext;
+
 class QPolyCreate : public QWidget
 {
     Q_OBJECT
@@ -43,6 +45,8 @@ class QPolyCreate : public QWidget
     public:
 	QPolyCreate();
 	~QPolyCreate();
+
+	void setContext(QgPluginContext *ctx) { m_ctx = ctx; }
 
 	// Boolean Operation Mode
 	QComboBox *csg_modes;
@@ -103,6 +107,10 @@ class QPolyCreate : public QWidget
 
 	QgPolyFilter *cf = NULL;
 	QgPolyCreateFilter *pcf;
+	QgPluginContext *m_ctx = nullptr;
+
+	struct ged *getGed() const;
+	struct bview *getView() const;
 };
 
 #endif //QPOLYCREATE_H

@@ -3,6 +3,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 set(QGMODEL_SRCS qgmodel.cpp)
 set(QGVIEW_SRCS qgview.cpp)
 set(QSKETCH_SRCS qsketch.cpp)
+set(TEST_QTCAD_PLUGIN_REUSE_SRCS test_qtcad_plugin_reuse.cpp)
 
 if(TARGET Qt6::Test)
   add_executable(qgmodel qgmodel.cpp)
@@ -103,6 +104,33 @@ if(TARGET Qt6::Widgets)
     APPEND PROPERTY ENVIRONMENT QT_QPA_PLATFORM=offscreen)
   distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_qgswrast_tmp.g)
   distclean(${CMAKE_CURRENT_BINARY_DIR}/qgswrast_cache)
+
+  # Phase 8: standalone libqtcad plugin reuse test.
+  # Deliberately links only libqtcad + Qt6::Widgets (NOT libged/qged) to
+  # prove the plugin framework is host-agnostic.
+  add_executable(test_qtcad_plugin_reuse ${TEST_QTCAD_PLUGIN_REUSE_SRCS})
+  target_link_libraries(
+    test_qtcad_plugin_reuse
+    libqtcad
+    libbu
+    Qt6::Widgets
+    )
+  target_compile_definitions(test_qtcad_plugin_reuse PRIVATE BRLCADBUILD HAVE_CONFIG_H)
+  # The test scans the qged plugin directory at runtime; add dependencies on
+  # the Phase 7 extension plugins so they are built before the test runs.
+  if(TARGET qged_host_status_command)
+    add_dependencies(test_qtcad_plugin_reuse
+      qged_host_status_command
+      qged_host_status_panel
+      qged_host_status_dialog
+    )
+  endif()
+  brlcad_add_test(NAME test_qtcad_plugin_reuse
+    COMMAND test_qtcad_plugin_reuse "${CMAKE_BINARY_DIR}/libexec/qged")
+  set_property(TEST test_qtcad_plugin_reuse
+    APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+  set_property(TEST test_qtcad_plugin_reuse
+    APPEND PROPERTY ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 endif(TARGET Qt6::Widgets)
 
 # Phase B: dm-swrast vs dm-qtgl backend benchmark.
@@ -158,6 +186,7 @@ cmakefiles(
   ${QGMODEL_SRCS}
   ${QGVIEW_SRCS}
   ${QSKETCH_SRCS}
+  ${TEST_QTCAD_PLUGIN_REUSE_SRCS}
   )
 
 # Local Variables:

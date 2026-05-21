@@ -24,11 +24,13 @@
  */
 
 #include "common.h"
+#include <QApplication>
 #include <QMouseEvent>
 #include <QVBoxLayout>
 #include <string>
 #include <set>
-#include "../../../QgEdApp.h"
+#include "qtcad/QgPluginContext.h"
+#include "qtcad/QgSignalFlags.h"
 
 #include "bu/opt.h"
 #include "bu/malloc.h"
@@ -194,6 +196,7 @@ CADViewSelector::disable_useall_opt(bool)
 void
 CADViewSelector::do_view_update(unsigned long long flags)
 {
+    struct ged *gedp = m_ctx ? m_ctx->getGed() : nullptr;
     if (!gedp || !gedp->dbi_state)
 	return;
 
@@ -223,6 +226,9 @@ CADViewSelector::do_view_update(unsigned long long flags)
 void
 CADViewSelector::select_objs()
 {
+    struct ged *gedp = m_ctx ? m_ctx->getGed() : nullptr;
+    if (!gedp)
+	return;
     DbiState *dbis = (DbiState *)gedp->dbi_state;
     BSelectState *ss = dbis->find_selected_state(NULL);
     if (!ss)
@@ -248,6 +254,9 @@ CADViewSelector::select_objs()
 void
 CADViewSelector::deselect_objs()
 {
+    struct ged *gedp = m_ctx ? m_ctx->getGed() : nullptr;
+    if (!gedp)
+	return;
     DbiState *dbis = (DbiState *)gedp->dbi_state;
     BSelectState *ss = dbis->find_selected_state(NULL);
     if (!ss)
@@ -274,6 +283,9 @@ CADViewSelector::deselect_objs()
 void
 CADViewSelector::erase_objs()
 {
+    struct ged *gedp = m_ctx ? m_ctx->getGed() : nullptr;
+    if (!gedp)
+	return;
     // erase_obj_bbox
     const char **av = (const char **)bu_calloc(BU_PTBL_LEN(&cf->selected_set)+2, sizeof(char *), "av");
     av[0] = "erase";
@@ -292,6 +304,7 @@ CADViewSelector::erase_objs()
 void
 CADViewSelector::do_draw_selections()
 {
+    struct ged *gedp = m_ctx ? m_ctx->getGed() : nullptr;
     if (!gedp || !gedp->ged_gvp)
 	return;
 
@@ -322,6 +335,7 @@ CADViewSelector::do_draw_selections()
 void
 CADViewSelector::do_erase_selections()
 {
+    struct ged *gedp = m_ctx ? m_ctx->getGed() : nullptr;
     if (!gedp || !gedp->ged_gvp)
 	return;
 
@@ -355,10 +369,7 @@ CADViewSelector::eventFilter(QObject *o, QEvent *e)
     if (QApplication::keyboardModifiers() != Qt::NoModifier)
 	return false;
 
-    QgModel *m = ((QgEdApp *)qApp)->mdl;
-    if (!m)
-	return false;
-    gedp = m->ged();
+    struct ged *gedp = m_ctx ? m_ctx->getGed() : nullptr;
     if (!gedp || !gedp->ged_gvp)
 	return false;
     struct bview *v = gedp->ged_gvp;

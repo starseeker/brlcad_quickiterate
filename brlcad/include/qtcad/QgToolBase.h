@@ -82,7 +82,7 @@ class QTCAD_EXPORT QgToolBase : public QObject
 	 * Implemented in terms of createWidget()/createIcon().  Does
 	 * the standard signal wiring (element_view_update <->
 	 * refresh, etc.) so subclasses don't have to. */
-	QgToolPaletteElement *paletteElement();
+	virtual QgToolPaletteElement *paletteElement();
 
 	QgPluginContext *context() const { return m_ctx; }
 

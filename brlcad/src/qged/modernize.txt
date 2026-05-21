@@ -74,11 +74,34 @@ Still using the legacy qged path:
   plugins/polygon, plugins/view/info, plugins/view/measure,
   plugins/view/select, plugins/view/settings, and plugins/edit/ell.
 * qged does not yet create a QgPluginContext, own a QgPluginManager, wire
-  QgPluginCommands into the console, or use qged-owned category strings such as
-  "qged.view" and "qged.object".
+  qged-owned category strings such as "qged.view" and "qged.object".
+* QgEdApp now owns a QgPluginNotifier, QgPluginContext, and QgPluginManager.
+  The manager scans qged's libexec plugin directory for Qt plugins while the
+  legacy palette loader remains active for existing qged_plugin_info plugins.
+* qged now routes console `plugins ...` commands through libqtcad's
+  QgPluginCommands and forwards existing db/view/settings notifications through
+  QgPluginNotifier, but no in-tree qged plugins have been converted yet.
 * The current qged_plugin CMake helper still creates plain shared libraries; it
   does not yet manage Qt plugin metadata JSON, plugin IIDs, AUTOMOC needs, or
   category/version metadata.
+* QgEdCategories.h defines qged's two category name constants:
+  QGED_CATEGORY_VIEW ("qged.view") and QGED_CATEGORY_OBJECT ("qged.object").
+* QgEdMainWindow now constructs and owns QgPaletteController instances
+  (vc_ctrl and oc_ctrl) for the "qged.view" and "qged.object" categories.
+  Both controllers are wired to the active QgView (updated on every quad-view
+  change) and populated from QgPluginManager.  Cross-palette deselection is
+  now driven by working palette_element_selected and currentToolChanged
+  connections rather than the previously-dead QgEdPalette::current signals.
+* InteractionMode() is now derived from ActivePaletteCategory(), which returns
+  the category string for the palette under the cursor.  QgModel::interaction_mode
+  integers are preserved as a temporary compatibility field.
+* Phase 6 retires the compatibility bridge: qged now loads tools only through
+  QgPluginManager + QgPaletteController.  QgEdLegacyLoader, the qged_plugin_info
+  ABI header, QGED_PLUGIN_SUFFIX scanning support, and the old QgEdApp
+  element-selected event-filter hook are removed.
+* QgEdPalette is now only a thin qged wrapper around QgToolPalette for
+  interaction-mode bookkeeping and cross-palette visuals; all tool discovery
+  and view-event-filter attachment is handled by libqtcad's typed plugin path.
 
 
 Target architecture
@@ -172,12 +195,51 @@ Implementation plan
 
 5. Port in-tree qged plugins incrementally.
 
+   COMPLETED: view/info, view/settings, view/select, view/measure,
+   polygon/create, polygon/modify, edit/ell.
+
+   * Updated qged_plugin CMake helper targets now add the factory header to
+     qt6_wrap_cpp (moc), register the JSON metadata file in ignore_srcs, and
+     record moc_*Factory.cpp_parameters in distclean.
+   * All four view plugins ported to IQgToolFactory / QgToolBase:
+     - QgToolBase::paletteElement() made virtual so tool subclasses can
+       override it to wire extra signals (settings_changed, view_changed,
+       view_updated) to element_view_changed AFTER the element is created.
+     - view/info: ViewInfoFactory.h + view_info.json; CADViewModel uses
+       QgPluginContext::getView() instead of casting qApp; qged_plugin_info
+       export removed.
+     - view/settings: ViewSettingsFactory.h + view_settings.json; paletteElement()
+       override wires settings_changed → element_view_changed; qApp removed.
+     - view/select: ViewSelectFactory.h + select.json; implements
+       IQgViewEventFilter; attachToView/detachFromView install the CADViewSelector
+       widget as the Qt event filter on the active QgView; CADViewSelector
+       uses QgPluginContext::getGed() throughout instead of the gedp member.
+     - view/measure: ViewMeasureFactory.h + measure.json; implements
+       IQgViewEventFilter; attaches CADViewMeasure as the event filter on the
+       active QgView; CADViewMeasure uses QgPluginContext::getGed().
+   * Polygon subtree ported as two Qt plugins (one factory per shared library,
+     matching QgPluginManager's one-id/one-instance model):
+     - polygon/create: PolygonCreateFactory.h + polygon_create.json;
+       QPolyCreate uses QgPluginContext::getGed()/getView(); tool wrapper
+       implements IQgViewEventFilter and installs the widget as the active
+       QgView event filter.
+     - polygon/modify: PolygonModifyFactory.h + polygon_modify.json;
+       QPolyMod uses QgPluginContext::getGed()/getView(); tool wrapper
+       implements IQgViewEventFilter, refresh() also repopulates the polygon
+       list, and paletteElement() preserves the legacy element_unhide ->
+       mod_names_reset wiring.
+   * edit/ell: EditEllFactory.h + ell.json; QEll uses
+     QgPluginContext::getGed()/getView(); tool wrapper implements
+     IQgViewEventFilter and installs the widget as the active QgView
+     event filter.
+   * Phase 5 tool ports complete; next phase is legacy ABI/palette
+     retirement.
+
    * Update the qged_plugin CMake helper, or add a new helper, to build Qt
      plugins with the needed AUTOMOC/wrap_cpp handling, Q_PLUGIN_METADATA JSON
      files, correct IID, API version metadata, and libqtcad linkage.
-   * Port one plugin subtree at a time to IQgToolFactory plus QgToolBase:
-     view/info, view/settings, view/select, view/measure, polygon, then
-     edit/ell.  Keep each converted plugin in its existing source subtree.
+   * All remaining in-tree tool subtrees for this phase are now ported to
+     IQgToolFactory plus QgToolBase in their existing source subtrees.
    * Give every factory a stable id, category, displayName, sortKey, iconName,
      requiresOpenDb/requiresView flags, and description.
    * Replace ad-hoc signal wiring in each *_tool.cpp with QgToolBase hooks.
@@ -187,38 +249,68 @@ Implementation plan
 
 6. Retire the legacy ABI and palette implementation.
 
-   * Remove QgEdPalette's bu_dlopen/qged_plugin_info scanning path once all
-     in-tree plugins are converted and no compatibility window is needed.
-   * Delete or reduce src/qged/plugins/plugin.h to a compatibility include only
-     if external consumers still need a transition period; otherwise remove the
-     QGED_*_TOOL_PLUGIN constants and qged_plugin/qged_tool structs.
-   * Remove QgToolPaletteElement::use_event_filter and the corresponding
-     QgEdApp::element_selected flag handling.
-   * Remove any remaining palette-priority ordering and replace it with
-     QgPluginDescriptor::sortKey plus id tie-breaking.
-   * Remove obsolete QGED_PLUGIN_SUFFIX build definitions and legacy plugin
-     filename scanning support.
+   COMPLETED:
+   * Removed the QgEdLegacyLoader compatibility path and QGED_PLUGIN_SUFFIX
+     filename scanning from qged startup/build wiring.
+   * Deleted src/qged/plugins/plugin.h and the QGED_*_TOOL_PLUGIN /
+     qged_plugin / qged_tool legacy ABI definitions.
+   * Removed QgToolPaletteElement::use_event_filter and the corresponding
+     QgEdApp::element_selected event-filter handling.
+   * Legacy palette-priority ordering is gone with the loader; tool ordering is
+     now the typed-plugin path's deterministic (sortKey, id) ordering.
 
 7. Add the non-tool extension points qged needs.
 
-   * Use IQgPanelFactory for dockable panels such as raytrace controls,
-     attributes-like panels, and other qged TODO items that belong in docks.
-   * Use IQgDialogFactory for full top-level dialogs such as dedication,
-     procedural geometry, report, or sketch-editing tools.
-   * Use IQgCommand only for console commands that genuinely need qged/libqtcad
-     application state; prefer libged plugins for ordinary ged commands.
-   * Add menu/toolbar integration through qged-owned composition code rather
-     than hard-coding menu structure in libqtcad.
+   INITIAL SLICE COMPLETED:
+   * qged now owns three additional host categories: qged.panel,
+     qged.dialog, and qged.command.
+   * QgEdMainWindow composes IQgPanelFactory plugins into the existing
+     View->Panels dock menu and IQgDialogFactory plugins into a qged-owned
+     Tools->Dialogs menu.
+   * QgEdApp dispatches IQgCommand plugins from the qged console before
+     falling back to libged commands.
+   * Added small in-tree sample non-tool plugins:
+     - org.brlcad.qged.panel.host_status
+     - org.brlcad.qged.dialog.host_status
+     - org.brlcad.qged.command.host_status
+     These exercise the non-tool interfaces with a shared host-status
+     widget/summary implementation driven by QgPluginContext.
+   * Future slices can now port real qged panels/dialogs/commands onto this
+     host-owned composition path without adding qged-specific assumptions to
+     libqtcad.
 
 8. Validate reuse outside qged.
 
-   * Keep qged category names namespaced and host-owned.  Do not add qged
-     categories or qged main-window assumptions to libqtcad.
-   * When the Qt Archer path is ready, wire it to its own QgPluginManager search
-     directory and host categories to prove the qtcad framework is reusable.
-   * Preserve the ability for smaller libqtcad-based tools to use
-     QgPluginManager, QgPaletteController, QgToolBase, and QgPluginCommands
-     without linking qged.
+   INITIAL SLICE COMPLETED:
+   * Added test_qtcad_plugin_reuse: a standalone test binary in
+     src/libqtcad/tests/ that links only against libqtcad, libbu,
+     and Qt6::Widgets — deliberately NOT libged or qged.
+   * The test constructs a QgPluginManager + QgPluginContext with
+     NULL ged/bview accessors (simulating a minimal, non-qged host)
+     and scans the Phase 7 qged extension plugin directory at runtime.
+   * Exercises verified:
+     - Empty-directory manager: zero plugins, no crash.
+     - Plugin discovery: all three Phase 7 host_status plugins found.
+     - diagnosticSummary() contains expected plugin IDs.
+     - Category-filtered descriptor queries for qged.panel,
+       qged.dialog, and qged.command.
+     - IQgCommand::run() invoked with NULL ged/bview → null-safe
+       output ("No database open", "No active view").
+     - IQgCommand alias dispatch (qged_status) works correctly.
+     - --refresh flag in host_status command is handled safely even
+       when viewAccessor is null.
+     - IQgPanelFactory::create() returns a valid QDockWidget without
+       a main window.
+     - IQgDialogFactory::create() returns a valid QDialog without a
+       parent window.
+     - Enable/disable round-trip via QgPluginManager succeeds for
+       known IDs and correctly returns false for unknown IDs.
+     - diagnosticInfo() returns non-empty text for known IDs.
+     - unloadAll() + rescan() cycle works without crash.
+   * Future work: wire a minimal libqtcad-based tool (or archer-qt6
+     when that path is ready) to a separate QgPluginManager with its
+     own search directory and host categories to prove full end-to-end
+     reuse with a real ged instance.
 
 
 Validation expectations

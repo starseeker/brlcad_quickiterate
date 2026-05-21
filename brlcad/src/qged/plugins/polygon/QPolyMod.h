@@ -33,6 +33,8 @@
 #include "qtcad/QgSignalFlags.h"
 #include "QPolySettings.h"
 
+class QgPluginContext;
+
 class QPolyMod : public QWidget
 {
     Q_OBJECT
@@ -40,6 +42,8 @@ class QPolyMod : public QWidget
     public:
 	QPolyMod();
 	~QPolyMod();
+
+	void setContext(QgPluginContext *ctx) { m_ctx = ctx; }
 
 	// Modify polygon settings
 	QPolySettings *ps;
@@ -113,6 +117,10 @@ class QPolyMod : public QWidget
 	QgPolySelectFilter *psf;
 	QgPolyPointFilter *ppf;
 	QgPolyMoveFilter *pmf;
+	QgPluginContext *m_ctx = nullptr;
+
+	struct ged *getGed() const;
+	struct bview *getView() const;
 };
 
 

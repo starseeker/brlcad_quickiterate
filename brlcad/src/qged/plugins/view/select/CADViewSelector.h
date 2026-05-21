@@ -36,6 +36,8 @@
 #include "ged.h"
 #include "qtcad/QgSelectFilter.h"
 
+class QgPluginContext;
+
 class CADViewSelector : public QWidget
 {
     Q_OBJECT
@@ -43,6 +45,8 @@ class CADViewSelector : public QWidget
     public:
 	CADViewSelector(QWidget *p = 0);
 	~CADViewSelector();
+
+	void setContext(QgPluginContext *ctx) { m_ctx = ctx; }
 
 	QRadioButton *use_pnt_select_button;
 	QRadioButton *use_rect_select_button;
@@ -89,7 +93,7 @@ signals:
 	QgSelectBoxFilter *bf;
 	QgSelectRayFilter *rf;
 
-	struct ged *gedp = NULL;
+	QgPluginContext *m_ctx = nullptr;
 	unsigned long long ohash = 0;
 	unsigned long long omhash = 0;
 };
