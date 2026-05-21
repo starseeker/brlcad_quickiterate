@@ -35,7 +35,7 @@
  * BSG settings-inheritance snapshot.
  *
  * Many settings have application level defaults that can be overridden for
- * individual scene objects.  struct bv_scene_obj stores these as BSG settings
+ * individual scene nodes.  Transitional storage carries these as BSG settings
  * so callers do not need a separate compatibility object-settings type.
  */
 struct bsg_settings {

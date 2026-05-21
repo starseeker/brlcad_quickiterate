@@ -1,4 +1,4 @@
-/*                   O B O L _ N O D E . H
+/*                         C O M P A T . H
  * BRL-CAD
  *
  * Copyright (c) 2026 United States Government as represented by
@@ -20,40 +20,37 @@
 /** @addtogroup libbsg
  *
  * @brief
- * Forward-compatibility stub for eventual Obol scene-graph integration
- * (Phase 7).
- *
- * When Obol is vendored under libbsg the types and magic number defined
- * here will be used to distinguish native Obol nodes from BRL-CAD
- * legacy scene nodes.  For now this header is a placeholder that keeps
- * include paths consistent across development phases.
+ * Temporary compatibility conversions between legacy scene-object handles
+ * and BSG node handles.
  */
 /** @{ */
-/* @file bsg/obol_node.h */
+/* @file bsg/compat.h */
 
-#ifndef BSG_OBOL_NODE_H
-#define BSG_OBOL_NODE_H
+#ifndef BSG_COMPAT_H
+#define BSG_COMPAT_H
 
 #include "common.h"
 #include "bsg/defines.h"
 
+struct bv_scene_obj;
+
 __BEGIN_DECLS
 
-/** Magic number reserved for future Obol node structs. */
-#define BSG_OBOL_NODE_MAGIC 0x4F424F4CUL /* "OBOL" */
+BSG_EXPORT extern bsg_node *
+bsg_compat_from_bv_scene_obj(struct bv_scene_obj *s);
 
-/**
- * Placeholder for the future obol_node struct that will be used when
- * Obol is grafted under libbsg in Phase 7.  The struct is intentionally
- * empty until that work begins.
- */
-struct bsg_obol_node_placeholder {
-    uint32_t magic; /**< @brief will hold BSG_OBOL_NODE_MAGIC */
-};
+BSG_EXPORT extern const bsg_node *
+bsg_compat_from_bv_scene_obj_const(const struct bv_scene_obj *s);
+
+BSG_EXPORT extern struct bv_scene_obj *
+bsg_compat_to_bv_scene_obj(bsg_node *n);
+
+BSG_EXPORT extern const struct bv_scene_obj *
+bsg_compat_to_bv_scene_obj_const(const bsg_node *n);
 
 __END_DECLS
 
-#endif /* BSG_OBOL_NODE_H */
+#endif /* BSG_COMPAT_H */
 
 /** @} */
 /*

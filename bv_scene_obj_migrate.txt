@@ -53,19 +53,21 @@ Completed groundwork:
   - `bsg_node_destroy()`
 - Major libbsg draw-tree allocation and teardown paths already route through the
   BSG lifecycle boundary.
-- `struct bv_scene_obj` still embeds `struct bsg_node` as its first member, and
-  `bsg/defines.h` still includes `bv/defines.h`; this is the central structural
-  blocker.
+- Phase A is complete: `struct bsg_node` and BSG node constants now live in
+  BSG-owned headers, and `include/bsg/defines.h` no longer includes
+  `include/bv/defines.h`.
+- Phase B is complete: non-compat libbsg headers now expose `bsg_node *`
+  rather than `struct bv_scene_obj *`, and the remaining legacy conversions are
+  isolated in `include/bsg/compat.h` / `src/libbsg/compat.c`.
+- `struct bv_scene_obj` still embeds `struct bsg_node` as its first member;
+  that first-member compatibility layout is now the central structural blocker.
 
 Current Structural Blockers
 ---------------------------
-1. `struct bsg_node` is still physically defined in `include/bv/defines.h`.
-2. `struct bv_scene_obj` still embeds `struct bsg_node` and many legacy fields.
-3. `include/bsg/defines.h` includes `include/bv/defines.h`, so libbsg cannot be
-   fully independent of libbv.
-4. Many public APIs still name `struct bv_scene_obj *`, even when their internals
-   already use BSG accessors.
-5. Some subsystems still use direct `bv_scene_obj` field access for data that has
+1. `struct bv_scene_obj` still embeds `struct bsg_node` and many legacy fields.
+2. Legacy libbv/libged/mged boundary APIs still name `struct bv_scene_obj *`
+   outside the non-compat libbsg surface.
+3. Some subsystems still use direct `bv_scene_obj` field access for data that has
    not yet been physically moved to BSG-owned sidecars.
 
 Refreshed Remaining Direct Field Inventory
@@ -149,6 +151,14 @@ Exit criteria:
 - Non-compat libbsg headers do not mention `struct bv_scene_obj`.
 - New code can include BSG headers and use BSG nodes without pulling in libbv
   scene-object definitions.
+
+Status (2026-05-21):
+- Complete.
+- Non-compat public libbsg headers use `bsg_node *` only.
+- Temporary legacy handle conversions live in `include/bsg/compat.h` and
+  `src/libbsg/compat.c`.
+- Remaining `struct bv_scene_obj *` API exposure is confined to compatibility
+  and older non-BSG boundaries scheduled for later phases.
 
 Phase C - Move Remaining Storage Semantics to BSG Sidecars
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -264,37 +274,28 @@ Exit criteria:
 - Public scene-graph state is expressed only through BSG APIs and BSG-owned data
   structures.
 
-Suggested Near-Term Work Slices
+Suggested Remaining Work Slices
 -------------------------------
-1. Header decoupling slice:
-   - Move `struct bsg_node` and BSG constants out of `bv/defines.h`.
-   - Stop `include/bsg/defines.h` from including `include/bv/defines.h`.
-   - Validate `libbsg`, `libbv`, and BSG tests.
-2. Public BSG type cleanup slice:
-   - Convert libbsg headers and implementation-local helpers from
-     `struct bv_scene_obj *` to `bsg_node *`.
-   - Add temporary compatibility conversion helpers in one place.
-   - Validate `libbsg`, `libged`, and `ged_test_bsg_view_obj`.
-3. Payload/vlist ownership slice:
-   - Move vlist storage into BSG payload sidecars.
-   - Convert residual mged/libtclcad/librt/libanalyze direct users.
-   - Validate mged draw tests, BSG draw tests, and qged swrast.
-4. Source metadata slice:
-   - Add typed BSG source/app context APIs that replace direct `dp` and `s_path`.
-   - Convert bot/brep/nmg/edit/QgModel/draw-update users by subsystem.
-   - Validate affected libged command tests and qged model/view tests.
-5. Material/appearance/bounds mirror deletion slice:
-   - Remove residual color, style, bbox, size, display-object, and draw-revision
-     mirrors from ordinary callers.
-   - Validate libdm render paths and export/report commands.
-6. Lifecycle independence slice:
-   - Replace `bv_obj_*` internals with BSG allocation/free.
-   - Delete free-list ownership from libbv scene-object code.
-   - Validate all BSG lifecycle tests plus libged draw-root tests.
-7. Final deletion slice:
-   - Remove `struct bv_scene_obj` and compatibility casts.
-   - Rename or remove obsolete libbv APIs.
-   - Run full Qt-enabled draw-stack validation.
+1. Payload/vlist ownership slice:
+    - Move vlist storage into BSG payload sidecars.
+    - Convert residual mged/libtclcad/librt/libanalyze direct users.
+    - Validate mged draw tests, BSG draw tests, and qged swrast.
+2. Source metadata slice:
+    - Add typed BSG source/app context APIs that replace direct `dp` and `s_path`.
+    - Convert bot/brep/nmg/edit/QgModel/draw-update users by subsystem.
+    - Validate affected libged command tests and qged model/view tests.
+3. Material/appearance/bounds mirror deletion slice:
+    - Remove residual color, style, bbox, size, display-object, and draw-revision
+      mirrors from ordinary callers.
+    - Validate libdm render paths and export/report commands.
+4. Lifecycle independence slice:
+    - Replace `bv_obj_*` internals with BSG allocation/free.
+    - Delete free-list ownership from libbv scene-object code.
+    - Validate all BSG lifecycle tests plus libged draw-root tests.
+5. Final deletion slice:
+    - Remove `struct bv_scene_obj` and compatibility casts.
+    - Rename or remove obsolete libbv APIs.
+    - Run full Qt-enabled draw-stack validation.
 
 Validation Strategy
 -------------------

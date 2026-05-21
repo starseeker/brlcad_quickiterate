@@ -144,7 +144,7 @@ bsg_bump_rev_node(bsg_node *n)
 
 
 void
-bsg_free_children_recursive(bsg_node *gn, struct bv_scene_obj *UNUSED(fso))
+bsg_free_children_recursive(bsg_node *gn, bsg_node *UNUSED(fso))
 {
     struct bv_scene_obj *g = (struct bv_scene_obj *)gn;
 

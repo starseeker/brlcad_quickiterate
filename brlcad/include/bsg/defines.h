@@ -25,10 +25,10 @@
  * @par BSG is the intended scene graph API for BRL-CAD.
  *
  * libbsg (the BRL-CAD Scene Graph library) is the *intended public API* for
- * working with drawn scene objects.  libbv storage (struct bv_scene_obj) is
- * *transitional* backing storage; bsg_node is currently typedef'd to
- * struct bv_scene_obj so that existing code requires no casts, but new code
- * must not depend on that equivalence remaining true forever.
+ * working with drawn scene objects.  Legacy scene-object storage remains a
+ * *transitional* backing implementation; new code must treat @c bsg_node as
+ * the only public scene-graph node type and avoid depending on raw storage
+ * details.
  *
  * @par Correct usage pattern for new code:
  * @code
@@ -39,12 +39,12 @@
  *   }
  * @endcode
  *
- * @par Do NOT write new code that looks like:
+ * @par Do NOT write new code that reaches into legacy raw storage:
  * @code
- *   struct bv_scene_obj *sp = ...;
- *   sp->s_flag = UP;           // wrong: use bsg_node_set_visible()
- *   sp->s_type_flags |= ...;   // wrong: use bsg_node_set_kind()
- *   VMOVE(sp->s_color, c);     // wrong: will use bsg_material_set_color()
+ *   bsg_node *n = ...;
+ *   raw_storage->s_flag = UP;      // wrong: use bsg_node_set_visible()
+ *   raw_storage->s_type_flags |= ...; // wrong: use bsg_node_set_kind()
+ *   VMOVE(raw_storage->s_color, c); // wrong: use material/appearance APIs
  * @endcode
  *
  * @par Header layout (current and planned):
@@ -71,15 +71,15 @@
  * - bsg/light.h        light node definitions (Phase 7 - DONE)
  * - bsg/camera.h       renderer-neutral camera/view description (Phase 7 - DONE)
  * - bsg/render.h       renderer-facing callbacks and scene render contract
- * - bsg/compat.h       temporary compatibility helpers for raw bv_scene_obj
- *                      field access during the migration period
+ * - bsg/compat.h       temporary compatibility helpers for legacy scene-object
+ *                      handles during the migration period
  *
  * See doc/notes/bsg_enhancement_plan.txt for the full migration roadmap.
  * See doc/notes/bsg_raw_field_inventory.txt for the current raw-field
  * usage inventory and migration status.
  *
  * bsg_node and bsg_shape are direct typedefs for struct bsg_node (defined in
- * bsg/node_type.h), which is embedded as the first member of struct bv_scene_obj.
+ * bsg/node_type.h), which is the public scene-graph node type.
  */
 /** @{ */
 /* @file bsg/defines.h */
@@ -166,8 +166,6 @@ __BEGIN_DECLS
 /**
  * bsg_node is the first-class BSG scene-graph node type.
  * It is a direct typedef for struct bsg_node (defined in bsg/node_type.h).
- * Casting bsg_node * <-> struct bv_scene_obj * is valid via the first-member
- * rule because struct bv_scene_obj embeds struct bsg_node as its first member.
  */
 typedef struct bsg_node bsg_node;
 

@@ -3,6 +3,7 @@ set(
   action.h
   appearance.h
   camera.h
+  compat.h
   defines.h
   draw_ctx.h
   draw_set.h

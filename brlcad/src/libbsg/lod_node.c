@@ -67,7 +67,7 @@ _lod_payload(bsg_node *node)
  * Frees the bsg_lod_payload and calls ops->free() if present.
  */
 static void
-_lod_node_free_cb(struct bv_scene_obj *s)
+_lod_node_free_cb(bsg_node *s)
 {
     if (!s)
 	return;
@@ -77,11 +77,11 @@ _lod_node_free_cb(struct bv_scene_obj *s)
 
     /* Let the policy release its state first. */
     if (pl->ops && pl->ops->free)
-	pl->ops->free((bsg_node *)s);
+	pl->ops->free(s);
 
     bu_free(pl->cursors, "bsg_lod_payload cursors");
     bu_free(pl, "bsg_lod_payload");
-    bsg_node_user_data_set((bsg_node *)s, NULL);
+    bsg_node_user_data_set(s, NULL);
 }
 
 
@@ -206,12 +206,12 @@ bsg_lod_node_insert_above(bsg_node *leaf, struct bview *v)
     if (!leaf || !v)
 	return NULL;
 
-    struct bv_scene_obj *sleaf = (struct bv_scene_obj *)leaf;
-    struct bv_scene_obj *parent = (struct bv_scene_obj *)sleaf->bsg.bsg_parent;
+    bsg_node *sleaf = leaf;
+    bsg_node *parent = sleaf->bsg_parent;
     if (!parent)
 	return NULL;
 
-    intmax_t loc = bu_ptbl_locate(&parent->bsg.bsg_children, (const long *)sleaf);
+    intmax_t loc = bu_ptbl_locate(&parent->bsg_children, (const long *)sleaf);
     if (loc < 0)
 	return NULL;
 
@@ -219,15 +219,15 @@ bsg_lod_node_insert_above(bsg_node *leaf, struct bview *v)
     if (!lod)
 	return NULL;
 
-    struct bv_scene_obj *slod = (struct bv_scene_obj *)lod;
-    slod->bsg.bsg_parent = &parent->bsg;
-    BU_PTBL_SET(&parent->bsg.bsg_children, (size_t)loc, slod);
+    bsg_node *slod = lod;
+    slod->bsg_parent = parent;
+    BU_PTBL_SET(&parent->bsg_children, (size_t)loc, slod);
 
-    sleaf->bsg.bsg_parent = &slod->bsg;
+    sleaf->bsg_parent = slod;
     bsg_lod_node_attach_level(lod, leaf);
 
-    bsg_bump_rev_node((bsg_node *)parent);
-    bsg_node_bbox_invalidate((bsg_node *)parent);
+    bsg_bump_rev_node(parent);
+    bsg_node_bbox_invalidate(parent);
 
     return lod;
 }
