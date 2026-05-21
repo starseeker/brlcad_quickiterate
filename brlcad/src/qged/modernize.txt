@@ -95,22 +95,13 @@ Still using the legacy qged path:
 * InteractionMode() is now derived from ActivePaletteCategory(), which returns
   the category string for the palette under the cursor.  QgModel::interaction_mode
   integers are preserved as a temporary compatibility field.
-* QgEdPalette's legacy bu_dlopen/qged_plugin_info scanning and the QGED_*_TOOL_PLUGIN
-  integer constants are still active (Phase 4 provides the compatibility adapter).
-* QgEdLegacyLoader centralizes the legacy qged_plugin_info scanning that was
-  previously duplicated in each QgEdPalette constructor:
-  - Scans LIBEXEC/qged once for all legacy plugin files instead of once per palette.
-  - Routes QgToolPaletteElement objects to vc or oc based on each plugin's api_version
-    field (QGED_VC_TOOL_PLUGIN vs QGED_OC_TOOL_PLUGIN).
-  - Owns all dlopen handles in a std::vector<void*> and closes them on destruction,
-    eliminating the previous handle leak.
-  - Files that lack the qged_plugin_info symbol (i.e. future Qt plugins) are
-    silently skipped so QgPluginManager can load them separately.
-  - QgEdPalette constructor is now a thin wrapper around QgToolPalette; all
-    scanning logic has been removed from it.
-  - m_legacy_loader is a QgEdLegacyLoader member of QgEdMainWindow (parented to it);
-    Qt destroys it before vc/oc per child-list ordering, ensuring plugin-mapped code
-    remains valid while palette elements exist.
+* Phase 6 retires the compatibility bridge: qged now loads tools only through
+  QgPluginManager + QgPaletteController.  QgEdLegacyLoader, the qged_plugin_info
+  ABI header, QGED_PLUGIN_SUFFIX scanning support, and the old QgEdApp
+  element-selected event-filter hook are removed.
+* QgEdPalette is now only a thin qged wrapper around QgToolPalette for
+  interaction-mode bookkeeping and cross-palette visuals; all tool discovery
+  and view-event-filter attachment is handled by libqtcad's typed plugin path.
 
 
 Target architecture
@@ -258,17 +249,15 @@ Implementation plan
 
 6. Retire the legacy ABI and palette implementation.
 
-   * Remove QgEdPalette's bu_dlopen/qged_plugin_info scanning path once all
-     in-tree plugins are converted and no compatibility window is needed.
-   * Delete or reduce src/qged/plugins/plugin.h to a compatibility include only
-     if external consumers still need a transition period; otherwise remove the
-     QGED_*_TOOL_PLUGIN constants and qged_plugin/qged_tool structs.
-   * Remove QgToolPaletteElement::use_event_filter and the corresponding
-     QgEdApp::element_selected flag handling.
-   * Remove any remaining palette-priority ordering and replace it with
-     QgPluginDescriptor::sortKey plus id tie-breaking.
-   * Remove obsolete QGED_PLUGIN_SUFFIX build definitions and legacy plugin
-     filename scanning support.
+   COMPLETED:
+   * Removed the QgEdLegacyLoader compatibility path and QGED_PLUGIN_SUFFIX
+     filename scanning from qged startup/build wiring.
+   * Deleted src/qged/plugins/plugin.h and the QGED_*_TOOL_PLUGIN /
+     qged_plugin / qged_tool legacy ABI definitions.
+   * Removed QgToolPaletteElement::use_event_filter and the corresponding
+     QgEdApp::element_selected event-filter handling.
+   * Legacy palette-priority ordering is gone with the loader; tool ordering is
+     now the typed-plugin path's deterministic (sortKey, id) ordering.
 
 7. Add the non-tool extension points qged needs.
 

@@ -22,15 +22,13 @@
  */
 
 #include <QColor>
-#include "plugins/plugin.h"
 #include "QgEdPalette.h"
 
 QgEdPalette::QgEdPalette(int mode, QWidget *pparent)
     : QgToolPalette(pparent)
 {
     m_mode = mode;
-    /* Tool elements are added by QgEdLegacyLoader::populate() for legacy
-     * qged_plugin_info plugins, and by QgPaletteController::populate() for
+    /* Tool elements are added by QgPaletteController::populate() from
      * Qt-native IQgToolFactory plugins. */
 }
 
@@ -62,4 +60,3 @@ QgEdPalette::~QgEdPalette()
  * End:
  * ex: shiftwidth=4 tabstop=8
  */
-

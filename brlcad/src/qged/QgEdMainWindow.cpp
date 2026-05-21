@@ -29,9 +29,7 @@
 #include "qtcad/QgToolBase.h"
 #include "qtcad/QgViewCtrl.h"
 #include "qtcad/QgTreeSelectionModel.h"
-#include "plugins/plugin.h"
 #include "QgEdCategories.h"
-#include "QgEdLegacyLoader.h"
 #include "QgEdMainWindow.h"
 #include "QgEdApp.h"
 
@@ -140,26 +138,14 @@ QgEdMainWindow::CreateWidgets(int canvas_type)
     // attached and detached from the main window.
 
     // Palettes and their associated dock widgets
-    vc = new QgEdPalette(QGED_VC_TOOL_PLUGIN, this);
+    vc = new QgEdPalette(QgEdPalette::ViewMode, this);
     vcd = new QDockWidget("View Controls", this);
     vcd->setObjectName("View_Controls");
     vcd->setWidget(vc);
-    oc = new QgEdPalette(QGED_OC_TOOL_PLUGIN, this);
+    oc = new QgEdPalette(QgEdPalette::ObjectMode, this);
     ocd = new QDockWidget("Object Editing", this);
     ocd->setObjectName("Object_Editing");
     ocd->setWidget(oc);
-
-    // Populate both palettes from legacy qged_plugin_info plugins.
-    // QgEdLegacyLoader scans LIBEXEC/qged once, routes each tool element to
-    // the correct palette (vc or oc) by plugin type, and owns the dlopen
-    // handles until the loader is destroyed.
-    //
-    // Ownership note: the loader is parented to qApp (not to this), so that
-    // Qt destroys it AFTER QgEdMainWindow (and therefore after vc/oc and their
-    // tool elements).  This ensures plugin-mapped code remains valid as long as
-    // any element widget created from it is still alive.
-    m_legacy_loader = new QgEdLegacyLoader(ap);
-    m_legacy_loader->populate(vc, oc);
 
     // We start out with the View Control panel as the current panel - by
     // default we are viewing, not editing
@@ -295,11 +281,7 @@ QgEdMainWindow::ConnectWidgets()
     QObject::connect(vcw, &QgViewCtrl::lmouse_mode, c4, &QgQuadView::set_lmouse_move_default);
 
     // Cross-palette deselection: only one palette should appear "active"
-    // (highlighted tool button) at a time.  The old QgEdPalette::current
-    // signal was never emitted, so those connections were dead.  Replace
-    // them with working palette_element_selected lambdas (legacy tools)
-    // and QgPaletteController::currentToolChanged lambdas (new Qt plugin
-    // tools).
+    // (highlighted tool button) at a time.
     //
     // When vc selects any element, tell oc to visually deselect.
     QObject::connect(vc, &QgToolPalette::palette_element_selected,
@@ -322,21 +304,9 @@ QgEdMainWindow::ConnectWidgets()
 	oc_ctrl->setActiveView(init_view);
     }
 
-    // Populate both controllers from any Qt plugins already discovered.
-    // (No converted plugins exist yet; this is a no-op until Phase 5.)
+    // Populate both controllers from the discovered Qt plugins.
     vc_ctrl->populate();
     oc_ctrl->populate();
-
-    // Now that we've got everything set up, connect the palette selection
-    // signals so they can update the view event filter as needed.  We don't do
-    // this before populating the palettes with tools since the initial
-    // addition would trigger a selection which we're not going to use.  (We
-    // default to selecting the default view tool at the end of this
-    // procedure by making vc the current palette.)
-    // TODO - need to figure out how this should (or shouldn't) be rolled into
-    // do_view_changed
-    QObject::connect(vc, &QgToolPalette::palette_element_selected, ap, &QgEdApp::element_selected);
-    QObject::connect(oc, &QgToolPalette::palette_element_selected, ap, &QgEdApp::element_selected);
 
     // The tools in the view and edit panels may have consequences for the view.
     // Connect to the palette signals and slots (the individual tool connections

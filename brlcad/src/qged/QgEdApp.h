@@ -100,7 +100,6 @@ class QgEdApp : public QApplication
        	/* Utility slots */
     public slots:
 	void run_qcmd(const QString &command);
-	void element_selected(QgToolPaletteElement *el);
 
     public:
 	QgEdMainWindow *w = NULL;

@@ -715,35 +715,6 @@ QgEdApp::run_qcmd(const QString &command)
 }
 
 void
-QgEdApp::element_selected(QgToolPaletteElement *el)
-{
-    QTCAD_SLOT("QgEdApp::element_selected", 1);
-    if (!el->controls->isVisible()) {
-	// Apparently this can happen when we have docked widgets
-	// closed and we click on the border between the view and
-	// the dock - need to avoid messing with the event filters
-	// if that happens or we break the user interactions.
-	return;
-    }
-
-    QgView *curr_view = w->CurrentDisplay();
-
-    if (curr_view->curr_event_filter) {
-	curr_view->clear_event_filter(curr_view->curr_event_filter);
-	curr_view->curr_event_filter = NULL;
-    }
-
-    if (el->use_event_filter) {
-	curr_view->add_event_filter(el->controls);
-	curr_view->curr_event_filter = el->controls;
-    }
-    if (curr_view->view()) {
-	curr_view->view()->gv_width = curr_view->width();
-	curr_view->view()->gv_height = curr_view->height();
-    }
-}
-
-void
 QgEdApp::write_settings()
 {
     QTCAD_SLOT("QgEdApp::write_settings", 1);

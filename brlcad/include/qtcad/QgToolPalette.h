@@ -130,8 +130,6 @@ class QTCAD_EXPORT QgToolPaletteElement: public QWidget
 	QWidget *controls;
 	int scroll_pos = 0;
 
-	bool use_event_filter = false;
-
 };
 
 class QTCAD_EXPORT QgToolPalette: public QWidget
@@ -216,4 +214,3 @@ class QTCAD_EXPORT QgToolPalette: public QWidget
  * End:
  * ex: shiftwidth=4 tabstop=8
  */
-
