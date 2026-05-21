@@ -54,37 +54,37 @@ extern "C" {
  * installed public interface.
  */
 struct QgCanvasState {
-	/* ---- view / dm / fb plumbing ---- */
-	struct bview    *v = nullptr;       /* active view (may point to local_v) */
-	struct dm       *dmp = nullptr;     /* libdm display manager              */
-	struct fb       *ifp = nullptr;     /* framebuffer                        */
-	struct bu_ptbl  *dm_set = nullptr;  /* shared DM table (optional)         */
-	struct bview    *local_v = nullptr; /* widget-owned view                  */
+    /* ---- view / dm / fb plumbing ---- */
+    struct bview    *v = nullptr;       /* active view (may point to local_v) */
+    struct dm       *dmp = nullptr;     /* libdm display manager              */
+    struct fb       *ifp = nullptr;     /* framebuffer                        */
+    struct bu_ptbl  *dm_set = nullptr;  /* shared DM table (optional)         */
+    struct bview    *local_v = nullptr; /* widget-owned view                  */
 
-	/* ---- custom draw callback ---- */
-	void (*draw_custom)(struct bview *, void *) = nullptr;
-	void *draw_udata = nullptr;
+    /* ---- custom draw callback ---- */
+    void (*draw_custom)(struct bview *, void *) = nullptr;
+    void *draw_udata = nullptr;
 
-	/* ---- hash tracking for incremental updates ---- */
-	unsigned long long prev_dhash = 0;
-	unsigned long long prev_vhash = 0;
+    /* ---- hash tracking for incremental updates ---- */
+    unsigned long long prev_dhash = 0;
+    unsigned long long prev_vhash = 0;
 
-	/* ---- input-binding flags ---- */
-	bool use_default_keybindings   = true;
-	bool use_default_mousebindings = true;
-	int  lmouse_mode = -1;  /* set to BV_SCALE in canvas constructor */
+    /* ---- input-binding flags ---- */
+    bool use_default_keybindings   = true;
+    bool use_default_mousebindings = true;
+    int  lmouse_mode = -1;  /* set to BV_SCALE in canvas constructor */
 
-	/* ---- widget-level tracking ---- */
-	int    current = 1;     /* 1 = this view is active */
-	bool   m_init = false;  /* DM has been opened and configured */
-	int    x_prev = -INT_MAX;
-	int    y_prev = -INT_MAX;
-	double x_press_pos = -INT_MAX;
-	double y_press_pos = -INT_MAX;
-	bool   fb_update_queued = false;
+    /* ---- widget-level tracking ---- */
+    int    current = 1;     /* 1 = this view is active */
+    bool   m_init = false;  /* DM has been opened and configured */
+    int    x_prev = -INT_MAX;
+    int    y_prev = -INT_MAX;
+    double x_press_pos = -INT_MAX;
+    double y_press_pos = -INT_MAX;
+    bool   fb_update_queued = false;
 
-	/* ---- per-canvas input handler ---- */
-	QgCanvasInput input;
+    /* ---- per-canvas input handler ---- */
+    QgCanvasInput input;
 };
 
 /* ------------------------------------------------------------------ */
@@ -95,19 +95,19 @@ struct QgCanvasState {
 static inline QSize
 qgcanvas_render_size(const QWidget *w)
 {
-	if (!w)
-		return QSize();
-	qreal dpr = w->devicePixelRatioF();
-	return QSize(qMax(1, static_cast<int>(std::ceil(w->width()  * dpr))),
-	             qMax(1, static_cast<int>(std::ceil(w->height() * dpr))));
+    if (!w)
+	return QSize();
+    qreal dpr = w->devicePixelRatioF();
+    return QSize(qMax(1, static_cast<int>(std::ceil(w->width()  * dpr))),
+		 qMax(1, static_cast<int>(std::ceil(w->height() * dpr))));
 }
 
 /** Store current DM and view hashes in @p s. */
 static inline void
 qgcanvas_stash_hashes(QgCanvasState &s)
 {
-	s.prev_dhash = s.dmp ? dm_hash(s.dmp) : 0ULL;
-	s.prev_vhash = s.v   ? bv_hash(s.v)   : 0ULL;
+    s.prev_dhash = s.dmp ? dm_hash(s.dmp) : 0ULL;
+    s.prev_vhash = s.v   ? bv_hash(s.v)   : 0ULL;
 }
 
 /**
@@ -121,52 +121,52 @@ qgcanvas_stash_hashes(QgCanvasState &s)
 static inline bool
 qgcanvas_diff_hashes_check(QgCanvasState &s)
 {
-	bool ret = false;
-	unsigned long long c_dhash = s.dmp ? dm_hash(s.dmp) : 0ULL;
-	unsigned long long c_vhash = s.v   ? bv_hash(s.v)   : 0ULL;
+    bool ret = false;
+    unsigned long long c_dhash = s.dmp ? dm_hash(s.dmp) : 0ULL;
+    unsigned long long c_vhash = s.v   ? bv_hash(s.v)   : 0ULL;
 
-	if (s.dmp && dm_get_dirty(s.dmp))
-		ret = true;
+    if (s.dmp && dm_get_dirty(s.dmp))
+	ret = true;
 
-	if (s.prev_dhash != c_dhash) {
-		if (s.dmp) dm_set_dirty(s.dmp, 1);
-		ret = true;
-	}
-	if (s.prev_vhash != c_vhash) {
-		if (s.dmp) dm_set_dirty(s.dmp, 1);
-		ret = true;
-	}
-	return ret;
+    if (s.prev_dhash != c_dhash) {
+	if (s.dmp) dm_set_dirty(s.dmp, 1);
+	ret = true;
+    }
+    if (s.prev_vhash != c_vhash) {
+	if (s.dmp) dm_set_dirty(s.dmp, 1);
+	ret = true;
+    }
+    return ret;
 }
 
 /** Set the azimuth/elevation/twist of the view stored in @p s. */
 static inline void
 qgcanvas_aet(QgCanvasState &s, double a, double e, double t)
 {
-	if (!s.v)
-		return;
-	fastf_t aet_v[3];
-	double  aetd[3] = {a, e, t};
-	VMOVE(aet_v, aetd);
-	bv_view_set_aet(s.v, aet_v);
-	bv_update(s.v);
+    if (!s.v)
+	return;
+    fastf_t aet_v[3];
+    double  aetd[3] = {a, e, t};
+    VMOVE(aet_v, aetd);
+    bv_view_set_aet(s.v, aet_v);
+    bv_update(s.v);
 }
 
 /** Bind an external bview (or nullptr to revert to the widget-local view). */
 static inline void
 qgcanvas_set_view(QgCanvasState &s, struct bview *nv)
 {
-	if (!nv) {
-		s.v = nullptr;
-		return;
-	}
-	s.v = nv;
-	if (!s.dmp)
-		return;
-	s.v->dmp = s.dmp;
-	dm_configure_win(s.dmp, 0);
-	s.v->gv_width  = dm_get_width(s.dmp);
-	s.v->gv_height = dm_get_height(s.dmp);
+    if (!nv) {
+	s.v = nullptr;
+	return;
+    }
+    s.v = nv;
+    if (!s.dmp)
+	return;
+    s.v->dmp = s.dmp;
+    dm_configure_win(s.dmp, 0);
+    s.v->gv_width  = dm_get_width(s.dmp);
+    s.v->gv_height = dm_get_height(s.dmp);
 }
 
 #endif /* QGCANVASSTATE_H */
