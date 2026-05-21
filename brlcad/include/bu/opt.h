@@ -262,24 +262,6 @@ typedef enum {
 
 
 /**
- * Optional metadata for a bu_opt_desc entry.  Entries are matched to
- * bu_opt_desc records by shortopt/longopt.  The array is terminated by
- * BU_OPT_DESC_META_NULL.
- */
-struct bu_opt_desc_meta {
-    const char *shortopt;
-    const char *longopt;
-    bu_opt_arg_requirement_t arg_requirement;
-    bu_opt_value_type_t arg_type;
-    int repeat;
-    const char * const *value_keywords;
-};
-
-
-#define BU_OPT_DESC_META_NULL {NULL, NULL, BU_OPT_ARG_FLAG, BU_OPT_VAL_UNKNOWN, 0, NULL}
-
-
-/**
  * Metadata-only option descriptor.  This contains immutable option schema
  * information and omits parser execution details such as set_var.
  */
@@ -335,7 +317,6 @@ struct bu_opt_option_overrides {
 
 
 #define BU_OPT_OPTION_OVERRIDE_NULL {NULL, NULL, BU_OPT_ARG_FLAG, BU_OPT_VAL_UNKNOWN, 0, NULL, BU_OPT_OVERRIDE_NONE, NULL, NULL, BU_OPT_VAL_UNKNOWN, BU_OPT_OPTION_FLAG_NONE}
-#define BU_OPT_OPTION_OVERRIDE_LEGACY(_so, _lo, _req, _type, _repeat, _keywords) { _so, _lo, _req, _type, _repeat, _keywords, BU_OPT_OVERRIDE_NONE, NULL, NULL, BU_OPT_VAL_UNKNOWN, BU_OPT_OPTION_FLAG_NONE }
 
 
 /** Optional positional operand metadata for a command. */

@@ -934,10 +934,18 @@ desc_4(int test_num)
 	BU_OPT_DESC_NULL
     };
     struct bu_opt_option_overrides root_meta[] = {
-	BU_OPT_OPTION_OVERRIDE_LEGACY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-	BU_OPT_OPTION_OVERRIDE_LEGACY("v", "verbose", BU_OPT_ARG_OPTIONAL, BU_OPT_VAL_INTEGER, 1, NULL),
-	BU_OPT_OPTION_OVERRIDE_LEGACY("o", "output", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_FILE_PATH, 0, NULL),
-	BU_OPT_OPTION_OVERRIDE_LEGACY("C", "color", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_COLOR, 0, NULL),
+	{"v", "verbose",
+	    BU_OPT_ARG_FLAG, BU_OPT_VAL_INTEGER, 1, NULL,
+	    BU_OPT_OVERRIDE_ARG_TYPE | BU_OPT_OVERRIDE_REPEAT,
+	    NULL, NULL, BU_OPT_VAL_UNKNOWN, BU_OPT_OPTION_FLAG_NONE},
+	{"o", "output",
+	    BU_OPT_ARG_FLAG, BU_OPT_VAL_FILE_PATH, 0, NULL,
+	    BU_OPT_OVERRIDE_ARG_TYPE,
+	    NULL, NULL, BU_OPT_VAL_UNKNOWN, BU_OPT_OPTION_FLAG_NONE},
+	{"C", "color",
+	    BU_OPT_ARG_FLAG, BU_OPT_VAL_COLOR, 0, NULL,
+	    BU_OPT_OVERRIDE_ARG_TYPE,
+	    NULL, NULL, BU_OPT_VAL_UNKNOWN, BU_OPT_OPTION_FLAG_NONE},
 	BU_OPT_OPTION_OVERRIDE_NULL
     };
     struct bu_opt_operand_desc root_operands[] = {
@@ -957,7 +965,10 @@ desc_4(int test_num)
 	BU_OPT_DESC_NULL
     };
     struct bu_opt_option_overrides deep_meta[] = {
-	BU_OPT_OPTION_OVERRIDE_LEGACY("m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_KEYWORD, 0, mode_keywords),
+	{"m", "mode",
+	    BU_OPT_ARG_FLAG, BU_OPT_VAL_KEYWORD, 0, mode_keywords,
+	    BU_OPT_OVERRIDE_ARG_TYPE | BU_OPT_OVERRIDE_VALUE_KEYWORDS,
+	    NULL, NULL, BU_OPT_VAL_UNKNOWN, BU_OPT_OPTION_FLAG_NONE},
 	BU_OPT_OPTION_OVERRIDE_NULL
     };
     struct bu_opt_cmd_desc deep_cmds[] = {

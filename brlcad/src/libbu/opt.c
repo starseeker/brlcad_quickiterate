@@ -705,23 +705,6 @@ opt_option_desc_is_null(const struct bu_opt_option_desc *d)
 }
 
 
-static int
-opt_override_is_legacy(const struct bu_opt_option_overrides *o)
-{
-    if (!o)
-	return 0;
-    if (o->override_mask != BU_OPT_OVERRIDE_NONE)
-	return 0;
-    return (o->arg_helpstr || o->help_string
-	|| o->arg_requirement != BU_OPT_ARG_FLAG
-	|| o->arg_type != BU_OPT_VAL_UNKNOWN
-	|| o->repeat
-	|| o->value_keywords
-	|| o->completion_type != BU_OPT_VAL_UNKNOWN
-	|| o->flags != BU_OPT_OPTION_FLAG_NONE);
-}
-
-
 static const struct bu_opt_option_overrides *
 opt_find_override(const char *shortopt, const char *longopt, const struct bu_opt_option_overrides *overrides)
 {
@@ -742,24 +725,10 @@ opt_find_override(const char *shortopt, const char *longopt, const struct bu_opt
 static void
 opt_apply_override(struct bu_opt_option_desc *d, const struct bu_opt_option_overrides *o)
 {
-    int uses_legacy_override = 0;
+    int type_overridden = 0;
+    int completion_overridden = 0;
     if (!d || !o)
 	return;
-    uses_legacy_override = opt_override_is_legacy(o);
-
-    if (uses_legacy_override) {
-	d->arg_requirement = o->arg_requirement;
-	d->arg_type = o->arg_type;
-	d->repeat = o->repeat;
-	d->value_keywords = o->value_keywords;
-	d->completion_type = opt_effective_completion_type(o->completion_type, o->arg_type);
-	d->flags = o->flags;
-	if (o->arg_helpstr)
-	    d->arg_helpstr = o->arg_helpstr;
-	if (o->help_string)
-	    d->help_string = o->help_string;
-	return;
-    }
 
     if (o->override_mask & BU_OPT_OVERRIDE_ARG_HELPSTR)
 	d->arg_helpstr = o->arg_helpstr;
@@ -767,16 +736,22 @@ opt_apply_override(struct bu_opt_option_desc *d, const struct bu_opt_option_over
 	d->help_string = o->help_string;
     if (o->override_mask & BU_OPT_OVERRIDE_ARG_REQUIREMENT)
 	d->arg_requirement = o->arg_requirement;
-    if (o->override_mask & BU_OPT_OVERRIDE_ARG_TYPE)
+    if (o->override_mask & BU_OPT_OVERRIDE_ARG_TYPE) {
 	d->arg_type = o->arg_type;
+	type_overridden = 1;
+    }
     if (o->override_mask & BU_OPT_OVERRIDE_REPEAT)
 	d->repeat = o->repeat;
     if (o->override_mask & BU_OPT_OVERRIDE_VALUE_KEYWORDS)
 	d->value_keywords = o->value_keywords;
-    if (o->override_mask & BU_OPT_OVERRIDE_COMPLETION_TYPE)
+    if (o->override_mask & BU_OPT_OVERRIDE_COMPLETION_TYPE) {
 	d->completion_type = o->completion_type;
+	completion_overridden = 1;
+    }
     if (o->override_mask & BU_OPT_OVERRIDE_FLAGS)
 	d->flags = o->flags;
+    if (type_overridden && !completion_overridden)
+	d->completion_type = d->arg_type;
 }
 
 
