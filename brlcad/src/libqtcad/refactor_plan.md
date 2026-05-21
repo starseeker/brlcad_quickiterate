@@ -18,6 +18,7 @@ Current tree notes:
 - QgView now keeps its active event-filter pointer private and manages it through add/remove helpers rather than exposing raw external writes.
 - The standalone dm Qt window wrappers now expose their QgGL/QgSW canvases through accessors instead of public member pointers.
 - QgToolPaletteElement now exposes its button/control/scroll state through accessors instead of public data members.
+- QgViewCtrl now keeps its ged/action state private instead of exposing raw toolbar members.
 - Public data still leaks heavily from QgItem/QgModel and the canvas widgets, and the headers still expose libged/libdm/bv/raytrace details directly.
 - The next useful slice is to keep moving QgSW/QgGL state behind accessors so QgView/tests stop reaching into raw widget members.
 

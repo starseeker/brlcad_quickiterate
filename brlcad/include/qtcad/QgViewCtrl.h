@@ -69,9 +69,6 @@ public:
 		icon_size = size;
 	}
 
-	struct ged *gedp = nullptr;
-	int icon_size = 25;
-
 signals:
 	void view_changed(unsigned long long);
 	void lmouse_mode(int);
@@ -98,19 +95,21 @@ public slots:
 	void raytrace_start(int);
 	void raytrace_done();
 
-public:
+private:
+	struct ged *gedp = nullptr;
+	int icon_size = 25;
+
 	// Left mouse behavior controls (when not using a tool or editing)
-	QAction *sca;
-	QAction *rot;
-	QAction *tra;
-	QAction *center;
+	QAction *sca = nullptr;
+	QAction *rot = nullptr;
+	QAction *tra = nullptr;
+	QAction *center = nullptr;
 
 	// Raytrace/framebuffer controls
-	QAction *raytrace;
-	QAction *fb_mode;
-	QAction *fb_clear;
+	QAction *raytrace = nullptr;
+	QAction *fb_mode = nullptr;
+	QAction *fb_clear = nullptr;
 
-private:
 	bool raytrace_running = false;
 	int pid = -1;
 };
