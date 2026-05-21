@@ -3,6 +3,7 @@ set(
   action.c
   appearance.c
   camera.c
+  compat.c
   draw_set.c
   field.c
   identity.c
@@ -48,6 +49,7 @@ cmakefiles(
   appearance.c
   bsg_private.h
   camera.c
+  compat.c
   draw_set.c
   field.c
   identity.c

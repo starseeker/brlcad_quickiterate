@@ -54,6 +54,7 @@
 #include "bg/clip.h"
 #include "bsg/defines.h"
 #include "bsg/appearance.h"
+#include "bsg/compat.h"
 #include "bsg/draw_ctx.h"
 #include "bsg/draw_set.h"
 #include "bsg/field.h"
@@ -371,7 +372,7 @@ _sg_root(struct ged *gedp)
      * that bsg_free_group_contents / bsg_free_children_recursive can
      * recycle nodes without calling bv_set_fsos (which needs gedp). */
     gedp->i->ged_gdp->bsg_ctx.draw_rev = &gedp->i->ged_gdp->gd_draw_rev;
-    gedp->i->ged_gdp->bsg_ctx.fso      = bv_set_fsos(&gedp->ged_views);
+    gedp->i->ged_gdp->bsg_ctx.fso      = bsg_compat_from_bv_scene_obj(bv_set_fsos(&gedp->ged_views));
     bsg_node_user_data_set(root, &gedp->i->ged_gdp->bsg_ctx);
 
     /* A3: register in the view so that the BSG render loop can traverse the

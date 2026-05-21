@@ -45,7 +45,6 @@
 __BEGIN_DECLS
 
 struct bview;          /* forward-declare to avoid circular includes */
-struct bv_scene_obj;   /* forward-declare to avoid circular includes */
 
 /**
  * Signature for a caller-supplied shape path-match predicate.
@@ -147,7 +146,7 @@ bsg_bump_rev_node(bsg_node *n);
  * src/libged/bsg_view_obj.c (Phase 7 Step 11).
  */
 BSG_EXPORT extern void
-bsg_free_children_recursive(bsg_node *g, struct bv_scene_obj *fso);
+bsg_free_children_recursive(bsg_node *g, bsg_node *fso);
 
 
 /**
