@@ -345,7 +345,7 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bv_scene_obj
 	return NULL;
     }
 
-    if (!s->s_v)
+    if (!bsg_node_view_get((const bsg_node *)s))
 	return NULL;
 
     size_t num_verts = 0;
@@ -465,14 +465,15 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bv_scene_obj
 	}
 	bu_avs_add(&lavs, "POLYGON_TYPE", bu_vls_cstr(&val));
 	// Save view
-	bu_vls_sprintf(&val, "%.15e", s->s_v->gv_scale);
+	struct bview *_sv = bsg_node_view_get((const bsg_node *)s);
+	bu_vls_sprintf(&val, "%.15e", _sv->gv_scale);
 	bu_avs_add(&lavs, "VIEWSCALE", bu_vls_cstr(&val));
 	quat_t rquat;
-	quat_mat2quat(rquat, s->s_v->gv_rotation);
+	quat_mat2quat(rquat, _sv->gv_rotation);
 	bu_vls_sprintf(&val, "%.15e %.15e %.15e %.15e", V4ARGS(rquat));
 	bu_avs_add(&lavs, "ROTATION", bu_vls_cstr(&val));
 	quat_t cquat;
-	quat_mat2quat(cquat, s->s_v->gv_center);
+	quat_mat2quat(cquat, _sv->gv_center);
 	bu_vls_sprintf(&val, "%.15e %.15e %.15e %.15e", V4ARGS(cquat));
 	bu_avs_add(&lavs, "CENTER", bu_vls_cstr(&val));
     }
