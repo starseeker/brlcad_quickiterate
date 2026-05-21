@@ -121,10 +121,12 @@ public:
 	 * combination of the ihash and ctx points to the BRL-CAD specific data
 	 * for this instance.
 	 */
+	/* Return the unique instance hash represented by this item. */
 	unsigned long long instanceHash() const
 	{
 		return ihash;
 	}
+	/* Return the model that owns this item. */
 	QgModel *model() const
 	{
 		return mdl;
@@ -145,10 +147,12 @@ public:
 	 * involved.  Give we already have some separation between this logic
 	 * and the instance logic which is the real wrapper around the .g
 	 * information, going with the simple approach for now. */
+	/* Return true if this item is currently marked open in the Qt tree. */
 	bool isOpen() const
 	{
 		return open_itm;
 	}
+	/* Set the cached Qt tree open/closed state for this item. */
 	void setOpen(bool open)
 	{
 		open_itm = open;
@@ -160,6 +164,7 @@ public:
 	void appendChild(QgItem *C);
 	QgItem *child(int n);
 	int childCount() const;
+	/* Return the currently loaded child-item collection. */
 	const std::vector<QgItem *> &childItems() const
 	{
 		return children;
@@ -239,6 +244,7 @@ public:
 
 	// .g Db interface and containers
 	int run_cmd(struct bu_vls *msg, int argc, const char **argv);
+	/* Return the GED context backing this model. */
 	struct ged *ged() const
 	{
 		return gedp;
@@ -255,10 +261,12 @@ public:
 	// reflect such a state and to have that logic reusable at the library
 	// level it needs to be available in a container readily accessible at
 	// that level.
+	/* Return the current tree/highlight interaction mode. */
 	int interactionMode() const
 	{
 		return interaction_mode;
 	}
+	/* Update the current tree/highlight interaction mode. */
 	void setInteractionMode(int mode)
 	{
 		interaction_mode = mode;
@@ -316,18 +324,22 @@ public:
 	{
 		need_update_nref = update;
 	}
+	/* Return all currently active QgItems owned by this model. */
 	const std::unordered_set<QgItem *> &allItems() const
 	{
-		return *items;
+		static const std::unordered_set<QgItem *> empty_items;
+		return items ? *items : empty_items;
 	}
 	bool hasItem(QgItem *item) const
 	{
 		return (items && item && items->find(item) != items->end());
 	}
+	/* Return the sorted QgItems corresponding to top-level instances. */
 	const std::vector<QgItem *> &topItems() const
 	{
 		return tops_items;
 	}
+	/* Return true when the model is presenting a flattened object list. */
 	bool flattenHierarchy() const
 	{
 		return flatten_hierarchy != 0;
