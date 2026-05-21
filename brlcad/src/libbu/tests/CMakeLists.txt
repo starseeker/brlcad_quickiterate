@@ -702,6 +702,11 @@ brlcad_add_test(NAME bu_opt_4_complete_option   COMMAND bu_test opt 4 schema 12)
 brlcad_add_test(NAME bu_opt_4_complete_subcmd   COMMAND bu_test opt 4 schema 13)
 brlcad_add_test(NAME bu_opt_4_complete_keyword  COMMAND bu_test opt 4 schema 14)
 brlcad_add_test(NAME bu_opt_4_grouped_repeat    COMMAND bu_test opt 4 schema 15)
+brlcad_add_test(NAME bu_opt_4_comptype_file    COMMAND bu_test opt 4 schema 16)
+brlcad_add_test(NAME bu_opt_4_comptype_dbo     COMMAND bu_test opt 4 schema 17)
+brlcad_add_test(NAME bu_opt_4_comptype_kw      COMMAND bu_test opt 4 schema 18)
+brlcad_add_test(NAME bu_opt_4_charspan_single  COMMAND bu_test opt 4 schema 19)
+brlcad_add_test(NAME bu_opt_4_charspan_middle  COMMAND bu_test opt 4 schema 20)
 
 #
 #  *********** datetime.c tests ************

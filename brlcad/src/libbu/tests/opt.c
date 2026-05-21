@@ -909,20 +909,20 @@ desc_4(int test_num)
 	"{\"schema\":\"bu_opt\",\"version\":1,\"command\":{\"name\":\"testcmd\",\"help\":\"Test command\","
 	"\"options\":[{\"short\":\"h\",\"long\":\"help\",\"argument\":\"flag\",\"argument_help\":\"\","
 	"\"argument_type\":\"bool\",\"repeat\":false,\"help\":\"Print help string and exit.\","
-	"\"keywords\":[],\"aliases\":[\"h\",\"help\",\"?\",\"help-alt\"]},{\"short\":\"v\",\"long\":\"verbose\","
+	"\"completion\":\"none\",\"keywords\":[],\"aliases\":[\"h\",\"help\",\"?\",\"help-alt\"]},{\"short\":\"v\",\"long\":\"verbose\","
 	"\"argument\":\"optional\",\"argument_help\":\"[#]\",\"argument_type\":\"integer\",\"repeat\":true,"
-	"\"help\":\"Set verbosity\",\"keywords\":[],\"aliases\":[\"v\",\"verbose\"]},{\"short\":\"o\",\"long\":\"output\","
+	"\"help\":\"Set verbosity\",\"completion\":\"none\",\"keywords\":[],\"aliases\":[\"v\",\"verbose\"]},{\"short\":\"o\",\"long\":\"output\","
 	"\"argument\":\"required\",\"argument_help\":\"file\",\"argument_type\":\"file_path\",\"repeat\":false,"
-	"\"help\":\"Output file\",\"keywords\":[],\"aliases\":[\"o\",\"output\"]},{\"short\":\"C\",\"long\":\"color\","
+	"\"help\":\"Output file\",\"completion\":\"file\",\"keywords\":[],\"aliases\":[\"o\",\"output\"]},{\"short\":\"C\",\"long\":\"color\","
 	"\"argument\":\"required\",\"argument_help\":\"r/g/b\",\"argument_type\":\"color\",\"repeat\":false,"
-	"\"help\":\"Set color\",\"keywords\":[],\"aliases\":[\"C\",\"color\"]}],\"operands\":[{\"name\":\"object\","
-	"\"type\":\"db_object\",\"min\":1,\"max\":2,\"help\":\"Database object\",\"keywords\":[]}],\"subcommands\":[{\"name\":\"list\","
+	"\"help\":\"Set color\",\"completion\":\"none\",\"keywords\":[],\"aliases\":[\"C\",\"color\"]}],\"operands\":[{\"name\":\"object\","
+	"\"type\":\"db_object\",\"min\":1,\"max\":2,\"help\":\"Database object\",\"completion\":\"db_object\",\"keywords\":[]}],\"subcommands\":[{\"name\":\"list\","
 	"\"help\":\"List things\",\"options\":[{\"short\":\"l\",\"long\":\"long\",\"argument\":\"flag\","
 	"\"argument_help\":\"\",\"argument_type\":\"bool\",\"repeat\":false,\"help\":\"Long listing\","
-	"\"keywords\":[],\"aliases\":[\"l\",\"long\"]}],\"operands\":[{\"name\":\"pattern\",\"type\":\"keyword\","
-	"\"min\":0,\"max\":1,\"help\":\"Optional pattern\",\"keywords\":[\"alpha\",\"beta\"]}],\"subcommands\":[{\"name\":\"deep\","
+	"\"completion\":\"none\",\"keywords\":[],\"aliases\":[\"l\",\"long\"]}],\"operands\":[{\"name\":\"pattern\",\"type\":\"keyword\","
+	"\"min\":0,\"max\":1,\"help\":\"Optional pattern\",\"completion\":\"static\",\"keywords\":[\"alpha\",\"beta\"]}],\"subcommands\":[{\"name\":\"deep\","
 	"\"help\":\"Nested command\",\"options\":[{\"short\":\"m\",\"long\":\"mode\",\"argument\":\"required\","
-	"\"argument_help\":\"mode\",\"argument_type\":\"keyword\",\"repeat\":false,\"help\":\"Mode\",\"keywords\":[\"fast\",\"slow\"],"
+	"\"argument_help\":\"mode\",\"argument_type\":\"keyword\",\"repeat\":false,\"help\":\"Mode\",\"completion\":\"static\",\"keywords\":[\"fast\",\"slow\"],"
 	"\"aliases\":[\"m\",\"mode\"]}],\"operands\":[],\"subcommands\":[]}]}]}}";
 
     struct bu_opt_desc root_opts[] = {
@@ -1088,6 +1088,41 @@ desc_4(int test_num)
 	    ret = !(vr.state == BU_OPT_VALIDATE_INVALID);
 	    break;
 	}
+	case 16:
+	    /* completion_type: option needing a file path arg */
+	    (void)bu_opt_validate_string(&cmd, "--output", 8, &vr);
+	    ret = !(vr.state == BU_OPT_VALIDATE_INCOMPLETE
+		&& vr.completion_type == BU_OPT_VAL_FILE_PATH);
+	    break;
+	case 17:
+	    /* completion_type: db_object operand position */
+	    (void)bu_opt_validate_string(&cmd, "--help ", 7, &vr);
+	    ret = !(vr.completion_type == BU_OPT_VAL_DB_OBJECT);
+	    break;
+	case 18:
+	    /* completion_type: keyword option arg */
+	    (void)bu_opt_validate_string(&cmd, "list deep --mode ", 17, &vr);
+	    ret = !(vr.state == BU_OPT_VALIDATE_INCOMPLETE
+		&& vr.completion_type == BU_OPT_VAL_KEYWORD);
+	    break;
+	case 19:
+	{
+	    /* char_start/char_end: bad option highlighted at correct offset */
+	    /* "--out" starts at char 0, ends at char 5 */
+	    (void)bu_opt_validate_string(&cmd, "--out", 5, &vr);
+	    ret = !(vr.state == BU_OPT_VALIDATE_INVALID
+		&& vr.char_start == 0 && vr.char_end == 5);
+	    break;
+	}
+	case 20:
+	{
+	    /* char_start/char_end: bad option in the middle of a string */
+	    /* "obj --out" → bad option "--out" starts at byte 4, ends at 9 */
+	    (void)bu_opt_validate_string(&cmd, "obj --out", 9, &vr);
+	    ret = !(vr.state == BU_OPT_VALIDATE_INVALID
+		&& vr.char_start == 4 && vr.char_end == 9);
+	    break;
+	}
 	default:
 	    ret = -1;
 	    break;
@@ -1095,9 +1130,12 @@ desc_4(int test_num)
 
     if (ret) {
 	bu_log("bu_opt metadata test %d failed: state=%d start=%lu end=%lu "
-	    "expected=%u completions=%lu hint=%s\n", test_num, vr.state,
+	    "expected=%u completions=%lu comp_type=%d char=[%lu,%lu) hint=%s\n",
+	    test_num, vr.state,
 	    (unsigned long)vr.token_start, (unsigned long)vr.token_end,
 	    vr.expected, (unsigned long)vr.completion_count,
+	    (int)vr.completion_type,
+	    (unsigned long)vr.char_start, (unsigned long)vr.char_end,
 	    vr.hint ? vr.hint : "(null)");
     }
 

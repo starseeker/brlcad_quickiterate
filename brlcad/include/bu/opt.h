@@ -329,10 +329,29 @@ struct bu_opt_validate_result {
     const char *hint;
     size_t completion_count;
     const char **completion_candidates;
+    /**
+     * Dynamic completion type hint.  When completion_candidates is empty, this
+     * tells callers what kind of external completion source to query.  For
+     * example, BU_OPT_VAL_DB_OBJECT means the client should ask the geometry
+     * database for object names, BU_OPT_VAL_FILE_PATH means filesystem
+     * completion.  BU_OPT_VAL_UNKNOWN means static list candidates suffice or
+     * no completion hint is available.
+     */
+    bu_opt_value_type_t completion_type;
+    /**
+     * Byte offset of the token of interest in the original input string.
+     * Only populated by bu_opt_validate_string; zero otherwise.
+     */
+    size_t char_start;
+    /**
+     * Byte offset one past the end of the token of interest.
+     * Only populated by bu_opt_validate_string; zero otherwise.
+     */
+    size_t char_end;
 };
 
 
-#define BU_OPT_VALIDATE_RESULT_NULL {BU_OPT_VALIDATE_UNKNOWN, 0, 0, BU_OPT_EXPECT_NONE, NULL, 0, NULL}
+#define BU_OPT_VALIDATE_RESULT_NULL {BU_OPT_VALIDATE_UNKNOWN, 0, 0, BU_OPT_EXPECT_NONE, NULL, 0, NULL, BU_OPT_VAL_UNKNOWN, 0, 0}
 
 
 /**

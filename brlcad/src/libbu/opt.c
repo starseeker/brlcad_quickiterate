@@ -606,6 +606,25 @@ opt_infer_value_type(const struct bu_opt_desc *d)
 }
 
 
+static const char *
+opt_completion_str(bu_opt_value_type_t type, const char * const *keywords)
+{
+    switch (type) {
+	case BU_OPT_VAL_KEYWORD:
+	    return (keywords && keywords[0]) ? "static" : "none";
+	case BU_OPT_VAL_DB_OBJECT:
+	    return "db_object";
+	case BU_OPT_VAL_DB_PATH:
+	    return "db_path";
+	case BU_OPT_VAL_FILE_PATH:
+	    return "file";
+	default:
+	    break;
+    }
+    return "none";
+}
+
+
 static bu_opt_arg_requirement_t
 opt_infer_arg_requirement(const struct bu_opt_desc *d)
 {
@@ -651,6 +670,9 @@ bu_opt_validate_result_clear(struct bu_opt_validate_result *result)
     result->hint = NULL;
     result->completion_count = 0;
     result->completion_candidates = NULL;
+    result->completion_type = BU_OPT_VAL_UNKNOWN;
+    result->char_start = 0;
+    result->char_end = 0;
 }
 
 
@@ -749,6 +771,8 @@ opt_json_option(struct bu_vls *v, const struct bu_opt_desc *ds, const struct bu_
     opt_json_str_member(v, "argument_type", opt_value_type_str(type));
     bu_vls_printf(v, ",\"repeat\":%s,", repeat ? "true" : "false");
     opt_json_str_member(v, "help", help);
+    bu_vls_printf(v, ",");
+    opt_json_str_member(v, "completion", opt_completion_str(type, keywords));
     bu_vls_printf(v, ",\"keywords\":[");
     need_comma = 0;
     if (keywords) {
@@ -803,6 +827,8 @@ opt_json_operands(struct bu_vls *v, const struct bu_opt_operand_desc *operands)
 	    else
 		bu_vls_printf(v, "%lu,", (unsigned long)operands[i].max_count);
 	    opt_json_str_member(v, "help", operands[i].help_string ? operands[i].help_string : "");
+	    bu_vls_printf(v, ",");
+	    opt_json_str_member(v, "completion", opt_completion_str(operands[i].type, operands[i].value_keywords));
 	    bu_vls_printf(v, ",\"keywords\":[");
 	    if (operands[i].value_keywords) {
 		size_t j = 0;
@@ -1072,6 +1098,15 @@ opt_collect_expected_candidates(struct bu_opt_validate_result *result, const str
 	opt_result_free_candidates(&candidates);
     } else {
 	bu_ptbl_free(&candidates);
+    }
+
+    /* set completion_type for dynamic completion hint */
+    if ((expected & BU_OPT_EXPECT_OPTION_ARG) && arg_meta) {
+	result->completion_type = arg_meta->arg_type;
+    } else if ((expected & BU_OPT_EXPECT_OPERAND) && operand_desc) {
+	result->completion_type = operand_desc->type;
+    } else {
+	result->completion_type = BU_OPT_VAL_UNKNOWN;
     }
 }
 
@@ -1399,32 +1434,71 @@ bu_opt_validate_string(const struct bu_opt_cmd_desc *cmd, const char *input, siz
 {
     char *copy = NULL;
     char **argv = NULL;
+    size_t *char_starts = NULL;
+    size_t *char_ends = NULL;
     size_t argc = 0;
     size_t cursor_arg = 0;
-    size_t pos = 0;
+    size_t input_len = 0;
+    size_t p = 0;
+    int in_token = 0;
     int ret = 0;
 
     if (!cmd || !input || !result)
 	return -1;
 
+    input_len = strlen(input);
     copy = bu_strdup(input);
-    argv = (char **)bu_calloc(strlen(copy) + 1, sizeof(char *), "argv array");
-    argc = bu_argv_from_string(argv, strlen(copy), copy);
 
-    while (pos < cursor_pos && input[pos]) {
-	if (isspace((unsigned char)input[pos])) {
-	    while (isspace((unsigned char)input[pos]))
-		pos++;
-	    if (pos < cursor_pos && input[pos])
+    /* strip trailing whitespace so bu_argv_from_string NUL-terminates cleanly */
+    {
+	size_t len = input_len;
+	while (len > 0 && isspace((unsigned char)copy[len - 1]))
+	    copy[--len] = '\0';
+    }
+
+    argv = (char **)bu_calloc(input_len + 1, sizeof(char *), "argv array");
+    argc = bu_argv_from_string(argv, input_len, copy);
+
+    /* record byte offsets for each token - argv[i] points inside copy */
+    char_starts = (size_t *)bu_calloc(argc + 1, sizeof(size_t), "char starts");
+    char_ends   = (size_t *)bu_calloc(argc + 1, sizeof(size_t), "char ends");
+    {
+	size_t ai = 0;
+	for (ai = 0; ai < argc; ai++) {
+	    char_starts[ai] = (size_t)(argv[ai] - copy);
+	    char_ends[ai]   = char_starts[ai] + strlen(argv[ai]);
+	}
+    }
+
+    /* compute cursor_arg: count how many complete tokens are before cursor_pos
+     * (increment each time we leave a token into whitespace) */
+    for (p = 0; p < cursor_pos && input[p]; p++) {
+	if (isspace((unsigned char)input[p])) {
+	    if (in_token) {
 		cursor_arg++;
+		in_token = 0;
+	    }
 	} else {
-	    pos++;
+	    in_token = 1;
 	}
     }
     if (cursor_arg > argc)
 	cursor_arg = argc;
 
     ret = bu_opt_validate_argv(cmd, argc, (const char **)argv, cursor_arg, result);
+
+    /* populate char offsets from token indices */
+    if (result->token_start < argc) {
+	result->char_start = char_starts[result->token_start];
+	result->char_end   = char_ends[result->token_end < argc ? result->token_end : argc - 1];
+    } else {
+	/* past end - point at end of string */
+	result->char_start = input_len;
+	result->char_end   = input_len;
+    }
+
+    bu_free(char_starts, "char starts");
+    bu_free(char_ends, "char ends");
     bu_free(argv, "argv array");
     bu_free(copy, "input copy");
     return ret;

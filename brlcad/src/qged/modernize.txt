@@ -92,31 +92,33 @@ add metadata APIs without changing existing bu_opt_parse behavior:
   operands, repeated options, invalid option detection, incomplete arguments,
   and nested subcommand metadata.
 
-Current status (2026-05-21)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Current status (2026-05-21) — Phase 1 complete
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Phase 1 is partially complete in libbu:
+All Phase 1 items have been implemented in libbu:
 
-* completed:
-
-  * source-compatible side metadata for options, operands, and nested
-    subcommands;
-  * `bu_opt_describe_json` plus `BU_OPT_JSON` support in `bu_opt_describe`;
-  * advisory `bu_opt_validate_argv` / `bu_opt_validate_string` APIs returning
-    valid/incomplete/invalid/unknown states, expected token classes, and hint
-    strings;
-  * schema-derived completion candidates for option names, subcommand names,
-    and keyword-valued option/operand arguments;
-  * libbu tests covering JSON stability, aliases, repeated/non-repeated
-    options, operand bounds, incomplete arguments, nested subcommands, and
-    schema-derived completions.
-
-* remaining in Phase 1:
-
-  * broaden completion metadata beyond static keyword lists where useful;
-  * tighten cursor/token range reporting for UI-facing highlighting details;
-  * settle the JSON contract for any additional completion-specific schema data
-    before libged begins consuming it.
+* source-compatible side metadata (`bu_opt_desc_meta`, `bu_opt_operand_desc`,
+  `bu_opt_cmd_desc`) for options, operands, and nested subcommands;
+* `bu_opt_describe_json` and `BU_OPT_JSON` support in `bu_opt_describe`,
+  with a versioned JSON schema contract (`{"schema":"bu_opt","version":1,...}`)
+  covering option spellings, argument cardinality and type, repeat flag, help
+  text, keyword lists, alias groups, operand bounds, and a per-option/operand
+  `"completion"` field (`"static"`, `"db_object"`, `"db_path"`, `"file"`,
+  `"none"`) so libged consumers can identify the right completion source;
+* advisory `bu_opt_validate_argv` / `bu_opt_validate_string` APIs returning
+  valid/incomplete/invalid/unknown states, expected token classes, and hint
+  strings;
+* schema-derived completion candidates for option names, subcommand names, and
+  keyword-valued option/operand arguments;
+* `bu_opt_validate_result.completion_type` dynamic completion hint (`BU_OPT_VAL_*`)
+  that tells callers what external source to query when static candidate lists
+  are insufficient (e.g., `BU_OPT_VAL_DB_OBJECT` requests geometry database
+  completion, `BU_OPT_VAL_FILE_PATH` requests filesystem completion);
+* `bu_opt_validate_result.char_start` / `char_end` byte-offset fields
+  populated by `bu_opt_validate_string` for UI-facing token highlighting;
+* libbu tests covering JSON stability, aliases, repeated/non-repeated options,
+  operand bounds, incomplete arguments, nested subcommands, schema-derived
+  completions, completion_type values, and char offset spans.
 
 Phase 2: publish libged command schemas
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
