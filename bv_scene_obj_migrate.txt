@@ -62,10 +62,10 @@ A literal scan of non-generated `.c`, `.cpp`, `.h`, and `.hpp` files under
 `struct bview`, `bv_` headers, and libbv target dependencies.  Treat those
 counts as scope signals.  The full removal is complete only when:
 
-- `rg 'bv_scene_obj|struct bview|#include [<"]bv/|#include [<"]bv\.h' brlcad/include brlcad/src`
+- `rg 'bv_scene_obj|struct bview|#include <bv/|#include "bv/|#include <bv\.h>|#include "bv\.h"' brlcad/include brlcad/src`
   finds no active implementation references except historical notes scheduled
   for deletion.
-- `rg 'libbv|LIBBV|BV_EXPORT|BV_DLL|#include [<"]bv/|/bv/|bv\.h' brlcad/CMakeLists.txt brlcad/include brlcad/src`
+- `rg 'libbv|LIBBV|BV_EXPORT|BV_DLL|#include <bv/|#include "bv/|#include <bv\.h>|#include "bv\.h"|/bv/' brlcad/CMakeLists.txt brlcad/include brlcad/src`
   finds no build, install, or public API references.
 - No installed header path under `include/bv` remains.
 - No target named `libbv` or `libbv-*` remains.
@@ -511,7 +511,7 @@ Work:
 Exit criteria:
 - No target named `libbv` is generated.
 - No installed file path contains `/bv/` or `bv.h`.
-- `rg 'libbv|BV_EXPORT|BV_DLL|#include [<"]bv|bv_scene_obj|struct bview' brlcad/CMakeLists.txt brlcad/include brlcad/src`
+- `rg 'libbv|BV_EXPORT|BV_DLL|#include <bv/|#include "bv/|#include <bv\.h>|#include "bv\.h"|bv_scene_obj|struct bview' brlcad/CMakeLists.txt brlcad/include brlcad/src`
   finds no active implementation references.
 
 Phase 9 - Hardening, Parity, and Cleanup
