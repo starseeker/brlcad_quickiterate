@@ -41,6 +41,7 @@
 #include "common.h"
 
 #include <QGridLayout>
+#include <QMouseEvent>
 #include <QtGlobal>
 
 #include "bu/str.h"
@@ -48,6 +49,7 @@
 #include "ged/defines.h"
 #include "ged/commands.h"
 #include "qtcad/QgQuadView.h"
+#include "qtcad/QgView.h"
 
 static const char *VIEW_NAMES[] = {"Q1", "Q2", "Q3", "Q4"};
 

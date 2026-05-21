@@ -97,7 +97,7 @@ QEll::read_from_db()
     QgModel *m = ((QgEdApp *)qApp)->mdl;
     if (!m)
 	return;
-    struct ged *gedp = m->gedp;
+    struct ged *gedp = m->ged();
     if (!gedp)
 	return;
     struct db_i *dbip = gedp->dbip;
@@ -131,7 +131,7 @@ QEll::write_to_db()
     QgModel *m = ((QgEdApp *)qApp)->mdl;
     if (!m)
 	return;
-    struct ged *gedp = m->gedp;
+    struct ged *gedp = m->ged();
     if (!gedp)
 	return;
     struct db_i *dbip = gedp->dbip;
@@ -170,7 +170,7 @@ QEll::update_obj_wireframe()
     QgModel *m = ((QgEdApp *)qApp)->mdl;
     if (!m)
 	return;
-    struct ged *gedp = m->gedp;
+    struct ged *gedp = m->ged();
     if (!gedp)
 	return;
     struct bview *v = gedp->ged_gvp;
@@ -246,7 +246,7 @@ QEll::update_viewobj_name(const QString &)
     QgModel *m = ((QgEdApp *)qApp)->mdl;
     if (!m)
 	return;
-    struct ged *gedp = m->gedp;
+    struct ged *gedp = m->ged();
     if (!gedp)
 	return;
     struct bview *v = gedp->ged_gvp;

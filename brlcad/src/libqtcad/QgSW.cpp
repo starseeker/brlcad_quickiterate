@@ -27,12 +27,21 @@
 #include "common.h"
 
 #include <QImage>
+#include <QKeyEvent>
+#include <QMouseEvent>
 #include <QPainter>
+#include <QPaintEvent>
+#include <QResizeEvent>
 #include <QtGlobal>
+#include <QWheelEvent>
 
 extern "C" {
+#include "bu/ptbl.h"
 #include "bu/malloc.h"
+#include "bv.h"
 #include "bsg/util.h"
+#define DM_WITH_RT
+#include "dm.h"
 }
 #include "bindings.h"
 #include "qtcad/QgSW.h"
@@ -66,6 +75,7 @@ qtcad_render_size(const QWidget *w)
 QgSW::QgSW(QWidget *parent, struct fb *fbp)
 	: QWidget(parent), ifp(fbp)
 {
+	lmouse_mode = BV_SCALE;
 	// Provide a view specific to this widget - set gedp->ged_gvp to v
 	// if this is the current view
 	BU_GET(local_v, struct bview);
@@ -100,6 +110,25 @@ QgSW::~QgSW()
 		fb_close_existing(ifp);
 	}
 	BU_PUT(local_v, struct bv);
+}
+
+void
+QgSW::set_view(struct bview *nv)
+{
+	if (!nv) {
+		/* A nullptr assignment explicitly clears any external view binding. */
+		v = nullptr;
+		return;
+	}
+
+	v = nv;
+	if (!dmp)
+		return;
+
+	v->dmp = dmp;
+	dm_configure_win(dmp, 0);
+	v->gv_width = dm_get_width(dmp);
+	v->gv_height = dm_get_height(dmp);
 }
 
 void QgSW::need_update()

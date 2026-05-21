@@ -29,6 +29,7 @@
 #include "bu/sort.h"
 #include "bu/avs.h"
 #include "bu/malloc.h"
+#include "raytrace.h"
 #include "qtcad/QgAttributesModel.h"
 #include "qtcad/QgModel.h"
 

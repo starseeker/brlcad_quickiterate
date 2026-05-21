@@ -28,15 +28,16 @@
 
 #include <QWidget>
 
-extern "C" {
-#include "bu/ptbl.h"
-#include "bv.h"
-#include "dm.h"
-}
-
 #include "qtcad/defines.h"
 #include "qtcad/QgTypes.h"
-#include "qtcad/QgView.h"
+
+class QEvent;
+class QgView;
+class QGridLayout;
+class QPoint;
+
+struct bview;
+struct ged;
 
 // Abbreviations:
 //
@@ -100,9 +101,9 @@ private:
 	// Holds up to 4 views in single view only the first view is constructed
 	// The other views are constructed if quad view mode is selected by the user
 	QgView *views[4] = {nullptr, nullptr, nullptr, nullptr};
-	QgView *currentView;
+	QgView *currentView = nullptr;
 	// We need to hang on to this because we don't create the other quad views until the user switches mode
-	struct ged *gedp;
+	struct ged *gedp = nullptr;
 
 	// Hang on to these pointers so when we need to clean up memory we have them
 	QGridLayout *currentLayout = nullptr;

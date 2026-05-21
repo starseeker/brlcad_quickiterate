@@ -25,6 +25,7 @@
 
 #include <QTimer>
 #include <QMessageBox>
+#include <QSurfaceFormat>
 #include "qtcad/QgViewCtrl.h"
 #include "qtcad/QgTreeSelectionModel.h"
 #include "QgEdMainWindow.h"
@@ -104,7 +105,7 @@ QgEdMainWindow::CreateWidgets(int canvas_type)
 {
     QgEdApp *ap = (QgEdApp *)qApp;
     QgModel *m = ap->mdl;
-    struct ged *gedp = m->gedp;
+    struct ged *gedp = m->ged();
 
     // Define a widget to hold the main view and its associated
     // view control toolbar
@@ -161,7 +162,7 @@ QgEdMainWindow::CreateWidgets(int canvas_type)
     tree_dock = new QgDockWidget("Hierarchy", this);
     tree_dock->setObjectName("Hierarchy");
     tree_dock->setWidget(treeview);
-    tree_dock->m = ap->mdl;
+    tree_dock->setModel(ap->mdl);
 
     /* Object Attribute widgets */
     sattrd = new QDockWidget("Standard Attributes", this);
@@ -372,7 +373,7 @@ QgEdMainWindow::do_dm_init()
     QTCAD_SLOT("QgEdMainWindow::do_dm_init", 1);
     QgEdApp *ap = (QgEdApp *)qApp;
     QgModel *m = ap->mdl;
-    struct ged *gedp = m->gedp;
+    struct ged *gedp = m->ged();
 
     (void)ged_clbk_set(gedp, "dm", BU_CLBK_DURING, qged_dm_during_clbk, NULL);
 

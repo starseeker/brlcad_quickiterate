@@ -35,21 +35,22 @@
 
 #include "common.h"
 
-#include <QMouseEvent>
-#include <QPaintEvent>
-#include <QResizeEvent>
-#include <QResizeEvent>
-#include <QWheelEvent>
 #include <QWidget>
 
-extern "C" {
-#include "bu/ptbl.h"
-#include "bv.h"
-#define DM_WITH_RT
-#include "dm.h"
-}
-
 #include "qtcad/defines.h"
+
+class QImage;
+class QKeyEvent;
+class QMouseEvent;
+class QPaintEvent;
+class QResizeEvent;
+class QString;
+class QWheelEvent;
+
+struct bu_ptbl;
+struct bview;
+struct dm;
+struct fb;
 
 class QTCAD_EXPORT QgSW : public QWidget {
 	Q_OBJECT
@@ -71,15 +72,25 @@ public:
 	void get_viewport_image(QImage &img);
 
 	void aet(double a, double e, double t);
-
-	int current = 1;
-	struct bview *v = nullptr;
-	struct dm *dmp = nullptr;
-	struct fb *ifp = nullptr;
-	struct bu_ptbl *dm_set = nullptr;
-
-	void (*draw_custom)(struct bview *, void *) = nullptr;
-	void *draw_udata = nullptr;
+	int currentView() const
+	{
+		return current;
+	}
+	void set_current(int active)
+	{
+		current = active;
+	}
+	/* nullptr is accepted to clear any externally supplied view binding. */
+	void set_view(struct bview *nv);
+	void setDisplayManagerSet(struct bu_ptbl *set)
+	{
+		dm_set = set;
+	}
+	void set_draw_custom(void (*draw_func)(struct bview *, void *), void *udata)
+	{
+		draw_custom = draw_func;
+		draw_udata = udata;
+	}
 
 	void enableDefaultKeyBindings();
 	void disableDefaultKeyBindings();
@@ -120,12 +131,20 @@ protected:
 	void wheelEvent(QWheelEvent *e) override;
 
 private:
+	int current = 1;
+	struct bview *v = nullptr;
+	struct dm *dmp = nullptr;
+	struct fb *ifp = nullptr;
+	struct bu_ptbl *dm_set = nullptr;
+	void (*draw_custom)(struct bview *, void *) = nullptr;
+	void *draw_udata = nullptr;
 	unsigned long long prev_dhash = 0;
 	unsigned long long prev_vhash = 0;
 
 	bool use_default_keybindings = true;
 	bool use_default_mousebindings = true;
-	int lmouse_mode = BV_SCALE;
+	/* Constructor assigns BV_SCALE once bv.h is available in the .cpp. */
+	int lmouse_mode = -1;
 
 	bool m_init = false;
 	int x_prev = -INT_MAX;

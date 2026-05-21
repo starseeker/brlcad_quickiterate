@@ -39,7 +39,8 @@ public:
 	QgDockWidget(const QString &title, QWidget *parent);
 	bool event(QEvent *e);
 
-	QgModel *m = nullptr;
+	QgModel *model() const { return m; }
+	void setModel(QgModel *mdl) { m = mdl; }
 
 signals:
 	void banner_click();
@@ -49,6 +50,7 @@ public slots:
 
 private:
 	bool moving = false;
+	QgModel *m = nullptr;
 };
 
 #endif /* QGDOCKWIDGET_H */

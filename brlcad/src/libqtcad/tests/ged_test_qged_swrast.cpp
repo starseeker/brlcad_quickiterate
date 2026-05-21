@@ -36,15 +36,15 @@
  *   1. Set QT_QPA_PLATFORM=offscreen so no display hardware is needed.
  *   2. Create QApplication.
  *   3. Create QgSW widget and resize to 512×512.
- *   4. Open moss.g with ged_open, set up DbiState, set gedp->ged_gvp = sw.v.
- *   5. Register sw.v with the view set and set base2local / local2base.
+ *   4. Open moss.g with ged_open, set up DbiState, set gedp->ged_gvp = sw.view().
+ *   5. Register sw.view() with the view set and set base2local / local2base.
  *   6. Draw all.g via ged_exec_draw.
  *   7. Force paintEvent via QWidget::render() on a QImage surface.
  *      (render() calls QWidget::paintEvent internally.)
  *   8. Read framebuffer content via dm_get_display_image after DM init.
  *   9. Verify:
- *      a. sw.v->bsg_root != NULL  (after GED bind + draw)
- *      b. sw.dmp != NULL          (DM opened during paintEvent)
+ *      a. sw.view()->bsg_root != NULL  (after GED bind + draw)
+ *      b. sw.displayManager() != NULL  (DM opened during paintEvent)
  *      c. At least one pixel differs from the background color (geometry rendered)
  *
  * Usage: ged_test_qged_swrast [-c] <directory-containing-moss.g>
@@ -162,7 +162,7 @@ main(int ac, char *av[])
     QgSW sw;
     sw.resize(512, 512);
 
-    SWCHECK(sw.v != NULL, "QgSW::v (local_v) must be non-NULL after construction");
+    SWCHECK(sw.view() != NULL, "QgSW::view() must be non-NULL after construction");
 
     /* ---- Open moss.g and hook up the model ---- */
     struct ged *gedp = ged_open("db", "moss_qgswrast_tmp.g", 1);
@@ -180,10 +180,10 @@ main(int ac, char *av[])
     db_add_changed_clbk(gedp->dbip, &ged_changed_callback, (void *)gedp);
 
     /* Route draw commands into the QgSW view */
-    gedp->ged_gvp = sw.v;
-    bv_set_add_view(&gedp->ged_views, sw.v);
-    sw.v->gv_base2local = gedp->dbip->dbi_base2local;
-    sw.v->gv_local2base = gedp->dbip->dbi_local2base;
+    gedp->ged_gvp = sw.view();
+    bv_set_add_view(&gedp->ged_views, sw.view());
+    sw.view()->gv_base2local = gedp->dbip->dbi_base2local;
+    sw.view()->gv_local2base = gedp->dbip->dbi_local2base;
 
     /* Set az/el so the model is visible */
     const char *ae_av[4] = {"ae", "35", "25", NULL};
@@ -197,7 +197,7 @@ main(int ac, char *av[])
 
     /* Let DbiState update with the new draw content */
     dbis->update();
-    SWCHECK(sw.v && sw.v->bsg_root != NULL,
+    SWCHECK(sw.view() && sw.view()->bsg_root != NULL,
             "after binding QgSW view to GED and drawing, v->bsg_root must be non-NULL");
 
     /* ---- Force paintEvent via QWidget::render() ---- */
@@ -210,20 +210,20 @@ main(int ac, char *av[])
     /* Process any pending Qt events that paintEvent may have queued */
     QCoreApplication::processEvents();
 
-    /* If paintEvent ran and initialised the DM, sw.dmp must be set now */
-    SWCHECK(sw.dmp != NULL, "sw.dmp must be non-NULL after first paintEvent (DM opened)");
+    /* If paintEvent ran and initialised the DM, sw.displayManager() must be set now */
+    SWCHECK(sw.displayManager() != NULL, "sw.displayManager() must be non-NULL after first paintEvent (DM opened)");
 
     /* ---- Check framebuffer has non-background pixels ---- */
     bool has_nonbg = false;
-    if (sw.dmp) {
+    if (sw.displayManager()) {
         unsigned char *dm_image = NULL;
-        int gr = dm_get_display_image(sw.dmp, &dm_image, 1, 1);
+        int gr = dm_get_display_image(sw.displayManager(), &dm_image, 1, 1);
         if (gr == 0 && dm_image) {
             /* Background is typically dark grey or near-black.
              * We just need at least one pixel that is NOT pure black,
              * indicating that wireframe lines were drawn. */
-            int W = dm_get_width(sw.dmp);
-            int H = dm_get_height(sw.dmp);
+            int W = dm_get_width(sw.displayManager());
+            int H = dm_get_height(sw.displayManager());
             for (int p = 0; p < W * H * 4 && !has_nonbg; p += 4) {
                 /* Check RGB — skip alpha byte [p+3] */
                 if (dm_image[p] > 30 || dm_image[p+1] > 30 || dm_image[p+2] > 30)
@@ -238,7 +238,7 @@ main(int ac, char *av[])
         }
     }
 
-    if (sw.dmp) {
+    if (sw.displayManager()) {
         SWCHECK(has_nonbg,
                 "framebuffer must have non-background pixels (geometry was drawn)");
     }

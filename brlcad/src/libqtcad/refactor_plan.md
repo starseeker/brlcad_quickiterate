@@ -1,11 +1,31 @@
 Phase 1 — Style and surface conventions (mechanical, low-risk)
 
+Current tree notes:
+- Pointer-to-member connect syntax is already in use across libqtcad; Q_DISABLE_COPY_MOVE is already present on the public Q_OBJECT widgets/models touched so far.
+- The naming cleanup has started: QgConsoleListener, QgPoly*Filter, and QgAsc/QgRhino/QgStepImportDialog are the exported names now, with compatibility aliases still present.
+- QgTypes.h already centralizes the QgView_*/quadrant/edit-mode/comb-type compatibility constants behind enum class definitions plus Q_DECLARE_FLAGS for view-update flags.
+- Remaining work from this phase is mostly a residual style sweep (for example, lingering NULL usage in tests/docs and any remaining missing override/delete cleanups).
+
 - Adopt a uniform style: replace NULL with nullptr in libqtcad headers and .cpp files; switch all signal/slot connections to the pointer-to-member-function form; apply override everywhere appropriate; add Q_DISABLE_COPY_MOVE (or = delete'd copy/move) to all Q_OBJECT classes.
 - Normalize naming: rename the un-prefixed filter classes (QPolyCreateFilter → QgPolyCreateFilter, etc.), QConsoleListener → QgConsoleListener (already the filename), ASCImportDialog/RhinoImportDialog/STEPImportDialog → QgAsc/Rhino/StepImportDialog, give them QTCAD_EXPORT, and provide back-compat typedefs for one release if needed.
 - Run clang-format/astyle over src/libqtcad and include/qtcad with the BRL-CAD style.
 - Replace #define-style enums (QgView_*, UPPER_RIGHT_QUADRANT, Qg*EditMode, QG_VIEW_*, G_STANDARD_OBJ/…) with enum class (or Q_FLAGS for the bitwise view flags) declared inside the relevant class or a small QgTypes.h.
 
 Phase 2 — Encapsulation pass
+
+Current tree notes:
+- This phase is started but not finished: QgGL/QgSW already expose defaultMouseMode as Q_PROPERTY and already have basic view()/displayManager()/frameBuffer() getters.
+- QgView now keeps its active event-filter pointer private and manages it through add/remove helpers rather than exposing raw external writes.
+- The standalone dm Qt window wrappers now expose their QgGL/QgSW canvases through accessors instead of public member pointers.
+- QgToolPaletteElement now exposes its button/control/scroll state through accessors instead of public data members.
+- QgViewCtrl now keeps its ged/action state private instead of exposing raw toolbar members.
+- QgQuadView now forward-declares view/ged/layout types so its public header no longer drags in libdm/libbv/QgView implementation details.
+- QgGL/QgSW/QgView public headers now forward-declare their dm/bview/fb and Qt event/image types instead of exporting the libdm/libbv implementation headers transitively.
+- QgItem and QgModel now keep their externally-used state behind accessors instead of exposing raw public members across libqtcad, qged, and the tests.
+- QgDockWidget::m, QgTreeView::m, and QgTreeSelectionModel::treeview are now private with model()/setModel()/cadModel()/treeView() accessors; QgToolPalette::selected, selected_style, and mlayout are now private with the selectedElement() accessor for the selection; QgEdPalette updated to use selectedElement() accordingly.
+- QgModel.h now uses forward declarations (struct bu_vls; struct bview; struct db_i; struct directory; struct ged;) in place of the #ifndef Q_MOC_RUN raytrace.h/ged.h include block; QgItem::name converted to a heap-allocated struct bu_vls *name_ptr; QgItem::op changed from db_op_t to int; QgAttributesModel.cpp adds its own raytrace.h include now that it is no longer pulled in transitively.
+- QgTreeSelectionModel.h removes ged.h and unused STL-container includes; QgTreeView.h removes the unused STL-container includes.
+- Phase 2 is complete.
 
 - Promote raw public data to accessors where they're called from outside (compile, follow errors, add minimal getters/setters). Focus on the high-traffic classes first: QgItem/QgModel, QgSW/QgGL, QgQuadView, QgViewCtrl, QgToolPalette*.
 - Introduce Q_PROPERTY for state visible to QML/Designer or for state that genuinely is user-configurable (icon size, default mouse mode, default key bindings, etc.).
@@ -46,11 +66,18 @@ Phase 7 — Namespacing and packaging
 
 Phase 8 — Test and CI coverage
 
+Current tree notes:
+- Headless QApplication coverage has already started: src/libqtcad/tests contains qgmodel/qgview test programs plus the offscreen ged_test_qged_swrast integration test, and the latter is wired into CTest with QT_QPA_PLATFORM=offscreen.
+- The QAbstractItemModelTester item is still open; QgModel.h still carries the Model_Test TODO.
+
 - Add headless QApplication-based unit tests (using QSignalSpy and QTest) for the most logic-heavy classes: QgModel (tree fetch/hierarchy), QgKeyValModel, QgAttributesModel, each filter family (synthetic mouse events), QgFlowLayout, QgToolPalette selection logic, QgConsole command echo / completion, QgSignalFlags flag round-tripping.
 - Add a QAbstractItemModelTester instance over QgModel (the TODO in QgModel.h referencing wiki.qt.io/Model_Test becomes obsolete).
 - Ensure the existing tests/ programs are run under xvfb in CI so canvas widgets actually instantiate.
 
 Phase 9 — Threading and ownership cleanup
+
+Current tree notes:
+- The QgConsoleListener rename landed under Phase 1, but the ownership/threading cleanup itself does not appear to have started yet.
 
 - Replace QgConsoleListener's inherited QThread m_thread with the QObject::moveToThread pattern, document the consumer/producer lifetime.
 - Give QgConsole::listeners a private API and clear ownership semantics (transfer to std::unique_ptr or rely on QObject parent ownership).

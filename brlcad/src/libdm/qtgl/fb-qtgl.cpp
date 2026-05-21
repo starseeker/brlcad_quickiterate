@@ -507,11 +507,18 @@ fb_qtgl_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
     QSurfaceFormat::setDefaultFormat(fmt);
 
     qi->mw = new QgGLWin(ifp);
+    QgGL *canvas = qi->mw->canvasWidget();
+    if (!canvas) {
+	qt_destroy(qi);
+	free(ifp->i->pp);
+	ifp->i->pp = NULL;
+	return -1;
+    }
     {
-	qreal dpr = qi->mw->canvas->devicePixelRatioF();
+	qreal dpr = canvas->devicePixelRatioF();
 	int lw = qMax(1, static_cast<int>(std::ceil(((qreal)width) / dpr)));
 	int lh = qMax(1, static_cast<int>(std::ceil(((qreal)height) / dpr)));
-	qi->mw->canvas->setFixedSize(lw, lh);
+	canvas->setFixedSize(lw, lh);
     }
     qi->mw->adjustSize();
     qi->mw->setFixedSize(qi->mw->size());
@@ -520,10 +527,22 @@ fb_qtgl_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
 
     // Do the standard libdm attach to get our rendering backend.
     const char *acmd = "attach";
-    struct dm *dmp = dm_open((void *)qi->mw->canvas, NULL, "qtgl", 1, &acmd);
-    if (!dmp)
+    struct dm *dmp = dm_open((void *)canvas, NULL, "qtgl", 1, &acmd);
+    if (!dmp) {
+	qt_destroy(qi);
+	free(ifp->i->pp);
+	ifp->i->pp = NULL;
 	return -1;
-    qi->mw->canvas->v->gv_s->gv_fb_mode = 1;
+    }
+    struct bview *canvas_view = canvas->view();
+    if (!canvas_view) {
+	dm_close(dmp);
+	qt_destroy(qi);
+	free(ifp->i->pp);
+	ifp->i->pp = NULL;
+	return -1;
+    }
+    canvas_view->gv_s->gv_fb_mode = 1;
 
     struct fb_platform_specific fbps;
     fbps.magic = FB_QTGL_MAGIC;
