@@ -58,11 +58,11 @@ qged_post_opendb_clbk(int UNUSED(ac), const char **UNUSED(av), void *UNUSED(gedp
     QgEdApp *a = (QgEdApp *)ctx;
     if (!a)
 	return BRLCAD_OK;
-    if (a->mdl && a->mdl->gedp)
-	emit a->dbi_update(a->mdl->gedp->dbip);
+    if (a->mdl && a->mdl->ged())
+	emit a->dbi_update(a->mdl->ged()->dbip);
     if (!a->w)
 	return BRLCAD_OK;
-    if (!a->mdl || !a->mdl->gedp || !a->mdl->gedp->dbip) {
+    if (!a->mdl || !a->mdl->ged() || !a->mdl->ged()->dbip) {
 	a->w->statusBar()->showMessage("open failed");
 	return BRLCAD_OK;
     }
@@ -212,14 +212,14 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
     /* QgEdApp owns mdl for the lifetime of the application; the accessor
      * re-reads the member so future replacements are observed as well. */
     m_plugin_context.gedAccessor = [this]() -> struct ged * {
-	return (mdl && mdl->gedp) ? mdl->gedp : GED_NULL;
+	return mdl ? mdl->ged() : GED_NULL;
     };
     m_plugin_context.viewAccessor = [this]() -> struct bview * {
 	/* Prefer the main window's current display when it exists; before window
 	 * construction falls back to the model's current ged view pointer. */
 	if (w)
 	    return w->CurrentView();
-	return (mdl && mdl->gedp) ? mdl->gedp->ged_gvp : NULL;
+	return (mdl && mdl->ged()) ? mdl->ged()->ged_gvp : NULL;
     };
     m_plugin_context.model = mdl;
     m_plugin_context.notifier = m_plugin_notifier;
@@ -721,8 +721,8 @@ QgEdApp::run_qcmd(const QString &command)
 		    console->printString(err);
 		console->prompt("$ ");
 	    }
-	    if (mdl && mdl->gedp)
-		bu_vls_trunc(mdl->gedp->ged_result_str, 0);
+	    if (mdl && mdl->ged())
+		bu_vls_trunc(mdl->ged()->ged_result_str, 0);
 	    bu_vls_free(&msg);
 	    (void)ret;
 	    return;
