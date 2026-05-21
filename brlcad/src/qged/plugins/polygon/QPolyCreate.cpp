@@ -445,7 +445,7 @@ QPolyCreate::sketch_sync()
 void
 QPolyCreate::toggle_line_snapping(bool s)
 {
-    struct bview *v = (cf) ? cf->v : NULL;
+    struct bview *v = (cf) ? cf->view() : NULL;
     struct bv_scene_obj *co = (cf) ? cf->wp : NULL;
     if (!v || !co)
 	return;
@@ -469,7 +469,7 @@ QPolyCreate::toggle_line_snapping(bool s)
 void
 QPolyCreate::toggle_grid_snapping(bool s)
 {
-    struct bview *v = (cf) ? cf->v : NULL;
+    struct bview *v = (cf) ? cf->view() : NULL;
     if (!v)
 	return;
 
@@ -486,7 +486,7 @@ QPolyCreate::toggle_grid_snapping(bool s)
 void
 QPolyCreate::checkbox_refresh(unsigned long long)
 {
-    struct bview *v = (cf) ? cf->v : NULL;
+    struct bview *v = (cf) ? cf->view() : NULL;
     if (!v)
 	return;
 

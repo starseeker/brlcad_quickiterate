@@ -876,7 +876,7 @@ QPolyMod::view_name_update()
 void
 QPolyMod::toggle_line_snapping(bool s)
 {
-    struct bview *v = (cf) ? cf->v : NULL;
+    struct bview *v = (cf) ? cf->view() : NULL;
     struct bv_scene_obj *co = (cf) ? cf->wp : NULL;
     if (!v || !co)
 	return;
@@ -900,7 +900,7 @@ QPolyMod::toggle_line_snapping(bool s)
 void
 QPolyMod::toggle_grid_snapping(bool s)
 {
-    struct bview *v = (cf) ? cf->v : NULL;
+    struct bview *v = (cf) ? cf->view() : NULL;
     if (!v)
 	return;
 
@@ -917,7 +917,7 @@ QPolyMod::toggle_grid_snapping(bool s)
 void
 QPolyMod::checkbox_refresh(unsigned long long)
 {
-    struct bview *v = (cf) ? cf->v : NULL;
+    struct bview *v = (cf) ? cf->view() : NULL;
     if (!v)
 	return;
 
