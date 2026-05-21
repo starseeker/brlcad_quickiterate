@@ -262,7 +262,7 @@ Suggested Near-Term Work Slices
 -------------------------------
 1. Header decoupling slice:
    - Move `struct bsg_node` and BSG constants out of `bv/defines.h`.
-   - Make `bsg/defines.h` independent from `bv/defines.h`.
+   - Stop `include/bsg/defines.h` from including `include/bv/defines.h`.
    - Validate `libbsg`, `libbv`, and BSG tests.
 2. Public BSG type cleanup slice:
    - Convert libbsg headers and implementation-local helpers from
