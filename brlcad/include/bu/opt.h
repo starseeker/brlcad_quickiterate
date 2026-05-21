@@ -341,11 +341,11 @@ struct bu_opt_operand_desc {
 struct bu_opt_cmd_desc {
     const char *name;
     const char *help_string;
-    const struct bu_opt_desc *options; /* Transitional parser descriptor source */
-    const struct bu_opt_option_overrides *option_overrides; /* Optional metadata override records for synthesized metadata */
+    const struct bu_opt_desc *options; /* Transitional parser source; when set, metadata is synthesized from options and then refined by option_overrides */
+    const struct bu_opt_option_overrides *option_overrides; /* Optional metadata override records used only with synthesized metadata from options */
     const struct bu_opt_operand_desc *operands;
     const struct bu_opt_cmd_desc *subcommands;
-    const struct bu_opt_option_desc *option_desc; /* Optional direct metadata-only option descriptors */
+    const struct bu_opt_option_desc *option_desc; /* Optional direct metadata-only descriptors; preferred long-term replacement for options+option_overrides */
 };
 
 

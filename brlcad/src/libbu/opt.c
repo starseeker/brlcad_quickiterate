@@ -750,6 +750,8 @@ opt_apply_override(struct bu_opt_option_desc *d, const struct bu_opt_option_over
     }
     if (o->override_mask & BU_OPT_OVERRIDE_FLAGS)
 	d->flags = o->flags;
+    /* Design rule: if callers refine arg_type but do not explicitly refine
+     * completion_type, completion follows the refined arg_type. */
     if (type_overridden && !completion_overridden)
 	d->completion_type = d->arg_type;
 }
@@ -770,6 +772,7 @@ bu_opt_option_from_desc(struct bu_opt_option_desc *out, const struct bu_opt_desc
     out->arg_type = opt_infer_value_type(in);
     out->repeat = 0;
     out->value_keywords = NULL;
+    /* By default, completion follows inferred argument type. */
     out->completion_type = out->arg_type;
     out->flags = BU_OPT_OPTION_FLAG_NONE;
     return 0;
@@ -1105,6 +1108,10 @@ opt_json_command(struct bu_vls *v, const struct bu_opt_cmd_desc *cmd)
     bu_vls_printf(v, ",");
     opt_json_str_member(v, "help", cmd && cmd->help_string ? cmd->help_string : "");
     bu_vls_printf(v, ",\"options\":[");
+    /* Transitional support:
+     *  - options      -> synthesize metadata on demand
+     *  - option_desc  -> metadata provided directly
+     */
     if (cmd && cmd->options) {
 	size_t opt_cnt = 0;
 	size_t i = 0;
