@@ -764,7 +764,11 @@ opt_json_operands(struct bu_vls *v, const struct bu_opt_operand_desc *operands)
 	    opt_json_str_member(v, "name", operands[i].name);
 	    bu_vls_printf(v, ",");
 	    opt_json_str_member(v, "type", opt_value_type_str(operands[i].type));
-	    bu_vls_printf(v, ",\"min\":%lu,\"max\":%lu,", (unsigned long)operands[i].min_count, (unsigned long)operands[i].max_count);
+	    bu_vls_printf(v, ",\"min\":%lu,\"max\":", (unsigned long)operands[i].min_count);
+	    if (operands[i].max_count == BU_OPT_COUNT_UNLIMITED)
+		bu_vls_printf(v, "null,");
+	    else
+		bu_vls_printf(v, "%lu,", (unsigned long)operands[i].max_count);
 	    opt_json_str_member(v, "help", operands[i].help_string ? operands[i].help_string : "");
 	    bu_vls_printf(v, "}");
 	    need_comma = 1;

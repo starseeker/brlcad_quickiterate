@@ -900,7 +900,7 @@ desc_4(int test_num)
     const char *output = NULL;
     const char *mode = NULL;
     struct bu_color color = BU_COLOR_INIT_ZERO;
-    struct bu_opt_validate_result vr = BU_OPT_VALIDATE_RESULT_INIT;
+    struct bu_opt_validate_result vr = BU_OPT_VALIDATE_RESULT_NULL;
     int ret = 0;
     char *json = NULL;
     const char *expected_json =
