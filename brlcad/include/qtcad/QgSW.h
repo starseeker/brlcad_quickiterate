@@ -35,21 +35,22 @@
 
 #include "common.h"
 
-#include <QMouseEvent>
-#include <QPaintEvent>
-#include <QResizeEvent>
-#include <QResizeEvent>
-#include <QWheelEvent>
 #include <QWidget>
 
-extern "C" {
-#include "bu/ptbl.h"
-#include "bv.h"
-#define DM_WITH_RT
-#include "dm.h"
-}
-
 #include "qtcad/defines.h"
+
+class QImage;
+class QKeyEvent;
+class QMouseEvent;
+class QPaintEvent;
+class QResizeEvent;
+class QString;
+class QWheelEvent;
+
+struct bu_ptbl;
+struct bview;
+struct dm;
+struct fb;
 
 class QTCAD_EXPORT QgSW : public QWidget {
 	Q_OBJECT
@@ -142,7 +143,7 @@ private:
 
 	bool use_default_keybindings = true;
 	bool use_default_mousebindings = true;
-	int lmouse_mode = BV_SCALE;
+	int lmouse_mode = 0;
 
 	bool m_init = false;
 	int x_prev = -INT_MAX;

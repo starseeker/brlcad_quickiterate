@@ -32,6 +32,7 @@
 #include <QThread>
 #include "bu/malloc.h"
 #include "bu/file.h"
+#include "dm.h"
 #include "qtcad/QgGeomImport.h"
 #include "qtcad/QgTreeSelectionModel.h"
 #include "QgEdApp.h"

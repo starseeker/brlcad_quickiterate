@@ -26,24 +26,22 @@
 
 #include "common.h"
 
-extern "C" {
-#include "bu/ptbl.h"
-#include "bg/polygon.h"
-#include "bv.h"
-#include "dm.h"
-}
-
 #include <vector>
 #include <QBoxLayout>
-#include <QImage>
-#include <QObject>
 #include <QWidget>
 #include "qtcad/defines.h"
 #include "qtcad/QgTypes.h"
-#include "qtcad/QgSW.h"
+
+class QImage;
+class QObject;
+class QgSW;
 #ifdef BRLCAD_OPENGL
-#  include "qtcad/QgGL.h"
+class QgGL;
 #endif
+
+struct bview;
+struct dm;
+struct fb;
 
 class QTCAD_EXPORT QgView : public QWidget {
 	Q_OBJECT

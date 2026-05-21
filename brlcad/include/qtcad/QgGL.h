@@ -26,25 +26,21 @@
 
 #include "common.h"
 
-#include <QKeyEvent>
-#include <QImage>
-#include <QKeyEvent>
-#include <QMouseEvent>
-#include <QObject>
 #include <QOpenGLFunctions>
 #include <QOpenGLWidget>
-#include <QPainter>
-#include <QWheelEvent>
-#include <QWidget>
-
-extern "C" {
-#include "bu/ptbl.h"
-#include "bv.h"
-#define DM_WITH_RT
-#include "dm.h"
-}
 
 #include "qtcad/defines.h"
+
+class QImage;
+class QKeyEvent;
+class QMouseEvent;
+class QResizeEvent;
+class QWheelEvent;
+
+struct bu_ptbl;
+struct bview;
+struct dm;
+struct fb;
 
 // Use QOpenGLFunctions so we don't have to prefix all OpenGL calls with "f->"
 class QTCAD_EXPORT QgGL : public QOpenGLWidget, protected QOpenGLFunctions {
@@ -134,7 +130,7 @@ private:
 
 	bool use_default_keybindings = true;
 	bool use_default_mousebindings = true;
-	int lmouse_mode = BV_SCALE;
+	int lmouse_mode = 0;
 
 	bool m_init = false;
 	int x_prev = -INT_MAX;

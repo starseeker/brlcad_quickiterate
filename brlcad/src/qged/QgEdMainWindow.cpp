@@ -25,6 +25,7 @@
 
 #include <QTimer>
 #include <QMessageBox>
+#include <QSurfaceFormat>
 #include "qtcad/QgViewCtrl.h"
 #include "qtcad/QgTreeSelectionModel.h"
 #include "QgEdMainWindow.h"

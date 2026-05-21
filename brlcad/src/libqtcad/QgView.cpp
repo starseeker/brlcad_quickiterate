@@ -29,6 +29,8 @@
 #include "bg/polygon.h"
 #include "bv.h"
 #include "raytrace.h" // For finalize polygon sketch export functionality (TODO - need to move...)
+#include "qtcad/QgGL.h"
+#include "qtcad/QgSW.h"
 #include "qtcad/QgView.h"
 #include "qtcad/QgSignalFlags.h"
 
