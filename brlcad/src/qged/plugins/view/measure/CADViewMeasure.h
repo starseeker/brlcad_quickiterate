@@ -57,7 +57,7 @@ class CADViewMeasure : public QWidget
 	QgColorRGB *color_3d;
 
     signals:
-	void view_updated(unsigned long long);
+	void view_updated(QgViewUpdateFlags);
 
     public slots:
         void adjust_text();

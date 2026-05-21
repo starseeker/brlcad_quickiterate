@@ -102,6 +102,7 @@ class QTCAD_EXPORT QMeasure2DFilter : public QgMeasureFilter {
 
 
 public:
+	QMeasure2DFilter() = default;
 	bool eventFilter(QObject *, QEvent *e) override;
 
 private:

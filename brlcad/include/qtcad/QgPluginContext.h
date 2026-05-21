@@ -45,6 +45,7 @@
 #include <QObject>
 #include <QString>
 #include "qtcad/defines.h"
+#include "qtcad/QgTypes.h"
 
 /* Forward declarations: callers that actually need the full types
  * can include them directly.  Keeping these out of the API header
@@ -75,9 +76,8 @@ class QTCAD_EXPORT QgPluginNotifier : public QObject
 	void viewChanged();
 
 	/* The active bview's contents/settings updated; payload is the
-	 * standard QgSignalFlags-style bitmask the rest of libqtcad
-	 * uses. */
-	void viewUpdated(unsigned long long flags);
+	 * standard QgViewUpdateFlags bitmask. */
+	void viewUpdated(QgViewUpdateFlags flags);
 
 	/* Settings affecting tools have changed. */
 	void settingsChanged();

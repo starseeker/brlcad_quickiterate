@@ -74,6 +74,7 @@ class QTCAD_EXPORT QgSelectPntFilter: public QgSelectFilter {
 
 
 public:
+	QgSelectPntFilter() = default;
 	bool eventFilter(QObject *, QEvent *e) override;
 };
 
@@ -83,6 +84,7 @@ class QTCAD_EXPORT QgSelectBoxFilter: public QgSelectFilter {
 
 
 public:
+	QgSelectBoxFilter() = default;
 	bool eventFilter(QObject *, QEvent *e) override;
 
 private:
@@ -96,6 +98,7 @@ class QTCAD_EXPORT QgSelectRayFilter: public QgSelectFilter {
 
 
 public:
+	QgSelectRayFilter() = default;
 	bool eventFilter(QObject *, QEvent *e) override;
 
 	struct db_i *dbip = nullptr;

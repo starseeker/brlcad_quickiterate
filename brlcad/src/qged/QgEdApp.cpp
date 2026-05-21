@@ -419,7 +419,7 @@ QgEdApp::do_quad_view_change(QgView *cv)
 }
 
 void
-QgEdApp::do_view_changed(unsigned long long flags)
+QgEdApp::do_view_changed(QgViewUpdateFlags flags)
 {
     bv_log(1, "QgEdApp::do_view_changed");
     QTCAD_SLOT("QgEdApp::do_view_changed", 1);
@@ -480,10 +480,10 @@ QgEdApp::load_g_file(const char *gfile, bool do_conversion)
     return ret;
 }
 
-int
+QgViewUpdateFlags
 qged_view_update(struct ged *gedp)
 {
-    int view_flags = 0;
+    QgViewUpdateFlags view_flags;
 
     if (!gedp->dbi_state)
 	return view_flags;
@@ -519,7 +519,7 @@ int
 QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 {
     int ret = BRLCAD_OK;
-    int view_flags = 0;
+    QgViewUpdateFlags view_flags;
 
     if (!mdl || !argc || !argv)
 	return BRLCAD_ERROR;

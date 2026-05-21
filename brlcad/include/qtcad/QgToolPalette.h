@@ -47,6 +47,7 @@
 #include <QScrollArea>
 #include <QSplitter>
 #include "qtcad/defines.h"
+#include "qtcad/QgTypes.h"
 #include "qtcad/QgFlowLayout.h"
 #include "qtcad/QgSignalFlags.h"
 
@@ -109,7 +110,7 @@ signals:
 	// changed anything in the view.  Emitted by element_do_view_update slot,
 	// which is connected to internal widget signals in the controls. This
 	// provide a generic, public "signal interface" for widget internals.
-	void view_changed(unsigned long long);
+	void view_changed(QgViewUpdateFlags);
 
 public slots:
 	// PUBLIC, for palette:
@@ -119,7 +120,7 @@ public slots:
 	// hide any internal signal/slot implementation details from the
 	// application while still allowing changes at the app level to drive
 	// updates in the Element contents.
-	void do_view_update(unsigned long long);
+	void do_view_update(QgViewUpdateFlags);
 
 
 	void do_element_unhide(void *);
@@ -136,13 +137,13 @@ signals:
 	// Note that these signals should NEVER be emitted directly by any of
 	// the Element subcomponents.  Nor should they be connected to by
 	// application code.
-	void element_view_update(unsigned long long);
+	void element_view_update(QgViewUpdateFlags);
 
 	void element_unhide();
 
 public slots:
 	// INTERNAL:
-	void element_view_changed(unsigned long long);
+	void element_view_changed(QgViewUpdateFlags);
 
 public:
 	bool use_event_filter = false;
@@ -193,7 +194,7 @@ signals:
 	// PUBLIC, for parent application:
 	// Signal the application can listen to to see if any Element has
 	// changed anything in the view.
-	void view_changed(unsigned long long);
+	void view_changed(QgViewUpdateFlags);
 
 
 	// INTERNAL, for elements:
@@ -206,13 +207,13 @@ signals:
 	// parent applications view changed signal (which they can't do without
 	// knowing about the parent applications top level class, or requiring
 	// the application to individually connect directly to each element.)
-	void palette_view_update(unsigned long long);
+	void palette_view_update(QgViewUpdateFlags);
 
 public slots:
 	// PUBLIC, for parent application:
 	// Trigger any needed updates in any elements in response to an
 	// app level view change.
-	void do_view_update(unsigned long long);
+	void do_view_update(QgViewUpdateFlags);
 
 
 	// INTERNAL
@@ -226,7 +227,7 @@ public slots:
 	// is actually selected.
 	void palette_displayElement(QgToolPaletteElement *);
 	void button_layout_resize();
-	void palette_do_view_changed(unsigned long long);
+	void palette_do_view_changed(QgViewUpdateFlags);
 
 private:
 	int always_selected;

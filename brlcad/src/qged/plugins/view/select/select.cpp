@@ -76,7 +76,7 @@ void
 ViewSelectTool::refresh()
 {
     if (m_selector)
-	m_selector->do_view_update(0);
+	m_selector->do_view_update(QgViewUpdateFlags{});
 }
 
 /* IQgViewEventFilter: install/remove the selector widget as an event

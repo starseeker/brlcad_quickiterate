@@ -75,6 +75,8 @@
 #include <QModelIndex>
 
 #include "qtcad/defines.h"
+#include "qtcad/QgRoles.h"
+#include "qtcad/QgTypes.h"
 
 /* Forward declarations — the implementation includes the full headers. */
 struct bu_vls;
@@ -286,13 +288,13 @@ public:
 	QgItem *getItem(const QModelIndex &index) const;
 
 	enum CADDataRoles {
-		BoolInternalRole = Qt::UserRole + 1000,
-		BoolDisplayRole = Qt::UserRole + 1001,
-		DirectoryInternalRole = Qt::UserRole + 1002,
-		TypeIconDisplayRole = Qt::UserRole + 1003,
-		HighlightDisplayRole = Qt::UserRole + 1004,
-		DrawnDisplayRole = Qt::UserRole + 1005,
-		SelectDisplayRole = Qt::UserRole + 1006
+		BoolInternalRole      = QgDataRoles::BoolInternalRole,
+		BoolDisplayRole       = QgDataRoles::BoolDisplayRole,
+		DirectoryInternalRole = QgDataRoles::DirectoryInternalRole,
+		TypeIconDisplayRole   = QgDataRoles::TypeIconDisplayRole,
+		HighlightDisplayRole  = QgDataRoles::HighlightDisplayRole,
+		DrawnDisplayRole      = QgDataRoles::DrawnDisplayRole,
+		SelectDisplayRole     = QgDataRoles::SelectDisplayRole
 	};
 
 	// Return data used for displaying each individual entry
@@ -356,7 +358,7 @@ signals:
 	// (it is sometimes extremely difficult to know if a complex command
 	// will alter the view) but if a particular method knows it will
 	// do so, it may emit this signal
-	void view_change(unsigned long long);
+	void view_changed(QgViewUpdateFlags);
 
 	// Let the tree view know it has highlighting work to do it wouldn't
 	// otherwise see

@@ -84,11 +84,13 @@ inline constexpr int G_AIR = static_cast<int>(QgCombTypeId::Air);
 inline constexpr int G_AIR_REGION = static_cast<int>(QgCombTypeId::AirRegion);
 inline constexpr int G_ASSEMBLY = static_cast<int>(QgCombTypeId::Assembly);
 
-inline constexpr unsigned long long QG_VIEW_REFRESH = static_cast<unsigned long long>(QgViewUpdateFlag::Refresh);
-inline constexpr unsigned long long QG_VIEW_DRAWN = static_cast<unsigned long long>(QgViewUpdateFlag::Drawn);
-inline constexpr unsigned long long QG_VIEW_SELECT = static_cast<unsigned long long>(QgViewUpdateFlag::Select);
-inline constexpr unsigned long long QG_VIEW_MODE = static_cast<unsigned long long>(QgViewUpdateFlag::Mode);
-inline constexpr unsigned long long QG_VIEW_DB = static_cast<unsigned long long>(QgViewUpdateFlag::DB);
+// Canonical QgViewUpdateFlags constants for all view-flag signals and slots.
+// Use these in signal emissions and slot flag checks instead of raw integers.
+inline const QgViewUpdateFlags QG_VIEW_REFRESH = QgViewUpdateFlag::Refresh;
+inline const QgViewUpdateFlags QG_VIEW_DRAWN   = QgViewUpdateFlag::Drawn;
+inline const QgViewUpdateFlags QG_VIEW_SELECT  = QgViewUpdateFlag::Select;
+inline const QgViewUpdateFlags QG_VIEW_MODE    = QgViewUpdateFlag::Mode;
+inline const QgViewUpdateFlags QG_VIEW_DB      = QgViewUpdateFlag::DB;
 
 #endif /* QGTYPES_H */
 

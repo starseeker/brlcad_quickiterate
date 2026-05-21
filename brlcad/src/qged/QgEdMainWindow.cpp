@@ -260,7 +260,7 @@ QgEdMainWindow::ConnectWidgets()
     QgModel *m = ap->mdl;
 
     // If the model does something that it things should trigger a view update, let the app know
-    QObject::connect(m, &QgModel::view_change, ap, &QgEdApp::do_view_changed);
+    QObject::connect(m, &QgModel::view_changed, ap, &QgEdApp::do_view_changed);
 
     // Make the fundamental connection that allows the view to update in
     // response to commands or widgets taking actions that will impact the
@@ -338,7 +338,7 @@ QgEdMainWindow::ConnectWidgets()
     connect(tree_dock, &QgDockWidget::banner_click, m, &QgModel::toggle_hierarchy);
     connect(vm_treeview_mode_toggle, &QAction::triggered, m, &QgModel::toggle_hierarchy);
     connect(m, &QgModel::opened_item, treeview, &QgTreeView::qgitem_select_sync);
-    connect(m, &QgModel::view_change, ap, &QgEdApp::do_view_changed);
+    connect(m, &QgModel::view_changed, ap, &QgEdApp::do_view_changed);
     QObject::connect(treeview, &QgTreeView::view_changed, ap, &QgEdApp::do_view_changed);
     QObject::connect(ap, &QgEdApp::view_update, treeview, &QgTreeView::do_view_update);
     // We need to record the expanded/contracted state of the tree items,

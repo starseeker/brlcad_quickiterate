@@ -92,14 +92,14 @@ QgToolPaletteElement::setControls(QWidget *n_control)
 }
 
 void
-QgToolPaletteElement::element_view_changed(unsigned long long flags)
+QgToolPaletteElement::element_view_changed(QgViewUpdateFlags flags)
 {
 	QTCAD_SLOT("QgToolPaletteElement::element_view_changed", 1);
 	emit view_changed(flags);
 }
 
 void
-QgToolPaletteElement::do_view_update(unsigned long long flags)
+QgToolPaletteElement::do_view_update(QgViewUpdateFlags flags)
 {
 	QTCAD_SLOT("QgToolPaletteElement::do_view_update", 1);
 	// TODO - do any element level updating (button highlighting?)
@@ -206,7 +206,7 @@ QgToolPalette::setAlwaysSelected(int toggle)
 }
 
 void
-QgToolPalette::do_view_update(unsigned long long flags)
+QgToolPalette::do_view_update(QgViewUpdateFlags flags)
 {
 	QTCAD_SLOT("QgToolPalette::do_element_unhide", 1);
 	emit palette_view_update(flags);
@@ -214,7 +214,7 @@ QgToolPalette::do_view_update(unsigned long long flags)
 
 
 void
-QgToolPalette::palette_do_view_changed(unsigned long long flags)
+QgToolPalette::palette_do_view_changed(QgViewUpdateFlags flags)
 {
 	QTCAD_SLOT("QgToolPalette::palette_do_view_changed", 1);
 	emit view_changed(flags);

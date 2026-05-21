@@ -57,6 +57,14 @@ Current tree notes:
 
 Phase 5 — Signal/slot conventions
 
+Current tree notes:
+- QgTypes.h QG_VIEW_* compatibility constants now return QgViewUpdateFlags (a QFlags<QgViewUpdateFlag> type) instead of unsigned long long; all signals and slots carrying view-update flags use QgViewUpdateFlags.
+- QgModel::view_change(ull) signal renamed to view_changed(QgViewUpdateFlags); all QgEdMainWindow connections updated accordingly.
+- QgViewFilter::view_updated(int) signature updated to view_updated(QgViewUpdateFlags), and QgView::need_update(ull) updated to need_update(QgViewUpdateFlags); the qsketch test's cross-class connection now type-matches.
+- QgRoles.h created (include/qtcad/QgRoles.h) with standalone QgDataRoles enum; QgModel::CADDataRoles redirects to QgDataRoles for backward compatibility; QgSignalFlags.h now includes QgRoles.h so one include gives both.
+- All libqtcad signal/slot pairs (QgToolPalette, QgTreeView, QgViewCtrl, QgQuadView, QgTreeSelectionModel) and plugin classes (CADViewSelector, CADViewMeasure, QPolyCreate/Mod, CADViewSettings, QEll) updated to use QgViewUpdateFlags.
+- Phase 5 is complete.
+
 - Tighten QgSignalFlags.h into a Q_FLAG-decorated enum class and make every signal carrying view flags use it (no more unsigned long long).
 - Audit and unify the signal names: pick one of view_changed/view_change/changed and remove the others (currently QgModel has both view_change(ull) and view_changed(ull)).
 - Centralize the role enum: move QgModel::CADDataRoles into a shared QgRoles header and document the role IDs in one place.

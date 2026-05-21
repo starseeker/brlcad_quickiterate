@@ -32,6 +32,7 @@
 #include <QToolBar>
 #include <QWidget>
 #include "qtcad/defines.h"
+#include "qtcad/QgTypes.h"
 
 struct ged;
 
@@ -70,7 +71,7 @@ public:
 	}
 
 signals:
-	void view_changed(unsigned long long);
+	void view_changed(QgViewUpdateFlags);
 	void lmouse_mode(int);
 
 public slots:
@@ -84,7 +85,7 @@ public slots:
 
 	void fb_mode_cmd();
 
-	void do_view_update(unsigned long long);
+	void do_view_update(QgViewUpdateFlags);
 
 	// Unlike the other commands, the raytrace button
 	// has to reflect a potentially long-running state -

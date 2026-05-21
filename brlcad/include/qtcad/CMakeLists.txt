@@ -23,6 +23,7 @@ set(
   QgPluginManager.h
   QgPolyFilter.h
   QgQuadView.h
+  QgRoles.h
   QgSW.h
   QgSelectFilter.h
   QgSignalFlags.h

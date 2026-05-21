@@ -103,7 +103,7 @@ void changed(QgView *);
 void init_done();
 
 public slots:
-void need_update(unsigned long long);
+void need_update(QgViewUpdateFlags);
 void do_view_changed();
 void do_init_done();
 void set_lmouse_move_default(int);
