@@ -82,6 +82,8 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 		return false;
 
 	struct bview *v = view();
+	if (!v)
+		return false;
 
 	if (e->type() == QEvent::MouseButtonPress) {
 		if (m_e->button() == Qt::RightButton) {
