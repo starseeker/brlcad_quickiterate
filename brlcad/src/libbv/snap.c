@@ -30,6 +30,7 @@
 #include <string.h>
 #include <errno.h>
 
+#include "bsg/node.h"
 #include "bsg/payload.h"
 #include "bu/opt.h"
 #include "bu/ptbl.h"
@@ -183,9 +184,9 @@ bv_snap_lines_3d(point_t *out_pt, struct bview *v, point_t *p)
 	    for (size_t i = 0; i < BU_PTBL_LEN(&gv_s->gv_snap_objs); i++) {
 		struct bv_scene_obj *so = (struct bv_scene_obj *)BU_PTBL_GET(&gv_s->gv_snap_objs, i);
 		if (gv_s->gv_snap_flags) {
-		if (gv_s->gv_snap_flags == BV_SNAP_DB && (!(so->bsg.bsg_kind & BV_DB_OBJS)))
+		if (gv_s->gv_snap_flags == BV_SNAP_DB && !bsg_node_has_kind((const bsg_node *)so, BV_DB_OBJS))
 		    continue;
-		if (gv_s->gv_snap_flags == BV_SNAP_VIEW && (!(so->bsg.bsg_kind & BV_VIEW_OBJS)))
+		if (gv_s->gv_snap_flags == BV_SNAP_VIEW && !bsg_node_has_kind((const bsg_node *)so, BV_VIEW_OBJS))
 		    continue;
 	    }
 	    struct bsg_settings so_settings = BSG_SETTINGS_INIT;

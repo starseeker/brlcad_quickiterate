@@ -950,6 +950,35 @@ Exit criteria:
 Phase 7 execution update - 2026-05-21
 -------------------------------------
 Status:
+- CONTINUED.  Raw-field migration extended to libbv hashing, snapping, and
+  LoD visibility/culling helpers.
+
+Completed in this session:
+- `src/libbv/hash.c`:
+  - Replaced direct `bsg.bsg_children` table walks with
+    `bsg_node_child_count()` / `bsg_node_child()`.
+- `src/libbv/polygon_op.cpp`:
+  - Replaced direct `bsg.bsg_kind` polygon checks with `bsg_node_has_kind()`.
+- `src/libbv/snap.c`:
+  - Replaced snap-mode `BV_DB_OBJS` / `BV_VIEW_OBJS` checks with
+    `bsg_node_has_kind()`.
+- `src/libbv/lod.cpp`:
+  - Replaced selected LoD child walks with `bsg_node_child_count()` /
+    `bsg_node_child()`.
+  - Replaced direct `s_center`/`s_size` and `bmin`/`bmax` visibility reads in
+    selected LoD bounding helpers with `bsg_node_bounds_get()`.
+
+Validation update:
+- Built: `libbv`, `libbsg`, `libged`, `test_bsg_node`,
+  `test_bsg_scene_graph`, `test_bsg_phase6`, `test_bsg_selection`,
+  `test_bsg_node_core`, `ged_test_bsg_view_obj`, `libqtcad`, `dm-qtgl`,
+  `dm-swrast`, `qged`, `ged_test_qged_swrast`.
+- `ctest -R "ged_test_bsg_view_obj|libbsg_node|libbsg_scene_graph|libbsg_phase6|libbsg_selection|libbsg_node_core"`
+  passed.
+- `ctest -R "ged_test_qged_swrast"` passed.
+
+
+Status:
 - CONTINUED.  Raw-field migration extended to drawing path internals in
   libged/draw.cpp and libged/bsg_ged_draw.c.
 
