@@ -41,7 +41,7 @@ bsg_view_scope_create(struct bview *v)
     if (!s)
 	return NULL;
 
-    /* s_v is already set by bv_obj_create to v; make the ownership explicit. */
+    /* Keep ownership explicit on view-scope nodes. */
     bsg_node_view_set((bsg_node *)s, v);
 
     return (bsg_node *)s;

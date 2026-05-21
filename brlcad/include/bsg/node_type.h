@@ -83,9 +83,8 @@ struct bsg_settings;
  *  - Identity and revision counters are stored inline (no heap allocation).
  *  - Material, appearance, and payload are stored as @c void * pointers; they
  *    are cast to the appropriate BSG types only inside libbsg code.
- *  - @c bsg_core_free_fn is called by @c bv_obj_reset() before the struct is
- *    zeroed, allowing libbsg to release any heap data it allocated without
- *    introducing a libbsg dependency in libbv.
+ *  - @c bsg_core_free_fn is called by @c bsg_node_destroy() before storage is
+ *    released, allowing libbsg to release any heap data it allocated.
  */
 struct bsg_node {
     struct bu_list l;              /**< @brief list linkage — MUST be first */

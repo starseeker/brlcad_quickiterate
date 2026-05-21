@@ -75,11 +75,11 @@ BSG_EXPORT extern void
 bsg_node_clear_children(bsg_node *n);
 
 /**
- * Release @p n through the compatibility backing-store lifecycle.
+ * Release @p n through the BSG-owned lifecycle.
  *
  * This is the preferred BSG lifecycle exit point for standalone node handles.
- * It delegates to the current backing implementation while keeping that
- * compatibility detail out of libbsg callers.  No-op for NULL nodes.
+ * It releases children, callbacks, backend state, payload sidecars, and node
+ * storage.  No-op for NULL nodes.
  */
 BSG_EXPORT extern void
 bsg_node_destroy(bsg_node *n);

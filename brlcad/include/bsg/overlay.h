@@ -58,7 +58,7 @@ bsg_find_overlay_group(bsg_node *draw_root);
  * Return the @c _overlays BSG_NODE_GROUP child of @p draw_root, creating it
  * on first call.
  *
- * @p v  The view used to allocate the new group node via bv_obj_create().
+ * @p v  The view used to allocate the new group node via bsg_node_create_child().
  *       If NULL and the group does not yet exist, the function returns NULL.
  *
  * Returns the (possibly newly created) @c _overlays group, or NULL on

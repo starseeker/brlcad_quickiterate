@@ -23,7 +23,7 @@
  *
  * Provides:
  *   _bsg_core_release()   — cleanup hook stored in bsg_core.bsg_core_free_fn;
- *                           called by bv_obj_reset() to free material,
+ *                           called by bsg_node_destroy() to free material,
  *                           appearance, and payload before zeroing the core.
  *   bsg_node_core_get()   — public accessor that ensures the core is
  *                           initialized and returns a typed pointer.
@@ -45,16 +45,15 @@
 
 
 /* ------------------------------------------------------------------ */
-/* Internal: cleanup hook for bv_obj_reset()                            */
+/* Internal: cleanup hook for bsg_node_destroy()                        */
 /* ------------------------------------------------------------------ */
 
 /**
  * Release any libbsg-owned heap data in @p core, then zero the pointer
- * fields so a subsequent free by bv_obj_reset() is safe.
+ * fields so a subsequent free by bsg_node_destroy() is safe.
  *
  * This function is stored in core->bsg_core_free_fn by _bsg_core_ensure()
- * and is therefore called by bv_obj_reset() via the function pointer
- * (no libbsg -> libbv symbol dependency).
+ * and is therefore called by bsg_node_destroy() via the function pointer.
  */
 void
 _bsg_core_release(struct bsg_node *core)

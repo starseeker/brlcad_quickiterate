@@ -20,17 +20,22 @@
 /** @file libbsg/node.c
  *
  * Generic BSG node accessors over the current bv_scene_obj storage.
+ *
+ * Phase D (bv_scene_obj_migrate.txt): bsg_node_create/create_child/destroy now
+ * own allocation and teardown in libbsg rather than delegating to bv_obj_*.
  */
 
 #include "common.h"
 
 #include <string.h>
 
+#include "bu/malloc.h"
 #include "bu/ptbl.h"
 #include "bu/str.h"
 #include "bu/vls.h"
 #include "bv/defines.h"
 #include "bv/util.h"
+#include "bv/vlist.h"
 #include "vmath.h"
 #include "bsg/field.h"
 #include "bsg/node.h"
@@ -40,16 +45,68 @@
 static struct bv_scene_obj *
 _bsg_node_alloc(struct bview *v, unsigned long long kind, int as_draw_child)
 {
-    struct bv_scene_obj *s = NULL;
-
     if (!v)
 	return NULL;
 
-    s = bv_obj_get_unregistered(v, as_draw_child ? BV_CHILD_OBJS : (BV_VIEW_OBJS | BV_LOCAL_OBJS));
-    if (!s)
-	return NULL;
+    struct bv_scene_obj *s = NULL;
+    BU_ALLOC(s, struct bv_scene_obj);
 
-    bsg_node_set_kind((bsg_node *)s, kind);
+    BU_LIST_INIT(&s->bsg.l);
+    BU_PTBL_INIT(&s->bsg.bsg_children);
+    BU_LIST_INIT(&s->s_vlist);
+    BU_VLS_INIT(&s->bsg.bsg_name);
+
+    s->i = NULL;
+    s->s_v = v;
+    s->vlfree = &v->gv_objs.gv_vlfree;
+    s->free_scene_obj = NULL;
+    s->otbl = NULL;
+    s->s_backend = NULL;
+    s->s_update_callback = NULL;
+    s->s_free_callback = NULL;
+    s->bsg.bsg_parent = NULL;
+
+    bv_scene_obj_settings_reset(s);
+    s->s_inherit_settings = 0;
+
+    MAT_IDN(s->s_mat);
+    VSET(s->s_color, 255, 0, 0);
+    VSETALL(s->bmax, -INFINITY);
+    VSETALL(s->bmin, INFINITY);
+    VSETALL(s->s_center, 0);
+
+    s->adaptive_wireframe = 0;
+    s->bot_threshold = 0;
+    s->csg_obj = 0;
+    s->current = 0;
+    s->curve_scale = 0;
+    s->dp = NULL;
+    s->draw_data = NULL;
+    s->have_bbox = 0;
+    s->mesh_obj = 0;
+    s->point_scale = 0;
+    s->s_arrow = 0;
+    s->s_csize = 0;
+    s->s_color_rev = 0;
+    s->bsg.bsg_flag = UP;
+    s->bsg.bsg_force_draw = 0;
+    s->s_i_data = NULL;
+    s->bsg.bsg_iflag = DOWN;
+    s->s_path = NULL;
+    s->s_size = 0;
+    s->s_soldash = 0;
+    s->view_scale = 0;
+    s->s_vlen = 0;
+    s->s_displayobj = 0;
+    s->s_bbox_cached = 0;
+    s->s_drawn_rev = 0;
+    s->bsg.bsg_magic = 0;
+
+    if (as_draw_child)
+	s->bsg.bsg_kind = BV_CHILD_OBJS;
+    else
+	s->bsg.bsg_kind = BV_VIEW_OBJS | BV_LOCAL_OBJS;
+    bsg_node_set_kind((bsg_node *)s, kind | s->bsg.bsg_kind);
     bsg_node_set_visible((bsg_node *)s, 1);
     return s;
 }
@@ -94,7 +151,59 @@ bsg_node_destroy(bsg_node *n)
     if (!n)
 	return;
 
-    bv_obj_put((struct bv_scene_obj *)n);
+    struct bv_scene_obj *s = (struct bv_scene_obj *)n;
+
+    if (s->bsg.bsg_parent)
+	bsg_node_remove_child(s->bsg.bsg_parent, n);
+
+    if (BU_PTBL_IS_INITIALIZED(&s->bsg.bsg_children)) {
+	struct bu_ptbl children = BU_PTBL_INIT_ZERO;
+	for (size_t i = 0; i < BU_PTBL_LEN(&s->bsg.bsg_children); i++)
+	    bu_ptbl_ins(&children, BU_PTBL_GET(&s->bsg.bsg_children, i));
+	bu_ptbl_reset(&s->bsg.bsg_children);
+	for (size_t i = 0; i < BU_PTBL_LEN(&children); i++) {
+	    struct bv_scene_obj *child = (struct bv_scene_obj *)BU_PTBL_GET(&children, i);
+	    if (!child)
+		continue;
+	    if (child->bsg.bsg_parent == n)
+		child->bsg.bsg_parent = NULL;
+	    bsg_node_destroy((bsg_node *)child);
+	}
+	bu_ptbl_free(&children);
+    }
+
+    bsg_node_invoke_free_callback(n);
+    bsg_node_set_free_callback(n, NULL);
+    bv_scene_obj_release_backend(s);
+
+    void *user_data = bsg_node_user_data_get((const bsg_node *)s);
+    if ((s->bsg.bsg_kind & BV_LABELS) && user_data) {
+	struct bv_label *la = (struct bv_label *)user_data;
+	bu_vls_free(&la->label);
+	BU_PUT(la, struct bv_label);
+    }
+
+    if (BU_LIST_IS_INITIALIZED(&s->s_vlist) && s->vlfree)
+	BV_FREE_VLIST(s->vlfree, &s->s_vlist);
+    BU_LIST_INIT(&s->s_vlist);
+
+    if (s->s_v)
+	bu_ptbl_rm(&s->s_v->gv_s->gv_snap_objs, (long *)s);
+
+    if (BU_VLS_IS_INITIALIZED(&s->bsg.bsg_name))
+	bu_vls_free(&s->bsg.bsg_name);
+
+    if (s->bsg.bsg_magic == BSG_NODE_CORE_MAGIC && s->bsg.bsg_core_free_fn)
+	s->bsg.bsg_core_free_fn(&s->bsg);
+    if (s->bsg.settings_local)
+	bu_free(s->bsg.settings_local, "bsg_node settings_local");
+    if (s->bsg.settings_effective)
+	bu_free(s->bsg.settings_effective, "bsg_node settings_effective");
+
+    if (BU_PTBL_IS_INITIALIZED(&s->bsg.bsg_children))
+	bu_ptbl_free(&s->bsg.bsg_children);
+
+    BU_PUT(s, struct bv_scene_obj);
 }
 
 

@@ -236,6 +236,16 @@ Exit criteria:
 - BSG nodes can be created and destroyed without allocating a `bv_scene_obj`.
 - libbsg no longer depends on libbv lifecycle implementation.
 
+Status (2026-05-21):
+- Complete.
+- `bsg_node_create()` / `bsg_node_create_child()` now allocate and initialize
+  BSG-backed scene nodes directly in libbsg instead of routing through
+  `bv_obj_get_unregistered()`.
+- `bsg_node_destroy()` now owns recursive child teardown, callback execution,
+  backend release, vlist cleanup, sidecar release, and storage free in libbsg.
+- libbsg lifecycle tests now validate teardown through `bsg_node_destroy()`
+  rather than `bv_obj_put()` for BSG-owned nodes.
+
 Phase E - Collapse or Delete libbv Scene-Object APIs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Objective: remove libbv as a scene-graph storage layer.
