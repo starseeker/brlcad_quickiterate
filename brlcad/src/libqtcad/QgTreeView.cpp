@@ -304,14 +304,14 @@ QgTreeView::do_draw_toggle(const QModelIndex &index)
 	QTCAD_SLOT("QgTreeView::do_draw_toggle", 1);
 	QgItem *cnode = static_cast<QgItem *>(index.internalPointer());
 
-	if (!m->gedp)
+	if (!m->ged())
 		return;
 
-	struct bview *v = m->gedp->ged_gvp;
+	struct bview *v = m->ged()->ged_gvp;
 	if (!v)
 		return;
 
-	DbiState *dbis = (DbiState *)m->gedp->dbi_state;
+	DbiState *dbis = (DbiState *)m->ged()->dbi_state;
 	BViewState *sv =  dbis->get_view_state(v);
 	if (!sv)
 		return;
@@ -335,11 +335,11 @@ void
 QgTreeView::redo_expansions(void *)
 {
 	QTCAD_SLOT("QgTreeView::redo_expansions", 1);
-	std::unordered_set<QgItem *>::iterator i_it;
-	for (i_it = m->items->begin(); i_it != m->items->end(); i_it++) {
+	std::unordered_set<QgItem *>::const_iterator i_it;
+	for (i_it = m->allItems().begin(); i_it != m->allItems().end(); i_it++) {
 		QgItem *itm = *i_it;
 		QModelIndex idx = m->NodeIndex(itm);
-		if (itm->open_itm && !isExpanded(idx)) {
+		if (itm->isOpen() && !isExpanded(idx)) {
 			setExpanded(idx, true);
 		}
 	}
@@ -355,7 +355,7 @@ QgTreeView::redo_highlights()
 	QModelIndex selected_idx = selected();
 	if (!selected_idx.isValid()) {
 		QgItem *cnode = static_cast<QgItem *>(cached_selection_idx.internalPointer());
-		if (m->items->find(cnode) != m->items->end()) {
+		if (m->hasItem(cnode)) {
 			selected_idx = cached_selection_idx;
 			selectionModel()->select(selected_idx, QItemSelectionModel::Select | QItemSelectionModel::Rows);
 		}
@@ -433,4 +433,3 @@ void QgTreeView::do_view_update(unsigned long long UNUSED(flags))
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

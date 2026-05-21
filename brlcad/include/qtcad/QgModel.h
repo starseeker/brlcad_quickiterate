@@ -67,7 +67,6 @@
 #ifndef QGMODEL_H
 #define QGMODEL_H
 
-#include <string>
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
@@ -122,10 +121,15 @@ public:
 	 * combination of the ihash and ctx points to the BRL-CAD specific data
 	 * for this instance.
 	 */
-	unsigned long long ihash = 0;
-	QgModel *mdl = nullptr;
+	unsigned long long instanceHash() const
+	{
+		return ihash;
+	}
+	QgModel *model() const
+	{
+		return mdl;
+	}
 
-	QgItem *parentItem = nullptr;
 	std::vector<unsigned long long> path_items();
 	unsigned long long path_hash();
 
@@ -141,7 +145,14 @@ public:
 	 * involved.  Give we already have some separation between this logic
 	 * and the instance logic which is the real wrapper around the .g
 	 * information, going with the simple approach for now. */
-	bool open_itm = false;
+	bool isOpen() const
+	{
+		return open_itm;
+	}
+	void setOpen(bool open)
+	{
+		open_itm = open;
+	}
 
 	// Qt related elements
 	QgItem *parent();
@@ -149,10 +160,21 @@ public:
 	void appendChild(QgItem *C);
 	QgItem *child(int n);
 	int childCount() const;
+	const std::vector<QgItem *> &childItems() const
+	{
+		return children;
+	}
 	// NOTE - for now this is 1 - the model will have to
 	// incorporate some notion of exposed attributes and
 	// their ordering before that changes
 	int columnCount() const;
+
+private:
+	friend class QgModel;
+
+	unsigned long long ihash = 0;
+	QgModel *mdl = nullptr;
+	QgItem *parentItem = nullptr;
 	std::vector<QgItem *> children;
 	std::unordered_map<QgItem *, int> c_noderow;
 	size_t c_count = 0;
@@ -163,6 +185,7 @@ public:
 	db_op_t op = DB_OP_UNION;
 	struct directory *dp = nullptr;
 	QImage icon;
+	bool open_itm = false;
 	//int draw_state = 0;
 	//bool select_state = false;
 };
@@ -216,7 +239,10 @@ public:
 
 	// .g Db interface and containers
 	int run_cmd(struct bu_vls *msg, int argc, const char **argv);
-	struct ged *gedp = nullptr;
+	struct ged *ged() const
+	{
+		return gedp;
+	}
 
 	// Updates to .g models are potentially far-reaching - in principle, a
 	// single GED command execution can change every item in the database.
@@ -229,7 +255,14 @@ public:
 	// reflect such a state and to have that logic reusable at the library
 	// level it needs to be available in a container readily accessible at
 	// that level.
-	int interaction_mode = 0;
+	int interactionMode() const
+	{
+		return interaction_mode;
+	}
+	void setInteractionMode(int mode)
+	{
+		interaction_mode = mode;
+	}
 
 	// Qt Model interface
 
@@ -275,31 +308,30 @@ public:
 	bool canFetchMore(const QModelIndex &idx) const override;
 	void fetchMore(const QModelIndex &idx) override;
 
-	// A flag for callbacks to set if they alter the database in some way.
-	// Used to determine whether to emit the mdl_changed_db signal once
-	// after a GED command processing call is complete. If emitted, the
-	// interface will know to take certain steps when updating views.
-	int changed_db_flag = 0;
-
-	// It's unclear if we need this, but allow callbacks to insist on a
-	// post-command running of update_nref - in principle this should be
-	// already handled by command and/or librt logic, but not sure if we
-	// can count on that...
-	bool need_update_nref = false;
-
-	/* Used by callers to identify which objects need to be redrawn when
-	 * scene views are updated. */
-	std::unordered_set<struct directory *> changed_dp;
-
-	// Convenience container holding all active QgItems
-	std::unordered_set<QgItem *> *items = nullptr;
-
-	// Sorted QgItem pointers corresponding to the tops instances
-	std::vector<QgItem *> tops_items;
-
-	// Toggle for whether or not the model should be viewed using a tops
-	// listing or the full object listing as the "seed" set
-	int flatten_hierarchy = 0;
+	void setChangedDatabaseFlag(int flag)
+	{
+		changed_db_flag = flag;
+	}
+	void setNeedUpdateNref(bool update)
+	{
+		need_update_nref = update;
+	}
+	const std::unordered_set<QgItem *> &allItems() const
+	{
+		return *items;
+	}
+	bool hasItem(const QgItem *item) const
+	{
+		return (items && item && items->find(const_cast<QgItem *>(item)) != items->end());
+	}
+	const std::vector<QgItem *> &topItems() const
+	{
+		return tops_items;
+	}
+	bool flattenHierarchy() const
+	{
+		return flatten_hierarchy != 0;
+	}
 
 signals:
 	// Emitted if the commands think they may have changed the database
@@ -339,6 +371,35 @@ private:
 
 	void item_rebuild(QgItem *item);
 
+	// A flag for callbacks to set if they alter the database in some way.
+	// Used to determine whether to emit the mdl_changed_db signal once
+	// after a GED command processing call is complete. If emitted, the
+	// interface will know to take certain steps when updating views.
+	int changed_db_flag = 0;
+
+	// It's unclear if we need this, but allow callbacks to insist on a
+	// post-command running of update_nref - in principle this should be
+	// already handled by command and/or librt logic, but not sure if we
+	// can count on that...
+	bool need_update_nref = false;
+
+	/* Used by callers to identify which objects need to be redrawn when
+	 * scene views are updated. */
+	std::unordered_set<struct directory *> changed_dp;
+
+	int interaction_mode = 0;
+
+	// Convenience container holding all active QgItems
+	std::unordered_set<QgItem *> *items = nullptr;
+
+	// Sorted QgItem pointers corresponding to the tops instances
+	std::vector<QgItem *> tops_items;
+
+	// Toggle for whether or not the model should be viewed using a tops
+	// listing or the full object listing as the "seed" set
+	int flatten_hierarchy = 0;
+
+	struct ged *gedp = nullptr;
 	QgItem *rootItem;
 	struct bview *empty_gvp = nullptr;
 	struct db_i *model_dbip = nullptr;
@@ -354,4 +415,3 @@ private:
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

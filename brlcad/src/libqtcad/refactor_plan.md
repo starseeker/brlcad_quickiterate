@@ -21,7 +21,8 @@ Current tree notes:
 - QgViewCtrl now keeps its ged/action state private instead of exposing raw toolbar members.
 - QgQuadView now forward-declares view/ged/layout types so its public header no longer drags in libdm/libbv/QgView implementation details.
 - QgGL/QgSW/QgView public headers now forward-declare their dm/bview/fb and Qt event/image types instead of exporting the libdm/libbv implementation headers transitively.
-- Public data still leaks heavily from QgItem/QgModel, but the remaining canvas-header exposure is now much smaller.
+- QgItem and QgModel now keep their externally-used state behind accessors instead of exposing raw public members across libqtcad, qged, and the tests.
+- The remaining Phase 2 gap is mostly implementation exposure in the public headers (STL containers and libged/librt types), not raw public data members.
 
 - Promote raw public data to accessors where they're called from outside (compile, follow errors, add minimal getters/setters). Focus on the high-traffic classes first: QgItem/QgModel, QgSW/QgGL, QgQuadView, QgViewCtrl, QgToolPalette*.
 - Introduce Q_PROPERTY for state visible to QML/Designer or for state that genuinely is user-configurable (icon size, default mouse mode, default key bindings, etc.).

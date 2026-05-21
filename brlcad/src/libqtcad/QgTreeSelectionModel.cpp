@@ -40,7 +40,7 @@ QgTreeSelectionModel::clear_all()
 {
 	QgModel *m = treeview->m;
 
-	DbiState *dbis = (DbiState *)m->gedp->dbi_state;
+	DbiState *dbis = (DbiState *)m->ged()->dbi_state;
 	std::vector<BSelectState *> sv = dbis->get_selected_states(nullptr);
 	BSelectState *ss = sv[0];
 	ss->clear();
@@ -52,7 +52,7 @@ QgTreeSelectionModel::select(const QItemSelection &selection, QItemSelectionMode
 {
 	QTCAD_SLOT("QgTreeSelectionModel::select QItemSelection", 1);
 	QgModel *m = treeview->m;
-	struct ged *gedp = m->gedp;
+	struct ged *gedp = m->ged();
 
 	DbiState *dbis = (DbiState *)gedp->dbi_state;
 	std::vector<BSelectState *> ssv = dbis->get_selected_states(nullptr);
@@ -113,7 +113,7 @@ QgTreeSelectionModel::select(const QModelIndex &index, QItemSelectionModel::Sele
 {
 	QTCAD_SLOT("QgTreeSelectionModel::select QModelIndex", 1);
 	QgModel *m = treeview->m;
-	struct ged *gedp = m->gedp;
+	struct ged *gedp = m->ged();
 
 	DbiState *dbis = (DbiState *)gedp->dbi_state;
 	std::vector<BSelectState *> ssv = dbis->get_selected_states(nullptr);

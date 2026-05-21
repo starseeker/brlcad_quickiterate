@@ -81,22 +81,22 @@ struct QgItem_cmp {
 			return true;
 		if (i1 && !i2)
 			return false;
-		if (!i1->ihash && !i2->ihash)
+		if (!i1->instanceHash() && !i2->instanceHash())
 			return false;
-		if (!i1->ihash && i2->ihash)
+		if (!i1->instanceHash() && i2->instanceHash())
 			return true;
-		if (i1->ihash && !i2->ihash)
+		if (i1->instanceHash() && !i2->instanceHash())
 			return false;
 
 		struct directory *inst1 = nullptr;
 		struct directory *inst2 = nullptr;
-		DbiState *ctx1 = (DbiState *)i1->mdl->gedp->dbi_state;
-		DbiState *ctx2 = (DbiState *)i2->mdl->gedp->dbi_state;
-		if (ctx1->d_map.find(i1->ihash) != ctx1->d_map.end()) {
-			inst1 = ctx1->d_map[i1->ihash];
+		DbiState *ctx1 = (DbiState *)i1->model()->ged()->dbi_state;
+		DbiState *ctx2 = (DbiState *)i2->model()->ged()->dbi_state;
+		if (ctx1->d_map.find(i1->instanceHash()) != ctx1->d_map.end()) {
+			inst1 = ctx1->d_map[i1->instanceHash()];
 		}
-		if (ctx2->d_map.find(i2->ihash) != ctx2->d_map.end()) {
-			inst2 = ctx2->d_map[i2->ihash];
+		if (ctx2->d_map.find(i2->instanceHash()) != ctx2->d_map.end()) {
+			inst2 = ctx2->d_map[i2->instanceHash()];
 		}
 
 		if (!inst1 && !inst2)
@@ -118,7 +118,7 @@ struct QgItem_cmp {
 QgItem::QgItem(unsigned long long hash, QgModel *ictx)
 {
 	mdl = ictx;
-	DbiState *ctx = (DbiState *)mdl->gedp->dbi_state;
+	DbiState *ctx = (DbiState *)mdl->ged()->dbi_state;
 	ihash = hash;
 	parentItem = nullptr;
 	if (!ctx)
@@ -137,7 +137,7 @@ QgItem::QgItem(unsigned long long hash, QgModel *ictx)
 	// Local item information
 	ctx->print_hash(&name, ihash);
 	dp = ctx->get_hdp(ihash);
-	icon = QgIcon(dp, ictx->gedp->dbip);
+	icon = QgIcon(dp, ictx->ged()->dbip);
 }
 
 QgItem::~QgItem()
@@ -234,7 +234,7 @@ unsigned long long
 QgItem::path_hash()
 {
 	std::vector<unsigned long long> pitems = path_items();
-	DbiState *dbis = (DbiState *)mdl->gedp->dbi_state;
+	DbiState *dbis = (DbiState *)mdl->ged()->dbi_state;
 	unsigned long long phash = dbis->path_hash(pitems, 0);
 	return phash;
 }
@@ -257,7 +257,7 @@ qgmodel_update_nref_callback(struct db_i *UNUSED(dbip), struct directory *parent
 
 		// If anybody was requesting an nref update, the fact that we're here
 		// means we've done it.
-		ctx->need_update_nref = false;
+		ctx->setNeedUpdateNref(false);
 	}
 }
 
@@ -266,9 +266,9 @@ qgmodel_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mo
 {
 	unsigned long long hash;
 	QgModel *mdl = (QgModel *)u_data;
-	DbiState *ctx = (DbiState *)mdl->gedp->dbi_state;
-	mdl->need_update_nref = true;
-	mdl->changed_db_flag = 1;
+	DbiState *ctx = (DbiState *)mdl->ged()->dbi_state;
+	mdl->setNeedUpdateNref(true);
+	mdl->setChangedDatabaseFlag(1);
 
 	// Clear cached GED drawing data and update
 	ctx->clear_cache(dp);
@@ -996,4 +996,3 @@ QgModel::item_expanded(const QModelIndex &index)
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

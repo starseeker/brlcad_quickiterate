@@ -105,7 +105,7 @@ QgEdMainWindow::CreateWidgets(int canvas_type)
 {
     QgEdApp *ap = (QgEdApp *)qApp;
     QgModel *m = ap->mdl;
-    struct ged *gedp = m->gedp;
+    struct ged *gedp = m->ged();
 
     // Define a widget to hold the main view and its associated
     // view control toolbar
@@ -373,7 +373,7 @@ QgEdMainWindow::do_dm_init()
     QTCAD_SLOT("QgEdMainWindow::do_dm_init", 1);
     QgEdApp *ap = (QgEdApp *)qApp;
     QgModel *m = ap->mdl;
-    struct ged *gedp = m->gedp;
+    struct ged *gedp = m->ged();
 
     (void)ged_clbk_set(gedp, "dm", BU_CLBK_DURING, qged_dm_during_clbk, NULL);
 
