@@ -43,7 +43,7 @@ bv_polygon_csg(struct bv_scene_obj *target, struct bv_scene_obj *stencil, bg_cli
 	return 0;
 
     // Need polygons
-    if (!(target->bsg.bsg_kind & BV_POLYGONS) || !(stencil->bsg.bsg_kind & BV_POLYGONS))
+    if (!bsg_node_has_kind((const bsg_node *)target, BV_POLYGONS) || !bsg_node_has_kind((const bsg_node *)stencil, BV_POLYGONS))
 	return 0;
 
     // None op == no change

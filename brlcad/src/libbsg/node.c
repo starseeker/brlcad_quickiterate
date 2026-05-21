@@ -427,6 +427,27 @@ bsg_node_bounds_set(bsg_node *n, const point_t bmin, const point_t bmax)
 }
 
 
+fastf_t
+bsg_node_size_get(const bsg_node *n)
+{
+    if (!n)
+	return 0.0;
+
+    return ((const struct bv_scene_obj *)n)->s_size;
+}
+
+
+void
+bsg_node_size_set(bsg_node *n, fastf_t size)
+{
+    if (!n)
+	return;
+
+    ((struct bv_scene_obj *)n)->s_size = size;
+    bsg_node_field_touch(n, BSG_FIELD_BOUNDS);
+}
+
+
 void
 bsg_node_mark_stale(bsg_node *n)
 {

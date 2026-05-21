@@ -209,7 +209,7 @@ csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int flag)
     if (!v->gv_s->adaptive_plot_csg)
 	return 0;
 
-    bv_log(1, "csg_wireframe_update %s[%s]", bu_vls_cstr(&vo->bsg.bsg_name), bu_vls_cstr(&v->gv_name));
+    bv_log(1, "csg_wireframe_update %s[%s]", bsg_node_name((const bsg_node *)vo), bu_vls_cstr(&v->gv_name));
 
     vo->csg_obj = 1;
 
@@ -225,10 +225,10 @@ csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int flag)
     bool rework = (flag) ? true : false;
 
     // Check point scale
-    if (!rework && !NEAR_EQUAL(vo->curve_scale, vo->s_v->gv_s->curve_scale, SMALL_FASTF))
+    if (!rework && !NEAR_EQUAL(vo->curve_scale, bsg_node_view_get((const bsg_node *)vo)->gv_s->curve_scale, SMALL_FASTF))
 	rework = true;
     // Check point scale
-    if (!rework && !NEAR_EQUAL(vo->point_scale, vo->s_v->gv_s->point_scale, SMALL_FASTF))
+    if (!rework && !NEAR_EQUAL(vo->point_scale, bsg_node_view_get((const bsg_node *)vo)->gv_s->point_scale, SMALL_FASTF))
 	rework = true;
     if (!rework) {
 	// Check view scale
@@ -266,7 +266,7 @@ csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int flag)
 	return 0;
 
     if (ip->idb_meth->ft_adaptive_plot) {
-	ip->idb_meth->ft_adaptive_plot(vhead, ip, d->tol, v, vo->s_size);
+	ip->idb_meth->ft_adaptive_plot(vhead, ip, d->tol, v, bsg_node_size_get((const bsg_node *)vo));
 	bv_obj_stale(vo);
     }
 
@@ -349,7 +349,7 @@ bot_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
     s->csg_obj = 0;
     s->mesh_obj = 1;
 
-    bv_log(1, "bot_adaptive_plot %s[%s]", bu_vls_cstr(&s->bsg.bsg_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
+    bv_log(1, "bot_adaptive_plot %s[%s]", bsg_node_name((const bsg_node *)s), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
 
     if (!s->draw_data) {
 
@@ -476,7 +476,7 @@ brep_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
     struct draw_update_data_t *d = scene_draw_update_data(s);
     if (!d || !d->mesh_c)
 	return;
-    bv_log(1, "brep_adaptive_plot %s[%s]", bu_vls_cstr(&s->bsg.bsg_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
+    bv_log(1, "brep_adaptive_plot %s[%s]", bsg_node_name((const bsg_node *)s), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
 
     s->csg_obj = 0;
     s->mesh_obj = 1;
@@ -609,7 +609,7 @@ brep_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 static void
 wireframe_plot(struct bv_scene_obj *s, struct bview *v, struct rt_db_internal *ip)
 {
-    bv_log(1, "wireframe_plot %s[%s]", bu_vls_cstr(&s->bsg.bsg_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
+    bv_log(1, "wireframe_plot %s[%s]", bsg_node_name((const bsg_node *)s), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
     struct draw_update_data_t *d = scene_draw_update_data(s);
     struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)s);
     if (!d || !vhead)
@@ -622,7 +622,7 @@ wireframe_plot(struct bv_scene_obj *s, struct bview *v, struct rt_db_internal *i
     // Standard (view independent) wireframe
     if (!v || !v->gv_s->adaptive_plot_csg) {
 	if (ip->idb_meth->ft_plot) {
-	    ip->idb_meth->ft_plot(vhead, ip, ttol, tol, s->s_v);
+	    ip->idb_meth->ft_plot(vhead, ip, ttol, tol, bsg_node_view_get((const bsg_node *)s));
 	    // Because this data is view independent, it only needs to be
 	    // generated once rather than per-view.
 	    s->current = 1;
@@ -639,7 +639,7 @@ wireframe_plot(struct bv_scene_obj *s, struct bview *v, struct rt_db_internal *i
     // If we've got this far, we have no adaptive plotting capability for this
     // object.  Do the normal plot rather than show nothing.
     if (ip->idb_meth->ft_plot) {
-	ip->idb_meth->ft_plot(vhead, ip, ttol, tol, s->s_v);
+	ip->idb_meth->ft_plot(vhead, ip, ttol, tol, bsg_node_view_get((const bsg_node *)s));
 	// Because this data is view independent, it only needs to be
 	// generated once rather than per-view.
 	s->current = 1;
@@ -659,7 +659,7 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
     if (s->current && !v)
 	return;
 
-    bv_log(1, "draw_scene %s[%s]", bu_vls_cstr(&s->bsg.bsg_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
+    bv_log(1, "draw_scene %s[%s]", bsg_node_name((const bsg_node *)s), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
 
     // If we're not adaptive, trigger the view insensitive drawing routines
     if (v && !v->gv_s->adaptive_plot_csg && !v->gv_s->adaptive_plot_mesh) {
@@ -671,8 +671,8 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
     // any children and trigger their drawing operations.
     struct draw_update_data_t *d = scene_draw_update_data(s);
     if (!d) {
-	for (size_t i = 0; i < BU_PTBL_LEN(&s->bsg.bsg_children); i++) {
-	    struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&s->bsg.bsg_children, i);
+	for (size_t i = 0; i < bsg_node_child_count((const bsg_node *)s); i++) {
+	    struct bv_scene_obj *c = (struct bv_scene_obj *)bsg_node_child((const bsg_node *)s, i);
 	    draw_scene(c, v);
 	}
 	return;
@@ -831,11 +831,14 @@ geom_done:
     bv_scene_obj_bound(s, v);
 
     // Store current view info, in case of adaptive plotting
-    s->adaptive_wireframe = s->s_v->gv_s->adaptive_plot_csg;
-    s->view_scale = s->s_v->gv_scale;
-    s->bot_threshold= s->s_v->gv_s->bot_threshold;
-    s->curve_scale = s->s_v->gv_s->curve_scale;
-    s->point_scale = s->s_v->gv_s->point_scale;
+    {
+	struct bview *sv = bsg_node_view_get((const bsg_node *)s);
+	s->adaptive_wireframe = sv->gv_s->adaptive_plot_csg;
+	s->view_scale = sv->gv_scale;
+	s->bot_threshold= sv->gv_s->bot_threshold;
+	s->curve_scale = sv->gv_s->curve_scale;
+	s->point_scale = sv->gv_s->point_scale;
+    }
 
     rt_db_free_internal(&dbintern);
 }
@@ -1059,7 +1062,12 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 
 	struct bv_scene_obj *s = bv_obj_get_child(dd->g);
 	struct bsg_draw_request parent_request;
-	db_path_to_vls(&s->bsg.bsg_name, path);
+	{
+	    struct bu_vls name_vls = BU_VLS_INIT_ZERO;
+	    db_path_to_vls(&name_vls, path);
+	    bsg_node_set_name((bsg_node *)s, bu_vls_cstr(&name_vls));
+	    bu_vls_free(&name_vls);
+	}
 	struct db_full_path *sfp = NULL;
 	BU_GET(sfp, struct db_full_path);
 	db_full_path_init(sfp);
@@ -1069,13 +1077,23 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 	bsg_node_transform_set((bsg_node *)s, *curr_mat);
 	bsg_node_draw_request_get((const bsg_node *)dd->g, &parent_request);
 	bsg_node_draw_request_set((bsg_node *)s, &parent_request);
-	s->bsg.bsg_kind = BV_DBOBJ_BASED;
+	bsg_node_set_kind((bsg_node *)s, BV_DBOBJ_BASED);
 	s->current = 0;
 	s->s_changed++;
 	if (!scene_draw_solid_lines_only(s)) {
-	    s->s_soldash = (dd->bool_op == 4) ? 1 : 0;
+	    bsg_node_set_line_style((bsg_node *)s,
+		(dd->bool_op == 4) ? BSG_APPEARANCE_LINE_DASHED : BSG_APPEARANCE_LINE_SOLID);
 	}
-	bu_color_to_rgb_chars(&dd->c, s->s_color);
+	{
+	    struct bsg_material _m;
+	    bsg_material_from_legacy_obj((const bsg_node *)s, &_m);
+	    unsigned char rgb[3];
+	    bu_color_to_rgb_chars(&dd->c, rgb);
+	    _m.rgba[0] = rgb[0]; _m.rgba[1] = rgb[1]; _m.rgba[2] = rgb[2];
+	    bsg_node_material_set((bsg_node *)s, &_m);
+	    /* keep legacy s_color in sync for code that still reads it directly */
+	    s->s_color[0] = rgb[0]; s->s_color[1] = rgb[1]; s->s_color[2] = rgb[2];
+	}
 
 	// TODO - check path against the GED default selected set - if we're
 	// drawing something the app has already flagged as selected, need to
@@ -1094,7 +1112,7 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 
 	// Let the object know about its size
 	if (dd->s_size && dd->s_size->find(DB_FULL_PATH_CUR_DIR(path)) != dd->s_size->end()) {
-	    s->s_size = (*dd->s_size)[DB_FULL_PATH_CUR_DIR(path)];
+	    bsg_node_size_set((bsg_node *)s, (*dd->s_size)[DB_FULL_PATH_CUR_DIR(path)]);
 	}
 
     }

@@ -86,6 +86,7 @@
 #include "bg/plane.h"
 #include "bg/sat.h"
 #include "bg/trimesh.h"
+#include "bsg/node.h"
 #include "bv/plot3.h"
 #include "bv/lod.h"
 #include "bv/util.h"
@@ -125,20 +126,15 @@ typedef int (*full_detail_clbk_t)(struct bv_mesh_lod *, void *);
 static void
 obj_bb(int *have_objs, vect_t *min, vect_t *max, struct bv_scene_obj *s, struct bview *v)
 {
-    vect_t minus, plus;
     if (bv_scene_obj_bound(s, v)) {
 	*have_objs = 1;
-	minus[X] = s->s_center[X] - s->s_size;
-	minus[Y] = s->s_center[Y] - s->s_size;
-	minus[Z] = s->s_center[Z] - s->s_size;
-	VMIN(*min, minus);
-	plus[X] = s->s_center[X] + s->s_size;
-	plus[Y] = s->s_center[Y] + s->s_size;
-	plus[Z] = s->s_center[Z] + s->s_size;
-	VMAX(*max, plus);
+	point_t bmin, bmax;
+	bsg_node_bounds_get((const bsg_node *)s, bmin, bmax);
+	VMIN(*min, bmin);
+	VMAX(*max, bmax);
     }
-    for (size_t i = 0; i < BU_PTBL_LEN(&s->bsg.bsg_children); i++) {
-	struct bv_scene_obj *sc = (struct bv_scene_obj *)BU_PTBL_GET(&s->bsg.bsg_children, i);
+    for (size_t i = 0; i < bsg_node_child_count((const bsg_node *)s); i++) {
+	struct bv_scene_obj *sc = (struct bv_scene_obj *)bsg_node_child((const bsg_node *)s, i);
 	obj_bb(have_objs, min, max, sc, v);
     }
 }
@@ -344,14 +340,17 @@ bv_view_bounds(struct bview *v)
 static void
 _find_active_objs(std::set<struct bv_scene_obj *> &active, struct bv_scene_obj *s, struct bview *v, point_t obb_c, point_t obb_e1, point_t obb_e2, point_t obb_e3)
 {
-    if (BU_PTBL_LEN(&s->bsg.bsg_children)) {
-	for (size_t i = 0; i < BU_PTBL_LEN(&s->bsg.bsg_children); i++) {
-	    struct bv_scene_obj *sc = (struct bv_scene_obj *)BU_PTBL_GET(&s->bsg.bsg_children, i);
+    size_t child_cnt = bsg_node_child_count((const bsg_node *)s);
+    if (child_cnt) {
+	for (size_t i = 0; i < child_cnt; i++) {
+	    struct bv_scene_obj *sc = (struct bv_scene_obj *)bsg_node_child((const bsg_node *)s, i);
 	    _find_active_objs(active, sc, v, obb_c, obb_e1, obb_e2, obb_e3);
 	}
     } else {
 	bv_scene_obj_bound(s, v);
-	if (bg_sat_aabb_obb(s->bmin, s->bmax, obb_c, obb_e1, obb_e2, obb_e3))
+	point_t bmin, bmax;
+	bsg_node_bounds_get((const bsg_node *)s, bmin, bmax);
+	if (bg_sat_aabb_obb(bmin, bmax, obb_c, obb_e1, obb_e2, obb_e3))
 	    active.insert(s);
     }
 }
@@ -559,14 +558,16 @@ bv_view_objs_rect_select(struct bu_ptbl *sset, struct bview *v, int x1, int y1, 
 static int
 _obj_visible(struct bv_scene_obj *s, struct bview *v)
 {
-    if (bg_sat_aabb_obb(s->bmin, s->bmax, v->obb_center, v->obb_extent1, v->obb_extent2, v->obb_extent3)) {
-	bv_log(3, "obj_visible[%s] - passed bg_sat_abb_obb: %f %f %f -> %f %f %f", bu_vls_cstr(&v->gv_name), V3ARGS(s->bmin), V3ARGS(s->bmax));
+    point_t bmin, bmax;
+    bsg_node_bounds_get((const bsg_node *)s, bmin, bmax);
+    if (bg_sat_aabb_obb(bmin, bmax, v->obb_center, v->obb_extent1, v->obb_extent2, v->obb_extent3)) {
+	bv_log(3, "obj_visible[%s] - passed bg_sat_abb_obb: %f %f %f -> %f %f %f", bu_vls_cstr(&v->gv_name), V3ARGS(bmin), V3ARGS(bmax));
 	bv_log(3, "                          view abb : %f %f %f -> [%f %f %f] [%f %f %f] [%f %f %f]", V3ARGS(v->obb_center), V3ARGS(v->obb_extent1), V3ARGS(v->obb_extent2), V3ARGS(v->obb_extent3));
 	//bv_log(3, "%s", obb_arb(v->obb_center, v->obb_extent1, v->obb_extent2, v->obb_extent3));
 
 	return 1;
     } else {
-	bv_log(3, "obj_visible[%s] - FAILED bg_sat_abb_obb: %f %f %f -> %f %f %f", bu_vls_cstr(&v->gv_name),V3ARGS(s->bmin), V3ARGS(s->bmax));
+	bv_log(3, "obj_visible[%s] - FAILED bg_sat_abb_obb: %f %f %f -> %f %f %f", bu_vls_cstr(&v->gv_name), V3ARGS(bmin), V3ARGS(bmax));
 	bv_log(3, "                          view abb : %f %f %f -> [%f %f %f] [%f %f %f] [%f %f %f]", V3ARGS(v->obb_center), V3ARGS(v->obb_extent1), V3ARGS(v->obb_extent2), V3ARGS(v->obb_extent3));
 	//bv_log(3, "%s", obb_arb(v->obb_center, v->obb_extent1, v->obb_extent2, v->obb_extent3));
     }
@@ -576,14 +577,14 @@ _obj_visible(struct bv_scene_obj *s, struct bview *v)
 	// box into the view plane, bound them, and see if the box overlaps with
 	// the view screen's box.
 	point_t arb[8];
-	VSET(arb[0], s->bmin[0], s->bmin[1], s->bmin[2]);
-	VSET(arb[1], s->bmin[0], s->bmin[1], s->bmax[2]);
-	VSET(arb[2], s->bmin[0], s->bmax[1], s->bmin[2]);
-	VSET(arb[3], s->bmin[0], s->bmax[1], s->bmax[2]);
-	VSET(arb[4], s->bmax[0], s->bmin[1], s->bmin[2]);
-	VSET(arb[5], s->bmax[0], s->bmin[1], s->bmax[2]);
-	VSET(arb[6], s->bmax[0], s->bmax[1], s->bmin[2]);
-	VSET(arb[7], s->bmax[0], s->bmax[1], s->bmax[2]);
+	VSET(arb[0], bmin[0], bmin[1], bmin[2]);
+	VSET(arb[1], bmin[0], bmin[1], bmax[2]);
+	VSET(arb[2], bmin[0], bmax[1], bmin[2]);
+	VSET(arb[3], bmin[0], bmax[1], bmax[2]);
+	VSET(arb[4], bmax[0], bmin[1], bmin[2]);
+	VSET(arb[5], bmax[0], bmin[1], bmax[2]);
+	VSET(arb[6], bmax[0], bmax[1], bmin[2]);
+	VSET(arb[7], bmax[0], bmax[1], bmax[2]);
 	point2d_t omin = {INFINITY, INFINITY};
 	point2d_t omax = {-INFINITY, -INFINITY};
 	for (int i = 0; i < 8; i++) {
@@ -1859,8 +1860,8 @@ bv_mesh_lod_destroy(struct bv_mesh_lod *lod)
 static void
 dlist_stale(struct bv_scene_obj *s)
 {
-    for (size_t i = 0; i < BU_PTBL_LEN(&s->bsg.bsg_children); i++) {
-	struct bv_scene_group *cg = (struct bv_scene_group *)BU_PTBL_GET(&s->bsg.bsg_children, i);
+    for (size_t i = 0; i < bsg_node_child_count((const bsg_node *)s); i++) {
+	struct bv_scene_group *cg = (struct bv_scene_group *)bsg_node_child((const bsg_node *)s, i);
 	dlist_stale(cg);
     }
     /* Phase 11: route through the backend contract so any registered

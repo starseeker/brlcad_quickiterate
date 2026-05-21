@@ -947,8 +947,69 @@ Recommended milestone:
 Exit criteria:
 - bv_scene_obj is a transitional wrapper, not the semantic model.
 
-Phase 7 execution update - 2026-05-20
+Phase 7 execution update - 2026-05-21
 -------------------------------------
+Status:
+- CONTINUED.  Raw-field migration extended to libbv hashing, snapping, and
+  LoD visibility/culling helpers.
+
+Completed in this session:
+- `src/libbv/hash.c`:
+  - Replaced direct `bsg.bsg_children` table walks with
+    `bsg_node_child_count()` / `bsg_node_child()`.
+- `src/libbv/polygon_op.cpp`:
+  - Replaced direct `bsg.bsg_kind` polygon checks with `bsg_node_has_kind()`.
+- `src/libbv/snap.c`:
+  - Replaced snap-mode `BV_DB_OBJS` / `BV_VIEW_OBJS` checks with
+    `bsg_node_has_kind()`.
+- `src/libbv/lod.cpp`:
+  - Replaced selected LoD child walks with `bsg_node_child_count()` /
+    `bsg_node_child()`.
+  - Replaced direct `s_center`/`s_size` and `bmin`/`bmax` visibility reads in
+    selected LoD bounding helpers with `bsg_node_bounds_get()`.
+
+Validation update:
+- Built: `libbv`, `libbsg`, `libged`, `test_bsg_node`,
+  `test_bsg_scene_graph`, `test_bsg_phase6`, `test_bsg_selection`,
+  `test_bsg_node_core`, `ged_test_bsg_view_obj`, `libqtcad`, `dm-qtgl`,
+  `dm-swrast`, `qged`, `ged_test_qged_swrast`.
+- `ctest -R "ged_test_bsg_view_obj|libbsg_node|libbsg_scene_graph|libbsg_phase6|libbsg_selection|libbsg_node_core"`
+  passed.
+- `ctest -R "ged_test_qged_swrast"` passed.
+
+
+Status:
+- CONTINUED.  Raw-field migration extended to drawing path internals in
+  libged/draw.cpp and libged/bsg_ged_draw.c.
+
+Completed in this session:
+- `src/libged/draw.cpp`:
+  - `bsg.bsg_name` writes replaced with `bsg_node_set_name()` (temp VLS).
+  - `s_v` reads in wireframe_plot/draw_scene replaced with `bsg_node_view_get()`.
+  - `s_size` read replaced with `bsg_node_size_get()`; write replaced with
+    `bsg_node_size_set()`.
+  - `bsg.bsg_kind` write replaced with `bsg_node_set_kind()`.
+  - `s_soldash` write replaced with `bsg_node_set_line_style()` using
+    `BSG_APPEARANCE_LINE_SOLID` / `BSG_APPEARANCE_LINE_DASHED`.
+  - `s_color` write now goes through `bsg_material` struct with `bsg_node_material_set()`
+    while keeping a legacy s_color sync comment for consumers that still read it.
+  - `bsg.bsg_children` BU_PTBL iteration replaced with `bsg_node_child_count()` /
+    `bsg_node_child()` in draw_scene children loop.
+  - Log messages updated to use `bsg_node_name()` instead of `bu_vls_cstr(&s->bsg.bsg_name)`.
+  - `s_v` reads in csg_wireframe_update replaced with `bsg_node_view_get()`.
+- `src/libged/bsg_ged_draw.c`:
+  - `s_soldash = 0` replaced with `bsg_node_set_line_style(...BSG_APPEARANCE_LINE_SOLID)`.
+  - `s_old.s_Eflag = 1` replaced with `bsg_node_set_legacy_eflag(..., 1)`.
+- `src/libged/bot/dump/bot_dump.cpp`:
+  - Fixed variable shadowing: `struct bsg_material mat` renamed to `bsg_mat`
+    to avoid shadowing outer `mat_t mat`.
+
+Validation update:
+- Built: `libbsg`, `libdm`, `libged`, `libqtcad`, `dm-qtgl`, `dm-swrast`, `qged`.
+- All 7 tests passed:
+  `ctest -R "ged_test_qged_swrast|libbsg_node|libbsg_scene_graph|libbsg_phase6|libbsg_selection|ged_test_bsg_view_obj|libbsg_node_core"`
+
+
 Status:
 - IN PROGRESS.  The compatibility-wrapper narrowing has started by moving
   additional lifecycle and root-allocation paths onto BSG APIs, while broader

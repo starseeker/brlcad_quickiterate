@@ -26,6 +26,7 @@
 #include "common.h"
 #include <string.h>
 #include "vmath.h"
+#include "bsg/node.h"
 #include "bsg/payload.h"
 #include "bu/hash.h"
 #include "bu/log.h"
@@ -180,11 +181,9 @@ _bv_hash_db_obj_cb(struct bv_scene_obj *s, void *data)
 {
     struct bu_data_hash_state *state = (struct bu_data_hash_state *)data;
     /* Hash children first (view-specific adaptive objects) */
-    if (BU_PTBL_IS_INITIALIZED(&s->bsg.bsg_children)) {
-	for (size_t j = 0; j < BU_PTBL_LEN(&s->bsg.bsg_children); j++) {
-	    struct bv_scene_obj *s_c = (struct bv_scene_obj *)BU_PTBL_GET(&s->bsg.bsg_children, j);
-	    bv_scene_obj_hash(state, s_c);
-	}
+    for (size_t j = 0; j < bsg_node_child_count((const bsg_node *)s); j++) {
+	struct bv_scene_obj *s_c = (struct bv_scene_obj *)bsg_node_child((const bsg_node *)s, j);
+	bv_scene_obj_hash(state, s_c);
     }
     bv_scene_obj_hash(state, s);
     return 1;
@@ -197,11 +196,9 @@ static int
 _bv_hash_view_obj_cb(struct bv_scene_obj *s, void *data)
 {
     struct bu_data_hash_state *state = (struct bu_data_hash_state *)data;
-    if (BU_PTBL_IS_INITIALIZED(&s->bsg.bsg_children)) {
-	for (size_t j = 0; j < BU_PTBL_LEN(&s->bsg.bsg_children); j++) {
-	    struct bv_scene_obj *s_c = (struct bv_scene_obj *)BU_PTBL_GET(&s->bsg.bsg_children, j);
-	    bv_scene_obj_hash(state, s_c);
-	}
+    for (size_t j = 0; j < bsg_node_child_count((const bsg_node *)s); j++) {
+	struct bv_scene_obj *s_c = (struct bv_scene_obj *)bsg_node_child((const bsg_node *)s, j);
+	bv_scene_obj_hash(state, s_c);
     }
     bv_scene_obj_hash(state, s);
     return 1;

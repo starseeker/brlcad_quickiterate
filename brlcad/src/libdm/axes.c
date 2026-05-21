@@ -37,12 +37,12 @@
 #include "./include/private.h"
 
 void
-dm_draw_scene_axes(struct dm *dmp,  struct bv_scene_obj *s)
+dm_draw_scene_axes(struct dm *dmp,  bsg_node *s)
 {
-    if (!bsg_node_has_kind((const bsg_node *)s, BV_AXES))
+    if (!bsg_node_has_kind(s, BV_AXES))
 	return;
 
-    struct bv_axes *bndasp = (struct bv_axes *)bsg_node_user_data_get((const bsg_node *)s);
+    struct bv_axes *bndasp = (struct bv_axes *)bsg_node_user_data_get(s);
     if (!bndasp)
 	return;
     fastf_t halfAxesSize;		/* half the length of an axis */

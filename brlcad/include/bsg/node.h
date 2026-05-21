@@ -165,6 +165,23 @@ bsg_node_bounds_get(const bsg_node *n, point_t bmin, point_t bmax);
 BSG_EXPORT extern void
 bsg_node_bounds_set(bsg_node *n, const point_t bmin, const point_t bmax);
 
+/**
+ * Return the bounding-sphere radius for @p n (bv_scene_obj::s_size).
+ *
+ * This is the half-extent of the node's geometry in model space, used for
+ * level-of-detail selection and bound-flag culling.  Returns 0.0 for NULL @p n.
+ */
+BSG_EXPORT extern fastf_t
+bsg_node_size_get(const bsg_node *n);
+
+/**
+ * Set the bounding-sphere radius for @p n (bv_scene_obj::s_size).
+ *
+ * Stores @p size into the backing s_size field.  No-op for NULL @p n.
+ */
+BSG_EXPORT extern void
+bsg_node_size_set(bsg_node *n, fastf_t size);
+
 BSG_EXPORT extern void
 bsg_node_mark_stale(bsg_node *n);
 
