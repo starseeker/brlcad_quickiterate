@@ -577,10 +577,11 @@ opt_value_type_str(bu_opt_value_type_t type)
 	case BU_OPT_VAL_RAW:
 	    return "raw";
 	case BU_OPT_VAL_UNKNOWN:
+	    return "unknown";
 	default:
 	    break;
     }
-    return "unknown";
+    return "invalid";
 }
 
 
@@ -702,7 +703,7 @@ opt_json_string(struct bu_vls *v, const char *str)
 		break;
 	    default:
 		if (*cp < 0x20) {
-		    bu_vls_printf(v, "\\u%04x", (unsigned int)*cp);
+		    bu_vls_printf(v, "\\u%04X", (unsigned int)*cp);
 		} else {
 		    bu_vls_putc(v, (int)*cp);
 		}
@@ -1171,6 +1172,8 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
     int cursor_end_options = 0;
 
     if (!cmd || !result)
+	return -1;
+    if (cursor_arg > argc)
 	return -1;
 
     bu_opt_validate_result_clear(result);
