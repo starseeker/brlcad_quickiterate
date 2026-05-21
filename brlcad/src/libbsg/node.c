@@ -35,6 +35,7 @@
 #include "bu/vls.h"
 #include "bv/defines.h"
 #include "bv/util.h"
+#include "bv/vlist.h"
 #include "vmath.h"
 #include "bsg/field.h"
 #include "bsg/node.h"
