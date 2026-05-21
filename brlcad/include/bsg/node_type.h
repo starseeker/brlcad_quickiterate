@@ -51,15 +51,13 @@
 __BEGIN_DECLS
 
 /**
- * Magic number for an initialised bsg_node core.
+ * Magic number for an initialized bsg_node core.
  * Value encodes 'b','n','c','o' in ASCII.
  */
 #define BSG_NODE_CORE_MAGIC 0x626e636fUL
 
 /**
  * Maximum number of per-node revision counter slots.
- * If this value is changed, BSG_NODE_REV_MAX in bv/defines.h must also be
- * updated (they were the same constant before Phase A split them).
  */
 #define BSG_NODE_REV_MAX    8
 
