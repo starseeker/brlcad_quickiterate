@@ -66,10 +66,10 @@ scheduled for deletion:
 
 - `rg -F 'bv_scene_obj' brlcad/include brlcad/src`
 - `rg -F 'struct bview' brlcad/include brlcad/src`
-- `rg -F '#include <bv/' brlcad/include brlcad/src`
-- `rg -F '#include "bv/' brlcad/include brlcad/src`
-- `rg -F '#include <bv.h>' brlcad/include brlcad/src`
-- `rg -F '#include "bv.h"' brlcad/include brlcad/src`
+- `rg -F -e '#include <bv/' brlcad/include brlcad/src`
+- `rg -F -e '#include "bv/' brlcad/include brlcad/src`
+- `rg -F -e '#include <bv.h>' brlcad/include brlcad/src`
+- `rg -F -e '#include "bv.h"' brlcad/include brlcad/src`
 - `rg -F 'libbv' brlcad/CMakeLists.txt brlcad/include brlcad/src`
 - `rg -F 'LIBBV' brlcad/CMakeLists.txt brlcad/include brlcad/src`
 - `rg -F 'BV_EXPORT' brlcad/include brlcad/src`
@@ -493,7 +493,7 @@ Work:
 - Remove view-set shared object/free-list ownership.
 
 Exit criteria:
-- `rg "struct bview|bview_|gv_|bv_.*state|bview_set" brlcad/include brlcad/src`
+- `rg -e "struct bview|bview_|gv_|bv_.*state|bview_set" brlcad/include brlcad/src`
   has no active libbv implementation references.
 - BSG view/camera/HUD APIs are the only supported draw-stack view model.
 
