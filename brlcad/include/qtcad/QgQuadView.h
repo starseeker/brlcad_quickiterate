@@ -87,7 +87,7 @@ signals:
 	void init_done();
 
 public slots:
-	void do_view_update(unsigned long long);
+	void do_view_update(QgViewUpdateFlags);
 	void do_view_changed();
 	void do_init_done();
 	void set_lmouse_move_default(int);

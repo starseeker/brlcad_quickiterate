@@ -418,7 +418,7 @@ void QgTreeView::qgitem_select_sync(QgItem *)
 	emit m->layoutChanged();
 }
 
-void QgTreeView::do_view_update(unsigned long long UNUSED(flags))
+void QgTreeView::do_view_update(QgViewUpdateFlags UNUSED(flags))
 {
 	QTCAD_SLOT("QgTreeView::do_view_update", 1);
 	// TODO - can the mode logic be triggered from here as well?

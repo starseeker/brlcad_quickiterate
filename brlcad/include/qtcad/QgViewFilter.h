@@ -31,6 +31,7 @@
 #include <QMouseEvent>
 #include <QObject>
 #include "qtcad/defines.h"
+#include "qtcad/QgTypes.h"
 
 struct bview;
 
@@ -56,7 +57,7 @@ public:
 	}
 
 signals:
-	void view_updated(int);
+	void view_updated(QgViewUpdateFlags);
 
 protected:
 	QMouseEvent *view_sync(QEvent *e);

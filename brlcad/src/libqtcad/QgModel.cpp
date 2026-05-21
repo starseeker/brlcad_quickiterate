@@ -479,7 +479,7 @@ QgModel::g_update(struct db_i *n_dbip)
 		items->clear();
 		tops_items.clear();
 		emit mdl_changed_db((void *)gedp);
-		emit view_change(QG_VIEW_DRAWN);
+		emit view_changed(QG_VIEW_DRAWN);
 		emit layoutChanged();
 		changed_db_flag = 0;
 		endResetModel();
@@ -932,7 +932,7 @@ QgModel::draw(const char *inst_path)
 
 	int ret = ged_exec_draw(gedp, 2, argv);
 
-	emit view_change(QG_VIEW_DRAWN);
+	emit view_changed(QG_VIEW_DRAWN);
 	return ret;
 }
 
@@ -965,7 +965,7 @@ QgModel::erase(const char *inst_path)
 
 	int ret = ged_exec_erase(gedp, 2, argv);
 
-	emit view_change(QG_VIEW_DRAWN);
+	emit view_changed(QG_VIEW_DRAWN);
 	return ret;
 }
 

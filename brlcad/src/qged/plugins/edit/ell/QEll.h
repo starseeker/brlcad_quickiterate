@@ -32,6 +32,7 @@
 #include <QRadioButton>
 #include "raytrace.h"
 #include "qtcad/QgColorRGB.h"
+#include "qtcad/QgTypes.h"
 
 class QgPluginContext;
 
@@ -60,7 +61,7 @@ class QEll : public QWidget
 	QPushButton *reset_values;
 
     signals:
-	void view_updated(unsigned long long);
+	void view_updated(QgViewUpdateFlags);
 
     private slots:
 	void read_from_db();

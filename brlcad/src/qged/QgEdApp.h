@@ -71,7 +71,7 @@ class QgEdApp : public QApplication
 	QgModel *mdl = NULL;
 
     signals:
-	void view_update(unsigned long long);
+	void view_update(QgViewUpdateFlags);
 	void dbi_update(struct db_i *dbip);
 
         /* Menu slots */
@@ -88,7 +88,7 @@ class QgEdApp : public QApplication
 	// signal should trigger ANY logic (directly OR indirectly) that leads
 	// back to this slot being called again, or an infinite loop may
 	// result.
-	void do_view_changed(unsigned long long);
+	void do_view_changed(QgViewUpdateFlags);
 
 	// This slot is used for quad view configurations - it is called if the
 	// user uses the mouse to select one of multiple views.  This slot has

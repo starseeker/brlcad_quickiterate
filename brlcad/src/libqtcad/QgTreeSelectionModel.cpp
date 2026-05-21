@@ -100,7 +100,7 @@ QgTreeSelectionModel::select(const QItemSelection &selection, QItemSelectionMode
 	// Done manipulating paths - update metadata
 	ss->characterize();
 
-	unsigned long long sflags = QG_VIEW_SELECT;
+	QgViewUpdateFlags sflags = QG_VIEW_SELECT;
 	if (ss->draw_sync())
 		sflags |= QG_VIEW_REFRESH;
 
@@ -133,7 +133,7 @@ QgTreeSelectionModel::select(const QModelIndex &index, QItemSelectionModel::Sele
 		// Done manipulating paths - update metadata
 		ss->characterize();
 
-		unsigned long long sflags = QG_VIEW_SELECT;
+		QgViewUpdateFlags sflags = QG_VIEW_SELECT;
 		if (ss->draw_sync())
 			sflags |= QG_VIEW_REFRESH;
 
@@ -150,7 +150,7 @@ QgTreeSelectionModel::select(const QModelIndex &index, QItemSelectionModel::Sele
 			ss->deselect_hpath(path_hashes);
 			// Done manipulating paths - update metadata
 			ss->characterize();
-			unsigned long long sflags = QG_VIEW_SELECT;
+			QgViewUpdateFlags sflags = QG_VIEW_SELECT;
 			if (ss->draw_sync())
 				sflags |= QG_VIEW_REFRESH;
 			emit treeview->view_changed(sflags);
@@ -172,7 +172,7 @@ QgTreeSelectionModel::select(const QModelIndex &index, QItemSelectionModel::Sele
 	// Done manipulating paths - update metadata
 	ss->characterize();
 
-	unsigned long long sflags = QG_VIEW_SELECT;
+	QgViewUpdateFlags sflags = QG_VIEW_SELECT;
 	if (ss->draw_sync())
 		sflags |= QG_VIEW_REFRESH;
 

@@ -560,7 +560,7 @@ QPolyCreate::toplevel_config(bool)
 }
 
 void
-QPolyCreate::propagate_update(int)
+QPolyCreate::propagate_update(QgViewUpdateFlags)
 {
     emit view_updated(QG_VIEW_REFRESH);
 }
