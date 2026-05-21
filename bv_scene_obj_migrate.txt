@@ -104,6 +104,12 @@ after stripping comments.
 | `s_displayobj` | 3 | 3 | display-space payload flag | BSG payload/display flag |
 | `s_old` | 61 | 10 | old draw compatibility settings | BSG appearance/material/selection state or delete |
 
+`s_size` and `s_center` are intentionally listed as broad audit queues rather
+than exact scene-node counts.  Those names are reused by unrelated geometry data
+structures, so the first bounds slice should classify each hit by typed context
+before scheduling replacements; only confirmed `bv_scene_obj`/`bsg_node` storage
+uses should be migrated to BSG bounds APIs.
+
 Implementation Plan
 -------------------
 
