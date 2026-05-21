@@ -895,6 +895,8 @@ desc_3(int test_num)
 static int
 desc_4(int test_num)
 {
+    static const char *pattern_keywords[] = {"alpha", "beta", NULL};
+    static const char *mode_keywords[] = {"fast", "slow", NULL};
     int help = 0;
     int verbose = 0;
     const char *output = NULL;
@@ -907,20 +909,20 @@ desc_4(int test_num)
 	"{\"schema\":\"bu_opt\",\"version\":1,\"command\":{\"name\":\"testcmd\",\"help\":\"Test command\","
 	"\"options\":[{\"short\":\"h\",\"long\":\"help\",\"argument\":\"flag\",\"argument_help\":\"\","
 	"\"argument_type\":\"bool\",\"repeat\":false,\"help\":\"Print help string and exit.\","
-	"\"aliases\":[\"h\",\"help\",\"?\",\"help-alt\"]},{\"short\":\"v\",\"long\":\"verbose\","
+	"\"keywords\":[],\"aliases\":[\"h\",\"help\",\"?\",\"help-alt\"]},{\"short\":\"v\",\"long\":\"verbose\","
 	"\"argument\":\"optional\",\"argument_help\":\"[#]\",\"argument_type\":\"integer\",\"repeat\":true,"
-	"\"help\":\"Set verbosity\",\"aliases\":[\"v\",\"verbose\"]},{\"short\":\"o\",\"long\":\"output\","
+	"\"help\":\"Set verbosity\",\"keywords\":[],\"aliases\":[\"v\",\"verbose\"]},{\"short\":\"o\",\"long\":\"output\","
 	"\"argument\":\"required\",\"argument_help\":\"file\",\"argument_type\":\"file_path\",\"repeat\":false,"
-	"\"help\":\"Output file\",\"aliases\":[\"o\",\"output\"]},{\"short\":\"C\",\"long\":\"color\","
+	"\"help\":\"Output file\",\"keywords\":[],\"aliases\":[\"o\",\"output\"]},{\"short\":\"C\",\"long\":\"color\","
 	"\"argument\":\"required\",\"argument_help\":\"r/g/b\",\"argument_type\":\"color\",\"repeat\":false,"
-	"\"help\":\"Set color\",\"aliases\":[\"C\",\"color\"]}],\"operands\":[{\"name\":\"object\","
-	"\"type\":\"db_object\",\"min\":1,\"max\":2,\"help\":\"Database object\"}],\"subcommands\":[{\"name\":\"list\","
+	"\"help\":\"Set color\",\"keywords\":[],\"aliases\":[\"C\",\"color\"]}],\"operands\":[{\"name\":\"object\","
+	"\"type\":\"db_object\",\"min\":1,\"max\":2,\"help\":\"Database object\",\"keywords\":[]}],\"subcommands\":[{\"name\":\"list\","
 	"\"help\":\"List things\",\"options\":[{\"short\":\"l\",\"long\":\"long\",\"argument\":\"flag\","
 	"\"argument_help\":\"\",\"argument_type\":\"bool\",\"repeat\":false,\"help\":\"Long listing\","
-	"\"aliases\":[\"l\",\"long\"]}],\"operands\":[{\"name\":\"pattern\",\"type\":\"keyword\","
-	"\"min\":0,\"max\":1,\"help\":\"Optional pattern\"}],\"subcommands\":[{\"name\":\"deep\","
+	"\"keywords\":[],\"aliases\":[\"l\",\"long\"]}],\"operands\":[{\"name\":\"pattern\",\"type\":\"keyword\","
+	"\"min\":0,\"max\":1,\"help\":\"Optional pattern\",\"keywords\":[\"alpha\",\"beta\"]}],\"subcommands\":[{\"name\":\"deep\","
 	"\"help\":\"Nested command\",\"options\":[{\"short\":\"m\",\"long\":\"mode\",\"argument\":\"required\","
-	"\"argument_help\":\"mode\",\"argument_type\":\"keyword\",\"repeat\":false,\"help\":\"Mode\","
+	"\"argument_help\":\"mode\",\"argument_type\":\"keyword\",\"repeat\":false,\"help\":\"Mode\",\"keywords\":[\"fast\",\"slow\"],"
 	"\"aliases\":[\"m\",\"mode\"]}],\"operands\":[],\"subcommands\":[]}]}]}}";
 
     struct bu_opt_desc root_opts[] = {
@@ -932,14 +934,14 @@ desc_4(int test_num)
 	BU_OPT_DESC_NULL
     };
     struct bu_opt_desc_meta root_meta[] = {
-	{"h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0},
-	{"v", "verbose", BU_OPT_ARG_OPTIONAL, BU_OPT_VAL_INTEGER, 1},
-	{"o", "output", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_FILE_PATH, 0},
-	{"C", "color", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_COLOR, 0},
+	{"h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
+	{"v", "verbose", BU_OPT_ARG_OPTIONAL, BU_OPT_VAL_INTEGER, 1, NULL},
+	{"o", "output", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_FILE_PATH, 0, NULL},
+	{"C", "color", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_COLOR, 0, NULL},
 	BU_OPT_DESC_META_NULL
     };
     struct bu_opt_operand_desc root_operands[] = {
-	{"object", BU_OPT_VAL_DB_OBJECT, 1, 2, "Database object"},
+	{"object", BU_OPT_VAL_DB_OBJECT, 1, 2, "Database object", NULL},
 	BU_OPT_OPERAND_DESC_NULL
     };
     struct bu_opt_desc list_opts[] = {
@@ -947,7 +949,7 @@ desc_4(int test_num)
 	BU_OPT_DESC_NULL
     };
     struct bu_opt_operand_desc list_operands[] = {
-	{"pattern", BU_OPT_VAL_KEYWORD, 0, 1, "Optional pattern"},
+	{"pattern", BU_OPT_VAL_KEYWORD, 0, 1, "Optional pattern", pattern_keywords},
 	BU_OPT_OPERAND_DESC_NULL
     };
     struct bu_opt_desc deep_opts[] = {
@@ -955,7 +957,7 @@ desc_4(int test_num)
 	BU_OPT_DESC_NULL
     };
     struct bu_opt_desc_meta deep_meta[] = {
-	{"m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_KEYWORD, 0},
+	{"m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_KEYWORD, 0, mode_keywords},
 	BU_OPT_DESC_META_NULL
     };
     struct bu_opt_cmd_desc deep_cmds[] = {
@@ -1044,6 +1046,41 @@ desc_4(int test_num)
 	    (void)bu_opt_validate_string(&cmd, "--output", 8, &vr);
 	    ret = !(vr.state == BU_OPT_VALIDATE_INCOMPLETE && (vr.expected & BU_OPT_EXPECT_OPTION_ARG));
 	    break;
+	case 11:
+	    (void)bu_opt_validate_string(&cmd, "", 0, &vr);
+	    ret = !(vr.completion_count >= 2 && vr.completion_candidates
+		&& vr.state == BU_OPT_VALIDATE_INCOMPLETE);
+	    if (!ret) {
+		int have_output = 0;
+		int have_list = 0;
+		size_t i = 0;
+		for (i = 0; i < vr.completion_count; i++) {
+		    if (BU_STR_EQUAL(vr.completion_candidates[i], "--output"))
+			have_output = 1;
+		    if (BU_STR_EQUAL(vr.completion_candidates[i], "list"))
+			have_list = 1;
+		}
+		ret = !(have_output && have_list);
+	    }
+	    break;
+	case 12:
+	    (void)bu_opt_validate_string(&cmd, "--out", 5, &vr);
+	    ret = !(vr.state == BU_OPT_VALIDATE_INVALID && vr.completion_count == 1
+		&& vr.completion_candidates
+		&& BU_STR_EQUAL(vr.completion_candidates[0], "--output"));
+	    break;
+	case 13:
+	    (void)bu_opt_validate_string(&cmd, "li", 2, &vr);
+	    ret = !(vr.state == BU_OPT_VALIDATE_VALID && vr.completion_count >= 1
+		&& vr.completion_candidates
+		&& BU_STR_EQUAL(vr.completion_candidates[0], "list"));
+	    break;
+	case 14:
+	    (void)bu_opt_validate_string(&cmd, "list deep --mode fa", 19, &vr);
+	    ret = !(vr.state == BU_OPT_VALIDATE_VALID && vr.expected == BU_OPT_EXPECT_OPTION_ARG
+		&& vr.completion_count == 1 && vr.completion_candidates
+		&& BU_STR_EQUAL(vr.completion_candidates[0], "fast"));
+	    break;
 	default:
 	    ret = -1;
 	    break;
@@ -1051,10 +1088,13 @@ desc_4(int test_num)
 
     if (ret) {
 	bu_log("bu_opt metadata test %d failed: state=%d start=%lu end=%lu "
-	    "expected=%u hint=%s\n", test_num, vr.state,
+	    "expected=%u completions=%lu hint=%s\n", test_num, vr.state,
 	    (unsigned long)vr.token_start, (unsigned long)vr.token_end,
-	    vr.expected, vr.hint ? vr.hint : "(null)");
+	    vr.expected, (unsigned long)vr.completion_count,
+	    vr.hint ? vr.hint : "(null)");
     }
+
+    bu_opt_validate_result_clear(&vr);
 
     return ret;
 }

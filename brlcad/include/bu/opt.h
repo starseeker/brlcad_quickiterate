@@ -262,10 +262,11 @@ struct bu_opt_desc_meta {
     bu_opt_arg_requirement_t arg_requirement;
     bu_opt_value_type_t arg_type;
     int repeat;
+    const char * const *value_keywords;
 };
 
 
-#define BU_OPT_DESC_META_NULL {NULL, NULL, BU_OPT_ARG_FLAG, BU_OPT_VAL_UNKNOWN, 0}
+#define BU_OPT_DESC_META_NULL {NULL, NULL, BU_OPT_ARG_FLAG, BU_OPT_VAL_UNKNOWN, 0, NULL}
 
 
 /** Optional positional operand metadata for a command. */
@@ -275,10 +276,11 @@ struct bu_opt_operand_desc {
     size_t min_count;
     size_t max_count;
     const char *help_string;
+    const char * const *value_keywords;
 };
 
 
-#define BU_OPT_OPERAND_DESC_NULL {NULL, BU_OPT_VAL_UNKNOWN, 0, 0, NULL}
+#define BU_OPT_OPERAND_DESC_NULL {NULL, BU_OPT_VAL_UNKNOWN, 0, 0, NULL, NULL}
 
 
 /** max_count value indicating that an operand may repeat without a fixed bound. */
@@ -325,10 +327,19 @@ struct bu_opt_validate_result {
     size_t token_end;
     unsigned int expected;
     const char *hint;
+    size_t completion_count;
+    const char **completion_candidates;
 };
 
 
-#define BU_OPT_VALIDATE_RESULT_NULL {BU_OPT_VALIDATE_UNKNOWN, 0, 0, BU_OPT_EXPECT_NONE, NULL}
+#define BU_OPT_VALIDATE_RESULT_NULL {BU_OPT_VALIDATE_UNKNOWN, 0, 0, BU_OPT_EXPECT_NONE, NULL, 0, NULL}
+
+
+/**
+ * Free any dynamically allocated completion-candidate data stored in a
+ * bu_opt_validate_result and reset it to the NULL initializer state.
+ */
+BU_EXPORT extern void bu_opt_validate_result_clear(struct bu_opt_validate_result *result);
 
 
 /**

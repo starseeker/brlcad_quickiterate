@@ -697,6 +697,10 @@ brlcad_add_test(NAME bu_opt_4_validate_repeated COMMAND bu_test opt 4 schema 7)
 brlcad_add_test(NAME bu_opt_4_validate_subcmd   COMMAND bu_test opt 4 schema 8)
 brlcad_add_test(NAME bu_opt_4_validate_nested   COMMAND bu_test opt 4 schema 9)
 brlcad_add_test(NAME bu_opt_4_validate_string   COMMAND bu_test opt 4 schema 10)
+brlcad_add_test(NAME bu_opt_4_complete_initial  COMMAND bu_test opt 4 schema 11)
+brlcad_add_test(NAME bu_opt_4_complete_option   COMMAND bu_test opt 4 schema 12)
+brlcad_add_test(NAME bu_opt_4_complete_subcmd   COMMAND bu_test opt 4 schema 13)
+brlcad_add_test(NAME bu_opt_4_complete_keyword  COMMAND bu_test opt 4 schema 14)
 
 #
 #  *********** datetime.c tests ************
