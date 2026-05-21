@@ -251,6 +251,16 @@ typedef enum {
 } bu_opt_value_type_t;
 
 
+/** Metadata flags for metadata-only option descriptors. */
+typedef enum {
+    BU_OPT_OPTION_FLAG_NONE = 0,
+    BU_OPT_OPTION_FLAG_HIDDEN = 1 << 0,
+    BU_OPT_OPTION_FLAG_DEPRECATED = 1 << 1,
+    BU_OPT_OPTION_FLAG_EXPERIMENTAL = 1 << 2,
+    BU_OPT_OPTION_FLAG_INCOMPLETE = 1 << 3
+} bu_opt_option_flags_t;
+
+
 /**
  * Optional metadata for a bu_opt_desc entry.  Entries are matched to
  * bu_opt_desc records by shortopt/longopt.  The array is terminated by
@@ -267,6 +277,64 @@ struct bu_opt_desc_meta {
 
 
 #define BU_OPT_DESC_META_NULL {NULL, NULL, BU_OPT_ARG_FLAG, BU_OPT_VAL_UNKNOWN, 0, NULL}
+
+
+/**
+ * Metadata-only option descriptor.  This contains immutable option schema
+ * information and omits parser execution details such as set_var.
+ */
+struct bu_opt_option_desc {
+    const char *shortopt;
+    const char *longopt;
+    const char *arg_helpstr;
+    const char *help_string;
+    bu_opt_arg_requirement_t arg_requirement;
+    bu_opt_value_type_t arg_type;
+    int repeat;
+    const char * const *value_keywords;
+    bu_opt_value_type_t completion_type;
+    unsigned int flags;
+};
+
+
+#define BU_OPT_OPTION_DESC_NULL {NULL, NULL, NULL, NULL, BU_OPT_ARG_FLAG, BU_OPT_VAL_UNKNOWN, 0, NULL, BU_OPT_VAL_UNKNOWN, BU_OPT_OPTION_FLAG_NONE}
+
+
+/** Field mask for bu_opt_option_overrides entries. */
+typedef enum {
+    BU_OPT_OVERRIDE_NONE = 0,
+    BU_OPT_OVERRIDE_ARG_HELPSTR = 1 << 0,
+    BU_OPT_OVERRIDE_HELP_STRING = 1 << 1,
+    BU_OPT_OVERRIDE_ARG_REQUIREMENT = 1 << 2,
+    BU_OPT_OVERRIDE_ARG_TYPE = 1 << 3,
+    BU_OPT_OVERRIDE_REPEAT = 1 << 4,
+    BU_OPT_OVERRIDE_VALUE_KEYWORDS = 1 << 5,
+    BU_OPT_OVERRIDE_COMPLETION_TYPE = 1 << 6,
+    BU_OPT_OVERRIDE_FLAGS = 1 << 7
+} bu_opt_option_override_bits_t;
+
+
+/**
+ * Targeted metadata overrides for options synthesized from bu_opt_desc.
+ * Entries are matched by shortopt/longopt and terminated with
+ * BU_OPT_OPTION_OVERRIDE_NULL.
+ */
+struct bu_opt_option_overrides {
+    const char *shortopt;
+    const char *longopt;
+    bu_opt_arg_requirement_t arg_requirement;
+    bu_opt_value_type_t arg_type;
+    int repeat;
+    const char * const *value_keywords;
+    unsigned int override_mask;
+    const char *arg_helpstr;
+    const char *help_string;
+    bu_opt_value_type_t completion_type;
+    unsigned int flags;
+};
+
+
+#define BU_OPT_OPTION_OVERRIDE_NULL {NULL, NULL, BU_OPT_ARG_FLAG, BU_OPT_VAL_UNKNOWN, 0, NULL, BU_OPT_OVERRIDE_NONE, NULL, NULL, BU_OPT_VAL_UNKNOWN, BU_OPT_OPTION_FLAG_NONE}
 
 
 /** Optional positional operand metadata for a command. */
@@ -291,14 +359,19 @@ struct bu_opt_operand_desc {
 struct bu_opt_cmd_desc {
     const char *name;
     const char *help_string;
-    const struct bu_opt_desc *options;
-    const struct bu_opt_desc_meta *option_meta;
+    const struct bu_opt_desc *options; /* Transitional parser descriptor source */
+    const struct bu_opt_option_overrides *option_overrides; /* Optional override records for synthesized metadata */
     const struct bu_opt_operand_desc *operands;
     const struct bu_opt_cmd_desc *subcommands;
+#ifdef __cplusplus
+    const struct bu_opt_option_desc *option_desc = NULL; /* Optional direct metadata-only option descriptors */
+#else
+    const struct bu_opt_option_desc *option_desc; /* Optional direct metadata-only option descriptors */
+#endif
 };
 
 
-#define BU_OPT_CMD_DESC_NULL {NULL, NULL, NULL, NULL, NULL, NULL}
+#define BU_OPT_CMD_DESC_NULL {NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 
 
 /** Incremental validation result states. */
@@ -362,6 +435,26 @@ BU_EXPORT extern void bu_opt_validate_result_clear(struct bu_opt_validate_result
 
 
 /**
+ * Fill a metadata-only option descriptor from a bu_opt_desc parser descriptor.
+ * Inferred values may be refined later with bu_opt_option_overrides.
+ */
+BU_EXPORT extern int bu_opt_option_from_desc(struct bu_opt_option_desc *out, const struct bu_opt_desc *in);
+
+
+/**
+ * Allocate and return a BU_OPT_OPTION_DESC_NULL-terminated array of
+ * metadata-only option descriptors synthesized from @p ds and optional
+ * @p overrides.  The returned array must be released with
+ * bu_opt_option_descs_free.
+ */
+BU_EXPORT extern struct bu_opt_option_desc *bu_opt_option_descs_from_desc(const struct bu_opt_desc *ds, const struct bu_opt_option_overrides *overrides);
+
+
+/** Release arrays returned by bu_opt_option_descs_from_desc. */
+BU_EXPORT extern void bu_opt_option_descs_free(struct bu_opt_option_desc *option_descs);
+
+
+/**
  * Generate a JSON command schema from optional side metadata and existing
  * bu_opt_desc records.  The returned string must be released with bu_free.
  */
@@ -391,6 +484,21 @@ typedef enum {
     BU_OPT_DOCBOOK, /* TODO */
     BU_OPT_JSON
 } bu_opt_format_t;
+
+
+/** Output settings for human-readable bu_opt descriptions. */
+struct bu_opt_describe_settings {
+    bu_opt_format_t format;
+    int offset;
+    int option_columns;
+    int description_columns;
+    int show_all_longopts;
+    const char *accept;
+    const char *reject;
+};
+
+
+#define BU_OPT_DESCRIBE_SETTINGS_INIT_ZERO { BU_OPT_ASCII, 2, 28, 50, 1, NULL, NULL }
 
 
 /**
@@ -510,6 +618,10 @@ struct bu_opt_desc_opts {
  * @link bu_free @endlink.
  */
 BU_EXPORT extern char *bu_opt_describe(const struct bu_opt_desc *ds, struct bu_opt_desc_opts *settings);
+
+
+/** Extended describe API using bu_opt_describe_settings. */
+BU_EXPORT extern char *bu_opt_describe_ex(const struct bu_opt_desc *ds, const struct bu_opt_describe_settings *settings);
 
 
 /** @} */

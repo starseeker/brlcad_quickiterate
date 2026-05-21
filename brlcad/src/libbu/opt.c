@@ -507,18 +507,33 @@ opt_describe_internal_docbook(const struct bu_opt_desc *ds, struct bu_opt_desc_o
 
 
 char *
-bu_opt_describe(const struct bu_opt_desc *ds, struct bu_opt_desc_opts *settings)
+bu_opt_describe_ex(const struct bu_opt_desc *ds, const struct bu_opt_describe_settings *settings)
 {
+    struct bu_opt_desc_opts compat_settings = BU_OPT_DESC_OPTS_INIT_ZERO;
+    struct bu_opt_desc_opts *opts = NULL;
+
     if (!ds)
 	return NULL;
-    if (!settings)
+
+    if (settings) {
+	compat_settings.format = settings->format;
+	compat_settings.offset = settings->offset;
+	compat_settings.option_columns = settings->option_columns;
+	compat_settings.description_columns = settings->description_columns;
+	compat_settings.show_all_longopts = settings->show_all_longopts;
+	compat_settings.accept = settings->accept;
+	compat_settings.reject = settings->reject;
+	opts = &compat_settings;
+    }
+
+    if (!opts)
 	return opt_describe_internal_ascii(ds, NULL);
-    switch (settings->format) {
+    switch (opts->format) {
 	case BU_OPT_ASCII:
-	    return opt_describe_internal_ascii(ds, settings);
+	    return opt_describe_internal_ascii(ds, opts);
 	    break;
 	case BU_OPT_DOCBOOK:
-	    return opt_describe_internal_docbook(ds, settings);
+	    return opt_describe_internal_docbook(ds, opts);
 	    break;
 	case BU_OPT_JSON:
 	{
@@ -530,6 +545,23 @@ bu_opt_describe(const struct bu_opt_desc *ds, struct bu_opt_desc_opts *settings)
 	    break;
     }
     return NULL;
+}
+
+
+char *
+bu_opt_describe(const struct bu_opt_desc *ds, struct bu_opt_desc_opts *settings)
+{
+    struct bu_opt_describe_settings s = BU_OPT_DESCRIBE_SETTINGS_INIT_ZERO;
+    if (!settings)
+	return bu_opt_describe_ex(ds, NULL);
+    s.format = settings->format;
+    s.offset = settings->offset;
+    s.option_columns = settings->option_columns;
+    s.description_columns = settings->description_columns;
+    s.show_all_longopts = settings->show_all_longopts;
+    s.accept = settings->accept;
+    s.reject = settings->reject;
+    return bu_opt_describe_ex(ds, &s);
 }
 
 
@@ -636,20 +668,189 @@ opt_infer_arg_requirement(const struct bu_opt_desc *d)
 }
 
 
-static const struct bu_opt_desc_meta *
-opt_find_meta(const struct bu_opt_desc *d, const struct bu_opt_desc_meta *meta)
+static int
+opt_option_desc_is_null(const struct bu_opt_option_desc *d)
+{
+    int non_null = 0;
+    if (!d)
+	return 1;
+    if (d->shortopt)
+	non_null++;
+    if (d->longopt)
+	non_null++;
+    if (d->arg_helpstr)
+	non_null++;
+    if (d->help_string)
+	non_null++;
+    if (d->value_keywords)
+	non_null++;
+    if (d->arg_requirement != BU_OPT_ARG_FLAG)
+	non_null++;
+    if (d->arg_type != BU_OPT_VAL_UNKNOWN)
+	non_null++;
+    if (d->repeat)
+	non_null++;
+    if (d->completion_type != BU_OPT_VAL_UNKNOWN)
+	non_null++;
+    if (d->flags != BU_OPT_OPTION_FLAG_NONE)
+	non_null++;
+    return (non_null > 0) ? 0 : 1;
+}
+
+
+static const struct bu_opt_option_overrides *
+opt_find_override(const char *shortopt, const char *longopt, const struct bu_opt_option_overrides *overrides)
 {
     size_t i = 0;
-    if (!d || !meta)
+    if (!overrides)
 	return NULL;
-    while (meta[i].shortopt || meta[i].longopt) {
-	if (d->shortopt && meta[i].shortopt && BU_STR_EQUAL(d->shortopt, meta[i].shortopt))
-	    return &meta[i];
-	if (d->longopt && meta[i].longopt && BU_STR_EQUAL(d->longopt, meta[i].longopt))
-	    return &meta[i];
+    while (overrides[i].shortopt || overrides[i].longopt) {
+	if (shortopt && overrides[i].shortopt && BU_STR_EQUAL(shortopt, overrides[i].shortopt))
+	    return &overrides[i];
+	if (longopt && overrides[i].longopt && BU_STR_EQUAL(longopt, overrides[i].longopt))
+	    return &overrides[i];
 	i++;
     }
     return NULL;
+}
+
+
+static void
+opt_apply_override(struct bu_opt_option_desc *d, const struct bu_opt_option_overrides *o)
+{
+    int legacy = 0;
+    if (!d || !o)
+	return;
+    legacy = (o->override_mask == BU_OPT_OVERRIDE_NONE
+	&& (o->arg_helpstr || o->help_string
+	    || o->arg_requirement != BU_OPT_ARG_FLAG
+	    || o->arg_type != BU_OPT_VAL_UNKNOWN
+	    || o->repeat
+	    || o->value_keywords
+	    || o->completion_type != BU_OPT_VAL_UNKNOWN
+	    || o->flags != BU_OPT_OPTION_FLAG_NONE));
+
+    if (legacy) {
+	d->arg_requirement = o->arg_requirement;
+	d->arg_type = o->arg_type;
+	d->repeat = o->repeat;
+	d->value_keywords = o->value_keywords;
+	d->completion_type = (o->completion_type == BU_OPT_VAL_UNKNOWN) ? o->arg_type : o->completion_type;
+	d->flags = o->flags;
+	if (o->arg_helpstr)
+	    d->arg_helpstr = o->arg_helpstr;
+	if (o->help_string)
+	    d->help_string = o->help_string;
+	return;
+    }
+
+    if (o->override_mask & BU_OPT_OVERRIDE_ARG_HELPSTR)
+	d->arg_helpstr = o->arg_helpstr;
+    if (o->override_mask & BU_OPT_OVERRIDE_HELP_STRING)
+	d->help_string = o->help_string;
+    if (o->override_mask & BU_OPT_OVERRIDE_ARG_REQUIREMENT)
+	d->arg_requirement = o->arg_requirement;
+    if (o->override_mask & BU_OPT_OVERRIDE_ARG_TYPE)
+	d->arg_type = o->arg_type;
+    if (o->override_mask & BU_OPT_OVERRIDE_REPEAT)
+	d->repeat = o->repeat;
+    if (o->override_mask & BU_OPT_OVERRIDE_VALUE_KEYWORDS)
+	d->value_keywords = o->value_keywords;
+    if (o->override_mask & BU_OPT_OVERRIDE_COMPLETION_TYPE)
+	d->completion_type = o->completion_type;
+    if (o->override_mask & BU_OPT_OVERRIDE_FLAGS)
+	d->flags = o->flags;
+}
+
+
+int
+bu_opt_option_from_desc(struct bu_opt_option_desc *out, const struct bu_opt_desc *in)
+{
+    if (!out || !in)
+	return -1;
+
+    *out = (struct bu_opt_option_desc)BU_OPT_OPTION_DESC_NULL;
+    out->shortopt = in->shortopt;
+    out->longopt = in->longopt;
+    out->arg_helpstr = in->arg_helpstr ? in->arg_helpstr : "";
+    out->help_string = in->help_string ? in->help_string : "";
+    out->arg_requirement = opt_infer_arg_requirement(in);
+    out->arg_type = opt_infer_value_type(in);
+    out->repeat = 0;
+    out->value_keywords = NULL;
+    out->completion_type = out->arg_type;
+    out->flags = BU_OPT_OPTION_FLAG_NONE;
+    return 0;
+}
+
+
+struct bu_opt_option_desc *
+bu_opt_option_descs_from_desc(const struct bu_opt_desc *ds, const struct bu_opt_option_overrides *overrides)
+{
+    size_t i = 0;
+    struct bu_opt_option_desc *out = NULL;
+
+    if (!ds)
+	return NULL;
+
+    while (!opt_desc_is_null(&ds[i]))
+	i++;
+
+    out = (struct bu_opt_option_desc *)bu_calloc(i + 1, sizeof(struct bu_opt_option_desc), "bu_opt_option_desc array");
+    for (size_t j = 0; j < i; j++) {
+	const struct bu_opt_option_overrides *o = NULL;
+	(void)bu_opt_option_from_desc(&out[j], &ds[j]);
+	o = opt_find_override(ds[j].shortopt, ds[j].longopt, overrides);
+	opt_apply_override(&out[j], o);
+    }
+    out[i] = (struct bu_opt_option_desc)BU_OPT_OPTION_DESC_NULL;
+    return out;
+}
+
+
+void
+bu_opt_option_descs_free(struct bu_opt_option_desc *option_descs)
+{
+    if (!option_descs)
+	return;
+    bu_free(option_descs, "bu_opt_option_desc array");
+}
+
+
+static const struct bu_opt_option_desc *
+opt_find_option_desc(const struct bu_opt_option_desc *opts, const char *shortopt, const char *longopt)
+{
+    size_t i = 0;
+    if (!opts)
+	return NULL;
+    while (!opt_option_desc_is_null(&opts[i])) {
+	if (shortopt && opts[i].shortopt && BU_STR_EQUAL(shortopt, opts[i].shortopt))
+	    return &opts[i];
+	if (longopt && opts[i].longopt && BU_STR_EQUAL(longopt, opts[i].longopt))
+	    return &opts[i];
+	i++;
+    }
+    return NULL;
+}
+
+
+static const struct bu_opt_option_desc *
+opt_option_desc_for_cmd(const struct bu_opt_cmd_desc *cmd, const struct bu_opt_desc *d, struct bu_opt_option_desc *scratch)
+{
+    const struct bu_opt_option_desc *m = NULL;
+    const struct bu_opt_option_overrides *o = NULL;
+    if (!cmd || !d)
+	return NULL;
+    m = opt_find_option_desc(cmd->option_desc, d->shortopt, d->longopt);
+    if (m)
+	return m;
+    if (!scratch)
+	return NULL;
+    if (bu_opt_option_from_desc(scratch, d) != 0)
+	return NULL;
+    o = opt_find_override(d->shortopt, d->longopt, cmd->option_overrides);
+    opt_apply_override(scratch, o);
+    return scratch;
 }
 
 
@@ -747,15 +948,16 @@ opt_json_str_member(struct bu_vls *v, const char *name, const char *value)
 
 
 static void
-opt_json_option(struct bu_vls *v, const struct bu_opt_desc *ds, const struct bu_opt_desc *curr, const struct bu_opt_desc_meta *meta, int *status, size_t opt_cnt)
+opt_json_option_from_desc(struct bu_vls *v, const struct bu_opt_cmd_desc *cmd, const struct bu_opt_desc *ds, const struct bu_opt_desc *curr, int *status, size_t opt_cnt)
 {
-    const struct bu_opt_desc_meta *m = opt_find_meta(curr, meta);
+    struct bu_opt_option_desc scratch = BU_OPT_OPTION_DESC_NULL;
+    const struct bu_opt_option_desc *m = opt_option_desc_for_cmd(cmd, curr, &scratch);
     bu_opt_arg_requirement_t req = m ? m->arg_requirement : opt_infer_arg_requirement(curr);
     bu_opt_value_type_t type = m ? m->arg_type : opt_infer_value_type(curr);
     int repeat = m ? m->repeat : 0;
     const char * const *keywords = m ? m->value_keywords : NULL;
-    const char *help = curr->help_string ? curr->help_string : "";
-    const char *arg_help = curr->arg_helpstr ? curr->arg_helpstr : "";
+    const char *help = (m && m->help_string) ? m->help_string : (curr->help_string ? curr->help_string : "");
+    const char *arg_help = (m && m->arg_helpstr) ? m->arg_helpstr : (curr->arg_helpstr ? curr->arg_helpstr : "");
     size_t i = 0;
     int need_comma = 0;
 
@@ -803,6 +1005,58 @@ opt_json_option(struct bu_vls *v, const struct bu_opt_desc *ds, const struct bu_
 	}
 	status[i] = 1;
     }
+    bu_vls_printf(v, "]}");
+}
+
+
+static void
+opt_json_option_from_meta(struct bu_vls *v, const struct bu_opt_option_desc *m)
+{
+    const char *help = (m && m->help_string) ? m->help_string : "";
+    const char *arg_help = (m && m->arg_helpstr) ? m->arg_helpstr : "";
+    const char *completion = "none";
+    bu_opt_value_type_t ctype = BU_OPT_VAL_UNKNOWN;
+
+    if (!m)
+	return;
+
+    ctype = (m->completion_type == BU_OPT_VAL_UNKNOWN) ? m->arg_type : m->completion_type;
+    completion = opt_completion_str(ctype, m->value_keywords);
+
+    bu_vls_printf(v, "{");
+    opt_json_str_member(v, "short", m->shortopt ? m->shortopt : "");
+    bu_vls_printf(v, ",");
+    opt_json_str_member(v, "long", m->longopt ? m->longopt : "");
+    bu_vls_printf(v, ",");
+    opt_json_str_member(v, "argument", opt_arg_requirement_str(m->arg_requirement));
+    bu_vls_printf(v, ",");
+    opt_json_str_member(v, "argument_help", arg_help);
+    bu_vls_printf(v, ",");
+    opt_json_str_member(v, "argument_type", opt_value_type_str(m->arg_type));
+    bu_vls_printf(v, ",\"repeat\":%s,", m->repeat ? "true" : "false");
+    opt_json_str_member(v, "help", help);
+    bu_vls_printf(v, ",");
+    opt_json_str_member(v, "completion", completion);
+    bu_vls_printf(v, ",\"keywords\":[");
+    if (m->value_keywords) {
+	size_t i = 0;
+	int need_comma = 0;
+	while (m->value_keywords[i]) {
+	    if (need_comma)
+		bu_vls_printf(v, ",");
+	    opt_json_string(v, m->value_keywords[i]);
+	    need_comma = 1;
+	    i++;
+	}
+    }
+    bu_vls_printf(v, "],\"aliases\":[");
+    if (m->shortopt && m->shortopt[0]) {
+	opt_json_string(v, m->shortopt);
+	if (m->longopt && m->longopt[0])
+	    bu_vls_printf(v, ",");
+    }
+    if (m->longopt && m->longopt[0])
+	opt_json_string(v, m->longopt);
     bu_vls_printf(v, "]}");
 }
 
@@ -871,10 +1125,19 @@ opt_json_command(struct bu_vls *v, const struct bu_opt_cmd_desc *cmd)
 		continue;
 	    if (need_comma)
 		bu_vls_printf(v, ",");
-	    opt_json_option(v, cmd->options, &cmd->options[i], cmd->option_meta, status, opt_cnt);
+	    opt_json_option_from_desc(v, cmd, cmd->options, &cmd->options[i], status, opt_cnt);
 	    need_comma = 1;
 	}
 	bu_free(status, "option json status");
+    } else if (cmd && cmd->option_desc) {
+	size_t i = 0;
+	while (!opt_option_desc_is_null(&cmd->option_desc[i])) {
+	    if (need_comma)
+		bu_vls_printf(v, ",");
+	    opt_json_option_from_meta(v, &cmd->option_desc[i]);
+	    need_comma = 1;
+	    i++;
+	}
     }
     bu_vls_printf(v, "],");
     opt_json_operands(v, cmd ? cmd->operands : NULL);
@@ -988,11 +1251,34 @@ opt_collect_option_candidates(struct bu_ptbl *candidates, const struct bu_opt_cm
     size_t i = 0;
     int want_long_only = (!BU_STR_EMPTY(prefix) && prefix[0] == '-' && prefix[1] == '-');
 
-    if (!candidates || !cmd || !cmd->options)
+    if (!candidates || !cmd)
 	return;
 
-    while (!opt_desc_is_null(&cmd->options[i])) {
-	const struct bu_opt_desc *d = &cmd->options[i];
+    if (cmd->options) {
+	while (!opt_desc_is_null(&cmd->options[i])) {
+	    const struct bu_opt_desc *d = &cmd->options[i];
+	    if (!want_long_only && d->shortopt && d->shortopt[0]) {
+		struct bu_vls shortopt = BU_VLS_INIT_ZERO;
+		bu_vls_printf(&shortopt, "-%s", d->shortopt);
+		opt_candidate_add(candidates, bu_vls_addr(&shortopt), prefix);
+		bu_vls_free(&shortopt);
+	    }
+	    if (d->longopt && d->longopt[0]) {
+		struct bu_vls longopt = BU_VLS_INIT_ZERO;
+		bu_vls_printf(&longopt, "--%s", d->longopt);
+		opt_candidate_add(candidates, bu_vls_addr(&longopt), prefix);
+		bu_vls_free(&longopt);
+	    }
+	    i++;
+	}
+	return;
+    }
+
+    if (!cmd->option_desc)
+	return;
+    i = 0;
+    while (!opt_option_desc_is_null(&cmd->option_desc[i])) {
+	const struct bu_opt_option_desc *d = &cmd->option_desc[i];
 	if (!want_long_only && d->shortopt && d->shortopt[0]) {
 	    struct bu_vls shortopt = BU_VLS_INIT_ZERO;
 	    bu_vls_printf(&shortopt, "-%s", d->shortopt);
@@ -1067,14 +1353,15 @@ static void
 opt_collect_expected_candidates(struct bu_opt_validate_result *result, const struct bu_opt_cmd_desc *active, size_t operands, int end_options, unsigned int expected, const char *prefix, const struct bu_opt_desc *arg_desc)
 {
     struct bu_ptbl candidates = BU_PTBL_INIT_ZERO;
-    const struct bu_opt_desc_meta *arg_meta = NULL;
+    struct bu_opt_option_desc arg_scratch = BU_OPT_OPTION_DESC_NULL;
+    const struct bu_opt_option_desc *arg_meta = NULL;
     const struct bu_opt_operand_desc *operand_desc = NULL;
 
     if (!result || !active)
 	return;
 
     if ((expected & BU_OPT_EXPECT_OPTION_ARG) && arg_desc) {
-	arg_meta = opt_find_meta(arg_desc, active->option_meta);
+	arg_meta = opt_option_desc_for_cmd(active, arg_desc, &arg_scratch);
     }
     if (expected & BU_OPT_EXPECT_OPERAND) {
 	operand_desc = opt_find_operand_desc(active, operands);
@@ -1102,7 +1389,7 @@ opt_collect_expected_candidates(struct bu_opt_validate_result *result, const str
 
     /* set completion_type for dynamic completion hint */
     if ((expected & BU_OPT_EXPECT_OPTION_ARG) && arg_meta) {
-	result->completion_type = arg_meta->arg_type;
+	result->completion_type = (arg_meta->completion_type == BU_OPT_VAL_UNKNOWN) ? arg_meta->arg_type : arg_meta->completion_type;
     } else if ((expected & BU_OPT_EXPECT_OPERAND) && operand_desc) {
 	result->completion_type = operand_desc->type;
     } else {
@@ -1255,7 +1542,8 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
 	}
 	if (!end_options && opt_token_can_be_option(arg)) {
 	    const struct bu_opt_desc *d = NULL;
-	    const struct bu_opt_desc_meta *m = NULL;
+	    const struct bu_opt_option_desc *m = NULL;
+	    struct bu_opt_option_desc m_scratch = BU_OPT_OPTION_DESC_NULL;
 	    bu_opt_arg_requirement_t req = BU_OPT_ARG_FLAG;
 	    const char *opt = arg;
 	    const char *eq = NULL;
@@ -1284,7 +1572,8 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
 		    for (ci = 0; opt[ci]; ci++) {
 			char shortopt_str[2] = {0, 0};
 			const struct bu_opt_desc *grouped_desc = NULL;
-			const struct bu_opt_desc_meta *grouped_meta = NULL;
+			const struct bu_opt_option_desc *grouped_meta = NULL;
+			struct bu_opt_option_desc grouped_scratch = BU_OPT_OPTION_DESC_NULL;
 			size_t ui = 0;
 			shortopt_str[0] = opt[ci];
 			grouped_desc = opt_find_desc(active, shortopt_str, 0);
@@ -1294,7 +1583,7 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
 			    bu_free(seen_option_groups, "seen option groups");
 			    return 0;
 			}
-			grouped_meta = opt_find_meta(grouped_desc, active->option_meta);
+			grouped_meta = opt_option_desc_for_cmd(active, grouped_desc, &grouped_scratch);
 			if (!grouped_meta || !grouped_meta->repeat) {
 			    for (ui = 0; ui < used_cnt; ui++) {
 				if (opt_same_alias_group(seen_option_groups[ui], grouped_desc)) {
@@ -1315,14 +1604,15 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
 		bu_free(seen_option_groups, "seen option groups");
 		return 0;
 	    }
-	    m = opt_find_meta(d, active->option_meta);
+	    m = opt_option_desc_for_cmd(active, d, &m_scratch);
 	    req = m ? m->arg_requirement : opt_infer_arg_requirement(d);
 	    if (!longopt && strlen(opt) > 1 && req == BU_OPT_ARG_FLAG) {
 		size_t ci = 0;
 		for (ci = 0; opt[ci]; ci++) {
 		    char shortopt_str[2] = {0, 0};
 		    const struct bu_opt_desc *grouped_desc = NULL;
-		    const struct bu_opt_desc_meta *grouped_meta = NULL;
+		    const struct bu_opt_option_desc *grouped_meta = NULL;
+		    struct bu_opt_option_desc grouped_scratch = BU_OPT_OPTION_DESC_NULL;
 		    size_t ui = 0;
 		    shortopt_str[0] = opt[ci];
 		    grouped_desc = opt_find_desc(active, shortopt_str, 0);
@@ -1332,7 +1622,7 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
 			bu_free(seen_option_groups, "seen option groups");
 			return 0;
 		    }
-		    grouped_meta = opt_find_meta(grouped_desc, active->option_meta);
+		    grouped_meta = opt_option_desc_for_cmd(active, grouped_desc, &grouped_scratch);
 		    if (!grouped_meta || !grouped_meta->repeat) {
 			for (ui = 0; ui < used_cnt; ui++) {
 			    if (opt_same_alias_group(seen_option_groups[ui], grouped_desc)) {

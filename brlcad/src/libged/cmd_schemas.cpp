@@ -8,6 +8,8 @@
 
 namespace {
 
+#define BU_OPT_OPTION_OVERRIDE_ENTRY(_so, _lo, _req, _type, _repeat, _keywords) { _so, _lo, _req, _type, _repeat, _keywords, BU_OPT_OVERRIDE_NONE, NULL, NULL, BU_OPT_VAL_UNKNOWN, BU_OPT_OPTION_FLAG_NONE }
+
 static int open_force_create = 0;
 static int open_flip_endian = 0;
 static int open_help = 0;
@@ -81,24 +83,24 @@ static const struct bu_opt_desc open_opts[] = {
     BU_OPT_DESC_NULL
 };
 
-static const struct bu_opt_desc_meta open_meta[] = {
-    {"c", "create", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"f", "flip-endian", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"o", "open", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    BU_OPT_DESC_META_NULL
+static const struct bu_opt_option_overrides open_meta[] = {
+    BU_OPT_OPTION_OVERRIDE_ENTRY("c", "create", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("f", "flip-endian", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("o", "open", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_NULL
 };
 
 static const struct bu_opt_cmd_desc open_cmd = {
-    "open", "Open a geometry database", open_opts, open_meta, open_operands, NULL
+    "open", "Open a geometry database", open_opts, open_meta, open_operands, NULL, NULL
 };
 
 static const struct bu_opt_cmd_desc opendb_cmd = {
-    "opendb", "Open a geometry database", open_opts, open_meta, open_operands, NULL
+    "opendb", "Open a geometry database", open_opts, open_meta, open_operands, NULL, NULL
 };
 
 static const struct bu_opt_cmd_desc reopen_cmd = {
-    "reopen", "Reopen a geometry database", NULL, NULL, open_operands, NULL
+    "reopen", "Reopen a geometry database", NULL, NULL, open_operands, NULL, NULL
 };
 
 static const struct bu_opt_operand_desc draw_operands[] = {
@@ -128,34 +130,34 @@ static const struct bu_opt_desc draw_opts[] = {
     BU_OPT_DESC_NULL
 };
 
-static const struct bu_opt_desc_meta draw_meta[] = {
-    {"V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL},
-    {"h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"?", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL},
-    {"", "wireframe", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"", "shaded", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"", "shaded-all", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"E", "evaluate", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"", "hidden-line", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"A", "add-mode", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"t", "transparency", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_NUMBER, 0, NULL},
-    {"x", "", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_NUMBER, 0, NULL},
-    {"L", "", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL},
-    {"S", "no-subtract", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"", "no-dash", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"C", "color", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_COLOR, 0, NULL},
-    {"", "line-width", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL},
-    {"R", "no-autoview", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    BU_OPT_DESC_META_NULL
+static const struct bu_opt_option_overrides draw_meta[] = {
+    BU_OPT_OPTION_OVERRIDE_ENTRY("V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("?", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("", "wireframe", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("", "shaded", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("", "shaded-all", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("E", "evaluate", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("", "hidden-line", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("A", "add-mode", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("t", "transparency", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_NUMBER, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("x", "", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_NUMBER, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("L", "", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("S", "no-subtract", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("", "no-dash", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("C", "color", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_COLOR, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("", "line-width", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("R", "no-autoview", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_NULL
 };
 
 static const struct bu_opt_cmd_desc draw_cmd = {
-    "draw", "Draw database objects", draw_opts, draw_meta, draw_operands, NULL
+    "draw", "Draw database objects", draw_opts, draw_meta, draw_operands, NULL, NULL
 };
 
 static const struct bu_opt_cmd_desc draw_alias_cmd = {
-    "e", "Draw database objects", draw_opts, draw_meta, draw_operands, NULL
+    "e", "Draw database objects", draw_opts, draw_meta, draw_operands, NULL, NULL
 };
 
 static const struct bu_opt_operand_desc ls_operands[] = {
@@ -179,28 +181,28 @@ static const struct bu_opt_desc ls_opts[] = {
     BU_OPT_DESC_NULL
 };
 
-static const struct bu_opt_desc_meta ls_meta[] = {
-    {"h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"a", "all", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"c", "combs", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"r", "regions", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"p", "primitives", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"s", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"q", "quiet", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"l", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"H", "human-readable", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"S", "sort", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"A", "attributes", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"o", "or", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    BU_OPT_DESC_META_NULL
+static const struct bu_opt_option_overrides ls_meta[] = {
+    BU_OPT_OPTION_OVERRIDE_ENTRY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("a", "all", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("c", "combs", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("r", "regions", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("p", "primitives", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("s", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("q", "quiet", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("l", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("H", "human-readable", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("S", "sort", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("A", "attributes", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("o", "or", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_NULL
 };
 
 static const struct bu_opt_cmd_desc ls_cmd = {
-    "ls", "List database objects", ls_opts, ls_meta, ls_operands, NULL
+    "ls", "List database objects", ls_opts, ls_meta, ls_operands, NULL, NULL
 };
 
 static const struct bu_opt_cmd_desc ls_alias_cmd = {
-    "t", "List database objects", ls_opts, ls_meta, ls_operands, NULL
+    "t", "List database objects", ls_opts, ls_meta, ls_operands, NULL, NULL
 };
 
 static const struct bu_opt_operand_desc erase_operands[] = {
@@ -214,18 +216,18 @@ static const struct bu_opt_desc erase_opts[] = {
     BU_OPT_DESC_NULL
 };
 
-static const struct bu_opt_desc_meta erase_meta[] = {
-    {"V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL},
-    {"m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL},
-    BU_OPT_DESC_META_NULL
+static const struct bu_opt_option_overrides erase_meta[] = {
+    BU_OPT_OPTION_OVERRIDE_ENTRY("V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_NULL
 };
 
 static const struct bu_opt_cmd_desc erase_cmd = {
-    "erase", "Erase database objects from the scene", erase_opts, erase_meta, erase_operands, NULL
+    "erase", "Erase database objects from the scene", erase_opts, erase_meta, erase_operands, NULL, NULL
 };
 
 static const struct bu_opt_cmd_desc erase_alias_cmd = {
-    "d", "Erase database objects from the scene", erase_opts, erase_meta, erase_operands, NULL
+    "d", "Erase database objects from the scene", erase_opts, erase_meta, erase_operands, NULL, NULL
 };
 
 static const struct bu_opt_operand_desc who_level_operands[] = {
@@ -242,13 +244,13 @@ static const struct bu_opt_desc who_root_opts[] = {
     BU_OPT_DESC_NULL
 };
 
-static const struct bu_opt_desc_meta who_root_meta[] = {
-    {"h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"?", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL},
-    {"m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL},
-    {"E", "expand", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    BU_OPT_DESC_META_NULL
+static const struct bu_opt_option_overrides who_root_meta[] = {
+    BU_OPT_OPTION_OVERRIDE_ENTRY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("?", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("E", "expand", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_NULL
 };
 
 static const struct bu_opt_desc who_solids_opts[] = {
@@ -259,12 +261,12 @@ static const struct bu_opt_desc who_solids_opts[] = {
     BU_OPT_DESC_NULL
 };
 
-static const struct bu_opt_desc_meta who_solids_meta[] = {
-    {"h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"?", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL},
-    {"m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL},
-    BU_OPT_DESC_META_NULL
+static const struct bu_opt_option_overrides who_solids_meta[] = {
+    BU_OPT_OPTION_OVERRIDE_ENTRY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("?", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_NULL
 };
 
 static const struct bu_opt_cmd_desc who_subcommands[] = {
@@ -274,7 +276,7 @@ static const struct bu_opt_cmd_desc who_subcommands[] = {
 };
 
 static const struct bu_opt_cmd_desc who_cmd = {
-    "who", "List drawn paths", who_root_opts, who_root_meta, NULL, who_subcommands
+    "who", "List drawn paths", who_root_opts, who_root_meta, NULL, who_subcommands, NULL
 };
 
 static const struct bu_opt_operand_desc select_set_operands[] = {
@@ -293,10 +295,10 @@ static const struct bu_opt_desc select_opts[] = {
     BU_OPT_DESC_NULL
 };
 
-static const struct bu_opt_desc_meta select_meta[] = {
-    {"h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"S", "set", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL},
-    BU_OPT_DESC_META_NULL
+static const struct bu_opt_option_overrides select_meta[] = {
+    BU_OPT_OPTION_OVERRIDE_ENTRY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("S", "set", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_NULL
 };
 
 static const struct bu_opt_cmd_desc select_subcommands[] = {
@@ -310,7 +312,7 @@ static const struct bu_opt_cmd_desc select_subcommands[] = {
 };
 
 static const struct bu_opt_cmd_desc select_cmd = {
-    "select", "Manage selection sets", select_opts, select_meta, NULL, select_subcommands
+    "select", "Manage selection sets", select_opts, select_meta, NULL, select_subcommands, NULL
 };
 
 static const struct bu_opt_desc view_opts[] = {
@@ -320,11 +322,11 @@ static const struct bu_opt_desc view_opts[] = {
     BU_OPT_DESC_NULL
 };
 
-static const struct bu_opt_desc_meta view_meta[] = {
-    {"h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"v", "verbose", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 1, NULL},
-    {"V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL},
-    BU_OPT_DESC_META_NULL
+static const struct bu_opt_option_overrides view_meta[] = {
+    BU_OPT_OPTION_OVERRIDE_ENTRY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("v", "verbose", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 1, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_NULL
 };
 
 static const struct bu_opt_cmd_desc view_subcommands[] = {
@@ -351,15 +353,15 @@ static const struct bu_opt_cmd_desc view_subcommands[] = {
 };
 
 static const struct bu_opt_cmd_desc view_cmd = {
-    "view", "Manage views", view_opts, view_meta, NULL, view_subcommands
+    "view", "Manage views", view_opts, view_meta, NULL, view_subcommands, NULL
 };
 
 static const struct bu_opt_cmd_desc view2_cmd = {
-    "view2", "Manage views", view_opts, view_meta, NULL, view_subcommands
+    "view2", "Manage views", view_opts, view_meta, NULL, view_subcommands, NULL
 };
 
 static const struct bu_opt_cmd_desc view_func_cmd = {
-    "view_func", "Manage views", view_opts, view_meta, NULL, view_subcommands
+    "view_func", "Manage views", view_opts, view_meta, NULL, view_subcommands, NULL
 };
 
 static const struct bu_opt_desc dm_opts[] = {
@@ -368,10 +370,10 @@ static const struct bu_opt_desc dm_opts[] = {
     BU_OPT_DESC_NULL
 };
 
-static const struct bu_opt_desc_meta dm_meta[] = {
-    {"h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-    {"v", "verbose", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 1, NULL},
-    BU_OPT_DESC_META_NULL
+static const struct bu_opt_option_overrides dm_meta[] = {
+    BU_OPT_OPTION_OVERRIDE_ENTRY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_ENTRY("v", "verbose", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 1, NULL),
+    BU_OPT_OPTION_OVERRIDE_NULL
 };
 
 static const struct bu_opt_cmd_desc dm_subcommands[] = {
@@ -390,7 +392,7 @@ static const struct bu_opt_cmd_desc dm_subcommands[] = {
 };
 
 static const struct bu_opt_cmd_desc dm_cmd = {
-    "dm", "Manage display managers", dm_opts, dm_meta, NULL, dm_subcommands
+    "dm", "Manage display managers", dm_opts, dm_meta, NULL, dm_subcommands, NULL
 };
 
 static const struct bu_opt_cmd_desc *

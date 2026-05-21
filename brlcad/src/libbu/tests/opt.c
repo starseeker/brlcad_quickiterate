@@ -18,6 +18,8 @@
  * information.
  */
 
+#define BU_OPT_OPTION_OVERRIDE_ENTRY(_so, _lo, _req, _type, _repeat, _keywords) { _so, _lo, _req, _type, _repeat, _keywords, BU_OPT_OVERRIDE_NONE, NULL, NULL, BU_OPT_VAL_UNKNOWN, BU_OPT_OPTION_FLAG_NONE }
+
 #include "common.h"
 #include <limits.h>
 #include <ctype.h>
@@ -933,12 +935,12 @@ desc_4(int test_num)
 	{"C", "color", "r/g/b", &dc_color, (void *)&color, "Set color"},
 	BU_OPT_DESC_NULL
     };
-    struct bu_opt_desc_meta root_meta[] = {
-	{"h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL},
-	{"v", "verbose", BU_OPT_ARG_OPTIONAL, BU_OPT_VAL_INTEGER, 1, NULL},
-	{"o", "output", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_FILE_PATH, 0, NULL},
-	{"C", "color", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_COLOR, 0, NULL},
-	BU_OPT_DESC_META_NULL
+    struct bu_opt_option_overrides root_meta[] = {
+	BU_OPT_OPTION_OVERRIDE_ENTRY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+	BU_OPT_OPTION_OVERRIDE_ENTRY("v", "verbose", BU_OPT_ARG_OPTIONAL, BU_OPT_VAL_INTEGER, 1, NULL),
+	BU_OPT_OPTION_OVERRIDE_ENTRY("o", "output", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_FILE_PATH, 0, NULL),
+	BU_OPT_OPTION_OVERRIDE_ENTRY("C", "color", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_COLOR, 0, NULL),
+	BU_OPT_OPTION_OVERRIDE_NULL
     };
     struct bu_opt_operand_desc root_operands[] = {
 	{"object", BU_OPT_VAL_DB_OBJECT, 1, 2, "Database object", NULL},
@@ -956,9 +958,9 @@ desc_4(int test_num)
 	{"m", "mode", "mode", &bu_opt_str, (void *)&mode, "Mode"},
 	BU_OPT_DESC_NULL
     };
-    struct bu_opt_desc_meta deep_meta[] = {
-	{"m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_KEYWORD, 0, mode_keywords},
-	BU_OPT_DESC_META_NULL
+    struct bu_opt_option_overrides deep_meta[] = {
+	BU_OPT_OPTION_OVERRIDE_ENTRY("m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_KEYWORD, 0, mode_keywords),
+	BU_OPT_OPTION_OVERRIDE_NULL
     };
     struct bu_opt_cmd_desc deep_cmds[] = {
 	{"deep", "Nested command", deep_opts, deep_meta, NULL, NULL},
@@ -968,7 +970,7 @@ desc_4(int test_num)
 	{"list", "List things", list_opts, NULL, list_operands, deep_cmds},
 	BU_OPT_CMD_DESC_NULL
     };
-    struct bu_opt_cmd_desc cmd = {"testcmd", "Test command", root_opts, root_meta, root_operands, subcmds};
+    struct bu_opt_cmd_desc cmd = {"testcmd", "Test command", root_opts, root_meta, root_operands, subcmds, NULL};
 
     switch (test_num) {
 	case 0:
