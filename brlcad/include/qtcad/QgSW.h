@@ -143,7 +143,8 @@ private:
 
 	bool use_default_keybindings = true;
 	bool use_default_mousebindings = true;
-	int lmouse_mode = 0;
+	/* Constructor assigns BV_SCALE once bv.h is available in the .cpp. */
+	int lmouse_mode = -1;
 
 	bool m_init = false;
 	int x_prev = -INT_MAX;
