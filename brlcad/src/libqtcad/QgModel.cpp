@@ -72,6 +72,9 @@
 #include "qtcad/QgSignalFlags.h"
 #include "../librt/librt_private.h"
 
+/* Validate the character constant stored in QgItem::op matches the enum. */
+static_assert(DB_OP_UNION == 'u', "DB_OP_UNION enum value changed; update QgItem::op default in QgModel.h");
+
 struct QgItem_cmp {
 	inline bool operator() (const QgItem *i1, const QgItem *i2)
 	{
@@ -149,7 +152,6 @@ QgItem::~QgItem()
 {
 	bu_vls_free(name_ptr);
 	delete name_ptr;
-	name_ptr = nullptr;
 }
 
 void

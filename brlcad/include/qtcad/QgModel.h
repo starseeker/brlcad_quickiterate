@@ -189,7 +189,7 @@ private:
 	// Cached data from the instance, so we can keep
 	// displaying while librt does work on the instances.
 	struct bu_vls *name_ptr = nullptr;  /* heap-allocated; init/freed in ctor/dtor */
-	int op = 1;                         /* matches db_op_t DB_OP_UNION = 1 */
+	int op = 'u';                       /* matches db_op_t DB_OP_UNION = 'u' */
 	struct directory *dp = nullptr;
 	QImage icon;
 	bool open_itm = false;
