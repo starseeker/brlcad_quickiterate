@@ -45,43 +45,6 @@ extern "C" {
 /* QgSketchFilter — base helpers                                       */
 /* ------------------------------------------------------------------ */
 
-QMouseEvent *
-QgSketchFilter::view_sync(QEvent *e)
-{
-	if (!v)
-		return nullptr;
-
-	QMouseEvent *m_e = nullptr;
-	if (e->type() == QEvent::MouseButtonPress
-	                || e->type() == QEvent::MouseButtonRelease
-	                || e->type() == QEvent::MouseButtonDblClick
-	                || e->type() == QEvent::MouseMove)
-		m_e = (QMouseEvent *)e;
-	if (!m_e)
-		return nullptr;
-
-	int e_x, e_y;
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-	e_x = m_e->x();
-	e_y = m_e->y();
-#else
-	e_x = (int)m_e->position().x();
-	e_y = (int)m_e->position().y();
-#endif
-
-	v->gv_prevMouseX = v->gv_mouse_x;
-	v->gv_prevMouseY = v->gv_mouse_y;
-	v->gv_mouse_x = e_x;
-	v->gv_mouse_y = e_y;
-	bv_screen_pt(&v->gv_point, (fastf_t)e_x, (fastf_t)e_y, v);
-
-	/* Keyboard modifiers usually mean view navigation rather than editing. */
-	if (m_e->modifiers() != Qt::NoModifier)
-		return nullptr;
-
-	return m_e;
-}
-
 void
 QgSketchFilter::screen_to_view(int sx, int sy, vect_t mvec) const
 {

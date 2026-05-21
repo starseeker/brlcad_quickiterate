@@ -21,8 +21,8 @@
  *
  * Qt mouse-event filters for interactive 2-D sketch editing.
  *
- * These filters are designed to be installed on a QgView (or its
- * underlying canvas widget) via QgView::add_event_filter().  Each
+ * These filters are designed to be installed on a QgView via
+ * QgView::installFilter().  Each
  * filter encapsulates one editing mode and drives the primitive edit
  * API (rt_edit / ECMD_SKETCH_* commands) defined in
  * include/rt/rt_ecmds.h and include/rt/edit.h.
@@ -31,9 +31,8 @@
  * ----------------------
  *  1. Create a QgView and obtain its struct bview * via view().
  *  2. Call rt_edit_create() to open a sketch primitive for editing.
- *  3. Instantiate whichever filter(s) you need, setting the .v and
- *     .es public members.
- *  4. Install the active filter:  view->add_event_filter(filter);
+ *  3. Instantiate whichever filter(s) you need, setting the .es public member.
+ *  4. Install the active filter:  view->installFilter(filter);
  *  5. Connect filter->view_updated(int) to your view's need_update(ull)
  *     slot, and filter->sketch_changed() to whatever slot performs a
  *     wireframe refresh.
@@ -58,8 +57,8 @@ extern "C" {
 
 #include <QEvent>
 #include <QMouseEvent>
-#include <QObject>
 #include "qtcad/defines.h"
+#include "qtcad/QgViewFilter.h"
 
 /**
  * QgSketchFilter — base class for sketch editing mouse-event filters.
@@ -68,22 +67,12 @@ extern "C" {
  * filter modes.  Follows the same design pattern as QgPolyFilter and
  * QgMeasureFilter.
  */
-class QTCAD_EXPORT QgSketchFilter : public QObject {
+class QTCAD_EXPORT QgSketchFilter : public QgViewFilter {
 	Q_OBJECT
 	Q_DISABLE_COPY_MOVE(QgSketchFilter)
 
 
 public:
-	/**
-	 * Synchronise Qt mouse event with the bview coordinate state.
-	 *
-	 * Updates v->gv_mouse_x/y, v->gv_prevMouseX/Y, and v->gv_point.
-	 * Returns the cast QMouseEvent on success, nullptr if the event is
-	 * not a mouse event or if a non-None keyboard modifier is active
-	 * (modifier keys are typically used for view navigation, not editing).
-	 */
-	QMouseEvent *view_sync(QEvent *e);
-
 	/**
 	 * Convert screen pixel coordinates to normalised view coordinates.
 	 *
@@ -135,14 +124,6 @@ public:
 
 signals:
 	/**
-	 * Emitted when the view image needs refreshing (e.g. after a
-	 * vertex move that should be reflected immediately in the viewport).
-	 * The integer argument carries QG_VIEW_* flag bits from
-	 * QgSignalFlags.h; typically QG_VIEW_REFRESH.
-	 */
-	void view_updated(int);
-
-	/**
 	 * Emitted when the sketch data has been structurally changed (a
 	 * vertex moved, segment added/deleted, etc.) and the caller should
 	 * rebuild whatever higher-level representations depend on it (e.g.
@@ -151,9 +132,6 @@ signals:
 	void sketch_changed();
 
 public:
-	/** The bview the filter is watching.  Must be set before install. */
-	struct bview    *v  = nullptr;
-
 	/** The rt_edit context managing the sketch being edited.
 	 *  Must be set before install.  The filter does NOT take ownership. */
 	struct rt_edit  *es = nullptr;

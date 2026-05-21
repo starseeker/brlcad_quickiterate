@@ -164,7 +164,7 @@ CADViewMeasure::eventFilter(QObject *, QEvent *e)
     mf = (measure_3d->isChecked()) ? (QgMeasureFilter *)f3d : (QgMeasureFilter *)f2d;
 
     mf->s = s;
-    mf->v = v;
+    mf->set_view(v);
     update_color();
 
     // Connect whatever the current filter is to pass on updating signals from
@@ -189,4 +189,3 @@ CADViewMeasure::eventFilter(QObject *, QEvent *e)
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

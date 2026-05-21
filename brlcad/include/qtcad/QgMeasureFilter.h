@@ -39,12 +39,12 @@ extern "C" {
 #include <QBoxLayout>
 #include <QEvent>
 #include <QMouseEvent>
-#include <QObject>
 #include <QWidget>
 #include "qtcad/defines.h"
+#include "qtcad/QgViewFilter.h"
 
 // Filters designed for specific editing modes
-class QTCAD_EXPORT QgMeasureFilter : public QObject {
+class QTCAD_EXPORT QgMeasureFilter : public QgViewFilter {
 	Q_OBJECT
 	Q_DISABLE_COPY_MOVE(QgMeasureFilter)
 
@@ -55,9 +55,6 @@ class QTCAD_EXPORT QgMeasureFilter : public QObject {
 	// filtering is the same, so this is not a virtual function.  See
 	// get_point for the 2D/3D specific logic.
 	bool eventFilter(QObject *, QEvent *) override;
-
-	// Initialization common to the various polygon filter types
-	QMouseEvent *view_sync(QEvent *e);
 
 	double length1();
 	double length2();
@@ -86,11 +83,7 @@ class QTCAD_EXPORT QgMeasureFilter : public QObject {
 	// binding behavior accordingly.
 	bool length_only = false;
 
-signals:
-	void view_updated(int);
-
 public:
-	struct bview *v = nullptr;
 	struct bv_scene_obj *s = nullptr;
 	std::string oname = std::string("tool:measurement");
 
