@@ -281,13 +281,36 @@ Implementation plan
 
 8. Validate reuse outside qged.
 
-   * Keep qged category names namespaced and host-owned.  Do not add qged
-     categories or qged main-window assumptions to libqtcad.
-   * When the Qt Archer path is ready, wire it to its own QgPluginManager search
-     directory and host categories to prove the qtcad framework is reusable.
-   * Preserve the ability for smaller libqtcad-based tools to use
-     QgPluginManager, QgPaletteController, QgToolBase, and QgPluginCommands
-     without linking qged.
+   INITIAL SLICE COMPLETED:
+   * Added test_qtcad_plugin_reuse: a standalone test binary in
+     src/libqtcad/tests/ that links only against libqtcad, libbu,
+     and Qt6::Widgets — deliberately NOT libged or qged.
+   * The test constructs a QgPluginManager + QgPluginContext with
+     NULL ged/bview accessors (simulating a minimal, non-qged host)
+     and scans the Phase 7 qged extension plugin directory at runtime.
+   * Exercises verified:
+     - Empty-directory manager: zero plugins, no crash.
+     - Plugin discovery: all three Phase 7 host_status plugins found.
+     - diagnosticSummary() contains expected plugin IDs.
+     - Category-filtered descriptor queries for qged.panel,
+       qged.dialog, and qged.command.
+     - IQgCommand::run() invoked with NULL ged/bview → null-safe
+       output ("No database open", "No active view").
+     - IQgCommand alias dispatch (qged_status) works correctly.
+     - --refresh flag in host_status command is handled safely even
+       when viewAccessor is null.
+     - IQgPanelFactory::create() returns a valid QDockWidget without
+       a main window.
+     - IQgDialogFactory::create() returns a valid QDialog without a
+       parent window.
+     - Enable/disable round-trip via QgPluginManager succeeds for
+       known IDs and correctly returns false for unknown IDs.
+     - diagnosticInfo() returns non-empty text for known IDs.
+     - unloadAll() + rescan() cycle works without crash.
+   * Future work: wire a minimal libqtcad-based tool (or archer-qt6
+     when that path is ready) to a separate QgPluginManager with its
+     own search directory and host categories to prove full end-to-end
+     reuse with a real ged instance.
 
 
 Validation expectations
