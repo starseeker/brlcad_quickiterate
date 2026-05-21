@@ -156,24 +156,29 @@ bsg_node_destroy(bsg_node *n)
     if (s->bsg.bsg_parent)
 	bsg_node_remove_child(s->bsg.bsg_parent, n);
 
-    while (BU_PTBL_IS_INITIALIZED(&s->bsg.bsg_children) &&
-	   BU_PTBL_LEN(&s->bsg.bsg_children) > 0) {
-	struct bv_scene_obj *child =
-	    (struct bv_scene_obj *)BU_PTBL_GET(&s->bsg.bsg_children, BU_PTBL_LEN(&s->bsg.bsg_children) - 1);
-	if (!child)
-	    break;
-	bsg_node_remove_child(n, (bsg_node *)child);
-	bsg_node_destroy((bsg_node *)child);
-    }
-    if (BU_PTBL_IS_INITIALIZED(&s->bsg.bsg_children))
+    if (BU_PTBL_IS_INITIALIZED(&s->bsg.bsg_children)) {
+	struct bu_ptbl children = BU_PTBL_INIT_ZERO;
+	for (size_t i = 0; i < BU_PTBL_LEN(&s->bsg.bsg_children); i++)
+	    bu_ptbl_ins(&children, BU_PTBL_GET(&s->bsg.bsg_children, i));
 	bu_ptbl_reset(&s->bsg.bsg_children);
+	for (size_t i = 0; i < BU_PTBL_LEN(&children); i++) {
+	    struct bv_scene_obj *child = (struct bv_scene_obj *)BU_PTBL_GET(&children, i);
+	    if (!child)
+		continue;
+	    if (child->bsg.bsg_parent == n)
+		child->bsg.bsg_parent = NULL;
+	    bsg_node_destroy((bsg_node *)child);
+	}
+	bu_ptbl_free(&children);
+    }
 
     bsg_node_invoke_free_callback(n);
     bsg_node_set_free_callback(n, NULL);
     bv_scene_obj_release_backend(s);
 
-    if ((s->bsg.bsg_kind & BV_LABELS) && bsg_node_user_data_get((const bsg_node *)s)) {
-	struct bv_label *la = (struct bv_label *)bsg_node_user_data_get((const bsg_node *)s);
+    void *user_data = bsg_node_user_data_get((const bsg_node *)s);
+    if ((s->bsg.bsg_kind & BV_LABELS) && user_data) {
+	struct bv_label *la = (struct bv_label *)user_data;
 	bu_vls_free(&la->label);
 	BU_PUT(la, struct bv_label);
     }
