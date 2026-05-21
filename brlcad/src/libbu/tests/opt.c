@@ -903,11 +903,29 @@ desc_4(int test_num)
     struct bu_opt_validate_result vr = BU_OPT_VALIDATE_RESULT_INIT;
     int ret = 0;
     char *json = NULL;
-    const char *expected_json = "{\"schema\":\"bu_opt\",\"version\":1,\"command\":{\"name\":\"testcmd\",\"help\":\"Test command\",\"options\":[{\"short\":\"h\",\"long\":\"help\",\"argument\":\"flag\",\"argument_help\":\"\",\"argument_type\":\"bool\",\"repeat\":false,\"help\":\"Print help string and exit.\",\"aliases\":[\"h\",\"help\",\"?\",\"HELP\"]},{\"short\":\"v\",\"long\":\"verbose\",\"argument\":\"optional\",\"argument_help\":\"[#]\",\"argument_type\":\"integer\",\"repeat\":true,\"help\":\"Set verbosity\",\"aliases\":[\"v\",\"verbose\"]},{\"short\":\"o\",\"long\":\"output\",\"argument\":\"required\",\"argument_help\":\"file\",\"argument_type\":\"file_path\",\"repeat\":false,\"help\":\"Output file\",\"aliases\":[\"o\",\"output\"]},{\"short\":\"C\",\"long\":\"color\",\"argument\":\"required\",\"argument_help\":\"r/g/b\",\"argument_type\":\"color\",\"repeat\":false,\"help\":\"Set color\",\"aliases\":[\"C\",\"color\"]}],\"operands\":[{\"name\":\"object\",\"type\":\"db_object\",\"min\":1,\"max\":2,\"help\":\"Database object\"}],\"subcommands\":[{\"name\":\"list\",\"help\":\"List things\",\"options\":[{\"short\":\"l\",\"long\":\"long\",\"argument\":\"flag\",\"argument_help\":\"\",\"argument_type\":\"bool\",\"repeat\":false,\"help\":\"Long listing\",\"aliases\":[\"l\",\"long\"]}],\"operands\":[{\"name\":\"pattern\",\"type\":\"keyword\",\"min\":0,\"max\":1,\"help\":\"Optional pattern\"}],\"subcommands\":[{\"name\":\"deep\",\"help\":\"Nested command\",\"options\":[{\"short\":\"m\",\"long\":\"mode\",\"argument\":\"required\",\"argument_help\":\"mode\",\"argument_type\":\"keyword\",\"repeat\":false,\"help\":\"Mode\",\"aliases\":[\"m\",\"mode\"]}],\"operands\":[],\"subcommands\":[]}]}]}}";
+    const char *expected_json =
+	"{\"schema\":\"bu_opt\",\"version\":1,\"command\":{\"name\":\"testcmd\",\"help\":\"Test command\","
+	"\"options\":[{\"short\":\"h\",\"long\":\"help\",\"argument\":\"flag\",\"argument_help\":\"\","
+	"\"argument_type\":\"bool\",\"repeat\":false,\"help\":\"Print help string and exit.\","
+	"\"aliases\":[\"h\",\"help\",\"?\",\"help-alt\"]},{\"short\":\"v\",\"long\":\"verbose\","
+	"\"argument\":\"optional\",\"argument_help\":\"[#]\",\"argument_type\":\"integer\",\"repeat\":true,"
+	"\"help\":\"Set verbosity\",\"aliases\":[\"v\",\"verbose\"]},{\"short\":\"o\",\"long\":\"output\","
+	"\"argument\":\"required\",\"argument_help\":\"file\",\"argument_type\":\"file_path\",\"repeat\":false,"
+	"\"help\":\"Output file\",\"aliases\":[\"o\",\"output\"]},{\"short\":\"C\",\"long\":\"color\","
+	"\"argument\":\"required\",\"argument_help\":\"r/g/b\",\"argument_type\":\"color\",\"repeat\":false,"
+	"\"help\":\"Set color\",\"aliases\":[\"C\",\"color\"]}],\"operands\":[{\"name\":\"object\","
+	"\"type\":\"db_object\",\"min\":1,\"max\":2,\"help\":\"Database object\"}],\"subcommands\":[{\"name\":\"list\","
+	"\"help\":\"List things\",\"options\":[{\"short\":\"l\",\"long\":\"long\",\"argument\":\"flag\","
+	"\"argument_help\":\"\",\"argument_type\":\"bool\",\"repeat\":false,\"help\":\"Long listing\","
+	"\"aliases\":[\"l\",\"long\"]}],\"operands\":[{\"name\":\"pattern\",\"type\":\"keyword\","
+	"\"min\":0,\"max\":1,\"help\":\"Optional pattern\"}],\"subcommands\":[{\"name\":\"deep\","
+	"\"help\":\"Nested command\",\"options\":[{\"short\":\"m\",\"long\":\"mode\",\"argument\":\"required\","
+	"\"argument_help\":\"mode\",\"argument_type\":\"keyword\",\"repeat\":false,\"help\":\"Mode\","
+	"\"aliases\":[\"m\",\"mode\"]}],\"operands\":[],\"subcommands\":[]}]}]}}";
 
     struct bu_opt_desc root_opts[] = {
 	{"h", "help", "", NULL, (void *)&help, help_str},
-	{"?", "HELP", "", NULL, (void *)&help, help_str},
+	{"?", "help-alt", "", NULL, (void *)&help, help_str},
 	{"v", "verbose", "[#]", &d1_verb, (void *)&verbose, "Set verbosity"},
 	{"o", "output", "file", &bu_opt_str, (void *)&output, "Output file"},
 	{"C", "color", "r/g/b", &dc_color, (void *)&color, "Set color"},
@@ -1086,7 +1104,6 @@ main(int argc, char *argv[])
 	    break;
 	case 4:
 	    return desc_4(test_num);
-	    break;
     }
 
     return ret;
