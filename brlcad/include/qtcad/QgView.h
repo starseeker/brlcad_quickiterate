@@ -31,7 +31,6 @@
 #include <QWidget>
 #include "qtcad/defines.h"
 #include "qtcad/QgTypes.h"
-#include "qtcad/QgTypes.h"
 
 class QgCanvasBase;
 class QImage;
