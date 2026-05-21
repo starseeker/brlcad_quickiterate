@@ -55,8 +55,8 @@ _ctx_of_node(bsg_node *n)
  * Cleanup function stored in bsg_node.bsg_core_free_fn.
  * Defined in node_core.c; frees material, appearance, and payload data
  * allocated by libbsg, then zeros the pointers.
- * Called by bv_obj_reset() (via the function pointer) before the node
- * fields are zeroed.
+ * Called by bsg_node_destroy() (via the function pointer) before storage
+ * release.
  */
 extern void _bsg_core_release(struct bsg_node *core);
 
@@ -65,8 +65,9 @@ extern void _bsg_core_release(struct bsg_node *core);
  *
  * If the node magic is already BSG_NODE_CORE_MAGIC this is a very cheap
  * check (one comparison).  On first use it zeroes the identity/revision
- * fields and installs _bsg_core_release as the cleanup callback so that
- * bv_obj_reset() will free any material/appearance/payload allocated later.
+ * fields and installs _bsg_core_release as the cleanup callback so
+ * bsg_node_destroy() will free any material/appearance/payload allocated
+ * later.
  *
  * Returns the initialized node, or NULL if @p n is NULL.
  */

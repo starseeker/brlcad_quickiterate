@@ -25,7 +25,7 @@
  *  10A - struct bsg_node_core is present in bv_scene_obj.
  *  10B - kind and parent BSG accessors round-trip through bsg_core.
  *  10C - settings, material, appearance, and payload pointers are stored in bsg_core
- *        and are freed by bv_obj_reset() (via _bsg_core_release).
+ *        and are freed by bsg_node_destroy() (via _bsg_core_release).
  *  10D - identity fields and revision counters are stored inline in bsg_core;
  *        identity_clear does NOT reset revisions (Phase 10D semantic).
  *  10E - bsg_node_core_get / bsg_node_core_init / bsg_node_core_initialized
@@ -160,8 +160,8 @@ test_kind_parent_routing(void)
     if (!(bsg_node_kind(child) & BSG_PAYLOAD_VLIST))
 	FAIL("payload bits visible in bsg_node_kind");
 
-    bv_obj_put((struct bv_scene_obj *)parent);
-    bv_obj_put((struct bv_scene_obj *)child);
+    bsg_node_destroy(parent);
+    bsg_node_destroy(child);
     free_view(v);
     PASS("kind_parent_routing");
     return 0;
@@ -234,7 +234,7 @@ test_sidecars_in_core(void)
     bsg_node_set_kind(n, BSG_NODE_SHAPE);
     struct bsg_payload *p = bsg_payload_create(BSG_PAYLOAD_TYPE_VLIST);
     if (!p) {
-	bv_obj_put((struct bv_scene_obj *)n);
+	bsg_node_destroy(n);
 	free_view(v);
 	FAIL("payload_create");
     }
@@ -245,9 +245,9 @@ test_sidecars_in_core(void)
     if (bsg_node_payload_get(n) != p)
 	FAIL("payload_get round-trip via core");
 
-    /* bv_obj_put resets the node; the cleanup hook must free material,
+    /* bsg_node_destroy resets/releases the node; the cleanup hook must free material,
      * appearance, and payload without a crash. */
-    bv_obj_put((struct bv_scene_obj *)n);
+    bsg_node_destroy(n);
     free_view(v);
 
     PASS("sidecars_in_core");

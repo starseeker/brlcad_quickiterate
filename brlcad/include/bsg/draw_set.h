@@ -95,7 +95,7 @@ bsg_group_find_child(bsg_node *parent, const char *name);
  * Find or create a BSG_NODE_GROUP child of @p parent named @p name.
  *
  * When a child with the given name already exists it is returned directly.
- * Otherwise a new BSG_NODE_GROUP node is allocated via @c bv_obj_create()
+ * Otherwise a new BSG_NODE_GROUP node is allocated via @c bsg_node_create_child()
  * on @p v, linked into the tree, and returned.
  *
  * @p dp_hint is an opaque pointer stored verbatim in the new child's
