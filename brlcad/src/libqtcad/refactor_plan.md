@@ -98,6 +98,25 @@ Current tree notes:
 
 Phase 7 — Namespacing and packaging
 
+Current tree notes:
+- `src/libqtcad/CMakeLists.txt` now uses target-scoped configuration for libqtcad:
+  `target_include_directories(...)` with PUBLIC/PRIVATE visibility and
+  `target_link_libraries(libqtcad PUBLIC ...)` rather than passing include/lib lists
+  through the `brlcad_addlib` call.
+- Manual `qt*_wrap_cpp`/`qth_names` maintenance is removed.  MOC headers are now
+  derived automatically from `qtcad_srcs` (`*.cpp` basename → matching
+  `include/qtcad/*.h` when present), and libqtcad is built with
+  `set_target_properties(libqtcad PROPERTIES AUTOMOC ON)`.
+- The libqtcad build path now hard-requires Qt6 (`if(NOT Qt6Widgets_FOUND) FATAL_ERROR`)
+  and no longer carries the Qt5 branch in this CMakeLists.
+  **Revised:** Qt5 support has been restored; both Qt5 and Qt6 are supported via
+  conditional branching on `Qt6Widgets_FOUND`.
+- `include/qtcad/defines.h` now declares a top-level Doxygen `@defgroup libqtcad`
+  group to anchor public API docs.
+- `include/qtcad/QgNamespace.h` now provides `namespace qtcad` aliases for the
+  public libqtcad API symbols, and `include/qtcad/QgNamespaceCompat.h` provides
+  a one-release compatibility using block.
+
 - Wrap all public symbols in namespace qtcad { … }; provide a deprecated using block in a compatibility header for one release.
 - Switch the CMakeLists to target_include_directories/target_link_libraries with PUBLIC/PRIVATE/INTERFACE, enable CMAKE_AUTOMOC for this target only (set_target_properties(libqtcad PROPERTIES AUTOMOC ON)), and drop the hand-maintained qth_names list.
 - Drop the Qt5 code paths once Qt6 is mandatory; if Qt5 must remain, hide the difference behind a single helper module.
