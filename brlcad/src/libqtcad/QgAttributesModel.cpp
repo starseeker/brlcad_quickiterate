@@ -32,6 +32,7 @@
 #include "raytrace.h"
 #include "qtcad/QgAttributesModel.h"
 #include "qtcad/QgModel.h"
+#include "qtcad/QgSession.h"
 
 QgAttributesModel::QgAttributesModel(QObject *parentobj, struct db_i *dbip, struct directory *dp, int show_standard, int show_user)
 	: QgKeyValModel(parentobj)
@@ -62,6 +63,34 @@ QgAttributesModel::QgAttributesModel(QObject *parentobj, struct db_i *dbip, stru
 	}
 	if (dbip != DBI_NULL && dp != RT_DIR_NULL) {
 		update(dbip, dp);
+	}
+}
+
+QgAttributesModel::QgAttributesModel(QObject *parentobj, QgSession *session, struct directory *dp, int show_standard, int show_user)
+	: QgKeyValModel(parentobj)
+{
+	int i = 0;
+	current_dbip = session ? session->dbip() : DBI_NULL;
+	current_dp = dp;
+	std_visible = show_standard ? 1 : 0;
+	user_visible = show_user ? 1 : 0;
+	m_root = new QgKeyValNode();
+	BU_GET(avs, struct bu_attribute_value_set);
+	bu_avs_init_empty(avs);
+	if (std_visible) {
+		while (i != ATTR_NULL) {
+			add_pair(db5_standard_attribute(i), "", m_root, i);
+			i++;
+		}
+	}
+	if (current_dbip != DBI_NULL && dp != RT_DIR_NULL) {
+		update(current_dbip, dp);
+	}
+	/* Subscribe directly to session notifications so this model updates
+	 * whenever the database is opened, closed, or structurally changed —
+	 * without needing the application-level dbi_update relay. */
+	if (session) {
+		QObject::connect(session, &QgSession::db_changed, this, &QgAttributesModel::do_dbi_update);
 	}
 }
 

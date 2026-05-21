@@ -59,6 +59,7 @@ set(
   QgQuadView.cpp
   QgSW.cpp
   QgSelectFilter.cpp
+  QgSession.cpp
   QgSketchFilter.cpp
   QgToolBase.cpp
   QgToolPalette.cpp
@@ -100,6 +101,7 @@ set(
   QgQuadView
   QgSW
   QgSelectFilter
+  QgSession
   QgSketchFilter
   QgToolBase
   QgToolPalette
@@ -159,6 +161,7 @@ set(
   bindings.cpp
   QgCanvasInput.h
   QgCanvasState.h
+  QgSession.cpp
   qtcad_resources.qrc
   QgGL.cpp
 )

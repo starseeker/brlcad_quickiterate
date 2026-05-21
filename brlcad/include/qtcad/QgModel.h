@@ -76,6 +76,7 @@
 
 #include "qtcad/defines.h"
 #include "qtcad/QgRoles.h"
+#include "qtcad/QgSession.h"
 #include "qtcad/QgTypes.h"
 
 /* Forward declarations — the implementation includes the full headers. */
@@ -248,10 +249,17 @@ public:
 
 	// .g Db interface and containers
 	int run_cmd(struct bu_vls *msg, int argc, const char **argv);
-	/* Return the GED context backing this model. */
+
+	/* Return the session that owns the GED context for this model. */
+	QgSession *session() const
+	{
+		return m_session;
+	}
+
+	/* Return the GED context backing this model (delegates to session). */
 	struct ged *ged() const
 	{
-		return gedp;
+		return m_session ? m_session->ged() : nullptr;
 	}
 
 	// Updates to .g models are potentially far-reaching - in principle, a
@@ -419,9 +427,8 @@ private:
 	// listing or the full object listing as the "seed" set
 	int flatten_hierarchy = 0;
 
-	struct ged *gedp = nullptr;
+	QgSession *m_session = nullptr;
 	QgItem *rootItem;
-	struct bview *empty_gvp = nullptr;
 	struct db_i *model_dbip = nullptr;
 };
 
