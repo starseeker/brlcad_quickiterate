@@ -3,6 +3,7 @@ set(
   QgAccordion.h
   QgAppExecDialog.h
   QgAttributesModel.h
+  QgCanvasBase.h
   QgColorRGB.h
   QgConsole.h
   QgConsoleListener.h

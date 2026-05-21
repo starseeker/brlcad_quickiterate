@@ -38,7 +38,7 @@ add_subdirectory(images)
 
 set(
   qtcad_srcs
-  bindings.cpp
+  QgCanvasInput.cpp
   QgAccordion.cpp
   QgAppExecDialog.cpp
   QgAttributesModel.cpp
@@ -154,6 +154,9 @@ set(
   ${qtcad_srcs}
   ${qtcad_moc_hdrs}
   bindings.h
+  bindings.cpp
+  QgCanvasInput.h
+  QgCanvasState.h
   qtcad_resources.qrc
   QgGL.cpp
 )

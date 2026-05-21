@@ -30,6 +30,7 @@
 #include <QOpenGLWidget>
 
 #include "qtcad/defines.h"
+#include "qtcad/QgCanvasBase.h"
 
 class QImage;
 class QKeyEvent;
@@ -41,106 +42,72 @@ struct bu_ptbl;
 struct bview;
 struct dm;
 struct fb;
+struct QgCanvasState;  /* private implementation — defined in QgCanvasState.h */
 
 // Use QOpenGLFunctions so we don't have to prefix all OpenGL calls with "f->"
-class QTCAD_EXPORT QgGL : public QOpenGLWidget, protected QOpenGLFunctions {
-	Q_OBJECT
-	Q_DISABLE_COPY_MOVE(QgGL)
-	Q_PROPERTY(int defaultMouseMode READ lmouseMoveDefault WRITE set_lmouse_move_default)
+class QTCAD_EXPORT QgGL : public QOpenGLWidget, protected QOpenGLFunctions, public QgCanvasBase {
+Q_OBJECT
+Q_DISABLE_COPY_MOVE(QgGL)
+Q_PROPERTY(int defaultMouseMode READ lmouseMoveDefault WRITE set_lmouse_move_default)
 
 
 public:
-	explicit QgGL(QWidget *parent = nullptr, struct fb *fbp = nullptr);
-	~QgGL();
+explicit QgGL(QWidget *parent = nullptr, struct fb *fbp = nullptr);
+~QgGL() override;
 
-	void stash_hashes(); // Store current dmp and v hash values
-	bool diff_hashes();  // Set dmp dirty flag if current hashes != stashed hashes.  (Does not update stored hash values - use stash_hashes for that operation.)
+/* -- QgCanvasBase interface -- */
+QWidget *canvasWidget() override { return this; }
+QObject *asQObject()    override { return this; }
+bool isValid() const    override { return QOpenGLWidget::isValid(); }
 
-	void aet(double a, double e, double t);
-	void save_image();
-	int currentView() const
-	{
-		return current;
-	}
-	void set_current(int active)
-	{
-		current = active;
-	}
-	/* nullptr is accepted to clear any externally supplied view binding. */
-	void set_view(struct bview *nv);
-	void setDisplayManagerSet(struct bu_ptbl *set)
-	{
-		dm_set = set;
-	}
-	void set_draw_custom(void (*draw_func)(struct bview *, void *), void *udata)
-	{
-		draw_custom = draw_func;
-		draw_udata = udata;
-	}
+struct bview *view()           const override;
+struct dm    *displayManager() const override;
+struct fb    *frameBuffer()    const override;
 
-	void enableDefaultKeyBindings();
-	void disableDefaultKeyBindings();
+void set_view(struct bview *)               override;
+void setDisplayManagerSet(struct bu_ptbl *) override;
+void set_draw_custom(void (*fn)(struct bview *, void *),
+     void *udata)           override;
 
-	void enableDefaultMouseBindings();
-	void disableDefaultMouseBindings();
-	int lmouseMoveDefault() const
-	{
-		return lmouse_mode;
-	}
-	struct bview *view() const {
-		return v;
-	}
-	struct dm *displayManager() const {
-		return dmp;
-	}
-	struct fb *frameBuffer() const {
-		return ifp;
-	}
+void stash_hashes() override;
+bool diff_hashes()  override;
+
+void aet(double a, double e, double t) override;
+void save_image()                      override;
+void render_to_file(const QString &filename) override;
+void get_viewport_image(QImage &img)   override;
+
+void enableDefaultKeyBindings()    override;
+void disableDefaultKeyBindings()   override;
+void enableDefaultMouseBindings()  override;
+void disableDefaultMouseBindings() override;
+int  lmouseMoveDefault() const     override;
+
+int  currentView() const     override;
+void set_current(int active) override;
 
 signals:
-	void changed();
-	void init_done();
+void changed();
+void init_done();
 
 public slots:
-	void need_update();
-	void queued_update();
-	void set_lmouse_move_default(int);
+void need_update()               override;
+void queued_update()             override;
+void set_lmouse_move_default(int) override;
 
 protected:
-	void paintGL() override;
-	void resizeGL(int w, int h) override;
-	void resizeEvent(QResizeEvent *e) override;
+void paintGL() override;
+void resizeGL(int w, int h) override;
+void resizeEvent(QResizeEvent *e) override;
 
-	void keyPressEvent(QKeyEvent *k) override;
-	void mouseMoveEvent(QMouseEvent *e) override;
-	void mousePressEvent(QMouseEvent *e) override;
-	void mouseReleaseEvent(QMouseEvent *e) override;
-	void wheelEvent(QWheelEvent *e) override;
+void keyPressEvent(QKeyEvent *k)       override;
+void mouseMoveEvent(QMouseEvent *e)    override;
+void mousePressEvent(QMouseEvent *e)   override;
+void mouseReleaseEvent(QMouseEvent *e) override;
+void wheelEvent(QWheelEvent *e)        override;
 
 private:
-	int current = 1;
-	struct bview *v = nullptr;
-	struct dm *dmp = nullptr;
-	struct fb *ifp = nullptr;
-	struct bu_ptbl *dm_set = nullptr;
-	void (*draw_custom)(struct bview *, void *) = nullptr;
-	void *draw_udata = nullptr;
-	unsigned long long prev_dhash = 0;
-	unsigned long long prev_vhash = 0;
-
-	bool use_default_keybindings = true;
-	bool use_default_mousebindings = true;
-	/* Constructor assigns BV_SCALE once bv.h is available in the .cpp. */
-	int lmouse_mode = -1;
-
-	bool m_init = false;
-	int x_prev = -INT_MAX;
-	int y_prev = -INT_MAX;
-	double x_press_pos = -INT_MAX;
-	double y_press_pos = -INT_MAX;
-	bool fb_update_queued = false;
-
-	struct bview *local_v = nullptr;
+QgCanvasState *d = nullptr;
 };
 
 #endif /* QGGL_H */
