@@ -1162,6 +1162,7 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
     const struct bu_opt_cmd_desc *cursor_cmd = cmd;
     const struct bu_opt_desc *cursor_option_desc = NULL;
     size_t i = 0;
+    size_t seen_capacity = 1;
     size_t operands = 0;
     size_t cursor_operands = 0;
     size_t min_operands = 0;
@@ -1175,11 +1176,19 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
 	return -1;
     if (cursor_arg > argc)
 	return -1;
+    if (argv) {
+	for (i = 0; i < argc; i++) {
+	    if (argv[i]) {
+		seen_capacity += strlen(argv[i]);
+	    }
+	}
+    }
+    i = 0;
 
     bu_opt_validate_result_clear(result);
     opt_validate_set(result, BU_OPT_VALIDATE_UNKNOWN, cursor_arg, cursor_arg, BU_OPT_EXPECT_NONE, NULL);
     opt_operand_bounds(active, &min_operands, &max_operands);
-    seen_option_groups = (const struct bu_opt_desc **)bu_calloc(argc ? argc : 1, sizeof(struct bu_opt_desc *), "seen option groups");
+    seen_option_groups = (const struct bu_opt_desc **)bu_calloc(seen_capacity, sizeof(struct bu_opt_desc *), "seen option groups");
 
     while (i < argc) {
 	const char *arg = argv ? argv[i] : NULL;
@@ -1240,6 +1249,8 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
 		    for (ci = 0; opt[ci]; ci++) {
 			char shortopt_str[2] = {0, 0};
 			const struct bu_opt_desc *grouped_desc = NULL;
+			const struct bu_opt_desc_meta *grouped_meta = NULL;
+			size_t ui = 0;
 			shortopt_str[0] = opt[ci];
 			grouped_desc = opt_find_desc(active, shortopt_str, 0);
 			if (!grouped_desc || opt_infer_arg_requirement(grouped_desc) != BU_OPT_ARG_FLAG) {
@@ -1248,6 +1259,18 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
 			    bu_free(seen_option_groups, "seen option groups");
 			    return 0;
 			}
+			grouped_meta = opt_find_meta(grouped_desc, active->option_meta);
+			if (!grouped_meta || !grouped_meta->repeat) {
+			    for (ui = 0; ui < used_cnt; ui++) {
+				if (opt_same_alias_group(seen_option_groups[ui], grouped_desc)) {
+				    opt_validate_set(result, BU_OPT_VALIDATE_INVALID, opt_index, opt_index, BU_OPT_EXPECT_OPTION, "option does not repeat");
+				    opt_collect_expected_candidates(result, active, operands, end_options, BU_OPT_EXPECT_OPTION, arg, NULL);
+				    bu_free(seen_option_groups, "seen option groups");
+				    return 0;
+				}
+			    }
+			}
+			seen_option_groups[used_cnt++] = grouped_desc;
 		    }
 		    i++;
 		    continue;
@@ -1259,6 +1282,37 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
 	    }
 	    m = opt_find_meta(d, active->option_meta);
 	    req = m ? m->arg_requirement : opt_infer_arg_requirement(d);
+	    if (!longopt && strlen(opt) > 1 && req == BU_OPT_ARG_FLAG) {
+		size_t ci = 0;
+		for (ci = 0; opt[ci]; ci++) {
+		    char shortopt_str[2] = {0, 0};
+		    const struct bu_opt_desc *grouped_desc = NULL;
+		    const struct bu_opt_desc_meta *grouped_meta = NULL;
+		    size_t ui = 0;
+		    shortopt_str[0] = opt[ci];
+		    grouped_desc = opt_find_desc(active, shortopt_str, 0);
+		    if (!grouped_desc || opt_infer_arg_requirement(grouped_desc) != BU_OPT_ARG_FLAG) {
+			opt_validate_set(result, BU_OPT_VALIDATE_INVALID, opt_index, opt_index, BU_OPT_EXPECT_OPTION, "unknown or non-flag grouped short option");
+			opt_collect_expected_candidates(result, active, operands, end_options, BU_OPT_EXPECT_OPTION, arg, NULL);
+			bu_free(seen_option_groups, "seen option groups");
+			return 0;
+		    }
+		    grouped_meta = opt_find_meta(grouped_desc, active->option_meta);
+		    if (!grouped_meta || !grouped_meta->repeat) {
+			for (ui = 0; ui < used_cnt; ui++) {
+			    if (opt_same_alias_group(seen_option_groups[ui], grouped_desc)) {
+				opt_validate_set(result, BU_OPT_VALIDATE_INVALID, opt_index, opt_index, BU_OPT_EXPECT_OPTION, "option does not repeat");
+				opt_collect_expected_candidates(result, active, operands, end_options, BU_OPT_EXPECT_OPTION, arg, NULL);
+				bu_free(seen_option_groups, "seen option groups");
+				return 0;
+			    }
+			}
+		    }
+		    seen_option_groups[used_cnt++] = grouped_desc;
+		}
+		i++;
+		continue;
+	    }
 	    if (!m || !m->repeat) {
 		size_t ui = 0;
 		for (ui = 0; ui < used_cnt; ui++) {

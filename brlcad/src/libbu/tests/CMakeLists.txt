@@ -701,6 +701,7 @@ brlcad_add_test(NAME bu_opt_4_complete_initial  COMMAND bu_test opt 4 schema 11)
 brlcad_add_test(NAME bu_opt_4_complete_option   COMMAND bu_test opt 4 schema 12)
 brlcad_add_test(NAME bu_opt_4_complete_subcmd   COMMAND bu_test opt 4 schema 13)
 brlcad_add_test(NAME bu_opt_4_complete_keyword  COMMAND bu_test opt 4 schema 14)
+brlcad_add_test(NAME bu_opt_4_grouped_repeat    COMMAND bu_test opt 4 schema 15)
 
 #
 #  *********** datetime.c tests ************

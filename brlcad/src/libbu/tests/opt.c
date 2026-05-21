@@ -1081,6 +1081,13 @@ desc_4(int test_num)
 		&& vr.completion_count == 1 && vr.completion_candidates
 		&& BU_STR_EQUAL(vr.completion_candidates[0], "fast"));
 	    break;
+	case 15:
+	{
+	    const char *av[] = {"-hh", "obj"};
+	    (void)bu_opt_validate_argv(&cmd, 2, av, 0, &vr);
+	    ret = !(vr.state == BU_OPT_VALIDATE_INVALID);
+	    break;
+	}
 	default:
 	    ret = -1;
 	    break;
