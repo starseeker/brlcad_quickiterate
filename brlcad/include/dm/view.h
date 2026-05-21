@@ -34,6 +34,7 @@
 #include "bu/hash.h"
 #include "bu/vls.h"
 #include "bv/defines.h"
+#include "bsg/defines.h"
 #include "bsg/settings.h"
 #include "dm/defines.h"
 
@@ -65,13 +66,13 @@ DM_EXPORT extern void dm_draw_faceplate(struct bview *v);
  * illuminated objects (s_iflag == UP).
  *
  * @param dmp           display manager to draw into
- * @param s             scene object to draw
+ * @param s             scene node to draw
  * @param v             view providing the projection matrices
  * @param force_draw    non-zero to draw even when s->s_flag == DOWN
  * @param obj_settings  if non-NULL, override per-object colour/style
  */
 DM_EXPORT extern void dm_draw_scene_obj(struct dm *dmp,
-					struct bv_scene_obj *s,
+					bsg_node *s,
 					struct bview *v,
 					int force_draw,
 					const struct bsg_settings *obj_settings);

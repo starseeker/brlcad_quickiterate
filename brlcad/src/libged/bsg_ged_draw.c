@@ -1006,11 +1006,14 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     }
 
     bsg_node_set_legacy_illum((bsg_node *)sp, 0);
-    sp->s_soldash            = 0;
-    sp->s_old.s_Eflag        = 1;
-    sp->s_color[0]           = sp->s_old.s_basecolor[0] = (rgb >> 16) & 0xFF;
-    sp->s_color[1]           = sp->s_old.s_basecolor[1] = (rgb >>  8) & 0xFF;
-    sp->s_color[2]           = sp->s_old.s_basecolor[2] = (rgb      ) & 0xFF;
+    bsg_node_set_line_style((bsg_node *)sp, BSG_APPEARANCE_LINE_SOLID);
+    bsg_node_set_legacy_eflag((bsg_node *)sp, 1);
+    sp->s_old.s_basecolor[0] = (rgb >> 16) & 0xFF;
+    sp->s_old.s_basecolor[1] = (rgb >>  8) & 0xFF;
+    sp->s_old.s_basecolor[2] = (rgb      ) & 0xFF;
+    sp->s_color[0]           = sp->s_old.s_basecolor[0];
+    sp->s_color[1]           = sp->s_old.s_basecolor[1];
+    sp->s_color[2]           = sp->s_old.s_basecolor[2];
     sp->s_old.s_regionid     = 0;
     sp->s_old.s_uflag        = 0;
     sp->s_old.s_dflag        = 0;

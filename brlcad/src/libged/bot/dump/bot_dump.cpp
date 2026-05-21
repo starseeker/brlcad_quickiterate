@@ -457,10 +457,10 @@ botdump_solid_cb(struct bv_scene_obj *sp, void *userdata)
 	d->obj.curr_obj_red = sp->s_color[0];
 	d->obj.curr_obj_green = sp->s_color[1];
 	d->obj.curr_obj_blue = sp->s_color[2];
-	struct bsg_material mat;
-	bsg_material_init(&mat);
-	(void)bsg_node_material_get((const bsg_node *)sp, &mat);
-	d->obj.curr_obj_alpha = mat.transparency;
+	struct bsg_material bsg_mat;
+	bsg_material_init(&bsg_mat);
+	(void)bsg_node_material_get((const bsg_node *)sp, &bsg_mat);
+	d->obj.curr_obj_alpha = bsg_mat.transparency;
     }
 
     bot = (struct rt_bot_internal *)intern.idb_ptr;

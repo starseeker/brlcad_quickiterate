@@ -32,6 +32,7 @@
 #include "bu/vls.h"
 #include "bn.h"
 #include "bv.h"
+#include "bsg/defines.h"
 #include "icv.h"
 
 #include "./dm/defines.h"
@@ -103,7 +104,7 @@ DM_EXPORT extern void dm_draw_adc(struct dm *dmp,
 				  struct bv_adc_state *adcp, mat_t view2model, mat_t model2view);
 
 /* axes.c */
-DM_EXPORT extern void dm_draw_scene_axes(struct dm *dmp, struct bv_scene_obj *s);
+DM_EXPORT extern void dm_draw_scene_axes(struct dm *dmp, bsg_node *s);
 
 
 DM_EXPORT extern void dm_draw_hud_axes(struct dm *dmp,
