@@ -64,16 +64,16 @@ counts as scope signals.  The full removal is complete only when these literal
 searches find no active implementation references except historical notes
 scheduled for deletion:
 
-- `rg -F 'bv_scene_obj' brlcad/include brlcad/src`
-- `rg -F 'struct bview' brlcad/include brlcad/src`
+- `rg -F -e 'bv_scene_obj' brlcad/include brlcad/src`
+- `rg -F -e 'struct bview' brlcad/include brlcad/src`
 - `rg -F -e '#include <bv/' brlcad/include brlcad/src`
 - `rg -F -e '#include "bv/' brlcad/include brlcad/src`
 - `rg -F -e '#include <bv.h>' brlcad/include brlcad/src`
 - `rg -F -e '#include "bv.h"' brlcad/include brlcad/src`
-- `rg -F 'libbv' brlcad/CMakeLists.txt brlcad/include brlcad/src`
-- `rg -F 'LIBBV' brlcad/CMakeLists.txt brlcad/include brlcad/src`
-- `rg -F 'BV_EXPORT' brlcad/include brlcad/src`
-- `rg -F 'BV_DLL' brlcad/include brlcad/src`
+- `rg -F -e 'libbv' brlcad/CMakeLists.txt brlcad/include brlcad/src`
+- `rg -F -e 'LIBBV' brlcad/CMakeLists.txt brlcad/include brlcad/src`
+- `rg -F -e 'BV_EXPORT' brlcad/include brlcad/src`
+- `rg -F -e 'BV_DLL' brlcad/include brlcad/src`
 - No installed header path under `include/bv` remains.
 - No target named `libbv` or `libbv-*` remains.
 
@@ -493,7 +493,7 @@ Work:
 - Remove view-set shared object/free-list ownership.
 
 Exit criteria:
-- `rg -e "struct bview|bview_|gv_|bv_.*state|bview_set" brlcad/include brlcad/src`
+- `rg -F -e 'struct bview' -e 'bview_' -e 'gv_' -e 'bview_set' -e 'bv_adc_state' -e 'bv_grid_state' -e 'bv_interactive_rect_state' -e 'bv_params_state' -e 'bv_other_state' brlcad/include brlcad/src`
   has no active libbv implementation references.
 - BSG view/camera/HUD APIs are the only supported draw-stack view model.
 
