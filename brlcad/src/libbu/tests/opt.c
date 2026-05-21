@@ -18,8 +18,6 @@
  * information.
  */
 
-#define BU_OPT_OPTION_OVERRIDE_ENTRY(_so, _lo, _req, _type, _repeat, _keywords) { _so, _lo, _req, _type, _repeat, _keywords, BU_OPT_OVERRIDE_NONE, NULL, NULL, BU_OPT_VAL_UNKNOWN, BU_OPT_OPTION_FLAG_NONE }
-
 #include "common.h"
 #include <limits.h>
 #include <ctype.h>
@@ -936,10 +934,10 @@ desc_4(int test_num)
 	BU_OPT_DESC_NULL
     };
     struct bu_opt_option_overrides root_meta[] = {
-	BU_OPT_OPTION_OVERRIDE_ENTRY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-	BU_OPT_OPTION_OVERRIDE_ENTRY("v", "verbose", BU_OPT_ARG_OPTIONAL, BU_OPT_VAL_INTEGER, 1, NULL),
-	BU_OPT_OPTION_OVERRIDE_ENTRY("o", "output", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_FILE_PATH, 0, NULL),
-	BU_OPT_OPTION_OVERRIDE_ENTRY("C", "color", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_COLOR, 0, NULL),
+	BU_OPT_OPTION_OVERRIDE_LEGACY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+	BU_OPT_OPTION_OVERRIDE_LEGACY("v", "verbose", BU_OPT_ARG_OPTIONAL, BU_OPT_VAL_INTEGER, 1, NULL),
+	BU_OPT_OPTION_OVERRIDE_LEGACY("o", "output", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_FILE_PATH, 0, NULL),
+	BU_OPT_OPTION_OVERRIDE_LEGACY("C", "color", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_COLOR, 0, NULL),
 	BU_OPT_OPTION_OVERRIDE_NULL
     };
     struct bu_opt_operand_desc root_operands[] = {
@@ -959,15 +957,15 @@ desc_4(int test_num)
 	BU_OPT_DESC_NULL
     };
     struct bu_opt_option_overrides deep_meta[] = {
-	BU_OPT_OPTION_OVERRIDE_ENTRY("m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_KEYWORD, 0, mode_keywords),
+	BU_OPT_OPTION_OVERRIDE_LEGACY("m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_KEYWORD, 0, mode_keywords),
 	BU_OPT_OPTION_OVERRIDE_NULL
     };
     struct bu_opt_cmd_desc deep_cmds[] = {
-	{"deep", "Nested command", deep_opts, deep_meta, NULL, NULL},
+	{"deep", "Nested command", deep_opts, deep_meta, NULL, NULL, NULL},
 	BU_OPT_CMD_DESC_NULL
     };
     struct bu_opt_cmd_desc subcmds[] = {
-	{"list", "List things", list_opts, NULL, list_operands, deep_cmds},
+	{"list", "List things", list_opts, NULL, list_operands, deep_cmds, NULL},
 	BU_OPT_CMD_DESC_NULL
     };
     struct bu_opt_cmd_desc cmd = {"testcmd", "Test command", root_opts, root_meta, root_operands, subcmds, NULL};

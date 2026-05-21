@@ -668,6 +668,13 @@ opt_infer_arg_requirement(const struct bu_opt_desc *d)
 }
 
 
+static bu_opt_value_type_t
+opt_effective_completion_type(bu_opt_value_type_t completion_type, bu_opt_value_type_t arg_type)
+{
+    return (completion_type == BU_OPT_VAL_UNKNOWN) ? arg_type : completion_type;
+}
+
+
 static int
 opt_option_desc_is_null(const struct bu_opt_option_desc *d)
 {
@@ -698,6 +705,23 @@ opt_option_desc_is_null(const struct bu_opt_option_desc *d)
 }
 
 
+static int
+opt_override_is_legacy(const struct bu_opt_option_overrides *o)
+{
+    if (!o)
+	return 0;
+    if (o->override_mask != BU_OPT_OVERRIDE_NONE)
+	return 0;
+    return (o->arg_helpstr || o->help_string
+	|| o->arg_requirement != BU_OPT_ARG_FLAG
+	|| o->arg_type != BU_OPT_VAL_UNKNOWN
+	|| o->repeat
+	|| o->value_keywords
+	|| o->completion_type != BU_OPT_VAL_UNKNOWN
+	|| o->flags != BU_OPT_OPTION_FLAG_NONE);
+}
+
+
 static const struct bu_opt_option_overrides *
 opt_find_override(const char *shortopt, const char *longopt, const struct bu_opt_option_overrides *overrides)
 {
@@ -718,24 +742,17 @@ opt_find_override(const char *shortopt, const char *longopt, const struct bu_opt
 static void
 opt_apply_override(struct bu_opt_option_desc *d, const struct bu_opt_option_overrides *o)
 {
-    int legacy = 0;
+    int uses_legacy_override = 0;
     if (!d || !o)
 	return;
-    legacy = (o->override_mask == BU_OPT_OVERRIDE_NONE
-	&& (o->arg_helpstr || o->help_string
-	    || o->arg_requirement != BU_OPT_ARG_FLAG
-	    || o->arg_type != BU_OPT_VAL_UNKNOWN
-	    || o->repeat
-	    || o->value_keywords
-	    || o->completion_type != BU_OPT_VAL_UNKNOWN
-	    || o->flags != BU_OPT_OPTION_FLAG_NONE));
+    uses_legacy_override = opt_override_is_legacy(o);
 
-    if (legacy) {
+    if (uses_legacy_override) {
 	d->arg_requirement = o->arg_requirement;
 	d->arg_type = o->arg_type;
 	d->repeat = o->repeat;
 	d->value_keywords = o->value_keywords;
-	d->completion_type = (o->completion_type == BU_OPT_VAL_UNKNOWN) ? o->arg_type : o->completion_type;
+	d->completion_type = opt_effective_completion_type(o->completion_type, o->arg_type);
 	d->flags = o->flags;
 	if (o->arg_helpstr)
 	    d->arg_helpstr = o->arg_helpstr;
@@ -769,7 +786,7 @@ bu_opt_option_from_desc(struct bu_opt_option_desc *out, const struct bu_opt_desc
     if (!out || !in)
 	return -1;
 
-    *out = (struct bu_opt_option_desc)BU_OPT_OPTION_DESC_NULL;
+    memset(out, 0, sizeof(*out));
     out->shortopt = in->shortopt;
     out->longopt = in->longopt;
     out->arg_helpstr = in->arg_helpstr ? in->arg_helpstr : "";
@@ -797,11 +814,11 @@ bu_opt_option_descs_from_desc(const struct bu_opt_desc *ds, const struct bu_opt_
 	i++;
 
     out = (struct bu_opt_option_desc *)bu_calloc(i + 1, sizeof(struct bu_opt_option_desc), "bu_opt_option_desc array");
-    for (size_t j = 0; j < i; j++) {
+    for (size_t desc_idx = 0; desc_idx < i; desc_idx++) {
 	const struct bu_opt_option_overrides *o = NULL;
-	(void)bu_opt_option_from_desc(&out[j], &ds[j]);
-	o = opt_find_override(ds[j].shortopt, ds[j].longopt, overrides);
-	opt_apply_override(&out[j], o);
+	(void)bu_opt_option_from_desc(&out[desc_idx], &ds[desc_idx]);
+	o = opt_find_override(ds[desc_idx].shortopt, ds[desc_idx].longopt, overrides);
+	opt_apply_override(&out[desc_idx], o);
     }
     out[i] = (struct bu_opt_option_desc)BU_OPT_OPTION_DESC_NULL;
     return out;
@@ -1020,7 +1037,7 @@ opt_json_option_from_meta(struct bu_vls *v, const struct bu_opt_option_desc *m)
     if (!m)
 	return;
 
-    ctype = (m->completion_type == BU_OPT_VAL_UNKNOWN) ? m->arg_type : m->completion_type;
+    ctype = opt_effective_completion_type(m->completion_type, m->arg_type);
     completion = opt_completion_str(ctype, m->value_keywords);
 
     bu_vls_printf(v, "{");
@@ -1354,14 +1371,14 @@ opt_collect_expected_candidates(struct bu_opt_validate_result *result, const str
 {
     struct bu_ptbl candidates = BU_PTBL_INIT_ZERO;
     struct bu_opt_option_desc arg_scratch = BU_OPT_OPTION_DESC_NULL;
-    const struct bu_opt_option_desc *arg_meta = NULL;
+    const struct bu_opt_option_desc *arg_option_desc = NULL;
     const struct bu_opt_operand_desc *operand_desc = NULL;
 
     if (!result || !active)
 	return;
 
     if ((expected & BU_OPT_EXPECT_OPTION_ARG) && arg_desc) {
-	arg_meta = opt_option_desc_for_cmd(active, arg_desc, &arg_scratch);
+	arg_option_desc = opt_option_desc_for_cmd(active, arg_desc, &arg_scratch);
     }
     if (expected & BU_OPT_EXPECT_OPERAND) {
 	operand_desc = opt_find_operand_desc(active, operands);
@@ -1373,8 +1390,8 @@ opt_collect_expected_candidates(struct bu_opt_validate_result *result, const str
     if ((expected & BU_OPT_EXPECT_SUBCOMMAND) && !end_options && operands == 0) {
 	opt_collect_subcommand_candidates(&candidates, active, prefix);
     }
-    if ((expected & BU_OPT_EXPECT_OPTION_ARG) && arg_meta && arg_meta->value_keywords) {
-	opt_collect_keyword_candidates(&candidates, arg_meta->value_keywords, prefix);
+    if ((expected & BU_OPT_EXPECT_OPTION_ARG) && arg_option_desc && arg_option_desc->value_keywords) {
+	opt_collect_keyword_candidates(&candidates, arg_option_desc->value_keywords, prefix);
     }
     if ((expected & BU_OPT_EXPECT_OPERAND) && operand_desc && operand_desc->type == BU_OPT_VAL_KEYWORD) {
 	opt_collect_keyword_candidates(&candidates, operand_desc->value_keywords, prefix);
@@ -1388,8 +1405,8 @@ opt_collect_expected_candidates(struct bu_opt_validate_result *result, const str
     }
 
     /* set completion_type for dynamic completion hint */
-    if ((expected & BU_OPT_EXPECT_OPTION_ARG) && arg_meta) {
-	result->completion_type = (arg_meta->completion_type == BU_OPT_VAL_UNKNOWN) ? arg_meta->arg_type : arg_meta->completion_type;
+    if ((expected & BU_OPT_EXPECT_OPTION_ARG) && arg_option_desc) {
+	result->completion_type = opt_effective_completion_type(arg_option_desc->completion_type, arg_option_desc->arg_type);
     } else if ((expected & BU_OPT_EXPECT_OPERAND) && operand_desc) {
 	result->completion_type = operand_desc->type;
     } else {

@@ -335,6 +335,7 @@ struct bu_opt_option_overrides {
 
 
 #define BU_OPT_OPTION_OVERRIDE_NULL {NULL, NULL, BU_OPT_ARG_FLAG, BU_OPT_VAL_UNKNOWN, 0, NULL, BU_OPT_OVERRIDE_NONE, NULL, NULL, BU_OPT_VAL_UNKNOWN, BU_OPT_OPTION_FLAG_NONE}
+#define BU_OPT_OPTION_OVERRIDE_LEGACY(_so, _lo, _req, _type, _repeat, _keywords) { _so, _lo, _req, _type, _repeat, _keywords, BU_OPT_OVERRIDE_NONE, NULL, NULL, BU_OPT_VAL_UNKNOWN, BU_OPT_OPTION_FLAG_NONE }
 
 
 /** Optional positional operand metadata for a command. */
@@ -360,14 +361,10 @@ struct bu_opt_cmd_desc {
     const char *name;
     const char *help_string;
     const struct bu_opt_desc *options; /* Transitional parser descriptor source */
-    const struct bu_opt_option_overrides *option_overrides; /* Optional override records for synthesized metadata */
+    const struct bu_opt_option_overrides *option_overrides; /* Optional metadata override records for synthesized metadata */
     const struct bu_opt_operand_desc *operands;
     const struct bu_opt_cmd_desc *subcommands;
-#ifdef __cplusplus
-    const struct bu_opt_option_desc *option_desc = NULL; /* Optional direct metadata-only option descriptors */
-#else
     const struct bu_opt_option_desc *option_desc; /* Optional direct metadata-only option descriptors */
-#endif
 };
 
 

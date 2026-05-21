@@ -8,8 +8,6 @@
 
 namespace {
 
-#define BU_OPT_OPTION_OVERRIDE_ENTRY(_so, _lo, _req, _type, _repeat, _keywords) { _so, _lo, _req, _type, _repeat, _keywords, BU_OPT_OVERRIDE_NONE, NULL, NULL, BU_OPT_VAL_UNKNOWN, BU_OPT_OPTION_FLAG_NONE }
-
 static int open_force_create = 0;
 static int open_flip_endian = 0;
 static int open_help = 0;
@@ -84,10 +82,10 @@ static const struct bu_opt_desc open_opts[] = {
 };
 
 static const struct bu_opt_option_overrides open_meta[] = {
-    BU_OPT_OPTION_OVERRIDE_ENTRY("c", "create", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("f", "flip-endian", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("o", "open", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("c", "create", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("f", "flip-endian", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("o", "open", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
     BU_OPT_OPTION_OVERRIDE_NULL
 };
 
@@ -131,24 +129,24 @@ static const struct bu_opt_desc draw_opts[] = {
 };
 
 static const struct bu_opt_option_overrides draw_meta[] = {
-    BU_OPT_OPTION_OVERRIDE_ENTRY("V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("?", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("", "wireframe", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("", "shaded", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("", "shaded-all", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("E", "evaluate", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("", "hidden-line", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("A", "add-mode", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("t", "transparency", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_NUMBER, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("x", "", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_NUMBER, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("L", "", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("S", "no-subtract", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("", "no-dash", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("C", "color", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_COLOR, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("", "line-width", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("R", "no-autoview", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("?", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("", "wireframe", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("", "shaded", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("", "shaded-all", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("E", "evaluate", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("", "hidden-line", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("A", "add-mode", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("t", "transparency", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_NUMBER, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("x", "", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_NUMBER, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("L", "", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("S", "no-subtract", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("", "no-dash", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("C", "color", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_COLOR, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("", "line-width", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("R", "no-autoview", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
     BU_OPT_OPTION_OVERRIDE_NULL
 };
 
@@ -182,18 +180,18 @@ static const struct bu_opt_desc ls_opts[] = {
 };
 
 static const struct bu_opt_option_overrides ls_meta[] = {
-    BU_OPT_OPTION_OVERRIDE_ENTRY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("a", "all", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("c", "combs", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("r", "regions", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("p", "primitives", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("s", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("q", "quiet", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("l", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("H", "human-readable", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("S", "sort", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("A", "attributes", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("o", "or", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("a", "all", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("c", "combs", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("r", "regions", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("p", "primitives", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("s", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("q", "quiet", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("l", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("H", "human-readable", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("S", "sort", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("A", "attributes", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("o", "or", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
     BU_OPT_OPTION_OVERRIDE_NULL
 };
 
@@ -217,8 +215,8 @@ static const struct bu_opt_desc erase_opts[] = {
 };
 
 static const struct bu_opt_option_overrides erase_meta[] = {
-    BU_OPT_OPTION_OVERRIDE_ENTRY("V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL),
     BU_OPT_OPTION_OVERRIDE_NULL
 };
 
@@ -245,11 +243,11 @@ static const struct bu_opt_desc who_root_opts[] = {
 };
 
 static const struct bu_opt_option_overrides who_root_meta[] = {
-    BU_OPT_OPTION_OVERRIDE_ENTRY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("?", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("E", "expand", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("?", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("E", "expand", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
     BU_OPT_OPTION_OVERRIDE_NULL
 };
 
@@ -262,16 +260,16 @@ static const struct bu_opt_desc who_solids_opts[] = {
 };
 
 static const struct bu_opt_option_overrides who_solids_meta[] = {
-    BU_OPT_OPTION_OVERRIDE_ENTRY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("?", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("?", "", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("m", "mode", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_INTEGER, 0, NULL),
     BU_OPT_OPTION_OVERRIDE_NULL
 };
 
 static const struct bu_opt_cmd_desc who_subcommands[] = {
-    {"report", "Report drawn solids", who_solids_opts, who_solids_meta, who_level_operands, NULL},
-    {"solids", "Report drawn solids", who_solids_opts, who_solids_meta, who_level_operands, NULL},
+    {"report", "Report drawn solids", who_solids_opts, who_solids_meta, who_level_operands, NULL, NULL},
+    {"solids", "Report drawn solids", who_solids_opts, who_solids_meta, who_level_operands, NULL, NULL},
     BU_OPT_CMD_DESC_NULL
 };
 
@@ -296,18 +294,18 @@ static const struct bu_opt_desc select_opts[] = {
 };
 
 static const struct bu_opt_option_overrides select_meta[] = {
-    BU_OPT_OPTION_OVERRIDE_ENTRY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("S", "set", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("S", "set", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL),
     BU_OPT_OPTION_OVERRIDE_NULL
 };
 
 static const struct bu_opt_cmd_desc select_subcommands[] = {
-    {"add", "Add paths to the active selection set", NULL, NULL, select_path_operands, NULL},
-    {"clear", "Clear one or more selection sets", NULL, NULL, select_set_operands, NULL},
-    {"collapse", "Collapse one or more selection sets", NULL, NULL, select_set_operands, NULL},
-    {"expand", "Expand one or more selection sets", NULL, NULL, select_set_operands, NULL},
-    {"list", "List selection sets or their contents", NULL, NULL, select_set_operands, NULL},
-    {"rm", "Remove paths from the active selection set", NULL, NULL, select_path_operands, NULL},
+    {"add", "Add paths to the active selection set", NULL, NULL, select_path_operands, NULL, NULL},
+    {"clear", "Clear one or more selection sets", NULL, NULL, select_set_operands, NULL, NULL},
+    {"collapse", "Collapse one or more selection sets", NULL, NULL, select_set_operands, NULL, NULL},
+    {"expand", "Expand one or more selection sets", NULL, NULL, select_set_operands, NULL, NULL},
+    {"list", "List selection sets or their contents", NULL, NULL, select_set_operands, NULL, NULL},
+    {"rm", "Remove paths from the active selection set", NULL, NULL, select_path_operands, NULL, NULL},
     BU_OPT_CMD_DESC_NULL
 };
 
@@ -323,32 +321,32 @@ static const struct bu_opt_desc view_opts[] = {
 };
 
 static const struct bu_opt_option_overrides view_meta[] = {
-    BU_OPT_OPTION_OVERRIDE_ENTRY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("v", "verbose", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 1, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("v", "verbose", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 1, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("V", "view", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_STRING, 0, NULL),
     BU_OPT_OPTION_OVERRIDE_NULL
 };
 
 static const struct bu_opt_cmd_desc view_subcommands[] = {
-    {"ae", "Get or set azimuth, elevation, and twist", NULL, NULL, raw_args_operands, NULL},
-    {"aet", "Get or set azimuth, elevation, and twist", NULL, NULL, raw_args_operands, NULL},
-    {"center", "Get or set the view center", NULL, NULL, raw_args_operands, NULL},
-    {"eye", "Get or set the view eye point", NULL, NULL, raw_args_operands, NULL},
-    {"faceplate", "Manage faceplate view elements", NULL, NULL, raw_args_operands, NULL},
-    {"height", "Get or set the view height", NULL, NULL, raw_args_operands, NULL},
-    {"independent", "Toggle view independence", NULL, NULL, raw_args_operands, NULL},
-    {"knob", "Low level rotate, translate, and scale operations", NULL, NULL, raw_args_operands, NULL},
-    {"list", "List available views", NULL, NULL, raw_args_operands, NULL},
-    {"lod", "Manage level-of-detail settings", NULL, NULL, raw_args_operands, NULL},
-    {"obj", "Manage view objects", NULL, NULL, raw_args_operands, NULL},
-    {"objs", "Manage view objects", NULL, NULL, raw_args_operands, NULL},
-    {"quat", "Get or set the view quaternion", NULL, NULL, raw_args_operands, NULL},
-    {"selections", "Manage view selections", NULL, NULL, raw_args_operands, NULL},
-    {"size", "Get or set the view size", NULL, NULL, raw_args_operands, NULL},
-    {"snap", "Snap the view to a canonical orientation", NULL, NULL, raw_args_operands, NULL},
-    {"vZ", "Report or set scene depth range state", NULL, NULL, raw_args_operands, NULL},
-    {"width", "Get or set the view width", NULL, NULL, raw_args_operands, NULL},
-    {"ypr", "Get or set yaw, pitch, and roll", NULL, NULL, raw_args_operands, NULL},
+    {"ae", "Get or set azimuth, elevation, and twist", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"aet", "Get or set azimuth, elevation, and twist", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"center", "Get or set the view center", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"eye", "Get or set the view eye point", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"faceplate", "Manage faceplate view elements", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"height", "Get or set the view height", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"independent", "Toggle view independence", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"knob", "Low level rotate, translate, and scale operations", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"list", "List available views", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"lod", "Manage level-of-detail settings", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"obj", "Manage view objects", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"objs", "Manage view objects", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"quat", "Get or set the view quaternion", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"selections", "Manage view selections", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"size", "Get or set the view size", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"snap", "Snap the view to a canonical orientation", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"vZ", "Report or set scene depth range state", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"width", "Get or set the view width", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"ypr", "Get or set yaw, pitch, and roll", NULL, NULL, raw_args_operands, NULL, NULL},
     BU_OPT_CMD_DESC_NULL
 };
 
@@ -371,23 +369,23 @@ static const struct bu_opt_desc dm_opts[] = {
 };
 
 static const struct bu_opt_option_overrides dm_meta[] = {
-    BU_OPT_OPTION_OVERRIDE_ENTRY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
-    BU_OPT_OPTION_OVERRIDE_ENTRY("v", "verbose", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 1, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0, NULL),
+    BU_OPT_OPTION_OVERRIDE_LEGACY("v", "verbose", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 1, NULL),
     BU_OPT_OPTION_OVERRIDE_NULL
 };
 
 static const struct bu_opt_cmd_desc dm_subcommands[] = {
-    {"attach", "Attach a display manager", NULL, NULL, raw_args_operands, NULL},
-    {"bg", "Get or set the display manager background", NULL, NULL, raw_args_operands, NULL},
-    {"debug", "Get or set display manager debugging", NULL, NULL, raw_args_operands, NULL},
-    {"get", "Query display manager settings", NULL, NULL, raw_args_operands, NULL},
-    {"height", "Get display manager height", NULL, NULL, raw_args_operands, NULL},
-    {"initmsg", "Show display manager initialization messages", NULL, NULL, raw_args_operands, NULL},
-    {"list", "List display managers", NULL, NULL, raw_args_operands, NULL},
-    {"set", "Set display manager parameters", NULL, NULL, raw_args_operands, NULL},
-    {"type", "Report display manager type", NULL, NULL, raw_args_operands, NULL},
-    {"types", "List available display manager types", NULL, NULL, raw_args_operands, NULL},
-    {"width", "Get display manager width", NULL, NULL, raw_args_operands, NULL},
+    {"attach", "Attach a display manager", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"bg", "Get or set the display manager background", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"debug", "Get or set display manager debugging", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"get", "Query display manager settings", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"height", "Get display manager height", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"initmsg", "Show display manager initialization messages", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"list", "List display managers", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"set", "Set display manager parameters", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"type", "Report display manager type", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"types", "List available display manager types", NULL, NULL, raw_args_operands, NULL, NULL},
+    {"width", "Get display manager width", NULL, NULL, raw_args_operands, NULL, NULL},
     BU_OPT_CMD_DESC_NULL
 };
 
