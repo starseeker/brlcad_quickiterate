@@ -335,8 +335,9 @@ void
 QgTreeView::redo_expansions(void *)
 {
 	QTCAD_SLOT("QgTreeView::redo_expansions", 1);
-	auto i_it = m->allItems().begin();
-	for (i_it = m->allItems().begin(); i_it != m->allItems().end(); i_it++) {
+	const auto &items = m->allItems();
+	auto i_it = items.begin();
+	for (i_it = items.begin(); i_it != items.end(); i_it++) {
 		QgItem *itm = *i_it;
 		QModelIndex idx = m->NodeIndex(itm);
 		if (itm->isOpen() && !isExpanded(idx)) {

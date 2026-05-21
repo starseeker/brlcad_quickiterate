@@ -327,8 +327,7 @@ public:
 	/* Return all currently active QgItems owned by this model. */
 	const std::unordered_set<QgItem *> &allItems() const
 	{
-		static const std::unordered_set<QgItem *> empty_items;
-		return items ? *items : empty_items;
+		return items ? *items : emptyItems();
 	}
 	bool hasItem(QgItem *item) const
 	{
@@ -382,6 +381,11 @@ private:
 	Qt::ItemFlags flags(const QModelIndex &index) const override;
 
 	void item_rebuild(QgItem *item);
+	static const std::unordered_set<QgItem *> &emptyItems()
+	{
+		static const std::unordered_set<QgItem *> empty_items;
+		return empty_items;
+	}
 
 	// A flag for callbacks to set if they alter the database in some way.
 	// Used to determine whether to emit the mdl_changed_db signal once
