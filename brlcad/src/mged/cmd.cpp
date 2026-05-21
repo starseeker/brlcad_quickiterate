@@ -52,6 +52,7 @@ extern "C" {
 #include "bu/time.h"
 #include "bu/snooze.h"
 #include "bn.h"
+#include "bsg/node.h"
 #include "bv/util.h"
 #include "rt/edit.h"
 #include "rt/geom.h"
@@ -767,8 +768,8 @@ cmd_ged_info_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, c
 	    argc = 2;
 	    av = (const char **)bu_malloc(sizeof(char *)*(argc + 1), "f_list: av");
 	    av[0] = (const char *)argv[0];
-	    if (illump && illump->s_u_data) {
-		bdata = (struct ged_bv_data *)illump->s_u_data;
+	    if (illump && bsg_node_ged_data_get((bsg_node *)illump)) {
+		bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)illump);
 		if (bdata->s_fullpath.fp_len > 0) {
 		    av[1] = (const char *)LAST_SOLID(bdata)->d_namep;
 		    av[argc] = (const char *)NULL;
@@ -1006,8 +1007,8 @@ cmd_ged_inside(ClientData clientData, Tcl_Interp *interpreter, int argc, const c
 	/* apply MEDIT(s)->e_mat editing to parameters */
 	struct directory *outdp = RT_DIR_NULL;
 	transform_editing_solid(s, &intern, MEDIT(s)->e_mat, &MEDIT(s)->es_int, 0);
-	if (illump && illump->s_u_data) {
-	    bdata = (struct ged_bv_data *)illump->s_u_data;
+	if (illump && bsg_node_ged_data_get((bsg_node *)illump)) {
+	    bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)illump);
 	    outdp = LAST_SOLID(bdata);
 	}
 
@@ -1028,7 +1029,7 @@ cmd_ged_inside(ClientData clientData, Tcl_Interp *interpreter, int argc, const c
 	struct directory *outdp = RT_DIR_NULL;
 
 	/* object edit mode */
-	if (illump->s_old.s_Eflag) {
+	if (bsg_node_legacy_eflag((const bsg_node *)illump)) {
 	    Tcl_AppendResult(interpreter, "Cannot find inside of a processed (E'd) region\n",
 			     (char *)NULL);
 	    (void)signal(SIGINT, SIG_IGN);
@@ -1038,8 +1039,8 @@ cmd_ged_inside(ClientData clientData, Tcl_Interp *interpreter, int argc, const c
 	/* apply MEDIT(s)->e_mat and MEDIT(s)->model_changes editing to parameters */
 	bn_mat_mul(newmat, MEDIT(s)->model_changes, MEDIT(s)->e_mat);
 	transform_editing_solid(s, &intern, newmat, &MEDIT(s)->es_int, 0);
-	if (illump && illump->s_u_data) {
-	    bdata = (struct ged_bv_data *)illump->s_u_data;
+	if (illump && bsg_node_ged_data_get((bsg_node *)illump)) {
+	    bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)illump);
 	    outdp = LAST_SOLID(bdata);
 	}
 

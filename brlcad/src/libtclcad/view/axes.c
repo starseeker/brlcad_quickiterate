@@ -29,6 +29,7 @@
 #include "bv/util.h"
 #include "bv/vlist.h"
 #include "dm.h"
+#include "bsg/node.h"
 #include "ged.h"
 #include "tclcad.h"
 
@@ -568,10 +569,12 @@ to_data_axes_func(Tcl_Interp *interp,
 	if (argc == 2) {
 	    /* T3: read color from BSG object. */
 	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
-	    if (_s)
+	    if (_s) {
+		unsigned char cr, cg, cb;
+		bsg_node_get_color((const bsg_node *)_s, &cr, &cg, &cb);
 		bu_vls_printf(gedp->ged_result_str, "%d %d %d",
-			      (int)_s->s_color[0], (int)_s->s_color[1], (int)_s->s_color[2]);
-	    else
+			      (int)cr, (int)cg, (int)cb);
+	    } else
 		bu_vls_printf(gedp->ged_result_str, "0 0 0");
 	    return BRLCAD_OK;
 	}

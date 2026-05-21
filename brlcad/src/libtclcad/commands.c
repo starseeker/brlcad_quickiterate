@@ -63,6 +63,7 @@
 #include "bv/defines.h"
 #include "dm.h"
 #include "bv/util.h"
+#include "bsg/node.h"
 #include "bsg/util.h"
 #include "bg/lseg.h"
 
@@ -2080,8 +2081,8 @@ to_data_move_func(struct ged *gedp,
 	if ((size_t)dindex >= BU_PTBL_LEN(&_lp->bsg.bsg_children)) return BRLCAD_OK;
 
 	struct bv_scene_obj *_c = (struct bv_scene_obj *)BU_PTBL_GET(&_lp->bsg.bsg_children, dindex);
-	if (!_c || !_c->s_i_data) return BRLCAD_OK;
-	struct bv_label *_l = (struct bv_label *)_c->s_i_data;
+	if (!_c || !bsg_node_user_data_get((const bsg_node *)_c)) return BRLCAD_OK;
+	struct bv_label *_l = (struct bv_label *)bsg_node_user_data_get((const bsg_node *)_c);
 
 	MAT4X3PNT(vpoint, gdvp->gv_model2view, _l->p);
 	vpoint[X] = vx; vpoint[Y] = vy;
@@ -2102,8 +2103,8 @@ to_data_move_func(struct ged *gedp,
 	if ((size_t)dindex >= BU_PTBL_LEN(&_lp->bsg.bsg_children)) return BRLCAD_OK;
 
 	struct bv_scene_obj *_c = (struct bv_scene_obj *)BU_PTBL_GET(&_lp->bsg.bsg_children, dindex);
-	if (!_c || !_c->s_i_data) return BRLCAD_OK;
-	struct bv_label *_l = (struct bv_label *)_c->s_i_data;
+	if (!_c || !bsg_node_user_data_get((const bsg_node *)_c)) return BRLCAD_OK;
+	struct bv_label *_l = (struct bv_label *)bsg_node_user_data_get((const bsg_node *)_c);
 
 	MAT4X3PNT(vpoint, gdvp->gv_model2view, _l->p);
 	vpoint[X] = vx; vpoint[Y] = vy;
@@ -2551,8 +2552,8 @@ to_data_pick_func(struct ged *gedp,
 		fastf_t minY, maxY;
 
 		struct bv_scene_obj *_c = (struct bv_scene_obj *)BU_PTBL_GET(&_lp->bsg.bsg_children, _k);
-		if (!_c || !_c->s_i_data) continue;
-		struct bv_label *_l = (struct bv_label *)_c->s_i_data;
+		if (!_c || !bsg_node_user_data_get((const bsg_node *)_c)) continue;
+		struct bv_label *_l = (struct bv_label *)bsg_node_user_data_get((const bsg_node *)_c);
 
 		VMOVE(dpoint, _l->p);
 		MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);
@@ -2586,8 +2587,8 @@ to_data_pick_func(struct ged *gedp,
 		fastf_t minY, maxY;
 
 		struct bv_scene_obj *_c = (struct bv_scene_obj *)BU_PTBL_GET(&_lp->bsg.bsg_children, _k);
-		if (!_c || !_c->s_i_data) continue;
-		struct bv_label *_l = (struct bv_label *)_c->s_i_data;
+		if (!_c || !bsg_node_user_data_get((const bsg_node *)_c)) continue;
+		struct bv_label *_l = (struct bv_label *)bsg_node_user_data_get((const bsg_node *)_c);
 
 		VMOVE(dpoint, _l->p);
 		MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);

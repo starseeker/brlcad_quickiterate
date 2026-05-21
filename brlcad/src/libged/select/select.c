@@ -29,6 +29,7 @@
 
 
 #include "bsg/payload.h"
+#include "bsg/node.h"
 #include "bu/getopt.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
@@ -128,9 +129,9 @@ dl_select_cb(struct bv_scene_obj *sp, void *userdata)
 {
     struct select_data *data = (struct select_data *)userdata;
 
-    if (!sp->s_u_data)
+    if (!bsg_node_ged_data_get((const bsg_node *)sp))
 	return 1; /* continue */
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((const bsg_node *)sp);
 
     point_t vmin, vmax;
     struct bv_vlist *vp;
@@ -260,9 +261,9 @@ dl_select_partial_cb(struct bv_scene_obj *sp, void *userdata)
 {
     struct select_data *data = (struct select_data *)userdata;
 
-    if (!sp->s_u_data)
+    if (!bsg_node_ged_data_get((const bsg_node *)sp))
 	return 1; /* continue */
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((const bsg_node *)sp);
 
     struct bv_vlist *vp;
     struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)sp);

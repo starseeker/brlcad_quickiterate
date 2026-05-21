@@ -78,10 +78,10 @@ solid_set_color_info(
 {
     unsigned char bcolor[3] = {255, 0, 0}; /* default */
 
-    sp->s_old.s_uflag = 0;
-    sp->s_old.s_dflag = 0;
+    bsg_node_set_legacy_uflag((bsg_node *)sp, 0);
+    bsg_node_set_legacy_dflag((bsg_node *)sp, 0);
     if (wireframe_color_override) {
-	sp->s_old.s_uflag = 1;
+	bsg_node_set_legacy_uflag((bsg_node *)sp, 1);
 
 	bcolor[RED] = wireframe_color_override[RED];
 	bcolor[GRN] = wireframe_color_override[GRN];
@@ -92,13 +92,11 @@ solid_set_color_info(
 	    bcolor[GRN] = tsp->ts_mater.ma_color[GRN] * 255.0;
 	    bcolor[BLU] = tsp->ts_mater.ma_color[BLU] * 255.0;
 	} else {
-	    sp->s_old.s_dflag = 1;
+	    bsg_node_set_legacy_dflag((bsg_node *)sp, 1);
 	}
     }
 
-    sp->s_old.s_basecolor[RED] = bcolor[RED];
-    sp->s_old.s_basecolor[GRN] = bcolor[GRN];
-    sp->s_old.s_basecolor[BLU] = bcolor[BLU];
+    bsg_node_legacy_basecolor_set((bsg_node *)sp, bcolor[RED], bcolor[GRN], bcolor[BLU]);
 
     color_soltab(tsp ? tsp->ts_dbip : NULL, sp);
 }
@@ -154,11 +152,11 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     }
 
     bsg_node_set_legacy_illum((bsg_node *)sp, 0);
-    sp->s_soldash = dashflag;
-    sp->s_old.s_Eflag = 0;
+    bsg_node_set_line_style((bsg_node *)sp, dashflag ? BSG_APPEARANCE_LINE_DASHED : BSG_APPEARANCE_LINE_SOLID);
+    bsg_node_set_legacy_eflag((bsg_node *)sp, 0);
 
     if (tsp) {
-	sp->s_old.s_regionid = tsp->ts_regionid;
+	bsg_node_set_legacy_regionid((bsg_node *)sp, tsp->ts_regionid);
     }
 
     solid_set_color_info(sp, wireframe_color_override, tsp);
@@ -230,7 +228,7 @@ draw_solid_wireframe(struct bv_scene_obj *sp, struct bview *gvp, struct db_i *db
     }
 
     if (gvp && gvp->gv_s->adaptive_plot_csg && ip->idb_meth->ft_adaptive_plot) {
-	ret = ip->idb_meth->ft_adaptive_plot(&vhead, ip, tol, gvp, sp->s_size);
+	ret = ip->idb_meth->ft_adaptive_plot(&vhead, ip, tol, gvp, bsg_node_size_get((const bsg_node *)sp));
     } else if (ip->idb_meth->ft_plot) {
 	ret = ip->idb_meth->ft_plot(&vhead, ip, ttol, tol, gvp);
     }
@@ -289,7 +287,7 @@ _dl_redraw_shape_cb(bsg_node *n, void *ud)
 {
     struct _dl_redraw_ctx *ctx = (struct _dl_redraw_ctx *)ud;
     struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
-    if (!ctx->skip_subtractions || !sp->s_soldash)
+    if (!ctx->skip_subtractions || bsg_node_line_style((const bsg_node *)sp) == BSG_APPEARANCE_LINE_SOLID)
 	ctx->ret += redraw_solid(sp, ctx->dbip, ctx->tsp, ctx->gvp, ctx->vlfree);
     return 1;
 }
@@ -365,8 +363,11 @@ append_solid_to_display_list(
     bdata->gedp = bv_data->gedp;
     bsg_node_set_free_callback((bsg_node *)sp, (bsg_node_free_fn)ged_bv_illum_free_cb);
 
-    sp->s_size = 0;
-    VSETALL(sp->s_center, 0.0);
+    bsg_node_size_set((bsg_node *)sp, 0.0);
+    {
+	vect_t _ctr = VINIT_ZERO;
+	bsg_node_center_set((bsg_node *)sp, _ctr);
+    }
 
     if (ip->idb_meth->ft_bbox) {
         if (ip->idb_meth->ft_bbox(ip, &min, &max, tsp->ts_tol) < 0) {
@@ -379,13 +380,18 @@ append_solid_to_display_list(
             return TREE_NULL;
         }
 
-        sp->s_center[X] = (min[X] + max[X]) * 0.5;
-        sp->s_center[Y] = (min[Y] + max[Y]) * 0.5;
-        sp->s_center[Z] = (min[Z] + max[Z]) * 0.5;
+	{
+	    vect_t center;
+	    VADD2SCALE(center, min, max, 0.5);
+	    bsg_node_center_set((bsg_node *)sp, center);
+	}
 
-        sp->s_size = max[X] - min[X];
-        V_MAX(sp->s_size, max[Y] - min[Y]);
-        V_MAX(sp->s_size, max[Z] - min[Z]);
+	{
+	    fastf_t _sz = max[X] - min[X];
+	    V_MAX(_sz, max[Y] - min[Y]);
+	    V_MAX(_sz, max[Z] - min[Z]);
+	    bsg_node_size_set((bsg_node *)sp, _sz);
+	}
     } else if (ip->idb_meth->ft_plot) {
         /* As a fallback for primitives that don't have a bbox function, use
          * the old bounding method of calculating a plot for the primitive and
@@ -442,13 +448,15 @@ append_solid_to_display_list(
     bsg_node_set_legacy_illum((bsg_node *)sp, 0);
 
     if (bv_data->draw_solid_lines_only) {
-        sp->s_soldash = 0;
+        bsg_node_set_line_style((bsg_node *)sp, BSG_APPEARANCE_LINE_SOLID);
     } else {
-        sp->s_soldash = (tsp->ts_sofar & (TS_SOFAR_MINUS|TS_SOFAR_INTER));
+        bsg_node_set_line_style((bsg_node *)sp,
+	    (tsp->ts_sofar & (TS_SOFAR_MINUS|TS_SOFAR_INTER))
+		? BSG_APPEARANCE_LINE_DASHED : BSG_APPEARANCE_LINE_SOLID);
     }
 
-    sp->s_old.s_Eflag = 0;
-    sp->s_old.s_regionid = tsp->ts_regionid;
+    bsg_node_set_legacy_eflag((bsg_node *)sp, 0);
+    bsg_node_set_legacy_regionid((bsg_node *)sp, tsp->ts_regionid);
 
     if (ip->idb_type == ID_GRIP) {
         float mater_color[3];

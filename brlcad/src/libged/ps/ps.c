@@ -35,6 +35,7 @@
 #include "bn.h"
 #include "bg/clip.h"
 
+#include "bsg/node.h"
 #include "bsg/payload.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
@@ -103,10 +104,12 @@ ps_draw_solid(fastf_t perspective, FILE *fp, struct bv_scene_obj *sp, matp_t psm
     struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)sp);
     fastf_t delta;
 
+    unsigned char pr, pg, pb;
+    bsg_node_get_color((const bsg_node *)sp, &pr, &pg, &pb);
     fprintf(fp, "%f %f %f setrgbcolor\n",
-            PS_COLOR(sp->s_color[0]),
-            PS_COLOR(sp->s_color[1]),
-            PS_COLOR(sp->s_color[2]));
+            PS_COLOR(pr),
+            PS_COLOR(pg),
+            PS_COLOR(pb));
 
     /* delta is used in clipping to insure clipped endpoint is slightly
      * in front of eye plane (perspective mode only).

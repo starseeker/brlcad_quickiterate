@@ -203,6 +203,22 @@ Exit criteria:
 - Any remaining direct access is isolated to a temporary compatibility source file
   with deletion notes.
 
+Status (2026-05-21):
+- Complete.
+- Remaining storage-semantics work items migrated:
+  - `s_center`: libged/draw/draw.c → `bsg_node_center_set`; mged/edsol.c → `bsg_node_center_get`
+  - `bmin`/`bmax`/`have_bbox`: libged/dbi_state.cpp → `bsg_node_bounds_set` + `bsg_node_set_bbox_valid` + `bsg_node_center_set` + `bsg_node_size_set`
+  - `s_color`: libged/solid_report, libged/plot/plot.c, librt/primitives/sketch/polygons.c → `bsg_node_get_color`; libtclcad/view/axes.c, libtclcad/view/labels.c → `bsg_node_get_color`
+  - `s_soldash`: mged/plot.c → `bsg_node_line_style` / `BSG_APPEARANCE_LINE_SOLID|DASHED`; libtclcad/polygons.c → `bsg_node_set_line_style`
+  - `s_old.s_Eflag`: mged/titles.c, mged/cmd.cpp, mged/plot.c → `bsg_node_legacy_eflag`
+  - `s_vlist`: mged/plot.c, libtclcad/polygons.c, libtclcad/view/arrows.c, libtclcad/bsg_move_helpers.h → `bsg_node_vlist_head`; mged/dodraw.c → `BV_FREE_VLIST` with local vars
+  - `s_u_data` (ged_bv_data ptr): libged/dbi_state.cpp, libged/solid_report, mged/dodraw.c, mged/rtif.c, mged/titles.c, mged/cmd.cpp → `bsg_node_ged_data_get`/`bsg_node_ged_data_set`
+  - `s_i_data` (user payload): libtclcad/commands.c, libtclcad/mouse.c, libtclcad/view/labels.c, librt/primitives/sketch/polygons.c → `bsg_node_user_data_get`
+- All new accessors added to `include/bsg/node.h` and `src/libbsg/node.c`.
+- Validated: libbsg/libged/mged/librt/libtclcad/libqtcad build clean.
+  Tests passed: libbsg_node, libbsg_scene_graph, libbsg_phase6, libbsg_selection,
+  libbsg_node_core, ged_test_bsg_view_obj, ged_test_qged_swrast.
+
 Phase D - Make BSG Allocation Independent of libbv Free Lists
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Objective: make BSG lifecycle own memory, not just wrap `bv_obj_*`.

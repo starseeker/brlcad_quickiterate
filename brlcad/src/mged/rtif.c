@@ -41,6 +41,8 @@
 
 #include "vmath.h"
 #include "raytrace.h"
+#include "bsg/node.h"
+#include "bsg/payload.h"
 
 #include "./sedit.h"
 #include "./mged.h"
@@ -63,13 +65,16 @@ _rtif_eye_solid_cb(bsg_node *n, void *ud)
 {
     struct bv_scene_obj *fsp = (struct bv_scene_obj *)n;
     struct _rtif_eye_data *d = (struct _rtif_eye_data *)ud;
-    if (!fsp->s_u_data) return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)fsp->s_u_data;
+    if (!bsg_node_ged_data_get((bsg_node *)fsp)) return 1;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)fsp);
     if (LAST_SOLID(bdata) != d->dp) return 1;
-    if (BU_LIST_IS_EMPTY(&(fsp->s_vlist))) return 1;
-    struct bv_vlist *vp = BU_LIST_LAST(bv_vlist, &(fsp->s_vlist));
-    VMOVE(d->sav_start, vp->pt[vp->nused - 1]);
-    VMOVE(d->sav_center, fsp->s_center);
+    {
+	struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)fsp);
+	if (BU_LIST_IS_EMPTY(vhead)) return 1;
+	struct bv_vlist *vp = BU_LIST_LAST(bv_vlist, vhead);
+	VMOVE(d->sav_start, vp->pt[vp->nused - 1]);
+    }
+    bsg_node_center_get((const bsg_node *)fsp, d->sav_center);
     d->sp = fsp;
     Tcl_AppendResult(d->interp, "animating EYE solid\n", (char *)NULL);
     d->found = 1;
@@ -296,13 +301,54 @@ work:
 		break;
 	    case 1:
 		/* Adjust center for displaylist devices */
-		VMOVE(sp->s_center, eye_model);
+		bsg_node_center_set((bsg_node *)sp, eye_model);
 
 		/* Adjust vector list for non-dl devices */
-		if (BU_LIST_IS_EMPTY(&(sp->s_vlist))) break;
-		vp = BU_LIST_LAST(bv_vlist, &(sp->s_vlist));
-		VSUB2(xlate, eye_model, vp->pt[vp->nused-1]);
-		for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+		{
+		    struct bu_list *sp_vhead = bsg_node_vlist_head((bsg_node *)sp);
+		    if (BU_LIST_IS_EMPTY(sp_vhead)) break;
+		    vp = BU_LIST_LAST(bv_vlist, sp_vhead);
+		    VSUB2(xlate, eye_model, vp->pt[vp->nused-1]);
+		    for (BU_LIST_FOR(vp, bv_vlist, sp_vhead)) {
+			int i;
+			int nused = vp->nused;
+			int *cmd = vp->cmd;
+			point_t *pt = vp->pt;
+			for (i = 0; i < nused; i++, cmd++, pt++) {
+			    switch (*cmd) {
+				case BV_VLIST_POLY_START:
+				case BV_VLIST_POLY_VERTNORM:
+				case BV_VLIST_TRI_START:
+				case BV_VLIST_TRI_VERTNORM:
+				    break;
+				case BV_VLIST_LINE_MOVE:
+				case BV_VLIST_LINE_DRAW:
+				case BV_VLIST_POLY_MOVE:
+				case BV_VLIST_POLY_DRAW:
+				case BV_VLIST_POLY_END:
+				case BV_VLIST_TRI_MOVE:
+				case BV_VLIST_TRI_DRAW:
+				case BV_VLIST_TRI_END:
+				    VADD2(*pt, *pt, xlate);
+				    break;
+			    }
+			}
+		    }
+		}
+		break;
+	}
+	view_state->vs_flag = 1;
+	refresh(s);	/* Draw new display */
+    }
+
+    if (mode == 1) {
+	bsg_node_center_set((bsg_node *)sp, sav_center);
+	{
+	    struct bu_list *sp_vhead = bsg_node_vlist_head((bsg_node *)sp);
+	    if (BU_LIST_NON_EMPTY(sp_vhead)) {
+		vp = BU_LIST_LAST(bv_vlist, sp_vhead);
+		VSUB2(xlate, sav_start, vp->pt[vp->nused-1]);
+		for (BU_LIST_FOR(vp, bv_vlist, sp_vhead)) {
 		    int i;
 		    int nused = vp->nused;
 		    int *cmd = vp->cmd;
@@ -325,41 +371,6 @@ work:
 				VADD2(*pt, *pt, xlate);
 				break;
 			}
-		    }
-		}
-		break;
-	}
-	view_state->vs_flag = 1;
-	refresh(s);	/* Draw new display */
-    }
-
-    if (mode == 1) {
-	VMOVE(sp->s_center, sav_center);
-	if (BU_LIST_NON_EMPTY(&(sp->s_vlist))) {
-	    vp = BU_LIST_LAST(bv_vlist, &(sp->s_vlist));
-	    VSUB2(xlate, sav_start, vp->pt[vp->nused-1]);
-	    for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
-		int i;
-		int nused = vp->nused;
-		int *cmd = vp->cmd;
-		point_t *pt = vp->pt;
-		for (i = 0; i < nused; i++, cmd++, pt++) {
-		    switch (*cmd) {
-			case BV_VLIST_POLY_START:
-			case BV_VLIST_POLY_VERTNORM:
-			case BV_VLIST_TRI_START:
-			case BV_VLIST_TRI_VERTNORM:
-			    break;
-			case BV_VLIST_LINE_MOVE:
-			case BV_VLIST_LINE_DRAW:
-			case BV_VLIST_POLY_MOVE:
-			case BV_VLIST_POLY_DRAW:
-			case BV_VLIST_POLY_END:
-			case BV_VLIST_TRI_MOVE:
-			case BV_VLIST_TRI_DRAW:
-			case BV_VLIST_TRI_END:
-			    VADD2(*pt, *pt, xlate);
-			    break;
 		    }
 		}
 	    }

@@ -862,33 +862,33 @@ color_soltab(struct db_i *dbip, struct bv_scene_obj *sp)
 {
     const struct mater *mp;
 
-    sp->s_old.s_cflag = 0;
+    bsg_node_set_legacy_cflag((bsg_node *)sp, 0);
 
-    if (sp->s_old.s_uflag) {
-        sp->s_color[0] = sp->s_old.s_basecolor[0];
-        sp->s_color[1] = sp->s_old.s_basecolor[1];
-        sp->s_color[2] = sp->s_old.s_basecolor[2];
+    if (bsg_node_legacy_uflag((const bsg_node *)sp)) {
+	unsigned char _r = 0, _g = 0, _b = 0;
+	bsg_node_legacy_basecolor_get((const bsg_node *)sp, &_r, &_g, &_b);
+	bsg_node_set_color((bsg_node *)sp, _r, _g, _b);
         return;
     }
 
     if (dbip) {
         for (mp = db_mater_head(dbip); mp != MATER_NULL; mp = mp->mt_forw) {
-            if (sp->s_old.s_regionid <= mp->mt_high &&
-                sp->s_old.s_regionid >= mp->mt_low) {
-                sp->s_color[0] = mp->mt_r;
-                sp->s_color[1] = mp->mt_g;
-                sp->s_color[2] = mp->mt_b;
+	    int _rid = bsg_node_legacy_regionid((const bsg_node *)sp);
+            if (_rid <= mp->mt_high && _rid >= mp->mt_low) {
+		bsg_node_set_color((bsg_node *)sp, mp->mt_r, mp->mt_g, mp->mt_b);
                 return;
             }
         }
     }
 
-    if (sp->s_old.s_dflag)
-        sp->s_old.s_cflag = 1;
+    if (bsg_node_legacy_dflag((const bsg_node *)sp))
+	bsg_node_set_legacy_cflag((bsg_node *)sp, 1);
 
-    sp->s_color[0] = sp->s_old.s_basecolor[0];
-    sp->s_color[1] = sp->s_old.s_basecolor[1];
-    sp->s_color[2] = sp->s_old.s_basecolor[2];
+    {
+	unsigned char _r = 0, _g = 0, _b = 0;
+	bsg_node_legacy_basecolor_get((const bsg_node *)sp, &_r, &_g, &_b);
+	bsg_node_set_color((bsg_node *)sp, _r, _g, _b);
+    }
 }
 
 
@@ -1009,17 +1009,18 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     bsg_node_set_legacy_illum((bsg_node *)sp, 0);
     bsg_node_set_line_style((bsg_node *)sp, BSG_APPEARANCE_LINE_SOLID);
     bsg_node_set_legacy_eflag((bsg_node *)sp, 1);
-    sp->s_old.s_basecolor[0] = (rgb >> 16) & 0xFF;
-    sp->s_old.s_basecolor[1] = (rgb >>  8) & 0xFF;
-    sp->s_old.s_basecolor[2] = (rgb      ) & 0xFF;
-    sp->s_color[0]           = sp->s_old.s_basecolor[0];
-    sp->s_color[1]           = sp->s_old.s_basecolor[1];
-    sp->s_color[2]           = sp->s_old.s_basecolor[2];
-    sp->s_old.s_regionid     = 0;
-    sp->s_old.s_uflag        = 0;
-    sp->s_old.s_dflag        = 0;
-    sp->s_old.s_cflag        = 0;
-    sp->s_old.s_wflag        = 0;
+    {
+	unsigned char _r = (rgb >> 16) & 0xFF;
+	unsigned char _g = (rgb >>  8) & 0xFF;
+	unsigned char _b = (rgb      ) & 0xFF;
+	bsg_node_legacy_basecolor_set((bsg_node *)sp, _r, _g, _b);
+	bsg_node_set_color((bsg_node *)sp, _r, _g, _b);
+    }
+    bsg_node_set_legacy_regionid((bsg_node *)sp, 0);
+    bsg_node_set_legacy_uflag((bsg_node *)sp, 0);
+    bsg_node_set_legacy_dflag((bsg_node *)sp, 0);
+    bsg_node_set_legacy_cflag((bsg_node *)sp, 0);
+    bsg_node_set_legacy_wflag((bsg_node *)sp, 0);
     struct bsg_material m;
     bsg_material_from_legacy_obj((const bsg_node *)sp, &m);
     m.transparency = transparency;

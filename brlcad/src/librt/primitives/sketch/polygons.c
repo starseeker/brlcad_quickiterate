@@ -36,6 +36,7 @@
 #include "bu/str.h"
 #include "bu/vls.h"
 #include "bv.h"
+#include "bsg/node.h"
 #include "bg/polygon.h"
 #include "rt/defines.h"
 #include "rt/directory.h"
@@ -225,7 +226,9 @@ end:
 	if (val) {
 	    struct bu_color bc;
 	    if (bu_opt_color(NULL, 1, (const char **)&val, (void *)&bc) == 1) {
-		bu_color_to_rgb_chars(&bc, s->s_color);
+		unsigned char _rgb[3];
+		bu_color_to_rgb_chars(&bc, _rgb);
+		bsg_node_set_color((bsg_node *)s, _rgb[0], _rgb[1], _rgb[2]);
 	    }
 	}
 	val = bu_avs_get(&lavs, "POLYGON_FILL_COLOR");
@@ -342,7 +345,7 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bv_scene_obj
 	return NULL;
     }
 
-    if (!s->s_v)
+    if (!bsg_node_view_get((const bsg_node *)s))
 	return NULL;
 
     size_t num_verts = 0;
@@ -350,7 +353,7 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bv_scene_obj
     struct rt_sketch_internal *sketch_ip;
     struct line_seg *lsg;
 
-    struct bv_polygon *p = (struct bv_polygon *)s->s_i_data;
+    struct bv_polygon *p = (struct bv_polygon *)bsg_node_user_data_get((const bsg_node *)s);
     for (size_t j = 0; j < p->polygon.num_contours; ++j)
 	num_verts += p->polygon.contour[j].num_points;
 
@@ -425,7 +428,11 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bv_scene_obj
     bu_avs_init_empty(&lavs);
     if (!db5_get_attributes(dbip, &lavs, dp)) {
 	struct bu_vls val = BU_VLS_INIT_ZERO;
-	bu_vls_sprintf(&val, "%d/%d/%d", s->s_color[0], s->s_color[1], s->s_color[2]);
+	{
+	    unsigned char cr, cg, cb;
+	    bsg_node_get_color((const bsg_node *)s, &cr, &cg, &cb);
+	    bu_vls_sprintf(&val, "%d/%d/%d", cr, cg, cb);
+	}
 	bu_avs_add(&lavs, "POLYGON_EDGE_COLOR", bu_vls_cstr(&val));
 	unsigned char rgb[3];
 	bu_color_to_rgb_chars(&p->fill_color, rgb);
@@ -458,14 +465,15 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bv_scene_obj
 	}
 	bu_avs_add(&lavs, "POLYGON_TYPE", bu_vls_cstr(&val));
 	// Save view
-	bu_vls_sprintf(&val, "%.15e", s->s_v->gv_scale);
+	struct bview *_sv = bsg_node_view_get((const bsg_node *)s);
+	bu_vls_sprintf(&val, "%.15e", _sv->gv_scale);
 	bu_avs_add(&lavs, "VIEWSCALE", bu_vls_cstr(&val));
 	quat_t rquat;
-	quat_mat2quat(rquat, s->s_v->gv_rotation);
+	quat_mat2quat(rquat, _sv->gv_rotation);
 	bu_vls_sprintf(&val, "%.15e %.15e %.15e %.15e", V4ARGS(rquat));
 	bu_avs_add(&lavs, "ROTATION", bu_vls_cstr(&val));
 	quat_t cquat;
-	quat_mat2quat(cquat, s->s_v->gv_center);
+	quat_mat2quat(cquat, _sv->gv_center);
 	bu_vls_sprintf(&val, "%.15e %.15e %.15e %.15e", V4ARGS(cquat));
 	bu_avs_add(&lavs, "CENTER", bu_vls_cstr(&val));
     }

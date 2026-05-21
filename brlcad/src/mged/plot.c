@@ -36,6 +36,9 @@
 #include "bu/units.h"
 #include "vmath.h"
 #include "raytrace.h"
+#include "bsg/appearance.h"
+#include "bsg/node.h"
+#include "bsg/payload.h"
 #include "bv/plot3.h"
 
 #include "./mged.h"
@@ -55,7 +58,7 @@ _area_check_solid_cb(bsg_node *n, void *ud)
 {
     struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
     int *error = (int *)ud;
-    if (!sp->s_old.s_Eflag && sp->s_soldash != 0) {
+    if (!bsg_node_legacy_eflag((const bsg_node *)sp) && bsg_node_line_style((const bsg_node *)sp) != BSG_APPEARANCE_LINE_SOLID) {
 	*error = 1;
 	return 0; /* early stop */
     }
@@ -77,7 +80,7 @@ _area_write_solid_cb(bsg_node *n, void *ud)
     struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
     struct _area_write_data *d = (struct _area_write_data *)ud;
     struct bv_vlist *vp;
-    for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+    for (BU_LIST_FOR(vp, bv_vlist, bsg_node_vlist_head((bsg_node *)sp))) {
 	int i;
 	int nused = vp->nused;
 	int *cmd = vp->cmd;

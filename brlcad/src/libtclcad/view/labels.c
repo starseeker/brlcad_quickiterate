@@ -26,6 +26,7 @@
 
 #include "common.h"
 #include "bu/units.h"
+#include "bsg/node.h"
 #include "bv/util.h"
 #include "bv/vlist.h"
 #include "ged.h"
@@ -180,8 +181,10 @@ to_data_labels_func(Tcl_Interp *interp,
 	    if (_parent && BU_PTBL_LEN(&_parent->bsg.bsg_children) > 0) {
 		struct bv_scene_obj *_c =
 		    (struct bv_scene_obj *)BU_PTBL_GET(&_parent->bsg.bsg_children, 0);
+		unsigned char cr, cg, cb;
+		bsg_node_get_color((const bsg_node *)_c, &cr, &cg, &cb);
 		bu_vls_printf(gedp->ged_result_str, "%d %d %d",
-			      (int)_c->s_color[0], (int)_c->s_color[1], (int)_c->s_color[2]);
+			      (int)cr, (int)cg, (int)cb);
 	    } else {
 		bu_vls_printf(gedp->ged_result_str, "0 0 0");
 	    }
@@ -225,9 +228,9 @@ to_data_labels_func(Tcl_Interp *interp,
 		for (size_t _k = 0; _k < BU_PTBL_LEN(&_parent->bsg.bsg_children); _k++) {
 		    struct bv_scene_obj *_c =
 			(struct bv_scene_obj *)BU_PTBL_GET(&_parent->bsg.bsg_children, _k);
-		    if (!_c->s_i_data)
+		    if (!bsg_node_user_data_get((const bsg_node *)_c))
 			continue;
-		    struct bv_label *_l = (struct bv_label *)_c->s_i_data;
+		    struct bv_label *_l = (struct bv_label *)bsg_node_user_data_get((const bsg_node *)_c);
 		    bu_vls_printf(gedp->ged_result_str, "{{%s}", bu_vls_cstr(&_l->label));
 		    bu_vls_printf(gedp->ged_result_str, " {%lf %lf %lf}} ", V3ARGS(_l->p));
 		}

@@ -87,9 +87,9 @@ go_draw_solid(struct bview *gdvp, struct bv_scene_obj *sp)
     mat_t save_mat, edit_model2view;
     struct path_match_data data;
 
-    if (!sp->s_u_data)
+    if (!bsg_node_ged_data_get((const bsg_node *)sp))
 	return;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((const bsg_node *)sp);
 
     data.s_fpath = &bdata->s_fullpath;
     data.dbip = gedp->dbip;
@@ -251,10 +251,10 @@ to_edit_redraw(struct ged *gedp,
 	for (oi = 0; oi < BU_PTBL_LEN(db_objs); oi++) {
 	    struct bv_scene_obj *sp =
 		(struct bv_scene_obj *)BU_PTBL_GET(db_objs, oi);
-	    if (!sp || !sp->s_u_data)
+	    if (!sp || !bsg_node_ged_data_get((const bsg_node *)sp))
 		continue;
 
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((const bsg_node *)sp);
 	    size_t pi;
 	    for (pi = 0; pi < subpath.fp_len; pi++) {
 		if (!db_full_path_search(&bdata->s_fullpath,

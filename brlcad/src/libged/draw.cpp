@@ -43,6 +43,7 @@
 #include "bg/sat.h"
 #include "bv/lod.h"
 #include "bsg/appearance.h"
+#include "bsg/field.h"
 #include "bsg/material.h"
 #include "bsg/node.h"
 #include "bsg/payload.h"
@@ -219,8 +220,12 @@ csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int flag)
     // full detail.  If we have a perspective matrix active don't make this
     // check, since far away objects outside the view obb will be visible.
     //bu_log("min: %f %f %f max: %f %f %f\n", V3ARGS(vo->bmin), V3ARGS(vo->bmax));
-    if (!(v->gv_perspective > SMALL_FASTF) && !bg_sat_aabb_obb(vo->bmin, vo->bmax, v->obb_center, v->obb_extent1, v->obb_extent2, v->obb_extent3))
-	return 0;
+    {
+	point_t _bmin, _bmax;
+	bsg_node_bounds_get((const bsg_node *)vo, _bmin, _bmax);
+	if (!(v->gv_perspective > SMALL_FASTF) && !bg_sat_aabb_obb(_bmin, _bmax, v->obb_center, v->obb_extent1, v->obb_extent2, v->obb_extent3))
+	    return 0;
+    }
 
     bool rework = (flag) ? true : false;
 
@@ -436,9 +441,12 @@ bot_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 	// box for the instance.
 	mat_t s_mat;
 	bsg_node_transform_get((const bsg_node *)s, s_mat);
-	MAT4X3PNT(s->bmin, s_mat, lod->bmin);
-	MAT4X3PNT(s->bmax, s_mat, lod->bmax);
-
+	{
+	    point_t _bmin, _bmax;
+	    MAT4X3PNT(_bmin, s_mat, lod->bmin);
+	    MAT4X3PNT(_bmax, s_mat, lod->bmax);
+	    bsg_node_bounds_set((bsg_node *)s, _bmin, _bmax);
+	}
 	// Record the necessary information for full detail information recovery.  We
 	// don't duplicate the full mesh detail in the on-disk LoD storage, since we
 	// already have that info in the .g itself, but we need to know how to get at
@@ -573,9 +581,12 @@ brep_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 	// box for the instance.
 	mat_t s_mat;
 	bsg_node_transform_get((const bsg_node *)s, s_mat);
-	MAT4X3PNT(s->bmin, s_mat, lod->bmin);
-	MAT4X3PNT(s->bmax, s_mat, lod->bmax);
-
+	{
+	    point_t _bmin, _bmax;
+	    MAT4X3PNT(_bmin, s_mat, lod->bmin);
+	    MAT4X3PNT(_bmax, s_mat, lod->bmax);
+	    bsg_node_bounds_set((bsg_node *)s, _bmin, _bmax);
+	}
 	// Record the necessary information for full detail information recovery.  We
 	// don't duplicate the full mesh detail in the on-disk LoD storage, since we
 	// already have that info in the .g itself, but we need to know how to get at
@@ -1091,8 +1102,7 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 	    bu_color_to_rgb_chars(&dd->c, rgb);
 	    _m.rgba[0] = rgb[0]; _m.rgba[1] = rgb[1]; _m.rgba[2] = rgb[2];
 	    bsg_node_material_set((bsg_node *)s, &_m);
-	    /* keep legacy s_color in sync for code that still reads it directly */
-	    s->s_color[0] = rgb[0]; s->s_color[1] = rgb[1]; s->s_color[2] = rgb[2];
+	    bsg_node_set_color((bsg_node *)s, rgb[0], rgb[1], rgb[2]);
 	}
 
 	// TODO - check path against the GED default selected set - if we're

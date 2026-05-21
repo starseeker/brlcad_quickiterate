@@ -30,6 +30,7 @@
 #include <bv.h>
 #include <ged.h>
 #include <ged/bsg_ged_draw.h>
+#include "bsg/node.h"
 
 struct gqa_match {
     const char *target;
@@ -85,7 +86,7 @@ main(int ac, char *av[]) {
 	if (!fp)
 	    bu_exit(EXIT_FAILURE, "Could not open %s for writing\n", gqa_plot_fname);
 	printf("Writing plot data to %s for inspection with overlay command\n", gqa_plot_fname);
-	bv_vlist_to_uplot(fp, &vdata->s_vlist);
+	bv_vlist_to_uplot(fp, bsg_node_vlist_head((bsg_node *)vdata));
 	fclose(fp);
     } else {
 	bu_exit(EXIT_FAILURE, "No GQA plotting data found.\n");

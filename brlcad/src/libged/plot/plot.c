@@ -34,6 +34,8 @@
 #include "bv/plot3.h"
 #include "bg/clip.h"
 
+#include "bsg/appearance.h"
+#include "bsg/node.h"
 #include "bsg/payload.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
@@ -66,16 +68,18 @@ plot_floating_cb(struct bv_scene_obj *sp, void *userdata)
     struct plot_data *pd = (struct plot_data *)userdata;
     struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)sp);
 
-    pl_color(pd->fp,
-	     sp->s_color[0],
-	     sp->s_color[1],
-	     sp->s_color[2]);
-    if (pd->Dashing != sp->s_soldash) {
-	if (sp->s_soldash)
-	    pl_linmod(pd->fp, "dotdashed");
-	else
-	    pl_linmod(pd->fp, "solid");
-	pd->Dashing = sp->s_soldash;
+    unsigned char pr, pg, pb;
+    bsg_node_get_color((const bsg_node *)sp, &pr, &pg, &pb);
+    pl_color(pd->fp, pr, pg, pb);
+    {
+	int is_dashed = (bsg_node_line_style((const bsg_node *)sp) != BSG_APPEARANCE_LINE_SOLID);
+	if (pd->Dashing != is_dashed) {
+	    if (is_dashed)
+		pl_linmod(pd->fp, "dotdashed");
+	    else
+		pl_linmod(pd->fp, "solid");
+	    pd->Dashing = is_dashed;
+	}
     }
     bv_vlist_to_uplot(pd->fp, vhead);
     return 1; /* continue */
@@ -92,12 +96,15 @@ plot_integer_cb(struct bv_scene_obj *sp, void *userdata)
     vect_t fin;
     vect_t start;
 
-    if (pd->Dashing != sp->s_soldash) {
-	if (sp->s_soldash)
-	    pl_linmod(pd->fp, "dotdashed");
-	else
-	    pl_linmod(pd->fp, "solid");
-	pd->Dashing = sp->s_soldash;
+    {
+	int is_dashed = (bsg_node_line_style((const bsg_node *)sp) != BSG_APPEARANCE_LINE_SOLID);
+	if (pd->Dashing != is_dashed) {
+	    if (is_dashed)
+		pl_linmod(pd->fp, "dotdashed");
+	    else
+		pl_linmod(pd->fp, "solid");
+	    pd->Dashing = is_dashed;
+	}
     }
     for (BU_LIST_FOR(vp, bv_vlist, vhead)) {
 	size_t i;
@@ -133,10 +140,11 @@ plot_integer_cb(struct bv_scene_obj *sp, void *userdata)
 
 	    if (pd->Three_D) {
 		/* Could check for differences from last color */
-		pl_color(pd->fp,
-			 sp->s_color[0],
-			 sp->s_color[1],
-			 sp->s_color[2]);
+		{
+		    unsigned char pr, pg, pb;
+		    bsg_node_get_color((const bsg_node *)sp, &pr, &pg, &pb);
+		    pl_color(pd->fp, pr, pg, pb);
+		}
 		pl_3line(pd->fp,
 			 (int)(start[X] * BV_MAX),
 			 (int)(start[Y] * BV_MAX),

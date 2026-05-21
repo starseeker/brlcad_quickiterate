@@ -56,6 +56,7 @@
 #include "bv.h"
 
 #include "ged.h"
+#include "bsg/node.h"
 #include "ged/bsg_ged_draw.h"
 #include "./ged_private.h"
 #include "./dbi.h"
@@ -266,23 +267,29 @@ _scene_bsph_cb(struct bv_scene_obj *s, void *data)
 	for (size_t j = 0; j < BU_PTBL_LEN(&s->bsg.bsg_children); j++) {
 	    struct bv_scene_obj *sp =
 		(struct bv_scene_obj *)BU_PTBL_GET(&s->bsg.bsg_children, j);
-	    minus[X] = sp->s_center[X] - sp->s_size;
-	    minus[Y] = sp->s_center[Y] - sp->s_size;
-	    minus[Z] = sp->s_center[Z] - sp->s_size;
+	    vect_t _ctr = VINIT_ZERO;
+	    bsg_node_center_get((const bsg_node *)sp, _ctr);
+	    fastf_t _sz = bsg_node_size_get((const bsg_node *)sp);
+	    minus[X] = _ctr[X] - _sz;
+	    minus[Y] = _ctr[Y] - _sz;
+	    minus[Z] = _ctr[Z] - _sz;
 	    VMIN(*ctx->vmin, minus);
-	    plus[X] = sp->s_center[X] + sp->s_size;
-	    plus[Y] = sp->s_center[Y] + sp->s_size;
-	    plus[Z] = sp->s_center[Z] + sp->s_size;
+	    plus[X] = _ctr[X] + _sz;
+	    plus[Y] = _ctr[Y] + _sz;
+	    plus[Z] = _ctr[Z] + _sz;
 	    VMAX(*ctx->vmax, plus);
 	}
     } else {
-	minus[X] = s->s_center[X] - s->s_size;
-	minus[Y] = s->s_center[Y] - s->s_size;
-	minus[Z] = s->s_center[Z] - s->s_size;
+	vect_t _ctr = VINIT_ZERO;
+	bsg_node_center_get((const bsg_node *)s, _ctr);
+	fastf_t _sz = bsg_node_size_get((const bsg_node *)s);
+	minus[X] = _ctr[X] - _sz;
+	minus[Y] = _ctr[Y] - _sz;
+	minus[Z] = _ctr[Z] - _sz;
 	VMIN(*ctx->vmin, minus);
-	plus[X] = s->s_center[X] + s->s_size;
-	plus[Y] = s->s_center[Y] + s->s_size;
-	plus[Z] = s->s_center[Z] + s->s_size;
+	plus[X] = _ctr[X] + _sz;
+	plus[Y] = _ctr[Y] + _sz;
+	plus[Z] = _ctr[Z] + _sz;
 	VMAX(*ctx->vmax, plus);
     }
     return 1;
@@ -1989,9 +1996,9 @@ bitwise_and_fullpath_cb(struct bv_scene_obj *sp, void *userdata)
 {
     struct bitwise_and_data *data = (struct bitwise_and_data *)userdata;
 
-    if (!sp->s_u_data)
+    if (!bsg_node_ged_data_get((const bsg_node *)sp))
 	return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((const bsg_node *)sp);
 
     for (size_t i = 0; i < bdata->s_fullpath.fp_len; i++) {
 	DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_flags &= data->flag_val;
@@ -2019,9 +2026,9 @@ write_animate_cb(struct bv_scene_obj *sp, void *userdata)
 {
     struct write_animate_data *data = (struct write_animate_data *)userdata;
 
-    if (!sp->s_u_data)
+    if (!bsg_node_ged_data_get((const bsg_node *)sp))
 	return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((const bsg_node *)sp);
 
     for (size_t i = 0; i < bdata->s_fullpath.fp_len; i++) {
 	if (!(DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_flags & RT_DIR_USED)) {

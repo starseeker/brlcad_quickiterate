@@ -248,12 +248,7 @@ to_data_arrows_func(Tcl_Interp *interp,
 	    /* Phase 11D (T3): read points from BSG payload or vlist. */
 	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
 	    if (_s) {
-		struct bu_list *_vhead = &_s->s_vlist;
-		struct bsg_payload *_pl = bsg_node_payload_get((const bsg_node *)_s);
-		if (_pl && bsg_payload_type(_pl) == BSG_PAYLOAD_TYPE_VLIST) {
-		    struct bu_list *_ph = bsg_payload_vlist_head(_pl);
-		    if (_ph) _vhead = _ph;
-		}
+		struct bu_list *_vhead = bsg_node_vlist_head((bsg_node *)_s);
 		struct bv_vlist *_vp;
 		size_t _j;
 		for (BU_LIST_FOR(_vp, bv_vlist, _vhead)) {

@@ -59,7 +59,9 @@ closest_obj_bbox(struct bu_ptbl *sset, struct bview *v)
     bg_ray_invdir(&dir, dir);
     for (size_t i = 0; i < BU_PTBL_LEN(sset); i++) {
 	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(sset, i);
-	if (bg_isect_aabb_ray(rmin, rmax, mpnt, dir, s->bmin, s->bmax)){
+	point_t _bmin, _bmax;
+	bsg_node_bounds_get((const bsg_node *)s, _bmin, _bmax);
+	if (bg_isect_aabb_ray(rmin, rmax, mpnt, dir, _bmin, _bmax)){
 	    double ndist = DIST_PNT_PNT(rmin, v->gv_vc_backout);
 	    if (ndist < dist) {
 		dist = ndist;
