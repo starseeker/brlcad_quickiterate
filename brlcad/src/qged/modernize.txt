@@ -63,7 +63,7 @@ add metadata APIs without changing existing bu_opt_parse behavior:
   * option short and long spellings;
   * whether an option is flag-only, requires an argument, accepts an optional
     argument, or may repeat;
-  * argument help text and a machine-readable argument kind;
+  * option argument help text and a machine-readable option argument type;
   * help text;
   * alias relationships;
   * command and subcommand names;
@@ -156,10 +156,10 @@ Phase 4: replace flat console output with command output records
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Separate input editing from command output history.  The current QgConsole is a
-single QPlainTextEdit with a prompt region and an output block limit, and async
-process output is inserted before the prompt by printStringBeforePrompt.  The
-new design should keep the prompt responsive while preserving per-command
-output:
+single QPlainTextEdit with a prompt region and a maximum visible text block
+count used to preserve interactivity, and async process output is inserted
+before the prompt by printStringBeforePrompt.  The new design should keep the
+prompt responsive while preserving per-command output:
 
 * Introduce a QgConsoleHistory model containing command records:
 
@@ -174,8 +174,9 @@ output:
 * Introduce a history view widget using per-command child widgets, with each
   record collapsible, closeable, searchable, and saveable to a text file.
 * Keep output storage independent of what is currently visible.  The visible UI
-  may virtualize or summarize large records, but the model should retain the
-  full captured text until an explicit memory/history policy removes it.
+  may virtualize or summarize records that exceed configurable line-count or
+  byte-count thresholds, but the model should retain the full captured text
+  until an explicit memory/history policy removes it.
 * Route QgConsole::printString, printStringBeforePrompt, and QgConsoleListener
   output into the active command record rather than directly editing a flat
   document.  For commands that spawn long-running subprocesses, keep the record
