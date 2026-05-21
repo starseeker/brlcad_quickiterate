@@ -59,6 +59,7 @@ set(
   QgQuadView.cpp
   QgSW.cpp
   QgSelectFilter.cpp
+  QgSession.cpp
   QgSketchFilter.cpp
   QgToolBase.cpp
   QgToolPalette.cpp
@@ -100,6 +101,7 @@ set(
   QgQuadView
   QgSW
   QgSelectFilter
+  QgSession
   QgSketchFilter
   QgToolBase
   QgToolPalette

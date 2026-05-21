@@ -71,6 +71,27 @@ Current tree notes:
 
 Phase 6 — Model/data abstraction
 
+Current tree notes:
+- QgSession class introduced (include/qtcad/QgSession.h + src/libqtcad/QgSession.cpp): thin
+  QObject that owns struct ged * / struct bview * (moved out of QgModel), emits
+  db_changed(struct db_i *) and view_changed(QgViewUpdateFlags) signals for signal-driven
+  invalidation, and provides an icon(struct directory *) accessor backed by a per-type
+  QImage cache so icon pixel data is not reloaded for every tree node.
+- QgModel refactored to create and own a QgSession; its ged() accessor now delegates to
+  m_session->ged() and a new session() accessor exposes the session to external callers.
+  QgModel::g_update notifies the session via notifyDbChanged() so QgAttributesModel and
+  other subscribers receive db_changed without routing through QgEdApp::dbi_update.
+- QgAttributesModel gains a QgSession* constructor that subscribes directly to
+  session->db_changed in its initializer; the legacy struct db_i* constructor is retained
+  for backward compatibility.
+- QgEdMainWindow::CreateWidgets now constructs the two attribute models with the model's
+  session pointer; ConnectWidgets removes the explicit ap->dbi_update → do_dbi_update wires
+  for those models since the session subscription now handles them.
+- QgItem icon field still holds a QImage (Qt's implicit sharing makes it copy-on-write), but
+  the pixel data is now sourced from QgSession::icon() on first use per type and thereafter
+  returned from the internal QHash cache, eliminating repeated resource file reads.
+- Phase 6 is complete.
+
 - Introduce a thin QgSession (or QgDbiSource) class that owns the struct ged * / struct db_i * references currently scattered across QgModel, QgAttributesModel, QgTreeView, QgViewCtrl, QgGeomImport. Models receive a QgSession* and stop talking to ged_exec directly.
 - Use the new session to implement signal-driven invalidation (one QgSession::changed(...) signal that fans out to models that subscribe) instead of the current "every widget knows everyone" pattern.
 - Move QgCombType/QgIcon (free QgUtil functions) and the icon cache implied by QgItem::icon to a shared icon provider on the session, so icons aren't duplicated in every tree node.

@@ -32,6 +32,7 @@
 struct db_i;
 struct directory;
 struct bu_attribute_value_set;
+class QgSession;
 
 class QTCAD_EXPORT QgAttributesModel : public QgKeyValModel {
 	Q_OBJECT
@@ -40,6 +41,9 @@ class QTCAD_EXPORT QgAttributesModel : public QgKeyValModel {
 
 public:  // "standard" custom tree model functions
 	explicit QgAttributesModel(QObject *parent = nullptr, struct db_i *dbip = nullptr, struct directory *dp = nullptr, int show_std = 0, int show_user = 0);
+	/* Preferred constructor: subscribe directly to the session's db_changed
+	 * signal instead of relying on an application-level relay. */
+	explicit QgAttributesModel(QObject *parent, QgSession *session, struct directory *dp = nullptr, int show_std = 0, int show_user = 0);
 	~QgAttributesModel();
 
 	bool hasChildren(const QModelIndex &parent) const override;

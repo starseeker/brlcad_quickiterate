@@ -68,6 +68,7 @@
 
 
 #include "qtcad/QgModel.h"
+#include "qtcad/QgSession.h"
 #include "qtcad/QgUtil.h"
 #include "qtcad/QgSignalFlags.h"
 #include "../librt/librt_private.h"
@@ -145,7 +146,9 @@ QgItem::QgItem(unsigned long long hash, QgModel *ictx)
 	// Local item information
 	ctx->print_hash(name_ptr, ihash);
 	dp = ctx->get_hdp(ihash);
-	icon = QgIcon(dp, ictx->ged()->dbip);
+	/* Use session icon provider so the same image data is shared across
+	 * all items of the same visual type. */
+	icon = ictx->session()->icon(dp);
 }
 
 QgItem::~QgItem()
@@ -315,27 +318,12 @@ qgmodel_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mo
 QgModel::QgModel(QObject *p, const char *npath)
 	: QAbstractItemModel(p)
 {
-	// There are commands such as open that we want to work even without
-	// a database instance opened - rather than using ged_open to create
-	// a gedp, be sure one is always available - callers should use the
-	// libged "open" command to open a .g file.
-	BU_GET(gedp, struct ged);
-	ged_init(gedp);
+	// Create the session that owns the GED context for this model.
+	// The session constructor allocates struct ged, initialises DbiState,
+	// and creates the default fallback view.
+	m_session = new QgSession(this);
+	struct ged *gedp = m_session->ged();
 
-	// Set up new cmd data (not yet done by default in ged_init
-	gedp->dbi_state = new DbiState(gedp);
-	gedp->new_cmd_forms = 1;
-	bu_setenv("DM_SWRAST", "1", 1);
-
-	// By default we will use this built-in view, to guarantee that ged_gvp is
-	// always valid.  It will usually be overridden by application provided views,
-	// but this is our hard guarantee that a QgModel will always be able to work
-	// with commands needing a view.
-	BU_GET(empty_gvp, struct bview);
-	bv_init(empty_gvp, &gedp->ged_views);
-	bv_set_add_view(&gedp->ged_views, empty_gvp);
-	gedp->ged_gvp = empty_gvp;
-	bu_vls_sprintf(&gedp->ged_gvp->gv_name, "default");
 	/* Phase D: independent state is managed via BSG scope; no direct flag. */
 
 	// Set up the root item
@@ -366,9 +354,8 @@ QgModel::~QgModel()
 {
 	delete items;
 
-	bv_free(empty_gvp);
-	BU_PUT(empty_gvp, struct bview);
-	ged_close(gedp);
+	/* m_session is parented to this QObject and will be deleted automatically;
+	 * it owns gedp and empty_gvp. */
 	delete rootItem;
 }
 
@@ -386,6 +373,7 @@ QgModel::item_rebuild(QgItem *item)
 	}
 
 	unsigned long long chash = item->ihash;
+	struct ged *gedp = m_session->ged();
 	DbiState *dbis = (DbiState *)gedp->dbi_state;
 	if (dbis->p_v.find(chash) == dbis->p_v.end()) {
 		// TODO - invalid hash
@@ -462,6 +450,8 @@ QgModel::g_update(struct db_i *n_dbip)
 		// update_nref pass is complete.
 		db_add_update_nref_clbk(n_dbip, &qgmodel_update_nref_callback, (void *)this);
 	}
+
+	struct ged *gedp = m_session->ged();
 
 	if (!n_dbip) {
 		// if we have no dbip, clear out everything
@@ -595,6 +585,9 @@ QgModel::g_update(struct db_i *n_dbip)
 	// If we did change something, we need to let the application know
 	if (changed_db_flag) {
 		emit mdl_changed_db((void *)gedp);
+		/* Fan out via session so subscribers (e.g. QgAttributesModel) that
+		 * connected directly to the session are also notified. */
+		m_session->notifyDbChanged(gedp->dbip);
 		emit layoutChanged();
 		emit check_highlights();
 	}
@@ -638,7 +631,7 @@ QgModel::canFetchMore(const QModelIndex &idx) const
 		return false;
 
 	// If there are children to be fetched, we can fetch them
-	DbiState *dbis = (DbiState *)gedp->dbi_state;
+	DbiState *dbis = (DbiState *)m_session->ged()->dbi_state;
 	if (dbis->p_v.find(item->ihash) != dbis->p_v.end()) {
 		if (dbis->p_v[item->ihash].size())
 			return true;
@@ -663,7 +656,7 @@ QgModel::fetchMore(const QModelIndex &idx)
 	if (item->children.size())
 		return;
 
-	DbiState *dbis = (DbiState *)gedp->dbi_state;
+	DbiState *dbis = (DbiState *)m_session->ged()->dbi_state;
 	unsigned long long chash = item->ihash;
 	if (dbis->p_v.find(chash) == dbis->p_v.end()) {
 		// TODO - invalid hash
@@ -767,7 +760,8 @@ QgModel::data(const QModelIndex &index, int role) const
 	if (!index.isValid())
 		return QVariant();
 	QgItem *qi= getItem(index);
-	DbiState *dbis = (DbiState *)qi->mdl->gedp->dbi_state;
+	struct ged *gedp = m_session->ged();
+	DbiState *dbis = (DbiState *)gedp->dbi_state;
 	if (role == Qt::DisplayRole)
 		return QVariant(bu_vls_cstr(qi->name_ptr));
 	if (role == BoolInternalRole)
@@ -854,6 +848,7 @@ QgModel::columnCount(const QModelIndex &p) const
 int
 QgModel::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 {
+	struct ged *gedp = m_session->ged();
 	model_dbip = gedp->dbip;
 
 	changed_dp.clear();
@@ -915,7 +910,7 @@ QgModel::draw_action()
 		return BRLCAD_ERROR;
 	std::vector<unsigned long long> path_hashes = cnode->path_items();
 	struct bu_vls path_str = BU_VLS_INIT_ZERO;
-	DbiState *dbis = (DbiState *)gedp->dbi_state;
+	DbiState *dbis = (DbiState *)m_session->ged()->dbi_state;
 	dbis->print_path(&path_str, path_hashes);
 	int ret = draw(bu_vls_cstr(&path_str));
 	bu_vls_free(&path_str);
@@ -930,7 +925,7 @@ QgModel::draw(const char *inst_path)
 	argv[0] = "draw";
 	argv[1] = inst_path;
 
-	int ret = ged_exec_draw(gedp, 2, argv);
+	int ret = ged_exec_draw(m_session->ged(), 2, argv);
 
 	emit view_changed(QG_VIEW_DRAWN);
 	return ret;
@@ -948,7 +943,7 @@ QgModel::erase_action()
 		return BRLCAD_ERROR;
 	std::vector<unsigned long long> path_hashes = cnode->path_items();
 	struct bu_vls path_str = BU_VLS_INIT_ZERO;
-	DbiState *dbis = (DbiState *)gedp->dbi_state;
+	DbiState *dbis = (DbiState *)m_session->ged()->dbi_state;
 	dbis->print_path(&path_str, path_hashes);
 	int ret = erase(bu_vls_cstr(&path_str));
 	bu_vls_free(&path_str);
@@ -963,7 +958,7 @@ QgModel::erase(const char *inst_path)
 	argv[0] = "erase";
 	argv[1] = inst_path;
 
-	int ret = ged_exec_erase(gedp, 2, argv);
+	int ret = ged_exec_erase(m_session->ged(), 2, argv);
 
 	emit view_changed(QG_VIEW_DRAWN);
 	return ret;
@@ -973,6 +968,7 @@ void
 QgModel::toggle_hierarchy()
 {
 	QTCAD_SLOT("QgModel::toggle_hierarchy", 1);
+	struct ged *gedp = m_session->ged();
 	if (!gedp || !gedp->dbip)
 		return;
 
