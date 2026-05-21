@@ -32,90 +32,84 @@
 #include "qtcad/defines.h"
 #include "qtcad/QgTypes.h"
 
+class QgCanvasBase;
 class QImage;
 class QObject;
-class QgSW;
-#ifdef BRLCAD_OPENGL
-class QgGL;
-#endif
 
 struct bview;
 struct dm;
 struct fb;
 
 class QTCAD_EXPORT QgView : public QWidget {
-	Q_OBJECT
-	Q_DISABLE_COPY_MOVE(QgView)
+Q_OBJECT
+Q_DISABLE_COPY_MOVE(QgView)
 
 
 public:
-	explicit QgView(QWidget *parent = nullptr, int type = QgView_AUTO, struct fb *fbp = nullptr);
-	~QgView();
+explicit QgView(QWidget *parent = nullptr, int type = QgView_AUTO, struct fb *fbp = nullptr);
+~QgView();
 
-	int view_type();
-	void set_current(int);
-	int current();
+int view_type();
+void set_current(int);
+int current();
 
-	void stash_hashes(); // Store current dmp and v hash values
-	bool diff_hashes();  // Set dmp dirty flag if current hashes != stashed hashes.  (Does not update   stored hash values - use stash_hashes for that operation.)
+void stash_hashes(); // Store current dmp and v hash values
+bool diff_hashes();  // Set dmp dirty flag if current hashes != stashed hashes.  (Does not update   stored hash values - use stash_hashes for that operation.)
 
-	void save_image(int quad = 0);
-	void render_to_file(const QString &filename);
-	/* Render the current view and return the raw DM pixel data.
-	 * Returns a null QImage (check with isNull()) on failure. */
-	void get_viewport_image(QImage &img);
+void save_image(int quad = 0);
+void render_to_file(const QString &filename);
+/* Render the current view and return the raw DM pixel data.
+ * Returns a null QImage (check with isNull()) on failure. */
+void get_viewport_image(QImage &img);
 
-	bool isValid();
+bool isValid();
 
-	struct bview * view();
-	struct dm * dmp();
-	struct fb * ifp();
+struct bview * view();
+struct dm * dmp();
+struct fb * ifp();
 
-	void set_view(struct bview *);
+void set_view(struct bview *);
 
-	void aet(double a, double e, double t);
+void aet(double a, double e, double t);
 
-	QObject *active_event_filter() const
-	{
-		return curr_event_filter;
-	}
-	void set_draw_custom(void (*draw_custom)(struct bview *, void *), void *draw_udata);
+QObject *active_event_filter() const
+{
+return curr_event_filter;
+}
+void set_draw_custom(void (*draw_custom)(struct bview *, void *), void *draw_udata);
 
-	// Wrappers around Qt's facility for adding eventFilter objects to
-	// widgets.  This is how custom key binding modes are enabled and
-	// disabled in QgView windows.
-	void add_event_filter(QObject *);
+// Wrappers around Qt's facility for adding eventFilter objects to
+// widgets.  This is how custom key binding modes are enabled and
+// disabled in QgView windows.
+void add_event_filter(QObject *);
 
-	// If a filter object is supplied, remove just that filter.  If nullptr is
-	// passed in, remove all filters added using add_event_filter.  Does
-	// not clear all event filters of any sort (i.e. internal filters used
-	// by Qt), just those managed using these methods.
-	void clear_event_filter(QObject *);
+// If a filter object is supplied, remove just that filter.  If nullptr is
+// passed in, remove all filters added using add_event_filter.  Does
+// not clear all event filters of any sort (i.e. internal filters used
+// by Qt), just those managed using these methods.
+void clear_event_filter(QObject *);
 
-	void enableDefaultKeyBindings();
-	void disableDefaultKeyBindings();
+void enableDefaultKeyBindings();
+void disableDefaultKeyBindings();
 
-	void enableDefaultMouseBindings();
-	void disableDefaultMouseBindings();
+void enableDefaultMouseBindings();
+void disableDefaultMouseBindings();
 
 signals:
-	void changed(QgView *);
-	void init_done();
+void changed(QgView *);
+void init_done();
 
 public slots:
-	void need_update(unsigned long long);
-	void do_view_changed();
-	void do_init_done();
-	void set_lmouse_move_default(int);
+void need_update(unsigned long long);
+void do_view_changed();
+void do_init_done();
+void set_lmouse_move_default(int);
 
 private:
-	QBoxLayout *l = nullptr;
-	QgSW *canvas_sw = nullptr;
-#ifdef BRLCAD_OPENGL
-	QgGL *canvas_gl = nullptr;
-#endif
-	QObject *curr_event_filter = nullptr;
-	std::vector<QObject *> filters;
+QBoxLayout  *l = nullptr;
+QgCanvasBase *canvas = nullptr;
+QObject     *curr_event_filter = nullptr;
+std::vector<QObject *> filters;
 };
 
 #endif /* QGVIEW_H */
