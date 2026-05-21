@@ -27,6 +27,7 @@
 
 #include <stdlib.h>
 
+#include "bsg/node.h"
 #include "bsg/payload.h"
 #include "bu/opt.h"
 #include "ged.h"
@@ -54,9 +55,9 @@ solid_report_cb(struct bv_scene_obj *sp, void *userdata)
 	size_t nvlist;
 	size_t npts;
 
-	if (!sp->s_u_data)
+	if (!bsg_node_ged_data_get((bsg_node *)sp))
 	    return 1; /* continue */
-	struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)sp);
 
 	if (data->lvl <= -2) {
 	    /* print only leaves */
@@ -76,22 +77,27 @@ solid_report_cb(struct bv_scene_obj *sp, void *userdata)
 	    return 1; /* continue */
 
 	/* convert to the local unit for printing */
-	bu_vls_printf(data->vls, "  cent=(%.3f, %.3f, %.3f) sz=%g ",
-		      sp->s_center[X]*data->dbip->dbi_base2local,
-		      sp->s_center[Y]*data->dbip->dbi_base2local,
-		      sp->s_center[Z]*data->dbip->dbi_base2local,
-		      sp->s_size*data->dbip->dbi_base2local);
-	bu_vls_printf(data->vls, "reg=%d\n", sp->s_old.s_regionid);
-	bu_vls_printf(data->vls, "  basecolor=(%d, %d, %d) color=(%d, %d, %d)%s%s%s\n",
-		      sp->s_old.s_basecolor[0],
-		      sp->s_old.s_basecolor[1],
-		      sp->s_old.s_basecolor[2],
-		      sp->s_color[0],
-		      sp->s_color[1],
-		      sp->s_color[2],
-		      sp->s_old.s_uflag?" U":"",
-		      sp->s_old.s_dflag?" D":"",
-		      sp->s_old.s_cflag?" C":"");
+	{
+	    vect_t center;
+	    bsg_node_center_get((const bsg_node *)sp, center);
+	    bu_vls_printf(data->vls, "  cent=(%.3f, %.3f, %.3f) sz=%g ",
+			  center[X]*data->dbip->dbi_base2local,
+			  center[Y]*data->dbip->dbi_base2local,
+			  center[Z]*data->dbip->dbi_base2local,
+			  bsg_node_size_get((const bsg_node *)sp)*data->dbip->dbi_base2local);
+	}
+	bu_vls_printf(data->vls, "reg=%d\n", bsg_node_legacy_regionid((const bsg_node *)sp));
+	{
+	    unsigned char br, bg, bb;
+	    unsigned char cr, cg, cb;
+	    bsg_node_legacy_basecolor_get((const bsg_node *)sp, &br, &bg, &bb);
+	    bsg_node_get_color((const bsg_node *)sp, &cr, &cg, &cb);
+	    bu_vls_printf(data->vls, "  basecolor=(%d, %d, %d) color=(%d, %d, %d)%s%s%s\n",
+			  br, bg, bb, cr, cg, cb,
+			  bsg_node_legacy_uflag((const bsg_node *)sp)?" U":"",
+			  bsg_node_legacy_dflag((const bsg_node *)sp)?" D":"",
+			  bsg_node_legacy_cflag((const bsg_node *)sp)?" C":"");
+	}
 
 	if (data->lvl <= 1)
 	    return 1; /* continue */
@@ -123,10 +129,11 @@ solid_report_cb(struct bv_scene_obj *sp, void *userdata)
 	bu_vls_printf(data->vls, "  %zu pts (via bv_ck_vlist)\n", bv_ck_vlist(vhead));
     } else {
 	/* Print vlist cmds */
-	bu_vls_printf(data->vls, "-1 %d %d %d\n",
-		      sp->s_color[0],
-		      sp->s_color[1],
-		      sp->s_color[2]);
+	{
+	    unsigned char cr, cg, cb;
+	    bsg_node_get_color((const bsg_node *)sp, &cr, &cg, &cb);
+	    bu_vls_printf(data->vls, "-1 %d %d %d\n", cr, cg, cb);
+	}
 
 	/* Print the actual vector list */
 	for (BU_LIST_FOR(vp, bv_vlist, vhead)) {

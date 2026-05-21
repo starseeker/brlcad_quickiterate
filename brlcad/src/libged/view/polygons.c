@@ -775,7 +775,9 @@ _poly_cmd_fill_color(void *bs, int argc, const char **argv)
 
     struct bv_scene_obj *fobj = bv_find_child(s, "*fill*");
     if (fobj) {
-	bu_color_to_rgb_chars(&p->fill_color, fobj->s_color);
+	unsigned char rgb[3];
+	bu_color_to_rgb_chars(&p->fill_color, rgb);
+	bsg_node_set_color((bsg_node *)fobj, rgb[0], rgb[1], rgb[2]);
     }
 
     return BRLCAD_OK;

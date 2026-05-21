@@ -3153,8 +3153,8 @@ to_data_scale(struct ged *gedp,
 	    for (size_t _k = 0; _k < BU_PTBL_LEN(&_lp->bsg.bsg_children); _k++) {
 		struct bv_scene_obj *_c =
 		    (struct bv_scene_obj *)BU_PTBL_GET(&_lp->bsg.bsg_children, _k);
-		if (!_c || !_c->s_i_data) continue;
-		struct bv_label *_l = (struct bv_label *)_c->s_i_data;
+		if (!_c || !bsg_node_user_data_get((const bsg_node *)_c)) continue;
+		struct bv_label *_l = (struct bv_label *)bsg_node_user_data_get((const bsg_node *)_c);
 		vect_t diff;
 
 		MAT4X3PNT(vpoint, gedp->ged_gvp->gv_model2view, _l->p);

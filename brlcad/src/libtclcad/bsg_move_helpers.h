@@ -70,15 +70,9 @@ _bsg_extract_pts(struct bv_scene_obj *s, point_t **pts_out)
 {
     if (!s || !pts_out) return 0;
 
-    /* Phase 11D: prefer BSG payload vlist; fall back to s_vlist for view
-     * objects that pre-date the payload API. */
-    struct bu_list *vhead = &s->s_vlist;
-    struct bsg_payload *payload = bsg_node_payload_get((const bsg_node *)s);
-    if (payload && bsg_payload_type(payload) == BSG_PAYLOAD_TYPE_VLIST) {
-	struct bu_list *ph = bsg_payload_vlist_head(payload);
-	if (ph)
-	    vhead = ph;
-    }
+    /* Prefer BSG payload vlist via the node API which already handles
+     * the payload/legacy vlist unification. */
+    struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)s);
 
     /* Count points in vlist */
     int total = 0;
@@ -162,8 +156,8 @@ _bsg_rebuild_arrows(struct bview *v,
     if (!ns) return;
 
     for (int i = 0; i + 1 < npts; i += 2) {
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, pts[i],   BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, pts[i+1], BV_VLIST_LINE_DRAW);
+	BV_ADD_VLIST(bsg_node_vlfree((bsg_node *)ns), bsg_node_vlist_head((bsg_node *)ns), pts[i],   BV_VLIST_LINE_MOVE);
+	BV_ADD_VLIST(bsg_node_vlfree((bsg_node *)ns), bsg_node_vlist_head((bsg_node *)ns), pts[i+1], BV_VLIST_LINE_DRAW);
     }
     if (color)
 	bv_view_obj_set_color(ns, color[0], color[1], color[2]);
@@ -199,8 +193,8 @@ _bsg_rebuild_lines(struct bview *v,
     if (!ns) return;
 
     for (int i = 0; i + 1 < npts; i += 2) {
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, pts[i],   BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, pts[i+1], BV_VLIST_LINE_DRAW);
+	BV_ADD_VLIST(bsg_node_vlfree((bsg_node *)ns), bsg_node_vlist_head((bsg_node *)ns), pts[i],   BV_VLIST_LINE_MOVE);
+	BV_ADD_VLIST(bsg_node_vlfree((bsg_node *)ns), bsg_node_vlist_head((bsg_node *)ns), pts[i+1], BV_VLIST_LINE_DRAW);
     }
     if (color)
 	bv_view_obj_set_color(ns, color[0], color[1], color[2]);
@@ -232,18 +226,18 @@ _bsg_rebuild_axes(struct bview *v,
 
 	VSET(ptA, centers[i][X] - halfAxesSize, centers[i][Y], centers[i][Z]);
 	VSET(ptB, centers[i][X] + halfAxesSize, centers[i][Y], centers[i][Z]);
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptA, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptB, BV_VLIST_LINE_DRAW);
+	BV_ADD_VLIST(bsg_node_vlfree((bsg_node *)ns), bsg_node_vlist_head((bsg_node *)ns), ptA, BV_VLIST_LINE_MOVE);
+	BV_ADD_VLIST(bsg_node_vlfree((bsg_node *)ns), bsg_node_vlist_head((bsg_node *)ns), ptB, BV_VLIST_LINE_DRAW);
 
 	VSET(ptA, centers[i][X], centers[i][Y] - halfAxesSize, centers[i][Z]);
 	VSET(ptB, centers[i][X], centers[i][Y] + halfAxesSize, centers[i][Z]);
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptA, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptB, BV_VLIST_LINE_DRAW);
+	BV_ADD_VLIST(bsg_node_vlfree((bsg_node *)ns), bsg_node_vlist_head((bsg_node *)ns), ptA, BV_VLIST_LINE_MOVE);
+	BV_ADD_VLIST(bsg_node_vlfree((bsg_node *)ns), bsg_node_vlist_head((bsg_node *)ns), ptB, BV_VLIST_LINE_DRAW);
 
 	VSET(ptA, centers[i][X], centers[i][Y], centers[i][Z] - halfAxesSize);
 	VSET(ptB, centers[i][X], centers[i][Y], centers[i][Z] + halfAxesSize);
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptA, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptB, BV_VLIST_LINE_DRAW);
+	BV_ADD_VLIST(bsg_node_vlfree((bsg_node *)ns), bsg_node_vlist_head((bsg_node *)ns), ptA, BV_VLIST_LINE_MOVE);
+	BV_ADD_VLIST(bsg_node_vlfree((bsg_node *)ns), bsg_node_vlist_head((bsg_node *)ns), ptB, BV_VLIST_LINE_DRAW);
     }
 
     if (color)

@@ -28,6 +28,9 @@
 #include "rt/geom.h"		/* for ID_POLY special support */
 #include "raytrace.h"
 #include "rt/db4.h"
+#include "bsg/appearance.h"
+#include "bsg/node.h"
+#include "bsg/payload.h"
 
 #include "./mged.h"
 #include "./mged_dm.h"
@@ -39,16 +42,16 @@
               struct ged_bv_data *bdata; \
               BU_GET(bdata, struct ged_bv_data); \
               db_full_path_init(&bdata->s_fullpath); \
-              (p)->s_u_data = (void *)bdata; \
+              bsg_node_ged_data_set((bsg_node *)(p), (void *)bdata); \
           } else { \
               p = BU_LIST_NEXT(bv_scene_obj, fp); \
               BU_LIST_DEQUEUE(&((p)->bsg.l)); \
-              if ((p)->s_u_data) { \
-                  struct ged_bv_data *bdata = (struct ged_bv_data *)(p)->s_u_data; \
+              if (bsg_node_ged_data_get((bsg_node *)(p))) { \
+                  struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)(p)); \
                   bdata->s_fullpath.fp_len = 0; \
               } \
           } \
-          BU_LIST_INIT( &((p)->s_vlist) ); }
+          BU_LIST_INIT(bsg_node_vlist_head((bsg_node *)(p))); }
 
 
 /*
@@ -65,7 +68,7 @@ mged_bound_solid(struct mged_state *s, struct bv_scene_obj *sp)
     VSET(bmin, INFINITY, INFINITY, INFINITY);
     VSET(bmax, -INFINITY, -INFINITY, -INFINITY);
 
-    cmd = bv_vlist_bbox(&sp->s_vlist, &bmin, &bmax, &length, &dispmode);
+    cmd = bv_vlist_bbox(bsg_node_vlist_head((bsg_node *)sp), &bmin, &bmax, &length, &dispmode);
     if (cmd) {
 	struct bu_vls tmp_vls = BU_VLS_INIT_ZERO;
 	bu_vls_printf(&tmp_vls, "unknown vlist op %d\n", cmd);
@@ -73,15 +76,19 @@ mged_bound_solid(struct mged_state *s, struct bv_scene_obj *sp)
 	bu_vls_free(&tmp_vls);
     }
 
-    sp->s_vlen = (int)length;
-    sp->s_center[X] = (bmin[X] + bmax[X]) * 0.5;
-    sp->s_center[Y] = (bmin[Y] + bmax[Y]) * 0.5;
-    sp->s_center[Z] = (bmin[Z] + bmax[Z]) * 0.5;
-
-    sp->s_size = bmax[X] - bmin[X];
-    V_MAX(sp->s_size, bmax[Y] - bmin[Y]);
-    V_MAX(sp->s_size, bmax[Z] - bmin[Z]);
-    sp->s_displayobj = dispmode;
+    bsg_node_vlist_count_set((bsg_node *)sp, (size_t)length);
+    {
+	vect_t center;
+	VADD2SCALE(center, bmin, bmax, 0.5);
+	bsg_node_center_set((bsg_node *)sp, center);
+    }
+    {
+	fastf_t sz = bmax[X] - bmin[X];
+	V_MAX(sz, bmax[Y] - bmin[Y]);
+	V_MAX(sz, bmax[Z] - bmin[Z]);
+	bsg_node_size_set((bsg_node *)sp, sz);
+    }
+    bsg_node_set_display_obj((bsg_node *)sp, dispmode);
 }
 
 
@@ -111,7 +118,7 @@ drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const str
     /*
      * Compute the min, max, and center points.
      */
-    BU_LIST_APPEND_LIST(&(sp->s_vlist), vhead);
+    BU_LIST_APPEND_LIST(bsg_node_vlist_head((bsg_node *)sp), vhead);
     mged_bound_solid(s, sp);
 
     /*
@@ -120,28 +127,30 @@ drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const str
      */
     if (!existing_sp) {
 	/* Take note of the base color */
-	sp->s_old.s_uflag = 0;
+	bsg_node_set_legacy_uflag((bsg_node *)sp, 0);
 	if (tsp) {
 	    if (tsp->ts_mater.ma_color_valid) {
-		sp->s_old.s_dflag = 0;	/* color specified in db */
+		bsg_node_set_legacy_dflag((bsg_node *)sp, 0); /* color specified in db */
 	    } else {
-		sp->s_old.s_dflag = 1;	/* default color */
+		bsg_node_set_legacy_dflag((bsg_node *)sp, 1); /* default color */
 	    }
 	    /* Copy into basecolor anyway, to prevent black */
-	    sp->s_old.s_basecolor[0] = tsp->ts_mater.ma_color[0] * 255.0;
-	    sp->s_old.s_basecolor[1] = tsp->ts_mater.ma_color[1] * 255.0;
-	    sp->s_old.s_basecolor[2] = tsp->ts_mater.ma_color[2] * 255.0;
+	    bsg_node_legacy_basecolor_set((bsg_node *)sp,
+		(unsigned char)(tsp->ts_mater.ma_color[0] * 255.0),
+		(unsigned char)(tsp->ts_mater.ma_color[1] * 255.0),
+		(unsigned char)(tsp->ts_mater.ma_color[2] * 255.0));
 	}
-	sp->s_old.s_cflag = 0;
+	bsg_node_set_legacy_cflag((bsg_node *)sp, 0);
 	sp->bsg.bsg_iflag = DOWN;
-	sp->s_soldash = dashflag;
-	sp->s_old.s_Eflag = 0;	/* This is a solid */
-	if (sp->s_u_data) {
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	bsg_node_set_line_style((bsg_node *)sp,
+	    dashflag ? BSG_APPEARANCE_LINE_DASHED : BSG_APPEARANCE_LINE_SOLID);
+	bsg_node_set_legacy_eflag((bsg_node *)sp, 0); /* This is a solid */
+	if (bsg_node_ged_data_get((bsg_node *)sp)) {
+	    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)sp);
 	    db_dup_full_path(&bdata->s_fullpath, pathp);
 	}
 	if (tsp)
-	    sp->s_old.s_regionid = tsp->ts_regionid;
+	    bsg_node_set_legacy_regionid((bsg_node *)sp, tsp->ts_regionid);
     }
 
     /* Solid is successfully drawn */
@@ -177,11 +186,11 @@ replot_original_solid(struct mged_state *s, struct bv_scene_obj *sp)
     if (s->dbip == DBI_NULL)
 	return 0;
 
-    if (!sp->s_u_data)
+    if (!bsg_node_ged_data_get((bsg_node *)sp))
 	return 0;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)sp);
     dp = LAST_SOLID(bdata);
-    if (sp->s_old.s_Eflag) {
+    if (bsg_node_legacy_eflag((const bsg_node *)sp)) {
 	Tcl_AppendResult(s->interp, "replot_original_solid(", dp->d_namep,
 			 "): Unable to plot evaluated regions, skipping\n", (char *)NULL);
 	return -1;
@@ -233,7 +242,7 @@ replot_modified_solid(
     }
 
     /* Release existing vlist of this solid */
-    BV_FREE_VLIST(s->vlfree, &(sp->s_vlist));
+    BV_FREE_VLIST(bsg_node_vlfree((bsg_node *)sp), bsg_node_vlist_head((bsg_node *)sp));
 
     /* Draw (plot) a normal solid */
     RT_CK_DB_INTERNAL(ip);
@@ -246,9 +255,9 @@ replot_modified_solid(
     transform_editing_solid(s, &intern, mat, ip, 0);
 
     if (OBJ[ip->idb_type].ft_plot(&vhead, &intern, &s->tol.ttol, &s->tol.tol, NULL) < 0) {
-	if (!sp->s_u_data)
+	if (!bsg_node_ged_data_get((bsg_node *)sp))
 	    return -1;
-	struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)sp);
 	if (bdata->s_fullpath.fp_len > 0)
 	    Tcl_AppendResult(s->interp, LAST_SOLID(bdata)->d_namep,
 		    ": re-plot failure\n", (char *)NULL);
@@ -257,7 +266,7 @@ replot_modified_solid(
     rt_db_free_internal(&intern);
 
     /* Write new displaylist */
-    drawH_part2(s, sp->s_soldash, &vhead,
+    drawH_part2(s, bsg_node_line_style((const bsg_node *)sp) != BSG_APPEARANCE_LINE_SOLID, &vhead,
 		(struct db_full_path *)0,
 		(struct db_tree_state *)0, sp);
 
@@ -271,9 +280,9 @@ add_solid_path_to_result(
     struct bv_scene_obj *sp)
 {
     struct bu_vls str = BU_VLS_INIT_ZERO;
-    if (!sp || !sp->s_u_data)
+    if (!sp || !bsg_node_ged_data_get((bsg_node *)sp))
 	return;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)sp);
     db_path_to_vls(&str, &bdata->s_fullpath);
     Tcl_AppendResult(interp, bu_vls_addr(&str), " ", NULL);
     bu_vls_free(&str);

@@ -580,6 +580,188 @@ bsg_node_invoke_update_callback(bsg_node *n, struct bview *v, int flags)
 }
 
 
+void
+bsg_node_center_get(const bsg_node *n, vect_t out)
+{
+    if (!n || !out)
+	return;
+
+    VMOVE(out, ((const struct bv_scene_obj *)n)->s_center);
+}
+
+
+void
+bsg_node_center_set(bsg_node *n, const vect_t center)
+{
+    if (!n || !center)
+	return;
+
+    VMOVE(((struct bv_scene_obj *)n)->s_center, center);
+}
+
+
+int
+bsg_node_bbox_valid(const bsg_node *n)
+{
+    if (!n)
+	return 0;
+
+    return ((const struct bv_scene_obj *)n)->have_bbox ? 1 : 0;
+}
+
+
+void
+bsg_node_set_bbox_valid(bsg_node *n, int valid)
+{
+    if (!n)
+	return;
+
+    ((struct bv_scene_obj *)n)->have_bbox = valid ? 1 : 0;
+}
+
+
+int
+bsg_node_bbox_cached(const bsg_node *n)
+{
+    if (!n)
+	return 0;
+
+    return ((const struct bv_scene_obj *)n)->s_bbox_cached ? 1 : 0;
+}
+
+
+void
+bsg_node_set_bbox_cached(bsg_node *n, int cached)
+{
+    if (!n)
+	return;
+
+    ((struct bv_scene_obj *)n)->s_bbox_cached = cached ? 1 : 0;
+}
+
+
+void
+bsg_node_set_display_obj(bsg_node *n, int is_display)
+{
+    if (!n)
+	return;
+
+    ((struct bv_scene_obj *)n)->s_displayobj = is_display ? 1 : 0;
+}
+
+
+int
+bsg_node_legacy_uflag(const bsg_node *n)
+{
+    if (!n)
+	return 0;
+
+    return ((const struct bv_scene_obj *)n)->s_old.s_uflag ? 1 : 0;
+}
+
+
+void
+bsg_node_set_legacy_uflag(bsg_node *n, int uflag)
+{
+    if (!n)
+	return;
+
+    ((struct bv_scene_obj *)n)->s_old.s_uflag = uflag ? 1 : 0;
+}
+
+
+int
+bsg_node_legacy_dflag(const bsg_node *n)
+{
+    if (!n)
+	return 0;
+
+    return ((const struct bv_scene_obj *)n)->s_old.s_dflag ? 1 : 0;
+}
+
+
+void
+bsg_node_set_legacy_dflag(bsg_node *n, int dflag)
+{
+    if (!n)
+	return;
+
+    ((struct bv_scene_obj *)n)->s_old.s_dflag = dflag ? 1 : 0;
+}
+
+
+int
+bsg_node_legacy_cflag(const bsg_node *n)
+{
+    if (!n)
+	return 0;
+
+    return ((const struct bv_scene_obj *)n)->s_old.s_cflag ? 1 : 0;
+}
+
+
+void
+bsg_node_set_legacy_cflag(bsg_node *n, int cflag)
+{
+    if (!n)
+	return;
+
+    ((struct bv_scene_obj *)n)->s_old.s_cflag = cflag ? 1 : 0;
+}
+
+
+void
+bsg_node_legacy_basecolor_get(const bsg_node *n,
+			      unsigned char *r,
+			      unsigned char *g,
+			      unsigned char *b)
+{
+    if (!n)
+	return;
+
+    const struct bv_scene_obj *s = (const struct bv_scene_obj *)n;
+    if (r) *r = s->s_old.s_basecolor[0];
+    if (g) *g = s->s_old.s_basecolor[1];
+    if (b) *b = s->s_old.s_basecolor[2];
+}
+
+
+void
+bsg_node_legacy_basecolor_set(bsg_node *n,
+			      unsigned char r,
+			      unsigned char g,
+			      unsigned char b)
+{
+    if (!n)
+	return;
+
+    struct bv_scene_obj *s = (struct bv_scene_obj *)n;
+    s->s_old.s_basecolor[0] = r;
+    s->s_old.s_basecolor[1] = g;
+    s->s_old.s_basecolor[2] = b;
+}
+
+
+short
+bsg_node_legacy_regionid(const bsg_node *n)
+{
+    if (!n)
+	return 0;
+
+    return ((const struct bv_scene_obj *)n)->s_old.s_regionid;
+}
+
+
+void
+bsg_node_set_legacy_regionid(bsg_node *n, short regionid)
+{
+    if (!n)
+	return;
+
+    ((struct bv_scene_obj *)n)->s_old.s_regionid = regionid;
+}
+
+
 int
 bsg_node_legacy_eflag(const bsg_node *n)
 {

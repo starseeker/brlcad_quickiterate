@@ -29,6 +29,7 @@
 #include "vmath.h"
 #include "bu/units.h"
 #include "bn.h"
+#include "bsg/node.h"
 #include "ged.h"
 
 #include "./mged.h"
@@ -74,8 +75,8 @@ create_text_overlay(struct mged_state *s, struct bu_vls *vp)
      * Check if the illuminated solid still exists or it has been killed
      * before Accept was clicked.
      */
-    if (MEDIT(s)->edit_flag >= 0 && illump != NULL && illump->s_u_data != NULL) {
-	struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
+    if (MEDIT(s)->edit_flag >= 0 && illump != NULL && bsg_node_ged_data_get((bsg_node *)illump) != NULL) {
+	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)illump);
 
 	dp = LAST_SOLID(bdata);
 
@@ -96,19 +97,15 @@ create_text_overlay(struct mged_state *s, struct bu_vls *vp)
     }
 
     /* display path info for object editing also */
-    if (s->global_editing_state == ST_O_EDIT && illump != NULL && illump->s_u_data != NULL) {
-	struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
+    if (s->global_editing_state == ST_O_EDIT && illump != NULL && bsg_node_ged_data_get((bsg_node *)illump) != NULL) {
+	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)illump);
 
 	bu_vls_strcat(vp, "** PATH --  ");
 	db_path_to_vls(vp, &bdata->s_fullpath);
 	bu_vls_strcat(vp, ": ");
 
 	/* print the evaluated (path) solid parameters */
-	if (illump->s_old.s_Eflag == 0) {
-	    mat_t new_mat;
-	    /* NOT an evaluated region */
-	    /* object edit option selected */
-	    bn_mat_mul(new_mat, MEDIT(s)->model_changes, MEDIT(s)->e_mat);
+	if (!bsg_node_legacy_eflag((const bsg_node *)illump)) {
 
 	    vls_solid(s, vp, &MEDIT(s)->es_int, new_mat);
 	}
@@ -240,8 +237,8 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 
     /* Set the Tcl variables to the appropriate values. */
 
-    if (illump != NULL && illump->s_u_data != NULL) {
-	struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
+    if (illump != NULL && bsg_node_ged_data_get((bsg_node *)illump) != NULL) {
+	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)illump);
 
 	struct bu_vls path_lhs = BU_VLS_INIT_ZERO;
 	struct bu_vls path_rhs = BU_VLS_INIT_ZERO;
@@ -339,7 +336,7 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
     dm_set_line_attr(DMP, mged_variables->mv_linewidth, 0);
 
     /* Label the vertices of the edited solid */
-    if (MEDIT(s)->edit_flag >= 0 || (s->global_editing_state == ST_O_EDIT && illump->s_old.s_Eflag == 0)) {
+    if (MEDIT(s)->edit_flag >= 0 || (s->global_editing_state == ST_O_EDIT && !bsg_node_legacy_eflag((const bsg_node *)illump))) {
 	mat_t xform;
 	struct rt_point_labels pl[8+1];
 	point_t lines[2*4];	/* up to 4 lines to draw */
@@ -420,10 +417,10 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 	/*
 	 * Print information about object illuminated
 	 */
-	if (illump != NULL && illump->s_u_data != NULL &&
+	if (illump != NULL && bsg_node_ged_data_get((bsg_node *)illump) != NULL &&
 	    (s->global_editing_state == ST_O_PATH || s->global_editing_state==ST_O_PICK || s->global_editing_state==ST_S_PICK)) {
 
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
+	    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)illump);
 
 	    for (i=0; i < bdata->s_fullpath.fp_len; i++) {
 		if (i == (size_t)ipathpos  &&  s->global_editing_state == ST_O_PATH) {
@@ -460,7 +457,7 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 	    mmenu_display(s, y);
 
 	    /* print parameter locations on screen */
-	    if (s->global_editing_state == ST_O_EDIT && illump->s_old.s_Eflag) {
+	    if (s->global_editing_state == ST_O_EDIT && bsg_node_legacy_eflag((const bsg_node *)illump)) {
 		/* region is a processed region */
 		MAT4X3PNT(temp, view_state->vs_model2objview, MEDIT(s)->e_keypoint);
 		xloc = (int)(temp[X]*BV_MAX);
@@ -587,9 +584,9 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 	Tcl_SetVar(s->interp, bu_vls_addr(&vls), "", TCL_GLOBAL_ONLY);
     }
 
-    if (illump != NULL && illump->s_u_data != NULL) {
+    if (illump != NULL && bsg_node_ged_data_get((bsg_node *)illump) != NULL) {
 
-	struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
+	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)illump);
 
 	if (mged_variables->mv_faceplate && ss_line_not_drawn) {
 	    bu_vls_trunc(&vls, 0);

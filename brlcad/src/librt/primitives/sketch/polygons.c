@@ -36,6 +36,7 @@
 #include "bu/str.h"
 #include "bu/vls.h"
 #include "bv.h"
+#include "bsg/node.h"
 #include "bg/polygon.h"
 #include "rt/defines.h"
 #include "rt/directory.h"
@@ -350,7 +351,7 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bv_scene_obj
     struct rt_sketch_internal *sketch_ip;
     struct line_seg *lsg;
 
-    struct bv_polygon *p = (struct bv_polygon *)s->s_i_data;
+    struct bv_polygon *p = (struct bv_polygon *)bsg_node_user_data_get((const bsg_node *)s);
     for (size_t j = 0; j < p->polygon.num_contours; ++j)
 	num_verts += p->polygon.contour[j].num_points;
 
@@ -425,7 +426,11 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bv_scene_obj
     bu_avs_init_empty(&lavs);
     if (!db5_get_attributes(dbip, &lavs, dp)) {
 	struct bu_vls val = BU_VLS_INIT_ZERO;
-	bu_vls_sprintf(&val, "%d/%d/%d", s->s_color[0], s->s_color[1], s->s_color[2]);
+	{
+	    unsigned char cr, cg, cb;
+	    bsg_node_get_color((const bsg_node *)s, &cr, &cg, &cb);
+	    bu_vls_sprintf(&val, "%d/%d/%d", cr, cg, cb);
+	}
 	bu_avs_add(&lavs, "POLYGON_EDGE_COLOR", bu_vls_cstr(&val));
 	unsigned char rgb[3];
 	bu_color_to_rgb_chars(&p->fill_color, rgb);

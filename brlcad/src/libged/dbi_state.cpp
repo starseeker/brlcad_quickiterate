@@ -60,6 +60,7 @@
 #include "ged/bsg_ged_draw.h"
 #include "./ged_private.h"
 #include "bsg/node.h"
+#include "bsg/appearance.h"
 #include "bsg/selection.h"
 #include "bsg/util.h"
 #include "bsg/draw_set.h"
@@ -2480,11 +2481,11 @@ _bview_state_attach_leaf(struct ged *gedp,
      * the path components and so the per-solid free callback can clear
      * the illumination NodeSensor (Phase 7 Step 9). */
     struct ged_bv_data *bdata =
-	(sp->s_u_data) ? (struct ged_bv_data *)sp->s_u_data : NULL;
+	(bsg_node_ged_data_get((bsg_node *)sp)) ? (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)sp) : NULL;
     if (!bdata) {
 	BU_GET(bdata, struct ged_bv_data);
 	db_full_path_init(&bdata->s_fullpath);
-	sp->s_u_data = (void *)bdata;
+	bsg_node_ged_data_set((bsg_node *)sp, (void *)bdata);
     } else {
 	bdata->s_fullpath.fp_len = 0;
     }
@@ -3040,7 +3041,8 @@ BViewState::scene_obj(
 	    // settings to see if we need to update
 	    sp = s_map[phash][curr_mode];
 	    if (vs && vs->appearance.draw_mode == curr_mode) {
-		if (sp->s_soldash && vs->appearance.draw_non_subtract_only) {
+		if (bsg_node_line_style((const bsg_node *)sp) == BSG_APPEARANCE_LINE_DASHED
+		&& vs->appearance.draw_non_subtract_only) {
 		    if (sp->bsg.bsg_flag != DOWN)
 			sp->bsg.bsg_flag = DOWN;
 		} else {
@@ -3079,17 +3081,21 @@ BViewState::scene_obj(
 		}
 	    }
 
-	    // Refresh s_color from the current path color so that material
+	    // Refresh color from the current path color so that material
 	    // changes (or a cache corruption that left stale values) are always
 	    // reflected before draw_scene_obj is invoked.
 	    {
 		struct bu_color c;
+		unsigned char rgb[3];
 		dbis->path_color(&c, path_hashes);
-		bu_color_to_rgb_chars(&c, sp->s_color);
+		bu_color_to_rgb_chars(&c, rgb);
 		if (vs && vs->material.use_override_color) {
-		    sp->s_color[0] = vs->material.override_rgb[0];
-		    sp->s_color[1] = vs->material.override_rgb[1];
-		    sp->s_color[2] = vs->material.override_rgb[2];
+		    bsg_node_set_color((bsg_node *)sp,
+				      vs->material.override_rgb[0],
+				      vs->material.override_rgb[1],
+				      vs->material.override_rgb[2]);
+		} else {
+		    bsg_node_set_color((bsg_node *)sp, rgb[0], rgb[1], rgb[2]);
 		}
 	    }
 
@@ -3119,14 +3125,19 @@ BViewState::scene_obj(
     bsg_node_user_data_set((bsg_node *)sp, (void *)ud);
 
     // Get color from path, unless we're overridden
-    struct bu_color c;
-    dbis->path_color(&c, path_hashes);
-    bu_color_to_rgb_chars(&c, sp->s_color);
-    if (vs && vs->material.use_override_color) {
-	// TODO - shouldn't be using s_color for the override...
-	sp->s_color[0] = vs->material.override_rgb[0];
-	sp->s_color[1] = vs->material.override_rgb[1];
-	sp->s_color[2] = vs->material.override_rgb[2];
+    {
+	struct bu_color c;
+	unsigned char rgb[3];
+	dbis->path_color(&c, path_hashes);
+	bu_color_to_rgb_chars(&c, rgb);
+	if (vs && vs->material.use_override_color) {
+	    bsg_node_set_color((bsg_node *)sp,
+			      vs->material.override_rgb[0],
+			      vs->material.override_rgb[1],
+			      vs->material.override_rgb[2]);
+	} else {
+	    bsg_node_set_color((bsg_node *)sp, rgb[0], rgb[1], rgb[2]);
+	}
     }
 
     // Phase 4 / Phase 12: set drawing mode/style/material via split draw request.
@@ -3159,27 +3170,34 @@ BViewState::scene_obj(
 
     // Assign the bounding box (needed for pre-adaptive-plot
     // autoview)
-    dbis->get_path_bbox(&sp->bmin, &sp->bmax, path_hashes);
+    {
+	point_t bbox_min, bbox_max;
+	dbis->get_path_bbox(&bbox_min, &bbox_max, path_hashes);
+	bsg_node_bounds_set((bsg_node *)sp, bbox_min, bbox_max);
+	bsg_node_set_bbox_valid((bsg_node *)sp, 1);
 
-    // Adaptive also needs s_size and s_center to be set
-    sp->s_center[X] = (sp->bmin[X] + sp->bmax[X]) * 0.5;
-    sp->s_center[Y] = (sp->bmin[Y] + sp->bmax[Y]) * 0.5;
-    sp->s_center[Z] = (sp->bmin[Z] + sp->bmax[Z]) * 0.5;
-    sp->s_size = sp->bmax[X] - sp->bmin[X];
-    V_MAX(sp->s_size, sp->bmax[Y] - sp->bmin[Y]);
-    V_MAX(sp->s_size, sp->bmax[Z] - sp->bmin[Z]);
-    sp->have_bbox = 1;
+	// Adaptive also needs s_size and s_center to be set
+	vect_t center;
+	VADD2SCALE(center, bbox_min, bbox_max, 0.5);
+	bsg_node_center_set((bsg_node *)sp, center);
+	fastf_t sz = bbox_max[X] - bbox_min[X];
+	V_MAX(sz, bbox_max[Y] - bbox_min[Y]);
+	V_MAX(sz, bbox_max[Z] - bbox_min[Z]);
+	bsg_node_size_set((bsg_node *)sp, sz);
+    }
 
     // If we're drawing a subtraction and we're not overridden, set the
     // appropriate flag for dashed line drawing
     if (vs && !vs->appearance.draw_solid_lines_only) {
 	bool is_subtract = dbis->path_is_subtraction(path_hashes);
-	sp->s_soldash = (is_subtract) ? 1 : 0;
+	bsg_node_set_line_style((bsg_node *)sp,
+	    is_subtract ? BSG_APPEARANCE_LINE_DASHED : BSG_APPEARANCE_LINE_SOLID);
     }
 
     // Align with vs draw_non_subtract_only settings
     if (vs && vs->appearance.draw_mode == curr_mode) {
-        if (sp->s_soldash && vs->appearance.draw_non_subtract_only) {
+        if (bsg_node_line_style((const bsg_node *)sp) == BSG_APPEARANCE_LINE_DASHED
+	    && vs->appearance.draw_non_subtract_only) {
             if (sp->bsg.bsg_flag != DOWN)
                 sp->bsg.bsg_flag = DOWN;
         } else {

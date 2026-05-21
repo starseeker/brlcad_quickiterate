@@ -5886,7 +5886,7 @@ init_oedit_guts(struct mged_state *s)
 	/* Have a processed (E'd) region - NO key solid.
 	 * Use the 'center' as the key
 	 */
-	VMOVE(MEDIT(s)->e_keypoint, illump->s_center);
+	bsg_node_center_get((const bsg_node *)illump, MEDIT(s)->e_keypoint);
 
 	/* The s_center takes the MEDIT(s)->e_mat into account already */
     }

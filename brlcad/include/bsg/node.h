@@ -182,6 +182,67 @@ bsg_node_size_get(const bsg_node *n);
 BSG_EXPORT extern void
 bsg_node_size_set(bsg_node *n, fastf_t size);
 
+/**
+ * Get the center point of @p n's geometry in model space (@c s_center).
+ *
+ * Copies the center coordinates into @p out.  No-op for NULL @p n or
+ * NULL @p out.
+ */
+BSG_EXPORT extern void
+bsg_node_center_get(const bsg_node *n, vect_t out);
+
+/**
+ * Set the center point of @p n's geometry in model space (@c s_center).
+ *
+ * No-op for NULL @p n or NULL @p center.
+ */
+BSG_EXPORT extern void
+bsg_node_center_set(bsg_node *n, const vect_t center);
+
+/**
+ * Return non-zero when the bounding box stored on @p n is valid.
+ *
+ * Maps to the legacy @c have_bbox flag.  Returns 0 for NULL @p n.
+ */
+BSG_EXPORT extern int
+bsg_node_bbox_valid(const bsg_node *n);
+
+/**
+ * Set the bounding-box validity flag on @p n.
+ *
+ * Pass non-zero to mark the bbox as valid; zero to mark it invalid.
+ * No-op if @p n is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_set_bbox_valid(bsg_node *n, int valid);
+
+/**
+ * Return non-zero when the aggregate-subtree bbox cache on @p n is valid.
+ *
+ * Maps to the legacy @c s_bbox_cached flag used on group/root nodes.
+ * Returns 0 for NULL @p n.
+ */
+BSG_EXPORT extern int
+bsg_node_bbox_cached(const bsg_node *n);
+
+/**
+ * Set the aggregate-subtree bbox cache validity flag on @p n.
+ *
+ * Pass non-zero to mark the cache valid; zero to invalidate.
+ * No-op if @p n is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_set_bbox_cached(bsg_node *n, int cached);
+
+/**
+ * Set the display-space-coordinate flag on @p n (@c s_displayobj).
+ *
+ * Pass non-zero to mark @p n as a display-space object; zero to clear.
+ * No-op if @p n is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_set_display_obj(bsg_node *n, int is_display);
+
 BSG_EXPORT extern void
 bsg_node_mark_stale(bsg_node *n);
 
@@ -306,6 +367,97 @@ bsg_node_set_update_callback(bsg_node *n, bsg_node_update_fn cb);
  */
 BSG_EXPORT extern int
 bsg_node_invoke_update_callback(bsg_node *n, struct bview *v, int flags);
+
+/**
+ * Return the legacy uflag for @p n (@c s_old.s_uflag).
+ *
+ * The uflag is 1 when the user has explicitly specified a color for the node.
+ * Returns 0 for NULL @p n.
+ */
+BSG_EXPORT extern int
+bsg_node_legacy_uflag(const bsg_node *n);
+
+/**
+ * Set the legacy uflag on @p n (@c s_old.s_uflag).
+ *
+ * Pass non-zero to indicate a user-specified color; zero to clear.
+ * No-op if @p n is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_set_legacy_uflag(bsg_node *n, int uflag);
+
+/**
+ * Return the legacy dflag for @p n (@c s_old.s_dflag).
+ *
+ * The dflag is 1 when the node's color is derived from the default material.
+ * Returns 0 for NULL @p n.
+ */
+BSG_EXPORT extern int
+bsg_node_legacy_dflag(const bsg_node *n);
+
+/**
+ * Set the legacy dflag on @p n (@c s_old.s_dflag).
+ *
+ * Pass non-zero for default color derivation; zero otherwise.
+ * No-op if @p n is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_set_legacy_dflag(bsg_node *n, int dflag);
+
+/**
+ * Return the legacy cflag for @p n (@c s_old.s_cflag).
+ *
+ * The cflag is 1 when the default material color should be used.
+ * Returns 0 for NULL @p n.
+ */
+BSG_EXPORT extern int
+bsg_node_legacy_cflag(const bsg_node *n);
+
+/**
+ * Set the legacy cflag on @p n (@c s_old.s_cflag).
+ *
+ * Pass non-zero to use default material color; zero otherwise.
+ * No-op if @p n is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_set_legacy_cflag(bsg_node *n, int cflag);
+
+/**
+ * Copy the legacy base color for @p n (@c s_old.s_basecolor) into @p r, @p g,
+ * @p b.  NULL output pointers are silently skipped.  No-op if @p n is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_legacy_basecolor_get(const bsg_node *n,
+			      unsigned char *r,
+			      unsigned char *g,
+			      unsigned char *b);
+
+/**
+ * Set the legacy base color on @p n (@c s_old.s_basecolor).
+ *
+ * No-op if @p n is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_legacy_basecolor_set(bsg_node *n,
+			      unsigned char r,
+			      unsigned char g,
+			      unsigned char b);
+
+/**
+ * Return the legacy region ID for @p n (@c s_old.s_regionid).
+ *
+ * Returns 0 for NULL @p n.
+ */
+BSG_EXPORT extern short
+bsg_node_legacy_regionid(const bsg_node *n);
+
+/**
+ * Set the legacy region ID on @p n (@c s_old.s_regionid).
+ *
+ * No-op if @p n is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_set_legacy_regionid(bsg_node *n, short regionid);
 
 /**
  * Return the legacy "E-flag" for @p n (@c s_old.s_Eflag).

@@ -298,14 +298,17 @@ _objs_cmd_color(void *bs, int argc, const char **argv)
     }
 
     if (ac == 0) {
-	bu_vls_printf(gedp->ged_result_str, "%d/%d/%d\n", s->s_color[0], s->s_color[1], s->s_color[2]);
+	unsigned char cr, cg, cb;
+	bsg_node_get_color((const bsg_node *)s, &cr, &cg, &cb);
+	bu_vls_printf(gedp->ged_result_str, "%d/%d/%d\n", cr, cg, cb);
 	if (recurse) {
 	    std::queue<struct bv_scene_obj *> sobjs;
 	    sobjs.push(s);
 	    while (!sobjs.empty()) {
 		struct bv_scene_obj *sc = sobjs.front();
 		sobjs.pop();
-		bu_vls_printf(gedp->ged_result_str, "%s: %d/%d/%d\n", bu_vls_cstr(&sc->bsg.bsg_name), sc->s_color[0], sc->s_color[1], sc->s_color[2]);
+		bsg_node_get_color((const bsg_node *)sc, &cr, &cg, &cb);
+		bu_vls_printf(gedp->ged_result_str, "%s: %d/%d/%d\n", bu_vls_cstr(&sc->bsg.bsg_name), cr, cg, cb);
 		for (size_t i = 0; i < BU_PTBL_LEN(&sc->bsg.bsg_children); i++) {
 		    struct bv_scene_obj *scn = (struct bv_scene_obj *)BU_PTBL_GET(&sc->bsg.bsg_children, i);
 		    sobjs.push(scn);
@@ -320,7 +323,11 @@ _objs_cmd_color(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    bu_color_to_rgb_chars(&val, s->s_color);
+    {
+	unsigned char rgb[3];
+	bu_color_to_rgb_chars(&val, rgb);
+	bsg_node_set_color((bsg_node *)s, rgb[0], rgb[1], rgb[2]);
+    }
     if (recurse) {
 	if (recurse) {
 	    std::queue<struct bv_scene_obj *> sobjs;
@@ -328,7 +335,9 @@ _objs_cmd_color(void *bs, int argc, const char **argv)
 	    while (!sobjs.empty()) {
 		struct bv_scene_obj *sc = sobjs.front();
 		sobjs.pop();
-		bu_color_to_rgb_chars(&val, sc->s_color);
+		unsigned char rgb[3];
+		bu_color_to_rgb_chars(&val, rgb);
+		bsg_node_set_color((bsg_node *)sc, rgb[0], rgb[1], rgb[2]);
 		for (size_t i = 0; i < BU_PTBL_LEN(&sc->bsg.bsg_children); i++) {
 		    struct bv_scene_obj *scn = (struct bv_scene_obj *)BU_PTBL_GET(&sc->bsg.bsg_children, i);
 		    sobjs.push(scn);
