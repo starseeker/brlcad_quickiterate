@@ -79,7 +79,7 @@
  * usage inventory and migration status.
  *
  * bsg_node and bsg_shape are direct typedefs for struct bsg_node (defined in
- * bv/defines.h), which is embedded as the first member of struct bv_scene_obj.
+ * bsg/node_type.h), which is embedded as the first member of struct bv_scene_obj.
  */
 /** @{ */
 /* @file bsg/defines.h */
@@ -89,7 +89,7 @@
 
 #include "common.h"
 #include "bu/defines.h"
-#include "bv/defines.h"
+#include "bsg/node_type.h"
 
 __BEGIN_DECLS
 
@@ -165,7 +165,7 @@ __BEGIN_DECLS
 
 /**
  * bsg_node is the first-class BSG scene-graph node type.
- * It is a direct typedef for struct bsg_node (defined in bv/defines.h).
+ * It is a direct typedef for struct bsg_node (defined in bsg/node_type.h).
  * Casting bsg_node * <-> struct bv_scene_obj * is valid via the first-member
  * rule because struct bv_scene_obj embeds struct bsg_node as its first member.
  */

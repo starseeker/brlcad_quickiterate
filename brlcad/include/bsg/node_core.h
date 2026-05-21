@@ -28,8 +28,8 @@
  * maps.  This eliminates per-access hash-map lookups and makes node
  * ownership explicit.
  *
- * The struct is defined in bv/defines.h (using only basic C types) so that
- * libbv does not need to include BSG headers.  This header provides:
+ * The struct is defined in bsg/node_type.h so that libbsg consumers can
+ * include it without pulling in bv/defines.h.  This header provides:
  *  - A typed accessor @c bsg_node_core_get() for libbsg consumers.
  *  - An explicit initializer @c bsg_node_core_init() for code that wants
  *    to pre-initialise the core before calling any other BSG function.
@@ -46,7 +46,7 @@
 #define BSG_NODE_CORE_H
 
 #include "common.h"
-#include "bv/defines.h"   /* struct bsg_node, BSG_NODE_CORE_MAGIC */
+#include "bsg/node_type.h"  /* struct bsg_node, BSG_NODE_CORE_MAGIC */
 #include "bsg/defines.h"  /* bsg_node typedef */
 
 __BEGIN_DECLS

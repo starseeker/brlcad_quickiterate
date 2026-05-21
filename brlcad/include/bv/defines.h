@@ -51,6 +51,7 @@
 
 #include "bg/polygon_types.h"
 #include "bsg/settings_types.h"
+#include "bsg/node_type.h"
 #include "bv/tcl_data.h"
 #include "bv/faceplate.h"
 
@@ -202,53 +203,12 @@ struct bv_obj_backend {
     void (*invalidate)(struct bv_scene_obj *);  /**< @brief mark cached resource stale; may be NULL */
 };
 
-/**
- * Phase 10E (BSG enhancement): struct bsg_node is the first-class BSG
- * scene-graph node type.
- *
- * It MUST have struct bu_list l as its first field for bu_list pointer
- * compatibility.  struct bv_scene_obj embeds this as its first member,
- * so casting bsg_node* <-> bv_scene_obj* is valid via the first-member rule.
- *
- * Design constraints:
- *  - Only basic C types (no BSG-specific structs) so that bv/defines.h does
- *    not need to include BSG headers (which would create a circular dependency).
- *  - Identity and revision counters are stored inline (no heap allocation).
- *  - Material, appearance, and payload are stored as void* pointers; they
- *    are cast to the appropriate BSG types only inside libbsg code.
- *  - bsg_core_free_fn is called by bv_obj_reset() before the struct is
- *    zeroed, allowing libbsg to release any heap data it allocated without
- *    introducing a libbsg dependency in libbv.
- *
- * See doc/notes/bsg_enhancement_plan.txt Phase 10E for the full rationale.
+/*
+ * Phase A (bv_scene_obj_migrate.txt): struct bsg_node and its constants
+ * (BSG_NODE_CORE_MAGIC, BSG_NODE_REV_MAX) have been moved to
+ * bsg/node_type.h, which is included above.  bv/defines.h retains this
+ * comment as a navigation aid.
  */
-#define BSG_NODE_CORE_MAGIC 0x626e636fUL  /**< @brief magic: 'b','n','c','o' */
-#define BSG_NODE_REV_MAX    8             /**< @brief max revision-counter slots */
-
-struct bsg_node {
-    struct bu_list l;              /**< @brief list linkage — MUST be first */
-    unsigned long long bsg_kind;   /**< @brief BSG_NODE_* flags */
-    struct bu_vls bsg_name;        /**< @brief object name */
-    struct bsg_node *bsg_parent;   /**< @brief parent node */
-    struct bu_ptbl bsg_children;   /**< @brief child node table */
-    char bsg_flag;                 /**< @brief UP=visible, DOWN=invisible */
-    char bsg_iflag;                /**< @brief UP=illuminated, DOWN=regular */
-    int bsg_force_draw;            /**< @brief 1=always draw, overrides bsg_flag */
-    /* Absorbed from bsg_node_core: */
-    uint32_t bsg_magic;            /**< @brief BSG_NODE_CORE_MAGIC when initialized */
-    int have_identity;
-    uint64_t identity_node_id;
-    uint64_t identity_part_id;
-    uint64_t identity_instance_id;
-    int identity_source_kind;      /**< @brief enum bsg_source_kind value */
-    uint64_t revisions[BSG_NODE_REV_MAX];
-    struct bsg_settings *settings_local;     /**< @brief transitional BSG-owned local settings snapshot */
-    struct bsg_settings *settings_effective; /**< @brief transitional BSG-owned effective settings snapshot */
-    void *material;
-    void *appearance;
-    void *payload;
-    void (*bsg_core_free_fn)(struct bsg_node *);
-};
 
 /**
  * BSG GUARDRAIL: new scene-graph code should use BSG APIs (include/bsg/),
