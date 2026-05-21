@@ -932,6 +932,7 @@ desc_4(int test_num)
 	BU_OPT_DESC_NULL
     };
     struct bu_opt_desc_meta root_meta[] = {
+	{"h", "help", BU_OPT_ARG_FLAG, BU_OPT_VAL_BOOL, 0},
 	{"v", "verbose", BU_OPT_ARG_OPTIONAL, BU_OPT_VAL_INTEGER, 1},
 	{"o", "output", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_FILE_PATH, 0},
 	{"C", "color", BU_OPT_ARG_REQUIRED, BU_OPT_VAL_COLOR, 0},

@@ -652,11 +652,11 @@ static void
 opt_json_string(struct bu_vls *v, const char *str)
 {
     const unsigned char *cp = (const unsigned char *)str;
-    bu_vls_printf(v, "\"");
     if (!str) {
-	bu_vls_printf(v, "\"");
+	bu_vls_printf(v, "\"\"");
 	return;
     }
+    bu_vls_printf(v, "\"");
     while (*cp) {
 	switch (*cp) {
 	    case '\"':
