@@ -934,7 +934,7 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
     size_t min_operands = 0;
     size_t max_operands = BU_OPT_COUNT_UNLIMITED;
     size_t used_cnt = 0;
-    const struct bu_opt_desc **used = NULL;
+    const struct bu_opt_desc **seen_option_groups = NULL;
     int end_options = 0;
 
     if (!cmd || !result)
@@ -942,14 +942,14 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
 
     opt_validate_set(result, BU_OPT_VALIDATE_UNKNOWN, cursor_arg, cursor_arg, BU_OPT_EXPECT_NONE, NULL);
     opt_operand_bounds(active, &min_operands, &max_operands);
-    used = (const struct bu_opt_desc **)bu_calloc(argc ? argc : 1, sizeof(struct bu_opt_desc *), "used option groups");
+    seen_option_groups = (const struct bu_opt_desc **)bu_calloc(argc ? argc : 1, sizeof(struct bu_opt_desc *), "seen option groups");
 
     while (i < argc) {
 	const char *arg = argv ? argv[i] : NULL;
 	const struct bu_opt_cmd_desc *sub = NULL;
 	if (!arg) {
 	    opt_validate_set(result, BU_OPT_VALIDATE_INVALID, i, i, BU_OPT_EXPECT_NONE, "null argument");
-	    bu_free(used, "used option groups");
+	    bu_free(seen_option_groups, "seen option groups");
 	    return 0;
 	}
 	if (!end_options && BU_STR_EQUAL(arg, "--")) {
@@ -995,13 +995,13 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
 		if (!longopt && strlen(opt) > 1) {
 		    size_t ci = 0;
 		    for (ci = 0; opt[ci]; ci++) {
-			char sc[2] = {0, 0};
-			const struct bu_opt_desc *gd = NULL;
-			sc[0] = opt[ci];
-			gd = opt_find_desc(active, sc, 0);
-			if (!gd || opt_infer_arg_requirement(gd) != BU_OPT_ARG_FLAG) {
+			char shortopt_str[2] = {0, 0};
+			const struct bu_opt_desc *grouped_desc = NULL;
+			shortopt_str[0] = opt[ci];
+			grouped_desc = opt_find_desc(active, shortopt_str, 0);
+			if (!grouped_desc || opt_infer_arg_requirement(grouped_desc) != BU_OPT_ARG_FLAG) {
 			    opt_validate_set(result, BU_OPT_VALIDATE_INVALID, opt_index, opt_index, BU_OPT_EXPECT_OPTION, "unknown or non-flag grouped short option");
-			    bu_free(used, "used option groups");
+			    bu_free(seen_option_groups, "seen option groups");
 			    return 0;
 			}
 		    }
@@ -1009,7 +1009,7 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
 		    continue;
 		}
 		opt_validate_set(result, BU_OPT_VALIDATE_INVALID, opt_index, opt_index, BU_OPT_EXPECT_OPTION, "unknown option");
-		bu_free(used, "used option groups");
+		bu_free(seen_option_groups, "seen option groups");
 		return 0;
 	    }
 	    m = opt_find_meta(d, active->option_meta);
@@ -1017,18 +1017,18 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
 	    if (!m || !m->repeat) {
 		size_t ui = 0;
 		for (ui = 0; ui < used_cnt; ui++) {
-		    if (opt_same_alias_group(used[ui], d)) {
+		    if (opt_same_alias_group(seen_option_groups[ui], d)) {
 			opt_validate_set(result, BU_OPT_VALIDATE_INVALID, opt_index, opt_index, BU_OPT_EXPECT_OPTION, "option does not repeat");
-			bu_free(used, "used option groups");
+			bu_free(seen_option_groups, "seen option groups");
 			return 0;
 		    }
 		}
 	    }
-	    used[used_cnt++] = d;
+	    seen_option_groups[used_cnt++] = d;
 	    if (req == BU_OPT_ARG_FLAG) {
 		if (eq && longopt) {
 		    opt_validate_set(result, BU_OPT_VALIDATE_INVALID, opt_index, opt_index, BU_OPT_EXPECT_NONE, "flag option does not take an argument");
-		    bu_free(used, "used option groups");
+		    bu_free(seen_option_groups, "seen option groups");
 		    return 0;
 		}
 		i++;
@@ -1040,7 +1040,7 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
 	    }
 	    if (i + 1 >= argc) {
 		opt_validate_set(result, BU_OPT_VALIDATE_INCOMPLETE, opt_index, opt_index, BU_OPT_EXPECT_OPTION_ARG, "option argument expected");
-		bu_free(used, "used option groups");
+		bu_free(seen_option_groups, "seen option groups");
 		return 0;
 	    }
 	    if (req == BU_OPT_ARG_REQUIRED) {
@@ -1056,7 +1056,7 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
 	operands++;
 	if (max_operands != BU_OPT_COUNT_UNLIMITED && operands > max_operands) {
 	    opt_validate_set(result, BU_OPT_VALIDATE_INVALID, i, i, BU_OPT_EXPECT_NONE, "too many operands");
-	    bu_free(used, "used option groups");
+	    bu_free(seen_option_groups, "seen option groups");
 	    return 0;
 	}
 	i++;
@@ -1064,12 +1064,12 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
 
     if (operands < min_operands) {
 	opt_validate_set(result, BU_OPT_VALIDATE_INCOMPLETE, argc, argc, BU_OPT_EXPECT_OPERAND, "operand expected");
-	bu_free(used, "used option groups");
+	bu_free(seen_option_groups, "seen option groups");
 	return 0;
     }
 
     opt_validate_set(result, BU_OPT_VALIDATE_VALID, cursor_arg, cursor_arg, BU_OPT_EXPECT_OPTION | BU_OPT_EXPECT_OPERAND | BU_OPT_EXPECT_SUBCOMMAND, "valid");
-    bu_free(used, "used option groups");
+    bu_free(seen_option_groups, "seen option groups");
     return 0;
 }
 
