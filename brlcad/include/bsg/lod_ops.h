@@ -33,8 +33,8 @@
  *     tracks the currently selected level and the view metrics that were
  *     current at the time of selection.
  *
- * The cursor map replaces the per-view duplicate bv_scene_obj subtrees
- * (bv_scene_obj::i->vobjs) for LoD-managed paths.  Levels are ordinary
+ * The cursor map replaces the legacy per-view duplicate draw subtrees
+ * for LoD-managed paths.  Levels are ordinary
  * BSG_NODE_SHAPE children of the LoD node; the LoD node selects which
  * child the render traversal should visit.
  *
@@ -142,7 +142,7 @@ struct bsg_lod_ops {
 
 
 /* ------------------------------------------------------------------ */
-/* LoD node payload (stored in bv_scene_obj::s_i_data)                 */
+/* LoD node payload (stored in the node @c s_i_data slot)              */
 /* ------------------------------------------------------------------ */
 
 /**

@@ -25,7 +25,7 @@
  *
  * When Obol is vendored under libbsg the types and magic number defined
  * here will be used to distinguish native Obol nodes from BRL-CAD
- * bv_scene_obj nodes.  For now this header is a placeholder that keeps
+ * legacy scene nodes.  For now this header is a placeholder that keeps
  * include paths consistent across development phases.
  */
 /** @{ */

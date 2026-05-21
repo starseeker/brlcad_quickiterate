@@ -24,7 +24,7 @@
  *
  * The payload side-car stores typed geometry metadata and revision counters.
  * During migration, the vlist payload wrapper is backed by the existing
- * bv_scene_obj::s_vlist storage.
+ * legacy @c s_vlist storage.
  */
 /** @{ */
 /* @file bsg/payload.h */

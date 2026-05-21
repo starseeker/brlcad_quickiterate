@@ -30,10 +30,10 @@
  * (bu/list.h, bu/ptbl.h, bu/vls.h) so that BSG headers can include it
  * without pulling in @c bv/defines.h or any other scene-object header.
  *
- * @c bv/defines.h includes this header so that @c struct @c bv_scene_obj
- * can embed @c struct @c bsg_node as its first member during the migration
- * period.  The dependency is therefore: bsg/node_type.h is independent;
- * bv/defines.h depends on bsg/node_type.h (one-way).
+ * @c bv/defines.h includes this header so that the legacy scene-object
+ * allocation can embed @c struct @c bsg_node as its first member during the
+ * migration period.  The dependency is therefore: bsg/node_type.h is
+ * independent; bv/defines.h depends on bsg/node_type.h (one-way).
  *
  * Phase A (bv_scene_obj_migrate.txt): moved here from bv/defines.h.
  */
@@ -74,9 +74,8 @@ struct bsg_settings;
  * struct bsg_node is the first-class BSG scene-graph node type.
  *
  * It MUST have @c struct @c bu_list @c l as its first field for bu_list
- * pointer compatibility.  During the migration period @c struct @c
- * bv_scene_obj embeds this as its first member, so casting
- * @c bsg_node * <-> @c bv_scene_obj * is valid via the first-member rule.
+ * pointer compatibility.  During the migration period the legacy scene-object
+ * allocation embeds this as its first member.
  *
  * Design constraints:
  *  - Only basic C types and BU utility structs so that this header does not

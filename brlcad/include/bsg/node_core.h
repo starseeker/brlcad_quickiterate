@@ -22,8 +22,8 @@
  * @brief
  * Phase 10 BSG node-core public API.
  *
- * Phase 10 embeds a @c struct @c bsg_node_core directly inside every
- * @c bv_scene_obj so that material, appearance, payload, identity, and
+ * Phase 10 embeds BSG core data directly inside every transitional
+ * scene-object allocation so that material, appearance, payload, identity, and
  * revision data can be stored inline rather than in process-global hash
  * maps.  This eliminates per-access hash-map lookups and makes node
  * ownership explicit.

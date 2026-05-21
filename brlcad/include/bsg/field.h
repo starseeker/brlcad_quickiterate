@@ -22,7 +22,7 @@
  * @brief
  * Field accessor and notification API (SoField analogue).
  *
- * Each typed accessor mutates the corresponding bv_scene_obj field and then
+ * Each typed accessor mutates the corresponding legacy backing field and then
  * fires any registered FieldSensors or NodeSensors watching that node.
  */
 /** @{ */

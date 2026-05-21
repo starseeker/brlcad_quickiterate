@@ -23,8 +23,8 @@
  * Phase 7 step 7 (A3 + C1/C3) of drawing_stack_modernization:
  * Pure-BSG draw-tree helpers that are independent of GED types.
  *
- * These functions operate on @c bsg_node (= struct bv_scene_obj) trees
- * and @c struct @c bview pointers.  They carry no dependency on
+ * These functions operate on @c bsg_node trees and @c struct @c bview
+ * pointers.  They carry no dependency on
  * @c struct @c ged or @c ged_private.h, making them safe to implement in
  * libbsg.  GED-specific functionality (coloring, display-list callbacks,
  * database lookups) remains in libged/bsg_view_obj.c.
