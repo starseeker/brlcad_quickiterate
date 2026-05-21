@@ -38,6 +38,7 @@
 #include "raytrace.h"
 #include "bsg/appearance.h"
 #include "bsg/node.h"
+#include "bsg/payload.h"
 #include "bv/plot3.h"
 
 #include "./mged.h"

@@ -329,19 +329,17 @@ _objs_cmd_color(void *bs, int argc, const char **argv)
 	bsg_node_set_color((bsg_node *)s, rgb[0], rgb[1], rgb[2]);
     }
     if (recurse) {
-	if (recurse) {
-	    std::queue<struct bv_scene_obj *> sobjs;
-	    sobjs.push(s);
-	    while (!sobjs.empty()) {
-		struct bv_scene_obj *sc = sobjs.front();
-		sobjs.pop();
-		unsigned char rgb[3];
-		bu_color_to_rgb_chars(&val, rgb);
-		bsg_node_set_color((bsg_node *)sc, rgb[0], rgb[1], rgb[2]);
-		for (size_t i = 0; i < BU_PTBL_LEN(&sc->bsg.bsg_children); i++) {
-		    struct bv_scene_obj *scn = (struct bv_scene_obj *)BU_PTBL_GET(&sc->bsg.bsg_children, i);
-		    sobjs.push(scn);
-		}
+	std::queue<struct bv_scene_obj *> sobjs;
+	sobjs.push(s);
+	while (!sobjs.empty()) {
+	    struct bv_scene_obj *sc = sobjs.front();
+	    sobjs.pop();
+	    unsigned char rgb[3];
+	    bu_color_to_rgb_chars(&val, rgb);
+	    bsg_node_set_color((bsg_node *)sc, rgb[0], rgb[1], rgb[2]);
+	    for (size_t i = 0; i < BU_PTBL_LEN(&sc->bsg.bsg_children); i++) {
+		struct bv_scene_obj *scn = (struct bv_scene_obj *)BU_PTBL_GET(&sc->bsg.bsg_children, i);
+		sobjs.push(scn);
 	    }
 	}
     }

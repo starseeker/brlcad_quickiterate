@@ -242,7 +242,11 @@ replot_modified_solid(
     }
 
     /* Release existing vlist of this solid */
-    BV_FREE_VLIST(bsg_node_vlfree((bsg_node *)sp), bsg_node_vlist_head((bsg_node *)sp));
+    {
+	struct bu_list *_vlfree = bsg_node_vlfree((bsg_node *)sp);
+	struct bu_list *_vhead = bsg_node_vlist_head((bsg_node *)sp);
+	BV_FREE_VLIST(_vlfree, _vhead);
+    }
 
     /* Draw (plot) a normal solid */
     RT_CK_DB_INTERNAL(ip);

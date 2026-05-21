@@ -70,6 +70,9 @@ _sync_tcl_polygons_to_bsg(struct bview *v, bv_data_polygon_state *gdpsp, const c
     if (!s)
 	return;
 
+    {
+    struct bu_list *_vlfree = bsg_node_vlfree((bsg_node *)s);
+    struct bu_list *_vhead = bsg_node_vlist_head((bsg_node *)s);
     for (size_t i = 0; i < gdpsp->gdps_polygons.num_polygons; i++) {
 	struct bg_polygon *pg = &gdpsp->gdps_polygons.polygon[i];
 	for (size_t j = 0; j < pg->num_contours; j++) {
@@ -77,16 +80,17 @@ _sync_tcl_polygons_to_bsg(struct bview *v, bv_data_polygon_state *gdpsp, const c
 	    if (npts < 1)
 		continue;
 	    point_t *pts = pg->contour[j].point;
-	    BV_ADD_VLIST(bsg_node_vlfree((bsg_node *)s), bsg_node_vlist_head((bsg_node *)s), pts[0], BV_VLIST_LINE_MOVE);
+	    BV_ADD_VLIST(_vlfree, _vhead, pts[0], BV_VLIST_LINE_MOVE);
 	    for (size_t k = 1; k < npts; k++)
-		BV_ADD_VLIST(bsg_node_vlfree((bsg_node *)s), bsg_node_vlist_head((bsg_node *)s), pts[k], BV_VLIST_LINE_DRAW);
+		BV_ADD_VLIST(_vlfree, _vhead, pts[k], BV_VLIST_LINE_DRAW);
 	    /* Skip closing segment when actively building this contour */
 	    int building = (gdpsp->gdps_cflag
 			    && i == gdpsp->gdps_curr_polygon_i
 			    && j == pg->num_contours - 1);
 	    if (!building && npts >= 2)
-		BV_ADD_VLIST(bsg_node_vlfree((bsg_node *)s), bsg_node_vlist_head((bsg_node *)s), pts[0], BV_VLIST_LINE_DRAW);
+		BV_ADD_VLIST(_vlfree, _vhead, pts[0], BV_VLIST_LINE_DRAW);
 	}
+    }
     }
 
     bv_view_obj_set_color(s,

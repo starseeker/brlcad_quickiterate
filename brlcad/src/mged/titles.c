@@ -106,6 +106,10 @@ create_text_overlay(struct mged_state *s, struct bu_vls *vp)
 
 	/* print the evaluated (path) solid parameters */
 	if (!bsg_node_legacy_eflag((const bsg_node *)illump)) {
+	    mat_t new_mat;
+	    /* NOT an evaluated region */
+	    /* object edit option selected */
+	    bn_mat_mul(new_mat, MEDIT(s)->model_changes, MEDIT(s)->e_mat);
 
 	    vls_solid(s, vp, &MEDIT(s)->es_int, new_mat);
 	}
