@@ -23,15 +23,10 @@
 #ifndef QGTREESELECTIONMODEL_H
 #define QGTREESELECTIONMODEL_H
 
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <unordered_set>
 #include <QAbstractItemModel>
 #include <QItemSelectionModel>
 #include <QModelIndex>
 #include <QObject>
-#include "ged.h"
 #include "qtcad/defines.h"
 #include "qtcad/QgTypes.h"
 #include "qtcad/QgModel.h"
@@ -55,12 +50,15 @@ public:
 
 	void clear_all();
 
+	/* Return the QgTreeView this selection model is associated with. */
+	QgTreeView *treeView() const { return treeview; }
+
 public slots:
 	void select(const QItemSelection &selection, QItemSelectionModel::SelectionFlags flags) override;
 	void select(const QModelIndex &index, QItemSelectionModel::SelectionFlags flags) override;
 
-public:
-	QgTreeView *treeview;
+private:
+	QgTreeView *treeview = nullptr;
 };
 
 #endif //QGTREESELECTIONMODEL_H

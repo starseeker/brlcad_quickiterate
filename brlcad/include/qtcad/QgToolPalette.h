@@ -188,11 +188,6 @@ public:
 
 	void resizeEvent(QResizeEvent *pevent) override;
 
-	QgToolPaletteElement *selected;
-	QString selected_style = QString("");
-
-	QVBoxLayout *mlayout;
-
 signals:
 
 	// PUBLIC, for parent application:
@@ -237,6 +232,9 @@ private:
 	int always_selected;
 	int icon_width;
 	int icon_height;
+	QgToolPaletteElement *selected = nullptr;
+	QString selected_style = QString("");
+	QVBoxLayout *mlayout = nullptr;
 	QSplitter *splitter;
 	QWidget *button_container;
 	QgFlowLayout *button_layout;

@@ -121,6 +121,11 @@ QgItem::QgItem(unsigned long long hash, QgModel *ictx)
 	DbiState *ctx = (DbiState *)mdl->ged()->dbi_state;
 	ihash = hash;
 	parentItem = nullptr;
+
+	// Allocate the name buffer
+	name_ptr = new struct bu_vls;
+	bu_vls_init(name_ptr);
+
 	if (!ctx)
 		return;
 
@@ -135,14 +140,16 @@ QgItem::QgItem(unsigned long long hash, QgModel *ictx)
 	}
 
 	// Local item information
-	ctx->print_hash(&name, ihash);
+	ctx->print_hash(name_ptr, ihash);
 	dp = ctx->get_hdp(ihash);
 	icon = QgIcon(dp, ictx->ged()->dbip);
 }
 
 QgItem::~QgItem()
 {
-	bu_vls_free(&name);
+	bu_vls_free(name_ptr);
+	delete name_ptr;
+	name_ptr = nullptr;
 }
 
 void
@@ -760,7 +767,7 @@ QgModel::data(const QModelIndex &index, int role) const
 	QgItem *qi= getItem(index);
 	DbiState *dbis = (DbiState *)qi->mdl->gedp->dbi_state;
 	if (role == Qt::DisplayRole)
-		return QVariant(bu_vls_cstr(&qi->name));
+		return QVariant(bu_vls_cstr(qi->name_ptr));
 	if (role == BoolInternalRole)
 		return QVariant(qi->op);
 	if (role == DirectoryInternalRole)

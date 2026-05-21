@@ -76,10 +76,12 @@
 
 #include "qtcad/defines.h"
 
-#ifndef Q_MOC_RUN
-#include "raytrace.h"
-#include "ged.h"
-#endif
+/* Forward declarations — the implementation includes the full headers. */
+struct bu_vls;
+struct bview;
+struct db_i;
+struct directory;
+struct ged;
 
 // QgItems correspond to the actual Qt entries displayed in the view.  If a
 // comb is reused in multiple places in the tree the same comb child instance
@@ -186,8 +188,8 @@ private:
 
 	// Cached data from the instance, so we can keep
 	// displaying while librt does work on the instances.
-	struct bu_vls name = BU_VLS_INIT_ZERO;
-	db_op_t op = DB_OP_UNION;
+	struct bu_vls *name_ptr = nullptr;  /* heap-allocated; init/freed in ctor/dtor */
+	int op = 1;                         /* matches db_op_t DB_OP_UNION = 1 */
 	struct directory *dp = nullptr;
 	QImage icon;
 	bool open_itm = false;

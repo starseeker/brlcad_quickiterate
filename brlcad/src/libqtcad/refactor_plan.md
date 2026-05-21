@@ -22,7 +22,10 @@ Current tree notes:
 - QgQuadView now forward-declares view/ged/layout types so its public header no longer drags in libdm/libbv/QgView implementation details.
 - QgGL/QgSW/QgView public headers now forward-declare their dm/bview/fb and Qt event/image types instead of exporting the libdm/libbv implementation headers transitively.
 - QgItem and QgModel now keep their externally-used state behind accessors instead of exposing raw public members across libqtcad, qged, and the tests.
-- The remaining Phase 2 gap is mostly implementation exposure in the public headers (STL containers and libged/librt types), not raw public data members.
+- QgDockWidget::m, QgTreeView::m, and QgTreeSelectionModel::treeview are now private with model()/setModel()/cadModel()/treeView() accessors; QgToolPalette::selected, selected_style, and mlayout are now private with the selectedElement() accessor for the selection; QgEdPalette updated to use selectedElement() accordingly.
+- QgModel.h now uses forward declarations (struct bu_vls; struct bview; struct db_i; struct directory; struct ged;) in place of the #ifndef Q_MOC_RUN raytrace.h/ged.h include block; QgItem::name converted to a heap-allocated struct bu_vls *name_ptr; QgItem::op changed from db_op_t to int; QgAttributesModel.cpp adds its own raytrace.h include now that it is no longer pulled in transitively.
+- QgTreeSelectionModel.h removes ged.h and unused STL-container includes; QgTreeView.h removes the unused STL-container includes.
+- Phase 2 is complete.
 
 - Promote raw public data to accessors where they're called from outside (compile, follow errors, add minimal getters/setters). Focus on the high-traffic classes first: QgItem/QgModel, QgSW/QgGL, QgQuadView, QgViewCtrl, QgToolPalette*.
 - Introduce Q_PROPERTY for state visible to QML/Designer or for state that genuinely is user-configurable (icon size, default mouse mode, default key bindings, etc.).
