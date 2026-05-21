@@ -1,102 +1,125 @@
-BV_SCENE_OBJ TO LIBBSG COMPLETION PLAN
-======================================
+LIBBV TO LIBBSG COMPLETION AND REMOVAL PLAN
+===========================================
 
 Purpose
 -------
-This file tracks the remaining work needed to eliminate `struct bv_scene_obj` as
-BRL-CAD's scene-graph data model and replace it with first-class, idiomatic
-libbsg scene graph code and containers.
+This file now tracks the aggressive end-state migration where libbsg completely
+replaces libbv and libbv is removed from BRL-CAD.  The original near-term goal
+was to eliminate `struct bv_scene_obj` as the scene-graph data model while
+leaving libbv as a view/math/vlist utility library.  The logical conclusion is
+larger: split every remaining libbv responsibility into the library where it
+belongs, make libbsg the sole draw-scene/view-scene API, and delete `include/bv.h`,
+`include/bv/*`, and `src/libbv`.
 
-This is not a minimalist field move.  The target is a fundamental data-model
-cutover:
+This is not a compatibility-preserving refactor.  The target is a clean cutover:
 
 - libbsg owns scene nodes, scene containers, traversal, typed payloads,
-  per-node state, renderer attachments, lifecycle, and scene-level policies.
-- libbv remains a view/math/vlist utility library and may provide temporary
-  compatibility adapters, but it does not own scene graph storage or public
-  scene semantics.
-- Consumer code uses BSG concepts directly instead of depending on the
-  historical `bv_scene_obj` layout, first-member casts, or libbv object tables.
-- When a compatibility path becomes a thin wrapper over BSG, callers move to BSG
-  and the wrapper is deleted rather than preserved indefinitely.
+  renderer attachments, view-scoped scene state, HUD/faceplate state, selection,
+  snapping, LoD scene policy, lifecycle, and draw-stack invalidation.
+- camera/view math that is not scene-graph policy moves to libbg/libbn or a
+  libbsg camera/view API, not to a preserved libbv.
+- raw vlist geometry becomes a BSG payload/geometry format or a lower-level
+  utility type outside libbv.  Callers stop including `bv/vlist.h`.
+- ADC, grid, faceplate, rubber-band rectangle, view parameters, model/view axes,
+  labels, arrows, polygons, and other adornments become BSG HUD, overlay, or
+  view-option concepts.
+- `plot3.h` leaves libbv entirely.  It should become a top-level installed
+  utility header/library in the same spirit as `vmath.h`/BU utility APIs, or be
+  folded into an existing plotting/utility layer if maintainers choose one.
+- libdm, libged, mged, libtclcad/Archer, qged/libqtcad, librt, libanalyze, and
+  tests use BSG and lower-level utility APIs directly.
+- Adapters are allowed only as short-lived build-order scaffolding.  The plan
+  assumes an aggressive migration where compatibility wrappers are deleted as
+  soon as their callers move.
 
 Scope Snapshot
 --------------
 Snapshot date: 2026-05-21.
 
+The current branch already contains substantial BSG migration work, but libbv is
+still a major public dependency.  Representative active libbv surfaces include:
+
+| Surface | Current role | Final destination |
+| --- | --- | --- |
+| `include/bv.h` | umbrella public libbv include | delete |
+| `include/bv/defines.h` | `bv_scene_obj`, `bview`, settings, axes, labels, backend and view object storage | split into BSG scene/view/HUD APIs plus lower-level math constants |
+| `include/bv/util.h`, `src/libbv/util.cpp` | scene-object lifecycle, lookup, traversal, bounds, view-object helpers | BSG scene, scene-set, payload, bounds, and lifecycle APIs |
+| `include/bv/polygon.h`, `src/libbv/polygon*.c*` | view polygon model and scene-object builders | BSG overlay polygon payload/edit API; geometric polygon ops stay in libbg |
+| `include/bv/vlist.h`, `src/libbv/vlist.c` | vlist structure, commands, vlist allocation, plotting helpers, vector font conversion | BSG geometry payload format and/or lower-level utility header/library |
+| `include/bv/lod.h`, `src/libbv/lod.cpp` | mesh LoD cache plus scene-object LoD view update hooks | BSG LoD payload/policy/cache APIs |
+| `include/bv/snap.h`, `src/libbv/snap.c` | snap-to-grid/line behavior over `bview` and scene object sets | BSG view-query/snap API over scene sets and HUD/grid options |
+| `include/bv/adc.h`, `src/libbv/adc.c` | angle-distance cursor math/state update | BSG HUD/view-option ADC API or lower-level view-math helper |
+| `include/bv/faceplate.h` | ADC, grid, rectangle, params, other HUD state structs | BSG HUD/view-option state API |
+| `include/bv/view_sets.h`, `src/libbv/view_sets.cpp` | multi-view set and shared view-object memory | BSG scene/view registry plus application-level view collection ownership |
+| `include/bv/plot3.h`, tests | standalone UNIX plot/plot3 routines | top-level `plot3.h`/utility library or existing plotting layer |
+| `include/bv/tig.h`, `include/bv/vectfont.h`, `src/libbv/tig/*`, `font.c` | TIG/vector font and plotting helpers | lower-level plotting/font utility or BSG text/label payload implementation |
+| `include/bv/events.h`, `knobs.cpp` | view input/knob state helpers | libqtcad/qged input layer plus BSG camera/view controls |
+| `include/bv/tcl_data.h` | Tcl-side view/application data slot | libtclcad-owned state, not BSG/libbv public storage |
+| `src/libbv/hash.c`, `diff.c` | miscellaneous support | move to libbu/libbg/libbsg or delete after call-site audit |
+
 A literal scan of non-generated `.c`, `.cpp`, `.h`, and `.hpp` files under
-`brlcad/include` and `brlcad/src` finds 1474 `bv_scene_obj` mentions across 149
-files.  This is close enough to the reported ~1550-use estimate to confirm that
-the remaining work is broad architectural replacement, not a single mechanical
-rename.
+`brlcad/include` and `brlcad/src` still finds broad use of `bv_scene_obj`,
+`struct bview`, `bv_` headers, and libbv target dependencies.  Treat those
+counts as scope signals.  The full removal is complete only when:
 
-Largest current hotspots by literal mention count:
-
-| File | Mentions | Meaning of work |
-| --- | ---: | --- |
-| `src/libbv/util.cpp` | 191 | legacy allocation/reset/object-table/backend utility hub |
-| `src/libged/bsg_ged_draw.c` | 130 | draw-tree production, legacy draw objects, GED data bridging |
-| `src/libbsg/node.c` | 73 | BSG accessors still backed by legacy storage/casts |
-| `include/bv/util.h` | 57 | public libbv scene-object API surface |
-| `src/libged/tests/draw/bsg_view_obj.cpp` | 56 | tests still verifying compatibility behavior through old handles |
-| `src/libged/dbi_state.cpp` | 45 | draw database/object state synchronization |
-| `src/libbv/polygon.c` | 41 | view-object/polygon construction and vlist ownership |
-| `include/ged/bsg_ged_draw.h` | 37 | public GED draw API still exposing legacy handles |
-| `include/bv/defines.h` | 35 | legacy storage definition itself |
-| `src/libbsg/draw_set.c` | 33 | BSG draw-set code still touching compatibility storage |
-
-The raw count includes forward declarations, comments, tests, compatibility
-code, and legitimate old API boundaries.  Treat it as a scope signal, not as a
-one-to-one list of required edits.  Each phase below must classify references as
-one of:
-
-1. delete immediately;
-2. replace with an existing BSG concept;
-3. replace after a missing BSG container/API is introduced;
-4. keep only inside a short-lived, explicitly named compatibility adapter;
-5. retain as non-scene libbv utility code after proving it no longer depends on
-   `bv_scene_obj` storage.
+- `rg "bv_scene_obj|struct bview|#include [<\"]bv/|#include [<\"]bv.h" brlcad/include brlcad/src`
+  finds no active implementation references except historical notes scheduled
+  for deletion.
+- `rg "libbv|LIBBV|BV_EXPORT|BV_DLL|bv/" brlcad/CMakeLists.txt brlcad/include brlcad/src`
+  finds no build, install, or public API references.
+- No installed header path under `include/bv` remains.
+- No target named `libbv` or `libbv-*` remains.
 
 Target End State
 ----------------
 The final tree should have these properties.
 
+- libbsg is the supported scene/view graph library for BRL-CAD draw-stack data.
 - `bsg_node` is allocated, stored, parented, traversed, mutated, and destroyed by
   libbsg without embedding in or casting from `struct bv_scene_obj`.
 - libbsg exposes scene-level containers, not only individual node accessors:
   - `bsg_scene` or equivalent root/scene owner;
-  - scene object sets for database objects, view-only objects, local objects,
-    overlays, selections, and render queues;
-  - typed node containers and traversal/action APIs rather than caller-owned
-    `bu_ptbl` tables of legacy objects.
+  - scene sets for database objects, view-only objects, local objects, overlays,
+    HUD elements, selections, snap candidates, and render queues;
+  - typed containers and traversal/action APIs rather than caller-owned `bu_ptbl`
+    tables of legacy objects.
+- View/camera state is either a BSG view/camera object or lower-level math state,
+  not `struct bview` from libbv.  BSG APIs should define clear ownership for:
+  - view name, dimensions, aspect, scale, perspective, matrices, eye/keypoint;
+  - local/shared view options;
+  - callbacks and invalidation hooks;
+  - multi-view scene registries.
+- HUD and view options are first-class BSG concepts:
+  - ADC state and transforms;
+  - grid/snap settings;
+  - faceplate axes, view scale, center dot, params text, FPS, rubber-band rect;
+  - model/data axes and labels where they are overlays rather than HUD.
+- Geometry is represented by typed BSG payloads or lower-level utility types:
+  - wire/vlist-like payloads;
+  - polygon/label/axes/arrow/line overlay payloads;
+  - LoD/adaptive-wireframe payloads;
+  - evaluated shaded/render payloads;
+  - text/vector-font payloads;
+  - future image/framebuffer payloads after explicit design.
 - Node identity/source state is modeled as BSG source metadata:
   - stable node ID;
   - optional database directory/path identity;
   - optional instance/part identity;
-  - optional caller-owned application context that is not confused with DB
-    identity.
-- Geometry is represented by typed BSG payloads:
-  - vlist payloads;
-  - polygon/label/axes/arrow overlay payloads;
-  - LoD/adaptive-wireframe payloads;
-  - evaluated shaded/render payloads;
-  - future image/framebuffer payloads only after explicit design.
-- Transforms, bounds, aggregate bounds caches, and drawn-frame stamps are BSG
-  state, not fields on a libbv object.
-- Material and appearance are separate BSG concepts.  Settings snapshots are
-  private import/export compatibility data, not the authoritative draw model.
-- Selection/highlight/illumination is a scene-level BSG selection model with
-  compatibility mapping for old GED/MGED behavior.
-- Renderer/backend attachments are BSG render resources keyed by backend tag,
-  payload revision, and node revision rather than raw `s_backend` fields.
-- Update/free callbacks are BSG payload lifecycle hooks with typed signatures.
-- libdm, libged, mged, libtclcad/Archer, qged/libqtcad, librt, and libanalyze use
-  BSG APIs and scene containers.
-- `include/bv/defines.h` no longer defines scene-node storage.
-- `include/bsg/*` does not include `bv/defines.h` for scene-node definitions.
-- `rg "bv_scene_obj" brlcad/include brlcad/src` returns no active scene-graph
-  implementation references.  Only historical release notes or removed-migration
-  comments may remain.
+  - optional caller-owned application context separate from DB identity.
+- Transforms, bounds, aggregate bounds caches, drawn-frame stamps, material,
+  appearance, selection/highlight, snapping, and renderer attachments are BSG
+  state or BSG actions.
+- libdm, libged, mged, libtclcad/Archer, qged/libqtcad, librt, libanalyze, and
+  tests include `bsg/*`, `bg/*`, `bn/*`, `bu/*`, `vmath.h`, or the new top-level
+  plotting/vector-font utility headers as appropriate.  They do not include
+  `bv.h` or `bv/*`.
+- `plot3.h` is no longer tied to a display/view library.  It is installed and
+  versioned as a standalone utility API, or its functions are absorbed into an
+  existing plotting utility layer with a compatibility-breaking rename decided
+  during the migration.
+- Documentation describes BSG as the normal draw-stack model.  libbv is absent
+  from generated package configuration, install manifests, target dependencies,
+  and public documentation except historical release notes.
 
 Current Baseline
 ----------------
@@ -116,113 +139,135 @@ Completed groundwork already in the branch:
   callbacks.
 - `bsg_node_create`, `bsg_node_create_child`, `bsg_node_clear_children`, and
   `bsg_node_destroy` exist and libbsg lifecycle tests exercise BSG-owned paths.
+- libbsg headers already include placeholders or partial implementations for
+  scene sets, view scopes, overlays, payloads, LoD, material, appearance,
+  selection, draw contexts, and renderer state.
 
 Remaining structural blockers:
 
 1. `struct bv_scene_obj` is still the outer allocation for many nodes.
-2. libbsg internals still include `bv/defines.h` and cast BSG nodes to
-   `struct bv_scene_obj *` for missing storage.
-3. libbv public APIs still expose `struct bv_scene_obj *` for allocation,
-   lookup, view-object helpers, polygon helpers, vlist helpers, snapping, and
-   object tables.
-4. GED/MGED/libtclcad/qged/libqtcad/librt/libanalyze callers still pass old
-   handles through many command and callback boundaries.
-5. Tests still assert compatibility behavior using raw old handles in several
-   draw-stack tests.
-6. The remaining `bv_scene_obj` fields mix several different concepts in one
-   struct, so they must be split into idiomatic BSG concepts before the struct
-   can be deleted.
+2. `struct bview` and `struct bview_settings` are still the public view/camera,
+   view-option, HUD, object-table, and callback storage types.
+3. libbsg internals and public BSG headers still reference libbv types such as
+   `struct bview`, `struct bv_mesh_lod`, and `struct bv_scene_obj`.
+4. libbv public APIs still expose allocation, lookup, view-object helpers,
+   polygon helpers, vlist helpers, snapping, LoD, plot3, view sets, and object
+   tables.
+5. GED/MGED/libtclcad/qged/libqtcad/libdm/librt/libanalyze callers still pass
+   old handles through command, callback, and rendering boundaries.
+6. CMake target dependencies still use `libbv`, and installed headers still
+   publish `bv.h` and `bv/*`.
+7. Tests still assert compatibility behavior using raw old handles and libbv
+   helper behavior.
+8. Several libbv components are not scene objects but still need new homes before
+   `src/libbv` can be deleted.
 
 Replacement Work Plan
 ---------------------
 
-Phase 0 - Establish the Live Inventory and Guardrails
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Objective: make remaining work measurable and prevent new dependencies while the
-model is being replaced.
+Phase 0 - Establish the Full libbv Inventory and Guardrails
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Objective: make the complete removal measurable and prevent new libbv
+references.
 
 Work:
 - Generate and check in a refreshed inventory that separates:
-  - public API signatures naming `struct bv_scene_obj`;
+  - public headers and exported symbols under `include/bv*`;
+  - CMake target dependencies on `libbv`;
+  - `struct bv_scene_obj`, `struct bview`, `struct bview_settings`, and
+    `struct bview_set` uses;
   - direct field accesses;
   - first-member casts and `bsg_compat_*` use;
+  - `bv_` utility APIs that can move to BSG, BG, BN, BU, libqtcad/qged,
+    libtclcad, or a top-level plotting/font utility;
   - tests/comments/deprecation notes;
-  - false positives from unrelated fields with the same names.
-- Group every active reference by owning subsystem and target BSG concept:
-  lifecycle, scene set, identity, payload, vlist, transform, bounds, material,
-  appearance, selection, view context, renderer attachment, callback, or
-  compatibility adapter.
-- Add a lightweight developer check or documented command that fails on new
-  active `bv_scene_obj` references outside the approved compatibility list.
-- Mark remaining legacy APIs and direct-access fields as deprecated with a clear
-  deletion phase, not as permanent supported APIs.
+  - false positives.
+- Group every active reference by target concept:
+  lifecycle, scene set, identity, payload, vlist/geometry utility, transform,
+  bounds, camera/view, HUD, view options, material, appearance, selection,
+  snapping, LoD, renderer attachment, plotting, vector fonts, Tcl data, input
+  events, callbacks, or deletion.
+- Add a developer check or documented command that fails on new active includes
+  of `bv.h`/`bv/*`, new `libbv` dependencies, or new `bv_scene_obj`/`bview`
+  references outside the explicit migration whitelist.
+- Mark every remaining libbv API as migration-only with a deletion phase.  Avoid
+  deprecation paths that imply long-term support.
 
 Exit criteria:
-- The inventory explains every active reference category.
-- New work has an obvious rule: add BSG APIs/containers, not new
-  `bv_scene_obj` dependencies.
+- The inventory explains every active libbv reference category.
+- New work has an obvious rule: add BSG/lower-level utility APIs, not new libbv
+  dependencies.
 
-Phase 1 - Define the BSG Data Model Before Moving Storage
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Objective: replace the one-struct legacy object with explicit BSG-owned
-containers and state types.
+Phase 1 - Define Replacement API Boundaries Before Moving Storage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Objective: decide where every libbv concept lands so libbv is removed rather
+than recreated under another name.
 
 Work:
-- Introduce the scene owner/container abstraction, tentatively `bsg_scene`, that
-  owns roots, object sets, lifecycle, traversal invalidation, and scene-wide
-  policies.
+- Define or complete `bsg_scene` as the scene owner for roots, object sets,
+  lifecycle, traversal invalidation, and scene-wide policies.
+- Define a BSG view/camera API that replaces `struct bview` for draw-stack uses:
+  matrices, scale, size, perspective, eye/keypoint, viewport dimensions,
+  callbacks, frame revision, and shared/local view options.
+- Decide which camera/math operations should instead move to libbg/libbn or a
+  top-level math utility.  Do not make libbsg depend on UI toolkit concepts.
+- Define BSG HUD/view-option APIs for ADC, grid, faceplate axes, view params,
+  center dot, view scale, rubber-band rectangle, framebuffer mode, and snapping
+  options.
 - Define BSG scene sets for database objects, view-only objects, local objects,
-  overlays, selected nodes, and renderer-visible nodes.  These replace legacy
-  `gv_objs`/`gv_view_objs`/object-table semantics rather than merely wrapping
-  them.
-- Define typed node state sidecars or inline-owned members for:
-  - source metadata and DB identity;
-  - transform and local/world bounds;
-  - aggregate bounds cache and dirty propagation;
-  - material and appearance;
-  - payload and payload lifecycle;
-  - view/edit context;
-  - renderer attachments;
-  - selection/highlight state;
-  - draw/update revision counters.
-- Decide which current concepts belong on a node, on a scene, on a payload, on a
-  view, or on a renderer attachment.  Do not carry fields forward just because
-  they existed on `bv_scene_obj`.
-- Document ownership and invalidation rules for every new container before
+  overlays, HUD elements, selected nodes, snap candidates, and renderer-visible
+  nodes.  These replace `gv_objs`, `gv_view_objs`, `gv_snap_objs`, and
+  object-table semantics rather than wrapping them.
+- Define typed node state and payload ownership for source metadata, transform,
+  bounds, material, appearance, LoD, selection, renderer attachments, custom
+  payload data, lifecycle hooks, and update revisions.
+- Choose the final home for independent libbv utilities:
+  - plot3: top-level `plot3.h`/utility library or existing plotting layer;
+  - vlist wire primitives: BSG payload format and/or lower-level geometry
+    utility header;
+  - vector font/TIG: BSG text payload implementation and/or utility library;
+  - polygon math: libbg when geometric, BSG overlay API when scene/view-specific;
+  - Tcl application data: libtclcad-owned state;
+  - input/knobs/events: libqtcad/qged/mged UI/input layers.
+- Document ownership and invalidation rules for every replacement API before
   moving callers.
 
 Exit criteria:
-- libbsg has named containers for the major roles now hidden in
-  `bv_scene_obj`, not only field-level accessors.
-- Every legacy field has a target BSG concept or a deletion decision.
+- Every libbv header and source file has a target destination or deletion
+  decision.
+- libbsg does not depend on libbv types in its public replacement designs.
 
-Phase 2 - Move Allocation, Ownership, and Scene Sets to libbsg
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Objective: make libbsg, not libbv, own node and scene lifetimes.
+Phase 2 - Move Allocation, Ownership, View State, and Scene Sets to libbsg
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Objective: make libbsg own draw-scene and view-scene lifetimes.
 
 Work:
 - Make `bsg_node_create` allocate standalone BSG node storage that is not a
   `struct bv_scene_obj` wrapper.
-- Make `bsg_scene` own roots and node sets.  Parent/child mutation and object-set
+- Make `bsg_scene` own roots and node sets.  Parent/child mutation and set
   membership must update dirty flags and traversal caches in one place.
 - Replace libbv object free-list ownership with BSG allocation pools or simple
   BU allocation, whichever best fits the final model.
+- Replace `bview::gv_draw_root`, `bview_objs`, free-scene-object tables, and
+  `bview_set` shared memory with BSG scene/view registries.
 - Convert `bv_obj_create`, `bv_obj_get`, `bv_obj_get_unregistered`,
-  `bv_obj_reset`, and `bv_obj_put` into temporary adapters over BSG lifecycle or
-  delete them as callers migrate.
+  `bv_obj_reset`, `bv_obj_put`, `bv_set_*`, and `bv_view_obj_*` users directly
+  to BSG lifecycle and scene-set APIs; delete adapters as soon as each caller is
+  moved.
 - Move root/group/object table creation in GED draw setup to BSG scene
   construction.
-- Remove assumptions that a node can discover all owner tables from fields such
-  as `free_scene_obj`, `otbl`, and `vlfree`.
+- Remove assumptions that a node can discover owner tables from fields such as
+  `free_scene_obj`, `otbl`, `vlfree`, `gv_objs`, or `gv_view_objs`.
 
 Exit criteria:
-- BSG nodes and BSG scenes can be allocated, populated, traversed, and destroyed
-  without allocating `struct bv_scene_obj`.
+- BSG nodes, BSG scenes, and BSG view registries can be allocated, populated,
+  traversed, and destroyed without allocating `struct bv_scene_obj`, `bview_objs`,
+  or libbv view sets.
 - libbsg lifecycle code no longer includes `bv/defines.h` for storage access.
 
 Phase 3 - Replace Legacy Storage by Concept Cluster
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Objective: move data out of `bv_scene_obj` by semantic cluster, with no dual
+Objective: move data out of libbv structs by semantic cluster, with no dual
 sources of truth left behind.
 
 3A. Source metadata and identity
@@ -231,51 +276,65 @@ sources of truth left behind.
 - Separate database directory/path identity from arbitrary tool-private data.
 - Convert GED draw, bot/brep/nmg/edit paths, QgModel, raytrace paths, selection,
   reports, and export commands.
-- Delete legacy source fields or keep only import/export adapters until callers
-  are gone.
 
-3B. Payload, vlist, and generator callbacks
+3B. Payload, vlist, text, and generator callbacks
 - Move `s_vlist`, `s_vlen`, `s_i_data`, `draw_data`, `s_update_callback`, and
   `s_free_callback` into typed BSG payloads.
 - Create payload kinds for DB wireframes, evaluated shaded data, polygons,
-  labels, axes, arrows, LoD/adaptive wireframes, and generic overlay geometry.
-- Make payload lifecycle own allocation, vlist free-list interaction, update
-  callbacks, stale marking, and teardown.
-- Convert libbv polygon/vlist helpers into BSG payload builders or BU-level vlist
-  utilities when they are not scene-specific.
+  labels, text/vector-font strings, axes, arrows, lines, LoD/adaptive wireframes,
+  and generic overlay geometry.
+- Decide whether the `struct bv_vlist` layout becomes `struct bsg_vlist`, a
+  lower-level utility type, or is replaced by a new payload representation.
+- Move vlist allocation/free-list behavior into BSG payload ownership or a
+  non-libbv utility allocator.
+- Convert vector font and TIG helpers into BSG text/label payload builders or a
+  standalone font/plot utility layer.
 
-3C. Transform, bounds, and render revisions
+3C. Transform, bounds, camera, and render revisions
 - Move `s_mat`, `s_size`, `s_csize`, `s_center`, `bmin`, `bmax`, `have_bbox`,
-  `s_bbox_cached`, `s_displayobj`, `s_changed`, `current`, and `s_drawn_rev` to
-  BSG transform/bounds/render-state containers.
+  `s_bbox_cached`, `s_displayobj`, `s_changed`, `current`, `s_drawn_rev`, and
+  `gv_frame_rev` interactions to BSG transform/bounds/render-state containers.
 - Replace ad hoc bbox recomputation with BSG actions that update dirty aggregate
   bounds from payload and child state.
-- Ensure LoD, culling, snap, display-list invalidation, and reports all use the
-  same BSG bounds API.
+- Move view matrices, view scale/size, viewport dimensions, perspective,
+  eye/keypoint, and view-bounds logic from `struct bview` to the BSG view/camera
+  API or a lower-level math helper.
+- Ensure LoD, culling, snap, display-list invalidation, reports, and rendering
+  all use the same BSG bounds/view APIs.
 
-3D. Material, appearance, and draw policy
+3D. Material, appearance, draw policy, and view options
 - Move `s_color`, `s_color_rev`, `s_soldash`, `s_arrow`, `s_os`, `s_local_os`,
   `s_inherit_settings`, and `s_old` into BSG material, appearance, draw-policy,
-  and compatibility snapshot code.
-- Make `bsg_settings` private or delete it once material/appearance APIs cover
-  all callers.
-- Eliminate remaining old-settings compatibility fields after render, export,
-  report, and command paths read BSG material/appearance directly.
+  and migration snapshot code.
+- Move `bview_settings` options such as zclip, autoview, faceplate toggles,
+  framebuffer mode, snap flags, and view params into BSG view-option APIs.
+- Make `bsg_settings` private or delete it once material/appearance/view-option
+  APIs cover all callers.
+- Eliminate old-settings compatibility fields after render, export, report, and
+  command paths read BSG concepts directly.
 
-3E. Selection and highlighting
+3E. Selection, highlighting, snapping, and picking
 - Replace `bsg_iflag` compatibility and old illumination flows with a scene-level
-  BSG selection model.
+  BSG selection/highlight model.
 - Model selected nodes, highlighted nodes, sub-primitive selections, callbacks,
-  and old GED/MGED illumination compatibility explicitly.
-- Convert `gv_selected`, GED selection commands, MGED highlight paths, qged
-  selection filters, and tests to the BSG selection container.
+  and old GED/MGED illumination behavior explicitly.
+- Replace `bv_snap_*` with BSG snap/query actions over scene sets, HUD grid
+  settings, and payload geometry.
+- Convert `gv_selected`, `gv_snap_objs`, GED selection commands, MGED highlight
+  paths, qged selection filters, and tests to BSG selection/snap containers.
 
-3F. View/edit context
-- Replace `s_v` view-context semantics with explicit BSG view-scope or edit
-  context objects.
-- Keep render policy on the view/renderer, not on scene nodes.
-- Convert polygon editing, QGED/libqtcad filters, MGED edit flows, and Tcl view
-  object commands.
+3F. HUD, ADC, faceplate, axes, labels, and polygons
+- Replace `bv_adc_state`, `bv_grid_state`, `bv_interactive_rect_state`,
+  `bv_params_state`, `bv_other_state`, model/view axes, labels, arrows, and
+  polygons with BSG HUD, overlay, and view-option APIs.
+- Treat HUD-only elements as view-attached BSG HUD payloads that do not move with
+  model transforms.
+- Treat model-space adornments as BSG overlay nodes/payloads with normal scene
+  transforms, selection, snapping, and material/appearance state.
+- Convert polygon editing from `bv_polygon` plus scene-object custom data to a
+  BSG polygon payload/edit API; keep geometry-only polygon operations in libbg.
+- Convert QGED/libqtcad filters, MGED edit flows, Tcl view-object commands, and
+  GED view-object commands.
 
 3G. Renderer/backend attachments
 - Replace `s_backend` and `struct bv_obj_backend` with BSG renderer attachments
@@ -284,167 +343,224 @@ sources of truth left behind.
   lifecycle and payload dirty state.
 - Convert libdm GL/swrast/qtgl paths and any future backend hooks.
 
-Exit criteria:
-- For each cluster, old fields are deleted or written only by a temporary adapter
-  whose deletion is scheduled in Phase 7.
-- No ordinary libdm/libged/qged/mged/libqtcad/libtclcad/librt/libanalyze code
-  directly reads or writes legacy storage.
+3H. Plot3, TIG, vector fonts, and non-scene utilities
+- Move `plot3.h` out of libbv before deleting libbv.  Prefer a top-level header
+  such as `include/plot3.h` with an explicit utility target, or absorb the API
+  into an existing plotting layer if the public API break is acceptable.
+- Move plot3 tests with the new owner.
+- Move TIG/vector-font code either to the new plotting/font utility owner or into
+  BSG text/label payload implementation if it should not be public.
+- Move `hash.c`, `diff.c`, and other support code to BU/BG/BSG only when call
+  sites still need them; otherwise delete them.
 
-Phase 4 - Replace libbv Scene-Object APIs with BSG APIs
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Objective: remove libbv as the public scene-object surface.
+Exit criteria:
+- For each cluster, libbv storage is deleted or written only by a temporary
+  migration adapter whose deletion is scheduled in Phase 8.
+- No ordinary libdm/libged/qged/mged/libqtcad/libtclcad/librt/libanalyze code
+  directly reads or writes libbv storage.
+
+Phase 4 - Replace Public libbv APIs with BSG and Utility APIs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Objective: remove libbv as a public API surface.
 
 Work:
-- For every public libbv API naming `struct bv_scene_obj *`, choose one outcome:
+- For every public libbv API or exported symbol, choose one outcome:
   - move to libbsg with BSG types;
-  - replace by a higher-level BSG scene/set/action API;
-  - keep as a non-scene view/math/vlist utility with no scene-node handle;
+  - replace by a higher-level BSG scene/view/HUD/action API;
+  - move to libbg/libbn/libbu or a new top-level plotting/font utility target;
+  - move to a UI/application library such as libqtcad/qged/libtclcad/mged;
   - delete.
-- Replace `bv_view_obj_*` with BSG scene-set operations for overlays, polygons,
-  labels, axes, lines, arrows, and local objects.
+- Replace `bv_view_obj_*` with BSG scene-set, overlay, HUD, and payload builder
+  APIs.
 - Replace `bv_scene_obj_bound` and similar helpers with BSG bounds actions.
 - Replace `bv_obj_stale`, backend invalidation helpers, and object reset helpers
   with BSG payload/revision/attachment invalidation.
-- Move any reusable raw vlist helpers to BU/libbv utility APIs that do not know
-  about scene nodes.
-- Remove `struct bv_scene_obj` declarations from public libbv headers once all
-  callers use BSG types.
+- Replace `bv_mesh_lod_*` scene-object APIs with BSG LoD payload/cache APIs.
+  Keep cache primitives only if they are exposed under the new BSG/utility owner.
+- Replace `bv_snap_*` with BSG snap/query APIs.
+- Replace `adc_*` with BSG HUD/view-option ADC APIs or lower-level view-math
+  helpers.
+- Replace `bv_set_*` with BSG scene/view registry APIs or application-owned view
+  collections.
+- Move reusable raw geometry, plot, or font helpers to their final non-libbv
+  owner before deleting the old headers.
+- Stop installing `include/bv.h` and `include/bv/*` once all callers move.
 
 Exit criteria:
-- libbv no longer exports allocation, reset, lookup, object-table, traversal, or
-  payload APIs for scene nodes.
-- Public view/draw code reaches scene data through libbsg.
+- No public header outside migration notes declares `BV_EXPORT` or includes
+  `bv/defines.h`.
+- Public draw-stack code reaches scene, view, HUD, and geometry data through
+  libbsg or lower-level utility APIs.
 
-Phase 5 - Convert Consumers to the New BSG Containers
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Objective: make every BRL-CAD consumer operate on BSG concepts rather than old
-handles.
+Phase 5 - Convert Consumers to the New BSG/Utility Boundaries
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Objective: make every BRL-CAD consumer operate without libbv.
 
 Work by subsystem:
 
 - libdm
   - Render via BSG traversal/actions and typed payloads.
-  - Use BSG material/appearance/selection/bounds/render attachments only.
+  - Use BSG camera/view, HUD, material, appearance, selection, bounds, and render
+    attachments only.
   - Remove fallback reads from old fields after BSG storage is authoritative.
 
 - libged
-  - Make GED draw state own a BSG scene, not old object tables.
-  - Convert draw/erase/redraw, reports, plots, PNG/PS, selection, view-object,
-    edit, raytrace, bot/brep/nmg, and database-state paths to BSG scene and
-    node APIs.
-  - Change public GED draw APIs that currently expose `bv_scene_obj` to BSG
-    scene/node/set types.
+  - Make GED draw state own a BSG scene and BSG view registry, not old object
+    tables or `struct bview` storage.
+  - Convert draw/erase/redraw, reports, plots, PNG/PS, selection, snap,
+    view-object, HUD/faceplate, edit, raytrace, bot/brep/nmg, LoD, and
+    database-state paths to BSG scene/view/node APIs.
+  - Change public GED draw APIs that currently expose `bv_scene_obj` or `bview`
+    to BSG scene/node/view/set types or GED-owned semantic handles.
+  - Use the new plot3 owner for plotting output.
 
 - MGED
-  - Convert highlight, edit, plotting, raytrace, titles, usepen, dozoom, and
-    refresh paths to BSG scene APIs.
-  - Remove direct dependencies on old GED data fields stored in scene objects.
+  - Convert view/camera state, highlight, edit, plotting, raytrace, titles,
+    usepen, dozoom, faceplate, ADC, grid, snap, and refresh paths to BSG and the
+    new utility APIs.
+  - Remove direct dependencies on old GED data fields stored in scene/view
+    objects.
 
 - libtclcad / Archer
   - Convert Tcl view-object commands, arrows, axes, labels, polygons, mouse
-    callbacks, and draw commands to BSG payload/material/appearance APIs.
-  - Keep Tcl command compatibility at the command layer, not in scene storage.
+    callbacks, faceplate options, and draw commands to BSG payload/HUD/material/
+    appearance APIs.
+  - Keep Tcl command compatibility at the command layer, not in libbv storage.
+  - Move `bv_data_tclcad` ownership into libtclcad.
 
 - qged / libqtcad
-  - Convert select/measure/poly/edit filters to BSG node, payload, selection,
-    and scene-set APIs.
-  - Ensure Qt-side models do not cache `bv_scene_obj *` as their semantic handle.
+  - Convert camera/view models, select/measure/poly/edit filters, input events,
+    and view settings to BSG view, node, payload, selection, snap, and scene-set
+    APIs.
+  - Ensure Qt-side models do not cache `bv_scene_obj *` or `bview *` as semantic
+    handles.
 
 - librt / libanalyze
   - Replace any plotting/sketch/sample/NIRT scene-object callbacks with typed BSG
     payload builders or renderer-neutral output APIs.
+  - Use the new plot3 owner directly for plot output.
 
 - tests
+  - Move libbv tests to the new owning libraries or delete tests for removed
+    compatibility behavior.
   - Convert tests from old field assertions to BSG semantic assertions.
-  - Keep a small compatibility test only while the adapter exists; delete it with
-    the adapter.
+  - Keep compatibility tests only while the corresponding adapter exists; delete
+    them with the adapter.
 
 Exit criteria:
-- Consumer APIs and local variables use `bsg_node *`, `bsg_scene *`, scene-set
-  handles, typed payload handles, or subsystem-specific semantic handles.
-- Old `bv_scene_obj *` handles do not cross subsystem boundaries except through a
-  temporary compatibility adapter scheduled for deletion.
+- Consumer APIs and local variables use `bsg_node *`, `bsg_scene *`, BSG view
+  handles, BSG scene-set handles, typed payload handles, lower-level utility
+  types, or subsystem-specific semantic handles.
+- No production consumer includes `bv.h` or `bv/*`.
 
 Phase 6 - Remove the First-Member Compatibility Layout
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Objective: end pointer equivalence between `bsg_node *` and `bv_scene_obj *`.
 
 Work:
-- Remove `struct bsg_node bsg` from `struct bv_scene_obj` or delete the outer
-  struct entirely if Phase 4 completed first.
+- Delete `struct bv_scene_obj` entirely once Phase 4/5 call sites are gone.
 - Delete casts that assume first-member layout.
-- Delete or rewrite `bsg_compat_from_bv_scene_obj` and
-  `bsg_compat_to_bv_scene_obj`; if a compatibility window is still required,
-  implement it as an explicit map/adaptor object, not as pointer aliasing.
+- Delete `bsg_compat_from_bv_scene_obj`, `bsg_compat_to_bv_scene_obj`,
+  `include/bsg/compat.h`, `src/libbsg/compat.c`, and compatibility tests.
 - Update all tests that intentionally checked pointer equivalence.
-- Make libbsg internal headers independent of `bv/defines.h`.
+- Make libbsg internal and public headers independent of `bv/defines.h` and all
+  other `bv/*` headers.
 
 Exit criteria:
 - A BSG node pointer cannot be cast to a libbv scene object pointer.
 - The build proves BSG storage stands alone.
 
-Phase 7 - Delete `struct bv_scene_obj` and Migration Scaffolding
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Objective: remove the old data model from the tree.
+Phase 7 - Remove `struct bview` and libbv View/HUD Storage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Objective: remove the old view/camera/HUD model from the tree.
 
 Work:
-- Delete the `struct bv_scene_obj` definition from `include/bv/defines.h`.
-- Delete obsolete fields, compatibility snapshots, old settings mirrors,
-  object-table owners, and free-list scene-object storage.
-- Delete deprecated public APIs from libbv, GED, and tests.
-- Delete `include/bsg/compat.h`, `src/libbsg/compat.c`, and compatibility tests
-  once no production caller remains.
-- Remove deprecation comments that only existed to guide the migration.
-- Refresh documentation to describe BSG scene graph concepts as the normal draw
-  stack model.
+- Delete `struct bview`, `struct bview_settings`, `struct bview_objs`,
+  `struct bview_knobs`, `struct bview_set`, and all `bv_*_state` structs after
+  BSG view/HUD replacements are authoritative.
+- Replace remaining `struct bview *` callback signatures with BSG view/camera
+  handles or subsystem-local context objects.
+- Remove `gv_*` field access from libdm, libged, mged, libtclcad, qged,
+  libqtcad, librt, libanalyze, and tests.
+- Move or delete input/knob/event helpers from libbv.
+- Remove view-set shared object/free-list ownership.
 
 Exit criteria:
-- `rg "struct bv_scene_obj|bv_scene_obj" brlcad/include brlcad/src` finds no
-  active implementation references.
-- `include/bv/defines.h` contains view/math/display utility data only, not scene
-  graph node storage.
+- `rg "struct bview|bview_|gv_|bv_.*state|bview_set" brlcad/include brlcad/src`
+  has no active libbv implementation references.
+- BSG view/camera/HUD APIs are the only supported draw-stack view model.
 
-Phase 8 - Hardening, Parity, and Cleanup
+Phase 8 - Delete libbv Headers, Sources, Target, and Packaging
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Objective: remove the old library from the build and install tree.
+
+Work:
+- Delete `include/bv.h` and the full `include/bv/` directory after all contents
+  have moved or been deleted.
+- Delete `src/libbv/` after tests and source files have moved or been deleted.
+- Remove `libbv` from `src/source_dirs.cmake`, library dependency variables,
+  CMake install/export configuration, documentation, package manifests, and any
+  generated dependency metadata.
+- Remove `BV_EXPORT`, `BV_DLL_EXPORTS`, `BV_DLL_IMPORTS`, libbv version/SOVERSION
+  settings, and libbv-specific symbol handling.
+- Remove stale migration comments and compatibility documentation that only
+  existed while libbv was present.
+- Refresh public documentation to describe BSG, utility plot/font APIs, and
+  lower-level geometry APIs as the supported model.
+
+Exit criteria:
+- No target named `libbv` is generated.
+- No installed file path contains `/bv/` or `bv.h`.
+- `rg "libbv|BV_EXPORT|BV_DLL|#include [<\"]bv|bv_scene_obj|struct bview" brlcad/include brlcad/src brlcad/CMakeLists.txt`
+  finds no active implementation references.
+
+Phase 9 - Hardening, Parity, and Cleanup
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Objective: prove the new model is complete and stable.
+Objective: prove the new model is complete and stable after libbv removal.
 
 Work:
 - Run full Qt-enabled draw-stack builds and tests.
 - Compare key behavior before/after the cutover:
   - DB draw/erase/redraw;
   - view objects and overlays;
-  - mged/qged selection and highlighting;
+  - HUD/faceplate, ADC, grid, params, rubber-band rectangle;
+  - mged/qged selection, snapping, picking, and highlighting;
   - shaded and wireframe rendering;
   - adaptive wireframe/LoD behavior;
   - hidden-line/transparency/color overrides;
-  - axes/labels/arrows/polygons;
-  - plots, reports, PNG/PS export, and NIRT visuals;
+  - axes/labels/arrows/polygons/text;
+  - plot3 output, reports, PNG/PS export, and NIRT visuals;
   - backend cache cleanup and invalidation;
-  - multi-view editing and redraw behavior.
+  - multi-view editing and redraw behavior;
+  - Tcl/Archer view command compatibility at the command layer.
 - Remove stale migration documentation or collapse it into release notes once the
   deletion is complete.
 
 Exit criteria:
 - No known behavior regressions remain in the draw stack.
-- The BSG API is documented as the supported scene graph model.
+- The BSG API and moved utility APIs are documented as the supported model.
+- libbv is absent from source, build, install, tests, and package documentation.
 
-Detailed Legacy Field Disposition
----------------------------------
-Use this table to drive Phase 3 and Phase 4 work.  The destination is the target
-model, not necessarily the name of an already complete API.
+Detailed Legacy Concept Disposition
+-----------------------------------
+Use this table to drive Phase 3 through Phase 8 work.  The destination is the
+target model, not necessarily the name of an already complete API.
 
-| Legacy storage/API | Destination |
+| Legacy storage/API/header | Destination |
 | --- | --- |
-| `bsg` first member | delete after BSG nodes are independent |
+| `include/bv.h` | delete after all includes move |
+| `include/bv/defines.h` | split into BSG scene/view/HUD APIs and lower-level utility constants; then delete |
+| `BV_EXPORT`, `BV_DLL_*` | delete with libbv target |
+| `struct bv_scene_obj` / `bsg` first member | delete after BSG nodes are independent |
 | `i` | BSG-private node/scene implementation state or delete |
 | `s_path` | BSG source metadata/path identity |
 | `dp` | BSG DB source identity, not generic app data |
 | `s_mat` | BSG transform state or transform node payload |
-| `s_v` | BSG view-scope/edit context, not render policy |
+| `s_v` | BSG view/edit context handle or delete |
 | `s_i_data` | typed BSG payload data |
 | `s_update_callback` | typed payload update hook |
 | `s_free_callback` | typed payload lifecycle hook |
-| `s_vlist`, `s_vlen` | BSG vlist payload ownership |
+| `s_vlist`, `s_vlen` | BSG geometry/vlist payload ownership |
 | `s_backend` / `bv_obj_backend` | BSG renderer attachment |
 | `s_size`, `s_csize`, `s_center` | BSG bounds/extent state |
 | `bmin`, `bmax`, `have_bbox`, `s_bbox_cached` | BSG local/aggregate bounds cache |
@@ -454,74 +570,120 @@ model, not necessarily the name of an already complete API.
 | `s_soldash`, `s_arrow` | BSG appearance / overlay payload style |
 | `s_changed`, `current` | payload dirty/revision state or delete |
 | adaptive wireframe fields | BSG LoD/adaptive payload policy plus view metrics |
-| `s_os`, `s_local_os`, `s_inherit_settings` | BSG material/appearance inheritance; private settings snapshot only if needed |
+| `s_os`, `s_local_os`, `s_inherit_settings` | BSG material/appearance inheritance; private migration snapshot only if needed |
 | `s_old` | delete after compatibility behavior is modeled in BSG concepts |
-| `vlfree` | BU/libbv vlist utility or BSG payload allocator, not node storage |
+| `vlfree` / `gv_vlfree` | BSG payload allocator or lower-level geometry utility allocator |
 | `free_scene_obj` | delete with libbv object free-list ownership |
-| `otbl` | BSG scene-set membership |
+| `otbl`, `gv_objs`, `gv_view_objs` | BSG scene-set membership |
 | `draw_data` | typed payload or renderer attachment |
 | `s_u_data` | typed GED/app context slot separate from DB identity |
+| `struct bview` | BSG view/camera handle plus subsystem-local context |
+| `struct bview_settings` | BSG view-option and HUD settings |
+| `struct bview_objs` | BSG scene/set registry |
+| `struct bview_set` / `bv_set_*` | BSG scene/view registry or application-owned view collection |
+| `struct bview_knobs`, `bv/events.h`, `knobs.cpp` | libqtcad/qged/mged input-control layer plus BSG camera commands |
+| `bv_adc_state`, `adc_*` | BSG HUD ADC/view-option API or lower-level view-math helper |
+| `bv_grid_state`, snap grid options | BSG HUD grid and snap option API |
+| `bv_interactive_rect_state` | BSG HUD rubber-band/selection rectangle payload/state |
+| `bv_params_state`, `bv_other_state` | BSG HUD faceplate/view-option state |
+| `bv_axes`, `bv_label` | BSG HUD/overlay axes and text/label payloads |
+| `bv_polygon` scene APIs | BSG polygon overlay payload/edit API |
+| `bg_polygon` math used by polygon ops | keep in libbg |
+| `bv_polygon_fill_segments` | libbg polygon utility or BSG polygon payload helper, depending on non-scene usage |
+| `bv_vlist`, `BV_VLIST_*`, vlist macros | BSG geometry payload format or lower-level utility type |
+| `bv_vlblock` | BSG/lower-level plot grouping utility or delete |
+| `bv_vlist_*` helpers | BSG payload/geometry utility APIs |
+| `bv_vlist_3string`, vectfont/TIG helpers | BSG text payload builder or standalone font/plot utility |
+| `bv_mesh_lod_context`, `bv_mesh_lod_*` | BSG LoD cache/payload API; cache internals may live in BU/BG if scene-neutral |
+| `bv_view_bounds`, `bv_view_objs_select`, rectangle select | BSG view query, culling, selection, and snap actions |
+| `bv_snap_*` | BSG snap/query API over scene sets and HUD grid settings |
 | `bv_obj_*` | BSG lifecycle or deletion |
-| `bv_view_obj_*` | BSG scene-set and payload builder APIs |
+| `bv_view_obj_*` | BSG scene-set/HUD/overlay/payload builder APIs |
 | `bv_scene_obj_bound` | BSG bounds action |
 | `bsg_compat_*` | delete after old handles stop crossing boundaries |
+| `bv/tcl_data.h` | libtclcad-owned private/public state as needed |
+| `bv/plot3.h` | top-level `plot3.h`/utility library or existing plotting layer |
+| `src/libbv/tests/*` | move to destination library tests or delete compatibility tests |
+| `src/libbv/CMakeLists.txt`, libbv target | delete |
 
 Suggested Implementation Slices
 -------------------------------
 These are small enough to assign as separate follow-up tasks while still moving
-toward the full data-model replacement.
+toward full libbv removal.
 
 1. Inventory/guardrail slice
-   - Refresh the machine-generated reference inventory.
-   - Add the approved compatibility whitelist.
-   - Mark new `bv_scene_obj` references outside the whitelist as failures in the
-     developer check.
+   - Refresh the machine-generated libbv reference inventory.
+   - Add the approved migration whitelist.
+   - Mark new `bv.h`, `bv/*`, `libbv`, `bv_scene_obj`, and `bview` references
+     outside the whitelist as failures in the developer check.
 
 2. BSG scene container slice
-   - Add the scene owner and scene-set APIs.
-   - Migrate draw roots and object-table membership to the new containers while
-     keeping adapters for old callers.
+   - Add/complete the scene owner and scene-set APIs.
+   - Migrate draw roots and object-table membership to the new containers.
 
-3. Source identity slice
+3. BSG view/camera slice
+   - Introduce the replacement for `struct bview` matrices, view dimensions,
+     callbacks, frame revisions, and shared/local options.
+   - Convert one consumer path end-to-end before broadening.
+
+4. HUD/view-option slice
+   - Move ADC, grid, faceplate params, center dot, view scale, rubber-band rect,
+     framebuffer mode, and HUD axes into BSG HUD/view-option APIs.
+   - Convert GED/MGED/qged/libqtcad command paths.
+
+5. Source identity slice
    - Move `dp`, `s_path`, and GED/app data into BSG source metadata/context.
    - Convert GED draw, QgModel, ray/display, and reports.
 
-4. Payload/vlist slice
-   - Make BSG payloads own vlist and custom data lifecycles.
-   - Convert polygons, labels, arrows, axes, LoD, mged plot, Tcl adornments, and
-     export/report consumers.
+6. Payload/vlist/text slice
+   - Make BSG payloads own vlist-like geometry and custom data lifecycles.
+   - Convert labels, text, arrows, axes, lines, and export/report consumers.
+   - Move or replace `bv_vlist` and vector-font helpers.
 
-5. Bounds/transform slice
+7. Polygon overlay slice
+   - Convert polygon creation, editing, selection, fill, and CSG scene behavior
+     to BSG polygon payloads while keeping geometry-only operations in libbg.
+
+8. Bounds/transform/camera-query slice
    - Move transform and bounds storage to BSG.
-   - Replace old bbox helpers with BSG bounds actions and aggregate invalidation.
+   - Replace old bbox, view-bounds, culling, and query helpers with BSG actions.
 
-6. Material/appearance/settings slice
+9. Material/appearance/settings slice
    - Delete old settings mirrors from ordinary consumers.
    - Make settings snapshots private or remove them.
 
-7. Selection slice
-   - Implement the BSG selection container and migrate old illumination/highlight
-     flows.
+10. Selection/snap slice
+    - Implement BSG selection/snap containers and actions.
+    - Migrate old illumination/highlight and grid/line snapping flows.
 
-8. Renderer attachment slice
-   - Replace `s_backend` with BSG renderer resources.
-   - Convert GL/swrast/qtgl cache allocation, invalidation, and cleanup.
+11. Renderer attachment slice
+    - Replace `s_backend` with BSG renderer resources.
+    - Convert GL/swrast/qtgl cache allocation, invalidation, and cleanup.
 
-9. libbv API deletion slice
-   - Replace or delete every public libbv API that names `bv_scene_obj`.
-   - Move reusable non-scene helpers to clean utility APIs.
+12. LoD slice
+    - Move mesh LoD cache and view-dependent level selection into BSG payload and
+      view-query APIs.
+    - Remove scene-object-based LoD functions.
 
-10. Consumer boundary slice
-    - Convert remaining GED/MGED/libtclcad/qged/libqtcad/librt/libanalyze
-      signatures and tests to BSG handles.
+13. plot3/font utility slice
+    - Move `plot3.h`, plot3 tests, TIG, and vector-font code to their final owner.
+    - Update consumers to include the new headers directly.
 
-11. First-member cast deletion slice
+14. Consumer boundary slice
+    - Convert remaining GED/MGED/libtclcad/qged/libqtcad/libdm/librt/libanalyze
+      signatures and tests to BSG or new utility handles.
+
+15. First-member cast deletion slice
     - Remove pointer aliasing and compatibility conversions.
     - Build with standalone BSG node allocation only.
 
-12. Final deletion slice
-    - Delete the struct definition, compatibility files, deprecated APIs, and
-      remaining migration-only tests/comments.
+16. bview deletion slice
+    - Remove `struct bview`, `bview_settings`, `bview_objs`, `bview_set`, and
+      `gv_*` field dependencies after BSG view/HUD APIs are authoritative.
+
+17. Final libbv deletion slice
+    - Delete libbv headers, source directory, tests, target, package metadata,
+      symbol macros, and remaining migration-only comments.
 
 Validation Strategy
 -------------------
@@ -531,7 +693,6 @@ include `-DBRLCAD_ENABLE_QT=ON` for draw-stack validation.
 Core build targets after each storage/API slice:
 
 - `libbsg`
-- `libbv`
 - `libdm`
 - `libged`
 - `librt`
@@ -546,7 +707,13 @@ Qt/UI/render targets for broader validation:
 - `dm-swrast`
 - `archer`
 
-Core tests to run frequently:
+During early migration slices, `libbv` may still be built to keep the tree
+incrementally compiling.  After Phase 8 begins, remove `libbv` from the required
+build target list and instead validate that no generated target or install rule
+mentions it.
+
+Core tests to run frequently, moved to their final owning libraries as libbv is
+removed:
 
 - `libbsg_node`
 - `libbsg_node_core`
@@ -574,23 +741,29 @@ Draw/UI tests to run for consumer-facing slices:
 Behavior checkpoints:
 
 - draw/erase/redraw parity;
+- camera/view matrix and multi-view parity;
+- HUD/faceplate, ADC, grid, rubber-band rectangle, and params parity;
 - selection/highlight/illumination parity;
+- snapping/picking parity;
 - color, transparency, hidden-line, and line-style behavior;
 - adaptive wireframe and LoD updates;
-- axes, labels, arrows, polygons, and overlay persistence;
-- snap and pick behavior;
+- axes, labels, arrows, polygons, text, and overlay persistence;
 - backend cache invalidation and cleanup;
-- multi-view editing and redraw behavior;
-- plot/report/export output parity.
+- plot/report/export output parity;
+- install/package manifests with no libbv artifacts after final deletion.
 
 Decision Rules
 --------------
-- Prefer BSG-native containers over wrappers around `bv_scene_obj` fields.
-- Do not add public APIs that expose `bv_scene_obj` layout or old ownership.
-- Do not preserve a compatibility API after all callers can use BSG directly.
+- Prefer BSG-native scene/view/HUD containers over wrappers around libbv fields.
+- Do not add public APIs that expose `bv_scene_obj`, `bview`, libbv ownership, or
+  old object-table semantics.
+- Do not preserve a compatibility API after callers can use BSG or the new
+  utility owner directly.
 - Do not maintain long-lived dual sources of truth.  Each migration slice must
   name the authoritative owner and delete or isolate the mirror.
-- Keep libbv utilities only when they are truly view/math/vlist utilities and no
-  longer depend on scene-node storage.
-- If an old field combines multiple responsibilities, split it into BSG concepts
-  instead of reproducing the same ambiguity in a new struct.
+- Do not keep libbv alive just to host independent utilities.  Move those
+  utilities to their correct owners, then delete libbv.
+- If an old field combines multiple responsibilities, split it into BSG or
+  utility concepts instead of reproducing the same ambiguity in a new struct.
+- Prefer command/API compatibility at application layers (GED/Tcl/UI commands)
+  over compatibility in core scene storage.
