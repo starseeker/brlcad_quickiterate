@@ -109,6 +109,8 @@ Current tree notes:
   `set_target_properties(libqtcad PROPERTIES AUTOMOC ON)`.
 - The libqtcad build path now hard-requires Qt6 (`if(NOT Qt6Widgets_FOUND) FATAL_ERROR`)
   and no longer carries the Qt5 branch in this CMakeLists.
+  **Revised:** Qt5 support has been restored; both Qt5 and Qt6 are supported via
+  conditional branching on `Qt6Widgets_FOUND`.
 - `include/qtcad/defines.h` now declares a top-level Doxygen `@defgroup libqtcad`
   group to anchor public API docs.
 - `include/qtcad/QgNamespace.h` now provides `namespace qtcad` aliases for the

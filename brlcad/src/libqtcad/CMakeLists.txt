@@ -12,7 +12,11 @@ if(BRLCAD_ENABLE_QT)
     endif(OPENGL_gl_LIBRARY)
   endif(BRLCAD_ENABLE_OPENGL)
   if(OPENGL_LIBS)
-    set(OPENGL_LIBS "Qt6::OpenGL;Qt6::OpenGLWidgets;${OPENGL_LIBS}")
+    if(Qt6Widgets_FOUND)
+      set(OPENGL_LIBS "Qt6::OpenGL;Qt6::OpenGLWidgets;${OPENGL_LIBS}")
+    else()
+      set(OPENGL_LIBS "Qt5::OpenGL;${OPENGL_LIBS}")
+    endif(Qt6Widgets_FOUND)
   endif(OPENGL_LIBS)
 
   # Modern CMake FindOpenGL sets OPENGL_INCLUDE_DIR; older CMake set OPENGL_INCLUDE_DIR_GL.
@@ -80,16 +84,17 @@ endforeach(qs ${qtcad_srcs})
 
 # Note - libqtcad_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
 if(BRLCAD_ENABLE_QT)
-  if(NOT Qt6Widgets_FOUND)
-    message(FATAL_ERROR "libqtcad requires Qt6")
-  endif(NOT Qt6Widgets_FOUND)
-
   set(USE_OBJECT_LIBS OFF)
   set(QTCAD_SRCS ${qtcad_srcs})
   set(QTCAD_LIBS ${libqtcad_deps})
 
-  qt6_add_resources(qtcad_qrc qtcad_resources.qrc)
-  set(QTCAD_LIBS ${QTCAD_LIBS} Qt6::Core Qt6::Widgets ${OPENGL_LIBS})
+  if(Qt6Widgets_FOUND)
+    qt6_add_resources(qtcad_qrc qtcad_resources.qrc)
+    set(QTCAD_LIBS ${QTCAD_LIBS} Qt6::Core Qt6::Widgets ${OPENGL_LIBS})
+  else()
+    qt5_add_resources(qtcad_qrc qtcad_resources.qrc)
+    set(QTCAD_LIBS ${QTCAD_LIBS} Qt5::Core;Qt5::Widgets;${OPENGL_LIBS})
+  endif(Qt6Widgets_FOUND)
   set(QTCAD_SRCS ${QTCAD_SRCS} ${qtcad_qrc} ${qtcad_hdrs})
 
   # brlcad_addlib arguments are (name, srcs, libs, includes, compile_defs, type).
