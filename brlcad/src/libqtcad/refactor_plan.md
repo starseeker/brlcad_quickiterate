@@ -111,6 +111,9 @@ Current tree notes:
   and no longer carries the Qt5 branch in this CMakeLists.
 - `include/qtcad/defines.h` now declares a top-level Doxygen `@defgroup libqtcad`
   group to anchor public API docs.
+- `include/qtcad/QgNamespace.h` now provides `namespace qtcad` aliases for the
+  public libqtcad API symbols, and `include/qtcad/QgNamespaceCompat.h` provides
+  a one-release compatibility using block.
 
 - Wrap all public symbols in namespace qtcad { … }; provide a deprecated using block in a compatibility header for one release.
 - Switch the CMakeLists to target_include_directories/target_link_libraries with PUBLIC/PRIVATE/INTERFACE, enable CMAKE_AUTOMOC for this target only (set_target_properties(libqtcad PROPERTIES AUTOMOC ON)), and drop the hand-maintained qth_names list.
