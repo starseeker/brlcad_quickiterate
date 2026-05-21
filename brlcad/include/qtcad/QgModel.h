@@ -60,8 +60,8 @@
  * D will impact BOTH Au[M1]BuCuD and Au[M2]BuCuD. This means that .g comb
  * instances cannot, by themselves, map directly to items in a Qt model.
  *
- * TODO - investigate https://wiki.qt.io/Model_Test to see if it may be
- * useful for this code.
+ * Model invariants are exercised in libqtcad tests via
+ * QAbstractItemModelTester.
  */
 
 #ifndef QGMODEL_H
