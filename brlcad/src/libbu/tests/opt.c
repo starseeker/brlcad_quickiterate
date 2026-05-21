@@ -1050,7 +1050,7 @@ desc_4(int test_num)
     }
 
     if (ret) {
-	bu_log("bu_opt metadata test %d failed: state=%d start=%zu end=%zu expected=%u hint=%s\n", test_num, vr.state, vr.token_start, vr.token_end, vr.expected, vr.hint ? vr.hint : "(null)");
+	bu_log("bu_opt metadata test %d failed: state=%d start=%lu end=%lu expected=%u hint=%s\n", test_num, vr.state, (unsigned long)vr.token_start, (unsigned long)vr.token_end, vr.expected, vr.hint ? vr.hint : "(null)");
     }
 
     return ret;

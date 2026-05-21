@@ -764,7 +764,7 @@ opt_json_operands(struct bu_vls *v, const struct bu_opt_operand_desc *operands)
 	    opt_json_str_member(v, "name", operands[i].name);
 	    bu_vls_printf(v, ",");
 	    opt_json_str_member(v, "type", opt_value_type_str(operands[i].type));
-	    bu_vls_printf(v, ",\"min\":%zu,\"max\":%zu,", operands[i].min_count, operands[i].max_count);
+	    bu_vls_printf(v, ",\"min\":%lu,\"max\":%lu,", (unsigned long)operands[i].min_count, (unsigned long)operands[i].max_count);
 	    opt_json_str_member(v, "help", operands[i].help_string ? operands[i].help_string : "");
 	    bu_vls_printf(v, "}");
 	    need_comma = 1;
@@ -889,7 +889,7 @@ opt_operand_bounds(const struct bu_opt_cmd_desc *cmd, size_t *min_count, size_t 
     if (min_count)
 	*min_count = 0;
     if (max_count)
-	*max_count = (size_t)-1;
+	*max_count = BU_OPT_COUNT_UNLIMITED;
     if (!cmd || !cmd->operands)
 	return 0;
     if (max_count)
@@ -898,12 +898,14 @@ opt_operand_bounds(const struct bu_opt_cmd_desc *cmd, size_t *min_count, size_t 
 	if (min_count)
 	    *min_count += cmd->operands[i].min_count;
 	if (max_count) {
-	    if (*max_count != (size_t)-1 && cmd->operands[i].max_count == (size_t)-1) {
-		*max_count = (size_t)-1;
-	    } else if (*max_count != (size_t)-1) {
+	    if (*max_count == BU_OPT_COUNT_UNLIMITED)
+		goto next_operand;
+	    if (cmd->operands[i].max_count == BU_OPT_COUNT_UNLIMITED)
+		*max_count = BU_OPT_COUNT_UNLIMITED;
+	    else
 		*max_count += cmd->operands[i].max_count;
-	    }
 	}
+next_operand:
 	i++;
     }
     return 1;
@@ -930,7 +932,7 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
     size_t i = 0;
     size_t operands = 0;
     size_t min_operands = 0;
-    size_t max_operands = (size_t)-1;
+    size_t max_operands = BU_OPT_COUNT_UNLIMITED;
     size_t used_cnt = 0;
     const struct bu_opt_desc **used = NULL;
     int end_options = 0;
@@ -1052,7 +1054,7 @@ bu_opt_validate_argv(const struct bu_opt_cmd_desc *cmd, size_t argc, const char 
 	    continue;
 	}
 	operands++;
-	if (max_operands != (size_t)-1 && operands > max_operands) {
+	if (max_operands != BU_OPT_COUNT_UNLIMITED && operands > max_operands) {
 	    opt_validate_set(result, BU_OPT_VALIDATE_INVALID, i, i, BU_OPT_EXPECT_NONE, "too many operands");
 	    bu_free(used, "used option groups");
 	    return 0;
@@ -1090,8 +1092,8 @@ bu_opt_validate_string(const struct bu_opt_cmd_desc *cmd, const char *input, siz
     argc = bu_argv_from_string(argv, strlen(copy), copy);
 
     while (pos < cursor_pos && input[pos]) {
-	if (isspace((int)input[pos])) {
-	    while (isspace((int)input[pos]))
+	if (isspace((unsigned char)input[pos])) {
+	    while (isspace((unsigned char)input[pos]))
 		pos++;
 	    if (pos < cursor_pos && input[pos])
 		cursor_arg++;

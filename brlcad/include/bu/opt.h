@@ -281,6 +281,10 @@ struct bu_opt_operand_desc {
 #define BU_OPT_OPERAND_DESC_NULL {NULL, BU_OPT_VAL_UNKNOWN, 0, 0, NULL}
 
 
+/** max_count value indicating that an operand may repeat without a fixed bound. */
+#define BU_OPT_COUNT_UNLIMITED ((size_t)-1)
+
+
 /** Command/subcommand schema for bu_opt metadata APIs. */
 struct bu_opt_cmd_desc {
     const char *name;
