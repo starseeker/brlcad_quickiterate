@@ -554,8 +554,9 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
      * mode) and the view carries an edit-mode matrix override,
      * temporarily swap the modelview matrix so the object is drawn at
      * its edit-transformed position.  Restore the *current* accumulated
-     * matrix afterwards (cur_mat) — falling back to gv_model2view when
-     * we are not under a transform node.
+     * matrix afterwards (cur_mat) — falling back to a camera snapshot
+     * model2view matrix (or identity if unavailable) when we are not
+     * under a transform node.
      *
      * Phase 6D: use is_highlighted (BSG selection OR s_iflag) for the
      * edit-matrix test so the edit transform is applied consistently. */
@@ -598,8 +599,15 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	 * coordinate frame. */
 	if (cur_mat)
 	    dm_loadmatrix(dmp, (fastf_t *)cur_mat, 0);
-	else
-	    dm_loadmatrix(dmp, v->gv_model2view, 0);
+	else {
+	    struct bsg_camera_snapshot ecam;
+	    if (bsg_camera_snapshot_from_bview(&ecam, v) == 0)
+		dm_loadmatrix(dmp, ecam.model2view, 0);
+	    else {
+		MAT_IDN(ecam.model2view);
+		dm_loadmatrix(dmp, ecam.model2view, 0);
+	    }
+	}
     }
 
     dm_add_arrows(dmp, s);
@@ -724,12 +732,12 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 		MAT_COPY(save_mat, cur_mat);
 	    else {
 		/* Phase S3 (camera-snapshot): use snapshot model2view as the
-		 * root transform base so we don't read gv_model2view directly. */
+		 * root transform base; if unavailable, use identity. */
 		struct bsg_camera_snapshot tcam;
 		if (bsg_camera_snapshot_from_bview(&tcam, v) == 0)
 		    MAT_COPY(save_mat, tcam.model2view);
 		else
-		    MAT_COPY(save_mat, v->gv_model2view);
+		    MAT_IDN(save_mat);
 	    }
 	    mat_t new_mat;
 	    mat_t local_xform;
@@ -922,12 +930,12 @@ _dm_rop_draw_overlay(void *data, bsg_node *bnode, struct bview *v)
     mat_t cur_mat;
     if (v) {
 	/* Phase S3 (camera-snapshot): derive overlay base matrix from
-	 * snapshot rather than reading gv_model2view directly. */
+	 * snapshot; if unavailable, use identity. */
 	struct bsg_camera_snapshot ocam;
 	if (bsg_camera_snapshot_from_bview(&ocam, v) == 0)
 	    MAT_COPY(cur_mat, ocam.model2view);
 	else
-	    MAT_COPY(cur_mat, v->gv_model2view);
+	    MAT_IDN(cur_mat);
     } else {
 	MAT_IDN(cur_mat);
     }
@@ -1028,21 +1036,14 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
     // On to the scene objects - for drawing those we now derive a
     // renderer-neutral BSG camera snapshot and consume its matrices.
     struct bsg_camera_snapshot cam;
-    if (bsg_camera_snapshot_from_bview(&cam, v) == 0) {
-	dm_loadmatrix(dmp, cam.model2view, 0);
-	if (cam.projection == BSG_CAMERA_PERSPECTIVE &&
-	    SMALL_FASTF < cam.perspective_angle) {
-	    (void)dm_loadpmatrix(dmp, cam.pmat);
-	} else {
-	    (void)dm_loadpmatrix(dmp, NULL);
-	}
+    bsg_camera_snapshot_init(&cam);
+    (void)bsg_camera_snapshot_from_bview(&cam, v);
+    dm_loadmatrix(dmp, cam.model2view, 0);
+    if (cam.projection == BSG_CAMERA_PERSPECTIVE &&
+	SMALL_FASTF < cam.perspective_angle) {
+	(void)dm_loadpmatrix(dmp, cam.pmat);
     } else {
-	/* Defensive fallback while bview remains transitional storage. */
-	dm_loadmatrix(dmp, v->gv_model2view, 0);
-	if (SMALL_FASTF < v->gv_perspective)
-	    (void)dm_loadpmatrix(dmp, v->gv_pmat);
-	else
-	    (void)dm_loadpmatrix(dmp, NULL);
+	(void)dm_loadpmatrix(dmp, NULL);
     }
 
 
