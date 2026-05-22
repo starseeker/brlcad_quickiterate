@@ -200,9 +200,9 @@ dm_draw_faceplate(struct bview *v)
 
     /* Phase S3 (camera-snapshot): derive view matrices and scale data from the
      * BSG camera snapshot so all camera-field accesses in this faceplate pass
-     * go through the snapshot boundary.  Fields not yet in the snapshot
-     * (gv_rotation, gv_center, gv_aet) remain as direct accesses and will be
-     * migrated when those snapshot fields are added. */
+     * go through the snapshot boundary.  Phase S3 is now complete for
+     * dm_draw_faceplate: rotation, center, and aet are all read from the
+     * snapshot rather than directly from bview. */
     struct bsg_camera_snapshot cam;
     bsg_camera_snapshot_init(&cam);
     if (bsg_camera_snapshot_from_bview(&cam, v) != 0) {
@@ -230,7 +230,7 @@ dm_draw_faceplate(struct bview *v)
 
 	dm_draw_hud_axes(dmp,
 		     cam.size,
-		     v->gv_rotation,
+		     cam.rotation,
 		     &v->gv_s->gv_model_axes);
 
 	VMOVE(v->gv_s->gv_model_axes.axes_pos, save_map);
@@ -249,7 +249,7 @@ dm_draw_faceplate(struct bview *v)
 	v->gv_s->gv_view_axes.axes_pos[Y] = save_ypos * inv_aspect;
 	dm_draw_hud_axes(dmp,
 		     cam.size,
-		     v->gv_rotation,
+		     cam.rotation,
 		     &v->gv_s->gv_view_axes);
 
 	v->gv_s->gv_view_axes.axes_pos[Y] = save_ypos;
@@ -290,7 +290,7 @@ dm_draw_faceplate(struct bview *v)
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 	point_t center;
 	char *ustr = (char *)bu_units_string(cam.local2base);
-	MAT_DELTAS_GET_NEG(center, v->gv_center);
+	MAT_DELTAS_GET_NEG(center, cam.center);
 	VSCALE(center, center, cam.base2local);
 	int64_t elapsed_time = bu_gettime() - (dmp)->start_time;
 	/* Only use reasonable measurements */
@@ -313,17 +313,17 @@ dm_draw_faceplate(struct bview *v)
 	if (ps->draw_az) {
 	    if (bu_vls_strlen(&vls) > 0)
 		bu_vls_printf(&vls, " ");
-	    bu_vls_printf(&vls, "az:%.2f", v->gv_aet[0]);
+	    bu_vls_printf(&vls, "az:%.2f", cam.aet[0]);
 	}
 	if (ps->draw_el) {
 	    if (bu_vls_strlen(&vls) > 0)
 		bu_vls_printf(&vls, " ");
-	    bu_vls_printf(&vls, "el:%.2f", v->gv_aet[1]);
+	    bu_vls_printf(&vls, "el:%.2f", cam.aet[1]);
 	}
 	if (ps->draw_tw) {
 	    if (bu_vls_strlen(&vls) > 0)
 		bu_vls_printf(&vls, " ");
-	    bu_vls_printf(&vls, "tw:%.2f", v->gv_aet[2]);
+	    bu_vls_printf(&vls, "tw:%.2f", cam.aet[2]);
 	}
 	if (ps->draw_fps) {
 	    if (bu_vls_strlen(&vls) > 0)

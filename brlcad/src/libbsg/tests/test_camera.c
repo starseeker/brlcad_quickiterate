@@ -163,6 +163,20 @@ test_camera_from_bview_identity(void)
     if (!BSG_NEAR_ZERO(snap.scale - v->gv_scale))
 	FAIL("scale mismatch");
 
+    /* Phase S3-C: rotation/center/aet fields should match bview */
+    {
+	int i;
+	for (i = 0; i < 16; i++) {
+	    if (!BSG_NEAR_ZERO(snap.rotation[i] - v->gv_rotation[i]))
+		FAIL("rotation mismatch");
+	    if (!BSG_NEAR_ZERO(snap.center[i] - v->gv_center[i]))
+		FAIL("center mismatch");
+	}
+    }
+    if (!BSG_NEAR_ZERO(snap.aet[0] - v->gv_aet[0])) FAIL("aet[0] mismatch");
+    if (!BSG_NEAR_ZERO(snap.aet[1] - v->gv_aet[1])) FAIL("aet[1] mismatch");
+    if (!BSG_NEAR_ZERO(snap.aet[2] - v->gv_aet[2])) FAIL("aet[2] mismatch");
+
     free_view(v);
     PASS("camera snapshot from identity bview");
     return 0;
