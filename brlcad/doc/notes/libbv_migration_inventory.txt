@@ -1,7 +1,7 @@
 libbv Migration Reference Inventory
 ==================================
 
-Generated: 2026-05-22T00:32:22Z
+Generated: 2026-05-22T11:37:34Z
 Generator: misc/check/libbv_migration_guardrail.py
 Source root: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad
 
@@ -779,13 +779,14 @@ struct bview_set references
 ---------------------------
 Key: struct_bview_set
 Pattern: struct bview_set
-Match files: 11
+Match files: 12
 
 - include/bv/defines.h
 - include/bv/util.h
 - include/bv/view_sets.h
 - include/ged/defines.h
 - src/libbsg/camera.c
+- src/libbsg/tests/test_scene_graph.c
 - src/libbv/bv_private.h
 - src/libbv/diff.c
 - src/libbv/hash.c
