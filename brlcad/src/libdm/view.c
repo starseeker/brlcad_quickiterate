@@ -314,7 +314,7 @@ dm_draw_label(struct dm *dmp, bsg_node *s)
 {
     struct bv_label *l = (struct bv_label *)bsg_node_user_data_get(s);
     if (!l)
-	return;  /* BV_LABELS node has no payload — nothing to draw. */
+	return; /* BV_LABELS node has no payload -- nothing to draw. */
     struct bview *sv = bsg_node_view_get(s);
     if (!sv)
 	return;
@@ -601,12 +601,9 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	    dm_loadmatrix(dmp, (fastf_t *)cur_mat, 0);
 	else {
 	    struct bsg_camera_snapshot ecam;
-	    if (bsg_camera_snapshot_from_bview(&ecam, v) == 0)
-		dm_loadmatrix(dmp, ecam.model2view, 0);
-	    else {
-		MAT_IDN(ecam.model2view);
-		dm_loadmatrix(dmp, ecam.model2view, 0);
-	    }
+	    bsg_camera_snapshot_init(&ecam);
+	    (void)bsg_camera_snapshot_from_bview(&ecam, v);
+	    dm_loadmatrix(dmp, ecam.model2view, 0);
 	}
     }
 
