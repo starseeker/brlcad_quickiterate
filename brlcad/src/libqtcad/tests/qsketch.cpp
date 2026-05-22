@@ -87,6 +87,7 @@
 #include "bn/tol.h"
 #include "bv.h"
 #include "bv/util.h"
+#include "dm.h"
 #include "raytrace.h"
 #include "rt/functab.h"
 #include "rt/geom.h"

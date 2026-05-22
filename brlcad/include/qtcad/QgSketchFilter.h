@@ -73,6 +73,8 @@ class QTCAD_EXPORT QgSketchFilter : public QgViewFilter {
 
 
 public:
+	explicit QgSketchFilter(QObject *parent = nullptr);
+
 	/**
 	 * Convert screen pixel coordinates to normalised view coordinates.
 	 *
@@ -154,6 +156,7 @@ class QTCAD_EXPORT QgSketchPickVertexFilter : public QgSketchFilter {
 
 
 public:
+	using QgSketchFilter::QgSketchFilter;
 	bool eventFilter(QObject *, QEvent *e);
 };
 
@@ -176,6 +179,7 @@ class QTCAD_EXPORT QgSketchMoveVertexFilter : public QgSketchFilter {
 
 
 public:
+	using QgSketchFilter::QgSketchFilter;
 	bool eventFilter(QObject *, QEvent *e);
 
 private:
@@ -200,6 +204,7 @@ class QTCAD_EXPORT QgSketchAddVertexFilter : public QgSketchFilter {
 
 
 public:
+	using QgSketchFilter::QgSketchFilter;
 	bool eventFilter(QObject *, QEvent *e);
 };
 
@@ -221,6 +226,7 @@ class QTCAD_EXPORT QgSketchPickSegmentFilter : public QgSketchFilter {
 
 
 public:
+	using QgSketchFilter::QgSketchFilter;
 	bool eventFilter(QObject *, QEvent *e);
 };
 
@@ -239,6 +245,7 @@ class QTCAD_EXPORT QgSketchMoveSegmentFilter : public QgSketchFilter {
 
 
 public:
+	using QgSketchFilter::QgSketchFilter;
 	bool eventFilter(QObject *, QEvent *e);
 
 private:
@@ -269,6 +276,7 @@ class QTCAD_EXPORT QgSketchArcRadiusFilter : public QgSketchFilter {
 
 
 public:
+	using QgSketchFilter::QgSketchFilter;
 	bool eventFilter(QObject *, QEvent *e);
 
 private:
@@ -297,6 +305,7 @@ class QTCAD_EXPORT QgSketchCursorTracker : public QgSketchFilter {
 
 
 public:
+	using QgSketchFilter::QgSketchFilter;
 	bool eventFilter(QObject *, QEvent *e);
 
 signals:
@@ -331,6 +340,7 @@ class QTCAD_EXPORT QgSketchSetTangencyFilter : public QgSketchFilter {
 
 
 public:
+	using QgSketchFilter::QgSketchFilter;
 	/** Tangency angle in radians (0 = smooth / G1 join). */
 	fastf_t tangency_angle = 0.0;
 
