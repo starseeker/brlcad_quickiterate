@@ -30,18 +30,18 @@
  *        returns 1.
  *
  *   9B - bv_view_obj_set_color routes through BSG material.
- *        Set a colour via bv_view_obj_set_color() and verify bsg_node_material_get()
+ *        Set a color via bv_view_obj_set_color() and verify bsg_node_material_get()
  *        returns the same RGB.
  *
  *   9C - bv_obj_sync routes material and appearance through BSG APIs.
- *        Set a non-default colour and draw_arrows on a source object; sync to a
+ *        Set a non-default color and draw_arrows on a source object; sync to a
  *        dest object; verify dest has the same material/appearance via BSG
  *        getters.
  *
  *   9D - bv_view_obj_labels_sync routes color through BSG material.
- *        Build a label data state with a specific colour; call
+ *        Build a label data state with a specific color; call
  *        bv_view_obj_labels_sync(); verify the child scene objects' material
- *        colour matches via bsg_node_material_get().
+ *        color matches via bsg_node_material_get().
  *
  *   9E - NULL-argument safety for paths exercised above.
  */
@@ -199,7 +199,7 @@ test_sync_routes_bsg(void)
 	FAIL("bv_view_obj_lines_create returned NULL");
     }
 
-    /* Set a distinct colour and enable arrows on the source. */
+    /* Set a distinct color and enable arrows on the source. */
     bv_view_obj_set_color(src, 10, 20, 30);
     bsg_node_set_draw_arrows((bsg_node *)src, 1);
 
@@ -295,7 +295,7 @@ test_labels_sync_routes_bsg(void)
 	FAIL("bv_view_obj_labels_sync: parent not found");
     }
 
-    /* The first child should carry the colour set via bv_view_obj_set_color. */
+    /* The first child should carry the color set via bv_view_obj_set_color. */
     if (BU_PTBL_LEN(&parent->bsg.bsg_children) < 1) {
 	bu_vls_free(&label_text);
 	bsg_scene_root_destroy(root);
