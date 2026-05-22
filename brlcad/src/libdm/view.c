@@ -601,8 +601,8 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	    dm_loadmatrix(dmp, (fastf_t *)cur_mat, 0);
 	else {
 	    struct bsg_camera_snapshot ecam;
-	    bsg_camera_snapshot_init(&ecam);
-	    (void)bsg_camera_snapshot_from_bview(&ecam, v);
+	    if (bsg_camera_snapshot_from_bview(&ecam, v) != 0)
+		MAT_IDN(ecam.model2view);
 	    dm_loadmatrix(dmp, ecam.model2view, 0);
 	}
     }
