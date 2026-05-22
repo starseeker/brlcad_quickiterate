@@ -1,7 +1,7 @@
 # libbv migration whitelist
 # Generated file: do not edit by hand.
 # Format: <key>	<relative_path>
-# Generated: 2026-05-22T11:37:34Z
+# Generated: 2026-05-22T11:38:03Z
 # Generator: misc/check/libbv_migration_guardrail.py
 
 include_bv_slash_angle	src/libged/tests/draw/lod_crossrun.cpp
