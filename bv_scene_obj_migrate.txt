@@ -16,16 +16,14 @@ This is not a compatibility-preserving refactor.  The target is a clean cutover:
 - libbsg owns scene nodes, scene containers, traversal, typed payloads,
   renderer attachments, view-scoped scene state, HUD/faceplate state, selection,
   snapping, LoD scene policy, lifecycle, and draw-stack invalidation.
-- camera/view math that is not scene-graph policy moves to libbg/libbn or a
+- camera/view math that is not scene-graph policy moves to a
   libbsg camera/view API, not to a preserved libbv.
-- raw vlist geometry becomes a BSG payload/geometry format or a lower-level
-  utility type outside libbv.  Callers stop including `bv/vlist.h`.
+- raw vlist geometry becomes a BSG payload/geometry format.  Callers stop including `bv/vlist.h`.
 - ADC, grid, faceplate, rubber-band rectangle, view parameters, model/view axes,
   labels, arrows, polygons, and other adornments become BSG HUD, overlay, or
   view-option concepts.
 - `plot3.h` leaves libbv entirely.  It should become a top-level installed
-  utility header/library in the same spirit as `vmath.h`/BU utility APIs, or be
-  folded into an existing plotting/utility layer if maintainers choose one.
+  utility header/library in the same spirit as `vmath.h`/BU utility APIs.
 - libdm, libged, mged, libtclcad/Archer, qged/libqtcad, librt, libanalyze, and
   tests use BSG and lower-level utility APIs directly.
 - Adapters are allowed only as short-lived build-order scaffolding.  The plan
