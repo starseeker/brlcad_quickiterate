@@ -997,16 +997,24 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
     // the end of the cycle will need this start time.
     dmp->start_time = bu_gettime();
 
-    // On to the scene objects - for drawing those we need the view matrix
-    matp_t mat = v->gv_model2view;
-    dm_loadmatrix(dmp, mat, 0);
-
-
-    // Set up to render using current perspective settings
-    if (SMALL_FASTF < v->gv_perspective)
-	(void)dm_loadpmatrix(dmp, v->gv_pmat);
-    else {
-	(void)dm_loadpmatrix(dmp, NULL);
+    // On to the scene objects - for drawing those we now derive a
+    // renderer-neutral BSG camera snapshot and consume its matrices.
+    struct bsg_camera_snapshot cam;
+    if (bsg_camera_snapshot_from_bview(&cam, v) == 0) {
+	dm_loadmatrix(dmp, cam.model2view, 0);
+	if (cam.projection == BSG_CAMERA_PERSPECTIVE &&
+	    SMALL_FASTF < cam.perspective_angle) {
+	    (void)dm_loadpmatrix(dmp, cam.pmat);
+	} else {
+	    (void)dm_loadpmatrix(dmp, NULL);
+	}
+    } else {
+	/* Defensive fallback while bview remains transitional storage. */
+	dm_loadmatrix(dmp, v->gv_model2view, 0);
+	if (SMALL_FASTF < v->gv_perspective)
+	    (void)dm_loadpmatrix(dmp, v->gv_pmat);
+	else
+	    (void)dm_loadpmatrix(dmp, NULL);
     }
 
 
