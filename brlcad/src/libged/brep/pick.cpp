@@ -30,6 +30,7 @@
 #include "RTree.h"
 #include "bu/cmd.h"
 #include "brep/defines.h"
+#include "bsg/camera.h"
 #include "./ged_brep.h"
 
 struct _ged_brep_ipick {
@@ -77,9 +78,13 @@ _brep_cmd_edge_pick(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     } else {
 	// If not explicitly specified, get the ray from GED
-	VSET(origin, -gedp->ged_gvp->gv_center[MDX], -gedp->ged_gvp->gv_center[MDY], -gedp->ged_gvp->gv_center[MDZ]);
+	/* Phase S3-M: use camera snapshot for gv_center/gv_rotation reads. */
+	struct bsg_camera_snapshot cam;
+	bsg_camera_snapshot_init(&cam);
+	bsg_camera_snapshot_from_bview(&cam, gedp->ged_gvp);
+	VSET(origin, -cam.center[MDX], -cam.center[MDY], -cam.center[MDZ]);
 	VSCALE(origin, origin, gedp->dbip->dbi_base2local);
-	VMOVEN(dir, gedp->ged_gvp->gv_rotation + 8, 3);
+	VMOVEN(dir, cam.rotation + 8, 3);
 	VSCALE(dir, dir, -1.0);
 	// Back outside the shape using the brep bounding box diagonal length
 	ON_BoundingBox brep_bb = brep->BoundingBox();
@@ -226,9 +231,13 @@ _brep_cmd_face_pick(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     } else {
 	// If not explicitly specified, get the ray from GED
-	VSET(origin, -gedp->ged_gvp->gv_center[MDX], -gedp->ged_gvp->gv_center[MDY], -gedp->ged_gvp->gv_center[MDZ]);
+	/* Phase S3-M: use camera snapshot for gv_center/gv_rotation reads. */
+	struct bsg_camera_snapshot cam;
+	bsg_camera_snapshot_init(&cam);
+	bsg_camera_snapshot_from_bview(&cam, gedp->ged_gvp);
+	VSET(origin, -cam.center[MDX], -cam.center[MDY], -cam.center[MDZ]);
 	VSCALE(origin, origin, gedp->dbip->dbi_base2local);
-	VMOVEN(dir, gedp->ged_gvp->gv_rotation + 8, 3);
+	VMOVEN(dir, cam.rotation + 8, 3);
 	VSCALE(dir, dir, -1.0);
 	// Back outside the shape using the brep bounding box diagonal length
 	ON_BoundingBox brep_bb = brep->BoundingBox();
@@ -398,9 +407,13 @@ _brep_cmd_vertex_pick(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     } else {
 	// If not explicitly specified, get the ray from GED
-	VSET(origin, -gedp->ged_gvp->gv_center[MDX], -gedp->ged_gvp->gv_center[MDY], -gedp->ged_gvp->gv_center[MDZ]);
+	/* Phase S3-M: use camera snapshot for gv_center/gv_rotation reads. */
+	struct bsg_camera_snapshot cam;
+	bsg_camera_snapshot_init(&cam);
+	bsg_camera_snapshot_from_bview(&cam, gedp->ged_gvp);
+	VSET(origin, -cam.center[MDX], -cam.center[MDY], -cam.center[MDZ]);
 	VSCALE(origin, origin, gedp->dbip->dbi_base2local);
-	VMOVEN(dir, gedp->ged_gvp->gv_rotation + 8, 3);
+	VMOVEN(dir, cam.rotation + 8, 3);
 	VSCALE(dir, dir, -1.0);
 	// Back outside the shape using the brep bounding box diagonal length
 	for (int i = 0; i < 3; i++) {
