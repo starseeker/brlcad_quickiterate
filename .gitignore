@@ -77,3 +77,7 @@ bsg_qparity_cache/
 ged_test_bsg_quad_parity-*.log
 moss_bsg_quad_tmp.g
 *.bomb.log
+
+# ged_test_qged_swrast test artifacts
+moss_qgswrast_tmp.g
+qgswrast_cache/
