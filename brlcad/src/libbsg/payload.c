@@ -37,6 +37,7 @@
 #include "bsg/payload.h"
 #include "bsg/text.h"
 #include "bsg/axes.h"
+#include "bsg/vlist.h"
 
 #include "./bsg_private.h"
 
@@ -180,7 +181,7 @@ _payload_vlist_owned_free(struct bsg_payload *payload)
     if (BU_LIST_NON_EMPTY(&vp->vlist_head))
 	BV_FREE_VLIST(&vp->vlfree, &vp->vlist_head);
     /* Free any remaining chunks sitting in the free-list. */
-    bv_vlist_cleanup(&vp->vlfree);
+    bsg_vlist_cleanup(&vp->vlfree);
 }
 
 static size_t
@@ -376,7 +377,7 @@ bsg_payload_bounds(const struct bsg_payload *payload, point_t *bmin, point_t *bm
 	    vlist_src = &s->s_vlist;
 	}
 
-	if (bv_vlist_bbox((struct bu_list *)vlist_src, bmin, bmax, NULL, NULL))
+	if (bsg_vlist_bbox((struct bu_list *)vlist_src, bmin, bmax))
 	    return 1;
 
 	for (BU_LIST_FOR(tvp, bv_vlist, vlist_src)) {
@@ -459,7 +460,7 @@ bsg_payload_vlist_create_owned(const struct bu_list *vhead, struct bu_list *vlfr
 
     if (vhead && BU_LIST_NON_EMPTY((struct bu_list *)vhead)) {
 	struct bu_list *src_free = vlfree ? vlfree : &vp->vlfree;
-	bv_vlist_copy(src_free, &vp->vlist_head, vhead);
+	bsg_vlist_copy(src_free, &vp->vlist_head, vhead);
     }
 
     (void)bsg_payload_bump_revision(p);
@@ -526,7 +527,7 @@ bsg_payload_vlist_set(struct bsg_payload *payload, struct bu_list *vhead)
 	if (BU_LIST_NON_EMPTY(&vp->vlist_head))
 	    BV_FREE_VLIST(&vp->vlfree, &vp->vlist_head);
 	BU_LIST_INIT(&vp->vlist_head);
-	bv_vlist_copy(&vp->vlfree, &vp->vlist_head, vhead);
+	bsg_vlist_copy(&vp->vlfree, &vp->vlist_head, vhead);
 	(void)bsg_payload_bump_revision(payload);
 	payload->bounds_revision = payload->revision;
 	return;
@@ -540,8 +541,8 @@ bsg_payload_vlist_set(struct bsg_payload *payload, struct bu_list *vhead)
     if (BU_LIST_NON_EMPTY(&s->s_vlist))
 	BV_FREE_VLIST(s->vlfree, &s->s_vlist);
     BU_LIST_INIT(&s->s_vlist);
-    bv_vlist_copy(s->vlfree, &s->s_vlist, vhead);
-    s->s_vlen = bv_vlist_cmd_cnt((struct bv_vlist *)&s->s_vlist);
+    bsg_vlist_copy(s->vlfree, &s->s_vlist, vhead);
+    s->s_vlen = bsg_vlist_cmd_cnt((struct bv_vlist *)&s->s_vlist);
 
     (void)bsg_payload_bump_revision(payload);
     payload->bounds_revision = payload->revision;
@@ -584,13 +585,13 @@ bsg_payload_vlist_count(const struct bsg_payload *payload)
 
     /* Slice 6: BSG-owned storage path. */
     if (vp->owned)
-	return bv_vlist_cmd_cnt((struct bv_vlist *)&vp->vlist_head);
+	return bsg_vlist_cmd_cnt((struct bv_vlist *)&vp->vlist_head);
 
     /* Legacy compat path. */
     if (!vp->owner)
 	return 0;
     s = (struct bv_scene_obj *)vp->owner;
-    return bv_vlist_cmd_cnt((struct bv_vlist *)&s->s_vlist);
+    return bsg_vlist_cmd_cnt((struct bv_vlist *)&s->s_vlist);
 }
 
 struct bsg_payload *

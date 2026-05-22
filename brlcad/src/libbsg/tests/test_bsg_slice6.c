@@ -50,8 +50,7 @@
 #include "bu/list.h"
 #include "bu/malloc.h"
 #include "bv/defines.h"
-#include "bv/util.h"
-#include "bv/vlist.h"
+/* bv/vlist.h and its BV_* macros are pulled in transitively via bsg/vlist.h */
 #include "bsg/axes.h"
 #include "bsg/payload.h"
 #include "bsg/text.h"
@@ -90,7 +89,7 @@ test_owned_vlist(void)
 
     /* Release the source list now that it has been copied. */
     BV_FREE_VLIST(&vlfree, &vhead);
-    bv_vlist_cleanup(&vlfree);
+    bsg_vlist_cleanup(&vlfree);
 
     if (!op)
 	FAIL("bsg_payload_vlist_create_owned returned NULL");
@@ -213,7 +212,7 @@ test_text_payload(void)
     if (BU_LIST_IS_EMPTY(&vhead))
 	FAIL("bsg_payload_text_build_vlist produces non-empty vlist");
     BV_FREE_VLIST(&vlfree, &vhead);
-    bv_vlist_cleanup(&vlfree);
+    bsg_vlist_cleanup(&vlfree);
 
     /* NULL input returns -1 */
     if (bsg_payload_text_build_vlist(NULL, &vhead, &vlfree) != -1)
@@ -391,7 +390,7 @@ test_vlist_string_wrappers(void)
 
     BV_FREE_VLIST(&vlfree, &vhead3);
     BV_FREE_VLIST(&vlfree, &vhead2);
-    bv_vlist_cleanup(&vlfree);
+    bsg_vlist_cleanup(&vlfree);
 
     PASS("bsg_vlist_3string / bsg_vlist_2string");
     return 0;
