@@ -46,6 +46,8 @@
 #include "bsg/view_scope.h"
 #include "dm.h"
 
+/* Screen-space size threshold used with bound-flag culling:
+ * if (object_size * view_inverse_size) is below this value, skip draw. */
 static const fastf_t DM_SIZE_CULL_THRESHOLD = 0.001;
 
 void
@@ -523,7 +525,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	&& dm_get_bound_flag(dmp)
 	&& !bsg_node_is_display_obj(s)
 	&& bsg_node_has_kind(s, BSG_NODE_SHAPE)
-	&& view_isize > 0.0
+	&& view_isize > SMALL_FASTF
 	&& (bsg_node_size_get(s) * view_isize) < DM_SIZE_CULL_THRESHOLD) {
 	pass_skip = 1;
     }
