@@ -23,11 +23,12 @@
  *
  *   bsg_node_uptr_get(node, idx)      — indexed void * retrieval
  *   bsg_node_uptr_set(node, idx, ptr) — indexed void * storage
+ *   bsg_node_uptr_clear(node)         — release all slots at once
  *   BSG_NODE_UPTR_MAXIND              — highest valid index
  *
- * Storage is opaque (pimpl): no direct field access is possible or
- * needed.  Slots are lazily allocated on first non-NULL set, so a
- * fresh node carries zero overhead until a pointer is stored.
+ * Storage is opaque (pimpl): callers interact only through the public
+ * accessor API.  The internal allocation is an implementation detail
+ * that must not be accessed directly.
  */
 
 #include "common.h"
@@ -36,9 +37,8 @@
 #include <string.h>
 
 #include "bu/app.h"
-#include "bu/malloc.h"
 #include "bv/defines.h"   /* struct bv_scene_obj */
-#include "bsg/node.h"     /* bsg_node_uptr_get/set, BSG_NODE_UPTR_MAXIND */
+#include "bsg/node.h"     /* bsg_node_uptr_get/set/clear, BSG_NODE_UPTR_MAXIND */
 
 #define PASS(msg) do { printf("  PASS: %s\n", (msg)); } while (0)
 #define FAIL(msg) do { printf("  FAIL: %s\n", (msg)); return 1; } while (0)
@@ -92,11 +92,7 @@ if (bsg_node_uptr_get(n, i) != NULL)
     FAIL("clear to NULL failed");
     }
 
-    /* Manual cleanup: free impl allocated during this test */
-    if (n->_uptr_impl) {
-bu_free(n->_uptr_impl, "test_roundtrip cleanup");
-n->_uptr_impl = NULL;
-    }
+    bsg_node_uptr_clear(n);
 
     PASS("roundtrip");
     return 0;
@@ -128,15 +124,18 @@ test_independence(void)
     if (bsg_node_uptr_get(n, 1) != b) FAIL("slot 1 should be b");
     if (bsg_node_uptr_get(n, 2) != c) FAIL("slot 2 should be c");
 
-    /* Clear slot 0; slots 1 and 2 must be unaffected */
+    /* Clear slot 0 via set NULL; slots 1 and 2 must be unaffected */
     bsg_node_uptr_set(n, 0, NULL);
     if (bsg_node_uptr_get(n, 0) != NULL) FAIL("slot 0 should be NULL after clear");
     if (bsg_node_uptr_get(n, 1) != b)    FAIL("slot 1 unchanged after slot 0 clear");
     if (bsg_node_uptr_get(n, 2) != c)    FAIL("slot 2 unchanged after slot 0 clear");
 
-    if (n->_uptr_impl) {
-bu_free(n->_uptr_impl, "test_independence cleanup");
-n->_uptr_impl = NULL;
+    bsg_node_uptr_clear(n);
+
+    /* After clear, all slots return NULL */
+    for (int i = 0; i <= BSG_NODE_UPTR_MAXIND; i++) {
+if (bsg_node_uptr_get(n, i) != NULL)
+    FAIL("slot non-NULL after bsg_node_uptr_clear");
     }
 
     PASS("independence");
@@ -158,8 +157,9 @@ test_safety(void)
     bsg_node *n = (bsg_node *)&s;
     void *val = (void *)0xABCDABCD;
 
-    /* NULL node: both accessors must be no-ops */
+    /* NULL node: all three accessors must be no-ops */
     bsg_node_uptr_set(NULL, 0, val); /* no-op */
+    bsg_node_uptr_clear(NULL);       /* no-op */
     if (bsg_node_uptr_get(NULL, 0) != NULL)
 FAIL("get(NULL, 0) should return NULL");
 
@@ -185,7 +185,7 @@ if (bsg_node_uptr_get(n, i) != NULL)
 
 
 /* ------------------------------------------------------------------ */
-/* Test 4: lazy allocation — NULL-set on fresh node does not allocate  */
+/* Test 4: lazy allocation — NULL-set on fresh node is a no-op         */
 /* ------------------------------------------------------------------ */
 
 static int
@@ -197,20 +197,28 @@ test_lazy_alloc(void)
     node_init(&s);
     bsg_node *n = (bsg_node *)&s;
 
-    /* Setting NULL on a fresh node must not crash; _uptr_impl stays NULL */
+    /* Setting NULL on a fresh node must not crash; all gets still NULL */
     for (int i = 0; i <= BSG_NODE_UPTR_MAXIND; i++)
 bsg_node_uptr_set(n, i, NULL);
+    for (int i = 0; i <= BSG_NODE_UPTR_MAXIND; i++) {
+if (bsg_node_uptr_get(n, i) != NULL)
+    FAIL("NULL-only sets should not make slots non-NULL");
+    }
 
-    if (n->_uptr_impl != NULL)
-FAIL("_uptr_impl should remain NULL after NULL-only sets");
+    /* bsg_node_uptr_clear on a node with no allocation must not crash */
+    bsg_node_uptr_clear(n);
 
-    /* Now set a real value; impl must be allocated */
+    /* Now set a real value and verify it is retrievable */
     bsg_node_uptr_set(n, 0, (void *)0x9999);
-    if (n->_uptr_impl == NULL)
-FAIL("_uptr_impl should be allocated after non-NULL set");
+    if (bsg_node_uptr_get(n, 0) != (void *)0x9999)
+FAIL("slot 0 should hold 0x9999 after set");
 
-    bu_free(n->_uptr_impl, "test_lazy_alloc cleanup");
-    n->_uptr_impl = NULL;
+    /* Clear releases the storage; all slots return NULL again */
+    bsg_node_uptr_clear(n);
+    for (int i = 0; i <= BSG_NODE_UPTR_MAXIND; i++) {
+if (bsg_node_uptr_get(n, i) != NULL)
+    FAIL("slot non-NULL after clear");
+    }
 
     PASS("lazy_alloc");
     return 0;

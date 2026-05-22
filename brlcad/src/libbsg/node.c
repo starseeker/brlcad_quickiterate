@@ -444,6 +444,16 @@ bsg_node_uptr_set(bsg_node *n, int idx, void *ptr)
 }
 
 
+void
+bsg_node_uptr_clear(bsg_node *n)
+{
+    if (!n || !n->_uptr_impl)
+	return;
+    bu_free(n->_uptr_impl, "bsg_node_uptr_impl");
+    n->_uptr_impl = NULL;
+}
+
+
 struct bview *
 bsg_node_view_get(const bsg_node *n)
 {

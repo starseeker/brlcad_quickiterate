@@ -168,6 +168,17 @@ bsg_node_uptr_get(const bsg_node *n, int idx);
 BSG_EXPORT extern void
 bsg_node_uptr_set(bsg_node *n, int idx, void *ptr);
 
+/**
+ * Release internal storage for all user-pointer slots on @p n and reset
+ * every slot to NULL.
+ *
+ * After this call bsg_node_uptr_get() returns NULL for all indices.  The
+ * call is a cheap no-op when no non-NULL value has ever been stored.
+ * No-op when @p n is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_uptr_clear(bsg_node *n);
+
 BSG_EXPORT extern struct bview *
 bsg_node_view_get(const bsg_node *n);
 
