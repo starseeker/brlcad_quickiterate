@@ -82,11 +82,18 @@ brlcad_add_test(NAME libbsg_source_identity COMMAND test_bsg_source_identity)
 brlcad_addexec(test_bsg_slice6 test_bsg_slice6.c "libbsg;libbv;libbu" TEST)
 brlcad_add_test(NAME libbsg_slice6 COMMAND test_bsg_slice6)
 
+#
+# Slice 7: polygon overlay payload, fill segments, accessor round-trips
+#
+brlcad_addexec(test_bsg_slice7 test_bsg_slice7.c "libbsg;libbv;libbg;libbu" TEST)
+brlcad_add_test(NAME libbsg_slice7 COMMAND test_bsg_slice7)
+
 cmakefiles(
   CMakeLists.txt
   test_arb8.c
   test_bsg_node.c
   test_bsg_slice6.c
+  test_bsg_slice7.c
   test_camera.c
   test_hud.c
   test_identity.c
