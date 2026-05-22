@@ -93,22 +93,15 @@ bsg_scene_root_create(struct bview *v)
     bsg_material_enable_view_obj_setters();
     bsg_appearance_enable_view_obj_setters();
 
+    struct bsg_scene_set *scene_set = (v->vset) ? bv_set_scene_set(v->vset) : NULL;
+
     /* If this view is part of a set and doesn't yet have a draw root, inherit
-     * the active draw root from another view in the set.  This keeps secondary
+     * the active draw root from the scene registry.  This keeps secondary
      * views (e.g. libtclcad null-DM views) aligned with the GED draw tree. */
-    if (!v->gv_draw_root && v->vset) {
-	struct bu_ptbl *views = bv_set_views(v->vset);
-	if (views) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-		struct bview *sv = (struct bview *)BU_PTBL_GET(views, i);
-		if (!sv || sv == v)
-		    continue;
-		if (sv->gv_draw_root) {
-		    v->gv_draw_root = sv->gv_draw_root;
-		    break;
-		}
-	    }
-	}
+    if (!v->gv_draw_root && scene_set) {
+	bsg_node *shared_root = bsg_scene_set_any_root(scene_set);
+	if (shared_root)
+	    v->gv_draw_root = shared_root;
     }
 
     /* Phase F (drawing_stack_modernization): bsg_root is normally an alias for
@@ -130,6 +123,8 @@ bsg_scene_root_create(struct bview *v)
 
     _bsg_scene_root_identity_assign((struct bv_scene_obj *)v->gv_draw_root);
     v->bsg_root = v->gv_draw_root;
+    if (scene_set)
+	bsg_scene_set_add(scene_set, v, (bsg_node *)v->bsg_root);
 
     /* Phase 6B: eagerly create the "active" and "edit" selection sets so
      * that bsg_scene_selection_get(..., 0) reliably returns them for any
@@ -165,8 +160,14 @@ bsg_scene_root_destroy(bsg_node *root)
      * the view's back-reference. */
     struct bv_scene_obj *r = (struct bv_scene_obj *)root;
     struct bview *v = bsg_node_view_get((const bsg_node *)r);
-    if (v && v->bsg_root == root)
+    if (v && v->bsg_root == root) {
 	v->bsg_root = NULL;
+	if (v->vset) {
+	    struct bsg_scene_set *scene_set = bv_set_scene_set(v->vset);
+	    if (scene_set)
+		bsg_scene_set_add(scene_set, v, NULL);
+	}
+    }
 }
 
 
@@ -214,7 +215,7 @@ bsg_sensor_fire(bsg_node *root, struct bview *v)
 }
 
 /* ---------------------------------------------------------------------- */
-/* bsg_scene_set (stub implementation for Phase 4; grows in Phase 5+)      */
+/* bsg_scene_set registry helpers                                          */
 /* ---------------------------------------------------------------------- */
 
 /* Simple linked-list cell for the registry. */
@@ -286,6 +287,31 @@ bsg_scene_set_get(struct bsg_scene_set *ss, struct bview *v)
 	    return e->root;
     }
     return NULL;
+}
+
+bsg_node *
+bsg_scene_set_any_root(struct bsg_scene_set *ss)
+{
+    if (!ss)
+	return NULL;
+
+    for (struct _bsg_ss_entry *e = ss->head; e; e = e->next) {
+	if (e->root)
+	    return e->root;
+    }
+    return NULL;
+}
+
+size_t
+bsg_scene_set_count(const struct bsg_scene_set *ss)
+{
+    if (!ss)
+	return 0;
+
+    size_t cnt = 0;
+    for (const struct _bsg_ss_entry *e = ss->head; e; e = e->next)
+	cnt++;
+    return cnt;
 }
 
 void

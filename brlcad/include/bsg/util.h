@@ -42,13 +42,11 @@ BSG_EXPORT extern bsg_node *
 bsg_scene_root_create(struct bview *v);
 
 /**
- * Synchronise the children list of @p root from the current draw state
- * of @p v.  The root's children table is cleared (pointers only, the
- * actual scene objects are owned by the view) and refilled from all
- * BV_DB_OBJS and BV_VIEW_OBJS tables accessible through @p v.
+ * Synchronise @p root with view @p v.
  *
- * This is the "shim" that mirrors the existing display-list contents
- * into the BSG tree (Phase 4-D).
+ * In the current migration stage @p root aliases @p v->gv_draw_root and
+ * draw-tree mutations keep children live, so this function is a compatibility
+ * no-op.
  */
 BSG_EXPORT extern void
 bsg_scene_root_sync(bsg_node *root, struct bview *v);
