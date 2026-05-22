@@ -27,6 +27,7 @@
 #include "common.h"
 
 #include "vmath.h"
+#include "bv/defines.h"
 #include "bsg/defines.h"
 #include "bsg/node.h"
 #include "bsg/node_transform.h"

@@ -60,6 +60,9 @@ brlcad_add_test(NAME libbsg_lod_node COMMAND test_bsg_lod_node)
 brlcad_addexec(test_bsg_view_scope test_view_scope.c "libbsg;libbv;libbu" TEST)
 brlcad_add_test(NAME libbsg_view_scope COMMAND test_bsg_view_scope)
 
+brlcad_addexec(test_bsg_hud test_hud.c "libbsg;libbv;libbu" TEST)
+brlcad_add_test(NAME libbsg_hud COMMAND test_bsg_hud)
+
 #
 # Phase 10: inline bsg_node_core (kind/parent/identity/revisions/sidecars)
 #
@@ -71,6 +74,7 @@ cmakefiles(
   test_arb8.c
   test_bsg_node.c
   test_camera.c
+  test_hud.c
   test_identity.c
   test_material.c
   test_node_core.c
