@@ -1,0 +1,10 @@
+Right now, BRL-CAD is making extensive use of the libbv library.  We want to migrate
+to using libbsg instead of libbv, but right now much of the core functionality still
+lives in libbv.
+
+We want to fold libbv into libbsg and remove libbv in favor of libbsg.  Functionality
+in libbv should be moved to libbsg, and calling code should be updated accordingly.
+bv_ and BV_ prefixes should be changed to bsg_ and BSG_.
+
+Completion is defined as being able to remove libbv from the source tree and build
+without loss of functionality or breakage.
