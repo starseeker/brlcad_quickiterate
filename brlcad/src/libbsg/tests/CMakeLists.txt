@@ -88,12 +88,20 @@ brlcad_add_test(NAME libbsg_slice6 COMMAND test_bsg_slice6)
 brlcad_addexec(test_bsg_slice7 test_bsg_slice7.c "libbsg;libbv;libbg;libbu" TEST)
 brlcad_add_test(NAME libbsg_slice7 COMMAND test_bsg_slice7)
 
+#
+# Slice 8: bounds/transform/camera-query (bsg_node_compute_bound,
+#          bsg_view_compute_bounds, bsg_view_select, bsg_view_rect_select)
+#
+brlcad_addexec(test_bsg_slice8 test_bsg_slice8.c "libbsg;libbv;libbg;libbu" TEST)
+brlcad_add_test(NAME libbsg_slice8 COMMAND test_bsg_slice8)
+
 cmakefiles(
   CMakeLists.txt
   test_arb8.c
   test_bsg_node.c
   test_bsg_slice6.c
   test_bsg_slice7.c
+  test_bsg_slice8.c
   test_camera.c
   test_hud.c
   test_identity.c

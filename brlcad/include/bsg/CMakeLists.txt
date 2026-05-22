@@ -23,6 +23,7 @@ set(
   obol_node.h
   overlay.h
   payload.h
+  query.h
   render.h
   scene_set.h
   selection.h
