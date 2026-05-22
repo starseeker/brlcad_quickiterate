@@ -27,8 +27,6 @@
 #include "common.h"
 
 #include "bu/ptbl.h"
-#include "bv/defines.h"
-#include "bv/util.h"
 #include "bsg/defines.h"
 #include "bsg/util.h"
 #include "bsg/node_group.h"
@@ -40,7 +38,7 @@ bsg_group_create(struct bview *v)
     if (!v)
 	return NULL;
 
-    struct bv_scene_obj *g = bsg_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    struct bv_scene_obj *g = bsg_obj_create(v, BSG_OBJ_VIEW | BSG_OBJ_LOCAL);
     if (!g)
 	return NULL;
 

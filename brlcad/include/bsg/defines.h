@@ -106,6 +106,16 @@ __BEGIN_DECLS
 #define BSG_PAYLOAD_MASK    0x1F0000000000ULL
 
 /**
+ * Object storage-type flags used by bsg_obj_create() / bsg_obj_get_unregistered().
+ * These are aliases for the BV_ flags while the storage model is being moved
+ * from libbv into libbsg.
+ */
+#define BSG_OBJ_DB      BV_DB_OBJS    /**< @brief database-backed scene object */
+#define BSG_OBJ_VIEW    BV_VIEW_OBJS  /**< @brief view-only scene object */
+#define BSG_OBJ_LOCAL   BV_LOCAL_OBJS /**< @brief local (per-view) scope */
+#define BSG_OBJ_CHILD   BV_CHILD_OBJS /**< @brief child object (not in flat ptbl) */
+
+/**
  * bsg_node is a layout-compatible alias for struct bv_scene_obj.
  * Using the same struct pointer avoids any ABI mismatch.  Callers can
  * freely cast between bsg_node * and struct bv_scene_obj * without risk.

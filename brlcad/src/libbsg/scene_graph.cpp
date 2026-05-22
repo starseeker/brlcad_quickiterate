@@ -48,12 +48,10 @@
 #include "common.h"
 
 #include "bu/malloc.h"
-#include "bv/defines.h"
-#include "bv/util.h"
-#include "bv/view_sets.h"
-
 #include "bsg/defines.h"
 #include "bsg/util.h"
+#include "bv/view_sets.h"
+
 #include "bsg/visit.h"
 #include "bsg/scene_set.h"
 
@@ -92,7 +90,7 @@ bsg_scene_root_create(struct bview *v)
     if (!v->gv_draw_root) {
 	/* This path is for non-GED callers.  GED command flows continue to use
 	 * libged's _sg_root() so gd_draw_root and bsg_draw_ctx are installed. */
-	struct bv_scene_obj *root = bsg_obj_get_unregistered(v, BV_CHILD_OBJS);
+	struct bv_scene_obj *root = bsg_obj_get_unregistered(v, BSG_OBJ_CHILD);
 	if (!root) {
 	    bu_log("bsg_scene_root_create: failed to allocate standalone draw root\n");
 	    return NULL;

@@ -37,12 +37,10 @@
 #include "bu/ptbl.h"
 #include "bu/str.h"
 #include "bu/vls.h"
-#include "bv/defines.h"
-#include "bv/util.h"
-#include "bv/vlist.h"
-
 #include "bsg/defines.h"
 #include "bsg/util.h"
+#include "bsg/vlist.h"
+
 #include "bsg/draw_ctx.h"
 #include "bsg/draw_set.h"
 #include "bsg/overlay.h"
@@ -61,7 +59,7 @@
  */
 #define FREE_BV_SCENE_OBJ(p, fp, vlf) { \
     BU_LIST_APPEND(fp, &((p)->l)); \
-    BV_FREE_VLIST(vlf, &((p)->s_vlist)); }
+    BSG_FREE_VLIST(vlf, &((p)->s_vlist)); }
 
 
 /* ------------------------------------------------------------------ */
@@ -94,7 +92,7 @@ bsg_ensure_overlay_group(bsg_node *draw_root, struct bview *v)
 
     struct bv_scene_obj *root = (struct bv_scene_obj *)draw_root;
 
-    struct bv_scene_obj *ov = bsg_obj_create(v, BV_CHILD_OBJS);
+    struct bv_scene_obj *ov = bsg_obj_create(v, BSG_OBJ_CHILD);
     if (!ov)
 	return NULL;
 

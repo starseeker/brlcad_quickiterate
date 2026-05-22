@@ -30,8 +30,6 @@
 #include "common.h"
 
 #include "bu/ptbl.h"
-#include "bv/defines.h"
-#include "bv/util.h"
 #include "bsg/defines.h"
 #include "bsg/util.h"
 #include "bsg/view_scope.h"
@@ -43,7 +41,7 @@ bsg_view_scope_create(struct bview *v)
     if (!v)
 	return NULL;
 
-    struct bv_scene_obj *s = bsg_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    struct bv_scene_obj *s = bsg_obj_create(v, BSG_OBJ_VIEW | BSG_OBJ_LOCAL);
     if (!s)
 	return NULL;
 

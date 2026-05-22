@@ -39,7 +39,6 @@
 #include "bu/exit.h"
 #include "bu/log.h"
 #include "bu/list.h"
-#include "bv/vlist.h"
 #include "bsg/vlist.h"
 
 int

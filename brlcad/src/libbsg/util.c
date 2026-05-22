@@ -26,8 +26,24 @@
 
 #include "common.h"
 
+#include "bu/list.h"
 #include "bv/util.h"
+#include "bv/vlist.h"
 #include "bsg/util.h"
+
+
+void
+bsg_view_init(struct bview *v, struct bview_set *s)
+{
+    bv_init(v, s);
+}
+
+
+void
+bsg_view_free(struct bview *v)
+{
+    bv_free(v);
+}
 
 
 bsg_node *
@@ -62,6 +78,13 @@ void
 bsg_scene_obj_invalidate_backend(bsg_node *obj)
 {
     bv_scene_obj_invalidate_backend((struct bv_scene_obj *)obj);
+}
+
+
+void
+bsg_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_list *src)
+{
+    bv_vlist_copy(vlists, dest, src);
 }
 
 /*

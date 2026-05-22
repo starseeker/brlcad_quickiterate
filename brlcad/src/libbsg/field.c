@@ -30,7 +30,6 @@
 
 #include "common.h"
 
-#include "bv/defines.h"
 #include "bsg/defines.h"
 #include "bsg/field.h"
 #include "bsg/sensor.h"

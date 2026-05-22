@@ -32,7 +32,6 @@
 #include "common.h"
 
 #include "bu/ptbl.h"
-#include "bv/defines.h"
 #include "bsg/defines.h"
 #include "bsg/visit.h"
 

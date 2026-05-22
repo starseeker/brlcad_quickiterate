@@ -40,8 +40,6 @@
 #include <string.h>
 
 #include "bu/malloc.h"
-#include "bv/defines.h"
-#include "bv/util.h"
 #include "bsg/defines.h"
 #include "bsg/util.h"
 #include "bsg/field.h"
@@ -131,7 +129,7 @@ _alloc_sensor_node(bsg_node *root, unsigned long long stype)
     if (!v)
 	return NULL;
 
-    struct bv_scene_obj *s = bsg_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    struct bv_scene_obj *s = bsg_obj_create(v, BSG_OBJ_VIEW | BSG_OBJ_LOCAL);
     if (!s)
 	return NULL;
 

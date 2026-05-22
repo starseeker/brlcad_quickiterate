@@ -54,8 +54,6 @@
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "bu/ptbl.h"
-#include "bv/defines.h"
-#include "bv/util.h"
 #include "bsg/defines.h"
 #include "bsg/util.h"
 
@@ -76,14 +74,14 @@ make_view(void)
 {
     struct bview *v;
     BU_GET(v, struct bview);
-    bv_init(v, NULL);
+    bsg_view_init(v, NULL);
     return v;
 }
 
 static void
 free_view(struct bview *v)
 {
-    bv_free(v);
+    bsg_view_free(v);
     BU_PUT(v, struct bview);
 }
 
@@ -93,7 +91,7 @@ free_view(struct bview *v)
 static struct bv_scene_obj *
 attach_fake_draw_root(struct bview *v)
 {
-    struct bv_scene_obj *dr = bsg_obj_create(v, BV_CHILD_OBJS);
+    struct bv_scene_obj *dr = bsg_obj_create(v, BSG_OBJ_CHILD);
     if (!dr)
 	return NULL;
     dr->s_type_flags = BSG_NODE_GROUP;
@@ -195,7 +193,7 @@ test_find_by_type(void)
     /* Add a child directly to root->children with a specific type flag.
      * Phase F: root IS the draw root, so this is identical to adding a
      * child to the draw tree. */
-    struct bv_scene_obj *child = bsg_obj_create(v, BV_CHILD_OBJS);
+    struct bv_scene_obj *child = bsg_obj_create(v, BSG_OBJ_CHILD);
     if (!child) { g_fail++; bsg_scene_root_destroy(root); v->gv_draw_root = NULL; bsg_obj_put(dr); free_view(v); return; }
 
     child->s_type_flags |= BSG_NODE_SHAPE;
@@ -248,7 +246,7 @@ test_sensor_fire(void)
     if (!root) { g_fail++; v->gv_draw_root = NULL; free_view(v); return; }
 
     /* Add a sensor child directly to root->children. */
-    struct bv_scene_obj *sensor_child = bsg_obj_create(v, BV_CHILD_OBJS);
+    struct bv_scene_obj *sensor_child = bsg_obj_create(v, BSG_OBJ_CHILD);
     if (!sensor_child) {
 	g_fail++;
 	bsg_scene_root_destroy(root);

@@ -26,7 +26,7 @@
 #ifndef LIBBSG_BSG_PRIVATE_H
 #define LIBBSG_BSG_PRIVATE_H
 
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "bsg/draw_ctx.h"
 
 /*

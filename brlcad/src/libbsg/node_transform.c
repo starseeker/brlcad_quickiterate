@@ -27,8 +27,6 @@
 #include "common.h"
 
 #include "vmath.h"
-#include "bv/defines.h"
-#include "bv/util.h"
 #include "bsg/defines.h"
 #include "bsg/util.h"
 #include "bsg/node_transform.h"
@@ -40,7 +38,7 @@ bsg_transform_create(struct bview *v)
     if (!v)
 	return NULL;
 
-    struct bv_scene_obj *t = bsg_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    struct bv_scene_obj *t = bsg_obj_create(v, BSG_OBJ_VIEW | BSG_OBJ_LOCAL);
     if (!t)
 	return NULL;
 

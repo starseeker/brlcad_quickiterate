@@ -50,14 +50,12 @@
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "bu/ptbl.h"
-#include "bv/defines.h"
-#include "bv/util.h"
-
 #include "bsg/defines.h"
+#include "bsg/util.h"
+
 #include "bsg/lod_ops.h"
 #include "bsg/node_group.h"
 #include "bsg/node_shape.h"
-#include "bsg/util.h"
 
 static int g_fail = 0;
 
@@ -77,7 +75,7 @@ make_view(const char *name)
 {
     struct bview *v;
     BU_ALLOC(v, struct bview);
-    bv_init(v, NULL);
+    bsg_view_init(v, NULL);
     bu_vls_sprintf(&v->gv_name, "%s", name);
     return v;
 }
@@ -86,7 +84,7 @@ static void
 free_view(struct bview *v)
 {
     if (!v) return;
-    bv_free(v);
+    bsg_view_free(v);
     bu_free(v, "test view");
 }
 

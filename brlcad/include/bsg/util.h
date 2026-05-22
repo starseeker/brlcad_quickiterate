@@ -113,6 +113,31 @@ bsg_scene_obj_release_backend(bsg_node *obj);
 BSG_EXPORT extern void
 bsg_scene_obj_invalidate_backend(bsg_node *obj);
 
+/**
+ * Initialize a view object using the BSG namespace.  BSG wrapper around
+ * bv_init().  @p v must point to allocated but uninitialized storage.
+ * @p s is the optional view-set the view belongs to; pass NULL when unused.
+ */
+BSG_EXPORT extern void
+bsg_view_init(struct bview *v, struct bview_set *s);
+
+/**
+ * Free resources owned by a view object.  BSG wrapper around bv_free().
+ * Does not free the memory for @p v itself.
+ */
+BSG_EXPORT extern void
+bsg_view_free(struct bview *v);
+
+/**
+ * Duplicate the contents of a vlist.  BSG-namespaced wrapper around
+ * bv_vlist_copy().  @p vlists is the free-list pool; @p dest is cleared
+ * and filled from @p src.
+ */
+BSG_EXPORT extern void
+bsg_vlist_copy(struct bu_list *vlists,
+               struct bu_list *dest,
+               const struct bu_list *src);
+
 __END_DECLS
 
 #endif /* BSG_UTIL_H */

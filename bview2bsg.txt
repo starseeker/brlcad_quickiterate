@@ -8,3 +8,59 @@ bv_ and BV_ prefixes should be changed to bsg_ and BSG_.
 
 Completion is defined as being able to remove libbv from the source tree and build
 without loss of functionality or breakage.
+
+===========================================================================
+MIGRATION STATUS  (updated: 2026-05-22)
+===========================================================================
+
+DONE
+----
+Slice 11 – libbsg lifecycle API boundary (src/libbsg/util.c)
+  * Added bsg_obj_create / bsg_obj_get_unregistered / bsg_obj_put.
+  * Added bsg_scene_obj_release_backend / bsg_scene_obj_invalidate_backend.
+  * All libbsg source files now call the bsg_* lifecycle wrappers instead of
+    bv_obj_create, bv_obj_put, etc. directly.
+
+Slice 12 – BSG vlist alias layer and object-type flags
+  * bsg/vlist.h: added bsg_vlist typedef, BSG_VLIST_* command constants,
+    BSG_ADD_VLIST / BSG_FREE_VLIST / BSG_GET_VLIST macros, BSG_VLIST_SET_*
+    macros, bsg_vlist_copy() declaration.
+  * bsg/defines.h: added BSG_OBJ_VIEW / BSG_OBJ_LOCAL / BSG_OBJ_CHILD /
+    BSG_OBJ_DB storage-type flag aliases.
+  * bsg/util.h: added bsg_view_init / bsg_view_free / bsg_vlist_copy.
+  * src/libbsg/util.c: implements bsg_view_init, bsg_view_free, bsg_vlist_copy.
+  * All libbsg .c/.cpp source files: replaced bv/defines.h → bsg/defines.h,
+    bv/util.h → bsg/util.h, bv/vlist.h → bsg/vlist.h (where included).
+  * All BSG vlist macros in libbsg sources use BSG_* names.
+  * All object-type flags (BV_VIEW_OBJS etc.) replaced with BSG_OBJ_* names.
+  * All libbsg tests use bsg_view_init / bsg_view_free.
+  * 11/11 libbsg tests pass; libdm/libged/libqtcad/dm-qtgl/dm-swrast/qged build.
+  * Remaining bv/ includes inside libbsg: util.c (bridge), lod.cpp (deferred),
+    scene_graph.cpp (bv/view_sets.h for bv_set_views — deferred to next slice).
+
+IN PROGRESS / NEXT STEPS
+--------------------------
+Slice 13 – bsg/view_sets.h: add bsg_set_views() wrapper; update scene_graph.cpp.
+Slice 14 – Add BSG_NODE_GROUP factory wrappers for BV_CHILD_OBJS allocation
+           pattern in draw_set.c / overlay.c; replace remaining bv_set_* calls.
+Slice 15 – Port remaining libbsg tests that still link against libbv as a
+           separate dependency; verify test CMakeLists.txt only lists libbsg.
+Slice 16 – Remove libbsg's explicit dep on libbv in source_dirs.cmake; replace
+           with PRIVATE libbv link only in libbsg's own CMakeLists.txt.
+Slice 17 – Migrate libdm, libged, libqtcad includes from bv/* to bsg/* where
+           the functionality has moved.
+Slice 18 – Migrate libtclcad includes.
+Slice 19 – Remove direct libbv link from libdm, libged, libqtcad, libtclcad.
+Slice 20 – Remove libbv from source_dirs.cmake and delete src/libbv + include/bv.
+
+DEPENDENCY GRAPH (current)
+---------------------------
+  libbu  → (none)
+  libbn  → libbu
+  libbg  → libbn libbu
+  libbv  → libbg libbn libbu          [TARGET TO ELIMINATE]
+  libbsg → libbv libbg libbu          [still depends on libbv; working to remove]
+  libdm  → libbsg librt libicv libbv libbn libpkg libbu
+  libged → libicv libanalyze libwdb liboptical libdm libbsg libbv libbu
+  libqtcad → libged libdm libbsg libbv libbn libbu
+  libtclcad → libged libdm libbv libbn libbu
