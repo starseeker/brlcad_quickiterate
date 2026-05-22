@@ -172,6 +172,7 @@ function(ged_plugin_library name)
     if(GEDPL_SYSTEM_INCLUDES)
       target_include_directories(libged_plugin_deps SYSTEM INTERFACE ${GEDPL_SYSTEM_INCLUDES})
     endif()
+    list(APPEND GEDPL_LIBS ${DL_LIBRARY})
     if(GEDPL_LIBS)
       list(REMOVE_ITEM GEDPL_LIBS libged)
       target_link_libraries(libged_plugin_deps INTERFACE ${GEDPL_LIBS})
@@ -207,6 +208,7 @@ function(ged_plugin_library name)
     if(GEDPL_SYSTEM_INCLUDES)
       brlcad_include_dirs(${name} GEDPL_SYSTEM_INCLUDES PRIVATE)
     endif()
+    list(APPEND GEDPL_LIBS ${DL_LIBRARY})
     if(GEDPL_LIBS)
       target_link_libraries(${name} ${GEDPL_LIBS})
     endif()
@@ -343,6 +345,7 @@ set(
   REGEX::REGEX
   ${WINSOCK_LIB}
   ${M_LIBRARY}
+  ${DL_LIBRARY}
 )
 
 # Local include directories

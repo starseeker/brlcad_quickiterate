@@ -339,7 +339,7 @@ bu_bitv_dup(const struct bu_bitv *bv)
 	return bu_bitv_new(0);
 
     bv2 = bu_bitv_new(bv->nbits);
-    bu_bitv_or(bv2, bv);
+    memcpy(bv2->bits, bv->bits, BU_BITS2BYTES(bv->nbits));
 
     return bv2;
 }

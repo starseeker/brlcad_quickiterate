@@ -7,7 +7,6 @@ set(
   do.c
   grid.c
   heatgraph.c
-  main.c
   opt.c
   scanline.c
   usage.cpp
@@ -18,6 +17,8 @@ brlcad_addlib(librtuif "${LIBRTUIF_SOURCES}" "" "${CMAKE_CURRENT_SOURCE_DIR}"
   STATIC NO_INSTALL
   PRIVATE_LIBS librt ${M_LIBRARY}
 )
+
+list(APPEND LIBRTUIF_SOURCES main.c)
 
 if(BRLCAD_ENABLE_OPENCL)
   set(OPENCL_LIBS ${OPENCL_LIBRARIES})

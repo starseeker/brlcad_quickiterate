@@ -88,7 +88,8 @@ if(BRLCAD_ENABLE_OPENGL AND BRLCAD_ENABLE_TK)
     ${IMM32_LIBRARY}
     ${COMCTL32_LIBRARY}
     ${OPENGL32_LIBRARY}
-  )
+    ${M_LIBRARY}
+    )
 
   brlcad_adddata(isst.tcl tclscripts/isst)
   brlcad_addexec(isst isst.c "${isst_libs}" GUI)

@@ -1,5 +1,5 @@
 int
-main()
+main(int, const char **)
 {
   return 0;
 }

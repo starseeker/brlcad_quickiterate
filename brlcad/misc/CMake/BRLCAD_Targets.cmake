@@ -462,6 +462,16 @@ function(BRLCAD_ADD_STATIC_LINK_TEST libstatic)
     ${ARGN}
   )
   set_target_properties(${_link_test} PROPERTIES FOLDER "BRL-CAD Static Link Tests")
+
+  # With newer GCC, our bitv structure triggers a compiler
+  # warning about writing 1 byte into a region of size 0.
+  if(${BRLCAD_OPTIMIZED} MATCHES "ON")
+    check_c_compiler_flag(-Wno-stringop-overflow HAVE_NO_STRINGOP_OVERFLOW)
+    if(HAVE_NO_STRINGOP_OVERFLOW)
+      target_link_options(${_link_test} PRIVATE -Wno-stringop-overflow)
+    endif(HAVE_NO_STRINGOP_OVERFLOW)
+  endif(${BRLCAD_OPTIMIZED} MATCHES "ON")
+
   if(TARGET check)
     add_dependencies(check ${_link_test})
   endif(TARGET check)
