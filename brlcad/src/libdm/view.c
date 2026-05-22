@@ -1034,7 +1034,9 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
     // renderer-neutral BSG camera snapshot and consume its matrices.
     struct bsg_camera_snapshot cam;
     bsg_camera_snapshot_init(&cam);
-    (void)bsg_camera_snapshot_from_bview(&cam, v);
+    if (bsg_camera_snapshot_from_bview(&cam, v) != 0) {
+	/* Keep initialized identity/projection defaults. */
+    }
     dm_loadmatrix(dmp, cam.model2view, 0);
     if (cam.projection == BSG_CAMERA_PERSPECTIVE &&
 	SMALL_FASTF < cam.perspective_angle) {
