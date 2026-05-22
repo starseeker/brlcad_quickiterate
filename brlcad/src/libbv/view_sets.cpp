@@ -28,6 +28,7 @@
 #include "vmath.h"
 #include "bu/log.h"
 #include "bu/malloc.h"
+#include "bsg/scene_set.h"
 #include "bsg/node.h"
 #include "bu/str.h"
 #include "bn/mat.h"
@@ -42,6 +43,7 @@ bv_set_init(struct bview_set *s)
     BU_GET(s->i, struct bview_set_internal);
     BU_PTBL_INIT(&s->i->views);
     bu_ptbl_init(&s->i->shared_db_objs, 8, "db_objs init");
+    s->i->scene_set = bsg_scene_set_create();
     BU_LIST_INIT(&s->i->vlfree);
     /* init the solid list */
     BU_GET(s->i->free_scene_obj, struct bv_scene_obj);
@@ -54,6 +56,8 @@ bv_set_free(struct bview_set *s)
     if (s->i) {
 	bu_ptbl_free(&s->i->views);
 	bu_ptbl_free(&s->i->shared_db_objs);
+	bsg_scene_set_destroy(s->i->scene_set);
+	s->i->scene_set = NULL;
 
 	// TODO - replace free_scene_obj with bu_ptbl
 	struct bv_scene_obj *sp, *nsp;
@@ -83,6 +87,8 @@ bv_set_add_view(struct bview_set *s, struct bview *v){
     bu_ptbl_ins_unique(&s->i->views, (long *)v);
 
     v->vset = s;
+    if (s->i->scene_set)
+	bsg_scene_set_add(s->i->scene_set, v, (bsg_node *)v->gv_draw_root);
 
     // By default, when we add a view to a set it is no longer independent;
     // remove any existing independent scope from the BSG tree.
@@ -95,11 +101,17 @@ bv_set_rm_view(struct bview_set *s, struct bview *v){
 	return;
 
     if (!v) {
+	if (s->i->scene_set) {
+	    bsg_scene_set_destroy(s->i->scene_set);
+	    s->i->scene_set = bsg_scene_set_create();
+	}
 	bu_ptbl_reset(&s->i->views);
 	return;
     }
 
     bu_ptbl_rm(&s->i->views, (long int *)v);
+    if (s->i->scene_set)
+	bsg_scene_set_remove(s->i->scene_set, v);
 
     v->vset = NULL;
 
@@ -120,6 +132,9 @@ bv_set_views(struct bview_set *s){
 struct bview *
 bv_set_find_view(struct bview_set *s, const char *vname)
 {
+    if (!s || !s->i || !vname)
+	return NULL;
+
     struct bview *v = NULL;
     for (size_t i = 0; i < BU_PTBL_LEN(&s->i->views); i++) {
 	struct bview *tv = (struct bview *)BU_PTBL_GET(&s->i->views, i);
@@ -130,6 +145,14 @@ bv_set_find_view(struct bview_set *s, const char *vname)
     }
 
     return v;
+}
+
+struct bsg_scene_set *
+bv_set_scene_set(struct bview_set *s)
+{
+    if (!s || !s->i)
+	return NULL;
+    return s->i->scene_set;
 }
 
 struct bv_scene_obj *

@@ -59,7 +59,9 @@
 #include "bsg/defines.h"
 #include "bsg/identity.h"
 #include "bsg/node.h"
+#include "bsg/scene_set.h"
 #include "bsg/util.h"
+#include "bv/view_sets.h"
 
 static int g_fail = 0;
 
@@ -87,6 +89,16 @@ free_view(struct bview *v)
 {
     bv_free(v);
     BU_PUT(v, struct bview);
+}
+
+static struct bview *
+make_view_in_set(struct bview_set *s)
+{
+    struct bview *v = make_view();
+    if (!v)
+	return NULL;
+    bv_set_add_view(s, v);
+    return v;
 }
 
 /* Create a minimal synthetic draw-root group on a view so that
@@ -344,7 +356,60 @@ test_view_obj_identity(void)
     free_view(v);
 }
 
-/* ---- Test 7: null guards ------------------------------------------- */
+/* ---- Test 7: scene_set_registry ------------------------------------- */
+static void
+test_scene_set_registry(void)
+{
+    bu_log("=== Test 7: scene_set_registry ===\n");
+
+    struct bview_set vs = {0};
+    bv_set_init(&vs);
+
+    struct bview *v0 = make_view_in_set(&vs);
+    struct bview *v1 = make_view_in_set(&vs);
+    if (!v0 || !v1) {
+	g_fail++;
+	if (v0) free_view(v0);
+	if (v1) free_view(v1);
+	bv_set_free(&vs);
+	return;
+    }
+
+    struct bsg_scene_set *ss = bv_set_scene_set(&vs);
+    BSGCHECK(ss != NULL, "view set exposes BSG scene registry");
+    BSGCHECK(bsg_scene_set_count(ss) == 2, "scene registry has one entry per view");
+    BSGCHECK(bsg_scene_set_get(ss, v0) == NULL, "registry starts with NULL root for view #0");
+    BSGCHECK(bsg_scene_set_get(ss, v1) == NULL, "registry starts with NULL root for view #1");
+
+    bsg_node *root0 = bsg_scene_root_create(v0);
+    BSGCHECK(root0 != NULL, "scene root create for view #0 succeeds");
+    BSGCHECK(bsg_scene_set_get(ss, v0) == root0, "registry stores root for view #0");
+    BSGCHECK(bsg_scene_set_any_root(ss) == root0, "registry any_root returns current shared root");
+
+    bsg_node *root1 = bsg_scene_root_create(v1);
+    BSGCHECK(root1 == root0, "view #1 reuses scene root from registry");
+    BSGCHECK(bsg_scene_set_get(ss, v1) == root0, "registry stores shared root for view #1");
+
+    bv_set_rm_view(&vs, v1);
+    BSGCHECK(bsg_scene_set_get(ss, v1) == NULL, "removing view #1 clears its registry entry");
+    BSGCHECK(bsg_scene_set_get(ss, v0) == root0, "removing view #1 keeps view #0 root");
+    BSGCHECK(bsg_scene_set_count(ss) == 1, "registry count updates after view #1 removal");
+
+    bsg_scene_root_destroy(root0);
+    BSGCHECK(bsg_scene_set_get(ss, v0) == NULL, "destroy clears registry root for view #0");
+
+    v0->gv_draw_root = NULL;
+    v1->gv_draw_root = NULL;
+    bsg_node_identity_clear(root0);
+    bsg_node_destroy(root0);
+
+    bv_set_rm_view(&vs, v0);
+    free_view(v0);
+    free_view(v1);
+    bv_set_free(&vs);
+}
+
+/* ---- Test 8: null guards ------------------------------------------- */
 static void
 test_null_guards(void)
 {
@@ -379,6 +444,7 @@ main(int UNUSED(argc), char *argv[])
     test_find_by_type();
     test_sensor_fire();
     test_view_obj_identity();
+    test_scene_set_registry();
     test_null_guards();
 
     if (g_fail) {

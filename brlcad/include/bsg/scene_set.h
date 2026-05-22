@@ -20,10 +20,7 @@
 /** @addtogroup libbsg
  *
  * @brief
- * A bsg_scene_set manages per-view scene roots across a set of views
- * that share a GED instance.  Phase 4 stores scene roots directly in
- * bview::bsg_root (void *), so this struct is reserved for future use
- * when a centralised per-GED registry is needed.
+ * A bsg_scene_set manages per-view scene roots across a set of views.
  */
 /** @{ */
 /* @file bsg/scene_set.h */
@@ -37,7 +34,7 @@
 __BEGIN_DECLS
 
 /**
- * Opaque per-GED scene root registry (placeholder for Phase 5+).
+ * Opaque per-view scene root registry.
  */
 struct bsg_scene_set;
 
@@ -65,6 +62,18 @@ bsg_scene_set_add(struct bsg_scene_set *ss, struct bview *v, bsg_node *root);
  */
 BSG_EXPORT extern bsg_node *
 bsg_scene_set_get(struct bsg_scene_set *ss, struct bview *v);
+
+/**
+ * Retrieve the first non-NULL scene root registered in @p ss, or NULL.
+ */
+BSG_EXPORT extern bsg_node *
+bsg_scene_set_any_root(struct bsg_scene_set *ss);
+
+/**
+ * Return the number of registered views in @p ss.
+ */
+BSG_EXPORT extern size_t
+bsg_scene_set_count(const struct bsg_scene_set *ss);
 
 /**
  * Remove the entry for @p v from @p ss (does NOT free the root node).

@@ -31,9 +31,12 @@
 #include "bu/ptbl.h"
 #include "bv/defines.h"
 
+struct bsg_scene_set;
+
 struct bview_set_internal {
     struct bu_ptbl views;
     struct bu_ptbl shared_db_objs;
+    struct bsg_scene_set *scene_set;
 
     struct bv_scene_obj  *free_scene_obj;
     struct bu_list vlfree;

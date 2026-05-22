@@ -33,6 +33,8 @@
 
 __BEGIN_DECLS
 
+struct bsg_scene_set;
+
 /**
  * Initialize an empty view set
  */
@@ -70,6 +72,12 @@ bv_set_views(struct bview_set *s);
  */
 BV_EXPORT struct bview *
 bv_set_find_view(struct bview_set *s, const char *vname);
+
+/**
+ * Return the BSG scene registry attached to view set @p s.
+ */
+BV_EXPORT struct bsg_scene_set *
+bv_set_scene_set(struct bview_set *s);
 
 
 // Expose free_scene_obj for older codes - do not use in new coding
