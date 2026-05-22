@@ -170,7 +170,10 @@ dm_draw_faceplate(struct bview *v)
      * (gv_rotation, gv_center, gv_aet) remain as direct accesses and will be
      * migrated when those snapshot fields are added. */
     struct bsg_camera_snapshot cam;
-    bsg_camera_snapshot_from_bview(&cam, v);
+    bsg_camera_snapshot_init(&cam);
+    if (bsg_camera_snapshot_from_bview(&cam, v) != 0) {
+	/* Keep initialized identity/projection defaults. */
+    }
 
     /* Center dot */
     if (v->gv_s->gv_center_dot.gos_draw) {
@@ -314,7 +317,7 @@ dm_draw_label(struct dm *dmp, bsg_node *s)
 {
     struct bv_label *l = (struct bv_label *)bsg_node_user_data_get(s);
     if (!l)
-	return; /* BV_LABELS node has no payload -- nothing to draw. */
+	return; /* Label payload is NULL -- nothing to draw. */
     struct bview *sv = bsg_node_view_get(s);
     if (!sv)
 	return;
