@@ -75,10 +75,18 @@ brlcad_add_test(NAME libbsg_node_core COMMAND test_bsg_node_core)
 brlcad_addexec(test_bsg_source_identity test_source_identity.c "libbsg;libbv;libbu" TEST)
 brlcad_add_test(NAME libbsg_source_identity COMMAND test_bsg_source_identity)
 
+#
+# Slice 6: owned vlist payloads, text/label payload, axes payload,
+#          bsg_vlist_3string / bsg_vlist_2string wrappers
+#
+brlcad_addexec(test_bsg_slice6 test_bsg_slice6.c "libbsg;libbv;libbu" TEST)
+brlcad_add_test(NAME libbsg_slice6 COMMAND test_bsg_slice6)
+
 cmakefiles(
   CMakeLists.txt
   test_arb8.c
   test_bsg_node.c
+  test_bsg_slice6.c
   test_camera.c
   test_hud.c
   test_identity.c

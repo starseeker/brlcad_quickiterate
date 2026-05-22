@@ -47,7 +47,19 @@ enum bsg_payload_type {
     BSG_PAYLOAD_TYPE_BREP_REF,
     BSG_PAYLOAD_TYPE_CSG_REF,
     BSG_PAYLOAD_TYPE_OVERLAY,
-    BSG_PAYLOAD_TYPE_IMAGE
+    BSG_PAYLOAD_TYPE_IMAGE,
+    /**
+     * Slice 6: text/label adornment payload.
+     * The payload struct carries a string, origin, rotation, and scale.
+     * See bsg/text.h for the full accessor API.
+     */
+    BSG_PAYLOAD_TYPE_TEXT,
+    /**
+     * Slice 6: axes overlay payload.
+     * Stores axes position, size, line width, and per-axis colors.
+     * See bsg/axes.h for the full accessor API.
+     */
+    BSG_PAYLOAD_TYPE_AXES
 };
 
 struct bsg_payload {
@@ -91,6 +103,23 @@ bsg_payload_bounds(const struct bsg_payload *payload, point_t *bmin, point_t *bm
 
 BSG_EXPORT extern struct bsg_payload *
 bsg_payload_vlist_from_node(bsg_node *n);
+
+/**
+ * Create a standalone BSG-owned vlist payload that does not require a
+ * @c bsg_node backing.
+ *
+ * The returned payload stores its own @c bu_list of @c bv_vlist chunks.
+ * If @p vhead is non-NULL, its contents are copied into the payload's
+ * owned list using @p vlfree as the source free-list; both parameters
+ * may be NULL to produce an empty payload.  Ownership of the copied
+ * data passes to the payload; the caller's @p vhead and @p vlfree are
+ * not modified or freed.
+ *
+ * The payload must be freed with bsg_payload_destroy().
+ * Returns NULL on allocation failure.
+ */
+BSG_EXPORT extern struct bsg_payload *
+bsg_payload_vlist_create_owned(const struct bu_list *vhead, struct bu_list *vlfree);
 
 BSG_EXPORT extern struct bu_list *
 bsg_node_vlist_head(bsg_node *n);

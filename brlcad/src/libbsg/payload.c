@@ -35,6 +35,9 @@
 #include "bsg/identity.h"
 #include "bsg/node.h"
 #include "bsg/payload.h"
+#include "bsg/text.h"
+#include "bsg/axes.h"
+#include "bsg/vlist.h"
 
 #include "./bsg_private.h"
 
@@ -42,6 +45,13 @@
 struct _bsg_payload_vlist {
     struct bsg_payload base;
     bsg_node *owner;
+    /* Slice 6: BSG-owned vlist storage (used when owned != 0).
+     * When owned == 0, the legacy s_vlist in the bv_scene_obj is used via
+     * the owner pointer (compat path).  When owned != 0, vlist_head and
+     * vlfree are the authoritative storage and owner may be NULL. */
+    int owned;
+    struct bu_list vlist_head;
+    struct bu_list vlfree;
 };
 
 struct _bsg_payload_wire {
@@ -110,6 +120,10 @@ _payload_type_to_flags(enum bsg_payload_type type)
 	    return BSG_PAYLOAD_OVERLAY;
 	case BSG_PAYLOAD_TYPE_IMAGE:
 	    return BSG_PAYLOAD_IMAGE;
+	case BSG_PAYLOAD_TYPE_TEXT:
+	    return BSG_PAYLOAD_TEXT;
+	case BSG_PAYLOAD_TYPE_AXES:
+	    return BSG_PAYLOAD_AXES;
 	default:
 	    return 0;
     }
@@ -130,6 +144,10 @@ _payload_flags_to_type(unsigned long long flags)
 	return BSG_PAYLOAD_TYPE_OVERLAY;
     if (flags & BSG_PAYLOAD_IMAGE)
 	return BSG_PAYLOAD_TYPE_IMAGE;
+    if (flags & BSG_PAYLOAD_TEXT)
+	return BSG_PAYLOAD_TYPE_TEXT;
+    if (flags & BSG_PAYLOAD_AXES)
+	return BSG_PAYLOAD_TYPE_AXES;
     return BSG_PAYLOAD_TYPE_NONE;
 }
 
@@ -150,6 +168,20 @@ _payload_wire_free(struct bsg_payload *payload)
 	bu_free(wp->polylines, "bsg wire polylines");
     wp->polylines = NULL;
     wp->polyline_count = 0;
+}
+
+/* Slice 6: free function for BSG-owned vlist payloads. */
+static void
+_payload_vlist_owned_free(struct bsg_payload *payload)
+{
+    struct _bsg_payload_vlist *vp = (struct _bsg_payload_vlist *)payload;
+    if (!vp || !vp->owned)
+	return;
+    /* Free the vlist chunks stored in vlist_head. */
+    if (BU_LIST_NON_EMPTY(&vp->vlist_head))
+	BV_FREE_VLIST(&vp->vlfree, &vp->vlist_head);
+    /* Free any remaining chunks sitting in the free-list. */
+    bsg_vlist_cleanup(&vp->vlfree);
 }
 
 static size_t
@@ -212,6 +244,11 @@ bsg_payload_create(enum bsg_payload_type type)
 	    p = &mp->base;
 	    break;
 	}
+	case BSG_PAYLOAD_TYPE_TEXT:
+	    /* Delegate to the typed factory; NULL/zero/1.0 gives defaults. */
+	    return bsg_payload_text_create(NULL, NULL, 1.0);
+	case BSG_PAYLOAD_TYPE_AXES:
+	    return bsg_payload_axes_create();
 	default:
 	    BU_ALLOC(p, struct bsg_payload);
 	    memset(p, 0, sizeof(*p));
@@ -326,15 +363,24 @@ bsg_payload_bounds(const struct bsg_payload *payload, point_t *bmin, point_t *bm
 
     if (payload->type == BSG_PAYLOAD_TYPE_VLIST) {
 	const struct _bsg_payload_vlist *vp = (const struct _bsg_payload_vlist *)payload;
-	struct bv_scene_obj *s = (struct bv_scene_obj *)vp->owner;
+	const struct bu_list *vlist_src = NULL;
 	struct bv_vlist *tvp = NULL;
 	int have_pt = 0;
-	if (!s)
-	    return 0;
-	if (bv_vlist_bbox(&s->s_vlist, bmin, bmax, NULL, NULL))
+
+	/* Slice 6: choose source list based on ownership mode. */
+	if (vp->owned) {
+	    vlist_src = &vp->vlist_head;
+	} else {
+	    struct bv_scene_obj *s = (struct bv_scene_obj *)vp->owner;
+	    if (!s)
+		return 0;
+	    vlist_src = &s->s_vlist;
+	}
+
+	if (bsg_vlist_bbox((struct bu_list *)vlist_src, bmin, bmax))
 	    return 1;
 
-	for (BU_LIST_FOR(tvp, bv_vlist, &s->s_vlist)) {
+	for (BU_LIST_FOR(tvp, bv_vlist, vlist_src)) {
 	    size_t j = 0;
 	    for (j = 0; j < tvp->nused; j++) {
 		point_t *pt = &tvp->pt[j];
@@ -396,6 +442,31 @@ bsg_payload_vlist_from_node(bsg_node *n)
     return p;
 }
 
+struct bsg_payload *
+bsg_payload_vlist_create_owned(const struct bu_list *vhead, struct bu_list *vlfree)
+{
+    struct bsg_payload *p = NULL;
+    struct _bsg_payload_vlist *vp = NULL;
+
+    p = bsg_payload_create(BSG_PAYLOAD_TYPE_VLIST);
+    if (!p)
+	return NULL;
+
+    vp = (struct _bsg_payload_vlist *)p;
+    vp->owned = 1;
+    BU_LIST_INIT(&vp->vlist_head);
+    BU_LIST_INIT(&vp->vlfree);
+    p->free_fn = _payload_vlist_owned_free;
+
+    if (vhead && BU_LIST_NON_EMPTY((struct bu_list *)vhead)) {
+	struct bu_list *src_free = vlfree ? vlfree : &vp->vlfree;
+	bsg_vlist_copy(src_free, &vp->vlist_head, vhead);
+    }
+
+    (void)bsg_payload_bump_revision(p);
+    return p;
+}
+
 struct bu_list *
 bsg_node_vlist_head(bsg_node *n)
 {
@@ -450,6 +521,19 @@ bsg_payload_vlist_set(struct bsg_payload *payload, struct bu_list *vhead)
 	return;
 
     vp = (struct _bsg_payload_vlist *)payload;
+
+    /* Slice 6: BSG-owned storage path. */
+    if (vp->owned) {
+	if (BU_LIST_NON_EMPTY(&vp->vlist_head))
+	    BV_FREE_VLIST(&vp->vlfree, &vp->vlist_head);
+	BU_LIST_INIT(&vp->vlist_head);
+	bsg_vlist_copy(&vp->vlfree, &vp->vlist_head, vhead);
+	(void)bsg_payload_bump_revision(payload);
+	payload->bounds_revision = payload->revision;
+	return;
+    }
+
+    /* Legacy compat path: delegate to bv_scene_obj::s_vlist. */
     if (!vp->owner)
 	return;
     s = (struct bv_scene_obj *)vp->owner;
@@ -457,8 +541,8 @@ bsg_payload_vlist_set(struct bsg_payload *payload, struct bu_list *vhead)
     if (BU_LIST_NON_EMPTY(&s->s_vlist))
 	BV_FREE_VLIST(s->vlfree, &s->s_vlist);
     BU_LIST_INIT(&s->s_vlist);
-    bv_vlist_copy(s->vlfree, &s->s_vlist, vhead);
-    s->s_vlen = bv_vlist_cmd_cnt((struct bv_vlist *)&s->s_vlist);
+    bsg_vlist_copy(s->vlfree, &s->s_vlist, vhead);
+    s->s_vlen = bsg_vlist_cmd_cnt((struct bv_vlist *)&s->s_vlist);
 
     (void)bsg_payload_bump_revision(payload);
     payload->bounds_revision = payload->revision;
@@ -477,6 +561,12 @@ bsg_payload_vlist_head(const struct bsg_payload *payload)
 	return NULL;
 
     vp = (const struct _bsg_payload_vlist *)payload;
+
+    /* Slice 6: BSG-owned storage path. */
+    if (vp->owned)
+	return (struct bu_list *)&vp->vlist_head;
+
+    /* Legacy compat path. */
     if (!vp->owner)
 	return NULL;
     s = (struct bv_scene_obj *)vp->owner;
@@ -492,10 +582,16 @@ bsg_payload_vlist_count(const struct bsg_payload *payload)
     if (!payload || payload->type != BSG_PAYLOAD_TYPE_VLIST)
 	return 0;
     vp = (const struct _bsg_payload_vlist *)payload;
+
+    /* Slice 6: BSG-owned storage path. */
+    if (vp->owned)
+	return bsg_vlist_cmd_cnt((struct bv_vlist *)&vp->vlist_head);
+
+    /* Legacy compat path. */
     if (!vp->owner)
 	return 0;
     s = (struct bv_scene_obj *)vp->owner;
-    return bv_vlist_cmd_cnt((struct bv_vlist *)&s->s_vlist);
+    return bsg_vlist_cmd_cnt((struct bv_vlist *)&s->s_vlist);
 }
 
 struct bsg_payload *
@@ -515,56 +611,66 @@ bsg_payload_wire_from_vlist(const struct bsg_payload *vlist_payload)
 	return NULL;
 
     vp = (const struct _bsg_payload_vlist *)vlist_payload;
-    if (!vp->owner)
-	return NULL;
-    s = (struct bv_scene_obj *)vp->owner;
 
-    wire = bsg_payload_create(BSG_PAYLOAD_TYPE_WIRE);
-    if (!wire)
-	return NULL;
-    wp = (struct _bsg_payload_wire *)wire;
+    /* Slice 6: choose source list based on ownership mode. */
+    {
+	const struct bu_list *vlist_src = NULL;
+	if (vp->owned) {
+	    vlist_src = &vp->vlist_head;
+	} else {
+	    if (!vp->owner)
+		return NULL;
+	    s = (struct bv_scene_obj *)vp->owner;
+	    vlist_src = &s->s_vlist;
+	}
 
-    for (BU_LIST_FOR(tvp, bv_vlist, &s->s_vlist)) {
-	int *cmd = tvp->cmd;
-	point_t *pt = tvp->pt;
-	int nused = tvp->nused;
-	int j = 0;
+	wire = bsg_payload_create(BSG_PAYLOAD_TYPE_WIRE);
+	if (!wire)
+	    return NULL;
+	wp = (struct _bsg_payload_wire *)wire;
 
-	for (j = 0; j < nused; j++, cmd++, pt++) {
-	    int is_move = 0;
-	    int is_draw = 0;
-	    if (*cmd == BV_VLIST_LINE_MOVE || *cmd == BV_VLIST_POLY_MOVE || *cmd == BV_VLIST_TRI_MOVE)
-		is_move = 1;
-	    if (*cmd == BV_VLIST_LINE_DRAW || *cmd == BV_VLIST_POLY_DRAW || *cmd == BV_VLIST_TRI_DRAW)
-		is_draw = 1;
+	for (BU_LIST_FOR(tvp, bv_vlist, vlist_src)) {
+	    int *cmd = tvp->cmd;
+	    point_t *pt = tvp->pt;
+	    int nused = tvp->nused;
+	    int j = 0;
 
-	    if (is_move) {
-		poly_cap = _wire_append_polyline(wp, cur_pts, cur_cnt, poly_cap);
-		cur_cnt = 0;
-		if (cur_cnt + 1 > cur_cap) {
-		    size_t ncap = (cur_cap == 0) ? 16 : cur_cap * 2;
-		    cur_pts = (point_t *)bu_realloc(cur_pts, ncap * sizeof(point_t),
-						    "bsg wire temp points grow");
-		    cur_cap = ncap;
+	    for (j = 0; j < nused; j++, cmd++, pt++) {
+		int is_move = 0;
+		int is_draw = 0;
+		if (*cmd == BV_VLIST_LINE_MOVE || *cmd == BV_VLIST_POLY_MOVE || *cmd == BV_VLIST_TRI_MOVE)
+		    is_move = 1;
+		if (*cmd == BV_VLIST_LINE_DRAW || *cmd == BV_VLIST_POLY_DRAW || *cmd == BV_VLIST_TRI_DRAW)
+		    is_draw = 1;
+
+		if (is_move) {
+		    poly_cap = _wire_append_polyline(wp, cur_pts, cur_cnt, poly_cap);
+		    cur_cnt = 0;
+		    if (cur_cnt + 1 > cur_cap) {
+			size_t ncap = (cur_cap == 0) ? 16 : cur_cap * 2;
+			cur_pts = (point_t *)bu_realloc(cur_pts, ncap * sizeof(point_t),
+							"bsg wire temp points grow");
+			cur_cap = ncap;
+		    }
+		    VMOVE(cur_pts[cur_cnt], *pt);
+		    cur_cnt++;
+		    continue;
 		}
-		VMOVE(cur_pts[cur_cnt], *pt);
-		cur_cnt++;
-		continue;
-	    }
 
-	    if (is_draw) {
-		if (cur_cnt + 1 > cur_cap) {
-		    size_t ncap = (cur_cap == 0) ? 16 : cur_cap * 2;
-		    cur_pts = (point_t *)bu_realloc(cur_pts, ncap * sizeof(point_t),
-						    "bsg wire temp points grow");
-		    cur_cap = ncap;
+		if (is_draw) {
+		    if (cur_cnt + 1 > cur_cap) {
+			size_t ncap = (cur_cap == 0) ? 16 : cur_cap * 2;
+			cur_pts = (point_t *)bu_realloc(cur_pts, ncap * sizeof(point_t),
+							"bsg wire temp points grow");
+			cur_cap = ncap;
+		    }
+		    VMOVE(cur_pts[cur_cnt], *pt);
+		    cur_cnt++;
 		}
-		VMOVE(cur_pts[cur_cnt], *pt);
-		cur_cnt++;
 	    }
 	}
+	poly_cap = _wire_append_polyline(wp, cur_pts, cur_cnt, poly_cap);
     }
-    poly_cap = _wire_append_polyline(wp, cur_pts, cur_cnt, poly_cap);
 
     if (cur_pts)
 	bu_free(cur_pts, "bsg wire temp points");

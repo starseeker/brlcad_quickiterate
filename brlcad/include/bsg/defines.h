@@ -158,10 +158,23 @@ __BEGIN_DECLS
 #define BSG_PAYLOAD_BREP    0x80000000000ULL  /**< @brief BRep payload (bit 43) */
 #define BSG_PAYLOAD_OVERLAY 0x100000000000ULL /**< @brief HUD overlay element (bit 44) */
 #define BSG_PAYLOAD_IMAGE   0x400000000000ULL /**< @brief framebuffer/image layer (bit 46) */
+/**
+ * Slice 6 (bv_scene_obj_migrate):
+ * Text/label adornment payload — stores a string, origin, rotation,
+ * scale, and optional anchor/arrow fields.  Replaces ad-hoc use of
+ * @c bv_label stored in @c s_i_data.
+ */
+#define BSG_PAYLOAD_TEXT    0x800000000000ULL /**< @brief text/label adornment payload (bit 47) */
+/**
+ * Slice 6 (bv_scene_obj_migrate):
+ * Axes overlay payload — stores an axes position, size, colors, and
+ * per-axis display options.  Replaces ad-hoc use of @c bv_axes.
+ */
+#define BSG_PAYLOAD_AXES    0x1000000000000ULL /**< @brief axes overlay payload (bit 48) */
 
 /** Mask covering all payload bits (expression form avoids stale literal masks
  * when payload flags are extended). */
-#define BSG_PAYLOAD_MASK    (BSG_PAYLOAD_VLIST | BSG_PAYLOAD_CSG | BSG_PAYLOAD_MESH | BSG_PAYLOAD_BREP | BSG_PAYLOAD_OVERLAY | BSG_PAYLOAD_IMAGE)
+#define BSG_PAYLOAD_MASK    (BSG_PAYLOAD_VLIST | BSG_PAYLOAD_CSG | BSG_PAYLOAD_MESH | BSG_PAYLOAD_BREP | BSG_PAYLOAD_OVERLAY | BSG_PAYLOAD_IMAGE | BSG_PAYLOAD_TEXT | BSG_PAYLOAD_AXES)
 
 /**
  * bsg_node is the first-class BSG scene-graph node type.
