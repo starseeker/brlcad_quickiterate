@@ -1230,8 +1230,8 @@ _fill_solid_cb(bsg_node *n, void *ud)
     const char *fsname;
 
     bsg_node_set_legacy_illum((bsg_node *)fsp, 0);
-    if (!bsg_node_u3_get((bsg_node *)fsp)) return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)fsp);
+    if (!bsg_node_uptr_get((bsg_node *)fsp, 2)) return 1;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)fsp, 2);
     if (d->exact && d->nm_pieces != bdata->s_fullpath.fp_len) return 1;
     /* XXX Could this make use of db_full_path_subset()? */
     if (d->nmatch == 0 || d->nmatch != d->ri) {

@@ -434,9 +434,9 @@ _sg_erase_overlay_by_name(struct ged *gedp, const char *name)
 void
 ged_bv_illum_free_cb(struct bv_scene_obj *sp)
 {
-    if (!bsg_node_u3_get((bsg_node *)sp))
+    if (!bsg_node_uptr_get((bsg_node *)sp, 2))
         return;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)sp);
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)sp, 2);
     if (!bdata->gedp)
         return;
     struct ged_drawable *gdp = bdata->gedp->i->ged_gdp;
@@ -584,7 +584,7 @@ struct _sg_path_match_ctx {
  * Path-match callback for bsg_erase_nested_subpath case (b).
  * @p shape is the candidate shape node.
  * @p shape_u_data is bv_scene_obj::s_u_data (struct ged_bv_data *); accessed via
- * bsg_node_u3_get().
+ * bsg_node_uptr_get(, 2).
  * @p match_ctx is struct _sg_path_match_ctx.
  *
  * Prefer BSG identity matching and fall back to legacy db_full_path matching
@@ -972,15 +972,15 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     bsg_node_set_name((bsg_node *)sp, name);
 
     struct ged_bv_data *bdata =
-        (bsg_node_u3_get((bsg_node *)sp)) ? (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)sp) : NULL;
+        (bsg_node_uptr_get((bsg_node *)sp, 2)) ? (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)sp, 2) : NULL;
     if (!bdata) {
         BU_GET(bdata, struct ged_bv_data);
         db_full_path_init(&bdata->s_fullpath);
-        bsg_node_u3_set((bsg_node *)sp, (void *)bdata);
+        bsg_node_uptr_set((bsg_node *)sp, 2, (void *)bdata);
     } else {
         bdata->s_fullpath.fp_len = 0;
     }
-    if (!bsg_node_u3_get((bsg_node *)sp))
+    if (!bsg_node_uptr_get((bsg_node *)sp, 2))
         return -1;
     /* Phase 7 Step 9: register back-pointer + illum-clear callback. */
     bdata->gedp = gedp;
@@ -1879,7 +1879,7 @@ bsg_view_obj_append_solid_to_group(struct ged *gedp,
 
     /* Determine which sub-groups to create/navigate */
     struct ged_bv_data *bdata =
-        (bsg_node_u3_get((bsg_node *)sp)) ? (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)sp) : NULL;
+        (bsg_node_uptr_get((bsg_node *)sp, 2)) ? (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)sp, 2) : NULL;
     int fp_len = bdata ? (int)bdata->s_fullpath.fp_len : 0;
 
     if (!gedp || fp_len == 0) {

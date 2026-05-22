@@ -129,9 +129,9 @@ dl_select_cb(struct bv_scene_obj *sp, void *userdata)
 {
     struct select_data *data = (struct select_data *)userdata;
 
-    if (!bsg_node_u3_get((const bsg_node *)sp))
+    if (!bsg_node_uptr_get((const bsg_node *)sp, 2))
 	return 1; /* continue */
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((const bsg_node *)sp);
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((const bsg_node *)sp, 2);
 
     point_t vmin, vmax;
     struct bv_vlist *vp;
@@ -261,9 +261,9 @@ dl_select_partial_cb(struct bv_scene_obj *sp, void *userdata)
 {
     struct select_data *data = (struct select_data *)userdata;
 
-    if (!bsg_node_u3_get((const bsg_node *)sp))
+    if (!bsg_node_uptr_get((const bsg_node *)sp, 2))
 	return 1; /* continue */
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((const bsg_node *)sp);
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((const bsg_node *)sp, 2);
 
     struct bv_vlist *vp;
     struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)sp);

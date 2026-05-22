@@ -768,8 +768,8 @@ cmd_ged_info_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, c
 	    argc = 2;
 	    av = (const char **)bu_malloc(sizeof(char *)*(argc + 1), "f_list: av");
 	    av[0] = (const char *)argv[0];
-	    if (illump && bsg_node_u3_get((bsg_node *)illump)) {
-		bdata = (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)illump);
+	    if (illump && bsg_node_uptr_get((bsg_node *)illump, 2)) {
+		bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
 		if (bdata->s_fullpath.fp_len > 0) {
 		    av[1] = (const char *)LAST_SOLID(bdata)->d_namep;
 		    av[argc] = (const char *)NULL;
@@ -1007,8 +1007,8 @@ cmd_ged_inside(ClientData clientData, Tcl_Interp *interpreter, int argc, const c
 	/* apply MEDIT(s)->e_mat editing to parameters */
 	struct directory *outdp = RT_DIR_NULL;
 	transform_editing_solid(s, &intern, MEDIT(s)->e_mat, &MEDIT(s)->es_int, 0);
-	if (illump && bsg_node_u3_get((bsg_node *)illump)) {
-	    bdata = (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)illump);
+	if (illump && bsg_node_uptr_get((bsg_node *)illump, 2)) {
+	    bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
 	    outdp = LAST_SOLID(bdata);
 	}
 
@@ -1039,8 +1039,8 @@ cmd_ged_inside(ClientData clientData, Tcl_Interp *interpreter, int argc, const c
 	/* apply MEDIT(s)->e_mat and MEDIT(s)->model_changes editing to parameters */
 	bn_mat_mul(newmat, MEDIT(s)->model_changes, MEDIT(s)->e_mat);
 	transform_editing_solid(s, &intern, newmat, &MEDIT(s)->es_int, 0);
-	if (illump && bsg_node_u3_get((bsg_node *)illump)) {
-	    bdata = (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)illump);
+	if (illump && bsg_node_uptr_get((bsg_node *)illump, 2)) {
+	    bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
 	    outdp = LAST_SOLID(bdata);
 	}
 

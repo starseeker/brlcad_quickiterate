@@ -367,8 +367,8 @@ main(int ac, char *av[])
 	    ASSERT(before3 > 0);
 	    struct bv_scene_obj *sp = bsg_view_obj_first_solid(gedp);
 	    ASSERT(sp != NULL);
-	    ASSERT(bsg_node_u3_get((bsg_node *)sp) != NULL);
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)sp);
+	    ASSERT(bsg_node_uptr_get((bsg_node *)sp, 2) != NULL);
+	    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)sp, 2);
 	    ASSERT(bdata->s_fullpath.fp_len > 0);
 
 	    struct db_full_path target;

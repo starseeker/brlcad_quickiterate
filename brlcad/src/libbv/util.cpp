@@ -2123,7 +2123,7 @@ bv_obj_get_child(struct bv_scene_obj *sp)
     bu_vls_sprintf(&s->bsg.bsg_name, "child:%s:%zd", bu_vls_cstr(&sp->bsg.bsg_name), BU_PTBL_LEN(&sp->bsg.bsg_children));
 
     s->s_v = sp->s_v;
-    bsg_node_u1_set((bsg_node *)s, bsg_node_u1_get((const bsg_node *)sp));
+    bsg_node_uptr_set((bsg_node *)s, 0, bsg_node_uptr_get((const bsg_node *)sp, 0));
     s->free_scene_obj = sp->free_scene_obj;
     s->vlfree = sp->vlfree;
 
@@ -2197,10 +2197,11 @@ bv_obj_reset(struct bv_scene_obj *s)
     s->bsg.bsg_force_draw = 0;
     s->s_i_data = NULL;
     s->bsg.bsg_iflag = DOWN;
-    /* Slice 5: source identity fields live in bsg_node inline storage */
-    s->bsg.bsg_db_dir = NULL;
-    s->bsg.bsg_source_path = NULL;
-    s->bsg.bsg_ged_data = NULL;
+    /* Slice 5: user pointer slots live in pimpl storage; NULL-set is a no-op
+     * when the impl has not been allocated yet. */
+    bsg_node_uptr_set((bsg_node *)s, 0, NULL);
+    bsg_node_uptr_set((bsg_node *)s, 1, NULL);
+    bsg_node_uptr_set((bsg_node *)s, 2, NULL);
     s->s_size = 0;
     s->s_soldash = 0;
     bsg_node_set_update_callback((bsg_node *)s, NULL);
@@ -2255,7 +2256,7 @@ bv_obj_put(struct bv_scene_obj *s)
 
     // Clear names
     bu_vls_trunc(&s->bsg.bsg_name, 0);
-    /* bsg_source_path is cleared by bv_obj_reset via bsg.bsg_source_path */
+    /* bsg_node_uptr slots are managed by pimpl; freed on node destroy */
 
     if (s->otbl)
 	bu_ptbl_rm(s->otbl, (long *)s);

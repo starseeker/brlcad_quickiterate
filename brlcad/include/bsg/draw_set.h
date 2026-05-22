@@ -98,11 +98,10 @@ bsg_group_find_child(bsg_node *parent, const char *name);
  * Otherwise a new BSG_NODE_GROUP node is allocated via @c bsg_node_create_child()
  * on @p v, linked into the tree, and returned.
  *
- * @p dp is the database directory entry for this path component, stored as the
- * DB source identity on the new child node.  Pass @c NULL if the caller has no
- * corresponding database directory pointer.  For GED draw-trees the caller
- * should pass the result of a prior @c db_lookup() call so that path-matching
- * logic has a fast dp handle.
+ * @p dp is an optional first user-pointer value stored on the new child
+ * node (slot 0 of bsg_node_uptr_set()).  Pass @c NULL if the caller has
+ * no value to associate.  The interpretation of this slot is
+ * caller-defined; libbsg stores it opaquely.
  *
  * Returns NULL on allocation failure.
  *
@@ -110,10 +109,9 @@ bsg_group_find_child(bsg_node *parent, const char *name);
  * src/libged/bsg_view_obj.c (minus the db_lookup call which belongs in
  * the libged wrapper).
  */
-struct directory; /* forward declaration — full definition in rt/directory.h */
 BSG_EXPORT extern bsg_node *
 bsg_group_ensure_child(bsg_node *parent, struct bview *v,
-		       const char *name, struct directory *dp);
+		       const char *name, void *dp);
 
 
 /**

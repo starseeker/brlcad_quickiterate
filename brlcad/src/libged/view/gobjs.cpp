@@ -53,8 +53,8 @@ gobjs_scene_free(struct bv_scene_obj *s)
 {
     if (!s)
 	return;
-    if (bsg_node_u2_get((const bsg_node *)s)) {
-	struct db_full_path *sfp = (struct db_full_path *)bsg_node_u2_get((const bsg_node *)s);
+    if (bsg_node_uptr_get((const bsg_node *)s, 1)) {
+	struct db_full_path *sfp = (struct db_full_path *)bsg_node_uptr_get((const bsg_node *)s, 1);
 	db_free_full_path(sfp);
 	BU_PUT(sfp, struct db_full_path);
     }
@@ -132,7 +132,7 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
     BU_GET(gpath, struct db_full_path);
     db_full_path_init(gpath);
     db_dup_full_path(gpath, fp);
-    bsg_node_u2_set((bsg_node *)g, gpath);
+    bsg_node_uptr_set((bsg_node *)g, 1, gpath);
     bsg_node_user_data_set((bsg_node *)g, (void *)ip);
     bsg_node_set_free_callback((bsg_node *)g, (bsg_node_free_fn)&gobjs_scene_free);
 

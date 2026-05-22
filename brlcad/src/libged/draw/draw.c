@@ -114,15 +114,15 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     bsg_node_set_kind((bsg_node *)sp,
 		      bsg_node_kind((const bsg_node *)sp) | BSG_NODE_SHAPE);
 
-    struct ged_bv_data *bdata = (bsg_node_u3_get((bsg_node *)sp)) ? (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)sp) : NULL;
+    struct ged_bv_data *bdata = (bsg_node_uptr_get((bsg_node *)sp, 2)) ? (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)sp, 2) : NULL;
     if (!bdata) {
 	BU_GET(bdata, struct ged_bv_data);
 	db_full_path_init(&bdata->s_fullpath);
-	bsg_node_u3_set((bsg_node *)sp, (void *)bdata);
+	bsg_node_uptr_set((bsg_node *)sp, 2, (void *)bdata);
     } else {
 	bdata->s_fullpath.fp_len = 0;
     }
-    if (!bsg_node_u3_get((bsg_node *)sp))
+    if (!bsg_node_uptr_get((bsg_node *)sp, 2))
 	return;
     /* Phase 7 Step 9: register back-pointer + illum-clear callback. */
     bdata->gedp = dgcdp->gedp;
@@ -214,9 +214,9 @@ draw_solid_wireframe(struct bv_scene_obj *sp, struct bview *gvp, struct db_i *db
     struct rt_db_internal *ip = &dbintern;
 
     BU_LIST_INIT(&vhead);
-    if (!bsg_node_u3_get((bsg_node *)sp))
+    if (!bsg_node_uptr_get((bsg_node *)sp, 2))
 	return -1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)sp);
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)sp, 2);
 
     mat_t sp_mat;
     bsg_node_transform_get((const bsg_node *)sp, sp_mat);
@@ -349,15 +349,15 @@ append_solid_to_display_list(
     struct bv_scene_obj *sp = bv_obj_get(bv_data->v, BV_DB_OBJS);
     bsg_node_set_kind((bsg_node *)sp,
 		      bsg_node_kind((const bsg_node *)sp) | BSG_NODE_SHAPE);
-    struct ged_bv_data *bdata = (bsg_node_u3_get((bsg_node *)sp)) ? (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)sp) : NULL;
+    struct ged_bv_data *bdata = (bsg_node_uptr_get((bsg_node *)sp, 2)) ? (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)sp, 2) : NULL;
     if (!bdata) {
 	BU_GET(bdata, struct ged_bv_data);
 	db_full_path_init(&bdata->s_fullpath);
-	bsg_node_u3_set((bsg_node *)sp, (void *)bdata);
+	bsg_node_uptr_set((bsg_node *)sp, 2, (void *)bdata);
     } else {
 	bdata->s_fullpath.fp_len = 0;
     }
-    if (!bsg_node_u3_get((bsg_node *)sp))
+    if (!bsg_node_uptr_get((bsg_node *)sp, 2))
 	return TREE_NULL;
     /* Phase 7 Step 9: register back-pointer + illum-clear callback. */
     bdata->gedp = bv_data->gedp;

@@ -75,7 +75,7 @@ bsg_ensure_overlay_group(bsg_node *draw_root, struct bview *v)
     if (!ov)
 	return NULL;
 
-    bsg_node_db_dir_set((bsg_node *)ov, NULL);
+    bsg_node_uptr_set((bsg_node *)ov, 0, NULL);
     bsg_node_set_name((bsg_node *)ov, "_overlays");
     bsg_node_add_child(draw_root, (bsg_node *)ov);
 

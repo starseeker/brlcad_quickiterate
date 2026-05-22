@@ -19,16 +19,15 @@
  */
 /** @file libbsg/tests/test_source_identity.c
  *
- * Slice 5 (bv_scene_obj_migrate.txt) tests for the source-identity
- * accessor migration:
+ * Tests for the Slice 5 pimpl user-pointer API:
  *
- *   bsg_node_u1_get / bsg_node_u1_set
- *   bsg_node_u2_get / bsg_node_u2_set
- *   bsg_node_u3_get / bsg_node_u3_set
+ *   bsg_node_uptr_get(node, idx)      — indexed void * retrieval
+ *   bsg_node_uptr_set(node, idx, ptr) — indexed void * storage
+ *   BSG_NODE_UPTR_MAXIND              — highest valid index
  *
- * All three fields are now stored inline in bsg_node (bsg_db_dir,
- * bsg_source_path, bsg_ged_data) rather than in bv_scene_obj.dp /
- * s_path / s_u_data.
+ * Storage is opaque (pimpl): no direct field access is possible or
+ * needed.  Slots are lazily allocated on first non-NULL set, so a
+ * fresh node carries zero overhead until a pointer is stored.
  */
 
 #include "common.h"
@@ -38,15 +37,15 @@
 
 #include "bu/app.h"
 #include "bu/malloc.h"
-#include "bv/defines.h"   /* struct bv_scene_obj, bsg_node inline layout */
-#include "bsg/node.h"     /* bsg_node_u1_get/set, bsg_node_source_path_* */
+#include "bv/defines.h"   /* struct bv_scene_obj */
+#include "bsg/node.h"     /* bsg_node_uptr_get/set, BSG_NODE_UPTR_MAXIND */
 
 #define PASS(msg) do { printf("  PASS: %s\n", (msg)); } while (0)
 #define FAIL(msg) do { printf("  FAIL: %s\n", (msg)); return 1; } while (0)
 
 
-/* Allocate a minimal bv_scene_obj on the stack for testing.
- * Zeroing the memory is sufficient — BSG fields are valid at all-zero. */
+/* Allocate a minimal bv_scene_obj on the stack.
+ * Zero-init is sufficient; _uptr_impl is NULL at all-zero. */
 static void
 node_init(struct bv_scene_obj *s)
 {
@@ -55,173 +54,165 @@ node_init(struct bv_scene_obj *s)
 
 
 /* ------------------------------------------------------------------ */
-/* Test 1: bsg_node_u1_get / bsg_node_u1_set                  */
+/* Test 1: round-trip and NULL-clear for each valid slot               */
 /* ------------------------------------------------------------------ */
 
 static int
-test_db_dir(void)
+test_roundtrip(void)
 {
-    printf("=== Test 1: db_dir get/set ===\n");
+    printf("=== Test 1: round-trip get/set for all valid slots ===\n");
 
     struct bv_scene_obj s;
     node_init(&s);
     bsg_node *n = (bsg_node *)&s;
 
-    /* Fresh node: no db_dir set */
-    if (bsg_node_u1_get(n) != NULL)
-	FAIL("fresh node: db_dir should be NULL");
+    /* Sentinel pointers (not dereferenced) */
+    void *vals[BSG_NODE_UPTR_MAXIND + 1];
+    vals[0] = (void *)0xDEADBEEF;
+    vals[1] = (void *)0xCAFEBABE;
+    vals[2] = (void *)0xFEEDFACE;
 
-    /* Use a stack address as a fake struct directory * */
-    struct directory *fake_dp = (struct directory *)0xDEADBEEF;
-    bsg_node_u1_set(n, fake_dp);
+    /* Fresh node: all slots NULL */
+    for (int i = 0; i <= BSG_NODE_UPTR_MAXIND; i++) {
+if (bsg_node_uptr_get(n, i) != NULL)
+    FAIL("fresh node slot should be NULL");
+    }
 
-    if (bsg_node_u1_get(n) != fake_dp)
-	FAIL("db_dir round-trip");
+    /* Set each slot and verify */
+    for (int i = 0; i <= BSG_NODE_UPTR_MAXIND; i++) {
+bsg_node_uptr_set(n, i, vals[i]);
+if (bsg_node_uptr_get(n, i) != vals[i])
+    FAIL("round-trip mismatch");
+    }
 
-    /* Clear to NULL */
-    bsg_node_u1_set(n, NULL);
-    if (bsg_node_u1_get(n) != NULL)
-	FAIL("db_dir clear to NULL");
+    /* Clear each slot and verify NULL */
+    for (int i = 0; i <= BSG_NODE_UPTR_MAXIND; i++) {
+bsg_node_uptr_set(n, i, NULL);
+if (bsg_node_uptr_get(n, i) != NULL)
+    FAIL("clear to NULL failed");
+    }
 
-    /* NULL node safety */
-    bsg_node_u1_set(NULL, fake_dp); /* no-op */
-    if (bsg_node_u1_get(NULL) != NULL)
-	FAIL("db_dir_get(NULL) should return NULL");
+    /* Manual cleanup: free impl allocated during this test */
+    if (n->_uptr_impl) {
+bu_free(n->_uptr_impl, "test_roundtrip cleanup");
+n->_uptr_impl = NULL;
+    }
 
-    /* Verify storage is in bsg_node inline field, NOT in bv_scene_obj.dp */
-    bsg_node_u1_set(n, fake_dp);
-    if (n->bsg_db_dir != (void *)fake_dp)
-	FAIL("db_dir stored in bsg.bsg_db_dir");
-    /* The legacy dp field must remain independent (not aliased) */
-    if (s.dp == (void *)fake_dp)
-	FAIL("db_dir must NOT alias bv_scene_obj.dp");
-
-    PASS("db_dir");
+    PASS("roundtrip");
     return 0;
 }
 
 
 /* ------------------------------------------------------------------ */
-/* Test 2: bsg_node_u2_get / bsg_node_u2_set        */
+/* Test 2: slot independence — overwriting one does not affect others  */
 /* ------------------------------------------------------------------ */
 
 static int
-test_source_path(void)
+test_independence(void)
 {
-    printf("=== Test 2: source_path get/set ===\n");
+    printf("=== Test 2: slot independence ===\n");
 
     struct bv_scene_obj s;
     node_init(&s);
     bsg_node *n = (bsg_node *)&s;
 
-    /* Fresh node: no source_path set */
-    if (bsg_node_u2_get(n) != NULL)
-	FAIL("fresh node: source_path should be NULL");
+    void *a = (void *)0x1111;
+    void *b = (void *)0x2222;
+    void *c = (void *)0x3333;
 
-    void *fake_path = (void *)0xCAFEBABE;
-    bsg_node_u2_set(n, fake_path);
-    if (bsg_node_u2_get(n) != fake_path)
-	FAIL("source_path round-trip");
+    bsg_node_uptr_set(n, 0, a);
+    bsg_node_uptr_set(n, 1, b);
+    bsg_node_uptr_set(n, 2, c);
 
-    /* Clear to NULL */
-    bsg_node_u2_set(n, NULL);
-    if (bsg_node_u2_get(n) != NULL)
-	FAIL("source_path clear to NULL");
+    if (bsg_node_uptr_get(n, 0) != a) FAIL("slot 0 should be a");
+    if (bsg_node_uptr_get(n, 1) != b) FAIL("slot 1 should be b");
+    if (bsg_node_uptr_get(n, 2) != c) FAIL("slot 2 should be c");
 
-    /* NULL node safety */
-    bsg_node_u2_set(NULL, fake_path); /* no-op */
-    if (bsg_node_u2_get(NULL) != NULL)
-	FAIL("source_path_get(NULL) should return NULL");
+    /* Clear slot 0; slots 1 and 2 must be unaffected */
+    bsg_node_uptr_set(n, 0, NULL);
+    if (bsg_node_uptr_get(n, 0) != NULL) FAIL("slot 0 should be NULL after clear");
+    if (bsg_node_uptr_get(n, 1) != b)    FAIL("slot 1 unchanged after slot 0 clear");
+    if (bsg_node_uptr_get(n, 2) != c)    FAIL("slot 2 unchanged after slot 0 clear");
 
-    /* Verify storage in bsg_node inline field */
-    bsg_node_u2_set(n, fake_path);
-    if (n->bsg_source_path != fake_path)
-	FAIL("source_path stored in bsg.bsg_source_path");
-    /* Legacy s_path must remain independent */
-    if (s.s_path == fake_path)
-	FAIL("source_path must NOT alias bv_scene_obj.s_path");
+    if (n->_uptr_impl) {
+bu_free(n->_uptr_impl, "test_independence cleanup");
+n->_uptr_impl = NULL;
+    }
 
-    PASS("source_path");
+    PASS("independence");
     return 0;
 }
 
 
 /* ------------------------------------------------------------------ */
-/* Test 3: bsg_node_u3_get / bsg_node_u3_set              */
+/* Test 3: NULL-node safety and out-of-range index safety              */
 /* ------------------------------------------------------------------ */
 
 static int
-test_ged_data(void)
+test_safety(void)
 {
-    printf("=== Test 3: ged_data get/set ===\n");
+    printf("=== Test 3: safety (NULL node, out-of-range index) ===\n");
 
     struct bv_scene_obj s;
     node_init(&s);
     bsg_node *n = (bsg_node *)&s;
+    void *val = (void *)0xABCDABCD;
 
-    /* Fresh node: no ged_data set */
-    if (bsg_node_u3_get(n) != NULL)
-	FAIL("fresh node: ged_data should be NULL");
+    /* NULL node: both accessors must be no-ops */
+    bsg_node_uptr_set(NULL, 0, val); /* no-op */
+    if (bsg_node_uptr_get(NULL, 0) != NULL)
+FAIL("get(NULL, 0) should return NULL");
 
-    void *fake_ged = (void *)0xFEEDFACE;
-    bsg_node_u3_set(n, fake_ged);
-    if (bsg_node_u3_get(n) != fake_ged)
-	FAIL("ged_data round-trip");
+    /* Negative index */
+    bsg_node_uptr_set(n, -1, val); /* no-op */
+    if (bsg_node_uptr_get(n, -1) != NULL)
+FAIL("get(n, -1) should return NULL");
 
-    /* Clear to NULL */
-    bsg_node_u3_set(n, NULL);
-    if (bsg_node_u3_get(n) != NULL)
-	FAIL("ged_data clear to NULL");
+    /* Index beyond BSG_NODE_UPTR_MAXIND */
+    bsg_node_uptr_set(n, BSG_NODE_UPTR_MAXIND + 1, val); /* no-op */
+    if (bsg_node_uptr_get(n, BSG_NODE_UPTR_MAXIND + 1) != NULL)
+FAIL("get(n, MAXIND+1) should return NULL");
 
-    /* NULL node safety */
-    bsg_node_u3_set(NULL, fake_ged); /* no-op */
-    if (bsg_node_u3_get(NULL) != NULL)
-	FAIL("ged_data_get(NULL) should return NULL");
+    /* The valid slots must not have been touched by the out-of-range calls */
+    for (int i = 0; i <= BSG_NODE_UPTR_MAXIND; i++) {
+if (bsg_node_uptr_get(n, i) != NULL)
+    FAIL("valid slot dirtied by out-of-range set");
+    }
 
-    /* Verify storage in bsg_node inline field */
-    bsg_node_u3_set(n, fake_ged);
-    if (n->bsg_ged_data != fake_ged)
-	FAIL("ged_data stored in bsg.bsg_ged_data");
-    /* Legacy s_u_data must remain independent */
-    if (s.s_u_data == fake_ged)
-	FAIL("ged_data must NOT alias bv_scene_obj.s_u_data");
-
-    PASS("ged_data");
+    PASS("safety");
     return 0;
 }
 
 
 /* ------------------------------------------------------------------ */
-/* Test 4: all three fields are independent (no aliasing)              */
+/* Test 4: lazy allocation — NULL-set on fresh node does not allocate  */
 /* ------------------------------------------------------------------ */
 
 static int
-test_field_independence(void)
+test_lazy_alloc(void)
 {
-    printf("=== Test 4: field independence ===\n");
+    printf("=== Test 4: lazy allocation (NULL-set skip) ===\n");
 
     struct bv_scene_obj s;
     node_init(&s);
     bsg_node *n = (bsg_node *)&s;
 
-    struct directory *fake_dp   = (struct directory *)0x1111;
-    void             *fake_path = (void *)0x2222;
-    void             *fake_ged  = (void *)0x3333;
+    /* Setting NULL on a fresh node must not crash; _uptr_impl stays NULL */
+    for (int i = 0; i <= BSG_NODE_UPTR_MAXIND; i++)
+bsg_node_uptr_set(n, i, NULL);
 
-    bsg_node_u1_set(n, fake_dp);
-    bsg_node_u2_set(n, fake_path);
-    bsg_node_u3_set(n, fake_ged);
+    if (n->_uptr_impl != NULL)
+FAIL("_uptr_impl should remain NULL after NULL-only sets");
 
-    if (bsg_node_u1_get(n)      != fake_dp)   FAIL("db_dir preserved after other sets");
-    if (bsg_node_u2_get(n) != fake_path) FAIL("source_path preserved after other sets");
-    if (bsg_node_u3_get(n)    != fake_ged)  FAIL("ged_data preserved after other sets");
+    /* Now set a real value; impl must be allocated */
+    bsg_node_uptr_set(n, 0, (void *)0x9999);
+    if (n->_uptr_impl == NULL)
+FAIL("_uptr_impl should be allocated after non-NULL set");
 
-    /* Overwrite one does not affect others */
-    bsg_node_u1_set(n, NULL);
-    if (bsg_node_u2_get(n) != fake_path) FAIL("source_path unchanged after db_dir clear");
-    if (bsg_node_u3_get(n)    != fake_ged)  FAIL("ged_data unchanged after db_dir clear");
+    bu_free(n->_uptr_impl, "test_lazy_alloc cleanup");
+    n->_uptr_impl = NULL;
 
-    PASS("field_independence");
+    PASS("lazy_alloc");
     return 0;
 }
 
@@ -232,17 +223,17 @@ main(int UNUSED(argc), const char **argv)
     bu_setprogname(argv[0]);
 
     int failures = 0;
-    failures += test_db_dir();
-    failures += test_source_path();
-    failures += test_ged_data();
-    failures += test_field_independence();
+    failures += test_roundtrip();
+    failures += test_independence();
+    failures += test_safety();
+    failures += test_lazy_alloc();
 
     if (failures) {
-	printf("FAIL: %d test group(s) failed\n", failures);
-	return 1;
+printf("FAIL: %d test group(s) failed\n", failures);
+return 1;
     }
 
-    printf("PASS: all source-identity tests passed\n");
+    printf("PASS: all uptr tests passed\n");
     return 0;
 }
 

@@ -44,10 +44,10 @@ set_transparency_cb(struct bv_scene_obj *sp, void *userdata)
     size_t i;
     struct directory **tmp_dpp;
 
-    if (!bsg_node_u3_get((const bsg_node *)sp))
+    if (!bsg_node_uptr_get((const bsg_node *)sp, 2))
 	return 1; /* continue */
 
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((const bsg_node *)sp);
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((const bsg_node *)sp, 2);
 
     for (i = 0, tmp_dpp = data->dpp;
 	 i < bdata->s_fullpath.fp_len && *tmp_dpp != RT_DIR_NULL;

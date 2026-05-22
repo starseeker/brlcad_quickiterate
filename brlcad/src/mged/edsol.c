@@ -70,8 +70,8 @@ _replot_modified_solid_cb(bsg_node *n, void *ud)
 {
     struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
     struct _replot_modified_data *d = (struct _replot_modified_data *)ud;
-    if (!bsg_node_u3_get((bsg_node *)sp)) return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)sp);
+    if (!bsg_node_uptr_get((bsg_node *)sp, 2)) return 1;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)sp, 2);
     if (LAST_SOLID(bdata) == d->illdp) {
 	mat_t mat;
 	(void)db_path_to_mat(d->s->dbip, &bdata->s_fullpath, mat,
@@ -110,8 +110,8 @@ _replot_lastsol_cb(bsg_node *n, void *ud)
 {
     struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
     struct _replot_lastsol_data *d = (struct _replot_lastsol_data *)ud;
-    if (!bsg_node_u3_get((bsg_node *)sp)) return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)sp);
+    if (!bsg_node_uptr_get((bsg_node *)sp, 2)) return 1;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)sp, 2);
     if (LAST_SOLID(bdata) == d->target_dp)
 	(void)replot_original_solid(d->s, sp);
     return 1;
@@ -1030,9 +1030,9 @@ init_sedit(struct mged_state *s)
     }
 
     /* Read solid description into MEDIT(s)->es_int */
-    if (!bsg_node_u3_get((bsg_node *)illump))
+    if (!bsg_node_uptr_get((bsg_node *)illump, 2))
 	return;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)illump);
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
     if (rt_db_get_internal(&MEDIT(s)->es_int, LAST_SOLID(bdata),
 			   s->dbip, NULL) < 0) {
 	if (bdata->s_fullpath.fp_len > 0) {
@@ -1161,9 +1161,9 @@ replot_editing_solid(struct mged_state *s)
     if (!illump) {
 	return;
     }
-    if (!bsg_node_u3_get((bsg_node *)illump))
+    if (!bsg_node_uptr_get((bsg_node *)illump, 2))
 	return;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)illump);
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
     illdp = LAST_SOLID(bdata);
 
     struct _replot_modified_data d;
@@ -5892,9 +5892,9 @@ init_oedit_guts(struct mged_state *s)
     }
 
     /* Not an evaluated region - just a regular path ending in a solid */
-    if (!bsg_node_u3_get((bsg_node *)illump))
+    if (!bsg_node_uptr_get((bsg_node *)illump, 2))
 	return;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)illump);
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
     if (rt_db_get_internal(&MEDIT(s)->es_int, LAST_SOLID(bdata),
 			   s->dbip, NULL) < 0) {
 	if (bdata->s_fullpath.fp_len > 0) {
@@ -5992,9 +5992,9 @@ oedit_apply(struct mged_state *s, int continue_editing)
     mat_t deltam;	/* final "changes":  deltam = (inv_topm)(MEDIT(s)->model_changes)(topm) */
     mat_t tempm;
 
-    if (!illump || !bsg_node_u3_get((bsg_node *)illump))
+    if (!illump || !bsg_node_uptr_get((bsg_node *)illump, 2))
 	return;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)illump);
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
 
     switch (ipathpos) {
 	case 0:
@@ -6178,9 +6178,9 @@ sedit_apply(struct mged_state *s, int accept_flag)
     }
 
     /* write editing changes out to disc */
-    if (!bsg_node_u3_get((bsg_node *)illump))
+    if (!bsg_node_uptr_get((bsg_node *)illump, 2))
 	return TCL_ERROR;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)illump);
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
     dp = LAST_SOLID(bdata);
     if (!dp) {
 	/* sanity check, unexpected error */
@@ -6298,9 +6298,9 @@ sedit_reject(struct mged_state *s)
 
     /* Restore the original solid everywhere */
     {
-	if (!bsg_node_u3_get((bsg_node *)illump))
+	if (!bsg_node_uptr_get((bsg_node *)illump, 2))
 	    return;
-	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)illump);
+	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
 
 	struct _replot_lastsol_data d;
 	d.s = s;
@@ -7411,9 +7411,9 @@ f_get_sedit(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
 	return TCL_ERROR;
     }
 
-    if (!illump || !bsg_node_u3_get((bsg_node *)illump))
+    if (!illump || !bsg_node_uptr_get((bsg_node *)illump, 2))
 	return TCL_ERROR;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)illump);
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
 
     if (argc == 1) {
 	struct bu_vls logstr = BU_VLS_INIT_ZERO;
@@ -7596,9 +7596,9 @@ f_sedit_reset(ClientData clientData, Tcl_Interp *interp, int argc, const char *U
     es_eu = (struct edgeuse *)NULL;
 
     /* read in a fresh copy */
-    if (!illump || !bsg_node_u3_get((bsg_node *)illump))
+    if (!illump || !bsg_node_uptr_get((bsg_node *)illump, 2))
 	return TCL_ERROR;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)illump);
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
     if (rt_db_get_internal(&MEDIT(s)->es_int, LAST_SOLID(bdata),
 			   s->dbip, NULL) < 0) {
 	if (bdata->s_fullpath.fp_len > 0) {
@@ -7729,9 +7729,9 @@ f_oedit_apply(ClientData clientData, Tcl_Interp *interp, int UNUSED(argc), const
     CHECK_DBI_NULL;
     oedit_apply(s, UP); /* apply changes, but continue editing */
 
-    if (!bsg_node_u3_get((bsg_node *)illump))
+    if (!bsg_node_uptr_get((bsg_node *)illump, 2))
 	return TCL_ERROR;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)illump);
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
 
     /* Save aggregate path matrix */
     MAT_IDN(MEDIT(s)->e_mat);
