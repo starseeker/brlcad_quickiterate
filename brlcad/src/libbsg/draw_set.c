@@ -28,7 +28,7 @@
  * supplies the GED-specific context (db_lookup, vlist callbacks) while
  * delegating all BSG tree manipulation to this library.
  *
- * Dependencies: libbv (bv_obj_create, bv/defines.h), bu (bu_ptbl, bu_vls).
+ * Dependencies: libbsg lifecycle helpers, bv/defines.h, bu (bu_ptbl, bu_vls).
  * No librt, no libged.
  */
 
@@ -43,6 +43,7 @@
 #include "bv/vlist.h"
 
 #include "bsg/defines.h"
+#include "bsg/util.h"
 #include "bsg/draw_ctx.h"
 #include "bsg/draw_set.h"
 #include "bsg_private.h"
@@ -123,7 +124,7 @@ bsg_group_ensure_child(bsg_node *parent, struct bview *v,
     struct bv_scene_obj *p = (struct bv_scene_obj *)parent;
 
     /* Allocate a new GROUP node through libbv. */
-    struct bv_scene_obj *child = bv_obj_create(v, BV_CHILD_OBJS);
+    struct bv_scene_obj *child = bsg_obj_create(v, BV_CHILD_OBJS);
     if (!child)
 	return NULL;
 
@@ -192,11 +193,11 @@ bsg_free_children_recursive(bsg_node *gn, struct bv_scene_obj *fso)
 		FREE_BV_SCENE_OBJ(child, &cfso->l, child->vlfree);
 	} else {
 	    /* Fire per-object teardown callbacks before recycling.
-	     * Phase 11: bv_scene_obj_release_backend releases display-list
+	     * Phase 11: bsg_scene_obj_release_backend releases display-list
 	     * GPU resources via the new backend contract.  s_free_callback
 	     * fires the illumination-clear registered as ged_bv_illum_free_cb
 	     * at shape-creation time (Phase 7 Steps 8-9). */
-	    bv_scene_obj_release_backend(child);
+	    bsg_scene_obj_release_backend(child);
 	    if (child->s_free_callback)
 		(*child->s_free_callback)(child);
 	    child->parent = NULL;
@@ -321,7 +322,7 @@ bsg_erase_nested_subpath(bsg_node *parent_node,
 		struct bv_scene_obj *sp =
 		    (struct bv_scene_obj *)BU_PTBL_GET(&snap, j);
 		/* Phase 11: route teardown through the backend contract. */
-		bv_scene_obj_release_backend(sp);
+		bsg_scene_obj_release_backend(sp);
 		if (sp->s_free_callback)
 		    (*sp->s_free_callback)(sp);
 		bu_ptbl_rm(&cur->children, (const long *)sp);

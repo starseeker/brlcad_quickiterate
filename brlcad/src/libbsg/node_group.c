@@ -30,6 +30,7 @@
 #include "bv/defines.h"
 #include "bv/util.h"
 #include "bsg/defines.h"
+#include "bsg/util.h"
 #include "bsg/node_group.h"
 
 
@@ -39,7 +40,7 @@ bsg_group_create(struct bview *v)
     if (!v)
 	return NULL;
 
-    struct bv_scene_obj *g = bv_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    struct bv_scene_obj *g = bsg_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
     if (!g)
 	return NULL;
 
@@ -92,7 +93,7 @@ bsg_group_destroy(bsg_node *group)
     /* Clear the children list (borrowed references — do not free). */
     bu_ptbl_reset(&g->children);
 
-    bv_obj_put(g);
+    bsg_obj_put(g);
 }
 
 /*

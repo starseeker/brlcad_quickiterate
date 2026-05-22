@@ -92,7 +92,7 @@ bsg_scene_root_create(struct bview *v)
     if (!v->gv_draw_root) {
 	/* This path is for non-GED callers.  GED command flows continue to use
 	 * libged's _sg_root() so gd_draw_root and bsg_draw_ctx are installed. */
-	struct bv_scene_obj *root = bv_obj_get_unregistered(v, BV_CHILD_OBJS);
+	struct bv_scene_obj *root = bsg_obj_get_unregistered(v, BV_CHILD_OBJS);
 	if (!root) {
 	    bu_log("bsg_scene_root_create: failed to allocate standalone draw root\n");
 	    return NULL;
@@ -128,7 +128,7 @@ bsg_scene_root_destroy(bsg_node *root)
 
     /* Phase F: bsg_root is now the same pointer as gv_draw_root, which has its
      * own lifecycle managed by bsg_ged_draw.c / bsg_view_obj_zap.  Do NOT call
-     * bv_obj_put here — that would free the live draw-tree root.  Just clear
+     * bsg_obj_put here — that would free the live draw-tree root.  Just clear
      * the view's back-reference. */
     struct bv_scene_obj *r = (struct bv_scene_obj *)root;
     if (r->s_v && r->s_v->bsg_root == root)

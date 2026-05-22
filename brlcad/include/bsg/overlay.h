@@ -58,7 +58,7 @@ bsg_find_overlay_group(bsg_node *draw_root);
  * Return the @c _overlays BSG_NODE_GROUP child of @p draw_root, creating it
  * on first call.
  *
- * @p v  The view used to allocate the new group node via bv_obj_create().
+ * @p v  The view used to allocate the new group node via bsg_obj_create().
  *       If NULL and the group does not yet exist, the function returns NULL.
  *
  * Returns the (possibly newly created) @c _overlays group, or NULL on
@@ -72,7 +72,7 @@ bsg_ensure_overlay_group(bsg_node *draw_root, struct bview *v);
  * Erase all overlay shapes named @p name from the @c _overlays group.
  *
  * Releases each matching shape's backend state via
- * bv_scene_obj_release_backend() and fires its @c s_free_callback before
+ * bsg_scene_obj_release_backend() and fires its @c s_free_callback before
  * recycling the node.  Bumps the draw-tree revision counter.  Removes the
  * @c _overlays group itself if it becomes empty after the erasure.
  *

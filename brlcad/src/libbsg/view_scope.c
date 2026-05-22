@@ -33,6 +33,7 @@
 #include "bv/defines.h"
 #include "bv/util.h"
 #include "bsg/defines.h"
+#include "bsg/util.h"
 #include "bsg/view_scope.h"
 
 
@@ -42,13 +43,13 @@ bsg_view_scope_create(struct bview *v)
     if (!v)
 	return NULL;
 
-    struct bv_scene_obj *s = bv_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    struct bv_scene_obj *s = bsg_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
     if (!s)
 	return NULL;
 
     s->s_type_flags = BSG_NODE_VIEW_SCOPE;
     s->s_flag       = UP;
-    /* s_v is already set by bv_obj_create to v; make the ownership explicit. */
+    /* s_v is already set by bsg_obj_create to v; make the ownership explicit. */
     s->s_v          = v;
 
     return (bsg_node *)s;
@@ -85,7 +86,7 @@ bsg_view_scope_destroy(bsg_node *scope)
     /* Clear the children list (borrowed references — do not free). */
     bu_ptbl_reset(&s->children);
 
-    bv_obj_put(s);
+    bsg_obj_put(s);
 }
 
 /*

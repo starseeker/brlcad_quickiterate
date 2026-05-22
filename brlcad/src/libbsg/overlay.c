@@ -28,7 +28,7 @@
  * removes the last overlay-management code from the GED layer that carries
  * no GED-specific logic.
  *
- * Dependencies: libbv (bv_obj_create, bv/defines.h), bu (bu_ptbl, bu_str).
+ * Dependencies: libbsg lifecycle helpers, bv/defines.h, bu (bu_ptbl, bu_str).
  * No librt, no libged.
  */
 
@@ -42,6 +42,7 @@
 #include "bv/vlist.h"
 
 #include "bsg/defines.h"
+#include "bsg/util.h"
 #include "bsg/draw_ctx.h"
 #include "bsg/draw_set.h"
 #include "bsg/overlay.h"
@@ -93,7 +94,7 @@ bsg_ensure_overlay_group(bsg_node *draw_root, struct bview *v)
 
     struct bv_scene_obj *root = (struct bv_scene_obj *)draw_root;
 
-    struct bv_scene_obj *ov = bv_obj_create(v, BV_CHILD_OBJS);
+    struct bv_scene_obj *ov = bsg_obj_create(v, BV_CHILD_OBJS);
     if (!ov)
 	return NULL;
 
@@ -134,7 +135,7 @@ bsg_erase_overlay_by_name(bsg_node *draw_root, const char *name)
 	    continue;
 
 	/* Phase 11: release backend resources via the generic contract. */
-	bv_scene_obj_release_backend(sp);
+	bsg_scene_obj_release_backend(sp);
 	bu_ptbl_rm(&ov->children, (const long *)sp);
 	/* bump rev via root (sp->parent now being cleared) */
 	bsg_bump_rev_node(draw_root);

@@ -31,6 +31,7 @@
 #include "bv/util.h"
 #include "bv/vlist.h"
 #include "bsg/defines.h"
+#include "bsg/util.h"
 #include "bsg/node_shape.h"
 
 
@@ -40,7 +41,7 @@ bsg_shape_create(struct bview *v)
     if (!v)
 	return NULL;
 
-    struct bv_scene_obj *s = bv_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    struct bv_scene_obj *s = bsg_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
     if (!s)
 	return NULL;
 
@@ -74,7 +75,7 @@ bsg_shape_destroy(bsg_node *shape)
     if (!shape)
 	return;
 
-    bv_obj_put((struct bv_scene_obj *)shape);
+    bsg_obj_put((struct bv_scene_obj *)shape);
 }
 
 /*

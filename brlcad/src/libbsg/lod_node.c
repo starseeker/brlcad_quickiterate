@@ -42,6 +42,7 @@
 #include "bv/util.h"
 
 #include "bsg/defines.h"
+#include "bsg/util.h"
 #include "bsg/draw_set.h"
 #include "bsg/lod_ops.h"
 #include "bsg/node_group.h"
@@ -101,7 +102,7 @@ bsg_lod_node_create(struct bview *v)
 	return NULL;
 
     /* Allocate as a view object so it participates in the normal pool. */
-    struct bv_scene_obj *n = bv_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    struct bv_scene_obj *n = bsg_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
     if (!n)
 	return NULL;
 

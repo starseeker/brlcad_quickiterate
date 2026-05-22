@@ -78,6 +78,41 @@ bsg_view_find_by_type(bsg_node *root, unsigned long long flags);
 BSG_EXPORT extern void
 bsg_sensor_fire(bsg_node *root, struct bview *v);
 
+/**
+ * Allocate and initialise a scene-graph object using the BSG lifecycle API.
+ *
+ * The @p type flags currently use the existing BV_* storage flags while the
+ * bview storage model is being migrated into libbsg.
+ */
+BSG_EXPORT extern bsg_node *
+bsg_obj_create(struct bview *v, int type);
+
+/**
+ * Allocate a scene-graph object without registering it in the view's legacy
+ * flat object tables.
+ */
+BSG_EXPORT extern bsg_node *
+bsg_obj_get_unregistered(struct bview *v, int type);
+
+/**
+ * Recycle a scene-graph object allocated by bsg_obj_create() or
+ * bsg_obj_get_unregistered().
+ */
+BSG_EXPORT extern void
+bsg_obj_put(bsg_node *obj);
+
+/**
+ * Release backend-owned renderer state associated with @p obj.
+ */
+BSG_EXPORT extern void
+bsg_scene_obj_release_backend(bsg_node *obj);
+
+/**
+ * Mark backend-owned renderer state associated with @p obj stale.
+ */
+BSG_EXPORT extern void
+bsg_scene_obj_invalidate_backend(bsg_node *obj);
+
 __END_DECLS
 
 #endif /* BSG_UTIL_H */
