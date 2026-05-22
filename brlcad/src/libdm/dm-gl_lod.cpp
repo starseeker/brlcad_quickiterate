@@ -40,6 +40,7 @@ extern "C" {
 #include "bsg/material.h"
 #include "bsg/node.h"
 #include "bsg/payload.h"
+#include "bsg/renderer_attach.h"
 #include "dm.h"
 #include "./dm-gl.h"
 #include "./include/private.h"
@@ -76,7 +77,7 @@ scene_transparency(const struct bv_scene_obj *s)
     return mat.transparency;
 }
 
-static struct bv_obj_backend *
+static struct bsg_renderer_attach *
 scene_backend_get(const struct bv_scene_obj *s)
 {
     return bsg_node_backend_get((const bsg_node *)s);
@@ -376,17 +377,17 @@ gl_backend_handle_get(struct bv_scene_obj *s, bool create)
 {
     if (!s)
 	return NULL;
-    struct bv_obj_backend *be = scene_backend_get(s);
+    struct bsg_renderer_attach *be = scene_backend_get(s);
     if (be) {
-	if (be->type_tag != BV_BACKEND_GL)
+	if (be->type_tag != BSG_BACKEND_GL)
 	    return NULL;
 	return (struct gl_backend_handle *)be->handle;
     }
     if (!create)
 	return NULL;
 
-    BU_GET(be, struct bv_obj_backend);
-    be->type_tag = BV_BACKEND_GL;
+    BU_GET(be, struct bsg_renderer_attach);
+    be->type_tag = BSG_BACKEND_GL;
     be->free = gl_backend_release_obj_free;
     be->invalidate = gl_backend_invalidate_obj_free;
 
@@ -401,7 +402,7 @@ gl_backend_handle_get(struct bv_scene_obj *s, bool create)
 }
 
 /* Release any GL display list held by shape s and free the backing
- * gl_backend_handle / bv_obj_backend descriptor.  Recurses into children
+ * bsg_renderer_attach descriptor.  Recurses into children
  * for group-style scene objects, matching the legacy dlist_free_callback
  * walk.  Safe to call when no backend handle is attached. */
 static void
@@ -414,8 +415,8 @@ gl_backend_handle_release(struct bv_scene_obj *s, int enqueue_delete)
      * object by higher-level scene teardown paths (e.g. bv_obj_put on each
      * leaf).  Recursing from a parent can double-release child backend state,
      * leading to stale GL list IDs reaching glDeleteLists. */
-    struct bv_obj_backend *be = scene_backend_get(s);
-    if (be && be->type_tag == BV_BACKEND_GL) {
+    struct bsg_renderer_attach *be = scene_backend_get(s);
+    if (be && be->type_tag == BSG_BACKEND_GL) {
 	struct gl_backend_handle *h = (struct gl_backend_handle *)be->handle;
 	if (h) {
 	    if (enqueue_delete && h->dlist && sv && sv->dmp)
@@ -424,7 +425,7 @@ gl_backend_handle_release(struct bv_scene_obj *s, int enqueue_delete)
 	    BU_PUT(h, struct gl_backend_handle);
 	    be->handle = NULL;
 	}
-	BU_PUT(be, struct bv_obj_backend);
+	BU_PUT(be, struct bsg_renderer_attach);
 	bsg_node_backend_set((bsg_node *)s, NULL);
     }
 }
@@ -437,8 +438,8 @@ gl_backend_release_obj(struct dm *dmp, struct bv_scene_obj *s)
     gl_backend_handle_release(s, 1);
 }
 
-/* bv_obj_backend::free — also fired indirectly by
- * bv_scene_obj_release_backend; same semantics as the dm-side wrapper. */
+/* bsg_renderer_attach::free — also fired indirectly by
+ * bsg_node_backend_release; same semantics as the dm-side wrapper. */
 static void
 gl_backend_release_obj_free(struct bv_scene_obj *s)
 {
@@ -460,7 +461,7 @@ gl_backend_invalidate_obj(struct dm *dmp, struct bv_scene_obj *s)
 	h->dlist_stale = 1;
 }
 
-/* bv_obj_backend::invalidate — same semantics as the dm-side wrapper. */
+/* bsg_renderer_attach::invalidate — same semantics as the dm-side wrapper. */
 static void
 gl_backend_invalidate_obj_free(struct bv_scene_obj *s)
 {
@@ -470,7 +471,7 @@ gl_backend_invalidate_obj_free(struct bv_scene_obj *s)
 }
 
 extern "C" const struct dm_backend_ops gl_backend_ops = {
-    BV_BACKEND_GL,
+    BSG_BACKEND_GL,
     gl_draw_obj,
     gl_backend_invalidate_obj,
     gl_backend_release_obj,

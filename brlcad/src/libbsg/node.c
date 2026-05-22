@@ -39,6 +39,7 @@
 #include "vmath.h"
 #include "bsg/field.h"
 #include "bsg/node.h"
+#include "bsg/renderer_attach.h"
 
 #include "./bsg_private.h"
 
@@ -173,7 +174,7 @@ bsg_node_destroy(bsg_node *n)
 
     bsg_node_invoke_free_callback(n);
     bsg_node_set_free_callback(n, NULL);
-    bv_scene_obj_release_backend(s);
+    bsg_node_backend_release(n);
 
     void *user_data = bsg_node_user_data_get((const bsg_node *)s);
     if ((s->bsg.bsg_kind & BV_LABELS) && user_data) {
@@ -474,7 +475,7 @@ bsg_node_view_set(bsg_node *n, struct bview *v)
 }
 
 
-struct bv_obj_backend *
+struct bsg_renderer_attach *
 bsg_node_backend_get(const bsg_node *n)
 {
     if (!n)
@@ -485,12 +486,55 @@ bsg_node_backend_get(const bsg_node *n)
 
 
 void
-bsg_node_backend_set(bsg_node *n, struct bv_obj_backend *backend)
+bsg_node_backend_set(bsg_node *n, struct bsg_renderer_attach *backend)
 {
     if (!n)
 	return;
 
     ((struct bv_scene_obj *)n)->s_backend = backend;
+}
+
+
+void
+bsg_node_backend_release(bsg_node *n)
+{
+    if (!n)
+	return;
+
+    struct bv_scene_obj *s = (struct bv_scene_obj *)n;
+    if (s->s_backend && s->s_backend->free)
+	(*s->s_backend->free)(s);
+    s->s_backend = NULL;
+}
+
+
+void
+bsg_node_backend_invalidate(bsg_node *n)
+{
+    if (!n)
+	return;
+
+    struct bv_scene_obj *s = (struct bv_scene_obj *)n;
+    if (s->s_backend && s->s_backend->invalidate)
+	(*s->s_backend->invalidate)(s);
+}
+
+
+void
+bsg_node_stale(bsg_node *n)
+{
+    if (!n)
+	return;
+
+    bsg_node_backend_invalidate(n);
+
+    struct bv_scene_obj *s = (struct bv_scene_obj *)n;
+    if (BU_PTBL_IS_INITIALIZED(&s->bsg.bsg_children)) {
+	for (size_t i = 0; i < BU_PTBL_LEN(&s->bsg.bsg_children); i++) {
+	    bsg_node *child = (bsg_node *)BU_PTBL_GET(&s->bsg.bsg_children, i);
+	    bsg_node_stale(child);
+	}
+    }
 }
 
 
@@ -559,7 +603,7 @@ bsg_node_mark_stale(bsg_node *n)
     if (!n)
 	return;
 
-    bv_obj_stale((struct bv_scene_obj *)n);
+    bsg_node_stale(n);
 }
 
 

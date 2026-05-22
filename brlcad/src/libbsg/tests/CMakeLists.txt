@@ -108,6 +108,13 @@ brlcad_add_test(NAME libbsg_slice9 COMMAND test_bsg_slice9)
 brlcad_addexec(test_bsg_slice10 test_bsg_slice10.c "libbsg;libbv;libbg;libbu" TEST)
 brlcad_add_test(NAME libbsg_slice10 COMMAND test_bsg_slice10)
 
+#
+# Slice 11: BSG renderer attachment (bsg_renderer_attach, bsg_node_backend_*,
+#           bsg_node_stale, BSG_BACKEND_* constants)
+#
+brlcad_addexec(test_bsg_slice11 test_bsg_slice11.c "libbsg;libbv;libbu" TEST)
+brlcad_add_test(NAME libbsg_slice11 COMMAND test_bsg_slice11)
+
 cmakefiles(
   CMakeLists.txt
   test_arb8.c
@@ -117,6 +124,7 @@ cmakefiles(
   test_bsg_slice8.c
   test_bsg_slice9.c
   test_bsg_slice10.c
+  test_bsg_slice11.c
   test_camera.c
   test_hud.c
   test_identity.c

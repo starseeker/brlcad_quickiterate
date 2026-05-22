@@ -42,6 +42,7 @@
 #include "bsg/material.h"
 #include "bsg/node.h"
 #include "bsg/payload.h"
+#include "bsg/renderer_attach.h"
 #include "bv/view_sets.h"
 #include "bv/vlist.h"
 #include "bsg/defines.h"
@@ -1463,44 +1464,22 @@ bv_clear(struct bview *v, int flags)
 void
 bv_scene_obj_release_backend(struct bv_scene_obj *s)
 {
-    if (UNLIKELY(!s))
-	return;
-
-    /* Phase 11 contract: fire the backend-owned free callback (if any) and
-     * clear the slot.  Backends are responsible for releasing whatever is
-     * stored in s_backend->handle and freeing the descriptor itself in
-     * their free() implementation. */
-    if (s->s_backend && s->s_backend->free) {
-	(*s->s_backend->free)(s);
-    }
-    s->s_backend = NULL;
+    /* Slice 11: delegate to the BSG-native implementation. */
+    bsg_node_backend_release((bsg_node *)s);
 }
 
 void
 bv_scene_obj_invalidate_backend(struct bv_scene_obj *s)
 {
-    if (UNLIKELY(!s))
-	return;
-
-    /* Phase 11 contract: fire the backend-owned invalidate callback (if
-     * any).  Optional: backends without a separately-cacheable resource
-     * can leave invalidate==NULL. */
-    if (s->s_backend && s->s_backend->invalidate) {
-	(*s->s_backend->invalidate)(s);
-    }
+    /* Slice 11: delegate to the BSG-native implementation. */
+    bsg_node_backend_invalidate((bsg_node *)s);
 }
 
 void
 bv_obj_stale(struct bv_scene_obj *s)
 {
-    bv_scene_obj_invalidate_backend(s);
-
-    if (BU_PTBL_IS_INITIALIZED(&s->bsg.bsg_children)) {
-	for (size_t i = 0; i < BU_PTBL_LEN(&s->bsg.bsg_children); i++) {
-	    struct bv_scene_obj *s_c = (struct bv_scene_obj *)BU_PTBL_GET(&s->bsg.bsg_children, i);
-	    bv_obj_stale(s_c);
-	}
-    }
+    /* Slice 11: delegate to the BSG-native recursive stale implementation. */
+    bsg_node_stale((bsg_node *)s);
 }
 
 struct bv_scene_obj *

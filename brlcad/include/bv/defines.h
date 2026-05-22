@@ -165,43 +165,17 @@ struct bview;
 struct bv_scene_obj_internal;
 struct bv_scene_obj;
 
-/* Phase 11 (drawing_stack_modernization): renderer-backend contract.
+/* Slice 11 (bv_scene_obj_migrate): renderer attachment type and constants
+ * have moved to bsg/renderer_attach.h.  The compatibility aliases below
+ * keep existing code compiling without source changes.
  *
- * type_tag values for struct bv_obj_backend.  Backends register their tag at
- * dm registration time; the per-shape s_backend slot carries the matching tag
- * so cross-backend handle confusion can be caught.  More tags will be added as
- * additional backends adopt the contract (e.g. dm-obol). */
-#define BV_BACKEND_NONE  0u   /* no backend state attached */
-#define BV_BACKEND_GL    1u   /* OpenGL/GL-via-software-rasterizer (dm-gl, dm-swrast, dm-qtgl, dm-glx, dm-wgl) */
+ * New code must use bsg_renderer_attach and BSG_BACKEND_* directly. */
+#include "bsg/renderer_attach.h"
 
-/**
- * Phase 11 (drawing_stack_modernization): per-shape backend state.
- *
- * Replaces the previous pattern of adding backend-specific fields directly on
- * struct bv_scene_obj.  One bv_obj_backend describes a single backend's
- * per-shape state; the active scene object stores the descriptor in
- * bv_scene_obj::s_backend.
- *
- * Lifecycle:
- *  - allocated lazily by the backend (typically when it first needs to cache
- *    a GPU resource for the shape);
- *  - released by bv_scene_obj_release_backend() when the shape is destroyed
- *    or recycled (also called from bv_obj_reset, bv_obj_put, and the libbsg
- *    tree free paths);
- *  - invalidated by bv_scene_obj_invalidate_backend() when the source data
- *    that drives the cached resource has changed (called from
- *    bv_obj_stale() and any other code that needs to flag the cached
- *    resource as out of date).
- *
- * Backends are expected to provide a free callback; invalidate is optional
- * and may be NULL for backends that have no separately-cacheable resource.
- */
-struct bv_obj_backend {
-    uint32_t type_tag;                          /**< @brief BV_BACKEND_* identifying the owner */
-    void *handle;                               /**< @brief backend-private per-shape state */
-    void (*free)(struct bv_scene_obj *);        /**< @brief release backend resources and free this descriptor */
-    void (*invalidate)(struct bv_scene_obj *);  /**< @brief mark cached resource stale; may be NULL */
-};
+/* Compatibility aliases — will be removed in the libbv deletion slice. */
+typedef struct bsg_renderer_attach bv_obj_backend; /**< @brief compat alias; use bsg_renderer_attach */
+#define BV_BACKEND_NONE  BSG_BACKEND_NONE /**< @brief compat alias; use BSG_BACKEND_NONE */
+#define BV_BACKEND_GL    BSG_BACKEND_GL   /**< @brief compat alias; use BSG_BACKEND_GL */
 
 /*
  * Phase A (bv_scene_obj_migrate.txt): struct bsg_node and its constants
@@ -270,29 +244,21 @@ struct bv_scene_obj  {
     struct bu_list s_vlist;	/**< @brief  Pointer to unclipped vector list */
     size_t s_vlen;			/**< @brief  Number of actual cmd[] entries in vlist */
 
-    /* Phase 11 (drawing_stack_modernization): generic renderer-backend slot.
+    /* Slice 11 (bv_scene_obj_migrate): BSG renderer attachment slot.
      *
-     * One backend-owned pointer per scene object replaces the previous pattern
-     * of adding backend-specific fields directly on bv_scene_obj.  The
-     * descriptor records:
-     *   - type_tag: identifies the owning backend (e.g. BV_BACKEND_GL, future
-     *     BV_BACKEND_OBOL) so cross-backend mistakes can be caught;
-     *   - handle:   backend-private per-shape state (compiled GL display list,
-     *     vertex buffer object, GPU resource handle, ...);
-     *   - free:     cleanup callback fired by bv_scene_obj_release_backend()
-     *     when the shape is destroyed/recycled;
-     *   - invalidate: optional callback fired by
-     *     bv_scene_obj_invalidate_backend() when the source data has changed
-     *     and any cached GPU resource must be recomputed.
+     * One BSG-owned bsg_renderer_attach descriptor per scene object replaces
+     * the previous pattern of adding backend-specific fields directly on
+     * bv_scene_obj.  Access exclusively through bsg_node_backend_get() /
+     * bsg_node_backend_set(); lifecycle via bsg_node_backend_release() and
+     * bsg_node_backend_invalidate() (bsg/renderer_attach.h).
      *
-     * NULL if the active backend does not need per-shape state.  Backends are
-     * expected to allocate one bv_obj_backend per shape (typically lazily) and
-     * store it here; bv_obj_reset() / bv_obj_put() will fire the free callback
-     * and clear the slot.  See struct gl_backend_handle in libdm/dm-gl_lod.cpp
-     * for the GL family's per-shape state (display list index/mode/stale
-     * flag) — formerly the BV_DEPRECATED s_dlist / s_dlist_mode /
-     * s_dlist_stale / s_dlist_free_callback fields, retired in Phase 13. */
-    struct bv_obj_backend *s_backend;
+     * The compat alias bv_obj_backend maps to bsg_renderer_attach; existing
+     * callers continue to work until the libbv deletion slice removes the alias.
+     *
+     * NULL if the active backend does not need per-node state.  See struct
+     * gl_backend_handle in libdm/dm-gl_lod.cpp for the GL family's per-node
+     * state (display list index/mode/stale flag). */
+    struct bsg_renderer_attach *s_backend;
 
     /* 3D geometry metadata */
     fastf_t s_size;		/**< @brief  Distance across solid, in model space */
