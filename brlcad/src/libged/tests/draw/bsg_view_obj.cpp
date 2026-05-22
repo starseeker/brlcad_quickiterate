@@ -55,6 +55,7 @@
 #include "bsg/material.h"
 #include "bsg/node.h"
 #include "bsg/node_group.h"
+#include "bsg/renderer_attach.h"
 #include "bsg/util.h"
 #include "bsg/visit.h"
 #include "../../ged_private.h"
@@ -1082,19 +1083,19 @@ main(int ac, char *av[])
 	ASSERT(target != NULL);
 
 	/* Stub backend free / invalidate.  These match the
-	 * struct bv_obj_backend signature in include/bv/defines.h. */
+	 * bsg_renderer_attach callback signature in bsg/renderer_attach.h. */
 	struct phase11_helpers {
 	    static void backend_free(struct bv_scene_obj *s) {
-		struct bv_obj_backend *be = bsg_node_backend_get((const bsg_node *)s);
+		bsg_renderer_attach *be = bsg_node_backend_get((const bsg_node *)s);
 		struct phase11_state *p = (struct phase11_state *)
 		    be->handle;
 		p->free_calls++;
 		p->last_obj = s;
-		BU_PUT(be, struct bv_obj_backend);
+		BU_PUT(be, bsg_renderer_attach);
 		bsg_node_backend_set((bsg_node *)s, NULL);
 	    }
 	    static void backend_invalidate(struct bv_scene_obj *s) {
-		struct bv_obj_backend *be = bsg_node_backend_get((const bsg_node *)s);
+		bsg_renderer_attach *be = bsg_node_backend_get((const bsg_node *)s);
 		struct phase11_state *p = (struct phase11_state *)
 		    be->handle;
 		p->invalidate_calls++;
@@ -1103,9 +1104,9 @@ main(int ac, char *av[])
 	};
 
 	/* Attach a backend descriptor to the target shape. */
-	struct bv_obj_backend *be;
-	BU_GET(be, struct bv_obj_backend);
-	be->type_tag   = BV_BACKEND_GL;  /* any tag works for the stub */
+	bsg_renderer_attach *be;
+	BU_GET(be, bsg_renderer_attach);
+	be->type_tag   = BSG_BACKEND_GL;  /* any tag works for the stub */
 	be->handle     = &st;
 	be->free       = phase11_helpers::backend_free;
 	be->invalidate = phase11_helpers::backend_invalidate;

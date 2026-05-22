@@ -25,6 +25,7 @@ set(
   payload.h
   query.h
   render.h
+  renderer_attach.h
   scene_set.h
   selection.h
   sensor.h

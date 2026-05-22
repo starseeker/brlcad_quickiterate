@@ -1,7 +1,7 @@
 libbv Migration Reference Inventory
 ==================================
 
-Generated: 2026-05-22T11:38:03Z
+Generated: 2026-05-22T20:30:25Z
 Generator: misc/check/libbv_migration_guardrail.py
 Source root: /home/runner/work/brlcad_quickiterate/brlcad_quickiterate/brlcad
 
@@ -26,7 +26,7 @@ Match files: 7
 -----------------
 Key: include_bv_slash_quote
 Pattern: "bv/
-Match files: 224
+Match files: 237
 
 - include/RTree.h
 - include/bg/polygon.h
@@ -83,22 +83,33 @@ Match files: 224
 - src/libbsg/compat.c
 - src/libbsg/draw_set.c
 - src/libbsg/field.c
+- src/libbsg/hud.c
 - src/libbsg/identity.c
 - src/libbsg/lod.cpp
 - src/libbsg/material.c
 - src/libbsg/node.c
 - src/libbsg/node_core.c
 - src/libbsg/node_shape.c
+- src/libbsg/node_transform.c
 - src/libbsg/overlay.c
 - src/libbsg/payload.c
+- src/libbsg/polygon.c
+- src/libbsg/query.c
 - src/libbsg/render.c
 - src/libbsg/scene_graph.cpp
 - src/libbsg/selection.c
 - src/libbsg/settings.c
+- src/libbsg/snap.c
 - src/libbsg/tests/test_action.c
 - src/libbsg/tests/test_arb8.c
 - src/libbsg/tests/test_bsg_node.c
+- src/libbsg/tests/test_bsg_slice10.c
+- src/libbsg/tests/test_bsg_slice11.c
+- src/libbsg/tests/test_bsg_slice6.c
+- src/libbsg/tests/test_bsg_slice8.c
+- src/libbsg/tests/test_bsg_slice9.c
 - src/libbsg/tests/test_camera.c
+- src/libbsg/tests/test_hud.c
 - src/libbsg/tests/test_identity.c
 - src/libbsg/tests/test_lod_node.c
 - src/libbsg/tests/test_material.c
@@ -109,8 +120,10 @@ Match files: 224
 - src/libbsg/tests/test_scene_graph.c
 - src/libbsg/tests/test_selection.c
 - src/libbsg/tests/test_settings.c
+- src/libbsg/tests/test_source_identity.c
 - src/libbsg/tests/test_view_scope.c
 - src/libbsg/tests/test_vlist.c
+- src/libbsg/text.c
 - src/libbsg/visit.c
 - src/libbsg/vlist.c
 - src/libbv/adc.c
@@ -320,10 +333,19 @@ bv_scene_obj references
 -----------------------
 Key: bv_scene_obj
 Pattern: bv_scene_obj
-Match files: 149
+Match files: 172
 
+- include/bsg/axes.h
 - include/bsg/compat.h
+- include/bsg/defines.h
+- include/bsg/hud.h
 - include/bsg/node_type.h
+- include/bsg/polygon.h
+- include/bsg/query.h
+- include/bsg/renderer_attach.h
+- include/bsg/snap.h
+- include/bsg/text.h
+- include/bsg/vlist.h
 - include/bv/defines.h
 - include/bv/lod.h
 - include/bv/polygon.h
@@ -344,10 +366,12 @@ Match files: 149
 - include/rt/shoot.h
 - src/libbsg/action.c
 - src/libbsg/appearance.c
+- src/libbsg/axes.c
 - src/libbsg/bsg_private.h
 - src/libbsg/compat.c
 - src/libbsg/draw_set.c
 - src/libbsg/field.c
+- src/libbsg/hud.c
 - src/libbsg/identity.c
 - src/libbsg/lod.cpp
 - src/libbsg/lod_node.c
@@ -356,8 +380,18 @@ Match files: 149
 - src/libbsg/node_transform.c
 - src/libbsg/overlay.c
 - src/libbsg/payload.c
+- src/libbsg/polygon.c
+- src/libbsg/polygon_fill.cpp
+- src/libbsg/query.c
 - src/libbsg/scene_graph.cpp
 - src/libbsg/sensor.c
+- src/libbsg/snap.c
+- src/libbsg/tests/test_bsg_slice10.c
+- src/libbsg/tests/test_bsg_slice11.c
+- src/libbsg/tests/test_bsg_slice6.c
+- src/libbsg/tests/test_bsg_slice7.c
+- src/libbsg/tests/test_bsg_slice8.c
+- src/libbsg/tests/test_bsg_slice9.c
 - src/libbsg/tests/test_identity.c
 - src/libbsg/tests/test_lod_node.c
 - src/libbsg/tests/test_material.c
@@ -368,7 +402,9 @@ Match files: 149
 - src/libbsg/tests/test_scene_graph.c
 - src/libbsg/tests/test_selection.c
 - src/libbsg/tests/test_settings.c
+- src/libbsg/tests/test_source_identity.c
 - src/libbsg/tests/test_view_scope.c
+- src/libbsg/text.c
 - src/libbsg/view_scope.c
 - src/libbv/bv_private.h
 - src/libbv/hash.c
@@ -476,11 +512,12 @@ struct bview references
 -----------------------
 Key: struct_bview
 Pattern: struct bview
-Match files: 282
+Match files: 293
 
 - include/bsg/action.h
 - include/bsg/camera.h
 - include/bsg/draw_set.h
+- include/bsg/hud.h
 - include/bsg/lod.h
 - include/bsg/lod_ops.h
 - include/bsg/node.h
@@ -489,8 +526,10 @@ Match files: 282
 - include/bsg/node_transform.h
 - include/bsg/overlay.h
 - include/bsg/payload.h
+- include/bsg/query.h
 - include/bsg/render.h
 - include/bsg/scene_set.h
+- include/bsg/snap.h
 - include/bsg/util.h
 - include/bsg/view_scope.h
 - include/bv/defines.h
@@ -524,6 +563,7 @@ Match files: 282
 - src/libbsg/action.c
 - src/libbsg/camera.c
 - src/libbsg/draw_set.c
+- src/libbsg/hud.c
 - src/libbsg/identity.c
 - src/libbsg/lod.cpp
 - src/libbsg/lod_node.c
@@ -533,12 +573,19 @@ Match files: 282
 - src/libbsg/node_transform.c
 - src/libbsg/overlay.c
 - src/libbsg/payload.c
+- src/libbsg/polygon.c
+- src/libbsg/query.c
 - src/libbsg/render.c
 - src/libbsg/scene_graph.cpp
 - src/libbsg/sensor.c
 - src/libbsg/tests/test_action.c
 - src/libbsg/tests/test_bsg_node.c
+- src/libbsg/tests/test_bsg_slice10.c
+- src/libbsg/tests/test_bsg_slice11.c
+- src/libbsg/tests/test_bsg_slice8.c
+- src/libbsg/tests/test_bsg_slice9.c
 - src/libbsg/tests/test_camera.c
+- src/libbsg/tests/test_hud.c
 - src/libbsg/tests/test_lod_node.c
 - src/libbsg/tests/test_material.c
 - src/libbsg/tests/test_node_core.c
@@ -765,11 +812,15 @@ struct bview_settings references
 --------------------------------
 Key: struct_bview_settings
 Pattern: struct bview_settings
-Match files: 7
+Match files: 11
 
+- include/bsg/hud.h
+- include/bsg/snap.h
 - include/bv/defines.h
 - include/bv/util.h
 - src/libbsg/camera.c
+- src/libbsg/hud.c
+- src/libbsg/tests/test_hud.c
 - src/libbv/diff.c
 - src/libbv/hash.c
 - src/libbv/snap.c
@@ -779,13 +830,17 @@ struct bview_set references
 ---------------------------
 Key: struct_bview_set
 Pattern: struct bview_set
-Match files: 12
+Match files: 16
 
+- include/bsg/hud.h
+- include/bsg/snap.h
 - include/bv/defines.h
 - include/bv/util.h
 - include/bv/view_sets.h
 - include/ged/defines.h
 - src/libbsg/camera.c
+- src/libbsg/hud.c
+- src/libbsg/tests/test_hud.c
 - src/libbsg/tests/test_scene_graph.c
 - src/libbv/bv_private.h
 - src/libbv/diff.c
@@ -798,16 +853,19 @@ libbv references
 ----------------
 Key: libbv
 Pattern: libbv
-Match files: 43
+Match files: 51
 
 - include/CMakeLists.txt
+- include/bsg/hud.h
 - include/bsg/identity.h
 - include/bsg/lod.h
 - include/bsg/lod_ops.h
 - include/bsg/node_group.h
 - include/bsg/node_shape.h
 - include/bsg/node_transform.h
+- include/bsg/query.h
 - include/bsg/sensor.h
+- include/bsg/snap.h
 - include/bsg/view_scope.h
 - include/bsg/vlist.h
 - include/bv.h
@@ -822,8 +880,13 @@ Match files: 43
 - src/libbsg/draw_set.c
 - src/libbsg/lod_node.c
 - src/libbsg/overlay.c
+- src/libbsg/polygon.c
+- src/libbsg/polygon_fill.cpp
+- src/libbsg/query.c
 - src/libbsg/scene_graph.cpp
+- src/libbsg/snap.c
 - src/libbsg/tests/CMakeLists.txt
+- src/libbsg/tests/test_bsg_slice9.c
 - src/libbsg/vlist.c
 - src/libbv/CMakeLists.txt
 - src/libbv/polygon_fill.cpp

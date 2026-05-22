@@ -288,15 +288,14 @@ DM_EXPORT extern void dm_fire_dlist_sensors(struct dm *dmp);
 DM_EXPORT extern void dm_dlist_sensors_clear(struct dm *dmp);
 
 
-/* Phase 11 (drawing_stack_modernization): renderer-backend contract.
+/* Slice 11 (bv_scene_obj_migrate): renderer-backend contract.
  *
  * struct dm_backend_ops is the display-manager-side counterpart of
- * struct bv_obj_backend.  A backend (dm-gl, dm-swrast, future dm-obol)
- * registers a single static dm_backend_ops with each dm instance it
- * creates; clients invoke per-shape backend operations through the
- * thin dm_backend_*() wrappers below, which forward to the registered
- * ops if any.  This replaces the previous pattern of widening
- * struct bv_scene_obj with backend-specific fields.
+ * struct bsg_renderer_attach (bsg/renderer_attach.h).  A backend
+ * (dm-gl, dm-swrast, future dm-obol) registers a single static
+ * dm_backend_ops with each dm instance it creates; clients invoke per-shape
+ * backend operations through the thin dm_backend_*() wrappers below, which
+ * forward to the registered ops if any.
  *
  * Lifecycle of a per-shape backend resource:
  *  - draw_obj:       per-frame draw of one shape; if non-NULL, the
@@ -305,11 +304,10 @@ DM_EXPORT extern void dm_dlist_sensors_clear(struct dm *dmp);
  *                    dm_impl::dm_draw_obj.  Backends that don't supply
  *                    one fall back to the legacy dm_draw_obj path.
  *  - invalidate_obj: source data has changed; any cached GPU resource
- *                    on s_backend must be regenerated next frame.
- *                    Optional.
+ *                    must be regenerated next frame.  Optional.
  *  - release_obj:    shape is being destroyed/recycled; release any
- *                    GPU resource and free the s_backend descriptor.
- *                    Required if the backend ever attaches s_backend.
+ *                    GPU resource and free the bsg_renderer_attach descriptor.
+ *                    Required if the backend ever attaches a descriptor.
  *
  * Backends that do not need per-shape state can leave their dm_impl's
  * backend_ops pointer NULL; the legacy code paths continue to work.
@@ -318,10 +316,10 @@ DM_EXPORT extern void dm_dlist_sensors_clear(struct dm *dmp);
  * and is set during dm initialization. */
 struct bv_scene_obj;
 struct dm_backend_ops {
-    uint32_t type_tag;                                                       /**< @brief BV_BACKEND_* matching the tag stamped on s_backend */
+    uint32_t type_tag;                                                       /**< @brief BSG_BACKEND_* matching the tag stamped on the renderer attachment */
     int  (*draw_obj)(struct dm *dmp, struct bv_scene_obj *s);                /**< @brief per-shape draw; NULL => fall back to dm_impl::dm_draw_obj */
     void (*invalidate_obj)(struct dm *dmp, struct bv_scene_obj *s);          /**< @brief mark cached backend resource stale; NULL => no-op */
-    void (*release_obj)(struct dm *dmp, struct bv_scene_obj *s);             /**< @brief release cached backend resource and free s_backend */
+    void (*release_obj)(struct dm *dmp, struct bv_scene_obj *s);             /**< @brief release cached backend resource and free the bsg_renderer_attach descriptor */
 };
 
 /* Backend-ops accessors (libdm-private storage on dm_impl). */

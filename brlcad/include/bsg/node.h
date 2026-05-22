@@ -37,9 +37,9 @@
 #include "bu/list.h"
 #include "bsg/defines.h"
 #include "bsg/field.h"
+#include "bsg/renderer_attach.h"
 
 struct bview;
-struct bv_obj_backend;
 
 __BEGIN_DECLS
 
@@ -185,11 +185,23 @@ bsg_node_view_get(const bsg_node *n);
 BSG_EXPORT extern void
 bsg_node_view_set(bsg_node *n, struct bview *v);
 
-BSG_EXPORT extern struct bv_obj_backend *
+/**
+ * Return the renderer attachment for @p n, or NULL if none is attached.
+ *
+ * The returned pointer is owned by the renderer backend; do not free it
+ * directly.  Use @c bsg_node_backend_release() for lifetime management.
+ */
+BSG_EXPORT extern struct bsg_renderer_attach *
 bsg_node_backend_get(const bsg_node *n);
 
+/**
+ * Attach or replace the renderer attachment on @p n.
+ *
+ * No-op if @p n is NULL.  Callers are responsible for releasing any
+ * previous attachment before calling this function.
+ */
 BSG_EXPORT extern void
-bsg_node_backend_set(bsg_node *n, struct bv_obj_backend *backend);
+bsg_node_backend_set(bsg_node *n, struct bsg_renderer_attach *backend);
 
 BSG_EXPORT extern void
 bsg_node_bounds_get(const bsg_node *n, point_t bmin, point_t bmax);

@@ -318,19 +318,18 @@ BV_EXPORT extern void bv_obj_sync(struct bv_scene_obj *dest, struct bv_scene_obj
  * data is accessed (effectively, making the internal storage of bv_scene_obj fully hidden
  * a.l.a the libdm rework.)  Not sure what the best option is yet... leaning towards #2
  * if it is "fast enough"... */
+/* BV_DEPRECATED (Slice 11): use bsg_node_stale() from bsg/renderer_attach.h
+ * for new code.  This wrapper remains for the transition period. */
 BV_EXPORT void bv_obj_stale(struct bv_scene_obj *s);
 
-/* Phase 11 (drawing_stack_modernization): renderer-backend contract helpers.
+/* BV_DEPRECATED (Slice 11): renderer-backend lifecycle helpers.
  *
- * These are the canonical entry points for releasing/invalidating per-shape
- * backend resources.
+ * These functions now delegate to the BSG-native implementations in libbsg
+ * (bsg_node_backend_release / bsg_node_backend_invalidate from
+ * bsg/renderer_attach.h).  New code must call the BSG functions directly.
  *
- * bv_scene_obj_release_backend  - shape is being destroyed/recycled; fires
- *   the backend free callback (if set) and clears s_backend.  Safe to call
- *   when s_backend is NULL.
- * bv_scene_obj_invalidate_backend - cached backend resource is stale and
- *   needs to be regenerated.  Fires the backend invalidate callback if set.
- *   Does NOT recurse into children. */
+ * bv_scene_obj_release_backend  - delegates to bsg_node_backend_release().
+ * bv_scene_obj_invalidate_backend - delegates to bsg_node_backend_invalidate(). */
 BV_EXPORT void bv_scene_obj_release_backend(struct bv_scene_obj *s);
 BV_EXPORT void bv_scene_obj_invalidate_backend(struct bv_scene_obj *s);
 
