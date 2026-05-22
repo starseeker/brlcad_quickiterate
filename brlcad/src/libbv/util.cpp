@@ -38,6 +38,8 @@
 #include "bv/defines.h"
 #include "bv/snap.h"
 #include "bv/util.h"
+#include "bsg/appearance.h"
+#include "bsg/material.h"
 #include "bsg/node.h"
 #include "bsg/payload.h"
 #include "bv/view_sets.h"
@@ -1775,8 +1777,10 @@ bv_view_obj_create(struct bview *v, const char *name, unsigned long long type_fl
     if (!s)
 	return NULL;
 
+    /* Slice 9: route s_arrow through BSG appearance API rather than
+     * writing the legacy field directly. */
     if (opts && opts->arrow)
-	s->s_arrow = 1;
+	bsg_node_set_draw_arrows((bsg_node *)s, 1);
 
     return s;
 }
@@ -1859,7 +1863,12 @@ bv_view_obj_labels_sync(struct bview *v,
 	    continue;
 
 	child->bsg.bsg_kind |= BV_LABELS;
-	VSET(child->s_color, gdlsp->gdls_color[0], gdlsp->gdls_color[1], gdlsp->gdls_color[2]);
+	/* Slice 9: route color through BSG material API rather than writing
+	 * the legacy s_color field directly. */
+	bv_view_obj_set_color(child,
+			      (int)gdlsp->gdls_color[0],
+			      (int)gdlsp->gdls_color[1],
+			      (int)gdlsp->gdls_color[2]);
 	child->bsg.bsg_flag = UP;
 
 	struct bv_label *l;
@@ -2174,6 +2183,12 @@ bv_obj_reset(struct bv_scene_obj *s)
     bu_vls_trunc(&s->bsg.bsg_name, 0);
 
     bv_scene_obj_settings_reset(s);
+    /* Slice 9: s_inherit_settings, s_color, s_arrow, s_color_rev, and
+     * s_soldash are set directly here because the BSG core (which holds the
+     * authoritative material/appearance) is freed below.  These legacy-field
+     * resets become the fallback source for a fresh BSG getter after reset.
+     * Non-reset callers must use bsg_node_set_draw_arrows(),
+     * bsg_node_set_line_style(), bsg_node_material_set(), etc. */
     s->s_inherit_settings = 0;
 
     MAT_IDN(s->s_mat);
@@ -2640,19 +2655,33 @@ bv_view_objs_visit_db(struct bview *v,
 void
 bv_obj_sync(struct bv_scene_obj *dest, struct bv_scene_obj *src)
 {
+    if (!dest || !src)
+	return;
     struct bsg_settings src_settings = BSG_SETTINGS_INIT;
     if (bv_scene_obj_settings_get(src, &src_settings))
 	bv_scene_obj_settings_set(dest, &src_settings);
     VMOVE(dest->s_center, src->s_center);
-    VMOVE(dest->s_color, src->s_color);
+    /* Slice 9: route base color (s_color) and appearance fields (s_soldash,
+     * s_arrow) through BSG material/appearance APIs rather than writing the
+     * legacy fields directly. */
+    {
+	struct bsg_material src_mat;
+	bsg_material_init(&src_mat);
+	(void)bsg_node_material_get((const bsg_node *)src, &src_mat);
+	bsg_node_material_set((bsg_node *)dest, &src_mat);
+    }
+    {
+	struct bsg_appearance src_app;
+	bsg_appearance_init(&src_app);
+	(void)bsg_node_appearance_get((const bsg_node *)src, &src_app);
+	bsg_node_appearance_set((bsg_node *)dest, &src_app);
+    }
     VMOVE(dest->bmin, src->bmin);
     VMOVE(dest->bmax, src->bmax);
     mat_t src_mat;
     bsg_node_transform_get((const bsg_node *)src, src_mat);
     bsg_node_transform_set((bsg_node *)dest, src_mat);
     dest->s_size = src->s_size;
-    dest->s_soldash = src->s_soldash;
-    dest->s_arrow = src->s_arrow;
     dest->adaptive_wireframe = src->adaptive_wireframe;
     dest->view_scale = src->view_scale;
     dest->bot_threshold = src->bot_threshold;

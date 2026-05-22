@@ -95,6 +95,13 @@ brlcad_add_test(NAME libbsg_slice7 COMMAND test_bsg_slice7)
 brlcad_addexec(test_bsg_slice8 test_bsg_slice8.c "libbsg;libbv;libbg;libbu" TEST)
 brlcad_add_test(NAME libbsg_slice8 COMMAND test_bsg_slice8)
 
+#
+# Slice 9: material/appearance/settings migration
+#          (bv_view_obj_set_color, bv_obj_sync, bv_view_obj_labels_sync)
+#
+brlcad_addexec(test_bsg_slice9 test_bsg_slice9.c "libbsg;libbv;libbu" TEST)
+brlcad_add_test(NAME libbsg_slice9 COMMAND test_bsg_slice9)
+
 cmakefiles(
   CMakeLists.txt
   test_arb8.c
@@ -102,6 +109,7 @@ cmakefiles(
   test_bsg_slice6.c
   test_bsg_slice7.c
   test_bsg_slice8.c
+  test_bsg_slice9.c
   test_camera.c
   test_hud.c
   test_identity.c

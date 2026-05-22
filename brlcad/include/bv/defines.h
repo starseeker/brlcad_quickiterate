@@ -312,8 +312,15 @@ struct bv_scene_obj  {
     int s_bbox_cached;
 
     /* Display properties */
-    unsigned char s_color[3];	/**< @brief  color to draw as */
-    uint32_t s_color_rev;       /**< @brief  material-revision stamp; set to gd_mater_rev each time this shape's color is recalculated by bsg_view_obj_color_from_soltab (B4 infrastructure, Phase 7 Step 14) */
+    unsigned char s_color[3];	/**< @brief  color to draw as.
+				 *  BV_DEPRECATED (Slice 9): this field is the
+				 *  legacy BSG/BV compatibility mirror.  Read via
+				 *  bsg_node_material_get(); write via
+				 *  bsg_node_material_set() or
+				 *  bv_view_obj_set_color().  Direct writes bypass
+				 *  the BSG material sidecar and will be removed. */
+    uint32_t s_color_rev;       /**< @brief  material-revision stamp; set to gd_mater_rev each time this shape's color is recalculated by bsg_view_obj_color_from_soltab (B4 infrastructure, Phase 7 Step 14).
+				 *  BV_DEPRECATED (Slice 9): internal to BSG material sync; do not access directly. */
     /* Phase 9.2 (drawing_stack_modernization): per-shape "drawn this frame"
      * generation counter.  When the renderer paints the object during
      * dm_draw_objs(), it stamps s_drawn_rev := bview::gv_frame_rev.  Callers
@@ -324,8 +331,12 @@ struct bv_scene_obj  {
      * gv_frame_rev is bumped before the first draw, so an undrawn shape
      * will always disagree with the current frame. */
     uint64_t s_drawn_rev;
-    int s_soldash;		/**< @brief  solid/dashed line flag: 0 = solid, 1 = dashed*/
-    int s_arrow;		/**< @brief  arrow flag for view object drawing routines */
+    int s_soldash;		/**< @brief  solid/dashed line flag: 0 = solid, 1 = dashed.
+				 *  BV_DEPRECATED (Slice 9): legacy BSG/BV compatibility mirror.
+				 *  Use bsg_node_set_line_style() / bsg_node_line_style(). */
+    int s_arrow;		/**< @brief  arrow flag for view object drawing routines.
+				 *  BV_DEPRECATED (Slice 9): legacy BSG/BV compatibility mirror.
+				 *  Use bsg_node_set_draw_arrows() / bsg_node_draw_arrows(). */
     int s_changed;		/**< @brief  changed flag - set by s_update_callback if a change occurred */
     int current;
 
@@ -355,10 +366,15 @@ struct bv_scene_obj  {
     fastf_t point_scale;
 
     /* Scene object settings which also (potentially) have global defaults but
-     * may be overridden locally */
+     * may be overridden locally.
+     * BV_DEPRECATED (Slice 9): s_os, s_local_os, and s_inherit_settings are
+     * legacy BSG/BV compatibility mirrors.  External callers must use the BSG
+     * settings API (bsg_node_settings_get/set, bsg_node_appearance_get/set)
+     * rather than accessing these fields directly. */
     struct bsg_settings *s_os;
     struct bsg_settings s_local_os;
-    int s_inherit_settings;           /**< @brief  Use current obj settings when drawing children instead of their settings */
+    int s_inherit_settings;           /**< @brief  Use current obj settings when drawing children instead of their settings.
+				       *  BV_DEPRECATED (Slice 9): use bsg_node_appearance_get/set with bsg_appearance::inherit_settings. */
 
     /* Settings that may be less necessary... */
     struct bv_scene_obj_old_settings s_old;
