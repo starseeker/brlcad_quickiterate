@@ -27,7 +27,9 @@
 #include "common.h"
 
 #include "bu/list.h"
+#include "bu/ptbl.h"
 #include "bv/util.h"
+#include "bv/view_sets.h"
 #include "bv/vlist.h"
 #include "bsg/util.h"
 
@@ -85,6 +87,13 @@ void
 bsg_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_list *src)
 {
     bv_vlist_copy(vlists, dest, src);
+}
+
+
+struct bu_ptbl *
+bsg_set_views(struct bview_set *s)
+{
+    return bv_set_views(s);
 }
 
 /*

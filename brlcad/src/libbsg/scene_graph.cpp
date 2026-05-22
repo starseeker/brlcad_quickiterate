@@ -50,7 +50,6 @@
 #include "bu/malloc.h"
 #include "bsg/defines.h"
 #include "bsg/util.h"
-#include "bv/view_sets.h"
 
 #include "bsg/visit.h"
 #include "bsg/scene_set.h"
@@ -69,7 +68,7 @@ bsg_scene_root_create(struct bview *v)
      * the active draw root from another view in the set.  This keeps secondary
      * views (e.g. libtclcad null-DM views) aligned with the GED draw tree. */
     if (!v->gv_draw_root && v->vset) {
-	struct bu_ptbl *views = bv_set_views(v->vset);
+	struct bu_ptbl *views = bsg_set_views(v->vset);
 	if (views) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 		struct bview *sv = (struct bview *)BU_PTBL_GET(views, i);

@@ -34,13 +34,21 @@ Slice 12 – BSG vlist alias layer and object-type flags
   * All BSG vlist macros in libbsg sources use BSG_* names.
   * All object-type flags (BV_VIEW_OBJS etc.) replaced with BSG_OBJ_* names.
   * All libbsg tests use bsg_view_init / bsg_view_free.
+
+Slice 13 – bsg_set_views wrapper; remove bv/view_sets.h from libbsg
+  * bsg/util.h: added bsg_set_views() declaration.
+  * src/libbsg/util.c: implements bsg_set_views (wraps bv_set_views).
+  * scene_graph.cpp: replaced bv/view_sets.h include and bv_set_views() call
+    with bsg_set_views().
+  * Result: zero direct bv/ includes remain in libbsg sources, except the
+    bridge util.c (intentional) and lod.cpp (deferred).
   * 11/11 libbsg tests pass; libdm/libged/libqtcad/dm-qtgl/dm-swrast/qged build.
-  * Remaining bv/ includes inside libbsg: util.c (bridge), lod.cpp (deferred),
-    scene_graph.cpp (bv/view_sets.h for bv_set_views — deferred to next slice).
 
 IN PROGRESS / NEXT STEPS
 --------------------------
 Slice 13 – bsg/view_sets.h: add bsg_set_views() wrapper; update scene_graph.cpp.
+Slice 13 – bsg_set_views wrapper; remove bv/view_sets.h from libbsg
+  ...see above...
 Slice 14 – Add BSG_NODE_GROUP factory wrappers for BV_CHILD_OBJS allocation
            pattern in draw_set.c / overlay.c; replace remaining bv_set_* calls.
 Slice 15 – Port remaining libbsg tests that still link against libbv as a

@@ -138,6 +138,14 @@ bsg_vlist_copy(struct bu_list *vlists,
                struct bu_list *dest,
                const struct bu_list *src);
 
+/**
+ * Return the table of views registered in the view-set @p s.
+ * BSG-namespaced wrapper around bv_set_views().
+ * Returns NULL when @p s is NULL.
+ */
+BSG_EXPORT extern struct bu_ptbl *
+bsg_set_views(struct bview_set *s);
+
 __END_DECLS
 
 #endif /* BSG_UTIL_H */
