@@ -629,6 +629,14 @@ toward full libbv removal.
    - Add the approved migration whitelist.
    - Mark new `bv.h`, `bv/*`, `libbv`, `bv_scene_obj`, and `bview` references
      outside the whitelist as failures in the developer check.
+   - Implementation artifact paths:
+     - `brlcad/doc/notes/libbv_migration_inventory.txt`
+     - `brlcad/doc/notes/libbv_migration_whitelist.txt`
+     - `brlcad/misc/check/libbv_migration_guardrail.py`
+   - Developer check command:
+     - `python3 brlcad/misc/check/libbv_migration_guardrail.py --check --source-root /path/to/brlcad`
+   - Refresh command:
+     - `python3 brlcad/misc/check/libbv_migration_guardrail.py --refresh --source-root /path/to/brlcad`
 
 2. BSG scene container slice
    - Add/complete the scene owner and scene-set APIs.

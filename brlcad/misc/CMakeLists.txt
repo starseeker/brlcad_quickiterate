@@ -91,6 +91,7 @@ set(
   check/adj_air.sh
   check/exp_air.sh
   check/overlaps.sh
+  check/libbv_migration_guardrail.py
   check/rtcheck.sh
   check/volume.sh
   check/gap.sh

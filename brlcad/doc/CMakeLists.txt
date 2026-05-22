@@ -240,6 +240,8 @@ cmakefiles(
   notes/cmake_vars.txt
   notes/csv_to_comgeom.txt
   notes/implicit_constraints.txt
+  notes/libbv_migration_inventory.txt
+  notes/libbv_migration_whitelist.txt
   notes/lcov.txt
   notes/struct_resource_removal.txt
   pad_file.xml.in
