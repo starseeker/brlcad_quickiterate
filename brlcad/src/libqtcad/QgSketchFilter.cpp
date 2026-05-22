@@ -35,6 +35,7 @@ extern "C" {
 #include "rt/geom.h"
 #include "rt/primitives/sketch.h"
 #include "rt/rt_ecmds.h"
+#include "bsg/camera.h"
 }
 
 #include "qtcad/QgSketchFilter.h"
@@ -143,8 +144,12 @@ QgSketchFilter::snap_vertex_uv(int sx, int sy,
 	return true;
 
     /* Model→view transform (including any edit transform) */
+    /* Phase S3-F: use snapshot for gv_model2view and gv_width. */
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    bsg_camera_snapshot_from_bview(&cam, v);
     mat_t m2v;
-    bn_mat_mul(m2v, v->gv_model2view, es->model_changes);
+    bn_mat_mul(m2v, cam.model2view, es->model_changes);
 
     /* Cursor in view space */
     vect_t cursor_v;
@@ -152,8 +157,8 @@ QgSketchFilter::snap_vertex_uv(int sx, int sy,
 
     /* Convert snap_px to view-space units.
      * One pixel = 2 / gv_width view units in X. */
-    fastf_t px_to_view = (v->gv_width > 0)
-	? (2.0 / (fastf_t)v->gv_width)
+    fastf_t px_to_view = (cam.width > 0)
+	? (2.0 / (fastf_t)cam.width)
 	: 0.005;
     fastf_t threshold2 = (snap_px * px_to_view) * (snap_px * px_to_view);
 
@@ -443,8 +448,12 @@ QgSketchPickSegmentFilter::eventFilter(QObject *, QEvent *e)
 	    return true;
 
 	/* Build model→view matrix including any edit transform */
+	/* Phase S3-F: use snapshot for gv_model2view. */
+	struct bsg_camera_snapshot cam_s;
+	bsg_camera_snapshot_init(&cam_s);
+	bsg_camera_snapshot_from_bview(&cam_s, v);
 	mat_t m2v;
-	bn_mat_mul(m2v, v->gv_model2view, es->model_changes);
+	bn_mat_mul(m2v, cam_s.model2view, es->model_changes);
 
 	/* Cursor in view space */
 	vect_t cursor_v;
@@ -783,8 +792,12 @@ QgSketchSetTangencyFilter::eventFilter(QObject *, QEvent *e)
 	    return true;
 
 	/* Build model→view matrix */
+	/* Phase S3-F: use snapshot for gv_model2view. */
+	struct bsg_camera_snapshot cam_c;
+	bsg_camera_snapshot_init(&cam_c);
+	bsg_camera_snapshot_from_bview(&cam_c, v);
 	mat_t m2v;
-	bn_mat_mul(m2v, v->gv_model2view, es->model_changes);
+	bn_mat_mul(m2v, cam_c.model2view, es->model_changes);
 
 	/* Cursor in view space */
 	vect_t cursor_v;
