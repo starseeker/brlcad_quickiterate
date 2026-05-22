@@ -29,6 +29,7 @@
 #include <ctype.h>
 #include <string.h>
 
+#include "bsg/camera.h"
 #include "../ged_private.h"
 
 
@@ -58,11 +59,15 @@ ged_grid2model_lu_core(struct ged *gedp, int argc, const char *argv[])
 	goto bad;
     scan[Z] = 0.0;
 
-    f = 1.0 / (gedp->ged_gvp->gv_scale * gedp->dbip->dbi_base2local);
+    /* Phase S3-L: use camera snapshot for gv_scale/model2view/view2model reads. */
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    bsg_camera_snapshot_from_bview(&cam, gedp->ged_gvp);
+    f = 1.0 / (cam.scale * gedp->dbip->dbi_base2local);
     VSCALE(diff, scan, f);
-    MAT4X3PNT(mo_view_pt, gedp->ged_gvp->gv_model2view, model_pt);
+    MAT4X3PNT(mo_view_pt, cam.model2view, model_pt);
     VADD2(view_pt, mo_view_pt, diff);
-    MAT4X3PNT(model_pt, gedp->ged_gvp->gv_view2model, view_pt);
+    MAT4X3PNT(model_pt, cam.view2model, view_pt);
     VSCALE(model_pt, model_pt, gedp->dbip->dbi_base2local);
     bn_encode_vect(gedp->ged_result_str, model_pt, 1);
 
