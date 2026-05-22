@@ -364,8 +364,11 @@ bsg_snap_grid_2d(const struct bsg_camera_snapshot *snap,
     fastf_t grid_units_h = (view_pt[X] - grid_origin[X]) * inv_grid_res_h;
     fastf_t grid_units_v = (view_pt[Y] - grid_origin[Y]) * inv_grid_res_v;
 
-    double _floor_h = floor(view_pt[X]);
-    double _floor_v = floor(view_pt[Y]);
+    /* Extract the integer (whole) and fractional parts in grid-unit space.
+     * Note: the floor/round calls return 'double'; we must assign to a
+     * double first before casting to int to avoid -Wbad-function-cast. */
+    double _floor_h = floor((double)grid_units_h);
+    double _floor_v = floor((double)grid_units_v);
     int nh = (int)_floor_h;
     int nv = (int)_floor_v;
 
