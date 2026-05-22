@@ -36,6 +36,7 @@ extern "C" {
 #include "bv/defines.h"
 #include "bv/lod.h"
 #include "bsg/appearance.h"
+#include "bsg/camera.h"
 #include "bsg/material.h"
 #include "bsg/node.h"
 #include "bsg/payload.h"
@@ -234,7 +235,13 @@ swrast_draw_vlist_fast(struct dm *dmp, struct bv_vlist *vp)
     if (w <= 0 || h <= 0)
 	return BRLCAD_ERROR;
 
-    fastf_t *xmat = pv->v->gv_model2view;
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    if (bsg_camera_snapshot_from_bview(&cam, pv->v) != 0) {
+	/* Keep initialized identity/projection defaults. */
+    }
+
+    fastf_t *xmat = cam.model2view;
     point_t lpnt, pnt;
     int have_lpnt = 0;
     point_t *pt_prev = NULL;
@@ -253,10 +260,10 @@ swrast_draw_vlist_fast(struct dm *dmp, struct bv_vlist *vp)
 	for (size_t i = 0; i < tvp->nused; i++, cmd++, pt++) {
 	    switch (*cmd) {
 		case BV_VLIST_MODEL_MAT:
-		    xmat = pv->v->gv_model2view;
+		    xmat = cam.model2view;
 		    continue;
 		case BV_VLIST_DISPLAY_MAT:
-		    xmat = pv->v->gv_model2view;
+		    xmat = cam.model2view;
 		    continue;
 		case BV_VLIST_POLY_START:
 		case BV_VLIST_POLY_VERTNORM:
@@ -266,7 +273,7 @@ swrast_draw_vlist_fast(struct dm *dmp, struct bv_vlist *vp)
 		case BV_VLIST_POLY_MOVE:
 		case BV_VLIST_LINE_MOVE:
 		case BV_VLIST_TRI_MOVE: {
-		    if (dmp->i->dm_perspective > 0) {
+		    if (cam.perspective_angle > 0.0) {
 			fastf_t dist = VDOT(*pt, &xmat[12]) + xmat[15];
 			if (dist <= 0.0) {
 			    pt_prev = pt;
@@ -289,7 +296,7 @@ swrast_draw_vlist_fast(struct dm *dmp, struct bv_vlist *vp)
 		case BV_VLIST_TRI_END: {
 		    if (!have_lpnt)
 			continue;
-		    if (dmp->i->dm_perspective > 0) {
+		    if (cam.perspective_angle > 0.0) {
 			fastf_t dist = VDOT(*pt, &xmat[12]) + xmat[15];
 			if (dist <= 0.0 && dist_prev <= 0.0) {
 			    dist_prev = dist;
@@ -488,6 +495,7 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
     struct bview *sv = bsg_node_view_get((const bsg_node *)s);
     int mode = scene_draw_mode(s);
     mat_t save_mat, draw_mat, obj_mat;
+    struct bsg_camera_snapshot cam;
 
     struct gl_vars *mvars = (struct gl_vars *)dmp->i->m_vars;
     GLdouble dpt[3];
@@ -498,6 +506,11 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
 	return BRLCAD_ERROR;
     if (mode < 0 || mode > 1)
 	return BRLCAD_ERROR;
+
+    bsg_camera_snapshot_init(&cam);
+    if (bsg_camera_snapshot_from_bview(&cam, sv) != 0) {
+	/* Keep initialized identity/projection defaults. */
+    }
 
     glGetFloatv(GL_LINE_WIDTH, &originalLineWidth);
 
@@ -582,8 +595,8 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
     if (h && h->dlist) {
 	if (mode == h->dlist_mode) {
 	    //bu_log("use dlist %d\n", h->dlist);
-	    MAT_COPY(save_mat, sv->gv_model2view);
-	    bn_mat_mul(draw_mat, sv->gv_model2view, obj_mat);
+	    MAT_COPY(save_mat, cam.model2view);
+	    bn_mat_mul(draw_mat, cam.model2view, obj_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(h->dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
@@ -619,8 +632,8 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
     } else {
 	bu_log("Not using dlist\n");
 	// Straight-up drawing - set up the matrix
-	MAT_COPY(save_mat, sv->gv_model2view);
-	bn_mat_mul(draw_mat, sv->gv_model2view, obj_mat);
+	MAT_COPY(save_mat, cam.model2view);
+	bn_mat_mul(draw_mat, cam.model2view, obj_mat);
 	dm_loadmatrix(dmp, draw_mat, 0);
     }
 
@@ -662,8 +675,8 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
 		bv_mesh_lod_memshrink(s);
 	    }
 
-	    MAT_COPY(save_mat, sv->gv_model2view);
-	    bn_mat_mul(draw_mat, sv->gv_model2view, obj_mat);
+	    MAT_COPY(save_mat, cam.model2view);
+	    bn_mat_mul(draw_mat, cam.model2view, obj_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(h->dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
@@ -772,8 +785,8 @@ gl_draw_tri(struct dm *dmp, const struct bv_mesh_lod *lod)
 	    /* notify registered sensors that the dlist was regenerated */
 	    dm_fire_dlist_sensors(dmp);
 
-	    MAT_COPY(save_mat, sv->gv_model2view);
-	    bn_mat_mul(draw_mat, sv->gv_model2view, obj_mat);
+	    MAT_COPY(save_mat, cam.model2view);
+	    bn_mat_mul(draw_mat, cam.model2view, obj_mat);
 	    dm_loadmatrix(dmp, draw_mat, 0);
 	    glCallList(h->dlist);
 	    dm_loadmatrix(dmp, save_mat, 0);
