@@ -87,6 +87,9 @@ _bsg_core_ensure(bsg_node *n)
     n->material = NULL;
     n->appearance = NULL;
     n->payload = NULL;
+    n->bsg_db_dir = NULL;
+    n->bsg_source_path = NULL;
+    n->bsg_ged_data = NULL;
     n->bsg_core_free_fn = _bsg_core_release;
     n->bsg_magic = BSG_NODE_CORE_MAGIC;
     return n;

@@ -3121,7 +3121,7 @@ BViewState::scene_obj(
     ud->tol = &wdbp->wdb_tol;
     ud->ttol = &wdbp->wdb_ttol;
     ud->mesh_c = dbis->gedp->ged_lod;
-    bsg_node_app_data_set((bsg_node *)sp, (void *)dp);
+    bsg_node_db_dir_set((bsg_node *)sp, dp);
     bsg_node_user_data_set((bsg_node *)sp, (void *)ud);
 
     // Get color from path, unless we're overridden
@@ -3539,7 +3539,7 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 	    // print path name, set view - otherwise empty
 	    dbis->print_path(&nso->bsg.bsg_name, cp);
 	    bsg_node_view_set((bsg_node *)nso, v);
-	    bsg_node_app_data_set((bsg_node *)nso, bsg_node_app_data_get((const bsg_node *)s));
+	    bsg_node_db_dir_set((bsg_node *)nso, bsg_node_db_dir_get((const bsg_node *)s));
 	    s_map[*k_it][mm_it->first] = nso;
 
 	    /* Phase B: replace the BSG-attached predecessor with the new

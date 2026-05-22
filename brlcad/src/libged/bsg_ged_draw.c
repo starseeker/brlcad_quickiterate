@@ -507,7 +507,7 @@ _sg_find_or_create_child_group(struct ged *gedp, struct bv_scene_obj *parent,
 
     /* Pure tree creation delegates to libbsg */
     bsg_node *child = bsg_group_ensure_child((bsg_node *)parent, v,
-                                              comp_name, (void *)dp);
+                                              comp_name, dp);
     if (!child)
         return NULL;
 

@@ -71,7 +71,7 @@ static struct directory *
 scene_directory(const struct bv_scene_obj *s)
 {
     struct db_full_path *fp = scene_source_path(s);
-    return (fp) ? DB_FULL_PATH_CUR_DIR(fp) : (struct directory *)bsg_node_app_data_get((const bsg_node *)s);
+    return (fp) ? DB_FULL_PATH_CUR_DIR(fp) : bsg_node_db_dir_get((const bsg_node *)s);
 }
 
 static int
@@ -1084,7 +1084,7 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 	db_full_path_init(sfp);
 	db_dup_full_path(sfp, path);
 	bsg_node_source_path_set((bsg_node *)s, (void *)sfp);
-	bsg_node_app_data_set((bsg_node *)s, (void *)DB_FULL_PATH_CUR_DIR(path));
+	bsg_node_db_dir_set((bsg_node *)s, DB_FULL_PATH_CUR_DIR(path));
 	bsg_node_transform_set((bsg_node *)s, *curr_mat);
 	bsg_node_draw_request_get((const bsg_node *)dd->g, &parent_request);
 	bsg_node_draw_request_set((bsg_node *)s, &parent_request);

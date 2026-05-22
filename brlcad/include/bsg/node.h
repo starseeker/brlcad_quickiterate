@@ -135,17 +135,49 @@ bsg_node_user_data_get(const bsg_node *n);
 BSG_EXPORT extern void
 bsg_node_user_data_set(bsg_node *n, void *data);
 
+/**
+ * Return the draw-path identity hint stored on @p n (@c bsg_source_path).
+ *
+ * This opaque slot carries an alternative (app-specific) encoding of the
+ * node's database path; the interpretation is caller-defined.  NULL means
+ * no path hint is stored.
+ *
+ * Returns NULL if @p n is NULL.
+ */
 BSG_EXPORT extern void *
 bsg_node_source_path_get(const bsg_node *n);
 
+/**
+ * Set the draw-path identity hint on @p n (@c bsg_source_path).
+ *
+ * No-op if @p n is NULL.
+ */
 BSG_EXPORT extern void
 bsg_node_source_path_set(bsg_node *n, void *path);
 
-BSG_EXPORT extern void *
-bsg_node_app_data_get(const bsg_node *n);
+/**
+ * Return the DB source-identity pointer stored on @p n (@c bsg_db_dir).
+ *
+ * For nodes created by GED draw paths this field carries the
+ * @c struct @c directory * of the last path component (leaf primitive/group).
+ * Non-drawn nodes return NULL.  Callers must cast the result to
+ * @c struct @c directory * before use.
+ *
+ * Returns NULL if @p n is NULL.
+ */
+struct directory; /* forward declaration — full definition in rt/directory.h */
+BSG_EXPORT extern struct directory *
+bsg_node_db_dir_get(const bsg_node *n);
 
+/**
+ * Set the DB source-identity pointer on @p n (@c bsg_db_dir).
+ *
+ * Stores a pointer to the database directory entry that is the primary
+ * source for this draw node.  Pass NULL to clear the association.
+ * No-op if @p n is NULL.
+ */
 BSG_EXPORT extern void
-bsg_node_app_data_set(bsg_node *n, void *data);
+bsg_node_db_dir_set(bsg_node *n, struct directory *dp);
 
 BSG_EXPORT extern struct bview *
 bsg_node_view_get(const bsg_node *n);
@@ -295,7 +327,7 @@ BSG_EXPORT extern void
 bsg_node_set_drawn_rev(bsg_node *n, uint64_t rev);
 
 /**
- * Return the GED-private data pointer stored on @p n (@c s_u_data).
+ * Return the GED-private data pointer stored on @p n (@c bsg_ged_data).
  *
  * This field carries a `struct ged_bv_data *` for shapes created by libged
  * draw paths.  View-only shapes that were not created by GED return NULL.
@@ -307,7 +339,7 @@ BSG_EXPORT extern void *
 bsg_node_ged_data_get(const bsg_node *n);
 
 /**
- * Set the GED-private data pointer on @p n (@c s_u_data).
+ * Set the GED-private data pointer on @p n (@c bsg_ged_data).
  *
  * Stores an opaque pointer that libged draw helpers use to associate a
  * `struct ged_bv_data *` with each drawn shape.  No-op if @p n is NULL.

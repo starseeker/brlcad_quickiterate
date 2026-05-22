@@ -2123,7 +2123,7 @@ bv_obj_get_child(struct bv_scene_obj *sp)
     bu_vls_sprintf(&s->bsg.bsg_name, "child:%s:%zd", bu_vls_cstr(&sp->bsg.bsg_name), BU_PTBL_LEN(&sp->bsg.bsg_children));
 
     s->s_v = sp->s_v;
-    bsg_node_app_data_set((bsg_node *)s, bsg_node_app_data_get((const bsg_node *)sp));
+    bsg_node_db_dir_set((bsg_node *)s, bsg_node_db_dir_get((const bsg_node *)sp));
     s->free_scene_obj = sp->free_scene_obj;
     s->vlfree = sp->vlfree;
 
@@ -2186,7 +2186,6 @@ bv_obj_reset(struct bv_scene_obj *s)
     s->csg_obj = 0;
     s->current = 0;
     s->curve_scale = 0;
-    s->dp = NULL;
     s->draw_data = NULL;
     s->have_bbox = 0;
     s->mesh_obj = 0;
@@ -2198,7 +2197,10 @@ bv_obj_reset(struct bv_scene_obj *s)
     s->bsg.bsg_force_draw = 0;
     s->s_i_data = NULL;
     s->bsg.bsg_iflag = DOWN;
-    s->s_path = NULL;
+    /* Slice 5: source identity fields live in bsg_node inline storage */
+    s->bsg.bsg_db_dir = NULL;
+    s->bsg.bsg_source_path = NULL;
+    s->bsg.bsg_ged_data = NULL;
     s->s_size = 0;
     s->s_soldash = 0;
     bsg_node_set_update_callback((bsg_node *)s, NULL);
@@ -2253,7 +2255,7 @@ bv_obj_put(struct bv_scene_obj *s)
 
     // Clear names
     bu_vls_trunc(&s->bsg.bsg_name, 0);
-    s->s_path = NULL;
+    /* bsg_source_path is cleared by bv_obj_reset via bsg.bsg_source_path */
 
     if (s->otbl)
 	bu_ptbl_rm(s->otbl, (long *)s);

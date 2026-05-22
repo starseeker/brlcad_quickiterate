@@ -529,7 +529,7 @@ bv_plot_vlblock(FILE *fp, const struct bv_vlblock *vbp)
 	BU_LIST_DEQUEUE(&((p)->bsg.l)); \
     } \
     bu_vls_init(&(p)->bsg.bsg_name); \
-    (p)->s_path = NULL; \
+    (p)->bsg.bsg_source_path = NULL; \
     BU_LIST_INIT( &((p)->s_vlist) ); }
 
 #define FREE_BV_SCENE_OBJ(p, fp, vlf) { \

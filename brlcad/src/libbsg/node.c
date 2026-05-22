@@ -80,7 +80,6 @@ _bsg_node_alloc(struct bview *v, unsigned long long kind, int as_draw_child)
     s->csg_obj = 0;
     s->current = 0;
     s->curve_scale = 0;
-    s->dp = NULL;
     s->draw_data = NULL;
     s->have_bbox = 0;
     s->mesh_obj = 0;
@@ -92,7 +91,6 @@ _bsg_node_alloc(struct bview *v, unsigned long long kind, int as_draw_child)
     s->bsg.bsg_force_draw = 0;
     s->s_i_data = NULL;
     s->bsg.bsg_iflag = DOWN;
-    s->s_path = NULL;
     s->s_size = 0;
     s->s_soldash = 0;
     s->view_scale = 0;
@@ -101,6 +99,10 @@ _bsg_node_alloc(struct bview *v, unsigned long long kind, int as_draw_child)
     s->s_bbox_cached = 0;
     s->s_drawn_rev = 0;
     s->bsg.bsg_magic = 0;
+    /* Slice 5: source identity inline fields are zeroed via BU_GET/memset */
+    s->bsg.bsg_db_dir = NULL;
+    s->bsg.bsg_source_path = NULL;
+    s->bsg.bsg_ged_data = NULL;
 
     if (as_draw_child)
 	s->bsg.bsg_kind = BV_CHILD_OBJS;
@@ -424,7 +426,7 @@ bsg_node_source_path_get(const bsg_node *n)
     if (!n)
 	return NULL;
 
-    return ((const struct bv_scene_obj *)n)->s_path;
+    return n->bsg_source_path;
 }
 
 
@@ -434,27 +436,27 @@ bsg_node_source_path_set(bsg_node *n, void *path)
     if (!n)
 	return;
 
-    ((struct bv_scene_obj *)n)->s_path = path;
+    n->bsg_source_path = path;
 }
 
 
-void *
-bsg_node_app_data_get(const bsg_node *n)
+struct directory *
+bsg_node_db_dir_get(const bsg_node *n)
 {
     if (!n)
 	return NULL;
 
-    return ((const struct bv_scene_obj *)n)->dp;
+    return (struct directory *)n->bsg_db_dir;
 }
 
 
 void
-bsg_node_app_data_set(bsg_node *n, void *data)
+bsg_node_db_dir_set(bsg_node *n, struct directory *dp)
 {
     if (!n)
 	return;
 
-    ((struct bv_scene_obj *)n)->dp = data;
+    n->bsg_db_dir = (void *)dp;
 }
 
 
@@ -623,7 +625,7 @@ bsg_node_ged_data_get(const bsg_node *n)
     if (!n)
 	return NULL;
 
-    return ((const struct bv_scene_obj *)n)->s_u_data;
+    return n->bsg_ged_data;
 }
 
 
@@ -633,7 +635,7 @@ bsg_node_ged_data_set(bsg_node *n, void *data)
     if (!n)
 	return;
 
-    ((struct bv_scene_obj *)n)->s_u_data = data;
+    n->bsg_ged_data = data;
 }
 
 

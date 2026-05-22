@@ -69,6 +69,12 @@ brlcad_add_test(NAME libbsg_hud COMMAND test_bsg_hud)
 brlcad_addexec(test_bsg_node_core test_node_core.c "libbsg;libbv;libbu" TEST)
 brlcad_add_test(NAME libbsg_node_core COMMAND test_bsg_node_core)
 
+#
+# Slice 5: source identity inline storage (db_dir / source_path / ged_data)
+#
+brlcad_addexec(test_bsg_source_identity test_source_identity.c "libbsg;libbv;libbu" TEST)
+brlcad_add_test(NAME libbsg_source_identity COMMAND test_bsg_source_identity)
+
 cmakefiles(
   CMakeLists.txt
   test_arb8.c
@@ -85,6 +91,7 @@ cmakefiles(
   test_render.c
   test_scene_graph.c
   test_selection.c
+  test_source_identity.c
   test_view_scope.c
   test_settings.c
   test_vlist.c

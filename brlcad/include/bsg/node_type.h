@@ -109,6 +109,10 @@ struct bsg_node {
     void *appearance;
     void *payload;
     void (*bsg_core_free_fn)(struct bsg_node *);
+    /* Slice 5 source identity: inline storage migrated from bv_scene_obj */
+    void *bsg_db_dir;      /**< @brief DB source identity (struct directory *); not owned */
+    void *bsg_source_path; /**< @brief draw-path identity (void *); not owned */
+    void *bsg_ged_data;    /**< @brief GED-private context (struct ged_bv_data *); not owned */
 };
 
 __END_DECLS

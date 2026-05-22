@@ -51,7 +51,7 @@ draw_points(struct bv_scene_obj *s)
 	return BRLCAD_OK; /* nothing to do is fine */
 
     struct db_full_path *fp = (struct db_full_path *)bsg_node_source_path_get((const bsg_node *)s);
-    struct directory *dp = (fp) ? DB_FULL_PATH_CUR_DIR(fp) : (struct directory *)bsg_node_app_data_get((const bsg_node *)s);
+    struct directory *dp = (fp) ? DB_FULL_PATH_CUR_DIR(fp) : bsg_node_db_dir_get((const bsg_node *)s);
     if (!dp)
 	return BRLCAD_OK; /* nothing to do is fine */
 
