@@ -171,10 +171,17 @@ __BEGIN_DECLS
  * per-axis display options.  Replaces ad-hoc use of @c bv_axes.
  */
 #define BSG_PAYLOAD_AXES    0x1000000000000ULL /**< @brief axes overlay payload (bit 48) */
+/**
+ * Slice 7 (bv_scene_obj_migrate):
+ * Polygon overlay payload — stores a view-space polygon (bg_polygon),
+ * shape type, view plane, fill parameters, and edit cursor state.
+ * Replaces ad-hoc use of @c bv_polygon stored in @c s_i_data.
+ */
+#define BSG_PAYLOAD_POLYGON 0x2000000000000ULL /**< @brief polygon overlay payload (bit 49) */
 
 /** Mask covering all payload bits (expression form avoids stale literal masks
  * when payload flags are extended). */
-#define BSG_PAYLOAD_MASK    (BSG_PAYLOAD_VLIST | BSG_PAYLOAD_CSG | BSG_PAYLOAD_MESH | BSG_PAYLOAD_BREP | BSG_PAYLOAD_OVERLAY | BSG_PAYLOAD_IMAGE | BSG_PAYLOAD_TEXT | BSG_PAYLOAD_AXES)
+#define BSG_PAYLOAD_MASK    (BSG_PAYLOAD_VLIST | BSG_PAYLOAD_CSG | BSG_PAYLOAD_MESH | BSG_PAYLOAD_BREP | BSG_PAYLOAD_OVERLAY | BSG_PAYLOAD_IMAGE | BSG_PAYLOAD_TEXT | BSG_PAYLOAD_AXES | BSG_PAYLOAD_POLYGON)
 
 /**
  * bsg_node is the first-class BSG scene-graph node type.

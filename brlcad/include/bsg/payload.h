@@ -59,7 +59,14 @@ enum bsg_payload_type {
      * Stores axes position, size, line width, and per-axis colors.
      * See bsg/axes.h for the full accessor API.
      */
-    BSG_PAYLOAD_TYPE_AXES
+    BSG_PAYLOAD_TYPE_AXES,
+    /**
+     * Slice 7: polygon overlay payload.
+     * Stores a view-space bg_polygon, shape type, view plane, fill
+     * parameters, and edit-cursor indices.
+     * See bsg/polygon.h for the full accessor API.
+     */
+    BSG_PAYLOAD_TYPE_POLYGON
 };
 
 struct bsg_payload {

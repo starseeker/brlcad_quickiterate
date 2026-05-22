@@ -21,6 +21,8 @@ set(
   node_transform.c
   overlay.c
   payload.c
+  polygon.c
+  polygon_fill.cpp
   render.c
   scene_graph.cpp
   selection.c
@@ -69,6 +71,8 @@ cmakefiles(
   node_transform.c
   overlay.c
   payload.c
+  polygon.c
+  polygon_fill.cpp
   render.c
   selection.c
   sensor.c
