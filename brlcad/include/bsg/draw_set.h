@@ -98,11 +98,10 @@ bsg_group_find_child(bsg_node *parent, const char *name);
  * Otherwise a new BSG_NODE_GROUP node is allocated via @c bsg_node_create_child()
  * on @p v, linked into the tree, and returned.
  *
- * @p dp_hint is an opaque pointer stored verbatim in the new child's
- * @c dp field (type @c void*).  Pass @c NULL if the caller has no
- * corresponding database directory pointer.  For GED draw-trees the
- * caller should pass @c (void*)dp from a prior @c db_lookup() call so
- * that path-matching logic has a fast dp handle.
+ * @p dp is an optional first user-pointer value stored on the new child
+ * node (slot 0 of bsg_node_uptr_set()).  Pass @c NULL if the caller has
+ * no value to associate.  The interpretation of this slot is
+ * caller-defined; libbsg stores it opaquely.
  *
  * Returns NULL on allocation failure.
  *
@@ -112,7 +111,7 @@ bsg_group_find_child(bsg_node *parent, const char *name);
  */
 BSG_EXPORT extern bsg_node *
 bsg_group_ensure_child(bsg_node *parent, struct bview *v,
-		       const char *name, void *dp_hint);
+		       const char *name, void *dp);
 
 
 /**

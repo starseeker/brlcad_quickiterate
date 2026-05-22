@@ -35,6 +35,7 @@
 #include "bv/plot3.h"
 #include "bv/vlist.h"
 #include "bv/util.h"
+#include "bsg/node.h"
 
 size_t
 bv_vlist_cmd_cnt(struct bv_vlist *vlist)
@@ -529,7 +530,7 @@ bv_plot_vlblock(FILE *fp, const struct bv_vlblock *vbp)
 	BU_LIST_DEQUEUE(&((p)->bsg.l)); \
     } \
     bu_vls_init(&(p)->bsg.bsg_name); \
-    (p)->s_path = NULL; \
+    bsg_node_uptr_set((bsg_node *)&(p)->bsg, 1, NULL); \
     BU_LIST_INIT( &((p)->s_vlist) ); }
 
 #define FREE_BV_SCENE_OBJ(p, fp, vlf) { \

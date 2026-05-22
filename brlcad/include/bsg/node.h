@@ -135,17 +135,49 @@ bsg_node_user_data_get(const bsg_node *n);
 BSG_EXPORT extern void
 bsg_node_user_data_set(bsg_node *n, void *data);
 
+/**
+ * Maximum valid index for bsg_node_uptr_get() / bsg_node_uptr_set().
+ *
+ * Valid indices are 0 .. BSG_NODE_UPTR_MAXIND (inclusive).
+ * Currently three opaque pointer slots (0, 1, 2) are available.
+ * The number may increase in future releases; callers must not assume
+ * any particular value beyond the one visible in their compile-time
+ * header.
+ */
+#define BSG_NODE_UPTR_MAXIND 2
+
+/**
+ * Return the opaque user pointer stored at slot @p idx of @p n.
+ *
+ * All three slots are independent; libbsg assigns no meaning to any of
+ * them.  Returns NULL when @p n is NULL, when @p idx is out of range
+ * (0 .. BSG_NODE_UPTR_MAXIND), or when no value has been stored yet.
+ */
 BSG_EXPORT extern void *
-bsg_node_source_path_get(const bsg_node *n);
+bsg_node_uptr_get(const bsg_node *n, int idx);
 
+/**
+ * Store @p ptr in user-pointer slot @p idx of @p n.
+ *
+ * If @p ptr is NULL and no storage has been allocated yet the call is a
+ * cheap no-op.  Storage is allocated lazily on the first non-NULL set.
+ * All slots are freed automatically when the node is destroyed.
+ *
+ * No-op when @p n is NULL or @p idx is out of range.
+ */
 BSG_EXPORT extern void
-bsg_node_source_path_set(bsg_node *n, void *path);
+bsg_node_uptr_set(bsg_node *n, int idx, void *ptr);
 
-BSG_EXPORT extern void *
-bsg_node_app_data_get(const bsg_node *n);
-
+/**
+ * Release internal storage for all user-pointer slots on @p n and reset
+ * every slot to NULL.
+ *
+ * After this call bsg_node_uptr_get() returns NULL for all indices.  The
+ * call is a cheap no-op when no non-NULL value has ever been stored.
+ * No-op when @p n is NULL.
+ */
 BSG_EXPORT extern void
-bsg_node_app_data_set(bsg_node *n, void *data);
+bsg_node_uptr_clear(bsg_node *n);
 
 BSG_EXPORT extern struct bview *
 bsg_node_view_get(const bsg_node *n);
@@ -293,27 +325,6 @@ bsg_node_drawn_rev(const bsg_node *n);
  */
 BSG_EXPORT extern void
 bsg_node_set_drawn_rev(bsg_node *n, uint64_t rev);
-
-/**
- * Return the GED-private data pointer stored on @p n (@c s_u_data).
- *
- * This field carries a `struct ged_bv_data *` for shapes created by libged
- * draw paths.  View-only shapes that were not created by GED return NULL.
- * Callers should cast the result to the appropriate type before use.
- *
- * Returns NULL if @p n is NULL.
- */
-BSG_EXPORT extern void *
-bsg_node_ged_data_get(const bsg_node *n);
-
-/**
- * Set the GED-private data pointer on @p n (@c s_u_data).
- *
- * Stores an opaque pointer that libged draw helpers use to associate a
- * `struct ged_bv_data *` with each drawn shape.  No-op if @p n is NULL.
- */
-BSG_EXPORT extern void
-bsg_node_ged_data_set(bsg_node *n, void *data);
 
 /**
  * Function pointer type for node lifecycle callbacks.

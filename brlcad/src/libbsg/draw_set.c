@@ -87,7 +87,7 @@ bsg_group_find_child(bsg_node *parent, const char *name)
 
 bsg_node *
 bsg_group_ensure_child(bsg_node *parent, struct bview *v,
-		       const char *name, void *dp_hint)
+		       const char *name, void *dp)
 {
     if (!parent || !name)
 	return NULL;
@@ -107,7 +107,7 @@ bsg_group_ensure_child(bsg_node *parent, struct bview *v,
 	return NULL;
 
     child->bsg.bsg_iflag = DOWN;
-    bsg_node_app_data_set((bsg_node *)child, dp_hint);
+    bsg_node_uptr_set((bsg_node *)child, 0, dp);
     bsg_node_set_name((bsg_node *)child, name);
     bsg_node_add_child(parent, (bsg_node *)child);
 
@@ -262,7 +262,7 @@ bsg_erase_nested_subpath(bsg_node *parent_node,
 		    (struct bv_scene_obj *)BU_PTBL_GET(&cur->bsg.bsg_children, j);
 		if (!(c->bsg.bsg_kind & BSG_NODE_SHAPE))
 		    continue;
-		if (!match_fn || match_fn((const bsg_node *)c, c->s_u_data, match_ctx))
+		if (!match_fn || match_fn((const bsg_node *)c, bsg_node_uptr_get((const bsg_node *)c, 2), match_ctx))
 		    bu_ptbl_ins(&snap, (long *)c);
 	    }
 	    for (size_t j = 0; j < BU_PTBL_LEN(&snap); j++) {

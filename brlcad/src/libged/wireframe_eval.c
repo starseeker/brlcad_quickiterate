@@ -1805,7 +1805,7 @@ draw_m3(struct bv_scene_obj *s)
 
     dgcdp.dbip = d->dbip;
     dgcdp.do_polysolids = 0;
-    dgcdp.fp = (struct db_full_path *)bsg_node_source_path_get((const bsg_node *)s);
+    dgcdp.fp = (struct db_full_path *)bsg_node_uptr_get((const bsg_node *)s, 1);
     dgcdp.tol = d->tol;
     dgcdp.ttol = d->ttol;
     dgcdp.vlfree = s->vlfree;

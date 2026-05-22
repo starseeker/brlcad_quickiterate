@@ -88,8 +88,8 @@ _matpick_topmat_cb(bsg_node *n, void *ud)
     struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
     struct _matpick_data *d = (struct _matpick_data *)ud;
     size_t j;
-    if (!bsg_node_ged_data_get((bsg_node *)sp)) return 1;
-    struct ged_bv_data *bdatas = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)sp);
+    if (!bsg_node_uptr_get((bsg_node *)sp, 2)) return 1;
+    struct ged_bv_data *bdatas = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)sp, 2);
     for (j = 0; j <= d->ipathpos; j++) {
 	if (DB_FULL_PATH_GET(&bdatas->s_fullpath, j) !=
 	    DB_FULL_PATH_GET(&d->bdata->s_fullpath, j))
@@ -156,8 +156,8 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	return TCL_OK;
     }
 
-    if (illump != NULL && bsg_node_ged_data_get((bsg_node *)illump) != NULL)
-	bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)illump);
+    if (illump != NULL && bsg_node_uptr_get((bsg_node *)illump, 2) != NULL)
+	bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
 
     if (s->global_editing_state == ST_O_PATH && bdata) {
 	if (argc == 1 || *argv[1] == 'f') {
@@ -290,10 +290,10 @@ f_matpick(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
     if (not_state(s, ST_O_PATH, "Object Edit matrix pick"))
 	return TCL_ERROR;
 
-    if (!bsg_node_ged_data_get((bsg_node *)illump))
+    if (!bsg_node_uptr_get((bsg_node *)illump, 2))
 	return TCL_ERROR;
 
-    bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)illump);
+    bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
 
     if ((cp = strchr(argv[1], '/')) != NULL) {
 	struct directory *d0, *d1;
@@ -403,8 +403,8 @@ f_mouse(
 	return TCL_ERROR;
     }
 
-    if (illump && bsg_node_ged_data_get((bsg_node *)illump))
-	bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)illump);
+    if (illump && bsg_node_uptr_get((bsg_node *)illump, 2))
+	bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
 
     up = atoi(argv[1]);
     xpos = atoi(argv[2]);

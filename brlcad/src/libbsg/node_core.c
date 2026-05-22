@@ -85,6 +85,11 @@ _bsg_core_release(struct bsg_node *core)
 	bsg_payload_destroy((struct bsg_payload *)core->payload);
 	core->payload = NULL;
     }
+
+    if (core->_uptr_impl) {
+	bu_free(core->_uptr_impl, "bsg_node_uptr_impl");
+	core->_uptr_impl = NULL;
+    }
 }
 
 

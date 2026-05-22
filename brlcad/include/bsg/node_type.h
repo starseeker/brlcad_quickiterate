@@ -109,6 +109,13 @@ struct bsg_node {
     void *appearance;
     void *payload;
     void (*bsg_core_free_fn)(struct bsg_node *);
+    /**
+     * Opaque pointer to heap-allocated user-pointer storage.
+     * Only allocated when a caller stores a non-NULL value via
+     * bsg_node_uptr_set().  Freed by _bsg_core_release().
+     * Callers must use bsg_node_uptr_get/set(); do NOT access directly.
+     */
+    void *_uptr_impl;
 };
 
 __END_DECLS

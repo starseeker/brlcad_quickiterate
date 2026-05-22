@@ -84,8 +84,8 @@ _view_obj_walk_bsg(struct view_obj_walk_state &w, struct bv_scene_obj *root)
 
 	struct bv_scene_obj *s = c;
 	if (bsg_node_has_kind((const bsg_node *)c, BSG_NODE_VIEW_REF)
-	    && bsg_node_source_path_get((const bsg_node *)c))
-	    s = (struct bv_scene_obj *)bsg_node_source_path_get((const bsg_node *)c);
+	    && bsg_node_uptr_get((const bsg_node *)c, 1))
+	    s = (struct bv_scene_obj *)bsg_node_uptr_get((const bsg_node *)c, 1);
 
 	if (s && BU_VLS_IS_INITIALIZED(&s->bsg.bsg_name)) {
 	    int is_view = bsg_node_has_kind((const bsg_node *)s, BV_VIEW_OBJS);

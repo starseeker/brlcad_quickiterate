@@ -42,12 +42,12 @@
               struct ged_bv_data *bdata; \
               BU_GET(bdata, struct ged_bv_data); \
               db_full_path_init(&bdata->s_fullpath); \
-              bsg_node_ged_data_set((bsg_node *)(p), (void *)bdata); \
+              bsg_node_uptr_set((bsg_node *)(p), 2, (void *)bdata); \
           } else { \
               p = BU_LIST_NEXT(bv_scene_obj, fp); \
               BU_LIST_DEQUEUE(&((p)->bsg.l)); \
-              if (bsg_node_ged_data_get((bsg_node *)(p))) { \
-                  struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)(p)); \
+              if (bsg_node_uptr_get((bsg_node *)(p), 2)) { \
+                  struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)(p), 2); \
                   bdata->s_fullpath.fp_len = 0; \
               } \
           } \
@@ -145,8 +145,8 @@ drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const str
 	bsg_node_set_line_style((bsg_node *)sp,
 	    dashflag ? BSG_APPEARANCE_LINE_DASHED : BSG_APPEARANCE_LINE_SOLID);
 	bsg_node_set_legacy_eflag((bsg_node *)sp, 0); /* This is a solid */
-	if (bsg_node_ged_data_get((bsg_node *)sp)) {
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)sp);
+	if (bsg_node_uptr_get((bsg_node *)sp, 2)) {
+	    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)sp, 2);
 	    db_dup_full_path(&bdata->s_fullpath, pathp);
 	}
 	if (tsp)
@@ -186,9 +186,9 @@ replot_original_solid(struct mged_state *s, struct bv_scene_obj *sp)
     if (s->dbip == DBI_NULL)
 	return 0;
 
-    if (!bsg_node_ged_data_get((bsg_node *)sp))
+    if (!bsg_node_uptr_get((bsg_node *)sp, 2))
 	return 0;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)sp);
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)sp, 2);
     dp = LAST_SOLID(bdata);
     if (bsg_node_legacy_eflag((const bsg_node *)sp)) {
 	Tcl_AppendResult(s->interp, "replot_original_solid(", dp->d_namep,
@@ -259,9 +259,9 @@ replot_modified_solid(
     transform_editing_solid(s, &intern, mat, ip, 0);
 
     if (OBJ[ip->idb_type].ft_plot(&vhead, &intern, &s->tol.ttol, &s->tol.tol, NULL) < 0) {
-	if (!bsg_node_ged_data_get((bsg_node *)sp))
+	if (!bsg_node_uptr_get((bsg_node *)sp, 2))
 	    return -1;
-	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)sp);
+	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)sp, 2);
 	if (bdata->s_fullpath.fp_len > 0)
 	    Tcl_AppendResult(s->interp, LAST_SOLID(bdata)->d_namep,
 		    ": re-plot failure\n", (char *)NULL);
@@ -284,9 +284,9 @@ add_solid_path_to_result(
     struct bv_scene_obj *sp)
 {
     struct bu_vls str = BU_VLS_INIT_ZERO;
-    if (!sp || !bsg_node_ged_data_get((bsg_node *)sp))
+    if (!sp || !bsg_node_uptr_get((bsg_node *)sp, 2))
 	return;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)sp);
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)sp, 2);
     db_path_to_vls(&str, &bdata->s_fullpath);
     Tcl_AppendResult(interp, bu_vls_addr(&str), " ", NULL);
     bu_vls_free(&str);

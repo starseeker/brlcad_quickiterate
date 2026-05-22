@@ -80,7 +80,6 @@ _bsg_node_alloc(struct bview *v, unsigned long long kind, int as_draw_child)
     s->csg_obj = 0;
     s->current = 0;
     s->curve_scale = 0;
-    s->dp = NULL;
     s->draw_data = NULL;
     s->have_bbox = 0;
     s->mesh_obj = 0;
@@ -92,7 +91,6 @@ _bsg_node_alloc(struct bview *v, unsigned long long kind, int as_draw_child)
     s->bsg.bsg_force_draw = 0;
     s->s_i_data = NULL;
     s->bsg.bsg_iflag = DOWN;
-    s->s_path = NULL;
     s->s_size = 0;
     s->s_soldash = 0;
     s->view_scale = 0;
@@ -101,6 +99,7 @@ _bsg_node_alloc(struct bview *v, unsigned long long kind, int as_draw_child)
     s->s_bbox_cached = 0;
     s->s_drawn_rev = 0;
     s->bsg.bsg_magic = 0;
+    /* _uptr_impl is NULL: BU_ALLOC zero-initializes the allocation */
 
     if (as_draw_child)
 	s->bsg.bsg_kind = BV_CHILD_OBJS;
@@ -419,42 +418,39 @@ bsg_node_user_data_set(bsg_node *n, void *data)
 
 
 void *
-bsg_node_source_path_get(const bsg_node *n)
+bsg_node_uptr_get(const bsg_node *n, int idx)
 {
-    if (!n)
+    if (!n || idx < 0 || idx > BSG_NODE_UPTR_MAXIND)
 	return NULL;
-
-    return ((const struct bv_scene_obj *)n)->s_path;
+    if (!n->_uptr_impl)
+	return NULL;
+    return ((const struct bsg_node_uptr_impl *)n->_uptr_impl)->u[idx];
 }
 
 
 void
-bsg_node_source_path_set(bsg_node *n, void *path)
+bsg_node_uptr_set(bsg_node *n, int idx, void *ptr)
 {
-    if (!n)
+    if (!n || idx < 0 || idx > BSG_NODE_UPTR_MAXIND)
 	return;
-
-    ((struct bv_scene_obj *)n)->s_path = path;
-}
-
-
-void *
-bsg_node_app_data_get(const bsg_node *n)
-{
-    if (!n)
-	return NULL;
-
-    return ((const struct bv_scene_obj *)n)->dp;
+    /* Skip allocation when storing NULL into an uninitialised impl. */
+    if (!ptr && !n->_uptr_impl)
+	return;
+    _bsg_core_ensure(n);
+    if (!n->_uptr_impl)
+	n->_uptr_impl = bu_calloc(1, sizeof(struct bsg_node_uptr_impl),
+				  "bsg_node_uptr_impl");
+    ((struct bsg_node_uptr_impl *)n->_uptr_impl)->u[idx] = ptr;
 }
 
 
 void
-bsg_node_app_data_set(bsg_node *n, void *data)
+bsg_node_uptr_clear(bsg_node *n)
 {
-    if (!n)
+    if (!n || !n->_uptr_impl)
 	return;
-
-    ((struct bv_scene_obj *)n)->dp = data;
+    bu_free(n->_uptr_impl, "bsg_node_uptr_impl");
+    n->_uptr_impl = NULL;
 }
 
 
@@ -614,26 +610,6 @@ bsg_node_set_drawn_rev(bsg_node *n, uint64_t rev)
 	return;
 
     ((struct bv_scene_obj *)n)->s_drawn_rev = rev;
-}
-
-
-void *
-bsg_node_ged_data_get(const bsg_node *n)
-{
-    if (!n)
-	return NULL;
-
-    return ((const struct bv_scene_obj *)n)->s_u_data;
-}
-
-
-void
-bsg_node_ged_data_set(bsg_node *n, void *data)
-{
-    if (!n)
-	return;
-
-    ((struct bv_scene_obj *)n)->s_u_data = data;
 }
 
 

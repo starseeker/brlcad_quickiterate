@@ -75,8 +75,8 @@ create_text_overlay(struct mged_state *s, struct bu_vls *vp)
      * Check if the illuminated solid still exists or it has been killed
      * before Accept was clicked.
      */
-    if (MEDIT(s)->edit_flag >= 0 && illump != NULL && bsg_node_ged_data_get((bsg_node *)illump) != NULL) {
-	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)illump);
+    if (MEDIT(s)->edit_flag >= 0 && illump != NULL && bsg_node_uptr_get((bsg_node *)illump, 2) != NULL) {
+	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
 
 	dp = LAST_SOLID(bdata);
 
@@ -97,8 +97,8 @@ create_text_overlay(struct mged_state *s, struct bu_vls *vp)
     }
 
     /* display path info for object editing also */
-    if (s->global_editing_state == ST_O_EDIT && illump != NULL && bsg_node_ged_data_get((bsg_node *)illump) != NULL) {
-	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)illump);
+    if (s->global_editing_state == ST_O_EDIT && illump != NULL && bsg_node_uptr_get((bsg_node *)illump, 2) != NULL) {
+	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
 
 	bu_vls_strcat(vp, "** PATH --  ");
 	db_path_to_vls(vp, &bdata->s_fullpath);
@@ -241,8 +241,8 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 
     /* Set the Tcl variables to the appropriate values. */
 
-    if (illump != NULL && bsg_node_ged_data_get((bsg_node *)illump) != NULL) {
-	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)illump);
+    if (illump != NULL && bsg_node_uptr_get((bsg_node *)illump, 2) != NULL) {
+	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
 
 	struct bu_vls path_lhs = BU_VLS_INIT_ZERO;
 	struct bu_vls path_rhs = BU_VLS_INIT_ZERO;
@@ -421,10 +421,10 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 	/*
 	 * Print information about object illuminated
 	 */
-	if (illump != NULL && bsg_node_ged_data_get((bsg_node *)illump) != NULL &&
+	if (illump != NULL && bsg_node_uptr_get((bsg_node *)illump, 2) != NULL &&
 	    (s->global_editing_state == ST_O_PATH || s->global_editing_state==ST_O_PICK || s->global_editing_state==ST_S_PICK)) {
 
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)illump);
+	    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
 
 	    for (i=0; i < bdata->s_fullpath.fp_len; i++) {
 		if (i == (size_t)ipathpos  &&  s->global_editing_state == ST_O_PATH) {
@@ -588,9 +588,9 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 	Tcl_SetVar(s->interp, bu_vls_addr(&vls), "", TCL_GLOBAL_ONLY);
     }
 
-    if (illump != NULL && bsg_node_ged_data_get((bsg_node *)illump) != NULL) {
+    if (illump != NULL && bsg_node_uptr_get((bsg_node *)illump, 2) != NULL) {
 
-	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)illump);
+	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)illump, 2);
 
 	if (mged_variables->mv_faceplate && ss_line_not_drawn) {
 	    bu_vls_trunc(&vls, 0);

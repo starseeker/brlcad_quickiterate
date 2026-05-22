@@ -55,9 +55,9 @@ solid_report_cb(struct bv_scene_obj *sp, void *userdata)
 	size_t nvlist;
 	size_t npts;
 
-	if (!bsg_node_ged_data_get((bsg_node *)sp))
+	if (!bsg_node_uptr_get((bsg_node *)sp, 2))
 	    return 1; /* continue */
-	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)sp);
+	struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_uptr_get((bsg_node *)sp, 2);
 
 	if (data->lvl <= -2) {
 	    /* print only leaves */

@@ -237,8 +237,10 @@ struct bv_scene_obj  {
     struct bv_scene_obj_internal *i;
 
     /* View object type id (see BV_* flags in bv/defines.h) */
-    void *s_path;       	/**< @brief alternative (app specific) encoding of bsg.bsg_name */
-    void *dp;       		/**< @brief app obj data */
+    /* BV_DEPRECATED (Slice 5): source identity migrated to bsg._uptr_impl slot 1 — do not access directly */
+    void *s_path;       	/**< @brief deprecated — use bsg_node_uptr_get/set(n, 1) */
+    /* BV_DEPRECATED (Slice 5): DB source identity migrated to bsg._uptr_impl slot 0 — do not access directly */
+    void *dp;       		/**< @brief deprecated — use bsg_node_uptr_get/set(n, 0) */
     mat_t s_mat;		/**< @brief mat to use for internal lookup and mesh LoD drawing */
 
     /* Associated bv.  Note that scene objects are not assigned uniquely to
@@ -379,7 +381,8 @@ struct bv_scene_obj  {
     void *draw_data;
 
     /* User data to associate with this view object */
-    void *s_u_data;
+    /* BV_DEPRECATED (Slice 5): GED private data migrated to bsg._uptr_impl slot 2 — do not access directly */
+    void *s_u_data;   /**< @brief deprecated — use bsg_node_uptr_get/set(n, 2) */
 };
 
 

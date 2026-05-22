@@ -32,6 +32,17 @@
 #include "bv/defines.h"
 #include "bsg/defines.h"
 #include "bsg/draw_ctx.h"
+#include "bsg/node.h"   /* BSG_NODE_UPTR_MAXIND */
+
+/**
+ * Internal heap storage for the opaque user-pointer slots.
+ *
+ * Only bsg_node._uptr_impl and the two accessors in node.c should ever
+ * cast to this type.  All other code must use bsg_node_uptr_get/set().
+ */
+struct bsg_node_uptr_impl {
+    void *u[BSG_NODE_UPTR_MAXIND + 1];
+};
 
 /*
  * Walk node @p n up to the draw root and return the bsg_draw_ctx stored
@@ -87,6 +98,7 @@ _bsg_core_ensure(bsg_node *n)
     n->material = NULL;
     n->appearance = NULL;
     n->payload = NULL;
+    n->_uptr_impl = NULL;
     n->bsg_core_free_fn = _bsg_core_release;
     n->bsg_magic = BSG_NODE_CORE_MAGIC;
     return n;
