@@ -8,6 +8,7 @@ set(
   draw_ctx.h
   draw_set.h
   field.h
+  hud.h
   identity.h
   light.h
   lod.h

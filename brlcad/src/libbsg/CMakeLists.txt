@@ -6,6 +6,7 @@ set(
   compat.c
   draw_set.c
   field.c
+  hud.c
   identity.c
   light.c
   lod.cpp
@@ -52,6 +53,7 @@ cmakefiles(
   compat.c
   draw_set.c
   field.c
+  hud.c
   identity.c
   light.c
   lod_node.c
