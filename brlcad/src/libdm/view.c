@@ -125,6 +125,22 @@ _view_inverse_size_from_snapshot(const struct bview *v)
     return (cam.size > 0.0) ? 1.0 / cam.size : 0.0;
 }
 
+static void
+_view_model2view_from_snapshot(const struct bview *v, mat_t model2view)
+{
+    if (!v) {
+	MAT_IDN(model2view);
+	return;
+    }
+
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    if (bsg_camera_snapshot_from_bview(&cam, v) == 0)
+	MAT_COPY(model2view, cam.model2view);
+    else
+	MAT_IDN(model2view);
+}
+
 // Draw an arrow head for each MOVE+LAST_DRAW paring
 void
 dm_add_arrows(struct dm *dmp, bsg_node *s)
@@ -753,16 +769,10 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	    mat_t save_mat;
 	    if (cur_mat)
 		MAT_COPY(save_mat, cur_mat);
-	    else {
+	    else
 		/* Phase S3 (camera-snapshot): use snapshot model2view as the
 		 * root transform base; if unavailable, use identity. */
-		struct bsg_camera_snapshot tcam;
-		bsg_camera_snapshot_init(&tcam);
-		if (bsg_camera_snapshot_from_bview(&tcam, v) == 0)
-		    MAT_COPY(save_mat, tcam.model2view);
-		else
-		    MAT_IDN(save_mat);
-	    }
+		_view_model2view_from_snapshot(v, save_mat);
 	    mat_t new_mat;
 	    mat_t local_xform;
 	    bsg_node_transform_get(s, local_xform);
@@ -954,18 +964,9 @@ _dm_rop_draw_overlay(void *data, bsg_node *bnode, struct bview *v)
 	isp = &_inh_request;
     }
     mat_t cur_mat;
-    if (v) {
-	/* Phase S3 (camera-snapshot): derive overlay base matrix from
-	 * snapshot; if unavailable, use identity. */
-	struct bsg_camera_snapshot ocam;
-	bsg_camera_snapshot_init(&ocam);
-	if (bsg_camera_snapshot_from_bview(&ocam, v) == 0)
-	    MAT_COPY(cur_mat, ocam.model2view);
-	else
-	    MAT_IDN(cur_mat);
-    } else {
-	MAT_IDN(cur_mat);
-    }
+    /* Phase S3 (camera-snapshot): derive overlay base matrix from
+     * snapshot; if unavailable, use identity. */
+    _view_model2view_from_snapshot(v, cur_mat);
     fastf_t view_isize = _view_inverse_size_from_snapshot(v);
     _dm_draw_scene_obj_internal(dmp, bnode, v,
 				view_isize,

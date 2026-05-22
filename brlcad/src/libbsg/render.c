@@ -228,13 +228,13 @@ bsg_render_action_apply(struct bsg_render_action *ra, bsg_node *root)
     void *data = ra->renderer_data;
     struct bview *v = ra->view;
 
-    int snapshot_valid = 0;
+    int have_camera_snapshot = 0;
     struct bsg_camera_snapshot cam;
     bsg_camera_snapshot_init(&cam);
 
     /* Camera snapshot — derived from the active view when available. */
     if (v && bsg_camera_snapshot_from_bview(&cam, v) == 0) {
-	snapshot_valid = 1;
+	have_camera_snapshot = 1;
 	if (ops->set_camera)
 	    ops->set_camera(data, &cam);
     }
@@ -257,7 +257,7 @@ bsg_render_action_apply(struct bsg_render_action *ra, bsg_node *root)
      * transform so transform-node computations start from the active view
      * base without direct bview field reads in this path. */
     mat_t initial_xform;
-    if (snapshot_valid)
+    if (have_camera_snapshot)
 	MAT_COPY(initial_xform, cam.model2view);
     else
 	MAT_IDN(initial_xform);
