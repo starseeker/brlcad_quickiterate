@@ -46,6 +46,8 @@
 #include "bsg/view_scope.h"
 #include "dm.h"
 
+static const fastf_t DM_SIZE_CULL_THRESHOLD = 0.001;
+
 void
 dm_draw_arrow(struct dm *dmp, point_t A, point_t B, fastf_t tip_length, fastf_t tip_width, fastf_t sf)
 {
@@ -506,7 +508,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	&& !bsg_node_is_display_obj(s)
 	&& bsg_node_has_kind(s, BSG_NODE_SHAPE)
 	&& view_isize > 0.0
-	&& (bsg_node_size_get(s) * view_isize) < 0.001) {
+	&& (bsg_node_size_get(s) * view_isize) < DM_SIZE_CULL_THRESHOLD) {
 	pass_skip = 1;
     }
 
