@@ -135,7 +135,26 @@ Current tree notes:
 Phase 9 — Threading and ownership cleanup
 
 Current tree notes:
-- The QgConsoleListener rename landed under Phase 1, but the ownership/threading cleanup itself does not appear to have started yet.
+- QgConsoleListener: `QThread m_thread` (value member) replaced by `QThread *m_thread`
+  (heap-allocated, parented to `this`).  The destructor still calls
+  `m_thread->quit() + m_thread->wait()` before the QObject parent chain
+  tears down the thread object.  `m_notifier` is now private; callers use
+  `disconnectNotifier()` instead of touching the member directly.  A
+  `QObject *parent` parameter was added to the constructor for standard
+  Qt parent–child ownership.  Lifetime/threading contract documented in
+  the class Doxygen comment.
+- QgConsole: `listeners` map renamed to `m_listeners` and made private.
+  Two public accessors added: `findListener(p,t)` and `removeListener(p,t)`.
+  Listeners are constructed with `this` as QObject parent so QgConsole
+  destructor automatically cleans up any listeners still alive at shutdown.
+- QgEdApp.cpp (qt_delete_io_handler): updated to use `findListener()`,
+  `removeListener()`, and `disconnectNotifier()` instead of reaching into
+  QgConsole's internal map and QgConsoleListener's private notifier member.
+- QgCanvasState.h: expanded ownership documentation for v/local_v/dmp/ifp/
+  dm_set.  Fixed `qgcanvas_set_view(s, nullptr)` to revert `s.v` to
+  `s.local_v` (the widget-owned view) instead of setting it to `nullptr`,
+  consistent with the documented contract in QgCanvasBase.h.
+- Phase 9 is complete.
 
 - Replace QgConsoleListener's inherited QThread m_thread with the QObject::moveToThread pattern, document the consumer/producer lifetime.
 - Give QgConsole::listeners a private API and clear ownership semantics (transfer to std::unique_ptr or rely on QObject parent ownership).

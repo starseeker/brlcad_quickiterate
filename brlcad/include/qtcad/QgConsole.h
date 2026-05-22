@@ -107,7 +107,19 @@ public:
 	std::string historyAt(size_t ind);
 
 	void listen(int fd, struct ged_subprocess *p, bu_process_io_t t, ged_io_func_t c, void *d);
-	std::map<std::pair<struct ged_subprocess *, int>, QgConsoleListener *> listeners;
+
+	/**
+	 * Look up the active listener for subprocess @p p / stream @p t.
+	 * Returns nullptr if no matching listener is registered.
+	 */
+	QgConsoleListener *findListener(struct ged_subprocess *p, int t) const;
+
+	/**
+	 * Remove and delete the listener for subprocess @p p / stream @p t.
+	 * If the listener does not exist this is a no-op.
+	 * Must be called on the GUI thread.
+	 */
+	void removeListener(struct ged_subprocess *p, int t);
 
 	// When inserting a completion, need a setting to control
 	// how we handle slashes
@@ -171,6 +183,15 @@ private:
 	QString logbuf;
 
 	void internalExecuteCommand(const QString& Command);
+
+	/*
+	 * Active subprocess listeners, keyed by (subprocess*, stream-type).
+	 *
+	 * Ownership: each QgConsoleListener is created with 'this' as QObject
+	 * parent, so QgConsole destructor automatically deletes any listeners
+	 * that were not already removed by detach() / removeListener().
+	 */
+	std::map<std::pair<struct ged_subprocess *, int>, QgConsoleListener *> m_listeners;
 
 	class pqImplementation;
 	pqImplementation* const Implementation;

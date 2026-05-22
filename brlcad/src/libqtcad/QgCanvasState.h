@@ -52,14 +52,40 @@ extern "C" {
  * QgGL and QgSW.  It is held as a pimpl-style raw pointer in both canvas
  * class headers so that implementation details are not part of the
  * installed public interface.
+ *
+ * Ownership summary
+ * ─────────────────
+ * local_v  – Allocated by BU_GET in the canvas constructor; freed by BU_PUT
+ *            in the canvas destructor.  The canvas owns it unconditionally.
+ *
+ * v        – Normally points to local_v (the widget-owned view).  When
+ *            QgCanvasBase::set_view() is called with a non-null external
+ *            view, v points to that caller-owned bview instead.  Passing
+ *            nullptr to set_view() reverts v back to local_v.  The canvas
+ *            never frees v — it only frees local_v.
+ *
+ * dmp      – Opened lazily in the first paint event via dm_open(); closed
+ *            by dm_close() in the canvas destructor.  The canvas owns it.
+ *
+ * ifp      – When the canvas is constructed without a caller-supplied fb*,
+ *            it allocates a raw framebuffer (fb_raw()) and owns it; it is
+ *            released by fb_close_existing() in the destructor.  When the
+ *            caller supplies an fb* at construction time (fb_get_standalone
+ *            returns non-zero), the canvas does not close it on destruction.
+ *
+ * dm_set   – An optional shared display-manager table managed by the
+ *            caller (e.g. QgQuadView).  The canvas inserts its dmp into
+ *            the table during initialisation but does NOT own the table.
  */
 struct QgCanvasState {
 	/* ---- view / dm / fb plumbing ---- */
-	struct bview    *v = nullptr;       /* active view (may point to local_v) */
-	struct dm       *dmp = nullptr;     /* libdm display manager              */
-	struct fb       *ifp = nullptr;     /* framebuffer                        */
-	struct bu_ptbl  *dm_set = nullptr;  /* shared DM table (optional)         */
-	struct bview    *local_v = nullptr; /* widget-owned view                  */
+	struct bview    *v = nullptr;       /* active view: normally == local_v,
+	                                       set_view() can redirect to an
+	                                       external caller-owned bview       */
+	struct dm       *dmp = nullptr;     /* libdm display manager (canvas owns) */
+	struct fb       *ifp = nullptr;     /* framebuffer (see ownership note)  */
+	struct bu_ptbl  *dm_set = nullptr;  /* shared DM table (caller owns)     */
+	struct bview    *local_v = nullptr; /* widget-owned view (canvas owns)   */
 
 	/* ---- custom draw callback ---- */
 	void (*draw_custom)(struct bview *, void *) = nullptr;
@@ -157,7 +183,8 @@ static inline void
 qgcanvas_set_view(QgCanvasState &s, struct bview *nv)
 {
 	if (!nv) {
-		s.v = nullptr;
+		/* Revert to the widget-owned local view. */
+		s.v = s.local_v;
 		return;
 	}
 	s.v = nv;

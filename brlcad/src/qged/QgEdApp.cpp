@@ -121,16 +121,16 @@ qt_delete_io_handler(struct ged_subprocess *p, bu_process_io_t t)
     QgEdApp *ca = (QgEdApp *)p->gedp->ged_io_data;
     QgConsole *c = ca->w->console;
 
-    auto it = c->listeners.find(std::make_pair(p, (int)t));
-    if (it == c->listeners.end())
+    auto it = c->findListener(p, (int)t);
+    if (!it)
 	return;
-    QgConsoleListener *l = it->second;
+    QgConsoleListener *l = it;
 
     // Stop the QSocketNotifier from firing again on the worker thread
     // *immediately*.  This must happen on whatever thread we are called
     // from so that no further activated() lambda invocations land in
     // the libged callback after we return.
-    l->m_notifier->disconnect();
+    l->disconnectNotifier();
 
     // Two callers reach this code:
     //
@@ -156,13 +156,12 @@ qt_delete_io_handler(struct ged_subprocess *p, bu_process_io_t t)
 	// synchronous (GUI-thread) case we also do not want a stale
 	// queued is_finished to arrive later and re-enter detach for an
 	// already-removed listener, so erase it now.
-	c->listeners.erase(it);
+	c->removeListener(p, (int)t);
 	switch (t) {
 	    case BU_PROCESS_STDIN:  p->stdin_active  = 0; break;
 	    case BU_PROCESS_STDOUT: p->stdout_active = 0; break;
 	    case BU_PROCESS_STDERR: p->stderr_active = 0; break;
 	}
-	delete l;
     } else {
 	// Worker thread: hop back to GUI thread.  on_finished() emits
 	// the queued is_finished signal which is connected to
