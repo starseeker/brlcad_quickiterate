@@ -258,8 +258,6 @@ bsg_render_action_apply(struct bsg_render_action *ra, bsg_node *root)
     mat_t initial_xform;
     if (have_cam)
 	MAT_COPY(initial_xform, cam.model2view);
-    else if (v)
-	MAT_COPY(initial_xform, v->gv_model2view);
     else
 	MAT_IDN(initial_xform);
 
