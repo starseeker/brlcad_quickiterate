@@ -225,7 +225,7 @@ bsg_vlist_3string(struct bu_list *vhead,
 		  const mat_t rot,
 		  double scale)
 {
-    register unsigned char *cp;
+    unsigned char *cp;
     double offset;
     int ysign;
     vect_t temp;
@@ -249,8 +249,8 @@ bsg_vlist_3string(struct bu_list *vhead,
 
     offset = 0;
     for (cp = (unsigned char *)string; *cp; cp++, offset += scale) {
-	register int *p;
-	register int stroke;
+	int *p;
+	int stroke;
 
 	VSET(temp, offset, 0, 0);
 	MAT4X3PNT(loc, mat, temp);
