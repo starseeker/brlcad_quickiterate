@@ -324,7 +324,10 @@ dm_draw_label(struct dm *dmp, bsg_node *s)
 
     /* Phase S3 (camera-snapshot): use snapshot for view matrix transforms. */
     struct bsg_camera_snapshot lcam;
-    bsg_camera_snapshot_from_bview(&lcam, sv);
+    bsg_camera_snapshot_init(&lcam);
+    if (bsg_camera_snapshot_from_bview(&lcam, sv) != 0) {
+	/* Keep initialized identity/projection defaults. */
+    }
 
     /* Phase 11C: resolve label color from BSG material. */
     struct bsg_material material;
