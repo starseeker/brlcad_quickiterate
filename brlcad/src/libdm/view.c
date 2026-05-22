@@ -164,6 +164,14 @@ dm_draw_faceplate(struct bview *v)
 {
     struct dm *dmp = (struct dm *)v->dmp;
 
+    /* Phase S3 (camera-snapshot): derive view matrices and scale data from the
+     * BSG camera snapshot so all camera-field accesses in this faceplate pass
+     * go through the snapshot boundary.  Fields not yet in the snapshot
+     * (gv_rotation, gv_center, gv_aet) remain as direct accesses and will be
+     * migrated when those snapshot fields are added. */
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_from_bview(&cam, v);
+
     /* Center dot */
     if (v->gv_s->gv_center_dot.gos_draw) {
 	(void)dm_set_fg(dmp,
@@ -180,11 +188,11 @@ dm_draw_faceplate(struct bview *v)
 	point_t save_map;
 
 	VMOVE(save_map, v->gv_s->gv_model_axes.axes_pos);
-	VSCALE(map, v->gv_s->gv_model_axes.axes_pos, v->gv_local2base);
-	MAT4X3PNT(v->gv_s->gv_model_axes.axes_pos, v->gv_model2view, map);
+	VSCALE(map, v->gv_s->gv_model_axes.axes_pos, cam.local2base);
+	MAT4X3PNT(v->gv_s->gv_model_axes.axes_pos, cam.model2view, map);
 
 	dm_draw_hud_axes(dmp,
-		     v->gv_size,
+		     cam.size,
 		     v->gv_rotation,
 		     &v->gv_s->gv_model_axes);
 
@@ -203,7 +211,7 @@ dm_draw_faceplate(struct bview *v)
 	inv_aspect = (fastf_t)height / (fastf_t)width;
 	v->gv_s->gv_view_axes.axes_pos[Y] = save_ypos * inv_aspect;
 	dm_draw_hud_axes(dmp,
-		     v->gv_size,
+		     cam.size,
 		     v->gv_rotation,
 		     &v->gv_s->gv_view_axes);
 
@@ -214,19 +222,19 @@ dm_draw_faceplate(struct bview *v)
     /* View scale - TODO view_scale needs its own text color */
     if (v->gv_s->gv_view_scale.gos_draw)
 	dm_draw_scale(dmp,
-		      v->gv_size*v->gv_base2local,
-		      bu_units_string(1/v->gv_base2local),
+		      cam.size*cam.base2local,
+		      bu_units_string(1/cam.base2local),
 		      v->gv_s->gv_view_scale.gos_line_color,
 		      v->gv_s->gv_view_params.color);
 
 
     /* Draw the angle distance cursor */
     if (v->gv_s->gv_adc.draw)
-	dm_draw_adc(dmp, &(v->gv_s->gv_adc), v->gv_view2model, v->gv_model2view);
+	dm_draw_adc(dmp, &(v->gv_s->gv_adc), cam.view2model, cam.model2view);
 
     /* Draw grid */
     if (v->gv_s->gv_grid.draw) {
-	dm_draw_grid(dmp, &v->gv_s->gv_grid, v->gv_scale, v->gv_model2view, v->gv_base2local);
+	dm_draw_grid(dmp, &v->gv_s->gv_grid, cam.scale, cam.model2view, cam.base2local);
     }
 
     /* Draw rect */
@@ -244,9 +252,9 @@ dm_draw_faceplate(struct bview *v)
 
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 	point_t center;
-	char *ustr = (char *)bu_units_string(v->gv_local2base);
+	char *ustr = (char *)bu_units_string(cam.local2base);
 	MAT_DELTAS_GET_NEG(center, v->gv_center);
-	VSCALE(center, center, v->gv_base2local);
+	VSCALE(center, center, cam.base2local);
 	int64_t elapsed_time = bu_gettime() - (dmp)->start_time;
 	/* Only use reasonable measurements */
 	if (elapsed_time > 10LL && elapsed_time < 30000000LL) {
@@ -258,7 +266,7 @@ dm_draw_faceplate(struct bview *v)
 	if (ps->draw_size) {
 	    if (bu_vls_strlen(&vls) > 0)
 		bu_vls_printf(&vls, " ");
-	    bu_vls_printf(&vls, "size[%s]: %.2f", ustr, v->gv_size * v->gv_base2local);
+	    bu_vls_printf(&vls, "size[%s]: %.2f", ustr, cam.size * cam.base2local);
 	}
 	if (ps->draw_center) {
 	    if (bu_vls_strlen(&vls) > 0)
@@ -305,9 +313,15 @@ void
 dm_draw_label(struct dm *dmp, bsg_node *s)
 {
     struct bv_label *l = (struct bv_label *)bsg_node_user_data_get(s);
+    if (!l)
+	return;  /* BV_LABELS node has no payload — nothing to draw. */
     struct bview *sv = bsg_node_view_get(s);
     if (!sv)
 	return;
+
+    /* Phase S3 (camera-snapshot): use snapshot for view matrix transforms. */
+    struct bsg_camera_snapshot lcam;
+    bsg_camera_snapshot_from_bview(&lcam, sv);
 
     /* Phase 11C: resolve label color from BSG material. */
     struct bsg_material material;
@@ -321,7 +335,7 @@ dm_draw_label(struct dm *dmp, bsg_node *s)
     (void)dm_set_fg(dmp, r, g, b, 1, 1.0);
 
     point_t vpoint;
-    MAT4X3PNT(vpoint, sv->gv_model2view, l->p);
+    MAT4X3PNT(vpoint, lcam.model2view, l->p);
 
     // Check that we can calculate the bbox before drawing text
     vect2d_t bmin = V2INIT_ZERO;
@@ -367,7 +381,7 @@ dm_draw_label(struct dm *dmp, bsg_node *s)
 			return;
 		    }
 		    t3d[2] = 0;
-		    MAT4X3PNT(tpt, sv->gv_view2model, t3d);
+		    MAT4X3PNT(tpt, lcam.view2model, t3d);
 		    double dsq = DIST_PNT_PNT_SQ(tpt, l->target);
 		    if (dsq < closest_dist) {
 			V2SET(anchor, xvals[i], yvals[j]);
@@ -410,7 +424,7 @@ dm_draw_label(struct dm *dmp, bsg_node *s)
 	    }
 	}
 	bv_screen_to_view(sv, &l3d[0], &l3d[1], (int)anchor[0], (int)anchor[1]);
-	MAT4X3PNT(mpt, sv->gv_view2model, l3d);
+	MAT4X3PNT(mpt, lcam.view2model, l3d);
     } else {
 	VMOVE(mpt, l->p);
     }
@@ -708,8 +722,15 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	    mat_t save_mat;
 	    if (cur_mat)
 		MAT_COPY(save_mat, cur_mat);
-	    else
-		MAT_COPY(save_mat, v->gv_model2view);
+	    else {
+		/* Phase S3 (camera-snapshot): use snapshot model2view as the
+		 * root transform base so we don't read gv_model2view directly. */
+		struct bsg_camera_snapshot tcam;
+		if (bsg_camera_snapshot_from_bview(&tcam, v) == 0)
+		    MAT_COPY(save_mat, tcam.model2view);
+		else
+		    MAT_COPY(save_mat, v->gv_model2view);
+	    }
 	    mat_t new_mat;
 	    mat_t local_xform;
 	    bsg_node_transform_get(s, local_xform);
@@ -899,10 +920,17 @@ _dm_rop_draw_overlay(void *data, bsg_node *bnode, struct bview *v)
 	isp = &_inh_request;
     }
     mat_t cur_mat;
-    if (v)
-	MAT_COPY(cur_mat, v->gv_model2view);
-    else
+    if (v) {
+	/* Phase S3 (camera-snapshot): derive overlay base matrix from
+	 * snapshot rather than reading gv_model2view directly. */
+	struct bsg_camera_snapshot ocam;
+	if (bsg_camera_snapshot_from_bview(&ocam, v) == 0)
+	    MAT_COPY(cur_mat, ocam.model2view);
+	else
+	    MAT_COPY(cur_mat, v->gv_model2view);
+    } else {
 	MAT_IDN(cur_mat);
+    }
     _dm_draw_scene_obj_internal(dmp, bnode, v,
 				bsg_node_force_draw(bnode),
 				isp,
