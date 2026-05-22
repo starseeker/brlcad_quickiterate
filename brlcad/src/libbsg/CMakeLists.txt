@@ -23,6 +23,7 @@ set(
   payload.c
   polygon.c
   polygon_fill.cpp
+  query.c
   render.c
   scene_graph.cpp
   selection.c
@@ -73,6 +74,7 @@ cmakefiles(
   payload.c
   polygon.c
   polygon_fill.cpp
+  query.c
   render.c
   selection.c
   sensor.c
