@@ -34,6 +34,7 @@
 #include "bu/app.h"
 #include "bu/log.h"
 #include "../../libged/dbi.h"
+#include "ged.h"
 #include "qtcad/QgModel.h"
 
 
