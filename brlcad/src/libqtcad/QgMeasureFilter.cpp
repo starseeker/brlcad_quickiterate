@@ -29,6 +29,7 @@ extern "C" {
 #include "bu/malloc.h"
 #include "bv.h"
 #include "raytrace.h"
+#include "bsg/camera.h"
 }
 
 #include "bsg/material.h"
@@ -300,7 +301,13 @@ QMeasure2DFilter::get_point()
     bv_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
     point_t vpnt;
     VSET(vpnt, vx, vy, 0);
-    MAT4X3PNT(mpnt, v->gv_view2model, vpnt);
+
+    /* Phase S3-C: use snapshot for view2model to avoid direct bview field
+     * access from libqtcad consumers. */
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    bsg_camera_snapshot_from_bview(&cam, v);
+    MAT4X3PNT(mpnt, cam.view2model, vpnt);
     return true;
 }
 
@@ -358,7 +365,14 @@ QMeasure3DFilter::get_point()
     bv_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
     point_t vpnt;
     VSET(vpnt, vx, vy, 0);
-    MAT4X3PNT(mpnt, v->gv_view2model, vpnt);
+
+    /* Phase S3-C: use snapshot for view2model and look direction to avoid
+     * direct bview field accesses (gv_view2model, gv_rotation) from libqtcad
+     * consumers. */
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    bsg_camera_snapshot_from_bview(&cam, v);
+    MAT4X3PNT(mpnt, cam.view2model, vpnt);
 
     // With this filter we want a 3D point based on scene geometry (hard case)
     // - need to interrogate the scene with the raytracer.
@@ -446,13 +460,14 @@ QMeasure3DFilter::get_point()
     ap->a_uptr = (void *)&rc;
 
     // Set up the ray itself
-    vect_t dir;
-    VMOVEN(dir, v->gv_rotation + 8, 3);
-    VUNITIZE(dir);
-    VSCALE(dir, dir, v->radius);
-    VADD2(ap->a_ray.r_pt, mpnt, dir);
-    VUNITIZE(dir);
-    VSCALE(ap->a_ray.r_dir, dir, -1);
+    /* Phase S3-C: view +Z ("away from scene") = -cam.look_dir; the ray
+     * origin is placed behind mpnt along that direction and shoots toward
+     * the scene along cam.look_dir. */
+    vect_t dir_away;
+    VREVERSE(dir_away, cam.look_dir);
+    VSCALE(dir_away, dir_away, v->radius);
+    VADD2(ap->a_ray.r_pt, mpnt, dir_away);
+    VMOVE(ap->a_ray.r_dir, cam.look_dir);
 
     (void)rt_shootray(ap);
 
