@@ -290,10 +290,11 @@ void
 bsg_node_bbox_invalidate(bsg_node *n)
 {
     int cleared = 0;
+    bsg_node *cur = NULL;
 
     if (!n)
 	return;
-    struct bv_scene_obj *cur = (struct bv_scene_obj *)n;
+    cur = n;
 
     /* Walk up the parent chain; clear s_bbox_cached on every ancestor
      * that is still cached.
@@ -305,60 +306,66 @@ bsg_node_bbox_invalidate(bsg_node *n)
      * too, so the historical early-stop optimization is still valid.
      */
     while (cur) {
-	if (cur->bsg.bsg_kind & (BSG_NODE_GROUP | BSG_NODE_ROOT)) {
-	    if (cur->s_bbox_cached) {
-		cur->s_bbox_cached = 0;
+	if (bsg_node_has_kind((const bsg_node *)cur, BSG_NODE_GROUP) ||
+	    bsg_node_has_kind((const bsg_node *)cur, BSG_NODE_ROOT)) {
+	    if (bsg_node_bbox_cached((const bsg_node *)cur)) {
+		bsg_node_set_bbox_cached(cur, 0);
 		cleared = 1;
 	    } else if (cleared) {
 		return;
 	    }
 	}
-	cur = (struct bv_scene_obj *)cur->bsg.bsg_parent;
+	cur = bsg_node_parent((const bsg_node *)cur);
     }
 }
 
 
 static int
-_bsg_subtree_bbox_cached(struct bv_scene_obj *s,
+_bsg_subtree_bbox_cached(bsg_node *n,
 			 vect_t *min, vect_t *max,
 			 int include_overlays)
 {
     int have = 0;
+    fastf_t size = 0.0;
+    vect_t center = VINIT_ZERO;
     vect_t lmin, lmax;
 
-    if (!s || !min || !max)
+    if (!n || !min || !max)
 	return 1;
 
-    if ((s->bsg.bsg_kind & BSG_NODE_SHAPE) &&
+    if (bsg_node_has_kind((const bsg_node *)n, BSG_NODE_SHAPE) &&
 	!include_overlays &&
-	(bsg_node_get_payload_type((const bsg_node *)s) & BSG_PAYLOAD_OVERLAY))
+	(bsg_node_get_payload_type((const bsg_node *)n) & BSG_PAYLOAD_OVERLAY))
 	return 1;
 
-    if (!(s->bsg.bsg_kind & (BSG_NODE_GROUP | BSG_NODE_ROOT))) {
-	struct bsg_payload *payload = bsg_node_payload_get((const bsg_node *)s);
+    if (!bsg_node_has_kind((const bsg_node *)n, BSG_NODE_GROUP) &&
+	!bsg_node_has_kind((const bsg_node *)n, BSG_NODE_ROOT)) {
+	struct bsg_payload *payload = bsg_node_payload_get((const bsg_node *)n);
 	if (payload && bsg_payload_bounds(payload, min, max))
 	    return 0;
-	if (s->have_bbox) {
-	    VMOVE((*min), s->bmin);
-	    VMOVE((*max), s->bmax);
+	if (bsg_node_bbox_valid((const bsg_node *)n)) {
+	    bsg_node_bounds_get((const bsg_node *)n, (*min), (*max));
 	    return 0;
 	}
-	VSET((*min), s->s_center[X] - s->s_size, s->s_center[Y] - s->s_size, s->s_center[Z] - s->s_size);
-	VSET((*max), s->s_center[X] + s->s_size, s->s_center[Y] + s->s_size, s->s_center[Z] + s->s_size);
+	size = bsg_node_size_get((const bsg_node *)n);
+	bsg_node_center_get((const bsg_node *)n, center);
+	VSET((*min), center[X] - size, center[Y] - size, center[Z] - size);
+	VSET((*max), center[X] + size, center[Y] + size, center[Z] + size);
 	return 0;
     }
 
-    if (!include_overlays && s->s_bbox_cached && s->have_bbox) {
-	VMOVE((*min), s->bmin);
-	VMOVE((*max), s->bmax);
+    if (!include_overlays &&
+	bsg_node_bbox_cached((const bsg_node *)n) &&
+	bsg_node_bbox_valid((const bsg_node *)n)) {
+	bsg_node_bounds_get((const bsg_node *)n, (*min), (*max));
 	return 0;
     }
 
     VSETALL(lmin,  INFINITY);
     VSETALL(lmax, -INFINITY);
 
-    for (size_t i = 0; i < BU_PTBL_LEN(&s->bsg.bsg_children); i++) {
-	struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&s->bsg.bsg_children, i);
+    for (size_t i = 0; i < bsg_node_child_count((const bsg_node *)n); i++) {
+	bsg_node *c = bsg_node_child((const bsg_node *)n, i);
 	vect_t cmin, cmax;
 	if (_bsg_subtree_bbox_cached(c, &cmin, &cmax, include_overlays))
 	    continue;
@@ -373,8 +380,8 @@ _bsg_subtree_bbox_cached(struct bv_scene_obj *s,
     }
 
     if (!have) {
-	s->have_bbox = 0;
-	s->s_bbox_cached = 0;
+	bsg_node_set_bbox_valid(n, 0);
+	bsg_node_set_bbox_cached(n, 0);
 	VSETALL((*min),  INFINITY);
 	VSETALL((*max), -INFINITY);
 	return 1;
@@ -383,10 +390,9 @@ _bsg_subtree_bbox_cached(struct bv_scene_obj *s,
     VMOVE((*min), lmin);
     VMOVE((*max), lmax);
     if (!include_overlays) {
-	VMOVE(s->bmin, lmin);
-	VMOVE(s->bmax, lmax);
-	s->have_bbox = 1;
-	s->s_bbox_cached = 1;
+	bsg_node_bounds_set(n, lmin, lmax);
+	bsg_node_set_bbox_valid(n, 1);
+	bsg_node_set_bbox_cached(n, 1);
     }
     return 0;
 }
@@ -401,7 +407,7 @@ bsg_subtree_bbox(bsg_node *n,
 	return 1;
 
     if (!include_overlays)
-	return _bsg_subtree_bbox_cached((struct bv_scene_obj *)n, min, max, 0);
+	return _bsg_subtree_bbox_cached(n, min, max, 0);
 
     struct bsg_bbox_action action;
     bsg_bbox_action_init(&action);
