@@ -34,7 +34,7 @@
 __BEGIN_DECLS
 
 /**
- * Allocate and initialise a scene-graph root node for view @p v.
+ * Allocate and initialize a scene-graph root node for view @p v.
  * Stores the result in @p v->bsg_root and returns it.  Returns NULL
  * if @p v is NULL or allocation fails.
  */
@@ -42,7 +42,7 @@ BSG_EXPORT extern bsg_node *
 bsg_scene_root_create(struct bview *v);
 
 /**
- * Synchronise the children list of @p root from the current draw state
+ * Synchronize the children list of @p root from the current draw state
  * of @p v.  The root's children table is cleared (pointers only, the
  * actual scene objects are owned by the view) and refilled from all
  * BV_DB_OBJS and BV_VIEW_OBJS tables accessible through @p v.
@@ -79,7 +79,7 @@ BSG_EXPORT extern void
 bsg_sensor_fire(bsg_node *root, struct bview *v);
 
 /**
- * Allocate and initialise a scene-graph object using the BSG lifecycle API.
+ * Allocate and initialize a scene-graph object using the BSG lifecycle API.
  *
  * The @p type flags currently use the existing BV_* storage flags while the
  * bview storage model is being migrated into libbsg.
