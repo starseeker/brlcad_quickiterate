@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+#include "bsg/camera.h"
 #include "../ged_private.h"
 
 
@@ -83,7 +84,11 @@ ged_m2v_point_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     /* Convert the incoming model point to a view point */
-    MAT4X3PNT(view, gedp->ged_gvp->gv_model2view, model);
+    /* Phase S3-P: use camera snapshot for gv_model2view read. */
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    bsg_camera_snapshot_from_bview(&cam, gedp->ged_gvp);
+    MAT4X3PNT(view, cam.model2view, model);
     bn_encode_vect(gedp->ged_result_str, view, 1);
 
     return BRLCAD_OK;

@@ -32,6 +32,7 @@ extern "C" {
 #include "bn/str.h"
 #include "bv/defines.h"
 #include "bv/util.h"
+#include "bsg/camera.h"
 }
 
 #include "qtcad/defines.h"
@@ -313,6 +314,12 @@ int CADmouseMoveEvent(struct bview *v, int x_prev, int y_prev, QMouseEvent *e, i
 	return -1;
     drag_update_ts[v] = now_ms;
 
+    /* Phase S3-H: use snapshot for gv_height and gv_center to avoid direct
+     * bview field reads from the input/event layer. */
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    bsg_camera_snapshot_from_bview(&cam, v);
+
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     int dx = e->x() - x_prev;
     int dy = e->y() - y_prev;
@@ -325,7 +332,7 @@ int CADmouseMoveEvent(struct bview *v, int x_prev, int y_prev, QMouseEvent *e, i
 	// Build in some sensitivity to how much the mouse moved when doing
 	// a motion based scale
 	int mdelta = (abs(dx) > abs(dy)) ? dx : -dy;
-	int f = (int)(2*100*(double)abs(mdelta)/(double)v->gv_height);
+	int f = (int)(2*100*(double)abs(mdelta)/(double)cam.height);
 
 	if (mdelta > 0) {
 	    dy = 101 + f;
@@ -343,7 +350,7 @@ int CADmouseMoveEvent(struct bview *v, int x_prev, int y_prev, QMouseEvent *e, i
     // based on which mod keys are set to allow bv_adjust to
     // do the correct math.
     point_t center;
-    MAT_DELTAS_GET_NEG(center, v->gv_center);
+    MAT_DELTAS_GET_NEG(center, cam.center);
 
     if (view_flags & (BV_ROT | BV_TRANS | BV_SCALE))
 	suspend_drag_bounds_update(v);

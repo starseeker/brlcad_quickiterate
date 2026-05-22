@@ -32,6 +32,7 @@
 
 #include "bu/opt.h"
 #include "bu/vls.h"
+#include "bsg/camera.h"
 #include "bv/snap.h"
 #include "dm.h"
 #include "../ged_private.h"
@@ -132,6 +133,12 @@ ged_view_snap(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_ERROR;
     }
 
+    /* Phase S3-K: use camera snapshot for gv_model2view/gv_view2model
+     * reads so the snap command does not access bview matrix fields directly. */
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    bsg_camera_snapshot_from_bview(&cam, gedp->ged_gvp);
+
     /* We may get a 2D screen point or a 3D model space point.  Either
      * should work - whatever we get, set up both points so we have
      * the necessary inputs for any of the options. */
@@ -151,7 +158,7 @@ ged_view_snap(struct ged *gedp, int argc, const char *argv[])
 	}
 	V2MOVE(view_pt_2d, p2d);
 	VSET(vp, p[0], p[1], 0);
-	MAT4X3PNT(p, gedp->ged_gvp->gv_view2model, vp);
+	MAT4X3PNT(p, cam.view2model, vp);
 	VMOVE(view_pt, p);
     }
     /* We may get a 3D point instead */
@@ -163,7 +170,7 @@ ged_view_snap(struct ged *gedp, int argc, const char *argv[])
 	    bu_vls_free(&msg);
 	    return BRLCAD_ERROR;
 	}
-	MAT4X3PNT(vp, gedp->ged_gvp->gv_model2view, p);
+	MAT4X3PNT(vp, cam.model2view, p);
 	V2SET(view_pt_2d, vp[0], vp[1]);
 	VMOVE(view_pt, p);
     }
@@ -186,7 +193,7 @@ ged_view_snap(struct ged *gedp, int argc, const char *argv[])
 	// in that case just pass back the view pt.  If we do
 	// have a snap, update the output
 	if (bv_snap_lines_3d(&out_pt, gedp->ged_gvp, &view_pt) == BRLCAD_OK) {
-	    MAT4X3PNT(vp, gedp->ged_gvp->gv_model2view, out_pt);
+	    MAT4X3PNT(vp, cam.model2view, out_pt);
 	    V2SET(view_pt_2d, vp[0], vp[1]);
 	    VMOVE(view_pt, out_pt);
 	} else {

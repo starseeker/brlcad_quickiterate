@@ -29,6 +29,7 @@
 #include <ctype.h>
 #include <string.h>
 
+#include "bsg/camera.h"
 #include "../ged_private.h"
 
 
@@ -65,7 +66,11 @@ ged_viewdir_core(struct ged *gedp, int argc, const char *argv[])
 	VSET(view, 0.0, 0.0, 1.0);
     }
 
-    bn_mat_inv(invRot, gedp->ged_gvp->gv_rotation);
+    /* Phase S3-J: use camera snapshot to read gv_rotation. */
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    bsg_camera_snapshot_from_bview(&cam, gedp->ged_gvp);
+    bn_mat_inv(invRot, cam.rotation);
     MAT4X3PNT(dir, invRot, view);
     bn_encode_vect(gedp->ged_result_str, dir, 1);
 

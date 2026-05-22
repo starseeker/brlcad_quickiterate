@@ -30,6 +30,7 @@ extern "C" {
 #include "bg/aabb_ray.h"
 #include "bv.h"
 #include "raytrace.h"
+#include "bsg/camera.h"
 }
 
 #include <unordered_set>
@@ -48,20 +49,25 @@ closest_obj_bbox(struct bu_ptbl *sset, struct bview *v)
     bv_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
     point_t vpnt, mpnt;
     VSET(vpnt, vx, vy, 0);
-    MAT4X3PNT(mpnt, v->gv_view2model, vpnt);
+
+    /* Phase S3-C: use snapshot for view2model and look direction. */
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    bsg_camera_snapshot_from_bview(&cam, v);
+    MAT4X3PNT(mpnt, cam.view2model, vpnt);
+
     point_t rmin, rmax;
-    vect_t dir;
-    VMOVEN(dir, v->gv_rotation + 8, 3);
-    VUNITIZE(dir);
-    VSCALE(dir, dir, v->radius);
-    VADD2(mpnt, mpnt, dir);
-    VUNITIZE(dir);
-    bg_ray_invdir(&dir, dir);
+    vect_t dir_away;
+    VREVERSE(dir_away, cam.look_dir);
+    VSCALE(dir_away, dir_away, v->radius);
+    VADD2(mpnt, mpnt, dir_away);
+    VUNITIZE(dir_away);
+    bg_ray_invdir(&dir_away, dir_away);
     for (size_t i = 0; i < BU_PTBL_LEN(sset); i++) {
 	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(sset, i);
 	point_t _bmin, _bmax;
 	bsg_node_bounds_get((const bsg_node *)s, _bmin, _bmax);
-	if (bg_isect_aabb_ray(rmin, rmax, mpnt, dir, _bmin, _bmax)){
+	if (bg_isect_aabb_ray(rmin, rmax, mpnt, dir_away, _bmin, _bmax)){
 	    double ndist = DIST_PNT_PNT(rmin, v->gv_vc_backout);
 	    if (ndist < dist) {
 		dist = ndist;
@@ -336,14 +342,18 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
     bv_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
     point_t vpnt, mpnt;
     VSET(vpnt, vx, vy, 0);
-    MAT4X3PNT(mpnt, v->gv_view2model, vpnt);
-    vect_t dir;
-    VMOVEN(dir, v->gv_rotation + 8, 3);
-    VUNITIZE(dir);
-    VSCALE(dir, dir, v->radius);
-    VADD2(ap->a_ray.r_pt, mpnt, dir);
-    VUNITIZE(dir);
-    VSCALE(ap->a_ray.r_dir, dir, -1);
+
+    /* Phase S3-C: use snapshot for view2model and look direction. */
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    bsg_camera_snapshot_from_bview(&cam, v);
+    MAT4X3PNT(mpnt, cam.view2model, vpnt);
+
+    vect_t dir_away;
+    VREVERSE(dir_away, cam.look_dir);
+    VSCALE(dir_away, dir_away, v->radius);
+    VADD2(ap->a_ray.r_pt, mpnt, dir_away);
+    VMOVE(ap->a_ray.r_dir, cam.look_dir);
 
     struct select_rec_state rc;
 

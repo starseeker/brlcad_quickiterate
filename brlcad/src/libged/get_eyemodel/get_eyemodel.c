@@ -25,7 +25,7 @@
 
 #include "common.h"
 
-
+#include "bsg/camera.h"
 #include "../ged_private.h"
 
 
@@ -55,9 +55,14 @@ ged_get_eyemodel_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     _ged_rt_set_eye_model(gedp, eye_model);
-    quat_mat2quat(quat, gedp->ged_gvp->gv_rotation);
 
-    bu_vls_printf(gedp->ged_result_str, "viewsize %.15e;\n", gedp->ged_gvp->gv_size);
+    /* Phase S3-L: use camera snapshot to read gv_rotation and gv_size. */
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    bsg_camera_snapshot_from_bview(&cam, gedp->ged_gvp);
+    quat_mat2quat(quat, cam.rotation);
+
+    bu_vls_printf(gedp->ged_result_str, "viewsize %.15e;\n", cam.size);
     bu_vls_printf(gedp->ged_result_str, "orientation %.15e %.15e %.15e %.15e;\n",
 		  V4ARGS(quat));
     bu_vls_printf(gedp->ged_result_str, "eye_pt %.15e %.15e %.15e;\n",

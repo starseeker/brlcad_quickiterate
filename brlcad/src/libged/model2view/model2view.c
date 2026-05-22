@@ -24,6 +24,7 @@
 #include <ctype.h>
 #include <string.h>
 
+#include "bsg/camera.h"
 #include "../ged_private.h"
 
 
@@ -48,7 +49,11 @@ ged_model2view_core(struct ged *gedp, int argc, const char *argv[])
 
     /* get the model2view matrix */
     if (argc == 1) {
-	bn_encode_mat(gedp->ged_result_str, gedp->ged_gvp->gv_model2view, 1);
+	/* Phase S3-P: use camera snapshot for gv_model2view read. */
+	struct bsg_camera_snapshot cam;
+	bsg_camera_snapshot_init(&cam);
+	bsg_camera_snapshot_from_bview(&cam, gedp->ged_gvp);
+	bn_encode_mat(gedp->ged_result_str, cam.model2view, 1);
 	return BRLCAD_OK;
     }
 
@@ -61,7 +66,12 @@ ged_model2view_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_ERROR;
     }
 
-    MAT4X3PNT(view_pt, gedp->ged_gvp->gv_model2view, model_pt);
+    {
+	struct bsg_camera_snapshot cam;
+	bsg_camera_snapshot_init(&cam);
+	bsg_camera_snapshot_from_bview(&cam, gedp->ged_gvp);
+	MAT4X3PNT(view_pt, cam.model2view, model_pt);
+    }
     bn_encode_vect(gedp->ged_result_str, view_pt, 1);
 
     return BRLCAD_OK;

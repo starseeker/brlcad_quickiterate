@@ -24,15 +24,16 @@
  */
 
 #include "common.h"
-
+#include "common.h"
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
 #include <time.h>
 #include "bsocket.h"
-
+#include "bsocket.h"
 #include "bu/cmd.h"
 #include "bu/getopt.h"
+#include "bsg/camera.h"
 
 #include "../ged_private.h"
 extern "C" {
@@ -403,9 +404,13 @@ ged_preview_core(struct ged *gedp, int argc, const char *argv[])
      * Initialize the view to the current one provided by the ged
      * structure in case a view specification is never given.
      */
-    MAT_COPY(*ged_viewrot, gedp->ged_gvp->gv_rotation);
+    /* Phase S3-N: use camera snapshot for gv_rotation/gv_view2model initial reads. */
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    bsg_camera_snapshot_from_bview(&cam, gedp->ged_gvp);
+    MAT_COPY(*ged_viewrot, cam.rotation);
     VSET(temp, 0.0, 0.0, 1.0);
-    MAT4X3PNT(*ged_eye_model, gedp->ged_gvp->gv_view2model, temp);
+    MAT4X3PNT(*ged_eye_model, cam.view2model, temp);
 
     if (image_name) {
 	/* parse file name and possible extension */

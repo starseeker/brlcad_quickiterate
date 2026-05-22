@@ -35,6 +35,7 @@
 #include "bu/vls.h"
 #include "bsg/node.h"
 #include "bsg/payload.h"
+#include "bsg/camera.h"
 #include "bv.h"
 
 #include "../ged_private.h"
@@ -90,7 +91,11 @@ _label_cmd_create(void *bs, int argc, const char **argv)
 	p[2] = 0;
 	point_t tp;
 	VMOVE(tp, p);
-	MAT4X3PNT(p, gd->cv->gv_view2model, tp);
+	/* Phase S3-J: use camera snapshot to read gv_view2model. */
+	struct bsg_camera_snapshot cam;
+	bsg_camera_snapshot_init(&cam);
+	bsg_camera_snapshot_from_bview(&cam, gd->cv);
+	MAT4X3PNT(p, cam.view2model, tp);
     }
     point_t target;
     if (argc == 6) {

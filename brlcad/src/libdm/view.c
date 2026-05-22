@@ -46,6 +46,10 @@
 #include "bsg/view_scope.h"
 #include "dm.h"
 
+/* Screen-space size threshold used with bound-flag culling:
+ * if (object_size * view_inverse_size) is below this value, skip draw. */
+static const fastf_t DM_SIZE_CULL_THRESHOLD = 0.001;
+
 void
 dm_draw_arrow(struct dm *dmp, point_t A, point_t B, fastf_t tip_length, fastf_t tip_width, fastf_t sf)
 {
@@ -109,6 +113,36 @@ _independent_root_skip_child(bsg_node *n)
     return BU_STR_EQUAL("_overlays", n_name) ? 0 : 1;
 }
 
+static fastf_t
+_view_inverse_size_from_snapshot(const struct bview *v)
+{
+    if (!v)
+	return 0.0;
+
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    if (bsg_camera_snapshot_from_bview(&cam, v) != 0)
+	return 0.0;
+
+    return (cam.size > 0.0) ? 1.0 / cam.size : 0.0;
+}
+
+static void
+_view_model2view_from_snapshot(const struct bview *v, mat_t model2view)
+{
+    if (!v) {
+	MAT_IDN(model2view);
+	return;
+    }
+
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    if (bsg_camera_snapshot_from_bview(&cam, v) == 0)
+	MAT_COPY(model2view, cam.model2view);
+    else
+	MAT_IDN(model2view);
+}
+
 // Draw an arrow head for each MOVE+LAST_DRAW paring
 void
 dm_add_arrows(struct dm *dmp, bsg_node *s)
@@ -164,6 +198,17 @@ dm_draw_faceplate(struct bview *v)
 {
     struct dm *dmp = (struct dm *)v->dmp;
 
+    /* Phase S3 (camera-snapshot): derive view matrices and scale data from the
+     * BSG camera snapshot so all camera-field accesses in this faceplate pass
+     * go through the snapshot boundary.  Phase S3 is now complete for
+     * dm_draw_faceplate: rotation, center, and aet are all read from the
+     * snapshot rather than directly from bview. */
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    if (bsg_camera_snapshot_from_bview(&cam, v) != 0) {
+	/* Keep initialized identity/projection defaults. */
+    }
+
     /* Center dot */
     if (v->gv_s->gv_center_dot.gos_draw) {
 	(void)dm_set_fg(dmp,
@@ -180,12 +225,12 @@ dm_draw_faceplate(struct bview *v)
 	point_t save_map;
 
 	VMOVE(save_map, v->gv_s->gv_model_axes.axes_pos);
-	VSCALE(map, v->gv_s->gv_model_axes.axes_pos, v->gv_local2base);
-	MAT4X3PNT(v->gv_s->gv_model_axes.axes_pos, v->gv_model2view, map);
+	VSCALE(map, v->gv_s->gv_model_axes.axes_pos, cam.local2base);
+	MAT4X3PNT(v->gv_s->gv_model_axes.axes_pos, cam.model2view, map);
 
 	dm_draw_hud_axes(dmp,
-		     v->gv_size,
-		     v->gv_rotation,
+		     cam.size,
+		     cam.rotation,
 		     &v->gv_s->gv_model_axes);
 
 	VMOVE(v->gv_s->gv_model_axes.axes_pos, save_map);
@@ -203,8 +248,8 @@ dm_draw_faceplate(struct bview *v)
 	inv_aspect = (fastf_t)height / (fastf_t)width;
 	v->gv_s->gv_view_axes.axes_pos[Y] = save_ypos * inv_aspect;
 	dm_draw_hud_axes(dmp,
-		     v->gv_size,
-		     v->gv_rotation,
+		     cam.size,
+		     cam.rotation,
 		     &v->gv_s->gv_view_axes);
 
 	v->gv_s->gv_view_axes.axes_pos[Y] = save_ypos;
@@ -214,19 +259,19 @@ dm_draw_faceplate(struct bview *v)
     /* View scale - TODO view_scale needs its own text color */
     if (v->gv_s->gv_view_scale.gos_draw)
 	dm_draw_scale(dmp,
-		      v->gv_size*v->gv_base2local,
-		      bu_units_string(1/v->gv_base2local),
+		      cam.size*cam.base2local,
+		      bu_units_string(1/cam.base2local),
 		      v->gv_s->gv_view_scale.gos_line_color,
 		      v->gv_s->gv_view_params.color);
 
 
     /* Draw the angle distance cursor */
     if (v->gv_s->gv_adc.draw)
-	dm_draw_adc(dmp, &(v->gv_s->gv_adc), v->gv_view2model, v->gv_model2view);
+	dm_draw_adc(dmp, &(v->gv_s->gv_adc), cam.view2model, cam.model2view);
 
     /* Draw grid */
     if (v->gv_s->gv_grid.draw) {
-	dm_draw_grid(dmp, &v->gv_s->gv_grid, v->gv_scale, v->gv_model2view, v->gv_base2local);
+	dm_draw_grid(dmp, &v->gv_s->gv_grid, cam.scale, cam.model2view, cam.base2local);
     }
 
     /* Draw rect */
@@ -244,9 +289,9 @@ dm_draw_faceplate(struct bview *v)
 
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
 	point_t center;
-	char *ustr = (char *)bu_units_string(v->gv_local2base);
-	MAT_DELTAS_GET_NEG(center, v->gv_center);
-	VSCALE(center, center, v->gv_base2local);
+	char *ustr = (char *)bu_units_string(cam.local2base);
+	MAT_DELTAS_GET_NEG(center, cam.center);
+	VSCALE(center, center, cam.base2local);
 	int64_t elapsed_time = bu_gettime() - (dmp)->start_time;
 	/* Only use reasonable measurements */
 	if (elapsed_time > 10LL && elapsed_time < 30000000LL) {
@@ -258,7 +303,7 @@ dm_draw_faceplate(struct bview *v)
 	if (ps->draw_size) {
 	    if (bu_vls_strlen(&vls) > 0)
 		bu_vls_printf(&vls, " ");
-	    bu_vls_printf(&vls, "size[%s]: %.2f", ustr, v->gv_size * v->gv_base2local);
+	    bu_vls_printf(&vls, "size[%s]: %.2f", ustr, cam.size * cam.base2local);
 	}
 	if (ps->draw_center) {
 	    if (bu_vls_strlen(&vls) > 0)
@@ -268,17 +313,17 @@ dm_draw_faceplate(struct bview *v)
 	if (ps->draw_az) {
 	    if (bu_vls_strlen(&vls) > 0)
 		bu_vls_printf(&vls, " ");
-	    bu_vls_printf(&vls, "az:%.2f", v->gv_aet[0]);
+	    bu_vls_printf(&vls, "az:%.2f", cam.aet[0]);
 	}
 	if (ps->draw_el) {
 	    if (bu_vls_strlen(&vls) > 0)
 		bu_vls_printf(&vls, " ");
-	    bu_vls_printf(&vls, "el:%.2f", v->gv_aet[1]);
+	    bu_vls_printf(&vls, "el:%.2f", cam.aet[1]);
 	}
 	if (ps->draw_tw) {
 	    if (bu_vls_strlen(&vls) > 0)
 		bu_vls_printf(&vls, " ");
-	    bu_vls_printf(&vls, "tw:%.2f", v->gv_aet[2]);
+	    bu_vls_printf(&vls, "tw:%.2f", cam.aet[2]);
 	}
 	if (ps->draw_fps) {
 	    if (bu_vls_strlen(&vls) > 0)
@@ -305,9 +350,18 @@ void
 dm_draw_label(struct dm *dmp, bsg_node *s)
 {
     struct bv_label *l = (struct bv_label *)bsg_node_user_data_get(s);
+    if (!l)
+	return; /* Label payload is NULL -- nothing to draw. */
     struct bview *sv = bsg_node_view_get(s);
     if (!sv)
 	return;
+
+    /* Phase S3 (camera-snapshot): use snapshot for view matrix transforms. */
+    struct bsg_camera_snapshot lcam;
+    bsg_camera_snapshot_init(&lcam);
+    if (bsg_camera_snapshot_from_bview(&lcam, sv) != 0) {
+	/* Keep initialized identity/projection defaults. */
+    }
 
     /* Phase 11C: resolve label color from BSG material. */
     struct bsg_material material;
@@ -321,7 +375,7 @@ dm_draw_label(struct dm *dmp, bsg_node *s)
     (void)dm_set_fg(dmp, r, g, b, 1, 1.0);
 
     point_t vpoint;
-    MAT4X3PNT(vpoint, sv->gv_model2view, l->p);
+    MAT4X3PNT(vpoint, lcam.model2view, l->p);
 
     // Check that we can calculate the bbox before drawing text
     vect2d_t bmin = V2INIT_ZERO;
@@ -367,7 +421,7 @@ dm_draw_label(struct dm *dmp, bsg_node *s)
 			return;
 		    }
 		    t3d[2] = 0;
-		    MAT4X3PNT(tpt, sv->gv_view2model, t3d);
+		    MAT4X3PNT(tpt, lcam.view2model, t3d);
 		    double dsq = DIST_PNT_PNT_SQ(tpt, l->target);
 		    if (dsq < closest_dist) {
 			V2SET(anchor, xvals[i], yvals[j]);
@@ -410,7 +464,7 @@ dm_draw_label(struct dm *dmp, bsg_node *s)
 	    }
 	}
 	bv_screen_to_view(sv, &l3d[0], &l3d[1], (int)anchor[0], (int)anchor[1]);
-	MAT4X3PNT(mpt, sv->gv_view2model, l3d);
+	MAT4X3PNT(mpt, lcam.view2model, l3d);
     } else {
 	VMOVE(mpt, l->p);
     }
@@ -435,6 +489,7 @@ static void
 _dm_draw_scene_obj_internal(struct dm *dmp,
 			    bsg_node *s,
 			    struct bview *v,
+			    fastf_t view_isize,
 			    int force_draw,
 			    const struct bsg_draw_request *inherited_request,
 			    int transparency_pass,
@@ -470,8 +525,8 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	&& dm_get_bound_flag(dmp)
 	&& !bsg_node_is_display_obj(s)
 	&& bsg_node_has_kind(s, BSG_NODE_SHAPE)
-	&& v->gv_isize > 0
-	&& (bsg_node_size_get(s) * v->gv_isize) < 0.001) {
+	&& view_isize > SMALL_FASTF
+	&& (bsg_node_size_get(s) * view_isize) < DM_SIZE_CULL_THRESHOLD) {
 	pass_skip = 1;
     }
 
@@ -480,7 +535,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
     // children tables to provide some control
     for (size_t i = 0; i < bsg_node_child_count(s); i++) {
 	bsg_node *s_c = bsg_node_child(s, i);
-	_dm_draw_scene_obj_internal(dmp, s_c, v, do_force_draw, inherited_request,
+	_dm_draw_scene_obj_internal(dmp, s_c, v, view_isize, do_force_draw, inherited_request,
 				    transparency_pass, cur_mat);
     }
 
@@ -540,8 +595,9 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
      * mode) and the view carries an edit-mode matrix override,
      * temporarily swap the modelview matrix so the object is drawn at
      * its edit-transformed position.  Restore the *current* accumulated
-     * matrix afterwards (cur_mat) — falling back to gv_model2view when
-     * we are not under a transform node.
+     * matrix afterwards (cur_mat) — falling back to a camera snapshot
+     * model2view matrix (or identity if unavailable) when we are not
+     * under a transform node.
      *
      * Phase 6D: use is_highlighted (BSG selection OR s_iflag) for the
      * edit-matrix test so the edit transform is applied consistently. */
@@ -584,8 +640,13 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	 * coordinate frame. */
 	if (cur_mat)
 	    dm_loadmatrix(dmp, (fastf_t *)cur_mat, 0);
-	else
-	    dm_loadmatrix(dmp, v->gv_model2view, 0);
+	else {
+	    struct bsg_camera_snapshot ecam;
+	    bsg_camera_snapshot_init(&ecam);
+	    if (bsg_camera_snapshot_from_bview(&ecam, v) != 0)
+		MAT_IDN(ecam.model2view);
+	    dm_loadmatrix(dmp, ecam.model2view, 0);
+	}
     }
 
     dm_add_arrows(dmp, s);
@@ -614,7 +675,8 @@ dm_draw_scene_obj(struct dm *dmp, bsg_node *s, struct bview *v, int force_draw, 
 	bsg_draw_request_from_settings(&req, obj_settings);
 	rptr = &req;
     }
-    _dm_draw_scene_obj_internal(dmp, s, v, force_draw, rptr,
+    fastf_t view_isize = _view_inverse_size_from_snapshot(v);
+    _dm_draw_scene_obj_internal(dmp, s, v, view_isize, force_draw, rptr,
 				/*transparency_pass=*/0, /*cur_mat=*/NULL);
 }
 
@@ -634,6 +696,7 @@ dm_draw_scene_obj(struct dm *dmp, bsg_node *s, struct bview *v, int force_draw, 
 static void
 _bsg_view_traverse_impl(struct bview *v, void *root,
 			int transparency_pass,
+			fastf_t view_isize,
 			const fastf_t *cur_mat)
 {
     if (!v || !root)
@@ -668,7 +731,7 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	if (bsg_node_has_kind(s, BSG_NODE_VIEW_SCOPE)) {
 	    if (!bsg_view_scope_visible(s, v))
 		continue; /* wrong view — skip entire subtree */
-	    _bsg_view_traverse_impl(v, s, transparency_pass, cur_mat);
+	    _bsg_view_traverse_impl(v, s, transparency_pass, view_isize, cur_mat);
 	    continue;
 	}
 
@@ -694,7 +757,7 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 		bsg_node *child = bsg_node_child(s, (size_t)active);
 		if (child)
 		    _bsg_view_traverse_impl(v, child,
-					    transparency_pass, cur_mat);
+					    transparency_pass, view_isize, cur_mat);
 	    }
 	    continue;
 	}
@@ -709,13 +772,15 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	    if (cur_mat)
 		MAT_COPY(save_mat, cur_mat);
 	    else
-		MAT_COPY(save_mat, v->gv_model2view);
+		/* Phase S3 (camera-snapshot): use snapshot model2view as the
+		 * root transform base; if unavailable, use identity. */
+		_view_model2view_from_snapshot(v, save_mat);
 	    mat_t new_mat;
 	    mat_t local_xform;
 	    bsg_node_transform_get(s, local_xform);
 	    bn_mat_mul(new_mat, save_mat, local_xform);
 	    dm_loadmatrix(dmp, new_mat, 0);
-	    _bsg_view_traverse_impl(v, s, transparency_pass, new_mat);
+	    _bsg_view_traverse_impl(v, s, transparency_pass, view_isize, new_mat);
 	    dm_loadmatrix(dmp, save_mat, 0);
 	    continue;
 	}
@@ -732,7 +797,7 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 		bsg_node_draw_request_get(s, &_inh_request);
 		isp = &_inh_request;
 	    }
-	    _dm_draw_scene_obj_internal(dmp, s, v, bsg_node_force_draw(s),
+	    _dm_draw_scene_obj_internal(dmp, s, v, view_isize, bsg_node_force_draw(s),
 				    isp, transparency_pass, cur_mat);
 	}
     }
@@ -878,7 +943,9 @@ _dm_rop_draw_payload(void *data, bsg_node *bnode, struct bview *v,
 	bsg_node_draw_request_get(bnode, &_inh_request);
 	isp = &_inh_request;
     }
+    fastf_t view_isize = _view_inverse_size_from_snapshot(v);
     _dm_draw_scene_obj_internal(dmp, bnode, v,
+				view_isize,
 				bsg_node_force_draw(bnode),
 				isp,
 				pass, world_xform);
@@ -899,11 +966,12 @@ _dm_rop_draw_overlay(void *data, bsg_node *bnode, struct bview *v)
 	isp = &_inh_request;
     }
     mat_t cur_mat;
-    if (v)
-	MAT_COPY(cur_mat, v->gv_model2view);
-    else
-	MAT_IDN(cur_mat);
+    /* Phase S3 (camera-snapshot): derive overlay base matrix from
+     * snapshot; if unavailable, use identity. */
+    _view_model2view_from_snapshot(v, cur_mat);
+    fastf_t view_isize = _view_inverse_size_from_snapshot(v);
     _dm_draw_scene_obj_internal(dmp, bnode, v,
+				view_isize,
 				bsg_node_force_draw(bnode),
 				isp,
 				BSG_RENDER_PASS_ALL, cur_mat);
@@ -956,7 +1024,8 @@ void
 bsg_view_traverse(struct bview *v, void *root)
 {
     bv_log(3, "libdm:bsg_view_traverse");
-    _bsg_view_traverse_impl(v, root, /*transparency_pass=*/0, /*cur_mat=*/NULL);
+    fastf_t view_isize = _view_inverse_size_from_snapshot(v);
+    _bsg_view_traverse_impl(v, root, /*transparency_pass=*/0, view_isize, /*cur_mat=*/NULL);
 }
 
 // To allow completely custom modes like the sketch editor to be defined by
@@ -997,15 +1066,17 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
     // the end of the cycle will need this start time.
     dmp->start_time = bu_gettime();
 
-    // On to the scene objects - for drawing those we need the view matrix
-    matp_t mat = v->gv_model2view;
-    dm_loadmatrix(dmp, mat, 0);
-
-
-    // Set up to render using current perspective settings
-    if (SMALL_FASTF < v->gv_perspective)
-	(void)dm_loadpmatrix(dmp, v->gv_pmat);
-    else {
+    // On to the scene objects - for drawing those we now derive a
+    // renderer-neutral BSG camera snapshot and consume its matrices.
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    if (bsg_camera_snapshot_from_bview(&cam, v) != 0) {
+	/* Keep initialized identity/projection defaults. */
+    }
+    dm_loadmatrix(dmp, cam.model2view, 0);
+    if (SMALL_FASTF < cam.perspective_angle) {
+	(void)dm_loadpmatrix(dmp, cam.pmat);
+    } else {
 	(void)dm_loadpmatrix(dmp, NULL);
     }
 

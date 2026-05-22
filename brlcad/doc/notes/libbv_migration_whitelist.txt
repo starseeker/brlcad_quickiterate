@@ -1,7 +1,7 @@
 # libbv migration whitelist
 # Generated file: do not edit by hand.
 # Format: <key>	<relative_path>
-# Generated: 2026-05-22T00:32:22Z
+# Generated: 2026-05-22T11:38:03Z
 # Generator: misc/check/libbv_migration_guardrail.py
 
 include_bv_slash_angle	src/libged/tests/draw/lod_crossrun.cpp
@@ -727,6 +727,7 @@ struct_bview_set	include/bv/util.h
 struct_bview_set	include/bv/view_sets.h
 struct_bview_set	include/ged/defines.h
 struct_bview_set	src/libbsg/camera.c
+struct_bview_set	src/libbsg/tests/test_scene_graph.c
 struct_bview_set	src/libbv/bv_private.h
 struct_bview_set	src/libbv/diff.c
 struct_bview_set	src/libbv/hash.c

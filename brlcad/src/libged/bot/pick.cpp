@@ -35,6 +35,7 @@
 #include "bu/cmd.h"
 #include "bg/plane.h"
 #include "bg/tri_ray.h"
+#include "bsg/camera.h"
 #include "rt/geom.h"
 
 #include "./ged_bot.h"
@@ -122,12 +123,13 @@ _bot_pick_ray(struct _ged_bot_ipick *gib, int argc, const char **argv,
 	    bu_vls_printf(gib->vls, "no viewport available and no ray specified\n");
 	    return BRLCAD_ERROR;
 	}
-	VSET(origin,
-	    -gedp->ged_gvp->gv_center[MDX],
-	    -gedp->ged_gvp->gv_center[MDY],
-	    -gedp->ged_gvp->gv_center[MDZ]);
+	/* Phase S3-M: use camera snapshot for gv_center/gv_rotation reads. */
+	struct bsg_camera_snapshot cam;
+	bsg_camera_snapshot_init(&cam);
+	bsg_camera_snapshot_from_bview(&cam, gedp->ged_gvp);
+	VSET(origin, -cam.center[MDX], -cam.center[MDY], -cam.center[MDZ]);
 	VSCALE(origin, origin, gedp->dbip->dbi_base2local);
-	VMOVEN(dir, gedp->ged_gvp->gv_rotation + 8, 3);
+	VMOVEN(dir, cam.rotation + 8, 3);
 	VSCALE(dir, dir, -1.0);
 	/* Back origin outside the shape using bbox diagonal */
 	for (int i = 0; i < 3; i++) {

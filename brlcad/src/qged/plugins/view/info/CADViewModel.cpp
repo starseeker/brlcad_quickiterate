@@ -29,6 +29,7 @@
 #include "bu/sort.h"
 #include "bu/avs.h"
 #include "bu/malloc.h"
+#include "bsg/camera.h"
 #include "qtcad/QgSignalFlags.h"
 #include "QgEdApp.h"
 #include "CADViewModel.h"
@@ -72,22 +73,28 @@ CADViewModel::refresh(unsigned long long)
     m_root = new QgKeyValNode();
     beginResetModel();
 
+    /* Phase S3-I: use camera snapshot to read view state rather than
+     * accessing bview fields directly from the UI layer. */
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    bsg_camera_snapshot_from_bview(&cam, v);
+
     standard_nodes.insert("Name", add_pair("Name", bu_vls_cstr(&v->gv_name), m_root, i));
-    bu_vls_sprintf(&val, "%g", v->gv_size);
+    bu_vls_sprintf(&val, "%g", cam.size);
     standard_nodes.insert("Size", add_pair("Size", bu_vls_cstr(&val), m_root, i));
-    bu_vls_sprintf(&val, "%d", v->gv_width);
+    bu_vls_sprintf(&val, "%d", cam.width);
     standard_nodes.insert("Width", add_pair("Width", bu_vls_cstr(&val), m_root, i));
-    bu_vls_sprintf(&val, "%d", v->gv_height);
+    bu_vls_sprintf(&val, "%d", cam.height);
     standard_nodes.insert("Height", add_pair("Height", bu_vls_cstr(&val), m_root, i));
-    bu_vls_sprintf(&val, "%g", v->gv_aet[0]);
+    bu_vls_sprintf(&val, "%g", cam.aet[0]);
     standard_nodes.insert("Az", add_pair("Az", bu_vls_cstr(&val), m_root, i));
-    bu_vls_sprintf(&val, "%g", v->gv_aet[1]);
+    bu_vls_sprintf(&val, "%g", cam.aet[1]);
     standard_nodes.insert("El", add_pair("El", bu_vls_cstr(&val), m_root, i));
-    bu_vls_sprintf(&val, "%g", v->gv_aet[2]);
+    bu_vls_sprintf(&val, "%g", cam.aet[2]);
     standard_nodes.insert("Tw", add_pair("Tw", bu_vls_cstr(&val), m_root, i));
 
     vect_t center;
-    MAT_DELTAS_GET_NEG(center, v->gv_center);
+    MAT_DELTAS_GET_NEG(center, cam.center);
     bu_vls_sprintf(&val, "%g", center[0]);
     standard_nodes.insert("Center[X]", add_pair("Center[X]", bu_vls_cstr(&val), m_root, i));
     bu_vls_sprintf(&val, "%g", center[1]);

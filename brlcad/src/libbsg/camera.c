@@ -53,6 +53,9 @@ bsg_camera_snapshot_init(struct bsg_camera_snapshot *snap)
     MAT_IDN(snap->model2view);
     MAT_IDN(snap->view2model);
     MAT_IDN(snap->pmat);
+    MAT_IDN(snap->rotation);
+    MAT_IDN(snap->center);
+    VSETALL(snap->aet, 0.0);
     VSET(snap->look_dir,  0.0,  0.0, -1.0);
     VSET(snap->up_dir,    0.0,  1.0,  0.0);
     VSET(snap->right_dir, 1.0,  0.0,  0.0);
@@ -135,6 +138,11 @@ bsg_camera_snapshot_from_bview(struct bsg_camera_snapshot *snap,
 	    v->gv_s ? v->gv_s : (const struct bview_settings *)&v->gv_ls;
 	snap->zclip = s ? s->gv_zclip : 0;
     }
+
+    /* Orientation state for faceplate/HUD consumers */
+    MAT_COPY(snap->rotation, v->gv_rotation);
+    MAT_COPY(snap->center,   v->gv_center);
+    VMOVE(snap->aet, v->gv_aet);
 
     return 0;
 }

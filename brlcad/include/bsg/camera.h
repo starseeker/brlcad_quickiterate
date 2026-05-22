@@ -30,6 +30,11 @@
  * Callers produce a snapshot with bsg_camera_snapshot_from_bview() and
  * pass it to renderers; the snapshot is valid for the duration of one
  * frame (or until the view changes).
+ *
+ * Phase S3 (camera-snapshot extension): `rotation`, `center`, and `aet`
+ * are included so that faceplate consumers (HUD axes, view-params text)
+ * can read all orientation state through the snapshot boundary without
+ * any direct bview field access remaining in libdm.
  */
 /** @{ */
 /* @file bsg/camera.h */
@@ -89,6 +94,11 @@ struct bsg_camera_snapshot {
 
     /* Clip policy */
     int     zclip;          /**< @brief non-zero if z-clipping is enabled */
+
+    /* Orientation state (needed by faceplate HUD consumers) */
+    mat_t   rotation;       /**< @brief gv_rotation: pure rotation component of model2view */
+    mat_t   center;         /**< @brief gv_center: view-center translation matrix */
+    vect_t  aet;            /**< @brief azimuth/elevation/twist angles in degrees */
 };
 
 
