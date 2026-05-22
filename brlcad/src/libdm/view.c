@@ -109,6 +109,20 @@ _independent_root_skip_child(bsg_node *n)
     return BU_STR_EQUAL("_overlays", n_name) ? 0 : 1;
 }
 
+static fastf_t
+_view_isize_from_snapshot(const struct bview *v)
+{
+    if (!v)
+	return 0.0;
+
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    if (bsg_camera_snapshot_from_bview(&cam, v) != 0)
+	return 0.0;
+
+    return (cam.size > 0.0) ? 1.0 / cam.size : 0.0;
+}
+
 // Draw an arrow head for each MOVE+LAST_DRAW paring
 void
 dm_add_arrows(struct dm *dmp, bsg_node *s)
@@ -455,6 +469,7 @@ static void
 _dm_draw_scene_obj_internal(struct dm *dmp,
 			    bsg_node *s,
 			    struct bview *v,
+			    fastf_t view_isize,
 			    int force_draw,
 			    const struct bsg_draw_request *inherited_request,
 			    int transparency_pass,
@@ -490,8 +505,8 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	&& dm_get_bound_flag(dmp)
 	&& !bsg_node_is_display_obj(s)
 	&& bsg_node_has_kind(s, BSG_NODE_SHAPE)
-	&& v->gv_isize > 0
-	&& (bsg_node_size_get(s) * v->gv_isize) < 0.001) {
+	&& view_isize > 0.0
+	&& (bsg_node_size_get(s) * view_isize) < 0.001) {
 	pass_skip = 1;
     }
 
@@ -500,7 +515,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
     // children tables to provide some control
     for (size_t i = 0; i < bsg_node_child_count(s); i++) {
 	bsg_node *s_c = bsg_node_child(s, i);
-	_dm_draw_scene_obj_internal(dmp, s_c, v, do_force_draw, inherited_request,
+	_dm_draw_scene_obj_internal(dmp, s_c, v, view_isize, do_force_draw, inherited_request,
 				    transparency_pass, cur_mat);
     }
 
@@ -640,7 +655,8 @@ dm_draw_scene_obj(struct dm *dmp, bsg_node *s, struct bview *v, int force_draw, 
 	bsg_draw_request_from_settings(&req, obj_settings);
 	rptr = &req;
     }
-    _dm_draw_scene_obj_internal(dmp, s, v, force_draw, rptr,
+    fastf_t view_isize = _view_isize_from_snapshot(v);
+    _dm_draw_scene_obj_internal(dmp, s, v, view_isize, force_draw, rptr,
 				/*transparency_pass=*/0, /*cur_mat=*/NULL);
 }
 
@@ -660,6 +676,7 @@ dm_draw_scene_obj(struct dm *dmp, bsg_node *s, struct bview *v, int force_draw, 
 static void
 _bsg_view_traverse_impl(struct bview *v, void *root,
 			int transparency_pass,
+			fastf_t view_isize,
 			const fastf_t *cur_mat)
 {
     if (!v || !root)
@@ -694,7 +711,7 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	if (bsg_node_has_kind(s, BSG_NODE_VIEW_SCOPE)) {
 	    if (!bsg_view_scope_visible(s, v))
 		continue; /* wrong view — skip entire subtree */
-	    _bsg_view_traverse_impl(v, s, transparency_pass, cur_mat);
+	    _bsg_view_traverse_impl(v, s, transparency_pass, view_isize, cur_mat);
 	    continue;
 	}
 
@@ -720,7 +737,7 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 		bsg_node *child = bsg_node_child(s, (size_t)active);
 		if (child)
 		    _bsg_view_traverse_impl(v, child,
-					    transparency_pass, cur_mat);
+					    transparency_pass, view_isize, cur_mat);
 	    }
 	    continue;
 	}
@@ -749,7 +766,7 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	    bsg_node_transform_get(s, local_xform);
 	    bn_mat_mul(new_mat, save_mat, local_xform);
 	    dm_loadmatrix(dmp, new_mat, 0);
-	    _bsg_view_traverse_impl(v, s, transparency_pass, new_mat);
+	    _bsg_view_traverse_impl(v, s, transparency_pass, view_isize, new_mat);
 	    dm_loadmatrix(dmp, save_mat, 0);
 	    continue;
 	}
@@ -766,7 +783,7 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 		bsg_node_draw_request_get(s, &_inh_request);
 		isp = &_inh_request;
 	    }
-	    _dm_draw_scene_obj_internal(dmp, s, v, bsg_node_force_draw(s),
+	    _dm_draw_scene_obj_internal(dmp, s, v, view_isize, bsg_node_force_draw(s),
 				    isp, transparency_pass, cur_mat);
 	}
     }
@@ -912,7 +929,9 @@ _dm_rop_draw_payload(void *data, bsg_node *bnode, struct bview *v,
 	bsg_node_draw_request_get(bnode, &_inh_request);
 	isp = &_inh_request;
     }
+    fastf_t view_isize = _view_isize_from_snapshot(v);
     _dm_draw_scene_obj_internal(dmp, bnode, v,
+				view_isize,
 				bsg_node_force_draw(bnode),
 				isp,
 				pass, world_xform);
@@ -945,7 +964,9 @@ _dm_rop_draw_overlay(void *data, bsg_node *bnode, struct bview *v)
     } else {
 	MAT_IDN(cur_mat);
     }
+    fastf_t view_isize = _view_isize_from_snapshot(v);
     _dm_draw_scene_obj_internal(dmp, bnode, v,
+				view_isize,
 				bsg_node_force_draw(bnode),
 				isp,
 				BSG_RENDER_PASS_ALL, cur_mat);
@@ -998,7 +1019,8 @@ void
 bsg_view_traverse(struct bview *v, void *root)
 {
     bv_log(3, "libdm:bsg_view_traverse");
-    _bsg_view_traverse_impl(v, root, /*transparency_pass=*/0, /*cur_mat=*/NULL);
+    fastf_t view_isize = _view_isize_from_snapshot(v);
+    _bsg_view_traverse_impl(v, root, /*transparency_pass=*/0, view_isize, /*cur_mat=*/NULL);
 }
 
 // To allow completely custom modes like the sketch editor to be defined by
