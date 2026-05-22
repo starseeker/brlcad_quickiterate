@@ -1996,9 +1996,9 @@ bitwise_and_fullpath_cb(struct bv_scene_obj *sp, void *userdata)
 {
     struct bitwise_and_data *data = (struct bitwise_and_data *)userdata;
 
-    if (!bsg_node_ged_data_get((const bsg_node *)sp))
+    if (!bsg_node_u3_get((const bsg_node *)sp))
 	return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((const bsg_node *)sp);
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((const bsg_node *)sp);
 
     for (size_t i = 0; i < bdata->s_fullpath.fp_len; i++) {
 	DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_flags &= data->flag_val;
@@ -2026,9 +2026,9 @@ write_animate_cb(struct bv_scene_obj *sp, void *userdata)
 {
     struct write_animate_data *data = (struct write_animate_data *)userdata;
 
-    if (!bsg_node_ged_data_get((const bsg_node *)sp))
+    if (!bsg_node_u3_get((const bsg_node *)sp))
 	return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((const bsg_node *)sp);
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((const bsg_node *)sp);
 
     for (size_t i = 0; i < bdata->s_fullpath.fp_len; i++) {
 	if (!(DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_flags & RT_DIR_USED)) {

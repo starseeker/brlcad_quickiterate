@@ -433,9 +433,9 @@ botdump_solid_cb(struct bv_scene_obj *sp, void *userdata)
 
     MAT_IDN(mat);
 
-    if (!bsg_node_ged_data_get((const bsg_node *)sp))
+    if (!bsg_node_u3_get((const bsg_node *)sp))
 	return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((const bsg_node *)sp);
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((const bsg_node *)sp);
 
     dp = bdata->s_fullpath.fp_names[bdata->s_fullpath.fp_len-1];
 

@@ -65,8 +65,8 @@ _rtif_eye_solid_cb(bsg_node *n, void *ud)
 {
     struct bv_scene_obj *fsp = (struct bv_scene_obj *)n;
     struct _rtif_eye_data *d = (struct _rtif_eye_data *)ud;
-    if (!bsg_node_ged_data_get((bsg_node *)fsp)) return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)fsp);
+    if (!bsg_node_u3_get((bsg_node *)fsp)) return 1;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)fsp);
     if (LAST_SOLID(bdata) != d->dp) return 1;
     {
 	struct bu_list *vhead = bsg_node_vlist_head((bsg_node *)fsp);

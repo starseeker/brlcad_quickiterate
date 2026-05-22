@@ -2123,7 +2123,7 @@ bv_obj_get_child(struct bv_scene_obj *sp)
     bu_vls_sprintf(&s->bsg.bsg_name, "child:%s:%zd", bu_vls_cstr(&sp->bsg.bsg_name), BU_PTBL_LEN(&sp->bsg.bsg_children));
 
     s->s_v = sp->s_v;
-    bsg_node_db_dir_set((bsg_node *)s, bsg_node_db_dir_get((const bsg_node *)sp));
+    bsg_node_u1_set((bsg_node *)s, bsg_node_u1_get((const bsg_node *)sp));
     s->free_scene_obj = sp->free_scene_obj;
     s->vlfree = sp->vlfree;
 

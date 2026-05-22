@@ -52,9 +52,9 @@ how_solid_cb(struct bv_scene_obj *sp, void *userdata)
     if (data->found)
 	return 0; /* stop - already found */
 
-    if (!bsg_node_ged_data_get((const bsg_node *)sp))
+    if (!bsg_node_u3_get((const bsg_node *)sp))
 	return 1; /* continue */
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((const bsg_node *)sp);
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((const bsg_node *)sp);
 
     size_t i;
     struct directory **tmp_dpp;

@@ -2481,11 +2481,11 @@ _bview_state_attach_leaf(struct ged *gedp,
      * the path components and so the per-solid free callback can clear
      * the illumination NodeSensor (Phase 7 Step 9). */
     struct ged_bv_data *bdata =
-	(bsg_node_ged_data_get((bsg_node *)sp)) ? (struct ged_bv_data *)bsg_node_ged_data_get((bsg_node *)sp) : NULL;
+	(bsg_node_u3_get((bsg_node *)sp)) ? (struct ged_bv_data *)bsg_node_u3_get((bsg_node *)sp) : NULL;
     if (!bdata) {
 	BU_GET(bdata, struct ged_bv_data);
 	db_full_path_init(&bdata->s_fullpath);
-	bsg_node_ged_data_set((bsg_node *)sp, (void *)bdata);
+	bsg_node_u3_set((bsg_node *)sp, (void *)bdata);
     } else {
 	bdata->s_fullpath.fp_len = 0;
     }
@@ -3121,7 +3121,7 @@ BViewState::scene_obj(
     ud->tol = &wdbp->wdb_tol;
     ud->ttol = &wdbp->wdb_ttol;
     ud->mesh_c = dbis->gedp->ged_lod;
-    bsg_node_db_dir_set((bsg_node *)sp, dp);
+    bsg_node_u1_set((bsg_node *)sp, dp);
     bsg_node_user_data_set((bsg_node *)sp, (void *)ud);
 
     // Get color from path, unless we're overridden
@@ -3539,7 +3539,7 @@ BViewState::refresh(struct bview *v, int argc, const char **argv)
 	    // print path name, set view - otherwise empty
 	    dbis->print_path(&nso->bsg.bsg_name, cp);
 	    bsg_node_view_set((bsg_node *)nso, v);
-	    bsg_node_db_dir_set((bsg_node *)nso, bsg_node_db_dir_get((const bsg_node *)s));
+	    bsg_node_u1_set((bsg_node *)nso, bsg_node_u1_get((const bsg_node *)s));
 	    s_map[*k_it][mm_it->first] = nso;
 
 	    /* Phase B: replace the BSG-attached predecessor with the new

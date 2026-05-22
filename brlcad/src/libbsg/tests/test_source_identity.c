@@ -22,9 +22,9 @@
  * Slice 5 (bv_scene_obj_migrate.txt) tests for the source-identity
  * accessor migration:
  *
- *   bsg_node_db_dir_get / bsg_node_db_dir_set
- *   bsg_node_source_path_get / bsg_node_source_path_set
- *   bsg_node_ged_data_get / bsg_node_ged_data_set
+ *   bsg_node_u1_get / bsg_node_u1_set
+ *   bsg_node_u2_get / bsg_node_u2_set
+ *   bsg_node_u3_get / bsg_node_u3_set
  *
  * All three fields are now stored inline in bsg_node (bsg_db_dir,
  * bsg_source_path, bsg_ged_data) rather than in bv_scene_obj.dp /
@@ -39,7 +39,7 @@
 #include "bu/app.h"
 #include "bu/malloc.h"
 #include "bv/defines.h"   /* struct bv_scene_obj, bsg_node inline layout */
-#include "bsg/node.h"     /* bsg_node_db_dir_get/set, bsg_node_source_path_* */
+#include "bsg/node.h"     /* bsg_node_u1_get/set, bsg_node_source_path_* */
 
 #define PASS(msg) do { printf("  PASS: %s\n", (msg)); } while (0)
 #define FAIL(msg) do { printf("  FAIL: %s\n", (msg)); return 1; } while (0)
@@ -55,7 +55,7 @@ node_init(struct bv_scene_obj *s)
 
 
 /* ------------------------------------------------------------------ */
-/* Test 1: bsg_node_db_dir_get / bsg_node_db_dir_set                  */
+/* Test 1: bsg_node_u1_get / bsg_node_u1_set                  */
 /* ------------------------------------------------------------------ */
 
 static int
@@ -68,28 +68,28 @@ test_db_dir(void)
     bsg_node *n = (bsg_node *)&s;
 
     /* Fresh node: no db_dir set */
-    if (bsg_node_db_dir_get(n) != NULL)
+    if (bsg_node_u1_get(n) != NULL)
 	FAIL("fresh node: db_dir should be NULL");
 
     /* Use a stack address as a fake struct directory * */
     struct directory *fake_dp = (struct directory *)0xDEADBEEF;
-    bsg_node_db_dir_set(n, fake_dp);
+    bsg_node_u1_set(n, fake_dp);
 
-    if (bsg_node_db_dir_get(n) != fake_dp)
+    if (bsg_node_u1_get(n) != fake_dp)
 	FAIL("db_dir round-trip");
 
     /* Clear to NULL */
-    bsg_node_db_dir_set(n, NULL);
-    if (bsg_node_db_dir_get(n) != NULL)
+    bsg_node_u1_set(n, NULL);
+    if (bsg_node_u1_get(n) != NULL)
 	FAIL("db_dir clear to NULL");
 
     /* NULL node safety */
-    bsg_node_db_dir_set(NULL, fake_dp); /* no-op */
-    if (bsg_node_db_dir_get(NULL) != NULL)
+    bsg_node_u1_set(NULL, fake_dp); /* no-op */
+    if (bsg_node_u1_get(NULL) != NULL)
 	FAIL("db_dir_get(NULL) should return NULL");
 
     /* Verify storage is in bsg_node inline field, NOT in bv_scene_obj.dp */
-    bsg_node_db_dir_set(n, fake_dp);
+    bsg_node_u1_set(n, fake_dp);
     if (n->bsg_db_dir != (void *)fake_dp)
 	FAIL("db_dir stored in bsg.bsg_db_dir");
     /* The legacy dp field must remain independent (not aliased) */
@@ -102,7 +102,7 @@ test_db_dir(void)
 
 
 /* ------------------------------------------------------------------ */
-/* Test 2: bsg_node_source_path_get / bsg_node_source_path_set        */
+/* Test 2: bsg_node_u2_get / bsg_node_u2_set        */
 /* ------------------------------------------------------------------ */
 
 static int
@@ -115,26 +115,26 @@ test_source_path(void)
     bsg_node *n = (bsg_node *)&s;
 
     /* Fresh node: no source_path set */
-    if (bsg_node_source_path_get(n) != NULL)
+    if (bsg_node_u2_get(n) != NULL)
 	FAIL("fresh node: source_path should be NULL");
 
     void *fake_path = (void *)0xCAFEBABE;
-    bsg_node_source_path_set(n, fake_path);
-    if (bsg_node_source_path_get(n) != fake_path)
+    bsg_node_u2_set(n, fake_path);
+    if (bsg_node_u2_get(n) != fake_path)
 	FAIL("source_path round-trip");
 
     /* Clear to NULL */
-    bsg_node_source_path_set(n, NULL);
-    if (bsg_node_source_path_get(n) != NULL)
+    bsg_node_u2_set(n, NULL);
+    if (bsg_node_u2_get(n) != NULL)
 	FAIL("source_path clear to NULL");
 
     /* NULL node safety */
-    bsg_node_source_path_set(NULL, fake_path); /* no-op */
-    if (bsg_node_source_path_get(NULL) != NULL)
+    bsg_node_u2_set(NULL, fake_path); /* no-op */
+    if (bsg_node_u2_get(NULL) != NULL)
 	FAIL("source_path_get(NULL) should return NULL");
 
     /* Verify storage in bsg_node inline field */
-    bsg_node_source_path_set(n, fake_path);
+    bsg_node_u2_set(n, fake_path);
     if (n->bsg_source_path != fake_path)
 	FAIL("source_path stored in bsg.bsg_source_path");
     /* Legacy s_path must remain independent */
@@ -147,7 +147,7 @@ test_source_path(void)
 
 
 /* ------------------------------------------------------------------ */
-/* Test 3: bsg_node_ged_data_get / bsg_node_ged_data_set              */
+/* Test 3: bsg_node_u3_get / bsg_node_u3_set              */
 /* ------------------------------------------------------------------ */
 
 static int
@@ -160,26 +160,26 @@ test_ged_data(void)
     bsg_node *n = (bsg_node *)&s;
 
     /* Fresh node: no ged_data set */
-    if (bsg_node_ged_data_get(n) != NULL)
+    if (bsg_node_u3_get(n) != NULL)
 	FAIL("fresh node: ged_data should be NULL");
 
     void *fake_ged = (void *)0xFEEDFACE;
-    bsg_node_ged_data_set(n, fake_ged);
-    if (bsg_node_ged_data_get(n) != fake_ged)
+    bsg_node_u3_set(n, fake_ged);
+    if (bsg_node_u3_get(n) != fake_ged)
 	FAIL("ged_data round-trip");
 
     /* Clear to NULL */
-    bsg_node_ged_data_set(n, NULL);
-    if (bsg_node_ged_data_get(n) != NULL)
+    bsg_node_u3_set(n, NULL);
+    if (bsg_node_u3_get(n) != NULL)
 	FAIL("ged_data clear to NULL");
 
     /* NULL node safety */
-    bsg_node_ged_data_set(NULL, fake_ged); /* no-op */
-    if (bsg_node_ged_data_get(NULL) != NULL)
+    bsg_node_u3_set(NULL, fake_ged); /* no-op */
+    if (bsg_node_u3_get(NULL) != NULL)
 	FAIL("ged_data_get(NULL) should return NULL");
 
     /* Verify storage in bsg_node inline field */
-    bsg_node_ged_data_set(n, fake_ged);
+    bsg_node_u3_set(n, fake_ged);
     if (n->bsg_ged_data != fake_ged)
 	FAIL("ged_data stored in bsg.bsg_ged_data");
     /* Legacy s_u_data must remain independent */
@@ -208,18 +208,18 @@ test_field_independence(void)
     void             *fake_path = (void *)0x2222;
     void             *fake_ged  = (void *)0x3333;
 
-    bsg_node_db_dir_set(n, fake_dp);
-    bsg_node_source_path_set(n, fake_path);
-    bsg_node_ged_data_set(n, fake_ged);
+    bsg_node_u1_set(n, fake_dp);
+    bsg_node_u2_set(n, fake_path);
+    bsg_node_u3_set(n, fake_ged);
 
-    if (bsg_node_db_dir_get(n)      != fake_dp)   FAIL("db_dir preserved after other sets");
-    if (bsg_node_source_path_get(n) != fake_path) FAIL("source_path preserved after other sets");
-    if (bsg_node_ged_data_get(n)    != fake_ged)  FAIL("ged_data preserved after other sets");
+    if (bsg_node_u1_get(n)      != fake_dp)   FAIL("db_dir preserved after other sets");
+    if (bsg_node_u2_get(n) != fake_path) FAIL("source_path preserved after other sets");
+    if (bsg_node_u3_get(n)    != fake_ged)  FAIL("ged_data preserved after other sets");
 
     /* Overwrite one does not affect others */
-    bsg_node_db_dir_set(n, NULL);
-    if (bsg_node_source_path_get(n) != fake_path) FAIL("source_path unchanged after db_dir clear");
-    if (bsg_node_ged_data_get(n)    != fake_ged)  FAIL("ged_data unchanged after db_dir clear");
+    bsg_node_u1_set(n, NULL);
+    if (bsg_node_u2_get(n) != fake_path) FAIL("source_path unchanged after db_dir clear");
+    if (bsg_node_u3_get(n)    != fake_ged)  FAIL("ged_data unchanged after db_dir clear");
 
     PASS("field_independence");
     return 0;

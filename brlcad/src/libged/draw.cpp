@@ -64,14 +64,14 @@ scene_draw_update_data(const struct bv_scene_obj *s)
 static struct db_full_path *
 scene_source_path(const struct bv_scene_obj *s)
 {
-    return (struct db_full_path *)bsg_node_source_path_get((const bsg_node *)s);
+    return (struct db_full_path *)bsg_node_u2_get((const bsg_node *)s);
 }
 
 static struct directory *
 scene_directory(const struct bv_scene_obj *s)
 {
     struct db_full_path *fp = scene_source_path(s);
-    return (fp) ? DB_FULL_PATH_CUR_DIR(fp) : bsg_node_db_dir_get((const bsg_node *)s);
+    return (fp) ? DB_FULL_PATH_CUR_DIR(fp) : bsg_node_u1_get((const bsg_node *)s);
 }
 
 static int
@@ -122,7 +122,7 @@ draw_free_data(struct bv_scene_obj *s)
     if (sfp) {
 	db_free_full_path(sfp);
 	BU_PUT(sfp, struct db_full_path);
-	bsg_node_source_path_set((bsg_node *)s, NULL);
+	bsg_node_u2_set((bsg_node *)s, NULL);
     }
 
     /* free drawing info */
@@ -1083,8 +1083,8 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 	BU_GET(sfp, struct db_full_path);
 	db_full_path_init(sfp);
 	db_dup_full_path(sfp, path);
-	bsg_node_source_path_set((bsg_node *)s, (void *)sfp);
-	bsg_node_db_dir_set((bsg_node *)s, DB_FULL_PATH_CUR_DIR(path));
+	bsg_node_u2_set((bsg_node *)s, (void *)sfp);
+	bsg_node_u1_set((bsg_node *)s, DB_FULL_PATH_CUR_DIR(path));
 	bsg_node_transform_set((bsg_node *)s, *curr_mat);
 	bsg_node_draw_request_get((const bsg_node *)dd->g, &parent_request);
 	bsg_node_draw_request_set((bsg_node *)s, &parent_request);
@@ -1112,7 +1112,7 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 	// Stash the information needed for a draw update callback
 	struct draw_update_data_t *ud;
 	BU_GET(ud, struct draw_update_data_t);
-	ud->fp = (struct db_full_path *)bsg_node_source_path_get((const bsg_node *)s);
+	ud->fp = (struct db_full_path *)bsg_node_u2_get((const bsg_node *)s);
 	ud->dbip = dd->dbip;
 	ud->tol = dd->tol;
 	ud->ttol = dd->ttol;

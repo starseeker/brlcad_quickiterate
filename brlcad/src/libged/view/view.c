@@ -160,7 +160,7 @@ _view_independent_collect_paths(struct _view_independent_path **paths,
 	return BRLCAD_OK;
 
     if (node->bsg.bsg_kind & BV_DB_OBJS) {
-	void *_ud = bsg_node_ged_data_get((const bsg_node *)node);
+	void *_ud = bsg_node_u3_get((const bsg_node *)node);
 	struct ged_bv_data *bdata = _ud ? (struct ged_bv_data *)_ud : NULL;
 	if (bdata && bdata->s_fullpath.fp_len > 0) {
 	    char *fpath = db_path_to_string(&bdata->s_fullpath);

@@ -150,8 +150,8 @@ _find_solid_with_path_cb(bsg_node *n, void *ud)
 {
     struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
     struct _fswp_data *d = (struct _fswp_data *)ud;
-    if (!bsg_node_ged_data_get((const bsg_node *)sp)) return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_ged_data_get((const bsg_node *)sp);
+    if (!bsg_node_u3_get((const bsg_node *)sp)) return 1;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_u3_get((const bsg_node *)sp);
     if (!db_identical_full_paths(d->pathp, &bdata->s_fullpath)) return 1;
     /* Walk up to the root child (depth-1 group) */
     {
