@@ -72,6 +72,7 @@ if(BRLCAD_ENABLE_TCL)
     # without DM_WITH_RT set and the declaration is lost.
     # bu.c and dm.c both define a non-static register_cmds function.
     UNITY_BUILD_SKIP view/refresh.c bu.c dm.c
+    NO_STATIC_LINK_TEST
   )
   set(ptargets libtclcad)
   if(TARGET libtclcad-obj)

@@ -488,7 +488,7 @@ function(
     include_dirs
     local_include_dirs
   )
-  cmake_parse_arguments(L "SHARED;STATIC;NO_INSTALL;NO_STRICT;NO_STRICT_CXX;NO_UNITY" "FOLDER" "SHARED_SRCS;STATIC_SRCS;UNITY_BUILD_SKIP;PUBLIC_LIBS;PRIVATE_LIBS;INTERFACE_LIBS" ${ARGN})
+  cmake_parse_arguments(L "SHARED;STATIC;NO_INSTALL;NO_STRICT;NO_STRICT_CXX;NO_UNITY;NO_STATIC_LINK_TEST" "FOLDER" "SHARED_SRCS;STATIC_SRCS;UNITY_BUILD_SKIP;PUBLIC_LIBS;PRIVATE_LIBS;INTERFACE_LIBS" ${ARGN})
 
   # Let CMAKEFILES know what's going on
   cmakefiles(${srcslist} ${L_SHARED_SRCS} ${L_STATIC_SRCS})
@@ -764,7 +764,9 @@ function(
 
     set_target_properties(${libstatic} PROPERTIES FOLDER "BRL-CAD Static Libraries${SUBFOLDER}")
     validate_style("${libstatic}" "${srcslist};${L_STATIC_SRCS}")
-    brlcad_add_static_link_test(${libstatic} ${STATIC_PUBLIC_LIBS} ${STATIC_PRIVATE_LIBS} ${STATIC_INTERFACE_LIBS})
+    if(NOT L_NO_STATIC_LINK_TEST)
+      brlcad_add_static_link_test(${libstatic} ${STATIC_PUBLIC_LIBS} ${STATIC_PRIVATE_LIBS} ${STATIC_INTERFACE_LIBS})
+    endif(NOT L_NO_STATIC_LINK_TEST)
 
     # ----------------------------------------------------------------
     # Export setup for static targets
