@@ -126,7 +126,7 @@ Phase 8 — Test and CI coverage
 
 Current tree notes:
 - Headless QApplication coverage has already started: src/libqtcad/tests contains qgmodel/qgview test programs plus the offscreen ged_test_qged_swrast integration test, and the latter is wired into CTest with QT_QPA_PLATFORM=offscreen.
-- The QAbstractItemModelTester item is still open; QgModel.h still carries the Model_Test TODO.
+- QAbstractItemModelTester coverage now includes a dedicated offscreen CTest entry (test_qgmodel_model_tester) over QgModel, with QSignalSpy checks for fetch/open and layout-change signals; the old Model_Test TODO in QgModel.h is removed.
 
 - Add headless QApplication-based unit tests (using QSignalSpy and QTest) for the most logic-heavy classes: QgModel (tree fetch/hierarchy), QgKeyValModel, QgAttributesModel, each filter family (synthetic mouse events), QgFlowLayout, QgToolPalette selection logic, QgConsole command echo / completion, QgSignalFlags flag round-tripping.
 - Add a QAbstractItemModelTester instance over QgModel (the TODO in QgModel.h referencing wiki.qt.io/Model_Test becomes obsolete).

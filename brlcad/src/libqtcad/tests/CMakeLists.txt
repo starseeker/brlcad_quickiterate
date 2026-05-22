@@ -4,11 +4,23 @@ set(QGMODEL_SRCS qgmodel.cpp)
 set(QGVIEW_SRCS qgview.cpp)
 set(QSKETCH_SRCS qsketch.cpp)
 set(TEST_QTCAD_PLUGIN_REUSE_SRCS test_qtcad_plugin_reuse.cpp)
+set(TEST_QGMODEL_MODEL_TESTER_SRCS test_qgmodel_model_tester.cpp)
 
 if(TARGET Qt6::Test)
   add_executable(qgmodel qgmodel.cpp)
   target_link_libraries(
     qgmodel
+    libqtcad
+    libged
+    librt
+    libbu
+    Qt6::Widgets
+    Qt6::Test
+    )
+
+  add_executable(test_qgmodel_model_tester ${TEST_QGMODEL_MODEL_TESTER_SRCS})
+  target_link_libraries(
+    test_qgmodel_model_tester
     libqtcad
     libged
     librt
@@ -28,11 +40,26 @@ if(TARGET Qt5::Test)
     Qt5::Widgets
     Qt5::Test
     )
+
+  add_executable(test_qgmodel_model_tester ${TEST_QGMODEL_MODEL_TESTER_SRCS})
+  target_link_libraries(
+    test_qgmodel_model_tester
+    libqtcad
+    libged
+    librt
+    libbu
+    Qt5::Widgets
+    Qt5::Test
+    )
 endif(TARGET Qt5::Test)
 if(TARGET qgmodel)
   target_compile_definitions(qgmodel PRIVATE BRLCADBUILD HAVE_CONFIG_H)
   install(TARGETS qgmodel RUNTIME DESTINATION ${BIN_DIR} LIBRARY DESTINATION ${LIB_DIR} ARCHIVE DESTINATION ${LIB_DIR})
 endif(TARGET qgmodel)
+if(TARGET test_qgmodel_model_tester)
+  target_compile_definitions(test_qgmodel_model_tester PRIVATE BRLCADBUILD HAVE_CONFIG_H)
+  install(TARGETS test_qgmodel_model_tester RUNTIME DESTINATION ${BIN_DIR} LIBRARY DESTINATION ${LIB_DIR} ARCHIVE DESTINATION ${LIB_DIR})
+endif(TARGET test_qgmodel_model_tester)
 
 if(TARGET Qt6::Widgets)
   add_executable(qgview ${QGVIEW_SRCS})
@@ -65,6 +92,7 @@ endif(TARGET qgview)
 # Uses Qt's built-in offscreen platform — no X11 display required.
 if(TARGET Qt6::Widgets)
   set(GED_TEST_QGED_SWRAST_DATA_DIR "${CMAKE_SOURCE_DIR}/src/libged/tests/draw")
+  set(QGMODEL_TEST_DATA_G "${CMAKE_SOURCE_DIR}/src/libged/tests/draw/moss.g")
   add_executable(ged_test_qged_swrast ged_test_qged_swrast.cpp)
   target_include_directories(ged_test_qged_swrast PRIVATE
     "${CMAKE_SOURCE_DIR}/src/libged"
@@ -131,6 +159,15 @@ if(TARGET Qt6::Widgets)
     APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
   set_property(TEST test_qtcad_plugin_reuse
     APPEND PROPERTY ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+
+  if(TARGET test_qgmodel_model_tester)
+    brlcad_add_test(NAME test_qgmodel_model_tester
+      COMMAND test_qgmodel_model_tester "${QGMODEL_TEST_DATA_G}")
+    set_property(TEST test_qgmodel_model_tester
+      APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+    set_property(TEST test_qgmodel_model_tester
+      APPEND PROPERTY ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+  endif()
 endif(TARGET Qt6::Widgets)
 
 # Phase B: dm-swrast vs dm-qtgl backend benchmark.
@@ -187,6 +224,7 @@ cmakefiles(
   ${QGVIEW_SRCS}
   ${QSKETCH_SRCS}
   ${TEST_QTCAD_PLUGIN_REUSE_SRCS}
+  ${TEST_QGMODEL_MODEL_TESTER_SRCS}
   )
 
 # Local Variables:
@@ -195,4 +233,3 @@ cmakefiles(
 # indent-tabs-mode: t
 # End:
 # ex: shiftwidth=2 tabstop=8
-
