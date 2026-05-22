@@ -28,6 +28,7 @@ set(
   scene_set.h
   selection.h
   sensor.h
+  snap.h
   settings.h
   settings_types.h
   util.h

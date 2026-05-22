@@ -28,6 +28,7 @@ set(
   scene_graph.cpp
   selection.c
   sensor.c
+  snap.c
   settings.c
   text.c
   view_scope.c
@@ -78,6 +79,7 @@ cmakefiles(
   render.c
   selection.c
   sensor.c
+  snap.c
   settings.c
   text.c
   view_scope.c

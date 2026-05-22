@@ -102,6 +102,12 @@ brlcad_add_test(NAME libbsg_slice8 COMMAND test_bsg_slice8)
 brlcad_addexec(test_bsg_slice9 test_bsg_slice9.c "libbsg;libbv;libbu" TEST)
 brlcad_add_test(NAME libbsg_slice9 COMMAND test_bsg_slice9)
 
+#
+# Slice 10: BSG snap API (bsg_snap_params, bsg_snap_lines_3d/2d, bsg_snap_grid_2d)
+#
+brlcad_addexec(test_bsg_slice10 test_bsg_slice10.c "libbsg;libbv;libbg;libbu" TEST)
+brlcad_add_test(NAME libbsg_slice10 COMMAND test_bsg_slice10)
+
 cmakefiles(
   CMakeLists.txt
   test_arb8.c
@@ -110,6 +116,7 @@ cmakefiles(
   test_bsg_slice7.c
   test_bsg_slice8.c
   test_bsg_slice9.c
+  test_bsg_slice10.c
   test_camera.c
   test_hud.c
   test_identity.c
