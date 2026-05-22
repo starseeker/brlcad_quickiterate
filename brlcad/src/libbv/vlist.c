@@ -575,9 +575,10 @@ bv_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlblock
 	    s->s_vlen = bv_vlist_cmd_cnt(bvl);
 	    BU_LIST_APPEND_LIST(&(s->s_vlist), &(bvl->l));
 	    BU_LIST_INIT(&(bvl->l));
-	    s->s_color[0] = (rgb>>16);
-	    s->s_color[1] = (rgb>>8);
-	    s->s_color[2] = (rgb) & 0xFF;
+	    /* Slice 9: route color through BSG material API. */
+	    bv_view_obj_set_color(s, (int)((rgb>>16) & 0xFF),
+				    (int)((rgb>>8) & 0xFF),
+				    (int)(rgb & 0xFF));
 	    bu_ptbl_ins(out, (long *)s);
 	}
     }
@@ -606,10 +607,15 @@ bv_vlblock_obj(struct bv_vlblock *vbp, struct bview *v, const char *name)
 	    sc->s_vlen = bv_vlist_cmd_cnt(bvl);
 	    BU_LIST_APPEND_LIST(&(sc->s_vlist), &(bvl->l));
 	    BU_LIST_INIT(&(bvl->l));
-	    sc->s_color[0] = (rgb>>16);
-	    sc->s_color[1] = (rgb>>8);
-	    sc->s_color[2] = (rgb) & 0xFF;
-	    bu_vls_sprintf(&sc->bsg.bsg_name, "%s_%d_%d_%d", name, V3ARGS(sc->s_color));
+	    /* Slice 9: route color through BSG material API rather than
+	     * writing the legacy s_color field directly.  Compute the RGB
+	     * components once so the bsg_name can be formed without relying on
+	     * s_color being updated as a side-effect. */
+	    int _r = (int)((rgb>>16) & 0xFF);
+	    int _g = (int)((rgb>>8) & 0xFF);
+	    int _b = (int)(rgb & 0xFF);
+	    bv_view_obj_set_color(sc, _r, _g, _b);
+	    bu_vls_sprintf(&sc->bsg.bsg_name, "%s_%d_%d_%d", name, _r, _g, _b);
 	}
     }
 
