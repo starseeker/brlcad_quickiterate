@@ -607,6 +607,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	    dm_loadmatrix(dmp, (fastf_t *)cur_mat, 0);
 	else {
 	    struct bsg_camera_snapshot ecam;
+	    bsg_camera_snapshot_init(&ecam);
 	    if (bsg_camera_snapshot_from_bview(&ecam, v) != 0)
 		MAT_IDN(ecam.model2view);
 	    dm_loadmatrix(dmp, ecam.model2view, 0);
@@ -737,6 +738,7 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 		/* Phase S3 (camera-snapshot): use snapshot model2view as the
 		 * root transform base; if unavailable, use identity. */
 		struct bsg_camera_snapshot tcam;
+		bsg_camera_snapshot_init(&tcam);
 		if (bsg_camera_snapshot_from_bview(&tcam, v) == 0)
 		    MAT_COPY(save_mat, tcam.model2view);
 		else
@@ -935,6 +937,7 @@ _dm_rop_draw_overlay(void *data, bsg_node *bnode, struct bview *v)
 	/* Phase S3 (camera-snapshot): derive overlay base matrix from
 	 * snapshot; if unavailable, use identity. */
 	struct bsg_camera_snapshot ocam;
+	bsg_camera_snapshot_init(&ocam);
 	if (bsg_camera_snapshot_from_bview(&ocam, v) == 0)
 	    MAT_COPY(cur_mat, ocam.model2view);
 	else
