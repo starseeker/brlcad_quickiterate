@@ -45,6 +45,11 @@ extern "C" {
 /* QgSketchFilter — base helpers                                       */
 /* ------------------------------------------------------------------ */
 
+QgSketchFilter::QgSketchFilter(QObject *parent)
+	: QgViewFilter(parent)
+{
+}
+
 void
 QgSketchFilter::screen_to_view(int sx, int sy, vect_t mvec) const
 {
