@@ -597,29 +597,53 @@ QPoint QgConsole::getCursorPosition()
 //-----------------------------------------------------------------------------
 void QgConsole::listen(int fd, struct ged_subprocess *p, bu_process_io_t t, ged_io_func_t c, void *d)
 {
-	QgConsoleListener *l = new QgConsoleListener(fd, p, t, c, d);
+	// Pass 'this' as QObject parent so the listener's lifetime is bound to
+	// QgConsole's lifetime.  explicit delete in detach() / removeListener()
+	// is still safe with a parented object: Qt removes it from the parent's
+	// child list before destroying it.
+	QgConsoleListener *l = new QgConsoleListener(fd, p, t, c, d, this);
 	bu_log("Start listening: %d\n", (int)t);
 	QObject::connect(l, &QgConsoleListener::newLine, this, &QgConsole::printStringBeforePrompt);
 	QObject::connect(l, &QgConsoleListener::is_finished, this, &QgConsole::detach);
-	listeners[std::make_pair(p, t)] = l;
+	m_listeners[std::make_pair(p, (int)t)] = l;
 }
+
+//-----------------------------------------------------------------------------
+QgConsoleListener *QgConsole::findListener(struct ged_subprocess *p, int t) const
+{
+	auto it = m_listeners.find(std::make_pair(p, t));
+	return (it != m_listeners.end()) ? it->second : nullptr;
+}
+
+//-----------------------------------------------------------------------------
+void QgConsole::removeListener(struct ged_subprocess *p, int t)
+{
+	auto it = m_listeners.find(std::make_pair(p, t));
+	if (it == m_listeners.end())
+		return;
+	QgConsoleListener *l = it->second;
+	m_listeners.erase(it);
+	delete l;
+}
+
+//-----------------------------------------------------------------------------
 void QgConsole::detach(struct ged_subprocess *p, int t)
 {
 	QTCAD_SLOT("QgConsole::detach", 1);
 	std::map<std::pair<struct ged_subprocess *, int>, QgConsoleListener *>::iterator l_it, si_it, so_it, e_it;
-	l_it = listeners.find(std::make_pair(p,t));
+	l_it = m_listeners.find(std::make_pair(p,t));
 
 	struct ged_subprocess *process = nullptr;
 	ged_io_func_t callback = nullptr;
 	void *gdata = nullptr;
 
-	if (l_it != listeners.end()) {
+	if (l_it != m_listeners.end()) {
 		bu_log("Stop listening: %d\n", (int)t);
 		QgConsoleListener *l = l_it->second;
 		process = l->process;
 		callback = l->callback;
 		gdata = l->data;
-		listeners.erase(l_it);
+		m_listeners.erase(l_it);
 		delete l;
 
 		// Clear the stream-active flag for the stream that just retired.
@@ -646,14 +670,14 @@ void QgConsole::detach(struct ged_subprocess *p, int t)
 	}
 
 	if (process) {
-		si_it = listeners.find(std::make_pair(p,(int)BU_PROCESS_STDIN));
-		so_it = listeners.find(std::make_pair(p,(int)BU_PROCESS_STDOUT));
-		e_it = listeners.find(std::make_pair(p,(int)BU_PROCESS_STDERR));
+		si_it = m_listeners.find(std::make_pair(p,(int)BU_PROCESS_STDIN));
+		so_it = m_listeners.find(std::make_pair(p,(int)BU_PROCESS_STDOUT));
+		e_it = m_listeners.find(std::make_pair(p,(int)BU_PROCESS_STDERR));
 
 		// We don't want to destroy the process until all the listeners are removed.
 		// If they all have been, do a final callback call with -1 key to instruct
 		// the callback to finalize process and memory removal.
-		if (si_it == listeners.end() && so_it == listeners.end() && e_it == listeners.end() && callback) {
+		if (si_it == m_listeners.end() && so_it == m_listeners.end() && e_it == m_listeners.end() && callback) {
 			(*callback)(gdata, -1);
 			// This is also the point at which we know any output from the subprocess
 			// is at an end.  Finalize the before-prompt printing.
