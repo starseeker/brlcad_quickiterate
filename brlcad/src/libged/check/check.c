@@ -26,6 +26,7 @@
 
 #include "bu/log.h"
 #include "bu/getopt.h"
+#include "bsg/camera.h"
 
 #include "../ged_private.h"
 #include "./check_private.h"
@@ -644,9 +645,13 @@ int ged_check_core(struct ged *gedp, int argc, const char *argv[])
 	if (options.getfromview) {
 	    point_t eye_model;
 	    quat_t quat;
-	    quat_mat2quat(quat, gedp->ged_gvp->gv_rotation);
+	    /* Phase S3-O: use camera snapshot for gv_rotation/gv_size reads. */
+	    struct bsg_camera_snapshot cam;
+	    bsg_camera_snapshot_init(&cam);
+	    bsg_camera_snapshot_from_bview(&cam, gedp->ged_gvp);
+	    quat_mat2quat(quat, cam.rotation);
 	    _ged_rt_set_eye_model(gedp, eye_model);
-	    analyze_set_view_information(state, gedp->ged_gvp->gv_size, &eye_model, &quat);
+	    analyze_set_view_information(state, cam.size, &eye_model, &quat);
 	}
 	if (check_overlaps(gedp, state, gedp->dbip, tobjtab, tnobjs, &options)) {
 	    error = 1;
