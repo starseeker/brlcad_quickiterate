@@ -1047,8 +1047,7 @@ dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), vo
 	/* Keep initialized identity/projection defaults. */
     }
     dm_loadmatrix(dmp, cam.model2view, 0);
-    if (cam.projection == BSG_CAMERA_PERSPECTIVE &&
-	SMALL_FASTF < cam.perspective_angle) {
+    if (SMALL_FASTF < cam.perspective_angle) {
 	(void)dm_loadpmatrix(dmp, cam.pmat);
     } else {
 	(void)dm_loadpmatrix(dmp, NULL);

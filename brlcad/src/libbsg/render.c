@@ -230,6 +230,7 @@ bsg_render_action_apply(struct bsg_render_action *ra, bsg_node *root)
 
     int have_cam = 0;
     struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
 
     /* Camera snapshot — derived from the active view when available. */
     if (v && bsg_camera_snapshot_from_bview(&cam, v) == 0) {
