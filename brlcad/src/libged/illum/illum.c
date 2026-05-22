@@ -28,6 +28,7 @@
 
 #include "bsg/node.h"
 #include "bsg/payload.h"
+#include "bsg/camera.h"
 #include "dm.h" // For labelvert - see if we really need the dm_set_dirty call there...
 
 #include "ged.h"
@@ -77,8 +78,12 @@ ged_labelvert_core(struct ged *gedp, int argc, const char *argv[])
 
     vbp = rt_vlblock_init();
     MAT_IDN(mat);
-    bn_mat_inv(mat, gedp->ged_gvp->gv_rotation);
-    scale = gedp->ged_gvp->gv_size / 100;          /* divide by # chars/screen */
+    /* Phase S3-N: use camera snapshot for gv_rotation/gv_size reads. */
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    bsg_camera_snapshot_from_bview(&cam, gedp->ged_gvp);
+    bn_mat_inv(mat, cam.rotation);
+    scale = cam.size / 100;          /* divide by # chars/screen */
 
     for (i=1; i<argc; i++) {
 	struct directory *dp;
