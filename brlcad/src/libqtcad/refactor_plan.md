@@ -156,10 +156,6 @@ Current tree notes:
   consistent with the documented contract in QgCanvasBase.h.
 - Phase 9 is complete.
 
-- Replace QgConsoleListener's inherited QThread m_thread with the QObject::moveToThread pattern, document the consumer/producer lifetime.
-- Give QgConsole::listeners a private API and clear ownership semantics (transfer to std::unique_ptr or rely on QObject parent ownership).
-- Document who owns the bview*/dm*/fb* for each canvas widget; remove the duplicated local_v versus v distinction where possible.
-
 Sequencing and risk
 
 - Phases 0–2 and 5 are low-risk (mechanical, no behavior change) and unblock everything else.
