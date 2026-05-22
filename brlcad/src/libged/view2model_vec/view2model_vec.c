@@ -29,6 +29,7 @@
 #include <ctype.h>
 #include <string.h>
 
+#include "bsg/camera.h"
 #include "../ged_private.h"
 
 
@@ -57,7 +58,11 @@ ged_view2model_vec_core(struct ged *gedp, int argc, const char *argv[])
     /* convert from double to fastf_t */
     VMOVE(view_vec, scan);
 
-    bn_mat_inv(inv_Viewrot, gedp->ged_gvp->gv_rotation);
+    /* Phase S3-J: use camera snapshot to read gv_rotation. */
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    bsg_camera_snapshot_from_bview(&cam, gedp->ged_gvp);
+    bn_mat_inv(inv_Viewrot, cam.rotation);
     MAT4X3PNT(model_vec, inv_Viewrot, view_vec);
 
     bn_encode_vect(gedp->ged_result_str, model_vec, 1);
