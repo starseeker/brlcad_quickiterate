@@ -2,6 +2,7 @@ set(
   LIBBSG_SRCS
   action.c
   appearance.c
+  axes.c
   camera.c
   compat.c
   draw_set.c
@@ -25,6 +26,7 @@ set(
   selection.c
   sensor.c
   settings.c
+  text.c
   view_scope.c
   visit.c
   vlist.c
@@ -48,6 +50,7 @@ cmakefiles(
   CMakeLists.txt
   action.c
   appearance.c
+  axes.c
   bsg_private.h
   camera.c
   compat.c
@@ -70,6 +73,7 @@ cmakefiles(
   selection.c
   sensor.c
   settings.c
+  text.c
   view_scope.c
   visit.c
 )

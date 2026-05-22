@@ -21,8 +21,12 @@
  *
  * Phase 4: vlist helpers for BSG scene-graph construction.
  *
- * bsg_vlist_cmd_cnt — BSG-namespaced command counter (wraps libbv).
- * bsg_vlist_arb8    — emit 18-command ARB8 wireframe into a vlist.
+ * bsg_vlist_cmd_cnt  — BSG-namespaced command counter (wraps libbv).
+ * bsg_vlist_arb8     — emit 18-command ARB8 wireframe into a vlist.
+ *
+ * Slice 6 (bv_scene_obj_migrate):
+ * bsg_vlist_3string  — BSG-namespaced 3-D vector-font string (wraps libbv).
+ * bsg_vlist_2string  — BSG-namespaced 2-D vector-font string (wraps libbv).
  */
 
 #include "common.h"
@@ -76,6 +80,35 @@ bsg_vlist_arb8(struct bu_list *vhead, struct bu_list *vlfree, point_t pts[8])
     BV_ADD_VLIST(vlfree, vhead, pts[7], BV_VLIST_LINE_DRAW);
 
     /* Total: 5 + 5 + 8 = 18 vlist commands */
+}
+
+
+void
+bsg_vlist_3string(struct bu_list *vhead,
+		  struct bu_list *free_hd,
+		  const char *string,
+		  const point_t origin,
+		  const mat_t rot,
+		  double scale)
+{
+    if (!vhead || !free_hd || !string)
+	return;
+    bv_vlist_3string(vhead, free_hd, string, origin, rot, scale);
+}
+
+
+void
+bsg_vlist_2string(struct bu_list *vhead,
+		  struct bu_list *free_hd,
+		  const char *string,
+		  double x,
+		  double y,
+		  double scale,
+		  double theta)
+{
+    if (!vhead || !free_hd || !string)
+	return;
+    bv_vlist_2string(vhead, free_hd, string, x, y, scale, theta);
 }
 
 /*

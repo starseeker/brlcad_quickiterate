@@ -64,6 +64,59 @@ bsg_vlist_cmd_cnt(struct bv_vlist *vlist);
 BSG_EXPORT extern void
 bsg_vlist_arb8(struct bu_list *vhead, struct bu_list *vlfree, point_t pts[8]);
 
+
+/**
+ * Slice 6 (bv_scene_obj_migrate): BSG-namespaced 3-D vector-font string.
+ *
+ * Converts @p string to stroked vlist commands in 3-D, appending them
+ * to @p vhead using @p free_hd as the chunk free-list.
+ *
+ * Parameters mirror bv_vlist_3string() exactly:
+ *   @p vhead    destination vlist head
+ *   @p free_hd  chunk free-list (must be an initialized bu_list head)
+ *   @p string   NUL-terminated text to stroke
+ *   @p origin   lower-left corner of the first character (model coords)
+ *   @p rot      4×4 transform matrix applied to each character position
+ *               (WARNING: may translate as well as rotate)
+ *   @p scale    character width in model-space units (mm)
+ *
+ * Wraps bv_vlist_3string() so callers do not need to include bv/vlist.h.
+ */
+BSG_EXPORT extern void
+bsg_vlist_3string(struct bu_list *vhead,
+		  struct bu_list *free_hd,
+		  const char *string,
+		  const point_t origin,
+		  const mat_t rot,
+		  double scale);
+
+
+/**
+ * Slice 6 (bv_scene_obj_migrate): BSG-namespaced 2-D vector-font string.
+ *
+ * Converts @p string to stroked vlist commands in the X-Y plane,
+ * appending them to @p vhead using @p free_hd as the chunk free-list.
+ *
+ * Parameters mirror bv_vlist_2string() exactly:
+ *   @p vhead    destination vlist head
+ *   @p free_hd  chunk free-list (must be an initialized bu_list head)
+ *   @p string   NUL-terminated text to stroke
+ *   @p x        X coordinate of the lower-left of the first character
+ *   @p y        Y coordinate of the lower-left of the first character
+ *   @p scale    character width in model-space units (mm)
+ *   @p theta    counter-clockwise rotation in degrees from the +X axis
+ *
+ * Wraps bv_vlist_2string() so callers do not need to include bv/vlist.h.
+ */
+BSG_EXPORT extern void
+bsg_vlist_2string(struct bu_list *vhead,
+		  struct bu_list *free_hd,
+		  const char *string,
+		  double x,
+		  double y,
+		  double scale,
+		  double theta);
+
 __END_DECLS
 
 #endif /* BSG_VLIST_H */
