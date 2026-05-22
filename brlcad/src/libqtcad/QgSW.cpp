@@ -33,6 +33,7 @@
 extern "C" {
 #include "bu/malloc.h"
 #include "bsg/util.h"
+#include "bsg/camera.h"
 }
 #include "bindings.h"
 #include "qtcad/QgSW.h"
@@ -205,8 +206,12 @@ void QgSW::paintEvent(QPaintEvent *e)
     dm_get_bg(&dm_bg1, &dm_bg2, dmp);
     dm_set_bg(dmp, dm_bg1[0], dm_bg1[1], dm_bg1[2], dm_bg2[0], dm_bg2[1], dm_bg2[2]);
 
-    matp_t mat = v->gv_model2view;
-    dm_loadmatrix(dmp, mat, 0);
+    /* Phase S3-G: use snapshot for gv_model2view to avoid direct bview
+     * field access at draw time. */
+    struct bsg_camera_snapshot cam;
+    bsg_camera_snapshot_init(&cam);
+    bsg_camera_snapshot_from_bview(&cam, v);
+    dm_loadmatrix(dmp, cam.model2view, 0);
     bu_log("QgSW::paintEvent: pre-draw gv=(%d,%d) dm=(%d,%d) dpr=%.3g widget=(%d,%d)\n",
 	   v->gv_width, v->gv_height,
 	   dm_get_width(dmp), dm_get_height(dmp),
@@ -514,7 +519,13 @@ void QgSW::get_viewport_image(QImage &img)
 	bg2r = bg2g = bg2b = QTSW_SCREENSHOT_BG_GREY;
     }
     dm_set_bg(dmp, bg1r, bg1g, bg1b, bg2r, bg2g, bg2b);
-    dm_loadmatrix(dmp, v->gv_model2view, 0);
+    /* Phase S3-G: use snapshot for gv_model2view. */
+    {
+	struct bsg_camera_snapshot cam2;
+	bsg_camera_snapshot_init(&cam2);
+	bsg_camera_snapshot_from_bview(&cam2, v);
+	dm_loadmatrix(dmp, cam2.model2view, 0);
+    }
     dm_draw_begin(dmp);
     dm_draw_objs(v, draw_custom, draw_udata);
     dm_draw_end(dmp);
