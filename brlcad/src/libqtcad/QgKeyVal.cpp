@@ -43,7 +43,7 @@ QgKeyValNode::~QgKeyValNode()
 // *********** Model **************
 
 QgKeyValModel::QgKeyValModel(QObject *aParent)
-	: QAbstractItemModel(aParent)
+	: QAbstractItemModel(aParent), m_root(nullptr)
 {
 }
 
@@ -95,6 +95,7 @@ void QgKeyValModel::setRootNode(QgKeyValNode *root)
 
 QModelIndex QgKeyValModel::index(int row, int column, const QModelIndex &parent_idx) const
 {
+	if (!m_root) return QModelIndex();
 	if (hasIndex(row, column, parent_idx)) {
 		QgKeyValNode *cnode = IndexNode(parent_idx)->children.at(row);
 		return createIndex(row, column, cnode);
@@ -104,6 +105,7 @@ QModelIndex QgKeyValModel::index(int row, int column, const QModelIndex &parent_
 
 QModelIndex QgKeyValModel::parent(const QModelIndex &child) const
 {
+	if (!m_root) return QModelIndex();
 	QgKeyValNode *pnode = IndexNode(child)->parent;
 	if (pnode == m_root) return QModelIndex();
 	return createIndex(NodeRow(pnode), 0, pnode);
@@ -111,6 +113,7 @@ QModelIndex QgKeyValModel::parent(const QModelIndex &child) const
 
 int QgKeyValModel::rowCount(const QModelIndex &parent_idx) const
 {
+	if (!m_root) return 0;
 	return IndexNode(parent_idx)->children.count();
 }
 

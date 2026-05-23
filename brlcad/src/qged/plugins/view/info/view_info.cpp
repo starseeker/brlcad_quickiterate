@@ -46,6 +46,7 @@ ViewInfoTool::createWidget()
 {
     m_model = new CADViewModel(this);
     m_model->setContext(m_ctx);
+    m_model->refresh(0);
 
     QgKeyValView *vview = new QgKeyValView(nullptr, 0);
     vview->setModel(m_model);
