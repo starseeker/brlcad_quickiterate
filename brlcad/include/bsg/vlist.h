@@ -20,10 +20,12 @@
 /** @addtogroup libbsg
  *
  * @brief
- * Vlist helpers for the BSG scene graph.
+ * Canonical vlist type, constants, macros and helpers for the BSG
+ * scene graph.
  *
- * These functions wrap or extend the libbv vlist API (bv/vlist.h) for
- * use in BSG scene-graph construction.
+ * This header is the authoritative definition of the vlist type.
+ * bv/vlist.h is a temporary backward-compatibility bridge that will be
+ * removed once all callers have migrated to bsg/vlist.h.
  */
 /** @{ */
 /* @file bsg/vlist.h */
@@ -32,61 +34,141 @@
 #define BSG_VLIST_H
 
 #include "common.h"
+#include <stdio.h>
 #include "vmath.h"
+#include "bu/magic.h"
 #include "bu/list.h"
-#include "bv/vlist.h"
+#include "bu/malloc.h"
+#include "bu/vls.h"
 #include "bsg/defines.h"
 
 __BEGIN_DECLS
 
 /* -----------------------------------------------------------------------
- * BSG vlist struct alias
+ * Core vlist struct and type
+ * ----------------------------------------------------------------------- */
+
+#define BSG_VLIST_CHUNK 35   /**< @brief 32-bit mach => just less than 1k */
+
+struct bsg_vlist {
+    struct bu_list l;               /**< @brief magic, forw, back */
+    size_t nused;                   /**< @brief elements 0..nused active */
+    int cmd[BSG_VLIST_CHUNK];       /**< @brief BSG_VLIST_* command codes */
+    point_t pt[BSG_VLIST_CHUNK];    /**< @brief associated 3-point/vect */
+};
+typedef struct bsg_vlist bsg_vlist;
+
+#define BSG_VLIST_NULL  ((bsg_vlist *)0)
+#define BSG_CK_VLIST(_p) BU_CKMAG((_p), BV_VLIST_MAGIC, "bsg_vlist")
+
+/* -----------------------------------------------------------------------
+ * Vlist command constants
+ * ----------------------------------------------------------------------- */
+#define BSG_VLIST_LINE_MOVE         0   /**< @brief specify new line */
+#define BSG_VLIST_LINE_DRAW         1   /**< @brief subsequent line vertex */
+#define BSG_VLIST_POLY_START        2   /**< @brief pt[] has surface normal */
+#define BSG_VLIST_POLY_MOVE         3   /**< @brief move to first poly vertex */
+#define BSG_VLIST_POLY_DRAW         4   /**< @brief subsequent poly vertex */
+#define BSG_VLIST_POLY_END          5   /**< @brief last vert (repeats 1st), draw poly */
+#define BSG_VLIST_POLY_VERTNORM     6   /**< @brief per-vertex normal */
+#define BSG_VLIST_TRI_START         7   /**< @brief pt[] has surface normal */
+#define BSG_VLIST_TRI_MOVE          8   /**< @brief move to first triangle vertex */
+#define BSG_VLIST_TRI_DRAW          9   /**< @brief subsequent triangle vertex */
+#define BSG_VLIST_TRI_END           10  /**< @brief last vert (repeats 1st), draw poly */
+#define BSG_VLIST_TRI_VERTNORM      11  /**< @brief per-vertex normal */
+#define BSG_VLIST_POINT_DRAW        12  /**< @brief Draw a single point */
+#define BSG_VLIST_POINT_SIZE        13  /**< @brief specify point pixel size */
+#define BSG_VLIST_LINE_WIDTH        14  /**< @brief specify line pixel width */
+#define BSG_VLIST_DISPLAY_MAT       15  /**< @brief specify the model matrix */
+#define BSG_VLIST_MODEL_MAT         16  /**< @brief specify the display matrix */
+#define BSG_VLIST_CMD_MAX           16  /**< @brief Max command number */
+
+/* -----------------------------------------------------------------------
+ * Vlist operation macros
  *
- * bsg_vlist is a layout-compatible alias for struct bv_vlist.  New BSG
- * code should use bsg_vlist; the underlying struct is unchanged.
+ * Applications must call BU_LIST_INIT on their free-list head before
+ * using BSG_GET_VLIST / BSG_ADD_VLIST.  These macros are non-PARALLEL.
  * ----------------------------------------------------------------------- */
 
-/** @brief BSG alias for struct bv_vlist */
-typedef struct bv_vlist bsg_vlist;
+#define BSG_GET_VLIST(_free_hd, p) do { \
+(p) = BU_LIST_FIRST(bsg_vlist, (_free_hd)); \
+if (BU_LIST_IS_HEAD((p), (_free_hd))) { \
+    BU_ALLOC((p), bsg_vlist); \
+    (p)->l.magic = BV_VLIST_MAGIC; \
+} else { \
+    BU_LIST_DEQUEUE(&((p)->l)); \
+} \
+(p)->nused = 0; \
+    } while (0)
 
-/* -----------------------------------------------------------------------
- * BSG vlist command constants (aliases for BV_VLIST_* values)
- * ----------------------------------------------------------------------- */
-#define BSG_VLIST_CHUNK              BV_VLIST_CHUNK
+/** Place an entire chain of bsg_vlist structs on the freelist _free_hd */
+#define BSG_FREE_VLIST(_free_hd, hd) do { \
+BU_CK_LIST_HEAD((hd)); \
+BU_LIST_APPEND_LIST((_free_hd), (hd)); \
+    } while (0)
 
-#define BSG_VLIST_LINE_MOVE          BV_VLIST_LINE_MOVE
-#define BSG_VLIST_LINE_DRAW          BV_VLIST_LINE_DRAW
-#define BSG_VLIST_POLY_START         BV_VLIST_POLY_START
-#define BSG_VLIST_POLY_MOVE          BV_VLIST_POLY_MOVE
-#define BSG_VLIST_POLY_DRAW          BV_VLIST_POLY_DRAW
-#define BSG_VLIST_POLY_END           BV_VLIST_POLY_END
-#define BSG_VLIST_POLY_VERTNORM      BV_VLIST_POLY_VERTNORM
-#define BSG_VLIST_TRI_START          BV_VLIST_TRI_START
-#define BSG_VLIST_TRI_MOVE           BV_VLIST_TRI_MOVE
-#define BSG_VLIST_TRI_DRAW           BV_VLIST_TRI_DRAW
-#define BSG_VLIST_TRI_END            BV_VLIST_TRI_END
-#define BSG_VLIST_TRI_VERTNORM       BV_VLIST_TRI_VERTNORM
-#define BSG_VLIST_POINT_DRAW         BV_VLIST_POINT_DRAW
-#define BSG_VLIST_POINT_SIZE         BV_VLIST_POINT_SIZE
-#define BSG_VLIST_LINE_WIDTH         BV_VLIST_LINE_WIDTH
-#define BSG_VLIST_DISPLAY_MAT        BV_VLIST_DISPLAY_MAT
-#define BSG_VLIST_MODEL_MAT          BV_VLIST_MODEL_MAT
-#define BSG_VLIST_CMD_MAX            BV_VLIST_CMD_MAX
+#define BSG_ADD_VLIST(_free_hd, _dest_hd, pnt, draw) do { \
+bsg_vlist *_vp; \
+BU_CK_LIST_HEAD(_dest_hd); \
+_vp = BU_LIST_LAST(bsg_vlist, (_dest_hd)); \
+if (BU_LIST_IS_HEAD(_vp, (_dest_hd)) || _vp->nused >= BSG_VLIST_CHUNK) { \
+    BSG_GET_VLIST(_free_hd, _vp); \
+    BU_LIST_INSERT((_dest_hd), &(_vp->l)); \
+} \
+VMOVE(_vp->pt[_vp->nused], (pnt)); \
+_vp->cmd[_vp->nused++] = (draw); \
+    } while (0)
 
-/* -----------------------------------------------------------------------
- * BSG vlist operation macros (aliases for BV_* list macros)
- * ----------------------------------------------------------------------- */
-#define BSG_GET_VLIST(_free_hd, p)           BV_GET_VLIST(_free_hd, p)
-#define BSG_FREE_VLIST(_free_hd, hd)         BV_FREE_VLIST(_free_hd, hd)
-#define BSG_ADD_VLIST(_free_hd, _dest_hd, pnt, draw) \
-    BV_ADD_VLIST(_free_hd, _dest_hd, pnt, draw)
-#define BSG_VLIST_SET_DISP_MAT(_fh, _dh, _rp) \
-    BV_VLIST_SET_DISP_MAT(_fh, _dh, _rp)
-#define BSG_VLIST_SET_MODEL_MAT(_fh, _dh)   BV_VLIST_SET_MODEL_MAT(_fh, _dh)
-#define BSG_VLIST_SET_POINT_SIZE(_fh, _dh, _sz) \
-    BV_VLIST_SET_POINT_SIZE(_fh, _dh, _sz)
-#define BSG_VLIST_SET_LINE_WIDTH(_fh, _dh, _w) \
-    BV_VLIST_SET_LINE_WIDTH(_fh, _dh, _w)
+/** Change the transformation matrix to display */
+#define BSG_VLIST_SET_DISP_MAT(_free_hd, _dest_hd, _ref_pt) do { \
+bsg_vlist *_vp; \
+BU_CK_LIST_HEAD(_dest_hd); \
+_vp = BU_LIST_LAST(bsg_vlist, (_dest_hd)); \
+if (BU_LIST_IS_HEAD(_vp, (_dest_hd)) || _vp->nused >= BSG_VLIST_CHUNK) { \
+    BSG_GET_VLIST(_free_hd, _vp); \
+    BU_LIST_INSERT((_dest_hd), &(_vp->l)); \
+} \
+VMOVE(_vp->pt[_vp->nused], (_ref_pt)); \
+_vp->cmd[_vp->nused++] = BSG_VLIST_DISPLAY_MAT; \
+    } while (0)
+
+/** Change the transformation matrix to model */
+#define BSG_VLIST_SET_MODEL_MAT(_free_hd, _dest_hd) do { \
+bsg_vlist *_vp; \
+BU_CK_LIST_HEAD(_dest_hd); \
+_vp = BU_LIST_LAST(bsg_vlist, (_dest_hd)); \
+if (BU_LIST_IS_HEAD(_vp, (_dest_hd)) || _vp->nused >= BSG_VLIST_CHUNK) { \
+    BSG_GET_VLIST(_free_hd, _vp); \
+    BU_LIST_INSERT((_dest_hd), &(_vp->l)); \
+} \
+_vp->cmd[_vp->nused++] = BSG_VLIST_MODEL_MAT; \
+    } while (0)
+
+/** Set a point size to apply to vlist elements that follow */
+#define BSG_VLIST_SET_POINT_SIZE(_free_hd, _dest_hd, _size) do { \
+bsg_vlist *_vp; \
+BU_CK_LIST_HEAD(_dest_hd); \
+_vp = BU_LIST_LAST(bsg_vlist, (_dest_hd)); \
+if (BU_LIST_IS_HEAD(_vp, (_dest_hd)) || _vp->nused >= BSG_VLIST_CHUNK) { \
+    BSG_GET_VLIST(_free_hd, _vp); \
+    BU_LIST_INSERT((_dest_hd), &(_vp->l)); \
+} \
+_vp->pt[_vp->nused][0] = (_size); \
+_vp->cmd[_vp->nused++] = BSG_VLIST_POINT_SIZE; \
+    } while (0)
+
+/** Set a line width to apply to vlist elements that follow */
+#define BSG_VLIST_SET_LINE_WIDTH(_free_hd, _dest_hd, _width) do { \
+bsg_vlist *_vp; \
+BU_CK_LIST_HEAD(_dest_hd); \
+_vp = BU_LIST_LAST(bsg_vlist, (_dest_hd)); \
+if (BU_LIST_IS_HEAD(_vp, (_dest_hd)) || _vp->nused >= BSG_VLIST_CHUNK) { \
+    BSG_GET_VLIST(_free_hd, _vp); \
+    BU_LIST_INSERT((_dest_hd), &(_vp->l)); \
+} \
+_vp->pt[_vp->nused][0] = (_width); \
+_vp->cmd[_vp->nused++] = BSG_VLIST_LINE_WIDTH; \
+    } while (0)
 
 /* -----------------------------------------------------------------------
  * BSG vlist API
@@ -94,16 +176,14 @@ typedef struct bv_vlist bsg_vlist;
 
 /**
  * Count the total number of vlist commands in @p vlist.
- * Identical in behavior to bv_vlist_cmd_cnt() but exported under the
- * BSG namespace for use in BSG scene-graph construction code.
  * Returns 0 when @p vlist is NULL.
  */
 BSG_EXPORT extern size_t
 bsg_vlist_cmd_cnt(bsg_vlist *vlist);
 
 /**
- * Duplicate the contents of a vlist.  BSG namespace alias for
- * bv_vlist_copy().  The copy may be more densely packed than the source.
+ * Duplicate the contents of a vlist.  The copy may be more densely
+ * packed than the source.
  */
 BSG_EXPORT extern void
 bsg_vlist_copy(struct bu_list *vlists,
@@ -113,15 +193,7 @@ bsg_vlist_copy(struct bu_list *vlists,
 /**
  * Emit wireframe vlist commands for an ARB8 defined by the eight
  * points @p pts into @p vhead, using @p vlfree as the free-list
- * allocator.
- *
- * Drawing strategy (18 commands):
- *   bottom loop  MOVE(0) DRAW(1) DRAW(2) DRAW(3) DRAW(0)   — 5 cmds
- *   top loop     MOVE(4) DRAW(5) DRAW(6) DRAW(7) DRAW(4)   — 5 cmds
- *   4 verticals  MOVE(0)/DRAW(4)  MOVE(1)/DRAW(5)
- *                MOVE(2)/DRAW(6)  MOVE(3)/DRAW(7)           — 8 cmds
- *
- * Total: 18 vlist commands, each unique edge drawn exactly once.
+ * allocator.  Produces exactly 18 commands.
  */
 BSG_EXPORT extern void
 bsg_vlist_arb8(struct bu_list *vhead, struct bu_list *vlfree, point_t pts[8]);
