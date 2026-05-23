@@ -140,13 +140,6 @@ Slice 24 – bsg/lod.h fully canonical; bv/lod.h → bridge
   * bv/lod.h → bridge: #include "bsg/lod.h"
   * 11/11 libbsg tests pass; full stack builds cleanly.
 
-IN PROGRESS / NEXT STEPS
---------------------------
-NOTE: bv/ headers and libbv will be FULLY ELIMINATED — no backwards
-compatibility will be maintained in bsg/ headers.  bv/ headers exist
-only as temporary bridges; once all callers are migrated they are
-deleted together with libbv.
-
 Slice 25 – Migrate ALL remaining bv/ includes across full source tree
    (libbg, libnmg, librt, libbrep, liboptical, libgcv, libtclcad, mged,
    qged plugins, rt/, util/, conv/, gtools/, fb/, libbu, libbg, all public
@@ -173,9 +166,28 @@ Slice 25 – Migrate ALL remaining bv/ includes across full source tree
    * bv/events.h → bridge: #include "bsg/events.h"
    * Result: ZERO bv/ header includes remain anywhere outside
      include/bv/ (the bridges) and src/libbv/ (the implementation).
-   * 15/15 tests pass (libbsg vlist, scene_graph, arb8, phase6, lod_node,
-     view_scope; ged_test_bsg_view_obj, ged_test_bsg_parity, ged_test_bsg_quad_parity;
-     ged_test_qged_swrast).
+   * 15/15 tests pass.
+
+Slice 28 – Merge libbv source files into libbsg; remove libbv link dependency
+   * All src/libbv/ .c/.cpp source files copied into src/libbsg/:
+     - adc.c, diff.c, font.c, hash.c, knobs.cpp, polygon.c, polygon_fill.cpp,
+       polygon_op.cpp, snap.c, view_sets.cpp, tig/*.c  (no name conflict)
+     - libbv/vlist.c  → libbsg/bv_vlist.c  (avoids libbsg/vlist.c collision)
+     - libbv/util.cpp → libbsg/bv_util.cpp (avoids libbsg/util.c collision)
+     - libbv/lod.cpp  → libbsg/bv_lod.cpp  (avoids libbsg/lod.cpp collision)
+   * bv_private.h copied to libbsg/.
+   * libbsg/CMakeLists.txt: all former libbv sources added to LIBBSG_SRCS.
+   * CMakeLists.txt: UNITY_BUILD_SKIP bv_vlist.c (PLOT3_IMPLEMENTATION guard).
+   * CMakeLists.txt: BV_DLL_EXPORTS + PLOT3_DLL_EXPORTS added to HIDE_INTERNAL_SYMBOLS
+     block so that bv_* functions are properly exported from libbsg.so.
+   * PRIVATE_LIBS libbv removed from libbsg brlcad_addlib call.
+   * source_dirs.cmake: libbv replaced with libbsg in deps for libnmg, libbrep,
+     librt, libdm, libged, libqtcad, libtclcad.
+   * libbsg now exports all formerly-libbv functions directly; libbv.so still
+     builds independently but is no longer linked by any other library
+     (pending removal in a follow-on slice).
+   * 15/15 tests pass; full stack (libbsg/libnmg/librt/libbrep/libdm/
+     libged/libqtcad/libtclcad/dm-qtgl/dm-swrast/qged) builds cleanly.
 
 IN PROGRESS / NEXT STEPS
 --------------------------
@@ -183,6 +195,15 @@ NOTE: bv/ headers and libbv will be FULLY ELIMINATED — no backwards
 compatibility will be maintained in bsg/ headers.  bv/ headers exist
 only as temporary bridges; once all callers are migrated they are
 deleted together with libbv.
+
+Slice 28b – Remove libbv from the build entirely
+  * Remove set_deps(libbv ...) from source_dirs.cmake
+  * Remove or disable src/libbv/CMakeLists.txt (comment out brlcad_addlib call,
+    or add a conditional guard)
+  * Remove add_subdirectory(libbv) from src/CMakeLists.txt
+  * Verify that libbv.so is no longer built and no linker can find it
+  * Delete src/libbv/ directory
+  * Delete include/bv/ directory
 
 Slice 26 – Rename struct tags and types in bsg/defines.h:
     bview        → bsg_view
@@ -201,25 +222,20 @@ Slice 27 – Rename function prefixes bv_ → bsg_, BV_ → BSG_ throughout the
   vlist, vlblock, etc.).  Update bv/ bridge headers to provide
   #define bv_foo bsg_foo aliases for any remaining external consumers.
 
-Slice 28 – Move libbv function implementations into libbsg (or rename in-place).
-  * Merge src/libbv/ source files into src/libbsg/ (or copy and adapt).
-  * Update CMakeLists.txt: add former libbv sources to libbsg SOURCES.
-  * Remove libbv from source_dirs.cmake.
-  * Delete src/libbv/ directory.
-  * Delete include/bv/ directory.
-  * Verify zero-dependency build: cmake --build . → no bv/ references anywhere.
-
-DEPENDENCY GRAPH (current)
+DEPENDENCY GRAPH (current, as of Slice 28)
 ---------------------------
   libbu  → (none)
   libbn  → libbu
   libbg  → libbn libbu
-  libbv  → libbg libbn libbu          [TARGET TO ELIMINATE]
-  libbsg → libbv(PRIVATE) libbg libbu [libbv is now PRIVATE only]
-  libdm  → libbsg librt libicv libbv libbn libpkg libbu
-  libged → libicv libanalyze libwdb liboptical libdm libbsg libbv libbu
-  libqtcad → libged libdm libbsg libbv libbn libbu
-  libtclcad → libged libdm libbv libbn libbu
+  libbv  → libbg libbn libbu          [ORPHANED: nothing links to it; pending removal]
+  libbsg → libbg libbn libbu          [now owns all former libbv functionality]
+  libnmg → libbg libbsg libbn libbu
+  libbrep → libbsg libbu
+  librt  → libbrep libnmg libbsg libbn libbu
+  libdm  → libbsg librt libicv libbn libpkg libbu
+  libged → libicv libanalyze libwdb liboptical libdm libbsg libbu
+  libqtcad → libged libdm libbsg libbn libbu
+  libtclcad → libged libdm libbsg libbn libbu
 
 HEADER OWNERSHIP (current, as of Slice 25)
 --------------------------------------------
