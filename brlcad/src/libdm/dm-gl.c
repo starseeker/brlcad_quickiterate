@@ -34,7 +34,6 @@
 #include "vmath.h"
 #include "bu.h"
 #include "bn.h"
-#include "bv/defines.h"
 #include "bsg/defines.h"
 #include "bsg/visit.h"
 #include "dm.h"
@@ -542,11 +541,11 @@ void gl_popPMatrix(struct dm *UNUSED(dmp))
     glPopMatrix();
 }
 
-int gl_drawVListHiddenLine(struct dm *dmp, register struct bv_vlist *vp)
+int gl_drawVListHiddenLine(struct dm *dmp, register bsg_vlist *vp)
 {
     struct gl_vars *mvars = (struct gl_vars *)dmp->i->m_vars;
 
-    register struct bv_vlist *tvp;
+    register bsg_vlist *tvp;
     register int first;
 
     gl_debug_print(dmp, "gl_drawVListHiddenLine", dmp->i->dm_debugLevel);
@@ -570,7 +569,7 @@ int gl_drawVListHiddenLine(struct dm *dmp, register struct bv_vlist *vp)
 
     /* Viewing region is from -1.0 to +1.0 */
     first = 1;
-    for (BU_LIST_FOR(tvp, bv_vlist, &vp->l)) {
+    for (BU_LIST_FOR(tvp, bsg_vlist, &vp->l)) {
 	register int i;
 	register int nused = tvp->nused;
 	register int *cmd = tvp->cmd;
@@ -580,10 +579,10 @@ int gl_drawVListHiddenLine(struct dm *dmp, register struct bv_vlist *vp)
 	    VMOVE(dpt, *pt); /* fastf_t-to-double */
 
 	    switch (*cmd) {
-		case BV_VLIST_LINE_MOVE:
-		case BV_VLIST_LINE_DRAW:
+		case BSG_VLIST_LINE_MOVE:
+		case BSG_VLIST_LINE_DRAW:
 		    break;
-		case BV_VLIST_POLY_START:
+		case BSG_VLIST_POLY_START:
 		    /* Start poly marker & normal */
 		    if (first == 0)
 			glEnd();
@@ -593,23 +592,23 @@ int gl_drawVListHiddenLine(struct dm *dmp, register struct bv_vlist *vp)
 		    /* Set surface normal (vl_pnt points outward) */
 		    glNormal3dv(dpt);
 		    break;
-		case BV_VLIST_POLY_MOVE:
-		case BV_VLIST_POLY_DRAW:
-		case BV_VLIST_TRI_MOVE:
-		case BV_VLIST_TRI_DRAW:
+		case BSG_VLIST_POLY_MOVE:
+		case BSG_VLIST_POLY_DRAW:
+		case BSG_VLIST_TRI_MOVE:
+		case BSG_VLIST_TRI_DRAW:
 		    glVertex3dv(dpt);
 		    break;
-		case BV_VLIST_POLY_END:
+		case BSG_VLIST_POLY_END:
 		    /* Draw, End Polygon */
 		    glEnd();
 		    first = 1;
 		    break;
-		case BV_VLIST_POLY_VERTNORM:
-		case BV_VLIST_TRI_VERTNORM:
+		case BSG_VLIST_POLY_VERTNORM:
+		case BSG_VLIST_TRI_VERTNORM:
 		    /* Set per-vertex normal.  Given before vert. */
 		    glNormal3dv(dpt);
 		    break;
-		case BV_VLIST_TRI_START:
+		case BSG_VLIST_TRI_START:
 		    if (first)
 			glBegin(GL_TRIANGLES);
 
@@ -619,7 +618,7 @@ int gl_drawVListHiddenLine(struct dm *dmp, register struct bv_vlist *vp)
 		    glNormal3dv(dpt);
 
 		    break;
-		case BV_VLIST_TRI_END:
+		case BSG_VLIST_TRI_END:
 		    break;
 	    }
 	}
@@ -635,7 +634,7 @@ int gl_drawVListHiddenLine(struct dm *dmp, register struct bv_vlist *vp)
 
     /* Viewing region is from -1.0 to +1.0 */
     first = 1;
-    for (BU_LIST_FOR(tvp, bv_vlist, &vp->l)) {
+    for (BU_LIST_FOR(tvp, bsg_vlist, &vp->l)) {
 	register int i;
 	register int nused = tvp->nused;
 	register int *cmd = tvp->cmd;
@@ -646,7 +645,7 @@ int gl_drawVListHiddenLine(struct dm *dmp, register struct bv_vlist *vp)
 	    VMOVE(dpt, *pt); /* fastf_t-to-double */
 
 	    switch (*cmd) {
-		case BV_VLIST_LINE_MOVE:
+		case BSG_VLIST_LINE_MOVE:
 		    /* Move, start line */
 		    if (first == 0)
 			glEnd();
@@ -655,8 +654,8 @@ int gl_drawVListHiddenLine(struct dm *dmp, register struct bv_vlist *vp)
 		    glBegin(GL_LINE_STRIP);
 		    glVertex3dv(dpt);
 		    break;
-		case BV_VLIST_POLY_START:
-		case BV_VLIST_TRI_START:
+		case BSG_VLIST_POLY_START:
+		case BSG_VLIST_TRI_START:
 		    /* Start poly marker & normal */
 		    if (first == 0)
 			glEnd();
@@ -664,22 +663,22 @@ int gl_drawVListHiddenLine(struct dm *dmp, register struct bv_vlist *vp)
 
 		    glBegin(GL_LINE_STRIP);
 		    break;
-		case BV_VLIST_LINE_DRAW:
-		case BV_VLIST_POLY_MOVE:
-		case BV_VLIST_POLY_DRAW:
-		case BV_VLIST_TRI_MOVE:
-		case BV_VLIST_TRI_DRAW:
+		case BSG_VLIST_LINE_DRAW:
+		case BSG_VLIST_POLY_MOVE:
+		case BSG_VLIST_POLY_DRAW:
+		case BSG_VLIST_TRI_MOVE:
+		case BSG_VLIST_TRI_DRAW:
 		    glVertex3dv(dpt);
 		    break;
-		case BV_VLIST_POLY_END:
-		case BV_VLIST_TRI_END:
+		case BSG_VLIST_POLY_END:
+		case BSG_VLIST_TRI_END:
 		    /* Draw, End Polygon */
 		    glVertex3dv(dpt);
 		    glEnd();
 		    first = 1;
 		    break;
-		case BV_VLIST_POLY_VERTNORM:
-		case BV_VLIST_TRI_VERTNORM:
+		case BSG_VLIST_POLY_VERTNORM:
+		case BSG_VLIST_TRI_VERTNORM:
 		    /* Set per-vertex normal.  Given before vert. */
 		    glNormal3dv(dpt);
 		    break;
@@ -709,10 +708,10 @@ int gl_drawVListHiddenLine(struct dm *dmp, register struct bv_vlist *vp)
 }
 
 
-int gl_drawVList(struct dm *dmp, struct bv_vlist *vp)
+int gl_drawVList(struct dm *dmp, bsg_vlist *vp)
 {
     struct gl_vars *mvars = (struct gl_vars *)dmp->i->m_vars;
-    struct bv_vlist *tvp;
+    bsg_vlist *tvp;
     register int first;
     register int mflag = 1;
     GLfloat pointSize = 0.0;
@@ -731,7 +730,7 @@ int gl_drawVList(struct dm *dmp, struct bv_vlist *vp)
 
     /* Viewing region is from -1.0 to +1.0 */
     first = 1;
-    for (BU_LIST_FOR(tvp, bv_vlist, &vp->l)) {
+    for (BU_LIST_FOR(tvp, bsg_vlist, &vp->l)) {
 	int i;
 	int nused = tvp->nused;
 	int *cmd = tvp->cmd;
@@ -748,7 +747,7 @@ int gl_drawVList(struct dm *dmp, struct bv_vlist *vp)
 	    }
 
 	    switch (*cmd) {
-		case BV_VLIST_LINE_MOVE:
+		case BSG_VLIST_LINE_MOVE:
 		    /* Move, start line */
 		    if (first == 0)
 			glEnd();
@@ -768,7 +767,7 @@ int gl_drawVList(struct dm *dmp, struct bv_vlist *vp)
 		    glBegin(GL_LINE_STRIP);
 		    glVertex3dv(dpt);
 		    break;
-		case BV_VLIST_MODEL_MAT:
+		case BSG_VLIST_MODEL_MAT:
 		    if (first == 0) {
 			glEnd();
 			first = 1;
@@ -777,7 +776,7 @@ int gl_drawVList(struct dm *dmp, struct bv_vlist *vp)
 		    glMatrixMode(GL_MODELVIEW);
 		    glPopMatrix();
 		    break;
-		case BV_VLIST_DISPLAY_MAT:
+		case BSG_VLIST_DISPLAY_MAT:
 		    glMatrixMode(GL_MODELVIEW);
 		    glGetDoublev(GL_MODELVIEW_MATRIX, m);
 
@@ -792,8 +791,8 @@ int gl_drawVList(struct dm *dmp, struct bv_vlist *vp)
 		             2. * 3.78 / dmp->i->dm_height,
 		             1.);
 		    break;
-		case BV_VLIST_POLY_START:
-		case BV_VLIST_TRI_START:
+		case BSG_VLIST_POLY_START:
+		case BSG_VLIST_TRI_START:
 		    /* Start poly marker & normal */
 
 		    if (mvars->lighting_on && mflag) {
@@ -823,7 +822,7 @@ int gl_drawVList(struct dm *dmp, struct bv_vlist *vp)
 			}
 		    }
 
-		    if (*cmd == BV_VLIST_POLY_START) {
+		    if (*cmd == BSG_VLIST_POLY_START) {
 			if (first == 0)
 			    glEnd();
 
@@ -837,26 +836,26 @@ int gl_drawVList(struct dm *dmp, struct bv_vlist *vp)
 		    first = 0;
 
 		    break;
-		case BV_VLIST_LINE_DRAW:
-		case BV_VLIST_POLY_MOVE:
-		case BV_VLIST_POLY_DRAW:
-		case BV_VLIST_TRI_MOVE:
-		case BV_VLIST_TRI_DRAW:
+		case BSG_VLIST_LINE_DRAW:
+		case BSG_VLIST_POLY_MOVE:
+		case BSG_VLIST_POLY_DRAW:
+		case BSG_VLIST_TRI_MOVE:
+		case BSG_VLIST_TRI_DRAW:
 		    glVertex3dv(dpt);
 		    break;
-		case BV_VLIST_POLY_END:
+		case BSG_VLIST_POLY_END:
 		    /* Draw, End Polygon */
 		    glEnd();
 		    first = 1;
 		    break;
-		case BV_VLIST_TRI_END:
+		case BSG_VLIST_TRI_END:
 		    break;
-		case BV_VLIST_POLY_VERTNORM:
-		case BV_VLIST_TRI_VERTNORM:
+		case BSG_VLIST_POLY_VERTNORM:
+		case BSG_VLIST_TRI_VERTNORM:
 		    /* Set per-vertex normal.  Given before vert. */
 		    glNormal3dv(dpt);
 		    break;
-		case BV_VLIST_POINT_DRAW:
+		case BSG_VLIST_POINT_DRAW:
 		    if (first == 0)
 			glEnd();
 		    first = 0;
@@ -869,7 +868,7 @@ int gl_drawVList(struct dm *dmp, struct bv_vlist *vp)
 		    glBegin(GL_POINTS);
 		    glVertex3dv(dpt);
 		    break;
-		case BV_VLIST_LINE_WIDTH:
+		case BSG_VLIST_LINE_WIDTH:
 		    {
 		    GLfloat lineWidth = (GLfloat)(*pt)[0];
 		    if (lineWidth > 0.0) {
@@ -877,7 +876,7 @@ int gl_drawVList(struct dm *dmp, struct bv_vlist *vp)
 		    }
 		    break;
 		}
-		case BV_VLIST_POINT_SIZE:
+		case BSG_VLIST_POINT_SIZE:
 		    {
 		    pointSize = (GLfloat)(*pt)[0];
 		    if (pointSize > 0.0) {
@@ -904,12 +903,12 @@ int gl_drawVList(struct dm *dmp, struct bv_vlist *vp)
     return BRLCAD_OK;
 }
 
-int gl_draw(struct dm *dmp, struct bv_vlist *(*callback_function)(void *), void **data)
+int gl_draw(struct dm *dmp, bsg_vlist *(*callback_function)(void *), void **data)
 {
-    struct bv_vlist *vp;
+    bsg_vlist *vp;
     if (!callback_function) {
 	if (data) {
-	    vp = (struct bv_vlist *)data;
+	    vp = (bsg_vlist *)data;
 	    gl_drawVList(dmp, vp);
 	}
     } else {

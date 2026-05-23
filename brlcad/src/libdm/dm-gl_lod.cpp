@@ -33,8 +33,8 @@
 #include "bu.h"
 #include "bn.h"
 extern "C" {
-#include "bv/defines.h"
-#include "bv/lod.h"
+#include "bsg/defines.h"
+#include "bsg/lod.h"
 #include "dm.h"
 #include "./dm-gl.h"
 #include "./include/private.h"
@@ -180,7 +180,7 @@ clip_line_to_win(int *x0, int *y0, int *x1, int *y1, int w, int h)
  * the OpenGL vlist/display-list path; callers fall back to dm_draw_vlist when
  * this routine cannot use the swrast private buffer. */
 static int
-swrast_draw_vlist_fast(struct dm *dmp, struct bv_vlist *vp)
+swrast_draw_vlist_fast(struct dm *dmp, bsg_vlist *vp)
 {
     if (!dmp || !vp)
 	return BRLCAD_ERROR;
@@ -206,26 +206,26 @@ swrast_draw_vlist_fast(struct dm *dmp, struct bv_vlist *vp)
 	delta = SQRT_SMALL_FASTF;
 
     const unsigned char *fg = dmp->i->dm_fg;
-    struct bv_vlist *tvp;
-    for (BU_LIST_FOR(tvp, bv_vlist, &vp->l)) {
+    bsg_vlist *tvp;
+    for (BU_LIST_FOR(tvp, bsg_vlist, &vp->l)) {
 	int *cmd = tvp->cmd;
 	point_t *pt = tvp->pt;
 	for (size_t i = 0; i < tvp->nused; i++, cmd++, pt++) {
 	    switch (*cmd) {
-		case BV_VLIST_MODEL_MAT:
+		case BSG_VLIST_MODEL_MAT:
 		    xmat = pv->v->gv_model2view;
 		    continue;
-		case BV_VLIST_DISPLAY_MAT:
+		case BSG_VLIST_DISPLAY_MAT:
 		    xmat = pv->v->gv_model2view;
 		    continue;
-		case BV_VLIST_POLY_START:
-		case BV_VLIST_POLY_VERTNORM:
-		case BV_VLIST_TRI_START:
-		case BV_VLIST_TRI_VERTNORM:
+		case BSG_VLIST_POLY_START:
+		case BSG_VLIST_POLY_VERTNORM:
+		case BSG_VLIST_TRI_START:
+		case BSG_VLIST_TRI_VERTNORM:
 		    continue;
-		case BV_VLIST_POLY_MOVE:
-		case BV_VLIST_LINE_MOVE:
-		case BV_VLIST_TRI_MOVE: {
+		case BSG_VLIST_POLY_MOVE:
+		case BSG_VLIST_LINE_MOVE:
+		case BSG_VLIST_TRI_MOVE: {
 		    if (dmp->i->dm_perspective > 0) {
 			fastf_t dist = VDOT(*pt, &xmat[12]) + xmat[15];
 			if (dist <= 0.0) {
@@ -242,11 +242,11 @@ swrast_draw_vlist_fast(struct dm *dmp, struct bv_vlist *vp)
 		    have_lpnt = 1;
 		    continue;
 		}
-		case BV_VLIST_POLY_DRAW:
-		case BV_VLIST_POLY_END:
-		case BV_VLIST_LINE_DRAW:
-		case BV_VLIST_TRI_DRAW:
-		case BV_VLIST_TRI_END: {
+		case BSG_VLIST_POLY_DRAW:
+		case BSG_VLIST_POLY_END:
+		case BSG_VLIST_LINE_DRAW:
+		case BSG_VLIST_TRI_DRAW:
+		case BSG_VLIST_TRI_END: {
 		    if (!have_lpnt)
 			continue;
 		    if (dmp->i->dm_perspective > 0) {
@@ -779,7 +779,7 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 		restoreLighting = 1;
 	    }
 	    if (gl_swrast_database_wireframe(dmp, s)) {
-		int fast_ret = swrast_draw_vlist_fast(dmp, (struct bv_vlist *)&s->s_vlist);
+		int fast_ret = swrast_draw_vlist_fast(dmp, (bsg_vlist *)&s->s_vlist);
 		if (restoreLighting) {
 		    glEnable(GL_LIGHTING);
 		    restoreLighting = 0;
@@ -797,7 +797,7 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 	if (s->s_os->s_dmode == 4) {
 	    /* Hidden-line mode always uses the explicit vlist path so the
 	     * line/edge drawing logic in dm_draw_vlist_hidden_line runs. */
-	    dm_draw_vlist_hidden_line(dmp, (struct bv_vlist *)&s->s_vlist);
+	    dm_draw_vlist_hidden_line(dmp, (bsg_vlist *)&s->s_vlist);
 	} else if (dm_get_displaylist(dmp)) {
 	    /* Phase 13 (drawing_stack_modernization): the GL backend owns the
 	     * per-shape display-list lifecycle for ordinary vlist objects
@@ -824,8 +824,8 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 	    }
 	    if (!h || h->dlist == 0) {
 		size_t size_est = 0;
-		struct bv_vlist *vp;
-		for (BU_LIST_FOR(vp, bv_vlist, &s->s_vlist)) {
+		bsg_vlist *vp;
+		for (BU_LIST_FOR(vp, bsg_vlist, &s->s_vlist)) {
 		    size_est += vp->nused * sizeof(point_t);
 		}
 		ssize_t avail_mem = 0.5 * bu_mem(BU_MEM_AVAIL, NULL);
@@ -835,7 +835,7 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 		    h->dlist = glGenLists(1);
 		    if (h->dlist != 0) {
 			glNewList(h->dlist, GL_COMPILE);
-			dm_draw_vlist(dmp, (struct bv_vlist *)&s->s_vlist);
+			dm_draw_vlist(dmp, (bsg_vlist *)&s->s_vlist);
 			glEndList();
 		    }
 		}
@@ -845,10 +845,10 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 	    } else {
 		/* Memory was tight or list allocation failed; fall back to
 		 * immediate-mode drawing so the object still renders. */
-		dm_draw_vlist(dmp, (struct bv_vlist *)&s->s_vlist);
+		dm_draw_vlist(dmp, (bsg_vlist *)&s->s_vlist);
 	    }
 	} else {
-	    dm_draw_vlist(dmp, (struct bv_vlist *)&s->s_vlist);
+	    dm_draw_vlist(dmp, (bsg_vlist *)&s->s_vlist);
 	}
 	if (restoreShadeModel)
 	    glShadeModel((GLenum)originalShadeModel);

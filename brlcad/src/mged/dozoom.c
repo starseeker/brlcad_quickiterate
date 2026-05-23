@@ -209,7 +209,7 @@ dozoom(struct mged_state *s, int which_eye)
 		  color_scheme->cs_predictor[0],
 		  color_scheme->cs_predictor[1],
 		  color_scheme->cs_predictor[2], 1, 1.0);
-	dm_draw_vlist(DMP, (struct bv_vlist *)&s->mged_curr_dm->dm_p_vlist);
+	dm_draw_vlist(DMP, (bsg_vlist *)&s->mged_curr_dm->dm_p_vlist);
     }
 
     /* Clear edit-mat pointer now that the frame is done. */

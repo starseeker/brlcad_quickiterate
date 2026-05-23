@@ -53,7 +53,7 @@
 #include "bu/path.h"
 #include "bu/opt.h"
 #include "bu/sort.h"
-#include "bv/lod.h"
+#include "bsg/lod.h"
 #include "raytrace.h"
 #include "ged/defines.h"
 #include "ged/view.h"

@@ -44,11 +44,11 @@
 #include "bn.h"
 #include "rt/geom.h"
 #include "raytrace.h"
-#include "bv/lod.h"
-#include "bv/plot3.h"
+#include "bsg/lod.h"
+#include "bsg/plot3.h"
 #include "dm.h"
 
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "bsg/util.h"
 #include "ged/bsg_ged_draw.h"
 #include "./ged_private.h"
@@ -247,7 +247,7 @@ ged_free(struct ged *gedp)
 	    // BU_PUT-ing gedp->ged_views.free_scene_obj - above why just that one?
 #if 0
 	    struct bv_scene_obj *sp = (struct bv_scene_obj *)BU_PTBL_GET(&gedp->free_solids, i);
-	    BV_FREE_VLIST(vlfree, &(sp->s_vlist));
+	    BSG_FREE_VLIST(vlfree, &(sp->s_vlist));
 #endif
 	}
 	bu_ptbl_free(&gedp->free_solids);

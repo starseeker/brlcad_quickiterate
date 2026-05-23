@@ -27,10 +27,9 @@
 #include "common.h"
 
 #include "bu/list.h"
-#include "bv/defines.h"
-#include "bv/util.h"
-#include "bv/vlist.h"
 #include "bsg/defines.h"
+#include "bsg/util.h"
+#include "bsg/vlist.h"
 #include "bsg/node_shape.h"
 
 
@@ -40,7 +39,7 @@ bsg_shape_create(struct bview *v)
     if (!v)
 	return NULL;
 
-    struct bv_scene_obj *s = bv_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    bsg_node *s = bsg_obj_create(v, BSG_OBJ_VIEW | BSG_OBJ_LOCAL);
     if (!s)
 	return NULL;
 
@@ -56,15 +55,15 @@ bsg_shape_set_vlist(bsg_node *shape, struct bu_list *vhead)
     if (!shape || !vhead)
 	return;
 
-    struct bv_scene_obj *s = (struct bv_scene_obj *)shape;
+    bsg_node *s = (bsg_node *)shape;
 
     /* Free any existing vlist */
     if (BU_LIST_IS_INITIALIZED(&s->s_vlist))
-	BV_FREE_VLIST(s->vlfree, &s->s_vlist);
+	BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
     BU_LIST_INIT(&s->s_vlist);
 
     /* Copy in the new vlist */
-    bv_vlist_copy(s->vlfree, &s->s_vlist, vhead);
+    bsg_vlist_copy(s->vlfree, &s->s_vlist, vhead);
 }
 
 
@@ -74,7 +73,7 @@ bsg_shape_destroy(bsg_node *shape)
     if (!shape)
 	return;
 
-    bv_obj_put((struct bv_scene_obj *)shape);
+    bsg_obj_put((bsg_node *)shape);
 }
 
 /*

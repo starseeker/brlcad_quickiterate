@@ -20,7 +20,7 @@
 
 #include "common.h"
 
-#include "bv/util.h"
+#include "bsg/util.h"
 #include "ged.h"
 
 static int

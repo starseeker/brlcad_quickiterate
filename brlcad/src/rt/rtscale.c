@@ -60,8 +60,8 @@
 #include "bn.h"
 #include "raytrace.h"
 #include "wdb.h"
-#include "bv/plot3.h"
-#include "bv/tig.h"
+#include "bsg/plot3.h"
+#include "bsg/tig.h"
 
 #define BUFF_LEN 256
 #define FALSE 0

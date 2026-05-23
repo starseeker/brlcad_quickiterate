@@ -39,7 +39,6 @@
 #include "bu/exit.h"
 #include "bu/log.h"
 #include "bu/list.h"
-#include "bv/vlist.h"
 #include "bsg/vlist.h"
 
 int
@@ -65,7 +64,7 @@ main(int UNUSED(argc), char *argv[])
 
     bsg_vlist_arb8(&head, &vlfree, pts);
 
-    size_t cnt = bsg_vlist_cmd_cnt((struct bv_vlist *)&head);
+    size_t cnt = bsg_vlist_cmd_cnt((bsg_vlist *)&head);
     if (cnt != 18) {
 	bu_log("FAIL: bsg_vlist_arb8 produced %zu commands, expected 18\n", cnt);
 	return 1;

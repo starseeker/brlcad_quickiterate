@@ -724,19 +724,19 @@ rt_superell_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct 
     rt_superell_16pts(bottom, eip->v, eip->b, eip->c);
     rt_superell_16pts(middle, eip->v, eip->a, eip->c);
 
-    BV_ADD_VLIST(vlfree, vhead, &top[15*ELEMENTS_PER_VECT], BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, &top[15*ELEMENTS_PER_VECT], BSG_VLIST_LINE_MOVE);
     for (i=0; i<16; i++) {
-	BV_ADD_VLIST(vlfree, vhead, &top[i*ELEMENTS_PER_VECT], BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, &top[i*ELEMENTS_PER_VECT], BSG_VLIST_LINE_DRAW);
     }
 
-    BV_ADD_VLIST(vlfree, vhead, &bottom[15*ELEMENTS_PER_VECT], BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, &bottom[15*ELEMENTS_PER_VECT], BSG_VLIST_LINE_MOVE);
     for (i=0; i<16; i++) {
-	BV_ADD_VLIST(vlfree, vhead, &bottom[i*ELEMENTS_PER_VECT], BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, &bottom[i*ELEMENTS_PER_VECT], BSG_VLIST_LINE_DRAW);
     }
 
-    BV_ADD_VLIST(vlfree, vhead, &middle[15*ELEMENTS_PER_VECT], BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, &middle[15*ELEMENTS_PER_VECT], BSG_VLIST_LINE_MOVE);
     for (i=0; i<16; i++) {
-	BV_ADD_VLIST(vlfree, vhead, &middle[i*ELEMENTS_PER_VECT], BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, &middle[i*ELEMENTS_PER_VECT], BSG_VLIST_LINE_DRAW);
     }
     return 0;
 }

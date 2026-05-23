@@ -30,8 +30,8 @@
 
 extern "C" {
 #include "bn/str.h"
-#include "bv/defines.h"
-#include "bv/util.h"
+#include "bsg/defines.h"
+#include "bsg/util.h"
 }
 
 #include "qtcad/defines.h"

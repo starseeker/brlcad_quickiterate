@@ -27,9 +27,8 @@
 #include "common.h"
 
 #include "bu/ptbl.h"
-#include "bv/defines.h"
-#include "bv/util.h"
 #include "bsg/defines.h"
+#include "bsg/util.h"
 #include "bsg/node_group.h"
 
 
@@ -39,7 +38,7 @@ bsg_group_create(struct bview *v)
     if (!v)
 	return NULL;
 
-    struct bv_scene_obj *g = bv_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    bsg_node *g = bsg_obj_create(v, BSG_OBJ_VIEW | BSG_OBJ_LOCAL);
     if (!g)
 	return NULL;
 
@@ -55,12 +54,12 @@ bsg_group_add_child(bsg_node *group, bsg_node *child)
     if (!group || !child)
 	return;
 
-    struct bv_scene_obj *g = (struct bv_scene_obj *)group;
-    struct bv_scene_obj *c = (struct bv_scene_obj *)child;
+    bsg_node *g = (bsg_node *)group;
+    bsg_node *c = (bsg_node *)child;
 
     /* Avoid duplicates */
     for (size_t i = 0; i < BU_PTBL_LEN(&g->children); i++) {
-	if ((struct bv_scene_obj *)BU_PTBL_GET(&g->children, i) == c)
+	if ((bsg_node *)BU_PTBL_GET(&g->children, i) == c)
 	    return;
     }
 
@@ -74,8 +73,8 @@ bsg_group_remove_child(bsg_node *group, bsg_node *child)
     if (!group || !child)
 	return;
 
-    struct bv_scene_obj *g = (struct bv_scene_obj *)group;
-    struct bv_scene_obj *c = (struct bv_scene_obj *)child;
+    bsg_node *g = (bsg_node *)group;
+    bsg_node *c = (bsg_node *)child;
 
     bu_ptbl_rm(&g->children, (const long *)c);
 }
@@ -87,12 +86,12 @@ bsg_group_destroy(bsg_node *group)
     if (!group)
 	return;
 
-    struct bv_scene_obj *g = (struct bv_scene_obj *)group;
+    bsg_node *g = (bsg_node *)group;
 
     /* Clear the children list (borrowed references — do not free). */
     bu_ptbl_reset(&g->children);
 
-    bv_obj_put(g);
+    bsg_obj_put(g);
 }
 
 /*

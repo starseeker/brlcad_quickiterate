@@ -39,9 +39,9 @@
 #include "bu/opt.h"
 #include "bu/sort.h"
 #include "bu/str.h"
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "bg/sat.h"
-#include "bv/lod.h"
+#include "bsg/lod.h"
 #include "nmg.h"
 #include "rt/view.h"
 
@@ -163,8 +163,8 @@ csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int flag)
     struct bu_list *p;
     while (BU_LIST_WHILE(p, bu_list, &vo->s_vlist)) {
 	BU_LIST_DEQUEUE(p);
-	struct bv_vlist *pv = (struct bv_vlist *)p;
-	BU_FREE(pv, struct bv_vlist);
+	bsg_vlist *pv = (bsg_vlist *)p;
+	BU_FREE(pv, bsg_vlist);
     }
 
     struct draw_update_data_t *d = (struct draw_update_data_t *)vo->s_i_data;

@@ -30,7 +30,7 @@
 #include "vmath.h"
 #include "bu/getopt.h"
 #include "bn.h"
-#include "bv/util.h"
+#include "bsg/util.h"
 #include "raytrace.h"
 #include "rt/edit.h"
 #include "nmg.h"

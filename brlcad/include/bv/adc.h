@@ -18,6 +18,11 @@
  * information.
  */
 /** @addtogroup bv_adc
+ *
+ * Backward-compatibility bridge.  All ADC functions now declared in
+ * bsg/adc.h.
+ *
+ * TODO: migrate all callers to bsg/adc.h then delete this file.
  */
 /** @{ */
 /** @file bv/adc.h */
@@ -25,18 +30,7 @@
 #ifndef BG_ADC_H
 #define BG_ADC_H
 
-#include "common.h"
-#include "vmath.h"
-#include "bv/defines.h"
-
-__BEGIN_DECLS
-
-BV_EXPORT void adc_model_to_adc_view(struct bv_adc_state *adcs, mat_t model2view, fastf_t amax);
-BV_EXPORT void adc_grid_to_adc_view(struct bv_adc_state *adcs, mat_t model2view, fastf_t amax);
-BV_EXPORT void adc_view_to_adc_grid(struct bv_adc_state *adcs, mat_t model2view);
-BV_EXPORT void adc_reset(struct bv_adc_state *adcs, mat_t view2model, mat_t model2view);
-
-__END_DECLS
+#include "bsg/adc.h"
 
 #endif  /* BG_ADC_H */
 

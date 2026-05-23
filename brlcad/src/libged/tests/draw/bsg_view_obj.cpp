@@ -43,8 +43,8 @@
 
 #include <bu.h>
 #include <bv.h>
-#include "bv/tcl_data.h"
-#include "bv/util.h"
+#include "bsg/tcl_data.h"
+#include "bsg/util.h"
 #include "dm.h"
 #include <ged.h>
 #include "ged/bsg_ged_draw.h"
@@ -268,8 +268,8 @@ main(int ac, char *av[])
 	BU_LIST_INIT(&vhead);
 	struct bu_list *vlfree = &rt_vlfree;
 	point_t p1 = {0, 0, 0}, p2 = {100, 100, 100};
-	BV_ADD_VLIST(vlfree, &vhead, p1, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, &vhead, p2, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, &vhead, p1, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, &vhead, p2, BSG_VLIST_LINE_DRAW);
 
 	/* Save current count so we can verify a new entry was added.
 	 * The invent call creates the _overlays group as a new root child. */
@@ -309,7 +309,7 @@ main(int ac, char *av[])
 	}
 
 	/* Free the local vlist (we passed copy=1, so vhead still owns it). */
-	BV_FREE_VLIST(vlfree, &vhead);
+	BSG_FREE_VLIST(vlfree, &vhead);
 
 	/* Erase the phony solid by name. */
 	bsg_view_obj_erase_by_name(gedp, "_bsg_test_phony");
@@ -411,10 +411,10 @@ main(int ac, char *av[])
 	    BU_LIST_INIT(&vhead);
 	    struct bu_list *vlfree = &rt_vlfree;
 	    point_t p1 = {0, 0, 0};
-	    BV_ADD_VLIST(vlfree, &vhead, p1, BV_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, &vhead, p1, BSG_VLIST_LINE_MOVE);
 	    bsg_view_obj_invent(gedp, (char *)"_snap_test_overlay",
 			       &vhead, 0xFF0000, 1, 1.0, 0, 0);
-	    BV_FREE_VLIST(vlfree, &vhead);
+	    BSG_FREE_VLIST(vlfree, &vhead);
 
 	    /* count must not have changed */
 	    ASSERT(bsg_view_obj_solid_count(gedp) == count);
@@ -473,10 +473,10 @@ main(int ac, char *av[])
 	    BU_LIST_INIT(&vhead);
 	    struct bu_list *vlfree = &rt_vlfree;
 	    point_t p = {1, 1, 1};
-	    BV_ADD_VLIST(vlfree, &vhead, p, BV_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, &vhead, p, BSG_VLIST_LINE_MOVE);
 	    bsg_view_obj_invent(gedp, (char *)"_rev_test_ov",
 			       &vhead, 0x00FF00, 1, 1.0, 0, 0);
-	    BV_FREE_VLIST(vlfree, &vhead);
+	    BSG_FREE_VLIST(vlfree, &vhead);
 	    ASSERT(bsg_view_obj_draw_rev(gedp) > rev_pre);
 
 	    bsg_view_obj_erase_by_name(gedp, "_rev_test_ov");

@@ -35,7 +35,6 @@
 #include "bu/exit.h"
 #include "bu/log.h"
 #include "bu/list.h"
-#include "bv/vlist.h"
 #include "bsg/vlist.h"
 
 int
@@ -64,9 +63,9 @@ main(int argc, char *argv[])
     BU_LIST_INIT(&vlfree);
 
     for (int i = 0; i < expected; i++)
-	BV_ADD_VLIST(&vlfree, &head, ptzero, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(&vlfree, &head, ptzero, BSG_VLIST_LINE_DRAW);
 
-    size_t cnt = bsg_vlist_cmd_cnt((struct bv_vlist *)&head);
+    size_t cnt = bsg_vlist_cmd_cnt((bsg_vlist *)&head);
     if (cnt != (size_t)expected) {
 	bu_log("FAIL: bsg_vlist_cmd_cnt returned %zu, expected %d\n", cnt, expected);
 	return 1;

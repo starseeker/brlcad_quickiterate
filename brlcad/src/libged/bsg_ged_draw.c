@@ -49,8 +49,8 @@
 #include "bu/ptbl.h"
 #include "bu/str.h"
 #include "bu/color.h"
-#include "bv/lod.h"
-#include "bv/plot3.h"
+#include "bsg/lod.h"
+#include "bsg/plot3.h"
 #include "bg/clip.h"
 #include "bsg/defines.h"
 #include "bsg/draw_ctx.h"
@@ -61,7 +61,7 @@
 #include "bsg/sensor.h"
 #include "bsg/visit.h"
 
-#include "bv/view_sets.h"
+#include "bsg/view_sets.h"
 
 #include "ged.h"
 #include "ged/bsg_ged_draw.h"
@@ -74,7 +74,7 @@
 #define FIRST_SOLID(_bdata)  ((_bdata)->s_fullpath.fp_names[0])
 #define FREE_BV_SCENE_OBJ(p, fp, vlf) { \
         BU_LIST_APPEND(fp, &((p)->l)); \
-        BV_FREE_VLIST(vlf, &((p)->s_vlist)); }
+        BSG_FREE_VLIST(vlf, &((p)->s_vlist)); }
 
 /* Thin wrapper: delegates to bsg_bump_rev_node() in libbsg/draw_set.c.
  * Phase 7 Step 11: the implementation moved to libbsg so that the free-group
@@ -860,7 +860,7 @@ color_soltab(struct db_i *dbip, struct bv_scene_obj *sp)
 /* ------------------------------------------------------------------ */
 
 static void
-solid_append_vlist(struct bv_scene_obj *sp, struct bv_vlist *vlist)
+solid_append_vlist(struct bv_scene_obj *sp, bsg_vlist *vlist)
 {
     if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
         sp->s_vlen = 0;
@@ -870,11 +870,11 @@ solid_append_vlist(struct bv_scene_obj *sp, struct bv_vlist *vlist)
 
 static void
 solid_copy_vlist(struct db_i *UNUSED(dbip), struct bv_scene_obj *sp,
-                 struct bv_vlist *vlist, struct bu_list *vlfree)
+                 bsg_vlist *vlist, struct bu_list *vlfree)
 {
     BU_LIST_INIT(&(sp->s_vlist));
     bv_vlist_copy(vlfree, &(sp->s_vlist), (struct bu_list *)vlist);
-    sp->s_vlen = bv_vlist_cmd_cnt((struct bv_vlist *)(&(sp->s_vlist)));
+    sp->s_vlen = bv_vlist_cmd_cnt((bsg_vlist *)(&(sp->s_vlist)));
 }
 
 
@@ -922,9 +922,9 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     sp->s_free_callback = ged_bv_illum_free_cb;
 
     if (copy)
-        solid_copy_vlist(dbip, sp, (struct bv_vlist *)vhead, vlfree);
+        solid_copy_vlist(dbip, sp, (bsg_vlist *)vhead, vlfree);
     else {
-        solid_append_vlist(sp, (struct bv_vlist *)vhead);
+        solid_append_vlist(sp, (bsg_vlist *)vhead);
         BU_LIST_INIT(vhead);
     }
     bv_scene_obj_bound(sp, gedp->ged_gvp);

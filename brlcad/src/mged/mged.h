@@ -78,7 +78,7 @@
 #include "wdb.h"
 
 /* Needed to define struct bv_scene_obj */
-#include "bv/defines.h"
+#include "bsg/defines.h"
 
 // We have to use different I/O mechanisms based on which
 // platform we're on.  Make a define to key off of.

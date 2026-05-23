@@ -29,14 +29,14 @@
 
 #include "vmath.h"
 #include "bu/list.h"
-#include "bv/vlist.h"
-
 #include "bsg/defines.h"
 #include "bsg/vlist.h"
 
+/* Forward declaration of the underlying libbv function that this wrapper delegates to */
+extern size_t bv_vlist_cmd_cnt(bsg_vlist *vlist);
 
 size_t
-bsg_vlist_cmd_cnt(struct bv_vlist *vlist)
+bsg_vlist_cmd_cnt(bsg_vlist *vlist)
 {
     return bv_vlist_cmd_cnt(vlist);
 }
@@ -49,31 +49,31 @@ bsg_vlist_arb8(struct bu_list *vhead, struct bu_list *vlfree, point_t pts[8])
 	return;
 
     /* Bottom face loop: MOVE(0) DRAW(1) DRAW(2) DRAW(3) DRAW(0)  — 5 cmds */
-    BV_ADD_VLIST(vlfree, vhead, pts[0], BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, pts[1], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, pts[2], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, pts[3], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, pts[0], BV_VLIST_LINE_DRAW); /* close */
+    BSG_ADD_VLIST(vlfree, vhead, pts[0], BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, pts[1], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, pts[2], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, pts[3], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, pts[0], BSG_VLIST_LINE_DRAW); /* close */
 
     /* Top face loop: MOVE(4) DRAW(5) DRAW(6) DRAW(7) DRAW(4)     — 5 cmds */
-    BV_ADD_VLIST(vlfree, vhead, pts[4], BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, pts[5], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, pts[6], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, pts[7], BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, pts[4], BV_VLIST_LINE_DRAW); /* close */
+    BSG_ADD_VLIST(vlfree, vhead, pts[4], BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, pts[5], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, pts[6], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, pts[7], BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, pts[4], BSG_VLIST_LINE_DRAW); /* close */
 
     /* Four vertical edges: 4 × (MOVE + DRAW)                     — 8 cmds */
-    BV_ADD_VLIST(vlfree, vhead, pts[0], BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, pts[4], BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, pts[0], BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, pts[4], BSG_VLIST_LINE_DRAW);
 
-    BV_ADD_VLIST(vlfree, vhead, pts[1], BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, pts[5], BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, pts[1], BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, pts[5], BSG_VLIST_LINE_DRAW);
 
-    BV_ADD_VLIST(vlfree, vhead, pts[2], BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, pts[6], BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, pts[2], BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, pts[6], BSG_VLIST_LINE_DRAW);
 
-    BV_ADD_VLIST(vlfree, vhead, pts[3], BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, pts[7], BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, pts[3], BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, pts[7], BSG_VLIST_LINE_DRAW);
 
     /* Total: 5 + 5 + 8 = 18 vlist commands */
 }

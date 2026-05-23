@@ -40,9 +40,8 @@
 #include <string.h>
 
 #include "bu/malloc.h"
-#include "bv/defines.h"
-#include "bv/util.h"
 #include "bsg/defines.h"
+#include "bsg/util.h"
 #include "bsg/field.h"
 #include "bsg/sensor.h"
 
@@ -116,7 +115,7 @@ _registry_remove(bsg_node *handle)
 }
 
 
-/* Allocate a sensor bsg_node from the owning view.  We use bv_obj_create
+/* Allocate a sensor bsg_node from the owning view.  We use bsg_obj_create
  * (which does NOT insert into view tables) to keep the sensor off the draw
  * root's children list (Phase F: bsg_root->children IS gv_draw_root->children). */
 static bsg_node *
@@ -125,12 +124,12 @@ _alloc_sensor_node(bsg_node *root, unsigned long long stype)
     if (!root)
 	return NULL;
 
-    struct bv_scene_obj *r = (struct bv_scene_obj *)root;
+    bsg_node *r = (bsg_node *)root;
     struct bview *v = r->s_v;
     if (!v)
 	return NULL;
 
-    struct bv_scene_obj *s = bv_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    bsg_node *s = bsg_obj_create(v, BSG_OBJ_VIEW | BSG_OBJ_LOCAL);
     if (!s)
 	return NULL;
 
@@ -155,7 +154,7 @@ bsg_field_sensor_create(bsg_node *root,
 
     if (!_registry_add(handle, BSG_SENSOR_FIELD, target, fid,
 		       cb, NULL, NULL, data)) {
-	bv_obj_put((struct bv_scene_obj *)handle);
+	bsg_obj_put((bsg_node *)handle);
 	return NULL;
     }
 
@@ -178,7 +177,7 @@ bsg_node_sensor_create(bsg_node *root,
 
     if (!_registry_add(handle, BSG_SENSOR_NODE, target,
 		       BSG_FIELD_UNKNOWN, NULL, cb, NULL, data)) {
-	bv_obj_put((struct bv_scene_obj *)handle);
+	bsg_obj_put((bsg_node *)handle);
 	return NULL;
     }
 
@@ -201,7 +200,7 @@ bsg_timer_sensor_create(bsg_node *root,
 
     if (!_registry_add(handle, BSG_SENSOR_TIMER, NULL,
 		       BSG_FIELD_UNKNOWN, NULL, NULL, cb, data)) {
-	bv_obj_put((struct bv_scene_obj *)handle);
+	bsg_obj_put((bsg_node *)handle);
 	return NULL;
     }
 
@@ -216,7 +215,7 @@ bsg_sensor_destroy(bsg_node *sensor)
 	return;
 
     _registry_remove(sensor);
-    bv_obj_put((struct bv_scene_obj *)sensor);
+    bsg_obj_put((bsg_node *)sensor);
 }
 
 

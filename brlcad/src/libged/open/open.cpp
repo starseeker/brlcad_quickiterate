@@ -29,7 +29,7 @@
 
 #include "bu/cmd.h"
 #include "bu/opt.h"
-#include "bv/lod.h"
+#include "bsg/lod.h"
 #include "../../librt/librt_private.h"
 
 #include "../ged_private.h"

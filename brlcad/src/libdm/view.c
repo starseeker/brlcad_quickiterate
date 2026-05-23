@@ -25,12 +25,9 @@
 #include "bu/units.h"
 #include "bu/vls.h"
 #include "bn.h"
-#include "bv/defines.h"
-#include "bv/lod.h"
-#include "bv/util.h"
-#include "bsg/util.h"
 #include "bsg/defines.h"
 #include "bsg/lod.h"
+#include "bsg/util.h"
 #include "bsg/lod_ops.h"
 #include "bsg/visit.h"
 #include "bsg/view_scope.h"
@@ -102,8 +99,8 @@ _independent_root_skip_child(struct bv_scene_obj *s)
 void
 dm_add_arrows(struct dm *dmp, struct bv_scene_obj *s)
 {
-    struct bv_vlist *vp = (struct bv_vlist *)&s->s_vlist;
-    struct bv_vlist *tvp;
+    bsg_vlist *vp = (bsg_vlist *)&s->s_vlist;
+    bsg_vlist *tvp;
     point_t A = VINIT_ZERO;
     point_t B = VINIT_ZERO;
     int pcnt = 0;
@@ -111,14 +108,14 @@ dm_add_arrows(struct dm *dmp, struct bv_scene_obj *s)
 	return;
     if (NEAR_ZERO(s->s_os->s_arrow_tip_length, SMALL_FASTF) || NEAR_ZERO(s->s_os->s_arrow_tip_width, SMALL_FASTF))
        return;
-    for (BU_LIST_FOR(tvp, bv_vlist, &vp->l)) {
+    for (BU_LIST_FOR(tvp, bsg_vlist, &vp->l)) {
 	int nused = tvp->nused;
 	int *cmd = tvp->cmd;
 	point_t *pt = tvp->pt;
 	for (int i = 0; i < nused; i++, cmd++, pt++) {
 	    pcnt++;
 	    switch (*cmd) {
-		case BV_VLIST_LINE_MOVE:
+		case BSG_VLIST_LINE_MOVE:
 		    if (pcnt > 1) {
 			// We have a move and more than one point - add an arrow
 			// to the A -> B segment at B
@@ -126,7 +123,7 @@ dm_add_arrows(struct dm *dmp, struct bv_scene_obj *s)
 		    }
 		    VMOVE(B,*pt);
 		    break;
-		case BV_VLIST_LINE_DRAW:
+		case BSG_VLIST_LINE_DRAW:
 		    VMOVE(A,B);
 		    VMOVE(B,*pt);
 		    break;

@@ -49,7 +49,7 @@
 #include "bu/env.h"
 #include "bu/hash.h"
 #include "bu/sort.h"
-#include "bv/lod.h"
+#include "bsg/lod.h"
 #include "raytrace.h"
 #define ALPHANUM_IMPL
 #include "../libged/alphanum.h"

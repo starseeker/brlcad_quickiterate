@@ -54,8 +54,6 @@
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "bu/ptbl.h"
-#include "bv/defines.h"
-#include "bv/util.h"
 #include "bsg/defines.h"
 #include "bsg/util.h"
 
@@ -76,24 +74,24 @@ make_view(void)
 {
     struct bview *v;
     BU_GET(v, struct bview);
-    bv_init(v, NULL);
+    bsg_view_init(v, NULL);
     return v;
 }
 
 static void
 free_view(struct bview *v)
 {
-    bv_free(v);
+    bsg_view_free(v);
     BU_PUT(v, struct bview);
 }
 
 /* Create a minimal synthetic draw-root group on a view so that
  * bsg_scene_root_create can wire bsg_root to it.  The caller owns the
- * returned node and must free it with bv_obj_put() when done. */
-static struct bv_scene_obj *
+ * returned node and must free it with bsg_obj_put() when done. */
+static bsg_node *
 attach_fake_draw_root(struct bview *v)
 {
-    struct bv_scene_obj *dr = bv_obj_create(v, BV_CHILD_OBJS);
+    bsg_node *dr = bsg_obj_create(v, BSG_OBJ_CHILD);
     if (!dr)
 	return NULL;
     dr->s_type_flags = BSG_NODE_GROUP;
@@ -116,10 +114,10 @@ test_create_alias(void)
     BSGCHECK(v->gv_draw_root == root, "view->gv_draw_root is set when no draw root");
     bsg_scene_root_destroy(root);
     v->gv_draw_root = NULL;
-    bv_obj_put((struct bv_scene_obj *)root);
+    bsg_obj_put((bsg_node *)root);
 
     /* Set up a fake draw root and re-run */
-    struct bv_scene_obj *dr = attach_fake_draw_root(v);
+    bsg_node *dr = attach_fake_draw_root(v);
     if (!dr) { g_fail++; free_view(v); return; }
 
     root = bsg_scene_root_create(v);
@@ -139,7 +137,7 @@ test_create_alias(void)
     /* Clean up the fake draw root manually (bsg_scene_root_destroy does not
      * free it, as it is owned by the draw-tree lifecycle). */
     v->gv_draw_root = NULL;
-    bv_obj_put(dr);
+    bsg_obj_put(dr);
     free_view(v);
 }
 
@@ -160,12 +158,12 @@ test_sync_noop(void)
     bu_log("=== Test 3: sync_noop ===\n");
     struct bview *v = make_view();
 
-    struct bv_scene_obj *dr = attach_fake_draw_root(v);
+    bsg_node *dr = attach_fake_draw_root(v);
     if (!dr) { g_fail++; free_view(v); return; }
 
     bsg_node *root = bsg_scene_root_create(v);
     if (!root) { g_fail++; v->gv_draw_root = NULL; free_view(v); return; }
-    struct bv_scene_obj *r = (struct bv_scene_obj *)root;
+    bsg_node *r = (bsg_node *)root;
     BSGCHECK(BU_PTBL_LEN(&r->children) == 0, "children empty before sync");
 
     bsg_scene_root_sync(root, v);
@@ -175,7 +173,7 @@ test_sync_noop(void)
 
     bsg_scene_root_destroy(root);
     v->gv_draw_root = NULL;
-    bv_obj_put(dr);
+    bsg_obj_put(dr);
     free_view(v);
 }
 
@@ -186,20 +184,20 @@ test_find_by_type(void)
     bu_log("=== Test 4: find_by_type ===\n");
     struct bview *v = make_view();
 
-    struct bv_scene_obj *dr = attach_fake_draw_root(v);
+    bsg_node *dr = attach_fake_draw_root(v);
     if (!dr) { g_fail++; free_view(v); return; }
 
     bsg_node *root = bsg_scene_root_create(v);
-    if (!root) { g_fail++; v->gv_draw_root = NULL; bv_obj_put(dr); free_view(v); return; }
+    if (!root) { g_fail++; v->gv_draw_root = NULL; bsg_obj_put(dr); free_view(v); return; }
 
     /* Add a child directly to root->children with a specific type flag.
      * Phase F: root IS the draw root, so this is identical to adding a
      * child to the draw tree. */
-    struct bv_scene_obj *child = bv_obj_create(v, BV_CHILD_OBJS);
-    if (!child) { g_fail++; bsg_scene_root_destroy(root); v->gv_draw_root = NULL; bv_obj_put(dr); free_view(v); return; }
+    bsg_node *child = bsg_obj_create(v, BSG_OBJ_CHILD);
+    if (!child) { g_fail++; bsg_scene_root_destroy(root); v->gv_draw_root = NULL; bsg_obj_put(dr); free_view(v); return; }
 
     child->s_type_flags |= BSG_NODE_SHAPE;
-    bu_ptbl_ins(&((struct bv_scene_obj *)root)->children, (long *)child);
+    bu_ptbl_ins(&((bsg_node *)root)->children, (long *)child);
 
     bsg_node *found = bsg_view_find_by_type(root, BSG_NODE_SHAPE);
     BSGCHECK(found != NULL, "bsg_view_find_by_type finds BSG_NODE_SHAPE child");
@@ -216,7 +214,7 @@ test_find_by_type(void)
 
     /* Cleanup: clear bsg_root and draw-root pointers; gv_free() handles the
      * rest.  The child object and fake draw root are freed when the view's
-     * free pool is collected.  We do NOT call bv_obj_put on individual child
+     * free pool is collected.  We do NOT call bsg_obj_put on individual child
      * objects here — let free_view() sweep the pool. */
     bsg_scene_root_destroy(root);
     v->gv_draw_root = NULL;
@@ -227,7 +225,7 @@ test_find_by_type(void)
 static int g_sensor_fired = 0;
 
 static int
-sensor_callback(struct bv_scene_obj *UNUSED(s), struct bview *UNUSED(v), int UNUSED(mode))
+sensor_callback(bsg_node *UNUSED(s), struct bview *UNUSED(v), int UNUSED(mode))
 {
     g_sensor_fired++;
     return 0;
@@ -241,14 +239,14 @@ test_sensor_fire(void)
 
     struct bview *v = make_view();
 
-    struct bv_scene_obj *dr = attach_fake_draw_root(v);
+    bsg_node *dr = attach_fake_draw_root(v);
     if (!dr) { g_fail++; free_view(v); return; }
 
     bsg_node *root = bsg_scene_root_create(v);
     if (!root) { g_fail++; v->gv_draw_root = NULL; free_view(v); return; }
 
     /* Add a sensor child directly to root->children. */
-    struct bv_scene_obj *sensor_child = bv_obj_create(v, BV_CHILD_OBJS);
+    bsg_node *sensor_child = bsg_obj_create(v, BSG_OBJ_CHILD);
     if (!sensor_child) {
 	g_fail++;
 	bsg_scene_root_destroy(root);
@@ -259,7 +257,7 @@ test_sensor_fire(void)
 
     sensor_child->s_type_flags    |= BSG_NODE_SENSOR;
     sensor_child->s_update_callback = sensor_callback;
-    bu_ptbl_ins(&((struct bv_scene_obj *)root)->children, (long *)sensor_child);
+    bu_ptbl_ins(&((bsg_node *)root)->children, (long *)sensor_child);
 
     bsg_sensor_fire(root, v);
 

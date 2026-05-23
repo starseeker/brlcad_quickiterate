@@ -38,10 +38,9 @@
 
 #include "bu/malloc.h"
 #include "bu/ptbl.h"
-#include "bv/defines.h"
-#include "bv/util.h"
-
 #include "bsg/defines.h"
+#include "bsg/util.h"
+
 #include "bsg/draw_set.h"
 #include "bsg/lod_ops.h"
 #include "bsg/node_group.h"
@@ -60,7 +59,7 @@ _lod_payload(bsg_node *node)
 {
     if (!node)
 	return NULL;
-    struct bv_scene_obj *n = (struct bv_scene_obj *)node;
+    bsg_node *n = (bsg_node *)node;
     if (!(n->s_type_flags & BSG_NODE_LOD))
 	return NULL;
     return (struct bsg_lod_payload *)n->s_i_data;
@@ -72,7 +71,7 @@ _lod_payload(bsg_node *node)
  * Frees the bsg_lod_payload and calls ops->free() if present.
  */
 static void
-_lod_node_free_cb(struct bv_scene_obj *s)
+_lod_node_free_cb(bsg_node *s)
 {
     if (!s)
 	return;
@@ -101,7 +100,7 @@ bsg_lod_node_create(struct bview *v)
 	return NULL;
 
     /* Allocate as a view object so it participates in the normal pool. */
-    struct bv_scene_obj *n = bv_obj_create(v, BV_VIEW_OBJS | BV_LOCAL_OBJS);
+    bsg_node *n = bsg_obj_create(v, BSG_OBJ_VIEW | BSG_OBJ_LOCAL);
     if (!n)
 	return NULL;
 
@@ -147,14 +146,14 @@ bsg_lod_node_attach_level(bsg_node *lod_node, bsg_node *level_node)
 {
     if (!lod_node || !level_node)
 	return;
-    struct bv_scene_obj *n = (struct bv_scene_obj *)lod_node;
+    bsg_node *n = (bsg_node *)lod_node;
     if (!(n->s_type_flags & BSG_NODE_LOD))
 	return;
-    struct bv_scene_obj *c = (struct bv_scene_obj *)level_node;
+    bsg_node *c = (bsg_node *)level_node;
 
     /* Avoid duplicates. */
     for (size_t i = 0; i < BU_PTBL_LEN(&n->children); i++) {
-	if ((struct bv_scene_obj *)BU_PTBL_GET(&n->children, i) == c)
+	if ((bsg_node *)BU_PTBL_GET(&n->children, i) == c)
 	    return;
     }
 
@@ -217,7 +216,7 @@ bsg_lod_node_level_count(bsg_node *node)
 {
     if (!node)
 	return 0;
-    struct bv_scene_obj *n = (struct bv_scene_obj *)node;
+    bsg_node *n = (bsg_node *)node;
     if (!(n->s_type_flags & BSG_NODE_LOD))
 	return 0;
     return (int)BU_PTBL_LEN(&n->children);
@@ -230,8 +229,8 @@ bsg_lod_node_insert_above(bsg_node *leaf, struct bview *v)
     if (!leaf || !v)
 	return NULL;
 
-    struct bv_scene_obj *sleaf = (struct bv_scene_obj *)leaf;
-    struct bv_scene_obj *parent = (struct bv_scene_obj *)sleaf->parent;
+    bsg_node *sleaf = (bsg_node *)leaf;
+    bsg_node *parent = (bsg_node *)sleaf->parent;
     if (!parent)
 	return NULL;
 
@@ -243,7 +242,7 @@ bsg_lod_node_insert_above(bsg_node *leaf, struct bview *v)
     if (!lod)
 	return NULL;
 
-    struct bv_scene_obj *slod = (struct bv_scene_obj *)lod;
+    bsg_node *slod = (bsg_node *)lod;
     slod->parent = parent;
     BU_PTBL_SET(&parent->children, (size_t)loc, slod);
 

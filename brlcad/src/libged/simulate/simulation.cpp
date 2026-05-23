@@ -30,7 +30,7 @@
 #ifdef HAVE_BULLET
 
 
-#include "bv/plot3.h"
+#include "bsg/plot3.h"
 
 #include "simulation.hpp"
 #include "rt_collision_algorithm.hpp"

@@ -315,7 +315,7 @@ rt_generic_scene_obj(struct bv_scene_obj *s, struct directory *dp, struct db_i *
 
     // Clear out existing vlists - if we're calling this, we definitely don't want
     // any old data to linger.
-    BV_FREE_VLIST(s->vlfree, &s->s_vlist);
+    BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
 
 #if 0
     // NOTE - above call stages the vlist memory for reuse.  If we need
@@ -325,8 +325,8 @@ rt_generic_scene_obj(struct bv_scene_obj *s, struct directory *dp, struct db_i *
     struct bu_list *p;
     while (BU_LIST_WHILE(p, bu_list, &s->s_vlist)) {
 	BU_LIST_DEQUEUE(p);
-	struct bv_vlist *pv = (struct bv_vlist *)p;
-	BU_FREE(pv, struct bv_vlist);
+	bsg_vlist *pv = (bsg_vlist *)p;
+	BU_FREE(pv, bsg_vlist);
     }
 #endif
 

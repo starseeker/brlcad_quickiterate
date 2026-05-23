@@ -68,7 +68,6 @@
 #include <ged.h>
 #include <icv.h>
 #include "bsg/util.h"
-#include "bv/util.h"
 
 /* Private header for DbiState */
 #include "../../dbi.h"

@@ -29,7 +29,7 @@
 #include <QGroupBox>
 #include <QCheckBox>
 #include <QComboBox>
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "qtcad/QgTypes.h"
 
 class QgPluginContext;

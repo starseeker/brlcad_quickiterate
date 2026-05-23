@@ -32,7 +32,7 @@
 #include "bu/malloc.h"
 #include "bu/str.h"
 #include "bu/time.h"
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "dm.h"
 #include "./include/private.h"
 #include "./null/dm-Null.h"
@@ -730,14 +730,14 @@ dm_free_dlists(struct dm *dmp, unsigned int list, int range)
 }
 
 int
-dm_draw_vlist(struct dm *dmp, struct bv_vlist *vp)
+dm_draw_vlist(struct dm *dmp, bsg_vlist *vp)
 {
     if (UNLIKELY(!dmp)) return 0;
     return dmp->i->dm_drawVList(dmp, vp);
 }
 
 int
-dm_draw_vlist_hidden_line(struct dm *dmp, struct bv_vlist *vp)
+dm_draw_vlist_hidden_line(struct dm *dmp, bsg_vlist *vp)
 {
     if (UNLIKELY(!dmp)) return 0;
     return dmp->i->dm_drawVListHiddenLine(dmp, vp);
@@ -841,7 +841,7 @@ dm_draw_points_3d(struct dm *dmp, int npoints, point_t *points)
     return dmp->i->dm_drawPoints3D(dmp, npoints, points);
 }
 int
-dm_draw(struct dm *dmp, struct bv_vlist *(*callback)(void *), void **data)
+dm_draw(struct dm *dmp, bsg_vlist *(*callback)(void *), void **data)
 {
     if (UNLIKELY(!dmp)) return 0;
     return dmp->i->dm_draw(dmp, callback, data);

@@ -47,7 +47,7 @@
 #include "bu/opt.h"
 #include "bu/str.h"
 #include "bu/vls.h"
-#include "bv/vlist.h"
+#include "bsg/vlist.h"
 #include "../ged_private.h"
 #include "./ged_view.h"
 
@@ -78,8 +78,8 @@ _rebuild_bsg_dlines(struct bview *v, const char *bsg_name,
 	return;
 
     for (int i = 0; i + 1 < npts; i += 2) {
-	BV_ADD_VLIST(s->vlfree, &s->s_vlist, pts[i],   BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(s->vlfree, &s->s_vlist, pts[i+1], BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(s->vlfree, &s->s_vlist, pts[i],   BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(s->vlfree, &s->s_vlist, pts[i+1], BSG_VLIST_LINE_DRAW);
     }
 
     if (color)
@@ -232,9 +232,9 @@ _view_dlines_cmd_points(void *bs, int argc, const char **argv)
 	/* Read: walk the BSG vlist. */
 	struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
 	if (s) {
-	    struct bv_vlist *vp;
+	    bsg_vlist *vp;
 	    size_t j;
-	    for (BU_LIST_FOR(vp, bv_vlist, &s->s_vlist)) {
+	    for (BU_LIST_FOR(vp, bsg_vlist, &s->s_vlist)) {
 		for (j = 0; j < (size_t)vp->nused; j++) {
 		    bu_vls_printf(gedp->ged_result_str, " {%lf %lf %lf} ", V3ARGS(vp->pt[j]));
 		}

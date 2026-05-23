@@ -31,6 +31,7 @@
 
 #include "vmath.h"
 #include "bu/list.h"
+#include "bsg/vlist.h"
 #include "nmg/defines.h"
 #include "nmg/model.h"
 

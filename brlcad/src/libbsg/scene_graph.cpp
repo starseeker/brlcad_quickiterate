@@ -48,12 +48,9 @@
 #include "common.h"
 
 #include "bu/malloc.h"
-#include "bv/defines.h"
-#include "bv/util.h"
-#include "bv/view_sets.h"
-
 #include "bsg/defines.h"
 #include "bsg/util.h"
+
 #include "bsg/visit.h"
 #include "bsg/scene_set.h"
 
@@ -71,7 +68,7 @@ bsg_scene_root_create(struct bview *v)
      * the active draw root from another view in the set.  This keeps secondary
      * views (e.g. libtclcad null-DM views) aligned with the GED draw tree. */
     if (!v->gv_draw_root && v->vset) {
-	struct bu_ptbl *views = bv_set_views(v->vset);
+	struct bu_ptbl *views = bsg_set_views(v->vset);
 	if (views) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 		struct bview *sv = (struct bview *)BU_PTBL_GET(views, i);
@@ -92,7 +89,7 @@ bsg_scene_root_create(struct bview *v)
     if (!v->gv_draw_root) {
 	/* This path is for non-GED callers.  GED command flows continue to use
 	 * libged's _sg_root() so gd_draw_root and bsg_draw_ctx are installed. */
-	struct bv_scene_obj *root = bv_obj_get_unregistered(v, BV_CHILD_OBJS);
+	bsg_node *root = bsg_obj_get_unregistered(v, BSG_OBJ_CHILD);
 	if (!root) {
 	    bu_log("bsg_scene_root_create: failed to allocate standalone draw root\n");
 	    return NULL;
@@ -128,9 +125,9 @@ bsg_scene_root_destroy(bsg_node *root)
 
     /* Phase F: bsg_root is now the same pointer as gv_draw_root, which has its
      * own lifecycle managed by bsg_ged_draw.c / bsg_view_obj_zap.  Do NOT call
-     * bv_obj_put here — that would free the live draw-tree root.  Just clear
+     * bsg_obj_put here — that would free the live draw-tree root.  Just clear
      * the view's back-reference. */
-    struct bv_scene_obj *r = (struct bv_scene_obj *)root;
+    bsg_node *r = (bsg_node *)root;
     if (r->s_v && r->s_v->bsg_root == root)
 	r->s_v->bsg_root = NULL;
 }
@@ -142,10 +139,10 @@ bsg_view_find_by_type(bsg_node *root, unsigned long long flags)
     if (!root || !flags)
 	return NULL;
 
-    struct bv_scene_obj *r = (struct bv_scene_obj *)root;
+    bsg_node *r = (bsg_node *)root;
     for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
-	struct bv_scene_obj *child =
-	    (struct bv_scene_obj *)BU_PTBL_GET(&r->children, i);
+	bsg_node *child =
+	    (bsg_node *)BU_PTBL_GET(&r->children, i);
 	if (!child)
 	    continue;
 	if ((child->s_type_flags & flags) == flags)
@@ -161,12 +158,12 @@ bsg_sensor_fire(bsg_node *root, struct bview *v)
     if (!root)
 	return;
 
-    struct bv_scene_obj *r = (struct bv_scene_obj *)root;
+    bsg_node *r = (bsg_node *)root;
 
     /* Depth-first traversal of the subtree. */
     for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
-	struct bv_scene_obj *child =
-	    (struct bv_scene_obj *)BU_PTBL_GET(&r->children, i);
+	bsg_node *child =
+	    (bsg_node *)BU_PTBL_GET(&r->children, i);
 	if (!child)
 	    continue;
 

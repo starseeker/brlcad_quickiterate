@@ -80,7 +80,7 @@ _axes_cmd_create(void *bs, int argc, const char **argv)
     }
 
     BU_LIST_INIT(&(s->s_vlist));
-    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p, BSG_VLIST_LINE_MOVE);
     VSET(s->s_color, 255, 255, 0);
 
     struct bv_axes *l;

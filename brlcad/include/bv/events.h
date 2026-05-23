@@ -17,37 +17,22 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file events.h
+/** @addtogroup bv_events
  *
- * View objects may define their behaviors in response to events (key
- * presses, mouse movements, etc.).  Because such events are defined
- * on a per-environment basis, we need to define a common language to
- * express responses to those events in order to avoid dependence on
- * that environment.
+ * Backward-compatibility bridge.  Canonical definitions are now in bsg/events.h.
  *
- * The calling code is responsible for translating the environment
- * specific events into bv events.
- *
- * TODO - eventually these should probably be augmented by common purpose
- * specific options (i.e. define a BV_X_CONSTRAIN so the calling application
- * can map either x or X to the enabling of that particular motion constraint
- * during editing, for example...)  However, I think we'll also need to pass
- * the lower level info as there are too many purpose specific possibilities
- * to encode them all up front.
+ * TODO: delete this file once all callers have been updated.
  */
+/** @{ */
+/* @file bv/events.h */
 
-#define BV_KEY_PRESS            0x001
-#define BV_KEY_RELEASE          0x002
-#define BV_LEFT_MOUSE_PRESS     0x004
-#define BV_LEFT_MOUSE_RELEASE   0x008
-#define BV_RIGHT_MOUSE_PRESS    0x010
-#define BV_RIGHT_MOUSE_RELEASE  0x020
-#define BV_MIDDLE_MOUSE_PRESS   0x040
-#define BV_MIDDLE_MOUSE_RELEASE 0x080
-#define BV_CTRL_MOD             0x100
-#define BV_SHIFT_MOD            0x200
-#define BV_ALT_MOD              0x400
+#ifndef BV_EVENTS_H
+#define BV_EVENTS_H
 
+#include "bsg/events.h"
+
+#endif  /* BV_EVENTS_H */
+/** @} */
 /*
  * Local Variables:
  * tab-width: 8

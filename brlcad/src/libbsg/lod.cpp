@@ -34,7 +34,7 @@
 #include "common.h"
 
 #include "bu/ptbl.h"
-#include "bv/defines.h"
+#include "bsg/defines.h"
 
 #include "bsg/defines.h"
 #include "bsg/lod.h"
@@ -51,7 +51,7 @@ _lod_update_recursive(bsg_node *node, struct bview *v)
     if (!node || !v)
 	return;
 
-    struct bv_scene_obj *n = (struct bv_scene_obj *)node;
+    bsg_node *n = (bsg_node *)node;
 
     if (n->s_type_flags & BSG_NODE_LOD) {
 	struct bsg_lod_payload *pl =
@@ -71,8 +71,8 @@ _lod_update_recursive(bsg_node *node, struct bview *v)
 
     /* Walk children regardless of node type so we find nested LoD nodes. */
     for (size_t i = 0; i < BU_PTBL_LEN(&n->children); i++) {
-	struct bv_scene_obj *child =
-	    (struct bv_scene_obj *)BU_PTBL_GET(&n->children, i);
+	bsg_node *child =
+	    (bsg_node *)BU_PTBL_GET(&n->children, i);
 	if (!child)
 	    continue;
 	/* Skip leaf nodes — they cannot contain BSG_NODE_LOD children. */
@@ -105,7 +105,7 @@ bsg_lod_stale(bsg_node *n, struct bview *v)
 	return 0;
 
     /* Only BSG_NODE_LOD nodes carry staleness state. */
-    struct bv_scene_obj *s = (struct bv_scene_obj *)n;
+    bsg_node *s = (bsg_node *)n;
     if (!(s->s_type_flags & BSG_NODE_LOD))
 	return 0;
 

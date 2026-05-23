@@ -47,9 +47,9 @@
 
 #include <bu.h>
 #include <bv.h>
-#include "bv/tcl_data.h"
-#include "bv/util.h"
-#include "bv/vlist.h"
+#include "bsg/tcl_data.h"
+#include "bsg/util.h"
+#include "bsg/vlist.h"
 #include <dm.h>
 #include <ged.h>
 
@@ -140,12 +140,12 @@ main(int ac, char *av[])
     /* ------------------------------------------------------------------ *
      * [3] vlist: add vlist data and verify non-empty.                    *
      * ------------------------------------------------------------------ */
-    bu_log("[3] BV_ADD_VLIST...\n");
+    bu_log("[3] BSG_ADD_VLIST...\n");
     {
 	point_t p0 = {0, 0, 0};
 	point_t p1 = {1, 0, 0};
-	BV_ADD_VLIST(obj->vlfree, &obj->s_vlist, p0, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(obj->vlfree, &obj->s_vlist, p1, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(obj->vlfree, &obj->s_vlist, p0, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(obj->vlfree, &obj->s_vlist, p1, BSG_VLIST_LINE_DRAW);
 	ASSERT(!BU_LIST_IS_EMPTY(&obj->s_vlist));
     }
 

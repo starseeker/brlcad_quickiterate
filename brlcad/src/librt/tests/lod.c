@@ -25,7 +25,7 @@
 #include "bu/time.h"
 #include "bu/units.h"
 #include "bg.h"
-#include "bv/lod.h"
+#include "bsg/lod.h"
 #include "raytrace.h"
 
 int
