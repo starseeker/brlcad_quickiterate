@@ -49,7 +49,6 @@ CADViewModel::~CADViewModel()
 void
 CADViewModel::update()
 {
-    printf("view model update\n");
     refresh(QG_VIEW_REFRESH);
 }
 
