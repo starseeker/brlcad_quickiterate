@@ -19,8 +19,9 @@
  */
 /** @addtogroup bv_snap
  *
- * @brief Logic for snapping sample points to view elements and grids.
+ * Backward-compatibility bridge.  All snap API now lives in bsg/snap.h.
  *
+ * TODO: migrate all callers to bsg/snap.h then delete this file.
  */
 /** @{ */
 /** @file bv/snap.h */
@@ -28,28 +29,7 @@
 #ifndef BV_SNAP_H
 #define BV_SNAP_H
 
-#include "common.h"
-#include "vmath.h"
-#include "bv/defines.h"
-
-__BEGIN_DECLS
-
-/* Logic for snapping points to their closes view lines. */
-
-/* Snap sample 2D point to lines active in the view.  If populated,
- * v->gv_s->gv_snap_objs contains a subset of bv_scene_obj pointers indicating
- * which view objects to consider for snapping.  If nonzero,
- * v->gv_s->gv_snap_flags also tells the routine which categories of objects to
- * consider - objs objects will also be evaluated against the flags before
- * being used. */
-BV_EXPORT extern int bv_snap_lines_2d(struct bview *v, fastf_t *fx, fastf_t *fy);
-
-BV_EXPORT extern void bv_view_center_linesnap(struct bview *v);
-
-BV_EXPORT extern int bv_snap_lines_3d(point_t *out_pt, struct bview *v, point_t *p);
-BV_EXPORT extern int bv_snap_grid_2d(struct bview *v, fastf_t *fx, fastf_t *fy);
-
-__END_DECLS
+#include "bsg/snap.h"
 
 #endif /* BV_SNAP_H */
 

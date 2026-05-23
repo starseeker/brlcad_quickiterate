@@ -1,4 +1,4 @@
-/*                        P O L Y G O N . H
+/*                        V E C T F O N T . H
  * BRL-CAD
  *
  * Copyright (c) 2004-2026 United States Government as represented by
@@ -17,23 +17,47 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @addtogroup bv_polygon
+
+#ifndef BSG_VECTFONT_H
+#define BSG_VECTFONT_H
+
+#include "common.h"
+#include "bsg/defines.h"
+
+__BEGIN_DECLS
+
+/** @addtogroup bsg_vfont
  *
- * Backward-compatibility bridge.  All polygon API now lives in
- * bsg/polygon.h.
+ *  @brief
+ *  Terminal Independent Graphics Display Package.
  *
- * TODO: migrate all callers to bsg/polygon.h then delete this file.
+ *  Canonical home; bv/vectfont.h is a backward-compatibility bridge.
+ *
+ *  Vector font definitions, for TIG-PACK fonts.
  */
 /** @{ */
-/* @file bv/polygon.h */
+/** @file bsg/vectfont.h */
 
-#ifndef BV_POLYGON_H
-#define BV_POLYGON_H
+/*
+ *	Motion encoding macros
+ *
+ * All characters reference absolute points within a 10 x 10 square
+ */
+#define	brt(x, y)	(11*x+y)
+#define drk(x, y)	-(11*x+y)
+#define	VFONT_LAST	-128		/**< @brief  0200 Marks end of stroke list */
+#define	NEGY		-127		/**< @brief  0201 Denotes negative y stroke */
+#define bneg(x, y)	NEGY, brt(x, y)
+#define dneg(x, y)	NEGY, drk(x, y)
 
-#include "bsg/polygon.h"
+BV_EXPORT extern int *tp_getchar(const unsigned char *c);
 
-#endif  /* BV_POLYGON_H */
 /** @} */
+
+__END_DECLS
+
+#endif  /* BSG_VECTFONT_H */
+
 /*
  * Local Variables:
  * mode: C

@@ -9,8 +9,13 @@ bv_ and BV_ prefixes should be changed to bsg_ and BSG_.
 Completion is defined as being able to remove libbv from the source tree and build
 without loss of functionality or breakage.
 
+IMPORTANT: There will be NO backwards compatibility maintained.  bv/ headers and libbv
+will be FULLY ELIMINATED.  All callers will be updated to use bsg/ headers and the bsg_*
+API.  bv/ headers exist only as TEMPORARY bridges during the migration — once all callers
+have been updated the bridges will be deleted along with libbv.
+
 ===========================================================================
-MIGRATION STATUS  (updated: 2026-05-22)
+MIGRATION STATUS  (updated: 2026-05-23)
 ===========================================================================
 
 DONE
@@ -76,41 +81,91 @@ Slice 18 – bsg/defines.h self-contained; bv/defines.h becomes compat bridge
   * No BV_* compat aliases inside bsg/defines.h itself.
   * 11/11 libbsg tests pass; full downstream stack builds cleanly.
 
+Slice 19 – bsg/faceplate.h + bsg/tcl_data.h canonical; bsg/defines.h dep fix
+  * bsg/faceplate.h: new canonical home for bv_adc_state, bv_grid_state,
+    bv_interactive_rect_state, bv_params_state, bv_other_state.
+  * bsg/tcl_data.h: new canonical home for bv_scene_obj_old_settings,
+    display_list, bv_data_{axes,arrow,label,line}_state, bv_data_polygon_state,
+    bv_data_tclcad.  Includes bsg/faceplate.h (not bv/faceplate.h).
+  * bsg/defines.h: updated to include bsg/tcl_data.h + bsg/faceplate.h instead
+    of bv/tcl_data.h + bv/faceplate.h.  Zero bv/ includes remain in bsg/defines.h.
+  * bv/faceplate.h → bridge: #include "bsg/faceplate.h"
+  * bv/tcl_data.h → bridge: #include "bsg/tcl_data.h"
+  * 11/11 libbsg tests pass; libbv/libbsg/libdm/libged/libqtcad/dm-qtgl/dm-swrast/qged
+    all build cleanly.
+
+Slice 20 – bsg/view_sets.h canonical; bv/view_sets.h bridge
+  * bsg/view_sets.h: new canonical home for bv_set_{init,free,add_view,rm_view,
+    views,find_view,fsos} declarations (includes bsg/defines.h).
+  * bv/view_sets.h → bridge: #include "bsg/view_sets.h"
+
+Slice 21 – bsg/util.h expanded to full bv/util.h API; bv/util.h bridge
+  * bsg/util.h: appended all bv_* function declarations from bv/util.h (view
+    init/free, camera accessors, knob API, screen utilities, scene obj API,
+    view-only obj API, object lifecycle, logging, debug print).
+    Includes bu/hash.h and bn/tol.h now required by the expanded API.
+  * bv/util.h → bridge: #include "bsg/util.h"
+
+Slice 22 – Remaining bv/ headers canonicalized into bsg/; all bv/ bridges
+  * bsg/snap.h: canonical home for bv_snap_lines_2d/3d, bv_snap_grid_2d,
+    bv_view_center_linesnap (includes bsg/defines.h).
+  * bsg/adc.h: canonical home for adc_* functions (includes bsg/defines.h).
+  * bsg/polygon.h: canonical home for bv_polygon struct and all bv_*polygon*
+    functions (includes bsg/defines.h).
+  * bsg/vectfont.h: canonical home for tp_getchar and vfont macros.
+  * bsg/plot3.h: canonical home for full UNIX-plot3 library (header-only impl).
+  * bsg/tig.h: canonical home for TIG-PACK (includes bsg/plot3.h + bsg/defines.h).
+  * bv/snap.h, bv/adc.h, bv/polygon.h, bv/vectfont.h, bv/plot3.h, bv/tig.h →
+    all converted to single-include bridges.
+  * 11/11 libbsg tests pass; libbv/libbsg/libdm/libged/libqtcad/dm-qtgl/dm-swrast/qged
+    all build cleanly.
+
 IN PROGRESS / NEXT STEPS
 --------------------------
-NOTE: Per updated direction — bv/ headers will be FULLY ELIMINATED (no
-backwards compatibility maintained in bsg/ headers).  bv/ headers exist
-only as temporary bridges until all callers are migrated, then deleted.
+NOTE: bv/ headers and libbv will be FULLY ELIMINATED — no backwards
+compatibility will be maintained in bsg/ headers.  bv/ headers exist
+only as temporary bridges; once all callers are migrated they are
+deleted together with libbv.
 
-Slice 19 – Migrate caller includes: bv/defines.h → bsg/defines.h and
-           bv/vlist.h → bsg/vlist.h across libdm (20 files), libged
-           (42 files), libqtcad (10 files).  Then delete those bv/ bridges.
+Slice 23 – Migrate all caller #includes from bv/ to bsg/ across the tree.
+  Priority order:
+    a) libdm (6 files with bv/defines.h, 1 with bv/util.h, 2 with bv/lod.h,
+       1 with bv/adc.h)
+    b) libged (~42 files)
+    c) libqtcad (~10 files)
+    d) libtclcad, mged, qged, other binaries
+    e) Test files
+  After each library is fully migrated off a given bridge header, verify no
+  include of that bv/ header remains in that library.
 
-Slice 20 – Expand bsg/util.h to cover all bv/util.h declarations (currently
-           bsg/util.h only has a subset).  Make bv/util.h a bridge.
-           Migrate all callers.
+Slice 24 – bsg/lod.h fully canonical; bv/lod.h → bridge.
+  * bv/lod.h currently still has original content; move to bsg/lod.h.
+  * bv/events.h → move content to bsg/events.h if not already done.
 
-Slice 21 – Create bsg/view_sets.h with full view-sets API.
-           bv/view_sets.h becomes a bridge.  Migrate callers.
+Slice 25 – Rename struct tags and types in bsg/defines.h:
+    bview        → bsg_view
+    bview_set    → bsg_view_set
+    bv_scene_obj → bsg_node
+    bv_axes      → bsg_axes
+    bv_obj_settings → bsg_obj_settings
+    bview_settings  → bsg_view_settings
+    bview_objs   → bsg_view_objs
+    bview_knobs  → bsg_view_knobs
+  Add typedef aliases in bsg/defines.h for the old names to ease migration.
+  Update all callers systematically.
 
-Slice 22 – Create bsg/ counterparts for remaining bv/ headers:
-             bsg/plot3.h  (88 callers of bv/plot3.h)
-             bsg/lod.h    (already exists; bv/lod.h → bridge, 15 callers)
-             bsg/snap.h   (5 callers of bv/snap.h)
-             bsg/adc.h    (2 callers)
-             bsg/tig.h    (10 callers)
-             bsg/vectfont.h (3 callers)
-             bsg/polygon.h  (3 callers)
-             bsg/tcl_data.h / bsg/faceplate.h (2 callers each; also needed
-               so bsg/defines.h can drop its remaining bv/ includes)
+Slice 26 – Rename function prefixes bv_ → bsg_, BV_ → BSG_ throughout the
+  codebase (util, view_sets, snap, adc, polygon, vectfont, tig, plot3,
+  vlist, vlblock, etc.).  Update bv/ bridge headers to provide
+  #define bv_foo bsg_foo aliases for any remaining external consumers.
 
-Slice 23 – Rename bsg/defines.h struct tags bv_scene_obj → bsg_node,
-           bview → bsg_view, bview_set → bsg_view_set.
-           Update all remaining callers.
-
-Slice 24 – Move libbv function implementations into libbsg (or rename in-place).
-           Remove libbv from source_dirs.cmake.
-           Delete src/libbv/ and include/bv/.
+Slice 27 – Move libbv function implementations into libbsg (or rename in-place).
+  * Merge src/libbv/ source files into src/libbsg/ (or copy and adapt).
+  * Update CMakeLists.txt: add former libbv sources to libbsg SOURCES.
+  * Remove libbv from source_dirs.cmake.
+  * Delete src/libbv/ directory.
+  * Delete include/bv/ directory.
+  * Verify zero-dependency build: cmake --build . → no bv/ references anywhere.
 
 DEPENDENCY GRAPH (current)
 ---------------------------
@@ -124,21 +179,45 @@ DEPENDENCY GRAPH (current)
   libqtcad → libged libdm libbsg libbv libbn libbu
   libtclcad → libged libdm libbv libbn libbu
 
-HEADER OWNERSHIP (current)
----------------------------
+HEADER OWNERSHIP (current, as of Slice 22)
+--------------------------------------------
   bsg/defines.h  — CANONICAL: all view/scene-graph structs, BV_EXPORT, BSG_EXPORT,
-                   BSG_NODE_*, BSG_PAYLOAD_*, BSG_OBJ_* flags
+                   BSG_NODE_*, BSG_PAYLOAD_*, BSG_OBJ_* flags.
+                   Now includes bsg/tcl_data.h + bsg/faceplate.h (zero bv/ includes).
+  bsg/faceplate.h — CANONICAL: bv_adc_state, bv_grid_state,
+                    bv_interactive_rect_state, bv_params_state, bv_other_state
+  bsg/tcl_data.h — CANONICAL: bv_data_* states, bv_data_tclcad, display_list,
+                   bv_scene_obj_old_settings (includes bsg/faceplate.h)
   bsg/vlist.h    — CANONICAL: struct bsg_vlist, BSG_VLIST_* constants/macros,
                    bsg_vlist_cmd_cnt/copy/arb8 API
-  bsg/util.h     — CANONICAL: bsg_obj_create/put, bsg_view_init/free, bsg_set_views,
-                   bsg_vlist_copy, bsg_scene_obj_release/invalidate_backend
+  bsg/util.h     — CANONICAL: all bsg_* lifecycle/query wrappers PLUS full
+                   bv_* view/camera/object API (moved from bv/util.h)
+  bsg/view_sets.h — CANONICAL: bv_set_{init,free,add_view,rm_view,views,find_view,fsos}
+  bsg/snap.h     — CANONICAL: bv_snap_lines_2d/3d, bv_snap_grid_2d,
+                   bv_view_center_linesnap
+  bsg/adc.h      — CANONICAL: adc_model_to_adc_view, adc_grid_to_adc_view,
+                   adc_view_to_adc_grid, adc_reset
+  bsg/polygon.h  — CANONICAL: struct bv_polygon, all bv_*polygon* functions,
+                   BV_POLYGON_* type constants
+  bsg/vectfont.h — CANONICAL: tp_getchar, vector-font encoding macros
+  bsg/plot3.h    — CANONICAL: full UNIX-plot3 library (header-only impl via
+                   PLOT3_IMPLEMENTATION)
+  bsg/tig.h      — CANONICAL: full TIG-PACK plotting library (includes bsg/plot3.h)
   bsg/lod.h      — CANONICAL: bsg LoD API
   bsg/scene_set.h, draw_set.h, field.h, node_*.h, overlay.h, payload.h,
   sensor.h, view_scope.h, visit.h — CANONICAL BSG scene-graph API
 
   bv/defines.h   — bridge only: #include "bsg/defines.h"
   bv/vlist.h     — bridge only: #include "bsg/vlist.h" + BV compat aliases
-  bv/util.h      — still original (needs bsg/util.h expansion + bridge)
-  bv/view_sets.h — still original (needs bsg/view_sets.h + bridge)
-  bv/plot3.h, lod.h, snap.h, adc.h, tig.h, vectfont.h, polygon.h,
-  tcl_data.h, faceplate.h — still original (pending slice 22)
+  bv/faceplate.h — bridge only: #include "bsg/faceplate.h"
+  bv/tcl_data.h  — bridge only: #include "bsg/tcl_data.h"
+  bv/view_sets.h — bridge only: #include "bsg/view_sets.h"
+  bv/util.h      — bridge only: #include "bsg/util.h"
+  bv/snap.h      — bridge only: #include "bsg/snap.h"
+  bv/adc.h       — bridge only: #include "bsg/adc.h"
+  bv/polygon.h   — bridge only: #include "bsg/polygon.h"
+  bv/vectfont.h  — bridge only: #include "bsg/vectfont.h"
+  bv/plot3.h     — bridge only: #include "bsg/plot3.h"
+  bv/tig.h       — bridge only: #include "bsg/tig.h"
+  bv/lod.h       — still original (pending slice 24)
+  bv/events.h    — still original (pending slice 24)

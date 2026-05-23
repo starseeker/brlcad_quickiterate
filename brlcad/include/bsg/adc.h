@@ -1,4 +1,4 @@
-/*                        P O L Y G O N . H
+/*                        A D C . H
  * BRL-CAD
  *
  * Copyright (c) 2004-2026 United States Government as represented by
@@ -17,22 +17,32 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @addtogroup bv_polygon
+/** @addtogroup bsg_adc
  *
- * Backward-compatibility bridge.  All polygon API now lives in
- * bsg/polygon.h.
- *
- * TODO: migrate all callers to bsg/polygon.h then delete this file.
+ * Angle/Distance Cursor functions.
+ * Canonical home; bv/adc.h is a backward-compatibility bridge.
  */
 /** @{ */
-/* @file bv/polygon.h */
+/** @file bsg/adc.h */
 
-#ifndef BV_POLYGON_H
-#define BV_POLYGON_H
+#ifndef BSG_ADC_H
+#define BSG_ADC_H
 
-#include "bsg/polygon.h"
+#include "common.h"
+#include "vmath.h"
+#include "bsg/defines.h"
 
-#endif  /* BV_POLYGON_H */
+__BEGIN_DECLS
+
+BV_EXPORT void adc_model_to_adc_view(struct bv_adc_state *adcs, mat_t model2view, fastf_t amax);
+BV_EXPORT void adc_grid_to_adc_view(struct bv_adc_state *adcs, mat_t model2view, fastf_t amax);
+BV_EXPORT void adc_view_to_adc_grid(struct bv_adc_state *adcs, mat_t model2view);
+BV_EXPORT void adc_reset(struct bv_adc_state *adcs, mat_t view2model, mat_t model2view);
+
+__END_DECLS
+
+#endif  /* BSG_ADC_H */
+
 /** @} */
 /*
  * Local Variables:

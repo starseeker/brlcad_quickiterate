@@ -39,8 +39,8 @@
 #include "bu/ptbl.h"
 #include "bu/vls.h"
 #include "bg/polygon_types.h"
-#include "bv/tcl_data.h"
-#include "bv/faceplate.h"
+#include "bsg/tcl_data.h"
+#include "bsg/faceplate.h"
 
 __BEGIN_DECLS
 
