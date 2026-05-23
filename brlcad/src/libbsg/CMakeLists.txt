@@ -20,7 +20,9 @@ set(
 set(BSG_LOCAL_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Note - libbsg_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
-brlcad_addlib(libbsg "${LIBBSG_SRCS}" "${libbsg_deps}" "" "${BSG_LOCAL_INCLUDE_DIRS}")
+brlcad_addlib(libbsg "${LIBBSG_SRCS}" "" "${BSG_LOCAL_INCLUDE_DIRS}"
+  PUBLIC_LIBS "${libbsg_deps}"
+  )
 set_target_properties(libbsg PROPERTIES VERSION 1.0.0 SOVERSION 1)
 if(HIDE_INTERNAL_SYMBOLS)
   set_property(TARGET libbsg APPEND PROPERTY COMPILE_DEFINITIONS "BSG_DLL_EXPORTS")

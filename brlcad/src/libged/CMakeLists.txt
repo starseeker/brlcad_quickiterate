@@ -307,7 +307,6 @@ set(
   LIBGED_SOURCES
   ${GED_CMD_SRC}
   ${GED_STATIC_REGISTRATION_CPP}
-  cmd_schemas.cpp
   edit_buf.cpp
   exec.cpp
   ged_init.cpp
@@ -346,7 +345,6 @@ set(GED_PUBLIC_LIBS ${libged_deps})
 set(
   GED_PRIVATE_LIBS
   PNG::PNG
-  LMDB::LMDB
   REGEX::REGEX
   ${WINSOCK_LIB}
   ${M_LIBRARY}
