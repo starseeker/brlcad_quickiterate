@@ -44,22 +44,73 @@ Slice 13 – bsg_set_views wrapper; remove bv/view_sets.h from libbsg
     bridge util.c (intentional) and lod.cpp (deferred).
   * 11/11 libbsg tests pass; libdm/libged/libqtcad/dm-qtgl/dm-swrast/qged build.
 
+Slices 14-16 – bsg_node casts, FREE_BSG_NODE, libbv PRIVATE dep
+  * All local vars in libbsg that held bv_scene_obj* now declared as bsg_node*.
+  * FREE_BV_SCENE_OBJ → FREE_BSG_NODE in draw_set.c and overlay.c.
+  * bsg_vlist_cmd_cnt() signature uses bsg_vlist* not struct bv_vlist*.
+  * libbv removed from test CMakeLists link deps (libbsg tests link only libbsg).
+  * libbv is now a PRIVATE link-dep of libbsg only in its own CMakeLists.txt.
+  * 11/11 libbsg tests pass.
+
+Slice 17 – bsg/vlist.h self-contained; bv/vlist.h becomes compat bridge
+  * bsg/vlist.h now owns the canonical struct bsg_vlist definition, all
+    BSG_VLIST_* constants, BSG_GET/ADD/FREE_VLIST macros, BSG_VLIST_SET_*
+    macros, and bsg_vlist_cmd_cnt/copy/arb8 declarations.
+  * No BV_* compat aliases in bsg/vlist.h (per new direction: no backwards compat).
+  * bv/vlist.h is now a compat bridge: includes bsg/vlist.h, adds
+    #define bv_vlist bsg_vlist, BV_VLIST_* aliases, BV_*_VLIST macros,
+    bv_vlblock struct, and bv_vlist_*/bv_vlblock_* function declarations
+    (all wrapped in __BEGIN_DECLS/__END_DECLS for C++ unity builds).
+  * 11/11 libbsg tests pass; libbv/libbsg/libdm/libqtcad/dm-qtgl/dm-swrast/qged
+    all build cleanly.
+
+Slice 18 – bsg/defines.h self-contained; bv/defines.h becomes compat bridge
+  * bsg/defines.h now owns ALL canonical type definitions previously in
+    bv/defines.h: bview, bview_set, bv_scene_obj, bv_axes, bv_obj_settings,
+    bv_mesh_lod, bview_settings, bview_objs, bview_knobs, all BV_* flags,
+    BV_EXPORT macro, plus BSG_EXPORT, BSG_NODE_*, BSG_PAYLOAD_*, BSG_OBJ_*
+    flags defined natively (not as BV_ aliases).
+  * bsg/defines.h includes bv/tcl_data.h and bv/faceplate.h directly
+    (these have no circular dep on bv/defines.h).
+  * bv/defines.h is now a one-line bridge: #include "bsg/defines.h"
+  * No BV_* compat aliases inside bsg/defines.h itself.
+  * 11/11 libbsg tests pass; full downstream stack builds cleanly.
+
 IN PROGRESS / NEXT STEPS
 --------------------------
-Slice 13 – bsg/view_sets.h: add bsg_set_views() wrapper; update scene_graph.cpp.
-Slice 13 – bsg_set_views wrapper; remove bv/view_sets.h from libbsg
-  ...see above...
-Slice 14 – Add BSG_NODE_GROUP factory wrappers for BV_CHILD_OBJS allocation
-           pattern in draw_set.c / overlay.c; replace remaining bv_set_* calls.
-Slice 15 – Port remaining libbsg tests that still link against libbv as a
-           separate dependency; verify test CMakeLists.txt only lists libbsg.
-Slice 16 – Remove libbsg's explicit dep on libbv in source_dirs.cmake; replace
-           with PRIVATE libbv link only in libbsg's own CMakeLists.txt.
-Slice 17 – Migrate libdm, libged, libqtcad includes from bv/* to bsg/* where
-           the functionality has moved.
-Slice 18 – Migrate libtclcad includes.
-Slice 19 – Remove direct libbv link from libdm, libged, libqtcad, libtclcad.
-Slice 20 – Remove libbv from source_dirs.cmake and delete src/libbv + include/bv.
+NOTE: Per updated direction — bv/ headers will be FULLY ELIMINATED (no
+backwards compatibility maintained in bsg/ headers).  bv/ headers exist
+only as temporary bridges until all callers are migrated, then deleted.
+
+Slice 19 – Migrate caller includes: bv/defines.h → bsg/defines.h and
+           bv/vlist.h → bsg/vlist.h across libdm (20 files), libged
+           (42 files), libqtcad (10 files).  Then delete those bv/ bridges.
+
+Slice 20 – Expand bsg/util.h to cover all bv/util.h declarations (currently
+           bsg/util.h only has a subset).  Make bv/util.h a bridge.
+           Migrate all callers.
+
+Slice 21 – Create bsg/view_sets.h with full view-sets API.
+           bv/view_sets.h becomes a bridge.  Migrate callers.
+
+Slice 22 – Create bsg/ counterparts for remaining bv/ headers:
+             bsg/plot3.h  (88 callers of bv/plot3.h)
+             bsg/lod.h    (already exists; bv/lod.h → bridge, 15 callers)
+             bsg/snap.h   (5 callers of bv/snap.h)
+             bsg/adc.h    (2 callers)
+             bsg/tig.h    (10 callers)
+             bsg/vectfont.h (3 callers)
+             bsg/polygon.h  (3 callers)
+             bsg/tcl_data.h / bsg/faceplate.h (2 callers each; also needed
+               so bsg/defines.h can drop its remaining bv/ includes)
+
+Slice 23 – Rename bsg/defines.h struct tags bv_scene_obj → bsg_node,
+           bview → bsg_view, bview_set → bsg_view_set.
+           Update all remaining callers.
+
+Slice 24 – Move libbv function implementations into libbsg (or rename in-place).
+           Remove libbv from source_dirs.cmake.
+           Delete src/libbv/ and include/bv/.
 
 DEPENDENCY GRAPH (current)
 ---------------------------
@@ -67,8 +118,27 @@ DEPENDENCY GRAPH (current)
   libbn  → libbu
   libbg  → libbn libbu
   libbv  → libbg libbn libbu          [TARGET TO ELIMINATE]
-  libbsg → libbv libbg libbu          [still depends on libbv; working to remove]
+  libbsg → libbv(PRIVATE) libbg libbu [libbv is now PRIVATE only]
   libdm  → libbsg librt libicv libbv libbn libpkg libbu
   libged → libicv libanalyze libwdb liboptical libdm libbsg libbv libbu
   libqtcad → libged libdm libbsg libbv libbn libbu
   libtclcad → libged libdm libbv libbn libbu
+
+HEADER OWNERSHIP (current)
+---------------------------
+  bsg/defines.h  — CANONICAL: all view/scene-graph structs, BV_EXPORT, BSG_EXPORT,
+                   BSG_NODE_*, BSG_PAYLOAD_*, BSG_OBJ_* flags
+  bsg/vlist.h    — CANONICAL: struct bsg_vlist, BSG_VLIST_* constants/macros,
+                   bsg_vlist_cmd_cnt/copy/arb8 API
+  bsg/util.h     — CANONICAL: bsg_obj_create/put, bsg_view_init/free, bsg_set_views,
+                   bsg_vlist_copy, bsg_scene_obj_release/invalidate_backend
+  bsg/lod.h      — CANONICAL: bsg LoD API
+  bsg/scene_set.h, draw_set.h, field.h, node_*.h, overlay.h, payload.h,
+  sensor.h, view_scope.h, visit.h — CANONICAL BSG scene-graph API
+
+  bv/defines.h   — bridge only: #include "bsg/defines.h"
+  bv/vlist.h     — bridge only: #include "bsg/vlist.h" + BV compat aliases
+  bv/util.h      — still original (needs bsg/util.h expansion + bridge)
+  bv/view_sets.h — still original (needs bsg/view_sets.h + bridge)
+  bv/plot3.h, lod.h, snap.h, adc.h, tig.h, vectfont.h, polygon.h,
+  tcl_data.h, faceplate.h — still original (pending slice 22)
