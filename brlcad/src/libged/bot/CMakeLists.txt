@@ -1,7 +1,7 @@
 find_package_eigen(REQUIRED)
 brlcad_find_package(manifold REQUIRED)
 
-set(BOT_LIBS libged libbg libbu manifold::manifold)
+set(BOT_LIBS libged libbg libbu manifold::manifold ${WINSOCK_LIB})
 
 
 if(BRLCAD_ENABLE_OPENVDB)
@@ -85,7 +85,6 @@ ged_plugin_library(ged-bot
 
 cmakefiles(
   CMakeLists.txt
-  ${BOT_SRCS}
   bot_flood_exterior.cpp
   bot_openvdb.cpp
   bot_openvdb.h
