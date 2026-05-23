@@ -49,8 +49,8 @@
 #include "vmath.h"
 #include "bu/interrupt.h"
 #include "bu/malloc.h"
-#include "bv/plot3.h"
-#include "bv/vlist.h"
+#include "bsg/plot3.h"
+#include "bsg/vlist.h"
 #include "nmg.h"
 
 #define US_DELAY 10 /* Additional delay between frames */
@@ -81,8 +81,8 @@ nmg_vu_to_vlist(struct bu_list *vhead, const struct vertexuse *vu, struct bu_lis
     if (vg) {
 	/* Only thing in this shell is a point */
 	NMG_CK_VERTEX_G(vg);
-	BV_ADD_VLIST(vlfree, vhead, vg->coord, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vhead, vg->coord, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, vg->coord, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, vg->coord, BSG_VLIST_LINE_DRAW);
     }
 }
 
@@ -125,14 +125,14 @@ nmg_eu_to_vlist(struct bu_list *vhead, const struct bu_list *eu_hd, struct bu_li
 	NMG_CK_VERTEX_G(vg);
 	NMG_CK_VERTEX_G(vgmate);
 
-	BV_ADD_VLIST(vlfree, vhead, vg->coord, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vhead, vgmate->coord, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, vg->coord, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, vgmate->coord, BSG_VLIST_LINE_DRAW);
     }
 }
 
 
 /**
- * Plot a single loopuse into a bv_vlist chain headed by vhead.
+ * Plot a single loopuse into a bsg_vlist chain headed by vhead.
  *
  * Needs to be able to handle both linear edges and cnurb edges.
  */
@@ -187,17 +187,17 @@ nmg_lu_to_vlist(struct bu_list *vhead, const struct loopuse *lu, int poly_marker
 	if (isfirst) {
 	    if (poly_markers & NMG_VLIST_STYLE_POLYGON) {
 		/* Insert a "start polygon, normal" marker */
-		BV_ADD_VLIST(vlfree, vhead, normal, BV_VLIST_POLY_START);
+		BSG_ADD_VLIST(vlfree, vhead, normal, BSG_VLIST_POLY_START);
 		if (poly_markers & NMG_VLIST_STYLE_USE_VU_NORMALS
 		    && vu->a.magic_p) {
-		    BV_ADD_VLIST(vlfree, vhead,
+		    BSG_ADD_VLIST(vlfree, vhead,
 				 vu->a.plane_p->N,
-				 BV_VLIST_POLY_VERTNORM);
+				 BSG_VLIST_POLY_VERTNORM);
 		}
-		BV_ADD_VLIST(vlfree, vhead, vg->coord, BV_VLIST_POLY_MOVE);
+		BSG_ADD_VLIST(vlfree, vhead, vg->coord, BSG_VLIST_POLY_MOVE);
 	    } else {
 		/* move */
-		BV_ADD_VLIST(vlfree, vhead, vg->coord, BV_VLIST_LINE_MOVE);
+		BSG_ADD_VLIST(vlfree, vhead, vg->coord, BSG_VLIST_LINE_MOVE);
 	    }
 	    isfirst = 0;
 	    first_vg = vg;
@@ -206,14 +206,14 @@ nmg_lu_to_vlist(struct bu_list *vhead, const struct loopuse *lu, int poly_marker
 	    if (poly_markers & NMG_VLIST_STYLE_POLYGON) {
 		if (poly_markers & NMG_VLIST_STYLE_USE_VU_NORMALS
 		    && vu->a.magic_p) {
-		    BV_ADD_VLIST(vlfree, vhead,
+		    BSG_ADD_VLIST(vlfree, vhead,
 				 vu->a.plane_p->N,
-				 BV_VLIST_POLY_VERTNORM);
+				 BSG_VLIST_POLY_VERTNORM);
 		}
-		BV_ADD_VLIST(vlfree, vhead, vg->coord, BV_VLIST_POLY_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, vg->coord, BSG_VLIST_POLY_DRAW);
 	    } else {
 		/* Draw */
-		BV_ADD_VLIST(vlfree, vhead, vg->coord, BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, vg->coord, BSG_VLIST_LINE_DRAW);
 	    }
 	}
 
@@ -226,7 +226,7 @@ nmg_lu_to_vlist(struct bu_list *vhead, const struct loopuse *lu, int poly_marker
 	/* XXX only use poly markers when face is planar, not snurb */
 	nmg_cnurb_to_vlist(vhead, eu, 10,
 			   (poly_markers & NMG_VLIST_STYLE_POLYGON) ?
-			   BV_VLIST_POLY_DRAW : BV_VLIST_LINE_DRAW, vlfree);
+			   BSG_VLIST_POLY_DRAW : BSG_VLIST_LINE_DRAW, vlfree);
     }
 
     /* Draw back to the first vertex used */
@@ -235,14 +235,14 @@ nmg_lu_to_vlist(struct bu_list *vhead, const struct loopuse *lu, int poly_marker
 	    /* Draw, end polygon */
 	    if (poly_markers & NMG_VLIST_STYLE_USE_VU_NORMALS
 		&& first_vu->a.magic_p) {
-		BV_ADD_VLIST(vlfree, vhead,
+		BSG_ADD_VLIST(vlfree, vhead,
 			     first_vu->a.plane_p->N,
-			     BV_VLIST_POLY_VERTNORM);
+			     BSG_VLIST_POLY_VERTNORM);
 	    }
-	    BV_ADD_VLIST(vlfree, vhead, first_vg->coord, BV_VLIST_POLY_END);
+	    BSG_ADD_VLIST(vlfree, vhead, first_vg->coord, BSG_VLIST_POLY_END);
 	} else {
 	    /* Draw */
-	    BV_ADD_VLIST(vlfree, vhead, first_vg->coord, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, first_vg->coord, BSG_VLIST_LINE_DRAW);
 	}
     }
     if ((poly_markers  & NMG_VLIST_STYLE_VISUALIZE_NORMALS) && npoints > 2) {
@@ -268,9 +268,9 @@ nmg_lu_to_vlist(struct bu_list *vhead, const struct loopuse *lu, int poly_marker
 	if (fp) {
 	    if (*fp->g.magic_p != NMG_FACE_G_SNURB_MAGIC) {
 		/* snurb normals are plotted in nmg_snurb_fu_to_vlist() */
-		BV_ADD_VLIST(vlfree, vhead, centroid, BV_VLIST_LINE_MOVE);
+		BSG_ADD_VLIST(vlfree, vhead, centroid, BSG_VLIST_LINE_MOVE);
 		VJOIN1(tip, centroid, f, normal);
-		BV_ADD_VLIST(vlfree, vhead, tip, BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, tip, BSG_VLIST_LINE_DRAW);
 	    }
 	}
 
@@ -285,9 +285,9 @@ nmg_lu_to_vlist(struct bu_list *vhead, const struct loopuse *lu, int poly_marker
 	    vg = v->vg_p;
 	    if (!vg) continue;
 	    NMG_CK_VERTEX_G(vg);
-	    BV_ADD_VLIST(vlfree, vhead, vg->coord, BV_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, vg->coord, BSG_VLIST_LINE_MOVE);
 	    VJOIN1(tip, vg->coord, f, vua->N);
-	    BV_ADD_VLIST(vlfree, vhead, tip, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, tip, BSG_VLIST_LINE_DRAW);
 	}
     }
 }
@@ -328,9 +328,9 @@ nmg_snurb_fu_to_vlist(struct bu_list *vhead, const struct faceuse *fu, int poly_
 	VSUB2(tocent, corner, mid_srf);
 	f = MAGNITUDE(tocent) * 0.5;
 
-	BV_ADD_VLIST(vlfree, vhead, mid_srf, BV_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, mid_srf, BSG_VLIST_LINE_MOVE);
 	VJOIN1(tip, mid_srf, f, fu_norm);
-	BV_ADD_VLIST(vlfree, vhead, tip, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, tip, BSG_VLIST_LINE_DRAW);
     }
 }
 
@@ -807,8 +807,8 @@ nmg_vlblock_v(struct bv_vlblock *vbp, const struct vertex *v, long *tab, struct 
     p = v->vg_p->coord;
 
     vh = bv_vlblock_find(vbp, 255, 255, 255);
-    BV_ADD_VLIST(vlfree, vh, p, BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vh, p, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vh, p, BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vh, p, BSG_VLIST_LINE_DRAW);
 }
 
 
@@ -844,8 +844,8 @@ nmg_vlblock_e(struct bv_vlblock *vbp, const struct edge *e, long *tab, int red, 
     VSUB2(end1, p1, v);
 
     vh = bv_vlblock_find(vbp, red, green, blue);
-    BV_ADD_VLIST(vlfree, vh, end0, BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vh, end1, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vh, end0, BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vh, end1, BSG_VLIST_LINE_DRAW);
 
     nmg_vlblock_v(vbp, e->eu_p->vu_p->v_p, tab, vlfree);
     nmg_vlblock_v(vbp, e->eu_p->eumate_p->vu_p->v_p, tab, vlfree);
@@ -935,8 +935,8 @@ nmg_vlblock_eu(struct bv_vlblock *vbp, const struct edgeuse *eu, long *tab, int 
 	 * midway point to represent the edgeuse
 	 */
 	vh = bv_vlblock_find(vbp, red, green, blue);
-	BV_ADD_VLIST(vlfree, vh, base, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vh, tip, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vh, base, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vh, tip, BSG_VLIST_LINE_DRAW);
 
 	/* draw a line from the tip of the edgeuse part to a point
 	 * behind the tip of the radial edgeuse.  This provides 2
@@ -947,8 +947,8 @@ nmg_vlblock_eu(struct bv_vlblock *vbp, const struct edgeuse *eu, long *tab, int 
 	 */
 	nmg_eu_radial(eu, radial_tip);
 	vh = bv_vlblock_find(vbp, red, green-20, blue);
-	BV_ADD_VLIST(vlfree, vh, tip, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vh, radial_tip, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vh, tip, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vh, radial_tip, BSG_VLIST_LINE_DRAW);
 
 	/* we draw a line from the tip of the edgeuse line to the
 	 * vertexuse/start of the next edgeuse in the loop.  This
@@ -961,8 +961,8 @@ nmg_vlblock_eu(struct bv_vlblock *vbp, const struct edgeuse *eu, long *tab, int 
 	green *= 0.5;
 	blue *= 0.5;
 	vh = bv_vlblock_find(vbp, red, green, blue);
-	BV_ADD_VLIST(vlfree, vh, tip, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vh, next_base, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vh, tip, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vh, next_base, BSG_VLIST_LINE_DRAW);
     }
 }
 
@@ -992,8 +992,8 @@ nmg_vlblock_euleft(struct bu_list *vh, const struct edgeuse *eu, const point_t c
     fan_len = len * 0.2;
     VJOIN1(tip, center, fan_len, left);
 
-    BV_ADD_VLIST(vlfree, vh, center, BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vh, tip, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vh, center, BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vh, tip, BSG_VLIST_LINE_DRAW);
 
     ang = bg_angle_measure(left, xvec, yvec) * RAD2DEG;
     sprintf(str, "%g", ang);
@@ -1487,32 +1487,32 @@ show_broken_vu(struct bv_vlblock *vbp, const struct vertexuse *vu, struct bu_lis
     vh = bv_vlblock_find(vbp,
 			 broken_colors[broken_color][0], broken_colors[broken_color][1], broken_colors[broken_color][2]);
 
-    BV_ADD_VLIST(vlfree, vh, p, BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vh, p, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vh, p, BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vh, p, BSG_VLIST_LINE_DRAW);
 
 
     VMOVE(pt, p);
     pt[0] += 0.05;
-    BV_ADD_VLIST(vlfree, vh, pt, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vh, pt, BSG_VLIST_LINE_MOVE);
     VMOVE(pt, p);
     pt[0] -= 0.05;
-    BV_ADD_VLIST(vlfree, vh, pt, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vh, pt, BSG_VLIST_LINE_DRAW);
 
     VMOVE(pt, p);
     pt[1] += 0.05;
-    BV_ADD_VLIST(vlfree, vh, pt, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vh, pt, BSG_VLIST_LINE_MOVE);
     VMOVE(pt, p);
     pt[1] -= 0.05;
-    BV_ADD_VLIST(vlfree, vh, pt, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vh, pt, BSG_VLIST_LINE_DRAW);
 
     VMOVE(pt, p);
     pt[2] += 0.05;
-    BV_ADD_VLIST(vlfree, vh, pt, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vh, pt, BSG_VLIST_LINE_MOVE);
     VMOVE(pt, p);
     pt[2] -= 0.05;
-    BV_ADD_VLIST(vlfree, vh, pt, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vh, pt, BSG_VLIST_LINE_DRAW);
 
-    BV_ADD_VLIST(vlfree, vh, p, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vh, p, BSG_VLIST_LINE_MOVE);
 }
 
 
@@ -1553,8 +1553,8 @@ show_broken_e(struct bv_vlblock *vbp, const struct edgeuse *eu, struct bu_list *
     vh = bv_vlblock_find(vbp,
 			 broken_colors[broken_color][0], broken_colors[broken_color][1], broken_colors[broken_color][2]);
 
-    BV_ADD_VLIST(vlfree, vh, end0, BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vh, end1, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vh, end0, BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vh, end1, BSG_VLIST_LINE_DRAW);
 
     show_broken_vu(vbp, eu->vu_p, vlfree);
     show_broken_vu(vbp, eu->eumate_p->vu_p, vlfree);
@@ -1596,18 +1596,18 @@ show_broken_eu(struct bv_vlblock *vbp, const struct edgeuse *eu, int fancy, stru
 	    red = green = blue = 255;
 
 	vh = bv_vlblock_find(vbp, red, green, blue);
-	BV_ADD_VLIST(vlfree, vh, base, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vh, tip, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vh, base, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vh, tip, BSG_VLIST_LINE_DRAW);
 
 	nmg_eu_radial(eu, radial_tip);
 	vh = bv_vlblock_find(vbp, red, green-20, blue);
-	BV_ADD_VLIST(vlfree, vh, tip, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vh, radial_tip, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vh, tip, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vh, radial_tip, BSG_VLIST_LINE_DRAW);
 
 	nmg_eu_next_base(eu, next_base);
 	vh = bv_vlblock_find(vbp, 0, 100, 0);
-	BV_ADD_VLIST(vlfree, vh, tip, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vh, next_base, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vh, tip, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vh, next_base, BSG_VLIST_LINE_DRAW);
     }
 
 }
@@ -2206,10 +2206,10 @@ nmg_snurb_to_vlist(struct bu_list *vhead, const struct face_g_snurb *fg, int n_i
 
     vp = c->ctl_points;
     for (i = 0; i < c->s_size[0]; i++) {
-	BV_ADD_VLIST(vlfree, vhead, vp, BV_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, vp, BSG_VLIST_LINE_MOVE);
 	vp += coords;
 	for (j = 1; j < c->s_size[1]; j++) {
-	    BV_ADD_VLIST(vlfree, vhead, vp, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, vp, BSG_VLIST_LINE_DRAW);
 	    vp += coords;
 	}
     }
@@ -2219,10 +2219,10 @@ nmg_snurb_to_vlist(struct bu_list *vhead, const struct face_g_snurb *fg, int n_i
 
 	stride = c->s_size[1] * coords;
 	vp = &c->ctl_points[j * coords];
-	BV_ADD_VLIST(vlfree, vhead, vp, BV_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, vp, BSG_VLIST_LINE_MOVE);
 	vp += stride;
 	for (i = 1; i < c->s_size[0]; i++) {
-	    BV_ADD_VLIST(vlfree, vhead, vp, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, vp, BSG_VLIST_LINE_DRAW);
 	    vp += stride;
 	}
     }
@@ -2252,7 +2252,7 @@ nmg_snurb_to_vlist(struct bu_list *vhead, const struct face_g_snurb *fg, int n_i
 void
 nmg_cnurb_to_vlist(struct bu_list *vhead, const struct edgeuse *eu, int n_interior, int cmd, struct bu_list *vlfree)
 /* typ. 10 */
-/* BV_VLIST_LINE_DRAW, etc. */
+/* BSG_VLIST_LINE_DRAW, etc. */
 {
     const struct edge_g_cnurb *eg;
     const struct faceuse *fu;
@@ -2312,7 +2312,7 @@ nmg_cnurb_to_vlist(struct bu_list *vhead, const struct edgeuse *eu, int n_interi
 	vp = c->ctl_points;
 	/* Omit first and last points */
 	for (i = 1; i < c->c_size-1; i++) {
-	    BV_ADD_VLIST(vlfree, vhead, vp, cmd);
+	    BSG_ADD_VLIST(vlfree, vhead, vp, cmd);
 	    vp += coords;
 	}
     } else {
@@ -2356,7 +2356,7 @@ nmg_cnurb_to_vlist(struct bu_list *vhead, const struct edgeuse *eu, int n_interi
 		VSCALE(final, final, inv_homo);
 	    }
 
-	    BV_ADD_VLIST(vlfree, vhead, final, cmd);
+	    BSG_ADD_VLIST(vlfree, vhead, final, cmd);
 	    vp += coords;
 	}
     }

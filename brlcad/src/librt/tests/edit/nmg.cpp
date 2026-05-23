@@ -171,7 +171,7 @@ make_nmg_tet(struct rt_wdb *wdbp)
     BU_LIST_INIT(&vlfree);
     nmg_fix_normals(s, &vlfree, &tol);
     /* free any vlists that nmg_fix_normals may have allocated */
-    BV_FREE_VLIST(&vlfree, &vlfree);
+    BSG_FREE_VLIST(&vlfree, &vlfree);
 
     const char *objname = "nmg_tet";
     mk_nmg(wdbp, objname, m);  /* mk_nmg takes ownership of m */

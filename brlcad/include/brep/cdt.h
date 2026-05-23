@@ -31,7 +31,7 @@
 
 #include "common.h"
 
-#include "bv/vlist.h"
+#include "bsg/vlist.h"
 #include "bn/tol.h"
 #include "bg/defines.h"
 #include "brep/defines.h"

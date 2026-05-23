@@ -74,7 +74,7 @@
 #include "vmath.h"
 #include "bn/mat.h"
 #include "bu/parse.h"
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "rt/defines.h"
 #include "rt/db_internal.h"
 

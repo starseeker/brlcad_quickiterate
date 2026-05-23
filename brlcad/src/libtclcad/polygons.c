@@ -74,15 +74,15 @@ _sync_tcl_polygons_to_bsg(struct bview *v, bv_data_polygon_state *gdpsp, const c
 	    if (npts < 1)
 		continue;
 	    point_t *pts = pg->contour[j].point;
-	    BV_ADD_VLIST(s->vlfree, &s->s_vlist, pts[0], BV_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, pts[0], BSG_VLIST_LINE_MOVE);
 	    for (size_t k = 1; k < npts; k++)
-		BV_ADD_VLIST(s->vlfree, &s->s_vlist, pts[k], BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(s->vlfree, &s->s_vlist, pts[k], BSG_VLIST_LINE_DRAW);
 	    /* Skip closing segment when actively building this contour */
 	    int building = (gdpsp->gdps_cflag
 			    && i == gdpsp->gdps_curr_polygon_i
 			    && j == pg->num_contours - 1);
 	    if (!building && npts >= 2)
-		BV_ADD_VLIST(s->vlfree, &s->s_vlist, pts[0], BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(s->vlfree, &s->s_vlist, pts[0], BSG_VLIST_LINE_DRAW);
 	}
     }
 

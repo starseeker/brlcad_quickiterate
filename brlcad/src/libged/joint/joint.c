@@ -284,8 +284,8 @@ joint_mesh(struct ged *gedp, int argc, const char *argv[])
 	    for (gpp=BU_LIST_NEXT(artic_grips, &(gp->l));
 		 BU_LIST_NOT_HEAD(gpp, &(jp->head));
 		 gpp=BU_LIST_NEXT(artic_grips, &(gpp->l))) {
-		BV_ADD_VLIST(vlfree, vhead, gp->vert, BV_VLIST_LINE_MOVE);
-		BV_ADD_VLIST(vlfree, vhead, gpp->vert, BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, gp->vert, BSG_VLIST_LINE_MOVE);
+		BSG_ADD_VLIST(vlfree, vhead, gpp->vert, BSG_VLIST_LINE_DRAW);
 	    }
 	}
 	if (J_DEBUG & DEBUG_J_MESH) {

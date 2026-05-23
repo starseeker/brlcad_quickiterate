@@ -33,7 +33,7 @@
 
 #include "bu/hash.h"
 #include "bu/vls.h"
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "dm/defines.h"
 
 #ifndef DM_VIEW_H

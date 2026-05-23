@@ -26,8 +26,8 @@
 
 #include "common.h"
 #include "bu/units.h"
-#include "bv/util.h"
-#include "bv/vlist.h"
+#include "bsg/util.h"
+#include "bsg/vlist.h"
 #include "ged.h"
 #include "tclcad.h"
 

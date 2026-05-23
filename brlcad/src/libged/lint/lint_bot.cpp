@@ -269,10 +269,10 @@ lint_worker_data::plot_bad_tris(struct bv_vlblock *vbp, struct bu_list *vhead, s
 	point_t v[3];
 	for (int i = 0; i < 3; i++)
 	    VMOVE(v[i], &bot->vertices[bot->faces[tri_ind*3+i]*3]);
-	BV_ADD_VLIST(vlfree, vhead, v[0], BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vhead, v[1], BV_VLIST_LINE_DRAW);
-	BV_ADD_VLIST(vlfree, vhead, v[2], BV_VLIST_LINE_DRAW);
-	BV_ADD_VLIST(vlfree, vhead, v[0], BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, v[0], BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, v[1], BSG_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, v[2], BSG_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, v[0], BSG_VLIST_LINE_DRAW);
     }
 }
 

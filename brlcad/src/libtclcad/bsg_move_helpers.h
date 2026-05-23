@@ -37,9 +37,9 @@
 
 #include "vmath.h"
 #include "bu/malloc.h"
-#include "bv/defines.h"
-#include "bv/vlist.h"
-#include "bv/util.h"
+#include "bsg/defines.h"
+#include "bsg/vlist.h"
+#include "bsg/util.h"
 #include "dm.h"
 
 __BEGIN_DECLS
@@ -67,15 +67,15 @@ _bsg_extract_pts(struct bv_scene_obj *s, point_t **pts_out)
 
     /* Count points in vlist */
     int total = 0;
-    struct bv_vlist *vp;
-    for (BU_LIST_FOR(vp, bv_vlist, &s->s_vlist))
+    bsg_vlist *vp;
+    for (BU_LIST_FOR(vp, bsg_vlist, &s->s_vlist))
 	total += vp->nused;
 
     if (total < 1) { *pts_out = NULL; return 0; }
 
     point_t *pts = (point_t *)bu_calloc(total, sizeof(point_t), "bsg pts");
     int k = 0;
-    for (BU_LIST_FOR(vp, bv_vlist, &s->s_vlist))
+    for (BU_LIST_FOR(vp, bsg_vlist, &s->s_vlist))
 	for (size_t j = 0; j < (size_t)vp->nused; j++)
 	    VMOVE(pts[k++], vp->pt[j]);
 
@@ -147,8 +147,8 @@ _bsg_rebuild_arrows(struct bview *v,
     if (!ns) return;
 
     for (int i = 0; i + 1 < npts; i += 2) {
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, pts[i],   BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, pts[i+1], BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, pts[i],   BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, pts[i+1], BSG_VLIST_LINE_DRAW);
     }
     if (color)
 	bv_view_obj_set_color(ns, color[0], color[1], color[2]);
@@ -179,8 +179,8 @@ _bsg_rebuild_lines(struct bview *v,
     if (!ns) return;
 
     for (int i = 0; i + 1 < npts; i += 2) {
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, pts[i],   BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, pts[i+1], BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, pts[i],   BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, pts[i+1], BSG_VLIST_LINE_DRAW);
     }
     if (color)
 	bv_view_obj_set_color(ns, color[0], color[1], color[2]);
@@ -212,18 +212,18 @@ _bsg_rebuild_axes(struct bview *v,
 
 	VSET(ptA, centers[i][X] - halfAxesSize, centers[i][Y], centers[i][Z]);
 	VSET(ptB, centers[i][X] + halfAxesSize, centers[i][Y], centers[i][Z]);
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptA, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptB, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptA, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptB, BSG_VLIST_LINE_DRAW);
 
 	VSET(ptA, centers[i][X], centers[i][Y] - halfAxesSize, centers[i][Z]);
 	VSET(ptB, centers[i][X], centers[i][Y] + halfAxesSize, centers[i][Z]);
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptA, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptB, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptA, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptB, BSG_VLIST_LINE_DRAW);
 
 	VSET(ptA, centers[i][X], centers[i][Y], centers[i][Z] - halfAxesSize);
 	VSET(ptB, centers[i][X], centers[i][Y], centers[i][Z] + halfAxesSize);
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptA, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptB, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptA, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptB, BSG_VLIST_LINE_DRAW);
     }
 
     if (color)

@@ -34,7 +34,7 @@
 #include "dm.h"
 #include "ged.h"
 #include "tclcad/defines.h"
-#include "bv/tcl_data.h"
+#include "bsg/tcl_data.h"
 
 __BEGIN_DECLS
 

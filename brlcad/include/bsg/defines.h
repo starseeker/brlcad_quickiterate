@@ -583,7 +583,7 @@ struct bview_objs {
     // view and thus need unique vlists.)
     struct bu_ptbl  *db_objs;
 
-    // Available bv_vlist entities to recycle before allocating new for local
+    // Available bsg_vlist entities to recycle before allocating new for local
     // view objects. This is used only if the app doesn't supply a vlfree -
     // normally the app should do so, so memory from one view can be reused for
     // other views.
@@ -853,7 +853,7 @@ struct bview_set {
  *   bits 40-44: BSG_PAYLOAD_* payload type flags (this block)
  *   bit  45:    BSG_NODE_VIEW_BRIDGE
  */
-#define BSG_PAYLOAD_VLIST   0x10000000000ULL  /**< @brief raw bv_vlist payload (bit 40) */
+#define BSG_PAYLOAD_VLIST   0x10000000000ULL  /**< @brief raw bsg_vlist payload (bit 40) */
 #define BSG_PAYLOAD_CSG     0x20000000000ULL  /**< @brief CSG wireframe payload (bit 41) */
 #define BSG_PAYLOAD_MESH    0x40000000000ULL  /**< @brief BoT LoD mesh payload (bit 42) */
 #define BSG_PAYLOAD_BREP    0x80000000000ULL  /**< @brief BRep payload (bit 43) */

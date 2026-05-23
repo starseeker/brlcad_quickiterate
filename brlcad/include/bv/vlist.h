@@ -19,12 +19,7 @@
  */
 /** @addtogroup bv_vlist
  *
- * @brief
- * Backward-compatibility bridge.
- *
- * All vlist type definitions, constants, macros and the BSG vlist API
- * now live in bsg/vlist.h.  This header provides backward-compatibility
- * aliases so that code not yet migrated continues to compile.
+ * Backward-compatibility bridge. All definitions now live in bsg/vlist.h.
  *
  * TODO: migrate all callers to bsg/vlist.h then delete this file.
  */
@@ -37,7 +32,6 @@
 #include "bsg/vlist.h"
 
 /* Compat aliases for callers not yet migrated to bsg/vlist.h */
-/* #define covers both struct-tag (BU_LIST_FOR etc.) and plain-type contexts */
 #define bv_vlist bsg_vlist
 
 #define BV_VLIST_CHUNK              BSG_VLIST_CHUNK
@@ -71,47 +65,12 @@
 #define BV_VLIST_SET_POINT_SIZE(_fh, _dh, _sz)  BSG_VLIST_SET_POINT_SIZE(_fh, _dh, _sz)
 #define BV_VLIST_SET_LINE_WIDTH(_fh, _dh, _w)   BSG_VLIST_SET_LINE_WIDTH(_fh, _dh, _w)
 
-/* vlblock — BV-namespaced colored vlist set */
-__BEGIN_DECLS
-
-struct bv_vlblock {
-    uint32_t magic;
-    size_t nused;
-    size_t max;
-    long *rgb;                      /**< @brief rgb[max] variable size array */
-    struct bu_list *head;           /**< @brief head[max] variable size array */
-    struct bu_list *free_vlist_hd;  /**< @brief where to get/put free vlists */
-};
-#define BV_CK_VLBLOCK(_p) BU_CKMAG((_p), BV_VLBLOCK_MAGIC, "bv_vlblock")
-
-/* bv_vlist_* and bv_vlblock_* function declarations */
-BV_EXPORT extern size_t bv_vlist_cmd_cnt(bsg_vlist *vlist);
-BV_EXPORT extern int bv_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *length, int *dispmode);
-BV_EXPORT extern void bv_vlist_3string(struct bu_list *vhead, struct bu_list *free_hd, const char *string, const point_t origin, const mat_t rot, double scale);
-BV_EXPORT extern void bv_vlist_2string(struct bu_list *vhead, struct bu_list *free_hd, const char *string, double x, double y, double scale, double theta);
-BV_EXPORT extern const char *bv_vlist_get_cmd_description(int cmd);
-BV_EXPORT extern size_t bv_ck_vlist(const struct bu_list *vhead);
-BV_EXPORT extern void bv_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_list *src);
-BV_EXPORT extern void bv_vlist_export(struct bu_vls *vls, struct bu_list *hp, const char *name);
-BV_EXPORT extern void bv_vlist_import(struct bu_list *vlists, struct bu_list *hp, struct bu_vls *namevls, const unsigned char *buf);
-BV_EXPORT extern void bv_vlist_cleanup(struct bu_list *hd);
-BV_EXPORT extern struct bv_vlblock *bv_vlblock_init(struct bu_list *free_vlist_hd, int max_ent);
-BV_EXPORT extern void bv_vlblock_free(struct bv_vlblock *vbp);
-BV_EXPORT extern struct bu_list *bv_vlblock_find(struct bv_vlblock *vbp, int r, int g, int b);
-BV_EXPORT void bv_vlist_rpp(struct bu_list *vlists, struct bu_list *hd, const point_t minn, const point_t maxx);
-BV_EXPORT extern void bv_plot_vlblock(FILE *fp, const struct bv_vlblock *vbp);
-BV_EXPORT extern void bv_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlblock *vbp, struct bview *v, struct bv_scene_obj *f, struct bu_list *vlfree);
-BV_EXPORT extern struct bv_scene_obj *bv_vlblock_obj(struct bv_vlblock *vbp, struct bview *v, const char *name);
-BV_EXPORT extern void bv_vlist_to_uplot(FILE *fp, const struct bu_list *vhead);
-
-__END_DECLS
-
 #endif  /* BV_VLIST_H */
 
 /*
  * Local Variables:
- * mode: C
  * tab-width: 8
+ * mode: C
  * indent-tabs-mode: t
  * c-file-style: "stroustrup"
  * End:

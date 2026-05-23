@@ -198,14 +198,14 @@ who_solids_print_scene_obj(struct bv_scene_obj *sp, struct db_i *dbip, int lvl, 
     if (lvl <= 1)
 	return;
 
-    struct bv_vlist *vp;
-    for (BU_LIST_FOR(vp, bv_vlist, &sp->s_vlist)) {
+    bsg_vlist *vp;
+    for (BU_LIST_FOR(vp, bsg_vlist, &sp->s_vlist)) {
 	size_t i;
 	size_t nused = vp->nused;
 	int *cmd = vp->cmd;
 	point_t *pt = vp->pt;
 
-	BV_CK_VLIST(vp);
+	BSG_CK_VLIST(vp);
 	nvlist++;
 	npts += nused;
 

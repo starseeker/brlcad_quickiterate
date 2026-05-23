@@ -99,8 +99,8 @@ show_dangling_edges(struct ged *gedp, const uint32_t *magic_p, const char *name,
 			    VMOVE(pt1, eu->vu_p->v_p->vg_p->coord);
 			    VMOVE(pt2, eu->eumate_p->vu_p->v_p->vg_p->coord);
 			    if (out_type == 1) {
-				BV_ADD_VLIST(vbp->free_vlist_hd, vhead, pt1, BV_VLIST_LINE_MOVE);
-				BV_ADD_VLIST(vbp->free_vlist_hd, vhead, pt2, BV_VLIST_LINE_DRAW);
+				BSG_ADD_VLIST(vbp->free_vlist_hd, vhead, pt1, BSG_VLIST_LINE_MOVE);
+				BSG_ADD_VLIST(vbp->free_vlist_hd, vhead, pt2, BSG_VLIST_LINE_DRAW);
 			    } else if (out_type == 2) {
 				if (!plotfp) {
 				    bu_vls_sprintf(&plot_file_name, "%s.%p.pl", name, (void *)magic_p);

@@ -38,7 +38,7 @@
 #include "bn/mat.h"
 #include "bg/plane.h"
 #include "bg/polygon.h"
-#include "bv/plot3.h"
+#include "bsg/plot3.h"
 #include "nmg.h"
 
 

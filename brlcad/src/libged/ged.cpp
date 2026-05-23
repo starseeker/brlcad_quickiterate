@@ -247,7 +247,7 @@ ged_free(struct ged *gedp)
 	    // BU_PUT-ing gedp->ged_views.free_scene_obj - above why just that one?
 #if 0
 	    struct bv_scene_obj *sp = (struct bv_scene_obj *)BU_PTBL_GET(&gedp->free_solids, i);
-	    BV_FREE_VLIST(vlfree, &(sp->s_vlist));
+	    BSG_FREE_VLIST(vlfree, &(sp->s_vlist));
 #endif
 	}
 	bu_ptbl_free(&gedp->free_solids);

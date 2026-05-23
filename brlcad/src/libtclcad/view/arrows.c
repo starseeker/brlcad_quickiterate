@@ -26,7 +26,7 @@
 
 #include "common.h"
 #include "bu/units.h"
-#include "bv/vlist.h"
+#include "bsg/vlist.h"
 #include "ged.h"
 #include "tclcad.h"
 
@@ -236,9 +236,9 @@ to_data_arrows_func(Tcl_Interp *interp,
 	    /* T3: read points from BSG vlist. */
 	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
 	    if (_s) {
-		struct bv_vlist *_vp;
+		bsg_vlist *_vp;
 		size_t _j;
-		for (BU_LIST_FOR(_vp, bv_vlist, &_s->s_vlist)) {
+		for (BU_LIST_FOR(_vp, bsg_vlist, &_s->s_vlist)) {
 		    for (_j = 0; _j < (size_t)_vp->nused; _j++) {
 			bu_vls_printf(gedp->ged_result_str, " {%lf %lf %lf} ",
 				      V3ARGS(_vp->pt[_j]));

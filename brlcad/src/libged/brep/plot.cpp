@@ -45,8 +45,8 @@ plotpoint(const ON_3dPoint &point, struct bu_list *vlfree, struct bv_vlblock *vb
     struct bu_list *vhead;
     ON_3dPoint pointsize(4.0,0,0);
     vhead = bv_vlblock_find(vbp, red, green, blue);
-    BV_ADD_VLIST(vlfree, vhead, pointsize, BV_VLIST_POINT_SIZE);
-    BV_ADD_VLIST(vlfree, vhead, point, BV_VLIST_POINT_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, pointsize, BSG_VLIST_POINT_SIZE);
+    BSG_ADD_VLIST(vlfree, vhead, point, BSG_VLIST_POINT_DRAW);
     return;
 }
 
@@ -73,9 +73,9 @@ plottrim(const ON_BrepTrim &trim, struct bu_list *vlfree, struct bv_vlblock *vbp
 	VMOVE(pt, p);
 
 	if (k != 0) {
-	    BV_ADD_VLIST(vlfree, vhead, pt, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, pt, BSG_VLIST_LINE_DRAW);
 	} else {
-	    BV_ADD_VLIST(vlfree, vhead, pt, BV_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, pt, BSG_VLIST_LINE_MOVE);
 	}
     }
  
@@ -92,8 +92,8 @@ plottrim(const ON_BrepTrim &trim, struct bu_list *vlfree, struct bv_vlblock *vbp
 	    p = surf->PointAt(p.x, p.y);
 	}
 	VMOVE(pt2, p);
-	BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
     }
 #endif
 
@@ -127,8 +127,8 @@ plotcurve(const ON_Curve &curve, struct bu_list *vlfree, struct bv_vlblock *vbp,
 	    VMOVE(pt1, p);
 	    p = curve.PointAt(knots[i]);
 	    VMOVE(pt2, p);
-	    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 	}
 
     } else {
@@ -140,8 +140,8 @@ plotcurve(const ON_Curve &curve, struct bu_list *vlfree, struct bv_vlblock *vbp,
 	    VMOVE(pt1, p);
 	    p = curve.PointAt(dom.ParameterAt((double) i / (double)plotres));
 	    VMOVE(pt2, p);
-	    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 	}
     }
     return;
@@ -172,8 +172,8 @@ void plotcurveonsurface(const ON_Curve *curve,
 	pt1 = pt2d;
 	pt2 = pt3d;
 	if (i != 0) {
-	    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 	}
     }
     return;
@@ -207,8 +207,8 @@ plotsurface(const ON_Surface &surf, struct bu_list *vlfree, struct bv_vlblock *v
 	    VMOVE(pt1, p);
 	    p = surf.PointAt(udom.ParameterAt((double)u/(double)gridres), vdom.ParameterAt((double)v/(double)isocurveres));
 	    VMOVE(pt2, p);
-	    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 	}
     }
 
@@ -223,8 +223,8 @@ plotsurface(const ON_Surface &surf, struct bu_list *vlfree, struct bv_vlblock *v
 	    VMOVE(pt1, p);
 	    p = surf.PointAt(udom.ParameterAt((double)u/(double)isocurveres), vdom.ParameterAt((double)v/(double)gridres));
 	    VMOVE(pt2, p);
-	    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 	}
     }
     return;
@@ -262,8 +262,8 @@ plotface(const ON_BrepFace &face, struct bu_list *vlfree, struct bv_vlblock *vbp
 		if (dim3d)
 		    p = surf->PointAt(p.x, p.y);
 		VMOVE(pt2, p);
-		BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-		BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+		BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 	    }
 	}
     }
@@ -306,23 +306,23 @@ plotUVDomain2d(ON_BrepFace *face, struct bu_list *vlfree, struct bv_vlblock *vbp
     //umin
     VSET(pt1, umin, vmin, 0.0);
     VSET(pt2, umin, vmax, 0.0);
-    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
     // umax
     VSET(pt1, umax, vmin, 0.0);
     VSET(pt2, umax, vmax, 0.0);
-    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
     //vmin
     VSET(pt1, umin, vmin, 0.0);
     VSET(pt2, umax, vmin, 0.0);
-    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
     //vmax
     VSET(pt1, umin, vmax, 0.0);
     VSET(pt2, umax, vmax, 0.0);
-    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 
     return;
 }
@@ -416,8 +416,8 @@ drawisoUCheckForTrim(const SurfaceTree* st, struct bu_list *vlfree, struct bv_vl
 	  //		"\t\t%d from center  %f %f 0.0 to center %f %f 0.0\n",
 	  //		cnt++, x, v, x + deltax, v);
 
-	  BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-	  BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+	  BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+	  BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 	  }
 	  }
 	  }
@@ -451,8 +451,8 @@ drawisoUCheckForTrim(const SurfaceTree* st, struct bu_list *vlfree, struct bv_vl
 		    //						"\t\t%d from center  %f %f 0.0 to center %f %f 0.0\n",
 		    //						cnt++, x, v, x + deltax, v);
 
-		    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-		    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+		    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 		}
 	    }
 	}
@@ -544,8 +544,8 @@ drawisoVCheckForTrim(const SurfaceTree* st, struct bu_list *vlfree, struct bv_vl
 	  //		"\t\t%d from center  %f %f 0.0 to center %f %f 0.0\n",
 	  //		cnt++, u, y, u, y + deltay);
 
-	  BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-	  BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+	  BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+	  BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 	  }
 	  }
 
@@ -579,8 +579,8 @@ drawisoVCheckForTrim(const SurfaceTree* st, struct bu_list *vlfree, struct bv_vl
 		    //bu_log("\t\t%d from center  %f %f 0.0 to center %f %f 0.0\n",
 		    //		cnt++, u, y, u, y + deltay);
 
-		    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-		    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+		    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 		}
 	    }
 	}
@@ -609,8 +609,8 @@ drawisoU(const SurfaceTree* st, struct bu_list *vlfree, struct bv_vlblock *vbp, 
 	}
 	//bu_log("p1 2d - %f, %f 3d - %f, %f, %f\n", pt.x, y+deltay, p.x, p.y, p.z);
 	VMOVE(pt2, p);
-	BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
     }
 }
 
@@ -635,8 +635,8 @@ drawisoV(const SurfaceTree* st, struct bu_list *vlfree, struct bv_vlblock *vbp, 
 	}
 	//bu_log("p1 2d - %f, %f 3d - %f, %f, %f\n", pt.x, y+deltay, p.x, p.y, p.z);
 	VMOVE(pt2, p);
-	BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
     }
 }
 
@@ -716,10 +716,10 @@ brep_plot_file(const char *pname = NULL)
 }
 
 #define ARB_FACE(valp, a, b, c, d)			\
-    BV_ADD_VLIST(vlfree, vhead, valp[a], BV_VLIST_LINE_MOVE);	\
-    BV_ADD_VLIST(vlfree, vhead, valp[b], BV_VLIST_LINE_DRAW);	\
-    BV_ADD_VLIST(vlfree, vhead, valp[c], BV_VLIST_LINE_DRAW);	\
-    BV_ADD_VLIST(vlfree, vhead, valp[d], BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, valp[a], BSG_VLIST_LINE_MOVE);	\
+    BSG_ADD_VLIST(vlfree, vhead, valp[b], BSG_VLIST_LINE_DRAW);	\
+    BSG_ADD_VLIST(vlfree, vhead, valp[c], BSG_VLIST_LINE_DRAW);	\
+    BSG_ADD_VLIST(vlfree, vhead, valp[d], BSG_VLIST_LINE_DRAW);
 
 #define BB_PLOT(min, max) {		\
 	fastf_t pt[8][3];			\
@@ -749,11 +749,11 @@ plotsurfaceleafs(const SurfaceTree* surf, struct bu_list *vlfree, struct bv_vlbl
     ON_TextLog tl(stderr);
 
     vhead = bv_vlblock_find(vbp, PURERED);
-    BV_ADD_VLIST(vlfree, vhead, min, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, min, BSG_VLIST_LINE_MOVE);
     vhead = bv_vlblock_find(vbp, BLUE);
-    BV_ADD_VLIST(vlfree, vhead, min, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, min, BSG_VLIST_LINE_MOVE);
     vhead = bv_vlblock_find(vbp, MAGENTA);
-    BV_ADD_VLIST(vlfree, vhead, min, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, min, BSG_VLIST_LINE_MOVE);
 
     for (std::list<const BBNode*>::const_iterator i = leaves.begin(); i != leaves.end(); i++) {
 	const BBNode* bb = *i;
@@ -789,11 +789,11 @@ plottrimleafs(const SurfaceTree* st, struct bu_list *vlfree, struct bv_vlblock *
     ON_TextLog tl(stderr);
 
     vhead = bv_vlblock_find(vbp, PURERED);
-    BV_ADD_VLIST(vlfree, vhead, min, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, min, BSG_VLIST_LINE_MOVE);
     vhead = bv_vlblock_find(vbp, BLUE);
-    BV_ADD_VLIST(vlfree, vhead, min, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, min, BSG_VLIST_LINE_MOVE);
     vhead = bv_vlblock_find(vbp, MAGENTA);
-    BV_ADD_VLIST(vlfree, vhead, min, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, min, BSG_VLIST_LINE_MOVE);
 
     for (std::list<const BRNode*>::const_iterator i = leaves.begin(); i != leaves.end(); i++) {
 	const BRNode* bb = *i;
@@ -863,11 +863,11 @@ plottrimdirection(const ON_BrepFace &face, struct bu_list *vlfree, struct bv_vlb
 		    ON_3dPoint b = prev + B;
 		    VMOVE(pt1, p);
 		    VMOVE(pt2, a);
-		    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-		    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+		    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 		    VMOVE(pt2, b);
-		    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-		    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+		    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+		    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 		}
 	    }
 	}
@@ -895,8 +895,8 @@ plotsurfacenormals(const ON_Surface &surf, struct bu_list *vlfree, struct bv_vlb
 	    VMOVE(pt1, p);
 	    VSCALE(pt2, n, surf.BoundingBox().Diagonal().Length()*0.1);
 	    VADD2(pt2, pt1, pt2);
-	    BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-	    BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+	    BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+	    BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 	}
     }
     return;
@@ -938,15 +938,15 @@ plotsurfaceknots(ON_Surface &surf, struct bu_list *vlfree, struct bv_vlblock *vb
 		VMOVE(pt1, p);
 		VSCALE(pt2, n, 3.0);
 		VADD2(pt2, pt1, pt2);
-		BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-		BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+		BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 	    }
 	}
     } else {
 	for (int u = 0; u <= spanu_cnt; u++) {
 	    for (int v = 0; v <= spanv_cnt; v++) {
 		VSET(pt1, spanu[u], spanv[v], 0.0);
-		BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_POINT_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_POINT_DRAW);
 	    }
 	}
     }
@@ -978,10 +978,10 @@ plot_nurbs_cv(struct bu_list *vlfree, struct bv_vlblock *vbp, int ucount, int vc
 		    ns->GetCV(i, j, cp);
 
 		VMOVE(pt2, cp);
-		BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-		BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+		BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 		VMOVE(pt1, cp);
-		BV_ADD_VLIST(vlfree, vhead, cp, BV_VLIST_POINT_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, cp, BSG_VLIST_POINT_DRAW);
 	    }
 	}
 	temp  = ucount;
@@ -2165,8 +2165,8 @@ _brep_cmd_surface_uv_plot(void *bs, int argc, const char **argv)
 		}
 		//bu_log("p1 2d - %f, %f 3d - %f, %f, %f\n", pt.x, y+deltay, p.x, p.y, p.z);
 		VMOVE(pt2, p);
-		BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-		BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+		BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 	    }
 	}
 	delta = V.Length()/1000.0;
@@ -2183,8 +2183,8 @@ _brep_cmd_surface_uv_plot(void *bs, int argc, const char **argv)
 		}
 		//bu_log("p1 2d - %f, %f 3d - %f, %f, %f\n", pt.x, y+deltay, p.x, p.y, p.z);
 		VMOVE(pt2, p);
-		BV_ADD_VLIST(vlfree, vhead, pt1, BV_VLIST_LINE_MOVE);
-		BV_ADD_VLIST(vlfree, vhead, pt2, BV_VLIST_LINE_DRAW);
+		BSG_ADD_VLIST(vlfree, vhead, pt1, BSG_VLIST_LINE_MOVE);
+		BSG_ADD_VLIST(vlfree, vhead, pt2, BSG_VLIST_LINE_DRAW);
 	    }
 	}
     }

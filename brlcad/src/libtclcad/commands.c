@@ -60,9 +60,9 @@
 #include "ged.h"
 #include "tclcad.h"
 
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "dm.h"
-#include "bv/util.h"
+#include "bsg/util.h"
 #include "bsg/util.h"
 #include "bg/lseg.h"
 

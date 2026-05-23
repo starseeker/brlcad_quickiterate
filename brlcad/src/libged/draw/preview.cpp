@@ -107,9 +107,9 @@ ged_cm_end(struct ged *gedp, vect_t *v, mat_t *m, const int UNUSED(argc), const 
 
     /* Record eye path as a polyline.  Move, then draws */
     if (BU_LIST_IS_EMPTY(vhead)) {
-	BV_ADD_VLIST(vlfree, vhead, (*v), BV_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, (*v), BSG_VLIST_LINE_MOVE);
     } else {
-	BV_ADD_VLIST(vlfree, vhead, (*v), BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, (*v), BSG_VLIST_LINE_DRAW);
     }
 
     /* First step:  put eye at view center (view 0, 0, 0) */
@@ -125,10 +125,10 @@ ged_cm_end(struct ged *gedp, vect_t *v, mat_t *m, const int UNUSED(argc), const 
     VSET(yv, 0.0, 0.05, 0.0);
     MAT4X3PNT(xm, gedp->ged_gvp->gv_view2model, xv);
     MAT4X3PNT(ym, gedp->ged_gvp->gv_view2model, yv);
-    BV_ADD_VLIST(vlfree, vhead, xm, BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, (*v), BV_VLIST_LINE_MOVE);
-    BV_ADD_VLIST(vlfree, vhead, ym, BV_VLIST_LINE_DRAW);
-    BV_ADD_VLIST(vlfree, vhead, (*v), BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, xm, BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, (*v), BSG_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(vlfree, vhead, ym, BSG_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(vlfree, vhead, (*v), BSG_VLIST_LINE_MOVE);
 
     /* Second step:  put eye at view 0, 0, 1.
      * For eye to be at 0, 0, 1, the old 0, 0, -1 needs to become 0, 0, 0.

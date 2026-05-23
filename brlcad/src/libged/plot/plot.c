@@ -84,7 +84,7 @@ static int
 plot_integer_cb(struct bv_scene_obj *sp, void *userdata)
 {
     struct plot_data *pd = (struct plot_data *)userdata;
-    struct bv_vlist *vp;
+    bsg_vlist *vp;
     vect_t last = VINIT_ZERO;
     vect_t fin;
     vect_t start;
@@ -96,29 +96,29 @@ plot_integer_cb(struct bv_scene_obj *sp, void *userdata)
 	    pl_linmod(pd->fp, "solid");
 	pd->Dashing = sp->s_soldash;
     }
-    for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+    for (BU_LIST_FOR(vp, bsg_vlist, &(sp->s_vlist))) {
 	size_t i;
 	size_t nused = vp->nused;
 	int *cmd = vp->cmd;
 	point_t *pt = vp->pt;
 	for (i = 0; i < nused; i++, cmd++, pt++) {
 	    switch (*cmd) {
-		case BV_VLIST_POLY_START:
-		case BV_VLIST_POLY_VERTNORM:
-		case BV_VLIST_TRI_START:
-		case BV_VLIST_TRI_VERTNORM:
+		case BSG_VLIST_POLY_START:
+		case BSG_VLIST_POLY_VERTNORM:
+		case BSG_VLIST_TRI_START:
+		case BSG_VLIST_TRI_VERTNORM:
 		    continue;
-		case BV_VLIST_POLY_MOVE:
-		case BV_VLIST_LINE_MOVE:
-		case BV_VLIST_TRI_MOVE:
+		case BSG_VLIST_POLY_MOVE:
+		case BSG_VLIST_LINE_MOVE:
+		case BSG_VLIST_TRI_MOVE:
 		    /* Move, not draw */
 		    MAT4X3PNT(last, pd->model2view, *pt);
 		    continue;
-		case BV_VLIST_LINE_DRAW:
-		case BV_VLIST_POLY_DRAW:
-		case BV_VLIST_POLY_END:
-		case BV_VLIST_TRI_DRAW:
-		case BV_VLIST_TRI_END:
+		case BSG_VLIST_LINE_DRAW:
+		case BSG_VLIST_POLY_DRAW:
+		case BSG_VLIST_POLY_END:
+		case BSG_VLIST_TRI_DRAW:
+		case BSG_VLIST_TRI_END:
 		    /* draw */
 		    MAT4X3PNT(fin, pd->model2view, *pt);
 		    VMOVE(start, last);

@@ -710,10 +710,10 @@ _bot_cmd_plot(void *bs, int argc, const char **argv)
 	point_t v[3];
 	for (int i = 0; i < 3; i++)
           VMOVE(v[i], &bot->vertices[bot->faces[*f_it*3+i]*3]);
-	BV_ADD_VLIST(vlfree, vhead, v[0], BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(vlfree, vhead, v[1], BV_VLIST_LINE_DRAW);
-	BV_ADD_VLIST(vlfree, vhead, v[2], BV_VLIST_LINE_DRAW);
-	BV_ADD_VLIST(vlfree, vhead, v[0], BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, v[0], BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(vlfree, vhead, v[1], BSG_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, v[2], BSG_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(vlfree, vhead, v[0], BSG_VLIST_LINE_DRAW);
     }
 
     _bot_vlblock_plot(gb->gedp, vbp, "_bot_face_plot");

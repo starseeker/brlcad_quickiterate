@@ -67,7 +67,7 @@ _rtif_eye_solid_cb(bsg_node *n, void *ud)
     struct ged_bv_data *bdata = (struct ged_bv_data *)fsp->s_u_data;
     if (LAST_SOLID(bdata) != d->dp) return 1;
     if (BU_LIST_IS_EMPTY(&(fsp->s_vlist))) return 1;
-    struct bv_vlist *vp = BU_LIST_LAST(bv_vlist, &(fsp->s_vlist));
+    bsg_vlist *vp = BU_LIST_LAST(bsg_vlist, &(fsp->s_vlist));
     VMOVE(d->sav_start, vp->pt[vp->nused - 1]);
     VMOVE(d->sav_center, fsp->s_center);
     d->sp = fsp;
@@ -197,7 +197,7 @@ f_rmats(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     FILE *fp = NULL;
     fastf_t scale = 0.0;
     mat_t rot;
-    struct bv_vlist *vp = NULL;
+    bsg_vlist *vp = NULL;
     struct directory *dp = NULL;
     vect_t eye_model = VINIT_ZERO;
     vect_t sav_center = VINIT_ZERO;
@@ -300,28 +300,28 @@ work:
 
 		/* Adjust vector list for non-dl devices */
 		if (BU_LIST_IS_EMPTY(&(sp->s_vlist))) break;
-		vp = BU_LIST_LAST(bv_vlist, &(sp->s_vlist));
+		vp = BU_LIST_LAST(bsg_vlist, &(sp->s_vlist));
 		VSUB2(xlate, eye_model, vp->pt[vp->nused-1]);
-		for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+		for (BU_LIST_FOR(vp, bsg_vlist, &(sp->s_vlist))) {
 		    int i;
 		    int nused = vp->nused;
 		    int *cmd = vp->cmd;
 		    point_t *pt = vp->pt;
 		    for (i = 0; i < nused; i++, cmd++, pt++) {
 			switch (*cmd) {
-			    case BV_VLIST_POLY_START:
-			    case BV_VLIST_POLY_VERTNORM:
-			    case BV_VLIST_TRI_START:
-			    case BV_VLIST_TRI_VERTNORM:
+			    case BSG_VLIST_POLY_START:
+			    case BSG_VLIST_POLY_VERTNORM:
+			    case BSG_VLIST_TRI_START:
+			    case BSG_VLIST_TRI_VERTNORM:
 				break;
-			    case BV_VLIST_LINE_MOVE:
-			    case BV_VLIST_LINE_DRAW:
-			    case BV_VLIST_POLY_MOVE:
-			    case BV_VLIST_POLY_DRAW:
-			    case BV_VLIST_POLY_END:
-			    case BV_VLIST_TRI_MOVE:
-			    case BV_VLIST_TRI_DRAW:
-			    case BV_VLIST_TRI_END:
+			    case BSG_VLIST_LINE_MOVE:
+			    case BSG_VLIST_LINE_DRAW:
+			    case BSG_VLIST_POLY_MOVE:
+			    case BSG_VLIST_POLY_DRAW:
+			    case BSG_VLIST_POLY_END:
+			    case BSG_VLIST_TRI_MOVE:
+			    case BSG_VLIST_TRI_DRAW:
+			    case BSG_VLIST_TRI_END:
 				VADD2(*pt, *pt, xlate);
 				break;
 			}
@@ -336,28 +336,28 @@ work:
     if (mode == 1) {
 	VMOVE(sp->s_center, sav_center);
 	if (BU_LIST_NON_EMPTY(&(sp->s_vlist))) {
-	    vp = BU_LIST_LAST(bv_vlist, &(sp->s_vlist));
+	    vp = BU_LIST_LAST(bsg_vlist, &(sp->s_vlist));
 	    VSUB2(xlate, sav_start, vp->pt[vp->nused-1]);
-	    for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+	    for (BU_LIST_FOR(vp, bsg_vlist, &(sp->s_vlist))) {
 		int i;
 		int nused = vp->nused;
 		int *cmd = vp->cmd;
 		point_t *pt = vp->pt;
 		for (i = 0; i < nused; i++, cmd++, pt++) {
 		    switch (*cmd) {
-			case BV_VLIST_POLY_START:
-			case BV_VLIST_POLY_VERTNORM:
-			case BV_VLIST_TRI_START:
-			case BV_VLIST_TRI_VERTNORM:
+			case BSG_VLIST_POLY_START:
+			case BSG_VLIST_POLY_VERTNORM:
+			case BSG_VLIST_TRI_START:
+			case BSG_VLIST_TRI_VERTNORM:
 			    break;
-			case BV_VLIST_LINE_MOVE:
-			case BV_VLIST_LINE_DRAW:
-			case BV_VLIST_POLY_MOVE:
-			case BV_VLIST_POLY_DRAW:
-			case BV_VLIST_POLY_END:
-			case BV_VLIST_TRI_MOVE:
-			case BV_VLIST_TRI_DRAW:
-			case BV_VLIST_TRI_END:
+			case BSG_VLIST_LINE_MOVE:
+			case BSG_VLIST_LINE_DRAW:
+			case BSG_VLIST_POLY_MOVE:
+			case BSG_VLIST_POLY_DRAW:
+			case BSG_VLIST_POLY_END:
+			case BSG_VLIST_TRI_MOVE:
+			case BSG_VLIST_TRI_DRAW:
+			case BSG_VLIST_TRI_END:
 			    VADD2(*pt, *pt, xlate);
 			    break;
 		    }

@@ -82,7 +82,7 @@ _line_cmd_create(void *bs, int argc, const char **argv)
 	bu_vls_printf(gedp->ged_result_str, "Failed to create %s\n", gd->vobj);
 	return BRLCAD_ERROR;
     }
-    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p, BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p, BSG_VLIST_LINE_MOVE);
 
     return BRLCAD_OK;
 }
@@ -127,7 +127,7 @@ _line_cmd_append(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    BV_ADD_VLIST(s->vlfree, &s->s_vlist, p, BV_VLIST_LINE_DRAW);
+    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p, BSG_VLIST_LINE_DRAW);
 
     return BRLCAD_OK;
 }

@@ -147,10 +147,42 @@ compatibility will be maintained in bsg/ headers.  bv/ headers exist
 only as temporary bridges; once all callers are migrated they are
 deleted together with libbv.
 
-Slice 25 – Migrate remaining bv/ includes in libtclcad, mged, qged plugins,
-  and all other downstream binaries/tools across the full source tree.
-  Verify: grep -r '#include "bv/' src/ shows only bv/ bridge header files
-  themselves (not any consumers).
+Slice 25 – Migrate ALL remaining bv/ includes across full source tree
+   (libbg, libnmg, librt, libbrep, liboptical, libgcv, libtclcad, mged,
+   qged plugins, rt/, util/, conv/, gtools/, fb/, libbu, libbg, all public
+   headers in include/ — everything except include/bv/ and src/libbv/).
+   * Bulk sed replaced all #include "bv/..." with #include "bsg/..." in:
+     - include/ (nmg.h, bn.h, ged.h, ged/defines.h, ged/dbi_state.h,
+       bg/polygon.h, dm/view.h, rt/view.h, rt/edit.h,
+       rt/primitives/sketch.h, rt/nmg_conv.h, brep/cdt.h, tclcad/draw.h,
+       RTree.h, nmg/plot.h — all now include bsg/ headers directly)
+     - src/ (libbg/, libnmg/, librt/, libbrep/, liboptical/, libgcv/,
+       libtclcad/, mged/, qged/plugins/, rt/, util/, conv/, gtools/, fb/)
+   * bsg/vlist.h expanded to include struct bv_vlblock, BV_CK_VLBLOCK,
+     and all bv_vlist_*/bv_vlblock_* function declarations so callers
+     that include bsg/vlist.h get the full API.
+   * bv/vlist.h simplified: just bridges #include "bsg/vlist.h" plus
+     BV_VLIST_* constant aliases (struct declarations removed, now in bsg/).
+   * nmg/plot.h: added #include "bsg/vlist.h" to fix bv_vlblock visibility.
+   * BV_VLIST_* macro constants in ALL non-libbv/ source files replaced
+     with BSG_VLIST_* equivalents (BSG_ADD_VLIST, BSG_VLIST_LINE_MOVE, etc.).
+   * struct bv_vlist / bv_vlist type names in ALL non-libbv/ source files
+     replaced with bsg_vlist (the canonical typedef).
+   * bsg/events.h: new canonical home for BSG_KEY_PRESS, BSG_SHIFT_MOD etc.
+     (BV_ aliases provided for pending callers).
+   * bv/events.h → bridge: #include "bsg/events.h"
+   * Result: ZERO bv/ header includes remain anywhere outside
+     include/bv/ (the bridges) and src/libbv/ (the implementation).
+   * 15/15 tests pass (libbsg vlist, scene_graph, arb8, phase6, lod_node,
+     view_scope; ged_test_bsg_view_obj, ged_test_bsg_parity, ged_test_bsg_quad_parity;
+     ged_test_qged_swrast).
+
+IN PROGRESS / NEXT STEPS
+--------------------------
+NOTE: bv/ headers and libbv will be FULLY ELIMINATED — no backwards
+compatibility will be maintained in bsg/ headers.  bv/ headers exist
+only as temporary bridges; once all callers are migrated they are
+deleted together with libbv.
 
 Slice 26 – Rename struct tags and types in bsg/defines.h:
     bview        → bsg_view
@@ -189,7 +221,7 @@ DEPENDENCY GRAPH (current)
   libqtcad → libged libdm libbsg libbv libbn libbu
   libtclcad → libged libdm libbv libbn libbu
 
-HEADER OWNERSHIP (current, as of Slice 22)
+HEADER OWNERSHIP (current, as of Slice 25)
 --------------------------------------------
   bsg/defines.h  — CANONICAL: all view/scene-graph structs, BV_EXPORT, BSG_EXPORT,
                    BSG_NODE_*, BSG_PAYLOAD_*, BSG_OBJ_* flags.
@@ -198,8 +230,9 @@ HEADER OWNERSHIP (current, as of Slice 22)
                     bv_interactive_rect_state, bv_params_state, bv_other_state
   bsg/tcl_data.h — CANONICAL: bv_data_* states, bv_data_tclcad, display_list,
                    bv_scene_obj_old_settings (includes bsg/faceplate.h)
-  bsg/vlist.h    — CANONICAL: struct bsg_vlist, BSG_VLIST_* constants/macros,
-                   bsg_vlist_cmd_cnt/copy/arb8 API
+  bsg/vlist.h    — CANONICAL: struct bsg_vlist typedef, BSG_VLIST_* constants/macros,
+                   bsg_vlist_cmd_cnt/copy/arb8 API; ALSO struct bv_vlblock and all
+                   bv_vlist_*/bv_vlblock_* function declarations (pending rename to bsg_)
   bsg/util.h     — CANONICAL: all bsg_* lifecycle/query wrappers PLUS full
                    bv_* view/camera/object API (moved from bv/util.h)
   bsg/view_sets.h — CANONICAL: bv_set_{init,free,add_view,rm_view,views,find_view,fsos}
@@ -216,6 +249,8 @@ HEADER OWNERSHIP (current, as of Slice 22)
   bsg/lod.h      — CANONICAL: bv_view_bounds, bv_view_objs_select/rect_select,
                    bv_mesh_lod_context, all bv_mesh_lod_* functions,
                    plus bsg_lod_update/stale
+  bsg/events.h   — CANONICAL: BSG_KEY_PRESS, BSG_SHIFT_MOD etc.; BV_ aliases for
+                   pending callers
   bsg/scene_set.h, draw_set.h, field.h, node_*.h, overlay.h, payload.h,
   sensor.h, view_scope.h, visit.h — CANONICAL BSG scene-graph API
 
@@ -232,4 +267,4 @@ HEADER OWNERSHIP (current, as of Slice 22)
   bv/plot3.h     — bridge only: #include "bsg/plot3.h"
   bv/tig.h       — bridge only: #include "bsg/tig.h"
   bv/lod.h       — bridge only: #include "bsg/lod.h"
-  bv/events.h    — still original (pending Slice 25)
+  bv/events.h    — bridge only: #include "bsg/events.h"

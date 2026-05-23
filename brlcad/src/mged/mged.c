@@ -69,7 +69,7 @@
 #include "raytrace.h"
 #define LIBTERMIO_IMPLEMENTATION
 #include "libtermio.h"
-#include "bv/util.h"
+#include "bsg/util.h"
 #include "ged.h"
 #include "tclcad.h"
 
@@ -2011,7 +2011,7 @@ mged_finish(struct mged_state *s, int exitcode)
 
 	if (p && p->dm_dmp) {
 	    dm_close(p->dm_dmp);
-	    BV_FREE_VLIST(s->vlfree, &p->dm_p_vlist);
+	    BSG_FREE_VLIST(s->vlfree, &p->dm_p_vlist);
 	    mged_slider_free_vls(p);
 	    bu_free(p, "release: mged_curr_dm");
 	}

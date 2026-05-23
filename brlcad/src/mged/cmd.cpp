@@ -52,7 +52,7 @@ extern "C" {
 #include "bu/time.h"
 #include "bu/snooze.h"
 #include "bn.h"
-#include "bv/util.h"
+#include "bsg/util.h"
 #include "rt/edit.h"
 #include "rt/geom.h"
 #include "ged.h"

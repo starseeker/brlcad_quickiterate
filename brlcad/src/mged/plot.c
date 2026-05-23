@@ -36,7 +36,7 @@
 #include "bu/units.h"
 #include "vmath.h"
 #include "raytrace.h"
-#include "bv/plot3.h"
+#include "bsg/plot3.h"
 
 #include "./mged.h"
 #include "./mged_dm.h"
@@ -76,29 +76,29 @@ _area_write_solid_cb(bsg_node *n, void *ud)
 {
     struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
     struct _area_write_data *d = (struct _area_write_data *)ud;
-    struct bv_vlist *vp;
-    for (BU_LIST_FOR(vp, bv_vlist, &(sp->s_vlist))) {
+    bsg_vlist *vp;
+    for (BU_LIST_FOR(vp, bsg_vlist, &(sp->s_vlist))) {
 	int i;
 	int nused = vp->nused;
 	int *cmd = vp->cmd;
 	point_t *pt = vp->pt;
 	for (i = 0; i < nused; i++, cmd++, pt++) {
 	    switch (*cmd) {
-		case BV_VLIST_POLY_START:
-		case BV_VLIST_POLY_VERTNORM:
-		case BV_VLIST_TRI_START:
-		case BV_VLIST_TRI_VERTNORM:
+		case BSG_VLIST_POLY_START:
+		case BSG_VLIST_POLY_VERTNORM:
+		case BSG_VLIST_TRI_START:
+		case BSG_VLIST_TRI_VERTNORM:
 		    continue;
-		case BV_VLIST_POLY_MOVE:
-		case BV_VLIST_LINE_MOVE:
-		case BV_VLIST_TRI_MOVE:
+		case BSG_VLIST_POLY_MOVE:
+		case BSG_VLIST_LINE_MOVE:
+		case BSG_VLIST_TRI_MOVE:
 		    MAT4X3VEC(d->last, *d->rotation, *pt);
 		    continue;
-		case BV_VLIST_POLY_DRAW:
-		case BV_VLIST_POLY_END:
-		case BV_VLIST_LINE_DRAW:
-		case BV_VLIST_TRI_DRAW:
-		case BV_VLIST_TRI_END:
+		case BSG_VLIST_POLY_DRAW:
+		case BSG_VLIST_POLY_END:
+		case BSG_VLIST_LINE_DRAW:
+		case BSG_VLIST_TRI_DRAW:
+		case BSG_VLIST_TRI_END:
 		    MAT4X3VEC(d->fin, *d->rotation, *pt);
 		    break;
 	    }

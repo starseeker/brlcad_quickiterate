@@ -218,7 +218,7 @@ sketch_draw_custom(struct bview *v, void *udata)
 	    &vlist, &ctx->es->es_int, &ttol, &tol, v);
 
 	dm_set_fg(dmp, 255, 255, 0, 1, 1.0);  /* yellow wireframe */
-	dm_draw_vlist(dmp, (struct bv_vlist *)&vlist);
+	dm_draw_vlist(dmp, (bsg_vlist *)&vlist);
 	bv_vlist_cleanup(&vlist);
     }
 }
