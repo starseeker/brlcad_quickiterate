@@ -35,7 +35,6 @@
 #include "bu.h"
 #include "bn.h"
 #include "bsg/defines.h"
-#include "bsg/defines.h"
 #include "bsg/visit.h"
 #include "dm.h"
 #include "./dm-gl.h"
