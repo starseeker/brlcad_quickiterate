@@ -42,7 +42,7 @@ bsg_node_set_payload_type(bsg_node *node, unsigned long long payload_flags)
     if (!node)
 	return;
 
-    struct bv_scene_obj *s = (struct bv_scene_obj *)node;
+    bsg_node *s = (bsg_node *)node;
 
     /* Replace only the payload bits — preserve all other type flags */
     s->s_type_flags = (s->s_type_flags & ~BSG_PAYLOAD_MASK) |
@@ -56,7 +56,7 @@ bsg_node_get_payload_type(const bsg_node *node)
     if (!node)
 	return 0;
 
-    return ((const struct bv_scene_obj *)node)->s_type_flags & BSG_PAYLOAD_MASK;
+    return ((const bsg_node *)node)->s_type_flags & BSG_PAYLOAD_MASK;
 }
 
 
@@ -70,7 +70,7 @@ bsg_payload_dispatch(void *dmp, bsg_node *node, struct bview *v)
     if (!ptype)
 	return;
 
-    struct bv_scene_obj *s = (struct bv_scene_obj *)node;
+    bsg_node *s = (bsg_node *)node;
 
     /* For VLIST payloads the vlist is already populated; skip callback. */
     if (ptype & BSG_PAYLOAD_VLIST)

@@ -99,7 +99,7 @@ typedef struct bv_vlist bsg_vlist;
  * Returns 0 when @p vlist is NULL.
  */
 BSG_EXPORT extern size_t
-bsg_vlist_cmd_cnt(struct bv_vlist *vlist);
+bsg_vlist_cmd_cnt(bsg_vlist *vlist);
 
 /**
  * Duplicate the contents of a vlist.  BSG namespace alias for

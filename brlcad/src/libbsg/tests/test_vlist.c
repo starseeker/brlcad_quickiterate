@@ -65,7 +65,7 @@ main(int argc, char *argv[])
     for (int i = 0; i < expected; i++)
 	BSG_ADD_VLIST(&vlfree, &head, ptzero, BSG_VLIST_LINE_DRAW);
 
-    size_t cnt = bsg_vlist_cmd_cnt((struct bv_vlist *)&head);
+    size_t cnt = bsg_vlist_cmd_cnt((bsg_vlist *)&head);
     if (cnt != (size_t)expected) {
 	bu_log("FAIL: bsg_vlist_cmd_cnt returned %zu, expected %d\n", cnt, expected);
 	return 1;

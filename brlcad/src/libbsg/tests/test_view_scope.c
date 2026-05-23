@@ -94,7 +94,7 @@ test_create(void)
     bsg_node *scope = bsg_view_scope_create(v);
     CHECK(scope != NULL, "bsg_view_scope_create returned non-NULL");
 
-    struct bv_scene_obj *s = (struct bv_scene_obj *)scope;
+    bsg_node *s = (bsg_node *)scope;
     CHECK((s->s_type_flags & BSG_NODE_VIEW_SCOPE) != 0,
 	  "type flag is BSG_NODE_VIEW_SCOPE");
     CHECK(s->s_v == v, "s_v set to the creating view");
@@ -158,7 +158,7 @@ test_visible_shared(void)
     CHECK(scope != NULL, "create");
 
     /* Manually clear s_v to simulate a shared scope. */
-    ((struct bv_scene_obj *)scope)->s_v = NULL;
+    ((bsg_node *)scope)->s_v = NULL;
 
     CHECK(bsg_view_scope_visible(scope, v1) == 1,
 	  "shared scope visible to v1");
@@ -217,8 +217,8 @@ test_destroy(void)
     /* Add a dummy child reference (just the pointer — we own it). */
     bsg_node *child = bsg_group_create(v);
     CHECK(child != NULL, "child create");
-    bu_ptbl_ins(&((struct bv_scene_obj *)scope)->children, (long *)child);
-    CHECK(BU_PTBL_LEN(&((struct bv_scene_obj *)scope)->children) == 1,
+    bu_ptbl_ins(&((bsg_node *)scope)->children, (long *)child);
+    CHECK(BU_PTBL_LEN(&((bsg_node *)scope)->children) == 1,
 	  "one child before destroy");
 
     /* destroy resets children and frees the node. */

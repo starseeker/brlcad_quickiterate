@@ -43,7 +43,7 @@ _bsg_visit_dfs(bsg_node *node,
 	       int (*cb)(bsg_node *, void *),
 	       void *userdata)
 {
-    struct bv_scene_obj *s = (struct bv_scene_obj *)node;
+    bsg_node *s = (bsg_node *)node;
 
     /* Invoke callback if this node matches the predicate */
     if (type_mask == 0 || (s->s_type_flags & type_mask)) {

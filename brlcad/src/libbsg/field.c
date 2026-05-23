@@ -52,7 +52,7 @@ bsg_node_set_flag(bsg_node *n, int flag)
     if (!n)
 	return;
 
-    struct bv_scene_obj *s = (struct bv_scene_obj *)n;
+    bsg_node *s = (bsg_node *)n;
     s->s_flag = flag;
     bsg_node_field_touch(n, BSG_FIELD_FLAG);
 }
@@ -64,7 +64,7 @@ bsg_node_get_flag(const bsg_node *n)
     if (!n)
 	return 0;
 
-    return ((const struct bv_scene_obj *)n)->s_flag;
+    return ((const bsg_node *)n)->s_flag;
 }
 
 
@@ -77,7 +77,7 @@ bsg_node_set_color(bsg_node *n,
     if (!n)
 	return;
 
-    struct bv_scene_obj *s = (struct bv_scene_obj *)n;
+    bsg_node *s = (bsg_node *)n;
     s->s_color[0] = r;
     s->s_color[1] = g;
     s->s_color[2] = b;
@@ -94,7 +94,7 @@ bsg_node_get_color(const bsg_node *n,
     if (!n)
 	return;
 
-    const struct bv_scene_obj *s = (const struct bv_scene_obj *)n;
+    const bsg_node *s = (const bsg_node *)n;
     if (r) *r = s->s_color[0];
     if (g) *g = s->s_color[1];
     if (b) *b = s->s_color[2];
@@ -107,7 +107,7 @@ bsg_node_set_visible(bsg_node *n, int on)
     if (!n)
 	return;
 
-    struct bv_scene_obj *s = (struct bv_scene_obj *)n;
+    bsg_node *s = (bsg_node *)n;
     s->s_flag = on ? UP : DOWN;
     bsg_node_field_touch(n, BSG_FIELD_VISIBILITY);
 }
@@ -119,7 +119,7 @@ bsg_node_get_visible(const bsg_node *n)
     if (!n)
 	return 0;
 
-    return ((const struct bv_scene_obj *)n)->s_flag == UP;
+    return ((const bsg_node *)n)->s_flag == UP;
 }
 
 /*

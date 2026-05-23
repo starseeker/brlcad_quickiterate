@@ -223,7 +223,7 @@ test_group_create_add_remove(void)
     bsg_node *grp = bsg_group_create(v);
     if (!grp) FAIL("bsg_group_create returned NULL");
 
-    struct bv_scene_obj *g = (struct bv_scene_obj *)grp;
+    bsg_node *g = (bsg_node *)grp;
     if (!(g->s_type_flags & BSG_NODE_GROUP)) FAIL("type flag not BSG_NODE_GROUP");
 
     bsg_node *child1 = bsg_group_create(v);
@@ -268,7 +268,7 @@ test_transform_matrix(void)
     bsg_node *xf = bsg_transform_create(v);
     if (!xf) FAIL("bsg_transform_create returned NULL");
 
-    struct bv_scene_obj *xs = (struct bv_scene_obj *)xf;
+    bsg_node *xs = (bsg_node *)xf;
     if (!(xs->s_type_flags & BSG_NODE_TRANSFORM))
 	FAIL("type flag not BSG_NODE_TRANSFORM");
 

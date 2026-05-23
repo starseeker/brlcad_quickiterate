@@ -104,7 +104,7 @@ synth_select_level(bsg_node *node, struct bview *v)
 {
     (void)v;
     struct bsg_lod_payload *pl =
-	(struct bsg_lod_payload *)((struct bv_scene_obj *)node)->s_i_data;
+	(struct bsg_lod_payload *)((bsg_node *)node)->s_i_data;
     struct synth_state *st = (struct synth_state *)pl->user_data;
     st->select_calls++;
     return st->select_result;
@@ -114,7 +114,7 @@ static void
 synth_activate_level(bsg_node *node, struct bview *v, int level)
 {
     struct bsg_lod_payload *pl =
-	(struct bsg_lod_payload *)((struct bv_scene_obj *)node)->s_i_data;
+	(struct bsg_lod_payload *)((bsg_node *)node)->s_i_data;
     struct synth_state *st = (struct synth_state *)pl->user_data;
     st->activate_calls++;
 
@@ -129,7 +129,7 @@ synth_is_stale(bsg_node *node, struct bview *v)
 {
     (void)v;
     struct bsg_lod_payload *pl =
-	(struct bsg_lod_payload *)((struct bv_scene_obj *)node)->s_i_data;
+	(struct bsg_lod_payload *)((bsg_node *)node)->s_i_data;
     struct synth_state *st = (struct synth_state *)pl->user_data;
     return st->stale_result;
 }
@@ -138,7 +138,7 @@ static void
 synth_free(bsg_node *node)
 {
     struct bsg_lod_payload *pl =
-	(struct bsg_lod_payload *)((struct bv_scene_obj *)node)->s_i_data;
+	(struct bsg_lod_payload *)((bsg_node *)node)->s_i_data;
     struct synth_state *st = (struct synth_state *)pl->user_data;
     st->free_calls++;
     /* Do not free st itself — it lives on the C stack in the test. */
@@ -166,7 +166,7 @@ test_create(void)
     bsg_node *lod = bsg_lod_node_create(v);
     CHECK(lod != NULL, "bsg_lod_node_create returned non-NULL");
 
-    struct bv_scene_obj *n = (struct bv_scene_obj *)lod;
+    bsg_node *n = (bsg_node *)lod;
     CHECK((n->s_type_flags & BSG_NODE_LOD) != 0,
 	  "type flag is BSG_NODE_LOD");
     CHECK(n->s_i_data != NULL, "s_i_data (payload) allocated");
@@ -193,7 +193,7 @@ test_set_ops(void)
     bsg_lod_node_set_ops(lod, &g_synth_ops, &sentinel);
 
     struct bsg_lod_payload *pl =
-	(struct bsg_lod_payload *)((struct bv_scene_obj *)lod)->s_i_data;
+	(struct bsg_lod_payload *)((bsg_node *)lod)->s_i_data;
     CHECK(pl->ops == &g_synth_ops, "ops pointer stored");
     CHECK(pl->user_data == (void *)&sentinel, "user_data stored");
 
@@ -438,7 +438,7 @@ test_ops_free(void)
     bsg_lod_node_set_ops(lod, &g_synth_ops, &st);
 
     /* Fire the free callback directly (simulates node destruction). */
-    struct bv_scene_obj *n = (struct bv_scene_obj *)lod;
+    bsg_node *n = (bsg_node *)lod;
     if (n->s_free_callback)
 	n->s_free_callback(n);
 
@@ -457,9 +457,9 @@ test_insert_above(void)
     printf("=== Test 12: insert_above ===\n");
     struct bview *v = make_view("t12");
 
-    struct bv_scene_obj *parent = (struct bv_scene_obj *)bsg_group_create(v);
-    struct bv_scene_obj *leaf = (struct bv_scene_obj *)bsg_shape_create(v);
-    struct bv_scene_obj *sib = (struct bv_scene_obj *)bsg_shape_create(v);
+    bsg_node *parent = (bsg_node *)bsg_group_create(v);
+    bsg_node *leaf = (bsg_node *)bsg_shape_create(v);
+    bsg_node *sib = (bsg_node *)bsg_shape_create(v);
     CHECK(parent && leaf && sib, "test nodes created");
 
     leaf->parent = parent;
@@ -470,16 +470,16 @@ test_insert_above(void)
 
     bsg_node *lod = bsg_lod_node_insert_above((bsg_node *)leaf, v);
     CHECK(lod != NULL, "insert_above returned lod node");
-    CHECK((((struct bv_scene_obj *)lod)->s_type_flags & BSG_NODE_LOD) != 0,
+    CHECK((((bsg_node *)lod)->s_type_flags & BSG_NODE_LOD) != 0,
 	  "inserted node is BSG_NODE_LOD");
     CHECK(BU_PTBL_LEN(&parent->children) == 2, "parent child count unchanged");
-    CHECK((struct bv_scene_obj *)BU_PTBL_GET(&parent->children, 0) == (struct bv_scene_obj *)lod,
+    CHECK((bsg_node *)BU_PTBL_GET(&parent->children, 0) == (bsg_node *)lod,
 	  "lod replaced original leaf slot");
-    CHECK((struct bv_scene_obj *)BU_PTBL_GET(&parent->children, 1) == sib,
+    CHECK((bsg_node *)BU_PTBL_GET(&parent->children, 1) == sib,
 	  "sibling order preserved");
-    CHECK(leaf->parent == (struct bv_scene_obj *)lod, "leaf parent updated to lod");
-    CHECK(BU_PTBL_LEN(&((struct bv_scene_obj *)lod)->children) == 1, "lod has one child");
-    CHECK((struct bv_scene_obj *)BU_PTBL_GET(&((struct bv_scene_obj *)lod)->children, 0) == leaf,
+    CHECK(leaf->parent == (bsg_node *)lod, "leaf parent updated to lod");
+    CHECK(BU_PTBL_LEN(&((bsg_node *)lod)->children) == 1, "lod has one child");
+    CHECK((bsg_node *)BU_PTBL_GET(&((bsg_node *)lod)->children, 0) == leaf,
 	  "lod level-0 child is original leaf");
 
     free_view(v);

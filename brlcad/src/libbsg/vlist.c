@@ -34,7 +34,7 @@
 
 
 size_t
-bsg_vlist_cmd_cnt(struct bv_vlist *vlist)
+bsg_vlist_cmd_cnt(bsg_vlist *vlist)
 {
     return bv_vlist_cmd_cnt(vlist);
 }

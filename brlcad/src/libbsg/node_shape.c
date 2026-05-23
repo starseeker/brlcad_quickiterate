@@ -39,7 +39,7 @@ bsg_shape_create(struct bview *v)
     if (!v)
 	return NULL;
 
-    struct bv_scene_obj *s = bsg_obj_create(v, BSG_OBJ_VIEW | BSG_OBJ_LOCAL);
+    bsg_node *s = bsg_obj_create(v, BSG_OBJ_VIEW | BSG_OBJ_LOCAL);
     if (!s)
 	return NULL;
 
@@ -55,7 +55,7 @@ bsg_shape_set_vlist(bsg_node *shape, struct bu_list *vhead)
     if (!shape || !vhead)
 	return;
 
-    struct bv_scene_obj *s = (struct bv_scene_obj *)shape;
+    bsg_node *s = (bsg_node *)shape;
 
     /* Free any existing vlist */
     if (BU_LIST_IS_INITIALIZED(&s->s_vlist))
@@ -73,7 +73,7 @@ bsg_shape_destroy(bsg_node *shape)
     if (!shape)
 	return;
 
-    bsg_obj_put((struct bv_scene_obj *)shape);
+    bsg_obj_put((bsg_node *)shape);
 }
 
 /*

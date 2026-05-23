@@ -52,14 +52,14 @@
 /* ------------------------------------------------------------------ */
 
 /*
- * FREE_BV_SCENE_OBJ: recycle a bv_scene_obj back into the free-pool
+ * FREE_BSG_NODE: recycle a bsg_node back into the free-pool
  * list @p fp and free its vlist data using the vlist pool @p vlf.
  *
  * This mirrors the identical macro defined in src/libged/bsg_view_obj.c
  * and src/libbv/vlist.c.  It is defined here as a file-private macro so
  * that libbsg/draw_set.c can call it without pulling in libged or librt.
  */
-#define FREE_BV_SCENE_OBJ(p, fp, vlf) { \
+#define FREE_BSG_NODE(p, fp, vlf) { \
     BU_LIST_APPEND(fp, &((p)->l)); \
     BSG_FREE_VLIST(vlf, &((p)->s_vlist)); }
 
@@ -74,10 +74,10 @@ bsg_draw_tree_depth(const bsg_node *g)
 	return 0;
 
     int depth = 0;
-    const struct bv_scene_obj *cur = (const struct bv_scene_obj *)g;
+    const bsg_node *cur = (const bsg_node *)g;
     while (cur->parent) {
 	depth++;
-	cur = (const struct bv_scene_obj *)cur->parent;
+	cur = (const bsg_node *)cur->parent;
     }
     return depth;
 }
@@ -89,10 +89,10 @@ bsg_group_find_child(bsg_node *parent, const char *name)
     if (!parent || !name)
 	return NULL;
 
-    struct bv_scene_obj *p = (struct bv_scene_obj *)parent;
+    bsg_node *p = (bsg_node *)parent;
     for (size_t i = 0; i < BU_PTBL_LEN(&p->children); i++) {
-	struct bv_scene_obj *c =
-	    (struct bv_scene_obj *)BU_PTBL_GET(&p->children, i);
+	bsg_node *c =
+	    (bsg_node *)BU_PTBL_GET(&p->children, i);
 	if (!c)
 	    continue;
 	if ((c->s_type_flags & BSG_NODE_GROUP) &&
@@ -119,10 +119,10 @@ bsg_group_ensure_child(bsg_node *parent, struct bview *v,
     if (!v)
 	return NULL;
 
-    struct bv_scene_obj *p = (struct bv_scene_obj *)parent;
+    bsg_node *p = (bsg_node *)parent;
 
     /* Allocate a new GROUP node through libbv. */
-    struct bv_scene_obj *child = bsg_obj_create(v, BSG_OBJ_CHILD);
+    bsg_node *child = bsg_obj_create(v, BSG_OBJ_CHILD);
     if (!child)
 	return NULL;
 
@@ -153,10 +153,10 @@ bsg_bump_rev_node(bsg_node *n)
 {
     if (!n)
 	return;
-    struct bv_scene_obj *cur = (struct bv_scene_obj *)n;
+    bsg_node *cur = (bsg_node *)n;
     /* Walk up to root (parent == NULL) */
     while (cur->parent)
-	cur = (struct bv_scene_obj *)cur->parent;
+	cur = (bsg_node *)cur->parent;
     /* cur is the draw root; s_i_data holds the bsg_draw_ctx */
     if (cur->s_i_data) {
 	struct bsg_draw_ctx *ctx = (struct bsg_draw_ctx *)cur->s_i_data;
@@ -167,9 +167,9 @@ bsg_bump_rev_node(bsg_node *n)
 
 
 void
-bsg_free_children_recursive(bsg_node *gn, struct bv_scene_obj *fso)
+bsg_free_children_recursive(bsg_node *gn, bsg_node *fso)
 {
-    struct bv_scene_obj *g = (struct bv_scene_obj *)gn;
+    bsg_node *g = (bsg_node *)gn;
 
     /* Phase 9.1: removing children invalidates this group's aggregate
      * bbox cache (and that of all of its ancestors). */
@@ -181,14 +181,14 @@ bsg_free_children_recursive(bsg_node *gn, struct bv_scene_obj *fso)
 	bu_ptbl_ins(&snap, BU_PTBL_GET(&g->children, i));
 
     for (size_t i = 0; i < BU_PTBL_LEN(&snap); i++) {
-	struct bv_scene_obj *child =
-	    (struct bv_scene_obj *)BU_PTBL_GET(&snap, i);
+	bsg_node *child =
+	    (bsg_node *)BU_PTBL_GET(&snap, i);
 	if (child->s_type_flags & BSG_NODE_GROUP) {
 	    bsg_free_children_recursive((bsg_node *)child, fso);
 	    child->parent = NULL;
-	    struct bv_scene_obj *cfso = child->free_scene_obj;
+	    bsg_node *cfso = child->free_scene_obj;
 	    if (cfso)
-		FREE_BV_SCENE_OBJ(child, &cfso->l, child->vlfree);
+		FREE_BSG_NODE(child, &cfso->l, child->vlfree);
 	} else {
 	    /* Fire per-object teardown callbacks before recycling.
 	     * Phase 11: bsg_scene_obj_release_backend releases display-list
@@ -199,9 +199,9 @@ bsg_free_children_recursive(bsg_node *gn, struct bv_scene_obj *fso)
 	    if (child->s_free_callback)
 		(*child->s_free_callback)(child);
 	    child->parent = NULL;
-	    struct bv_scene_obj *sfso = fso ? fso : child->free_scene_obj;
+	    bsg_node *sfso = fso ? fso : child->free_scene_obj;
 	    if (sfso)
-		FREE_BV_SCENE_OBJ(child, &sfso->l, child->vlfree);
+		FREE_BSG_NODE(child, &sfso->l, child->vlfree);
 	}
     }
     bu_ptbl_free(&snap);
@@ -212,7 +212,7 @@ bsg_free_children_recursive(bsg_node *gn, struct bv_scene_obj *fso)
 void
 bsg_free_group_contents(bsg_node *gn)
 {
-    struct bv_scene_obj *g = (struct bv_scene_obj *)gn;
+    bsg_node *g = (bsg_node *)gn;
     if (!g || BU_PTBL_LEN(&g->children) == 0)
 	return;
 
@@ -220,7 +220,7 @@ bsg_free_group_contents(bsg_node *gn)
      * stored in the root's s_i_data.  Fall back to the group's own
      * free_scene_obj if no context is present. */
     struct bsg_draw_ctx *ctx = _ctx_of_node(g);
-    struct bv_scene_obj *fso = (ctx && ctx->fso) ? ctx->fso : g->free_scene_obj;
+    bsg_node *fso = (ctx && ctx->fso) ? ctx->fso : g->free_scene_obj;
 
     bsg_free_children_recursive(gn, fso);
 }
@@ -229,13 +229,13 @@ bsg_free_group_contents(bsg_node *gn)
 void
 bsg_free_group(bsg_node *gn)
 {
-    struct bv_scene_obj *g = (struct bv_scene_obj *)gn;
+    bsg_node *g = (bsg_node *)gn;
     if (!g)
 	return;
 
     bsg_free_group_contents(gn);
 
-    struct bv_scene_obj *parent = (struct bv_scene_obj *)g->parent;
+    bsg_node *parent = (bsg_node *)g->parent;
     if (parent)
 	bu_ptbl_rm(&parent->children, (const long *)g);
 
@@ -245,9 +245,9 @@ bsg_free_group(bsg_node *gn)
     bsg_node_bbox_invalidate(gn);
 
     g->parent = NULL;
-    struct bv_scene_obj *fso = g->free_scene_obj;
+    bsg_node *fso = g->free_scene_obj;
     if (fso)
-	FREE_BV_SCENE_OBJ(g, &fso->l, g->vlfree);
+	FREE_BSG_NODE(g, &fso->l, g->vlfree);
 }
 
 
@@ -264,15 +264,15 @@ bsg_erase_nested_subpath(bsg_node *parent_node,
     if (!parent_node || !comp_names || comp_count == 0 || depth_start >= comp_count)
 	return;
 
-    struct bv_scene_obj *cur = (struct bv_scene_obj *)parent_node;
+    bsg_node *cur = (bsg_node *)parent_node;
 
     for (size_t i = depth_start; i < comp_count; i++) {
 	const char *comp = comp_names[i];
-	struct bv_scene_obj *child_group = NULL;
+	bsg_node *child_group = NULL;
 
 	for (size_t j = 0; j < BU_PTBL_LEN(&cur->children); j++) {
-	    struct bv_scene_obj *c =
-		(struct bv_scene_obj *)BU_PTBL_GET(&cur->children, j);
+	    bsg_node *c =
+		(bsg_node *)BU_PTBL_GET(&cur->children, j);
 	    if ((c->s_type_flags & BSG_NODE_GROUP) &&
 		BU_STR_EQUAL(bu_vls_cstr(&c->s_name), comp)) {
 		child_group = c;
@@ -298,27 +298,27 @@ bsg_erase_nested_subpath(bsg_node *parent_node,
 	    /* Phase 9.1: shrinking cur invalidates its (and ancestors') bbox cache. */
 	    bsg_node_bbox_invalidate((bsg_node *)cur);
 	    child_group->parent = NULL;
-	    struct bv_scene_obj *cfso = child_group->free_scene_obj;
+	    bsg_node *cfso = child_group->free_scene_obj;
 	    if (cfso)
-		FREE_BV_SCENE_OBJ(child_group, &cfso->l, child_group->vlfree);
+		FREE_BSG_NODE(child_group, &cfso->l, child_group->vlfree);
 	} else {
 	    /* Case (b): the final component is a leaf primitive — erase
 	     * matching BSG_NODE_SHAPE children by calling match_fn. */
 	    struct bsg_draw_ctx *ctx = _ctx_of_node(cur);
-	    struct bv_scene_obj *fso = (ctx && ctx->fso) ? ctx->fso : NULL;
+	    bsg_node *fso = (ctx && ctx->fso) ? ctx->fso : NULL;
 
 	    struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
 	    for (size_t j = 0; j < BU_PTBL_LEN(&cur->children); j++) {
-		struct bv_scene_obj *c =
-		    (struct bv_scene_obj *)BU_PTBL_GET(&cur->children, j);
+		bsg_node *c =
+		    (bsg_node *)BU_PTBL_GET(&cur->children, j);
 		if (!(c->s_type_flags & BSG_NODE_SHAPE))
 		    continue;
 		if (!match_fn || match_fn(c->s_u_data, match_ctx))
 		    bu_ptbl_ins(&snap, (long *)c);
 	    }
 	    for (size_t j = 0; j < BU_PTBL_LEN(&snap); j++) {
-		struct bv_scene_obj *sp =
-		    (struct bv_scene_obj *)BU_PTBL_GET(&snap, j);
+		bsg_node *sp =
+		    (bsg_node *)BU_PTBL_GET(&snap, j);
 		/* Phase 11: route teardown through the backend contract. */
 		bsg_scene_obj_release_backend(sp);
 		if (sp->s_free_callback)
@@ -329,9 +329,9 @@ bsg_erase_nested_subpath(bsg_node *parent_node,
 		/* Phase 9.1: shrinking cur invalidates its (and ancestors') bbox cache. */
 		bsg_node_bbox_invalidate((bsg_node *)cur);
 		sp->parent = NULL;
-		struct bv_scene_obj *sfso = fso ? fso : sp->free_scene_obj;
+		bsg_node *sfso = fso ? fso : sp->free_scene_obj;
 		if (sfso)
-		    FREE_BV_SCENE_OBJ(sp, &sfso->l, sp->vlfree);
+		    FREE_BSG_NODE(sp, &sfso->l, sp->vlfree);
 	    }
 	    bu_ptbl_free(&snap);
 	}
@@ -349,7 +349,7 @@ bsg_node_bbox_invalidate(bsg_node *n)
 {
     if (!n)
 	return;
-    struct bv_scene_obj *cur = (struct bv_scene_obj *)n;
+    bsg_node *cur = (bsg_node *)n;
 
     /* Walk up the parent chain; clear s_bbox_cached on every ancestor
      * that is still cached.  Stop at the first already-dirty ancestor
@@ -365,7 +365,7 @@ bsg_node_bbox_invalidate(bsg_node *n)
 		return;  /* already dirty up from here */
 	    cur->s_bbox_cached = 0;
 	}
-	cur = (struct bv_scene_obj *)cur->parent;
+	cur = (bsg_node *)cur->parent;
     }
 }
 
@@ -376,7 +376,7 @@ bsg_node_bbox_invalidate(bsg_node *n)
  * _sg_bounding_sph behaviour exactly.
  */
 static void
-_bsg_shape_bbox_accum(const struct bv_scene_obj *sp,
+_bsg_shape_bbox_accum(const bsg_node *sp,
 		      vect_t *min, vect_t *max)
 {
     vect_t lmin, lmax;
@@ -398,7 +398,7 @@ _bsg_shape_bbox_accum(const struct bv_scene_obj *sp,
  * aggregate at GROUP/ROOT nodes.
  */
 static int
-_bsg_subtree_bbox_walk(struct bv_scene_obj *n,
+_bsg_subtree_bbox_walk(bsg_node *n,
 		       vect_t *min, vect_t *max,
 		       int include_overlays, int cache)
 {
@@ -437,8 +437,8 @@ _bsg_subtree_bbox_walk(struct bv_scene_obj *n,
     int contributed = 0;
 
     for (size_t i = 0; i < BU_PTBL_LEN(&n->children); i++) {
-	struct bv_scene_obj *c =
-	    (struct bv_scene_obj *)BU_PTBL_GET(&n->children, i);
+	bsg_node *c =
+	    (bsg_node *)BU_PTBL_GET(&n->children, i);
 	if (!c)
 	    continue;
 	if (_bsg_subtree_bbox_walk(c, &lmin, &lmax, include_overlays, cache))
@@ -477,7 +477,7 @@ bsg_subtree_bbox(bsg_node *n,
 
     int cache = include_overlays ? 0 : 1;
     int contributed =
-	_bsg_subtree_bbox_walk((struct bv_scene_obj *)n,
+	_bsg_subtree_bbox_walk((bsg_node *)n,
 			       min, max, include_overlays, cache);
 
     /* Return 1 for empty (matches _sg_bounding_sph contract). */

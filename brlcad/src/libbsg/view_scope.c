@@ -41,7 +41,7 @@ bsg_view_scope_create(struct bview *v)
     if (!v)
 	return NULL;
 
-    struct bv_scene_obj *s = bsg_obj_create(v, BSG_OBJ_VIEW | BSG_OBJ_LOCAL);
+    bsg_node *s = bsg_obj_create(v, BSG_OBJ_VIEW | BSG_OBJ_LOCAL);
     if (!s)
 	return NULL;
 
@@ -60,7 +60,7 @@ bsg_view_scope_visible(bsg_node *node, struct bview *v)
     if (!node)
 	return 0;
 
-    struct bv_scene_obj *s = (struct bv_scene_obj *)node;
+    bsg_node *s = (bsg_node *)node;
     if (!(s->s_type_flags & BSG_NODE_VIEW_SCOPE))
 	return 0;
 
@@ -79,7 +79,7 @@ bsg_view_scope_destroy(bsg_node *scope)
     if (!scope)
 	return;
 
-    struct bv_scene_obj *s = (struct bv_scene_obj *)scope;
+    bsg_node *s = (bsg_node *)scope;
 
     /* Clear the children list (borrowed references — do not free). */
     bu_ptbl_reset(&s->children);

@@ -124,12 +124,12 @@ _alloc_sensor_node(bsg_node *root, unsigned long long stype)
     if (!root)
 	return NULL;
 
-    struct bv_scene_obj *r = (struct bv_scene_obj *)root;
+    bsg_node *r = (bsg_node *)root;
     struct bview *v = r->s_v;
     if (!v)
 	return NULL;
 
-    struct bv_scene_obj *s = bsg_obj_create(v, BSG_OBJ_VIEW | BSG_OBJ_LOCAL);
+    bsg_node *s = bsg_obj_create(v, BSG_OBJ_VIEW | BSG_OBJ_LOCAL);
     if (!s)
 	return NULL;
 
@@ -154,7 +154,7 @@ bsg_field_sensor_create(bsg_node *root,
 
     if (!_registry_add(handle, BSG_SENSOR_FIELD, target, fid,
 		       cb, NULL, NULL, data)) {
-	bsg_obj_put((struct bv_scene_obj *)handle);
+	bsg_obj_put((bsg_node *)handle);
 	return NULL;
     }
 
@@ -177,7 +177,7 @@ bsg_node_sensor_create(bsg_node *root,
 
     if (!_registry_add(handle, BSG_SENSOR_NODE, target,
 		       BSG_FIELD_UNKNOWN, NULL, cb, NULL, data)) {
-	bsg_obj_put((struct bv_scene_obj *)handle);
+	bsg_obj_put((bsg_node *)handle);
 	return NULL;
     }
 
@@ -200,7 +200,7 @@ bsg_timer_sensor_create(bsg_node *root,
 
     if (!_registry_add(handle, BSG_SENSOR_TIMER, NULL,
 		       BSG_FIELD_UNKNOWN, NULL, NULL, cb, data)) {
-	bsg_obj_put((struct bv_scene_obj *)handle);
+	bsg_obj_put((bsg_node *)handle);
 	return NULL;
     }
 
@@ -215,7 +215,7 @@ bsg_sensor_destroy(bsg_node *sensor)
 	return;
 
     _registry_remove(sensor);
-    bsg_obj_put((struct bv_scene_obj *)sensor);
+    bsg_obj_put((bsg_node *)sensor);
 }
 
 
