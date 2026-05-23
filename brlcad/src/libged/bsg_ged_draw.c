@@ -49,8 +49,8 @@
 #include "bu/ptbl.h"
 #include "bu/str.h"
 #include "bu/color.h"
-#include "bv/lod.h"
-#include "bv/plot3.h"
+#include "bsg/lod.h"
+#include "bsg/plot3.h"
 #include "bg/clip.h"
 #include "bsg/defines.h"
 #include "bsg/draw_ctx.h"
@@ -61,7 +61,7 @@
 #include "bsg/sensor.h"
 #include "bsg/visit.h"
 
-#include "bv/view_sets.h"
+#include "bsg/view_sets.h"
 
 #include "ged.h"
 #include "ged/bsg_ged_draw.h"

@@ -45,7 +45,7 @@
 #include "./dm-ps.h"
 #include "../null/dm-Null.h"
 
-#include "bv/defines.h"
+#include "bsg/defines.h"
 
 #include "../include/private.h"
 

@@ -47,7 +47,7 @@
 #include "bu/opt.h"
 #include "bu/str.h"
 #include "bu/vls.h"
-#include "bv/vlist.h"
+#include "bsg/vlist.h"
 #include "../ged_private.h"
 #include "./ged_view.h"
 

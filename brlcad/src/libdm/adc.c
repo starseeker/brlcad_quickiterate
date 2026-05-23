@@ -29,8 +29,8 @@
 
 #include "vmath.h"
 #include "bg/clip.h"
-#include "bv/defines.h"
-#include "bv/adc.h"
+#include "bsg/defines.h"
+#include "bsg/adc.h"
 #include "dm.h"
 #include "./include/private.h"
 

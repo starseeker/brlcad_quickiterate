@@ -29,7 +29,7 @@
 
 extern "C" {
 #include "bu/malloc.h"
-#include "bv/util.h"
+#include "bsg/util.h"
 #include "raytrace.h"
 #include "rt/functab.h"
 #include "rt/geom.h"

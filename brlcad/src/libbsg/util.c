@@ -28,10 +28,12 @@
 
 #include "bu/list.h"
 #include "bu/ptbl.h"
-#include "bv/util.h"
-#include "bv/view_sets.h"
-#include "bv/vlist.h"
 #include "bsg/util.h"
+#include "bsg/view_sets.h"
+#include "bsg/vlist.h"
+
+/* Forward declarations of underlying libbv functions used by BSG wrappers */
+extern void bv_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_list *src);
 
 
 void

@@ -56,7 +56,7 @@
 #include <vector>
 #include <queue>
 
-#include "bv/lod.h"
+#include "bsg/lod.h"
 #include "ged/defines.h"
 
 /* ---- Phase 1-A: Typed hash wrappers ---------------------------------- */

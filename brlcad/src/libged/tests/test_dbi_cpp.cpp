@@ -62,7 +62,7 @@
 #include "bu/hash.h"
 #include "bu/malloc.h"
 #include "bu/vls.h"
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "ged.h"
 
 #include "../dbi.h"

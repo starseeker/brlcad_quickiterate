@@ -40,8 +40,8 @@ extern "C" {
 #include "rt/tree.h"
 }
 
-#include "bv/util.h"
-#include "bv/view_sets.h"
+#include "bsg/util.h"
+#include "bsg/view_sets.h"
 
 #include "../alphanum.h"
 #include "../ged_private.h"

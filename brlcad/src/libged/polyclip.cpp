@@ -30,7 +30,7 @@
 
 #include "bu/sort.h"
 #include "bg/polygon.h"
-#include "bv/util.h"
+#include "bsg/util.h"
 #include "ged.h"
 
 int

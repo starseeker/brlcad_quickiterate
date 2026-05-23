@@ -47,9 +47,9 @@
 
 #include <bu.h>
 #include <bv.h>
-#include "bv/tcl_data.h"
-#include "bv/util.h"
-#include "bv/vlist.h"
+#include "bsg/tcl_data.h"
+#include "bsg/util.h"
+#include "bsg/vlist.h"
 #include <dm.h>
 #include <ged.h>
 

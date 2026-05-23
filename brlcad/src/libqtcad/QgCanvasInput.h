@@ -39,7 +39,7 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 
-#include "bv/defines.h"
+#include "bsg/defines.h"
 
 typedef void (*qgcanvas_bounds_update_t)(struct bview *);
 

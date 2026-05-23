@@ -32,6 +32,8 @@
 #include "bsg/defines.h"
 #include "bsg/vlist.h"
 
+/* Forward declaration of the underlying libbv function that this wrapper delegates to */
+extern size_t bv_vlist_cmd_cnt(bsg_vlist *vlist);
 
 size_t
 bsg_vlist_cmd_cnt(bsg_vlist *vlist)

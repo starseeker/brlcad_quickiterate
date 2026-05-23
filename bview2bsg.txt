@@ -120,6 +120,26 @@ Slice 22 – Remaining bv/ headers canonicalized into bsg/; all bv/ bridges
   * 11/11 libbsg tests pass; libbv/libbsg/libdm/libged/libqtcad/dm-qtgl/dm-swrast/qged
     all build cleanly.
 
+Slice 23 – Migrate all caller #includes: bv/ → bsg/ in libdm, libged, libqtcad
+  * libdm (16 files): all bv/defines.h, bv/util.h, bv/vlist.h, bv/adc.h,
+    bv/plot3.h, bv/lod.h migrated to bsg/ counterparts.
+  * libged (46 files): all bv/defines.h, bv/util.h, bv/vlist.h, bv/snap.h,
+    bv/plot3.h, bv/lod.h, bv/view_sets.h, bv/tcl_data.h migrated to bsg/.
+  * libqtcad (6 files): all bv/defines.h, bv/util.h, bv/lod.h migrated to bsg/.
+  * libbsg/util.c and libbsg/lod.cpp: last remaining bv/ includes removed;
+    libbv functions called via explicit forward declarations instead.
+  * Result: ZERO bv/ header includes remain in any libbsg/libdm/libged/libqtcad
+    source file.
+  * 11/11 libbsg tests pass; full stack builds cleanly.
+
+Slice 24 – bsg/lod.h fully canonical; bv/lod.h → bridge
+  * bsg/lod.h expanded to include full bv/lod.h API: bv_view_bounds,
+    bv_view_objs_select, bv_view_objs_rect_select, bv_mesh_lod_context,
+    all bv_mesh_lod_* functions, plus the existing BSG-native helpers
+    (bsg_lod_update, bsg_lod_stale).
+  * bv/lod.h → bridge: #include "bsg/lod.h"
+  * 11/11 libbsg tests pass; full stack builds cleanly.
+
 IN PROGRESS / NEXT STEPS
 --------------------------
 NOTE: bv/ headers and libbv will be FULLY ELIMINATED — no backwards
@@ -127,22 +147,12 @@ compatibility will be maintained in bsg/ headers.  bv/ headers exist
 only as temporary bridges; once all callers are migrated they are
 deleted together with libbv.
 
-Slice 23 – Migrate all caller #includes from bv/ to bsg/ across the tree.
-  Priority order:
-    a) libdm (6 files with bv/defines.h, 1 with bv/util.h, 2 with bv/lod.h,
-       1 with bv/adc.h)
-    b) libged (~42 files)
-    c) libqtcad (~10 files)
-    d) libtclcad, mged, qged, other binaries
-    e) Test files
-  After each library is fully migrated off a given bridge header, verify no
-  include of that bv/ header remains in that library.
+Slice 25 – Migrate remaining bv/ includes in libtclcad, mged, qged plugins,
+  and all other downstream binaries/tools across the full source tree.
+  Verify: grep -r '#include "bv/' src/ shows only bv/ bridge header files
+  themselves (not any consumers).
 
-Slice 24 – bsg/lod.h fully canonical; bv/lod.h → bridge.
-  * bv/lod.h currently still has original content; move to bsg/lod.h.
-  * bv/events.h → move content to bsg/events.h if not already done.
-
-Slice 25 – Rename struct tags and types in bsg/defines.h:
+Slice 26 – Rename struct tags and types in bsg/defines.h:
     bview        → bsg_view
     bview_set    → bsg_view_set
     bv_scene_obj → bsg_node
@@ -154,12 +164,12 @@ Slice 25 – Rename struct tags and types in bsg/defines.h:
   Add typedef aliases in bsg/defines.h for the old names to ease migration.
   Update all callers systematically.
 
-Slice 26 – Rename function prefixes bv_ → bsg_, BV_ → BSG_ throughout the
+Slice 27 – Rename function prefixes bv_ → bsg_, BV_ → BSG_ throughout the
   codebase (util, view_sets, snap, adc, polygon, vectfont, tig, plot3,
   vlist, vlblock, etc.).  Update bv/ bridge headers to provide
   #define bv_foo bsg_foo aliases for any remaining external consumers.
 
-Slice 27 – Move libbv function implementations into libbsg (or rename in-place).
+Slice 28 – Move libbv function implementations into libbsg (or rename in-place).
   * Merge src/libbv/ source files into src/libbsg/ (or copy and adapt).
   * Update CMakeLists.txt: add former libbv sources to libbsg SOURCES.
   * Remove libbv from source_dirs.cmake.
@@ -203,7 +213,9 @@ HEADER OWNERSHIP (current, as of Slice 22)
   bsg/plot3.h    — CANONICAL: full UNIX-plot3 library (header-only impl via
                    PLOT3_IMPLEMENTATION)
   bsg/tig.h      — CANONICAL: full TIG-PACK plotting library (includes bsg/plot3.h)
-  bsg/lod.h      — CANONICAL: bsg LoD API
+  bsg/lod.h      — CANONICAL: bv_view_bounds, bv_view_objs_select/rect_select,
+                   bv_mesh_lod_context, all bv_mesh_lod_* functions,
+                   plus bsg_lod_update/stale
   bsg/scene_set.h, draw_set.h, field.h, node_*.h, overlay.h, payload.h,
   sensor.h, view_scope.h, visit.h — CANONICAL BSG scene-graph API
 
@@ -219,5 +231,5 @@ HEADER OWNERSHIP (current, as of Slice 22)
   bv/vectfont.h  — bridge only: #include "bsg/vectfont.h"
   bv/plot3.h     — bridge only: #include "bsg/plot3.h"
   bv/tig.h       — bridge only: #include "bsg/tig.h"
-  bv/lod.h       — still original (pending slice 24)
-  bv/events.h    — still original (pending slice 24)
+  bv/lod.h       — bridge only: #include "bsg/lod.h"
+  bv/events.h    — still original (pending Slice 25)

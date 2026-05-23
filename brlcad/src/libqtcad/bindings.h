@@ -27,7 +27,7 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 
-#include "bv/defines.h"
+#include "bsg/defines.h"
 
 int CADkeyPressEvent(struct bview *v, int x_prev, int y_prev, QKeyEvent *k);
 

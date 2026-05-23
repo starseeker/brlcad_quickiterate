@@ -39,9 +39,9 @@
 #include "bu/opt.h"
 #include "bu/sort.h"
 #include "bu/str.h"
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "bg/sat.h"
-#include "bv/lod.h"
+#include "bsg/lod.h"
 #include "nmg.h"
 #include "rt/view.h"
 

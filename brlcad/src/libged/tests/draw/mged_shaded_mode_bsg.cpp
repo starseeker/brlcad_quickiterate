@@ -70,8 +70,8 @@
 #include <dm.h>
 #include <ged.h>
 #include "bsg/util.h"
-#include "bv/defines.h"
-#include "bv/util.h"
+#include "bsg/defines.h"
+#include "bsg/util.h"
 
 /* Private header for DbiState */
 #include "../../dbi.h"

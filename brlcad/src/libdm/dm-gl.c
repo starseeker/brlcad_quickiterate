@@ -34,7 +34,7 @@
 #include "vmath.h"
 #include "bu.h"
 #include "bn.h"
-#include "bv/defines.h"
+#include "bsg/defines.h"
 #include "bsg/defines.h"
 #include "bsg/visit.h"
 #include "dm.h"

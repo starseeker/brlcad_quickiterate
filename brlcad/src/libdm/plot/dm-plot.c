@@ -45,8 +45,8 @@
 #include "./dm-plot.h"
 #include "../null/dm-Null.h"
 
-#include "bv/defines.h"
-#include "bv/plot3.h"
+#include "bsg/defines.h"
+#include "bsg/plot3.h"
 
 #include "../include/private.h"
 

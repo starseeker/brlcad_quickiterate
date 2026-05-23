@@ -28,7 +28,7 @@
 #include <string.h>
 
 #include "bu/cmd.h"
-#include "bv/lod.h"
+#include "bsg/lod.h"
 
 #include "../ged_private.h"
 #include "../dbi.h"

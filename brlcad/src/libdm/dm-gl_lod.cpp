@@ -33,8 +33,8 @@
 #include "bu.h"
 #include "bn.h"
 extern "C" {
-#include "bv/defines.h"
-#include "bv/lod.h"
+#include "bsg/defines.h"
+#include "bsg/lod.h"
 #include "dm.h"
 #include "./dm-gl.h"
 #include "./include/private.h"

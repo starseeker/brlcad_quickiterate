@@ -48,7 +48,7 @@
 #define DM_WITH_RT
 #include <dm.h>
 #include <ged.h>
-#include "bv/util.h"
+#include "bsg/util.h"
 
 #include "../../dbi.h"
 #include "bsg/util.h"

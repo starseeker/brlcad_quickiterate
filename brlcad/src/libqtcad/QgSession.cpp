@@ -25,7 +25,7 @@
 #include "common.h"
 
 #include "bu/env.h"
-#include "bv/lod.h"
+#include "bsg/lod.h"
 #include "raytrace.h"
 
 /* DbiState is needed to initialise the dbi_state field of the new gedp. */

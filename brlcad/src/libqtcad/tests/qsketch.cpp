@@ -86,7 +86,7 @@
 #include "bu/str.h"
 #include "bn/tol.h"
 #include "bv.h"
-#include "bv/util.h"
+#include "bsg/util.h"
 #include "dm.h"
 #include "raytrace.h"
 #include "rt/functab.h"
