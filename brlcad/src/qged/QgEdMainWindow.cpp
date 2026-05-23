@@ -26,7 +26,6 @@
 #include <QTimer>
 #include <QDialog>
 #include <QMessageBox>
-#include <QSurfaceFormat>
 #include "qtcad/QgPaletteController.h"
 #include "qtcad/QgPluginInterfaces.h"
 #include "qtcad/QgPluginManager.h"
@@ -70,13 +69,6 @@ QgEdMainWindow::QgEdMainWindow(int canvas_type, int quad_view)
 {
     QgEdApp *ap = (QgEdApp *)qApp;
     ap->w = this;
-
-#ifdef BRLCAD_OPENGL
-    // Define the surface format for OpenGL drawing
-    QSurfaceFormat format;
-    format.setDepthBufferSize(16);
-    QSurfaceFormat::setDefaultFormat(format);
-#endif
 
     // This solves the disappearing menubar problem on Ubuntu + fluxbox -
     // suspect Unity's "global toolbar" settings are being used even when
@@ -597,7 +589,6 @@ QgEdMainWindow::closeEvent(QCloseEvent* e)
     // https://bugreports.qt.io/browse/QTBUG-16252?focusedCommentId=250562&page=com.atlassian.jira.plugin.system.issuetabpanels%3Acomment-tabpanel#comment-250562
     settings.setValue("geometry", QVariant(geometry()));
     settings.setValue("windowState", saveState());
-    bu_log("mainwindow write settings\n");
     if (!e)
 	return;
     QMainWindow::closeEvent(e);
