@@ -31,8 +31,8 @@
 #include "vmath.h"
 #include "bu/log.h"
 #include "bu/malloc.h"
-#include "bv/polygon.h"
-#include "bv/util.h"
+#include "bsg/polygon.h"
+#include "bsg/util.h"
 
 int
 bv_polygon_csg(struct bv_scene_obj *target, struct bv_scene_obj *stencil, bg_clip_t op)

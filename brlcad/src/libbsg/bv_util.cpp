@@ -35,11 +35,11 @@
 #include "bu/vls.h"
 #include "bn/mat.h"
 #include "bg/plane.h"
-#include "bv/defines.h"
-#include "bv/snap.h"
-#include "bv/util.h"
-#include "bv/view_sets.h"
-#include "bv/vlist.h"
+#include "bsg/defines.h"
+#include "bsg/snap.h"
+#include "bsg/util.h"
+#include "bsg/view_sets.h"
+#include "bsg/vlist.h"
 #include "bsg/defines.h"
 #include "bsg/lod_ops.h"
 #include "./bv_private.h"
@@ -2019,7 +2019,7 @@ bv_obj_reset(struct bv_scene_obj *s)
 
     // free vlist
     if (BU_LIST_IS_INITIALIZED(&s->s_vlist)) {
-	BV_FREE_VLIST(s->vlfree, &s->s_vlist);
+	BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
     }
     BU_LIST_INIT(&(s->s_vlist));
 
@@ -2324,8 +2324,8 @@ bv_vZ_calc(struct bv_scene_obj *s, struct bview *v, int mode)
 
     double calc_val = (calc_mode) ? -DBL_MAX : DBL_MAX;
     int have_val = 0;
-    struct bv_vlist *tvp;
-    for (BU_LIST_FOR(tvp, bv_vlist, &((struct bv_vlist *)(&s->s_vlist))->l)) {
+    struct bsg_vlist *tvp;
+    for (BU_LIST_FOR(tvp, bsg_vlist, &((struct bsg_vlist *)(&s->s_vlist))->l)) {
 	size_t nused = tvp->nused;
 	point_t *lpt = tvp->pt;
 	for (size_t l = 0; l < nused; l++, lpt++) {

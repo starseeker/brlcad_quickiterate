@@ -26,7 +26,7 @@
 
 #include "bu/str.h"
 #include "vmath.h"
-#include "bv/adc.h"
+#include "bsg/adc.h"
 
 void
 adc_model_to_adc_view(struct bv_adc_state *adcs, mat_t model2view, fastf_t amax)

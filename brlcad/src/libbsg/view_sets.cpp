@@ -30,9 +30,9 @@
 #include "bu/malloc.h"
 #include "bu/str.h"
 #include "bn/mat.h"
-#include "bv/defines.h"
-#include "bv/util.h"
-#include "bv/view_sets.h"
+#include "bsg/defines.h"
+#include "bsg/util.h"
+#include "bsg/view_sets.h"
 #include "./bv_private.h"
 
 void

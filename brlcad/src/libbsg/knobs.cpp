@@ -27,8 +27,8 @@
 #include <string.h>
 #include "vmath.h"
 #include "bn/mat.h"
-#include "bv/defines.h"
-#include "bv/util.h"
+#include "bsg/defines.h"
+#include "bsg/util.h"
 #include "./bv_private.h"
 
 void

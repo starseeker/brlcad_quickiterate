@@ -45,9 +45,9 @@
 #include "bu/str.h"
 #include "vmath.h"
 #include "bn/mat.h"
-#include "bv/plot3.h"
-#include "bv/vectfont.h"
-#include "bv/tig.h"
+#include "bsg/plot3.h"
+#include "bsg/vectfont.h"
+#include "bsg/tig.h"
 
 void
 tp_3symbol(FILE *fp, char *string, point_t origin, mat_t rot, double scale)

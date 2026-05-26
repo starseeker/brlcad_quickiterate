@@ -32,7 +32,7 @@
 #include "bu/vls.h"
 #include "bg/plane.h" /* bg_fit_plane */
 #include "bg/polygon.h"
-#include "bv/polygon.h"
+#include "bsg/polygon.h"
 
 /* Note - line_slope encodes the fill line slope as a vector.  Doing it as a
  * this way instead of a single number allows us to handle vertical lines (i.e.

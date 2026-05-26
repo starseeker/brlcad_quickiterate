@@ -86,10 +86,10 @@
 #include "bg/plane.h"
 #include "bg/sat.h"
 #include "bg/trimesh.h"
-#include "bv/plot3.h"
-#include "bv/lod.h"
-#include "bv/util.h"
-#include "bv/view_sets.h"
+#include "bsg/plot3.h"
+#include "bsg/lod.h"
+#include "bsg/util.h"
+#include "bsg/view_sets.h"
 
 // Number of levels of detail to define
 #define POP_MAXLEVEL 16

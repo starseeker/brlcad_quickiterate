@@ -48,8 +48,8 @@
 #include <string.h>
 
 #include "vmath.h"
-#include "bv/plot3.h"
-#include "bv/tig.h"
+#include "bsg/plot3.h"
+#include "bsg/tig.h"
 
 void
 tp_2marker(FILE *fp, register int c, double x, double y, double scale)

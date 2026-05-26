@@ -27,9 +27,9 @@
 #include "bu/log.h"
 #include "bu/str.h"
 #include "bn/mat.h"
-#include "bv/vlist.h"
-#include "bv/defines.h"
-#include "bv/util.h"
+#include "bsg/vlist.h"
+#include "bsg/defines.h"
+#include "bsg/util.h"
 
 #define BV_DIFF(_r, _var) \
     do { \

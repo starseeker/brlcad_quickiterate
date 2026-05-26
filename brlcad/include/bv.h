@@ -17,47 +17,19 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-
-// TODO - bv currently conflates scene and camera concepts - for example,
-// data axes and polygons are properly scene objects being viewed by the
-// camera, but at the moment they're directly part of the bv struct.
-//
-// The plan is to address this, so until this notice is removed the bv data
-// structure and related data structures should be considered in flux.
-
-/** @addtogroup libbv */
-/** @{ */
-/** @file bv.h
- *
- */
+/* @file bv.h
+ * @brief Compatibility bridge - use bsg.h instead */
 
 #ifndef BV_H
 #define BV_H
 
-#include "common.h"
-
-#include "vmath.h"
-#include "bu/vls.h"
-#include "bn.h"
-
-#include "./bv/defines.h"
-#include "./bv/adc.h"
-#include "./bv/lod.h"
-#include "./bv/polygon.h"
-#include "./bv/snap.h"
-#include "./bv/util.h"
-#include "./bv/vlist.h"
-#include "./bv/view_sets.h"
+#include "bsg/defines.h"
+#include "bsg/adc.h"
+#include "bsg/lod.h"
+#include "bsg/polygon.h"
+#include "bsg/snap.h"
+#include "bsg/util.h"
+#include "bsg/vlist.h"
+#include "bsg/view_sets.h"
 
 #endif /* BV_H */
-
-/** @} */
-/*
- * Local Variables:
- * mode: C
- * tab-width: 8
- * indent-tabs-mode: t
- * c-file-style: "stroustrup"
- * End:
- * ex: shiftwidth=4 tabstop=8
- */

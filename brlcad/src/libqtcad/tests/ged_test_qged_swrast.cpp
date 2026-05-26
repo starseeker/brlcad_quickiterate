@@ -61,7 +61,7 @@
 
 #include <bu.h>
 #include "bu/opt.h"
-#include <bv/lod.h>
+#include <bsg/lod.h>
 #define DM_WITH_RT
 #include <dm.h>
 #include <ged.h>

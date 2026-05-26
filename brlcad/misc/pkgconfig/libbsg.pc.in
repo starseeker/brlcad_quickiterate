@@ -5,8 +5,8 @@ includedir=@includedir@
 datarootdir=@datarootdir@
 datadir=@datadir@
 
-Name: libbv
-Description: BRL-CAD View Library
+Name: libbsg
+Description: BRL-CAD Scene Graph Library
 Version: @BRLCAD_VERSION@
 Requires: libbg libbn libbu
 Libs: -L${libdir} -lbg -lbn -lbu -llmdb @LIBM@

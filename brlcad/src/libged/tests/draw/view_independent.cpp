@@ -31,7 +31,7 @@
 
 #include <bu.h>
 #include <bv.h>
-#include <bv/lod.h>
+#include <bsg/lod.h>
 #include <ged.h>
 
 #include "../../dbi.h"

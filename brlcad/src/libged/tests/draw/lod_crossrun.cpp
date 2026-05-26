@@ -56,7 +56,7 @@
 #define DM_WITH_RT
 #include <dm.h>
 #include <ged.h>
-#include <bv/lod.h>
+#include <bsg/lod.h>
 #include <icv.h>
 
 #include "../../dbi.h"

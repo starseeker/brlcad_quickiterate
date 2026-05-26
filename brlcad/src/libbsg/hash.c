@@ -29,10 +29,10 @@
 #include "bu/hash.h"
 #include "bu/log.h"
 #include "bn/mat.h"
-#include "bv/vlist.h"
-#include "bv/defines.h"
-#include "bv/util.h"
-#include "bv/view_sets.h"
+#include "bsg/vlist.h"
+#include "bsg/defines.h"
+#include "bsg/util.h"
+#include "bsg/view_sets.h"
 
 static void
 _bv_adc_state_hash(struct bu_data_hash_state *state, struct bv_adc_state *v)
@@ -121,9 +121,9 @@ bv_scene_obj_hash(struct bu_data_hash_state *state, struct bv_scene_obj *s)
 	return;
 
     bu_data_hash_update(state, s, sizeof(struct bv_scene_obj));
-    struct bv_vlist *tvp;
-    for (BU_LIST_FOR(tvp, bv_vlist, &((struct bv_vlist *)&s->s_vlist)->l)) {
-	bu_data_hash_update(state, tvp, sizeof(struct bv_vlist));
+    struct bsg_vlist *tvp;
+    for (BU_LIST_FOR(tvp, bsg_vlist, &((struct bsg_vlist *)&s->s_vlist)->l)) {
+	bu_data_hash_update(state, tvp, sizeof(struct bsg_vlist));
     }
     if (s->s_os)
 	_bv_obj_settings_hash(state, s->s_os);

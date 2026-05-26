@@ -31,15 +31,15 @@
 #include "bu/str.h"
 #include "bn/mat.h"
 #include "bn/tol.h"
-#include "bv/vlist.h"
-#include "bv/defines.h"
-#include "bv/util.h"
+#include "bsg/vlist.h"
+#include "bsg/defines.h"
+#include "bsg/util.h"
 #include "bg/lseg.h"
 #include "bg/plane.h"
 #include "bg/polygon.h"
-#include "bv/defines.h"
-#include "bv/polygon.h"
-#include "bv/snap.h"
+#include "bsg/defines.h"
+#include "bsg/polygon.h"
+#include "bsg/snap.h"
 
 void
 bv_polygon_contour(struct bv_scene_obj *s, struct bg_poly_contour *c, int curr_c, int curr_i, int do_pnt)
@@ -48,23 +48,23 @@ bv_polygon_contour(struct bv_scene_obj *s, struct bg_poly_contour *c, int curr_c
 	return;
 
     if (do_pnt) {
-	BV_ADD_VLIST(s->vlfree, &s->s_vlist, c->point[0], BV_VLIST_POINT_DRAW);
+	BSG_ADD_VLIST(s->vlfree, &s->s_vlist, c->point[0], BSG_VLIST_POINT_DRAW);
 	return;
     }
 
-    BV_ADD_VLIST(s->vlfree, &s->s_vlist, c->point[0], BV_VLIST_LINE_MOVE);
+    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, c->point[0], BSG_VLIST_LINE_MOVE);
     for (size_t i = 0; i < c->num_points; i++) {
-	BV_ADD_VLIST(s->vlfree, &s->s_vlist, c->point[i], BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(s->vlfree, &s->s_vlist, c->point[i], BSG_VLIST_LINE_DRAW);
     }
     if (!c->open)
-	BV_ADD_VLIST(s->vlfree, &s->s_vlist, c->point[0], BV_VLIST_LINE_DRAW);
+	BSG_ADD_VLIST(s->vlfree, &s->s_vlist, c->point[0], BSG_VLIST_LINE_DRAW);
 
     if (curr_c && curr_i >= 0) {
 	point_t psize;
 	VSET(psize, 10, 0, 0);
-	BV_ADD_VLIST(s->vlfree, &s->s_vlist, c->point[curr_i], BV_VLIST_LINE_MOVE);
-	BV_ADD_VLIST(s->vlfree, &s->s_vlist, psize, BV_VLIST_POINT_SIZE);
-	BV_ADD_VLIST(s->vlfree, &s->s_vlist, c->point[curr_i], BV_VLIST_POINT_DRAW);
+	BSG_ADD_VLIST(s->vlfree, &s->s_vlist, c->point[curr_i], BSG_VLIST_LINE_MOVE);
+	BSG_ADD_VLIST(s->vlfree, &s->s_vlist, psize, BSG_VLIST_POINT_SIZE);
+	BSG_ADD_VLIST(s->vlfree, &s->s_vlist, c->point[curr_i], BSG_VLIST_POINT_DRAW);
     }
 }
 
@@ -113,7 +113,7 @@ bv_polygon_vlist(struct bv_scene_obj *s)
 
     // Reset obj drawing data
     if (BU_LIST_IS_INITIALIZED(&s->s_vlist)) {
-	BV_FREE_VLIST(s->vlfree, &s->s_vlist);
+	BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
     }
     BU_LIST_INIT(&(s->s_vlist));
 

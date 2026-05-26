@@ -35,10 +35,10 @@
 #include "bu/vls.h"
 #include "bn/tol.h"
 #include "bg/lseg.h"
-#include "bv/defines.h"
-#include "bv/snap.h"
-#include "bv/util.h"
-#include "bv/vlist.h"
+#include "bsg/defines.h"
+#include "bsg/snap.h"
+#include "bsg/util.h"
+#include "bsg/vlist.h"
 
 struct bv_cp_info {
     double ctol_sq; // square of the distance that defines "close to a line"
@@ -65,8 +65,8 @@ _find_closest_obj_point(struct bv_cp_info *s, point_t *p, struct bv_scene_obj *o
     if (!bu_list_len(&o->s_vlist))
 	return 0;
 
-    struct bv_vlist *tvp;
-    for (BU_LIST_FOR(tvp, bv_vlist, &o->s_vlist)) {
+    struct bsg_vlist *tvp;
+    for (BU_LIST_FOR(tvp, bsg_vlist, &o->s_vlist)) {
 	int nused = tvp->nused;
 	int *cmd = tvp->cmd;
 	point_t *pt = tvp->pt;
@@ -74,10 +74,10 @@ _find_closest_obj_point(struct bv_cp_info *s, point_t *p, struct bv_scene_obj *o
 	point_t *pt2 = NULL;
 	for (int i = 0; i < nused; i++, cmd++, pt++) {
 	    switch (*cmd) {
-		case BV_VLIST_LINE_MOVE:
+		case BSG_VLIST_LINE_MOVE:
 		    pt2 = pt;
 		    break;
-		case BV_VLIST_LINE_DRAW:
+		case BSG_VLIST_LINE_DRAW:
 		    pt1 = pt2;
 		    pt2 = pt;
 		    break;

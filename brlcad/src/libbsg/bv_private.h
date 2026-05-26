@@ -29,7 +29,7 @@
 #include "common.h"
 #include "bu/list.h"
 #include "bu/ptbl.h"
-#include "bv/defines.h"
+#include "bsg/defines.h"
 
 struct bview_set_internal {
     struct bu_ptbl views;

@@ -16,7 +16,7 @@
 #include <bu.h>
 #include <ged.h>
 #include <bv.h>
-#include <bv/lod.h>
+#include <bsg/lod.h>
 
 #include "../../dbi.h"
 
