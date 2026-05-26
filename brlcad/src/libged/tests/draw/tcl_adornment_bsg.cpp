@@ -42,6 +42,7 @@
 
 #include "common.h"
 
+#include <cerrno>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -92,7 +93,7 @@ main(int ac, char *av[])
     char tmpname[MAXPATHLEN];
     FILE *fp = bu_temp_file(tmpname, MAXPATHLEN);
     if (!fp) {
-	bu_log("failed to create temp db path\n");
+	bu_log("failed to create temp db path: %s\n", std::strerror(errno));
 	bu_vls_free(&moss);
 	bu_vls_free(&fname);
 	return 1;
