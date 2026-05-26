@@ -1,0 +1,340 @@
+Radical Redesign of librt I/O Containers
+=========================================
+
+Context
+-------
+
+This document is a companion to ``librt_fastio.txt``, which describes a
+conservative parallel/shadow API for vetting a new high-performance I/O path
+against the existing behavior without breaking compatibility.
+
+This document explores an alternative question: if backward compatibility with
+``rt_db_internal`` and the existing functab signatures is not a constraint,
+what is the simplest design that achieves full librt I/O functionality at high
+performance?
+
+The analysis is grounded in what the existing code actually does today, derived
+from reading ``src/librt/db5_io.c``, ``include/rt/db_internal.h``, and
+``include/rt/functab.h``.
+
+
+What the Current Import Pipeline Actually Costs
+------------------------------------------------
+
+Reading a single v5 object from disk today involves four distinct stages:
+
+Stage 1 - Disk I/O (``db_get_external``):
+    Read raw bytes into a heap-allocated ``bu_external`` buffer.
+
+Stage 2 - Header parse (``db5_get_raw_internal_ptr``):
+    Parse the variable-width header and populate a ``db5_raw_internal`` struct
+    with pointers into the original buffer.  This is effectively free: it is
+    pointer arithmetic over the existing allocation, not a copy.
+
+Stage 3 - Attribute deserialization (``db5_import_attributes``):
+    Walk the attribute section bytes and populate a ``bu_avs`` key/value set in
+    ``ip->idb_avs``.  This allocates one string pair per attribute and copies
+    all attribute bytes.  It happens on every import, whether or not the caller
+    needs the attributes.
+
+Stage 4 - Body deserialization (``ft_import5``):
+    Call the type-specific import function which allocates a primitive-specific
+    C struct (e.g., ``rt_sph_internal``, ``rt_arb_internal``) and populates it
+    from the body bytes.  This is stored in ``ip->idb_ptr`` as a ``void *``.
+
+The corresponding export pipeline is symmetric:
+    ``ft_export5`` serializes ``idb_ptr`` to body bytes, ``db5_export_attributes``
+    serializes ``idb_avs`` to attribute bytes, then ``db5_export_object3``
+    combines header, name, attributes, and body into one ``bu_external`` buffer.
+
+There are two non-obvious costs embedded in this design:
+
+1. **Double allocation on every import**: one allocation for the ``bu_external``
+   read buffer, then a second allocation inside ``ft_import5`` for ``idb_ptr``.
+   The first allocation is freed before the caller gets back, but it peaks at
+   both allocations live simultaneously.
+
+2. **Attributes are always deserialized**, even for operations that need only
+   the object type, major/minor type, or raw bytes.  The only escape is
+   ``db5_get_attributes`` which bypasses ``rt_db_internal`` entirely.
+
+For operations that do not need deserialized data at all - ``cp``, ``keep``,
+``ls`` with type inspection, tree walking, format conversion - the current API
+offers no shortcut.
+
+
+The Core Insight: Two Levels of Laziness
+-----------------------------------------
+
+Both the attribute parse (Stage 3) and the body parse (Stage 4) are eager today.
+They do not need to be.
+
+The ``db5_raw_internal`` struct produced in Stage 2 already holds borrowed
+pointers into the on-disk bytes.  The name, attribute section, and body section
+are all accessible as ``bu_external`` spans without any further allocation.
+
+The only reason Stage 3 and Stage 4 happen immediately is that
+``rt_db_internal`` has no way to represent a "not yet deserialized" state.  If
+it did, the common path of ``rt_db_get_internal5`` could stop after Stage 2,
+return a valid ``rt_db_internal``-like object to the caller, and defer Stage 3
+and Stage 4 until the first moment a caller actually accesses ``idb_avs`` or
+``idb_ptr``.
+
+This is the crux of the simplification available from radical redesign:
+**make stages 3 and 4 lazy rather than eager**.
+
+
+What librt Actually Needs From an Internal Representation
+---------------------------------------------------------
+
+Before designing a replacement, it helps to enumerate what operations actually
+require access to the deserialized form versus the raw bytes:
+
+Needs deserialized body (``idb_ptr``) only:
+    - Ray-trace prep (``ft_prep``)
+    - Bounding box computation (``ft_bbox``)
+    - Volume, surface area, centroid
+    - Tessellation and plotting
+    - Edit operations (param get/adjust)
+
+Needs deserialized attributes (``idb_avs``) only:
+    - Color, material, region flags
+    - Any attribute key/value query
+
+Needs only type information (major/minor type):
+    - ``ls`` with type filter
+    - Type-based routing in import dispatchers
+
+Needs only raw bytes:
+    - ``cp``, ``keep``, ``db_dump``
+    - Format conversion without modify
+    - Byte-level comparison (``db_diff``)
+
+Needs nothing from the internal form:
+    - Free space accounting
+    - Header validation
+    - Directory traversal
+
+Today, everything in the first three categories is forced through Stage 4 even
+when only Stage 2 results are needed.  The radical redesign eliminates that waste
+by making the stage visible and controllable.
+
+
+A Simpler Three-State Object Handle
+------------------------------------
+
+The key abstraction is a single object handle that can be in one of three
+explicit states:
+
+State 0 - RAW:
+    The handle holds borrowed or owned bytes covering exactly one v5 object.
+    The name, attribute section span, and body section span are identified but
+    not yet parsed.  Major/minor type are available because they come from the
+    header (Stage 2).
+
+State 1 - ATTRS:
+    Attribute bytes have been deserialized into a ``bu_avs``.  Body bytes remain
+    unparsed.  This state allows attribute queries and attribute mutation without
+    touching the primitive body.
+
+State 2 - FULL:
+    Both attributes and body have been deserialized.  This is the current
+    ``rt_db_internal`` state.  All existing functab operations are available.
+
+The three states form a simple progression, and each transition is explicit and
+cheap:
+
+    RAW → ATTRS:   run ``db5_import_attributes`` on the attribute span.
+    ATTRS → FULL:  run ``ft_import5`` on the body span.
+
+Moving backward (FULL → ATTRS → RAW) is the serialization direction:
+    FULL → ATTRS:  run ``ft_export5`` and regenerate body bytes.
+    ATTRS → RAW:   run ``db5_export_attributes`` and regenerate attribute bytes.
+
+
+Proposed New Type: ``struct rt_obj``
+--------------------------------------
+
+A straightforward implementation of the three-state handle:
+
+    struct rt_obj {
+        uint32_t              magic;        /* RT_OBJ_MAGIC */
+        unsigned int          state;        /* RT_OBJ_STATE_RAW/ATTRS/FULL */
+        unsigned int          flags;        /* ownership, dirty, etc. */
+        int                   major_type;
+        int                   minor_type;
+
+        /* Raw bytes (always valid in any state).
+         * When owned, buf.ext_buf is heap-allocated.
+         * When borrowed, buf.ext_buf points into a larger buffer and
+         * must not be freed.
+         */
+        struct bu_external    buf;
+
+        /* Pointers into buf (populated from Stage 2 header parse).
+         * These are slices into buf, not independent allocations.
+         */
+        struct bu_external    name_span;
+        struct bu_external    attrs_span;
+        struct bu_external    body_span;
+
+        /* Deserialized attributes.  Valid when state >= ATTRS.
+         * NULL / empty when state == RAW.
+         */
+        struct bu_avs         avs;
+
+        /* Deserialized primitive data.  Valid when state == FULL.
+         * NULL when state < FULL.
+         */
+        const struct rt_functab *meth;
+        void                  *data;
+    };
+
+This is structurally close to what ``rt_db_internal`` does today, with three
+differences:
+
+1. ``buf``, ``name_span``, ``attrs_span``, and ``body_span`` are explicit, so
+   callers that need only raw bytes or the attribute section can get there
+   without paying for full import.
+
+2. ``state`` is an explicit field rather than an implicit invariant (today the
+   invariant is "if you have an rt_db_internal, it is fully imported").
+
+3. ``flags`` can mark the buffer as borrowed, so zero-copy reads are possible
+   where the caller guarantees the underlying buffer outlives the handle.
+
+
+Possible Further Simplification: Inline Body Storage
+-----------------------------------------------------
+
+A second opportunity for simplification comes from eliminating the secondary
+heap allocation for ``data`` (today's ``idb_ptr``) for small fixed-size
+primitives.
+
+Most of BRL-CAD's CSG primitives - sphere, cylinder, ellipsoid, half-space,
+torus, ARB8, RPC, RHC, EPA, EHY, and similar - have fixed-size C structs
+whose sizes are known at compile time and are well under 256 bytes.
+
+The double allocation today (one for the import buffer, one for ``idb_ptr``)
+adds cache pressure for every ray-trace prep step.  If small primitives are
+stored inline:
+
+    union rt_obj_data {
+        uint8_t inline_buf[RT_OBJ_INLINE_SIZE];  /* for small fixed primitives */
+        void   *ptr;                              /* for large/variable primitives */
+    };
+
+Then the ``struct rt_obj`` itself (including the body) can be a single allocation.
+The tradeoff is that ``RT_OBJ_INLINE_SIZE`` needs to accommodate the largest
+"small" primitive struct.  A value of 256 bytes covers the current set; anything
+larger (BRep, NMG, PIPE, ARS) still uses the pointer path.
+
+This is an optional extension and can be deferred.  The three-state handle above
+is valuable independent of whether inline storage is added.
+
+
+How This Compares to the Conservative Parallel Approach
+---------------------------------------------------------
+
+``librt_fastio.txt`` describes a shadow/compare framework that:
+
+    - keeps ``rt_db_internal`` unchanged;
+    - adds a new ``g_io`` API beside the existing one;
+    - runs both paths and compares serialized bytes; and
+    - promotes the new path incrementally once validation is complete.
+
+That design requires no changes to any primitive's ``ft_import5``/``ft_export5``
+code, no changes to callers, and no ABI break.
+
+This document's radical redesign:
+
+    - changes the core object handle type (ABI break for every caller);
+    - changes the import/export interface in ``rt_functab``; and
+    - requires rewriting all ~60 ``ft_import5``/``ft_export5`` primitive pairs.
+
+The simplicity gain from the radical approach is real:
+
+    - the object handle explicitly represents what data is available;
+    - unnecessary deserialization is avoided by construction, not by convention;
+    - the raw passthrough case (copy, keep, dump) becomes a first-class path
+      with no special-casing in calling code; and
+    - the attribute-only case (region flag inspection, color lookup) avoids
+      touching the body entirely.
+
+The cost is migration scope.  There are roughly 937 references to
+``rt_uniresource`` alone in the current tree (see also
+``struct_resource_removal.txt``).  Adding the ``rt_db_internal`` replacement
+would similarly need coordination across ``libanalyze``, ``liboptical``,
+``libged``, ``libqtcad``, ``libgcv``, ``libtclcad``, ``mged``, and all external
+converters and raytracers.
+
+
+Recommended Migration Path If Radical Redesign Is Pursued
+----------------------------------------------------------
+
+The two approaches are not mutually exclusive.  The conservative shadow API from
+``librt_fastio.txt`` can serve as the transition mechanism for the radical
+redesign:
+
+1. Implement the shadow framework (conservative Phase 1).
+
+2. Introduce ``struct rt_obj`` as a new type alongside ``rt_db_internal``.
+
+3. Implement ``rt_obj_from_external`` (RAW state) and ``rt_obj_import_attrs``
+   (RAW → ATTRS) and ``rt_obj_import_body`` (ATTRS → FULL) as new primitives.
+   These form the high-performance path.
+
+4. Add a ``rt_obj_to_rt_db_internal`` conversion that promotes a FULL-state
+   ``rt_obj`` to an ``rt_db_internal`` for callers that still use the legacy
+   API.  This allows the new import path to feed legacy consumers.
+
+5. Use the shadow framework to run new and legacy import/export in parallel
+   and compare serialized bytes, verifying that ``rt_obj`` produces identical
+   results to ``rt_db_internal``.
+
+6. Migrate callers one library at a time, starting with callers that only
+   need RAW or ATTRS state (``cp``, ``keep``, ``ls``, attribute commands).
+   These migrations have no correctness risk because they never touch ``data``.
+
+7. Migrate ray-trace prep and body-dependent callers last, where the performance
+   benefit is also highest and the risk is highest.
+
+8. Once no callers remain on ``rt_db_internal``, delete it.
+
+This phased migration keeps the codebase working at all times and allows the
+new type to be validated under real workloads before callers are committed.
+
+
+Summary of Simplification Gains
+---------------------------------
+
+The radical redesign produces the following measurable simplifications:
+
+1. **Attribute-only operations are free of body allocation**.  Today every
+   attribute lookup imports the full primitive body.  After the redesign,
+   attribute access stays in the ATTRS state.
+
+2. **Passthrough operations eliminate all deserialization**.  Copy, rename, and
+   dump operations stay in the RAW state and never call any ``ft_import5`` or
+   ``ft_export5`` function.
+
+3. **One allocation per object in the common case**.  The RAW state requires
+   only the one buffer needed for the on-disk bytes.  Even the FULL state can
+   eliminate the second allocation for small fixed-size primitives if inline
+   storage is added.
+
+4. **The import/export API is cleaner**.  Rather than ``ft_import5`` taking
+   both a ``bu_external`` body slice, a transform matrix, and a ``db_i``
+   pointer, the new import can take only the body slice and the transform.
+   The ``db_i`` dependency in the current API exists for recursive operations
+   (submodel, DSP, etc.) that need to re-open a database; those can pass the
+   ``db_i`` through a separate context parameter rather than forcing it on
+   every import.
+
+5. **The state machine is self-documenting**.  Callers that receive a
+   ``struct rt_obj *`` with ``state == RT_OBJ_STATE_RAW`` know immediately
+   that the body has not been parsed.  There is no invisible invariant to
+   maintain.
+
+The cost is a large but tractable migration, best executed in stages using the
+shadow framework as the safety net.
