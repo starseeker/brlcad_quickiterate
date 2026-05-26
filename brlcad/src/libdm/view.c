@@ -316,7 +316,6 @@ dm_draw_label(struct dm *dmp, struct bsg_node *s)
 	vect2d_t bmid;
 	bmid[0] = (bmax[0] - bmin[0]) * 0.5 + bmin[0];
 	bmid[1] = (bmax[1] - bmin[1]) * 0.5 + bmin[1];
-	bu_log("bmid: %f,%f\n", bmid[0], bmid[1]);
 
 	vect2d_t anchor = V2INIT_ZERO;
 	if (l->anchor == BV_ANCHOR_AUTO) {
