@@ -1,0 +1,53 @@
+include/bsg	node structure	5
+include/bsg	payload/vlist	3
+include/dm	appearance/style	1
+include/ged	node structure	1
+include/rt	bounds	1
+src/libbsg	node structure	404
+src/libbsg	bounds	173
+src/libbsg	payload/vlist	119
+src/libbsg	appearance/style	69
+src/libbsg	material/color	40
+src/libbsg	backend cache	8
+src/libbsg	identity/path	8
+src/libbsg	transform	8
+src/libbsg	selection/illumination	4
+src/libdm	identity/path	135
+src/libdm	appearance/style	54
+src/libdm	node structure	51
+src/libdm	payload/vlist	15
+src/libdm	backend cache	10
+src/libdm	selection/illumination	7
+src/libdm	material/color	6
+src/libdm	bounds	5
+src/libdm	transform	5
+src/libged	node structure	318
+src/libged	identity/path	247
+src/libged	appearance/style	151
+src/libged	payload/vlist	133
+src/libged	bounds	81
+src/libged	material/color	74
+src/libged	selection/illumination	34
+src/libged	transform	10
+src/libged	backend cache	7
+src/libqtcad	node structure	68
+src/libqtcad	payload/vlist	29
+src/libqtcad	identity/path	3
+src/libqtcad	bounds	2
+src/libqtcad	material/color	2
+src/libtclcad	appearance/style	45
+src/libtclcad	node structure	37
+src/libtclcad	payload/vlist	28
+src/libtclcad	material/color	15
+src/libtclcad	identity/path	3
+src/libtclcad	selection/illumination	1
+src/mged	identity/path	142
+src/mged	node structure	116
+src/mged	appearance/style	22
+src/mged	bounds	18
+src/mged	payload/vlist	14
+src/mged	selection/illumination	12
+src/qged	node structure	28
+src/qged	payload/vlist	26
+src/qged	material/color	6
+src/qged	appearance/style	4

@@ -1,0 +1,72 @@
+[include/bsg]
+3	include/bsg/lod.h
+3	include/bsg/view_scope.h
+1	include/bsg/draw_ctx.h
+1	include/bsg/visit.h
+[include/dm]
+1	include/dm/view.h
+[include/ged]
+1	include/ged/bsg_ged_draw.h
+[include/rt]
+1	include/rt/geom.h
+[src/libbsg]
+366	src/libbsg/bv_util.cpp
+88	src/libbsg/polygon.c
+86	src/libbsg/draw_set.c
+65	src/libbsg/bv_lod.cpp
+23	src/libbsg/overlay.c
+22	src/libbsg/tests/test_lod_node.c
+21	src/libbsg/lod_node.c
+20	src/libbsg/bv_vlist.c
+[src/libdm]
+79	src/libdm/view.c
+79	src/libdm/X/dm-X.c
+53	src/libdm/dm-gl_lod.cpp
+52	src/libdm/glx/dm-ogl.c
+7	src/libdm/tests/tcl_img.cpp
+6	src/libdm/wgl/dm-wgl.c
+4	src/libdm/labels.c
+2	src/libdm/axes.c
+[src/libged]
+144	src/libged/bsg_ged_draw.c
+114	src/libged/draw.cpp
+100	src/libged/dbi_state.cpp
+77	src/libged/draw/draw.c
+74	src/libged/tests/draw/bsg_view_obj.cpp
+63	src/libged/view/polygons.c
+56	src/libged/view/objs.cpp
+37	src/libged/ged_util.cpp
+[src/libqtcad]
+40	src/libqtcad/QgMeasureFilter.cpp
+27	src/libqtcad/QgPolyFilter.cpp
+24	src/libqtcad/QgModel.cpp
+6	src/libqtcad/QgKeyVal.cpp
+3	src/libqtcad/QgSelectFilter.cpp
+1	src/libqtcad/QgFlowLayout.cpp
+1	src/libqtcad/QgGeomImport.cpp
+1	src/libqtcad/QgTreeView.cpp
+[src/libtclcad]
+40	src/libtclcad/bsg_move_helpers.h
+25	src/libtclcad/view/draw.c
+19	src/libtclcad/view/arrows.c
+18	src/libtclcad/commands.c
+9	src/libtclcad/view/labels.c
+7	src/libtclcad/polygons.c
+6	src/libtclcad/view/axes.c
+5	src/libtclcad/mouse.c
+[src/mged]
+90	src/mged/edsol.c
+45	src/mged/dodraw.c
+34	src/mged/predictor.c
+29	src/mged/usepen.c
+24	src/mged/chgview.c
+21	src/mged/titles.c
+20	src/mged/mged.c
+14	src/mged/rtif.c
+[src/qged]
+33	src/qged/plugins/polygon/QPolyMod.cpp
+13	src/qged/plugins/edit/ell/QEll.cpp
+10	src/qged/plugins/polygon/QPolyCreate.cpp
+4	src/qged/plugins/polygon/QPolySettings.cpp
+3	src/qged/plugins/view/select/CADViewSelector.cpp
+1	src/qged/QgEdMainWindow.cpp
