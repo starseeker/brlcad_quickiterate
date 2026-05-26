@@ -40,14 +40,14 @@
 #include "bu/color.h"
 #include "bu/opt.h"
 #include "bu/vls.h"
-#include "bv.h"
+#include "bsg.h"
 #include "bsg/defines.h"
 
 #include "../ged_private.h"
 #include "./ged_view.h"
 
 static void
-gobjs_scene_free(struct bv_scene_obj *s)
+gobjs_scene_free(struct bsg_node *s)
 {
     if (!s)
 	return;
@@ -65,7 +65,7 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
     struct ged *gedp = gd->gedp;
     struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
     struct db_i *dbip = gedp->dbip;
-    struct bview *v = gd->cv;
+    struct bsg_view *v = gd->cv;
     const char *usage_string = "view gobjs name create";
     const char *purpose_string = "create an editing view obj from a database solid/comb";
     if (_view_cmd_msgs(bs, argc, argv, usage_string, purpose_string))
@@ -82,7 +82,7 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
     }
     gd->vobj = argv[0];
 
-    struct bv_scene_obj *s = bv_find_obj(gedp->ged_gvp, argv[1]);
+    struct bsg_node *s = bsg_find_obj(gedp->ged_gvp, argv[1]);
     if (s) {
 	bu_vls_printf(gedp->ged_result_str, "View object %s already exists\n", argv[1]);
 	return BRLCAD_ERROR;
@@ -123,7 +123,7 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
     }
 
     /* Set up the toplevel object */
-    struct bv_scene_group *g = (struct bv_scene_group *)bv_view_obj_overlay_create(v, argv[1], 0);
+    struct bsg_scene_group *g = (struct bsg_scene_group *)bsg_view_obj_overlay_create(v, argv[1], 0);
     if (!g)
 	return BRLCAD_ERROR;
     BU_GET(g->s_path, struct db_full_path);
@@ -134,8 +134,8 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
 
     // Set up drawing settings
     unsigned char wcolor[3] = {255,255,255};
-    struct bv_obj_settings vs = BV_OBJ_SETTINGS_INIT;
-    bv_obj_settings_sync(g->s_os, &vs);
+    struct bsg_obj_settings vs = BV_OBJ_SETTINGS_INIT;
+    bsg_obj_settings_sync(g->s_os, &vs);
 
     // We have a tree walk ahead to populate the wireframe - set up the client
     // data structure.
@@ -179,12 +179,12 @@ _gobjs_cmd_delete(void *bs, int argc, const char **argv)
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
 
-    struct bv_scene_obj *s = gd->s;
+    struct bsg_node *s = gd->s;
     if (!s) {
 	bu_vls_printf(gedp->ged_result_str, "No view object named %s\n", gd->vobj);
 	return BRLCAD_ERROR;
     }
-    bv_obj_put(s);
+    bsg_obj_put(s);
 
     return BRLCAD_OK;
 }

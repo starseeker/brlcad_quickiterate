@@ -24,11 +24,11 @@
  * `bsg_view_obj_*` query/mutation entry points.
  *
  * The drawn set is a BSG_NODE_GROUP tree rooted at gd_draw_root:
- *   - one subgroup per drawn path (BSG_NODE_GROUP), typed as struct bv_scene_obj *
+ *   - one subgroup per drawn path (BSG_NODE_GROUP), typed as struct bsg_node *
  *   - each subgroup holds BSG_NODE_SHAPE leaves in a bu_ptbl children list
  *
  * Group iteration: bsg_view_obj_foreach_group(gedp, cb, userdata)
- *   where cb receives a struct bv_scene_obj * group directly.
+ *   where cb receives a struct bsg_node * group directly.
  * Shape iteration per group: BU_PTBL_LEN / BU_PTBL_GET on &group->children
  *
  * Phase 10 (drawing-stack modernization): the path-string variants of
@@ -73,7 +73,7 @@ __BEGIN_DECLS
  * if no active view is configured.  Called automatically during ged_open so
  * that GED_CHECK_DRAWABLE always succeeds after initialization.
  */
-GED_EXPORT extern struct bv_scene_obj *
+GED_EXPORT extern struct bsg_node *
 bsg_view_obj_ensure_root(struct ged *gedp);
 
 /**
@@ -90,7 +90,7 @@ bsg_view_obj_ensure_root(struct ged *gedp);
  *   bsg_visit(bsg_view_obj_root(gedp), BSG_NODE_SHAPE, my_cb, userdata);
  * @endcode
  */
-GED_EXPORT extern struct bv_scene_obj *
+GED_EXPORT extern struct bsg_node *
 bsg_view_obj_root(struct ged *gedp);
 
 /**
@@ -104,7 +104,7 @@ bsg_view_obj_root(struct ged *gedp);
  * Replaces dl_addToDisplay() and the Phase 10 path-string variant
  * bsg_view_obj_lookup_or_add_path() which was removed in Phase 13.
  */
-GED_EXPORT extern struct bv_scene_obj *
+GED_EXPORT extern struct bsg_node *
 bsg_view_obj_lookup_or_add_dbpath(struct ged *gedp,
 				  const struct db_full_path *dfp);
 
@@ -175,13 +175,13 @@ bsg_view_obj_set_iflag(struct ged *gedp, int iflag);
  * instead of sweeping the whole draw tree.
  */
 GED_EXPORT extern void
-bsg_view_obj_set_illum(struct ged *gedp, struct bv_scene_obj *sp);
+bsg_view_obj_set_illum(struct ged *gedp, struct bsg_node *sp);
 
 /**
  * Return the currently-tracked illuminated solid, or NULL when none is
  * registered or tracking has been invalidated.
  */
-GED_EXPORT extern struct bv_scene_obj *
+GED_EXPORT extern struct bsg_node *
 bsg_view_obj_get_illum(const struct ged *gedp);
 
 /**
@@ -196,7 +196,7 @@ bsg_view_obj_get_illum(const struct ged *gedp);
  * want to highlight the drawn representation without constructing a full
  * db_full_path.
  */
-GED_EXPORT extern struct bv_scene_obj *
+GED_EXPORT extern struct bsg_node *
 bsg_view_obj_illum_by_name(struct ged *gedp, const char *name);
 
 /**
@@ -296,7 +296,7 @@ bsg_view_obj_draw_rev(struct ged *gedp);
  */
 GED_EXPORT extern void
 bsg_view_obj_foreach_solid(struct ged *gedp,
-			   int (*cb)(struct bv_scene_obj *sp, void *userdata),
+			   int (*cb)(struct bsg_node *sp, void *userdata),
 			   void *userdata);
 
 /**
@@ -312,10 +312,10 @@ bsg_view_obj_is_nonempty(struct ged *gedp);
  * Returns the first drawn scene object in display order, or NULL if
  * none are drawn.
  *
- * Replaces: find first non-empty gdlp, then BU_LIST_NEXT(bv_scene_obj,
+ * Replaces: find first non-empty gdlp, then BU_LIST_NEXT(bsg_node,
  * &gdlp->dl_head_scene_obj).
  */
-GED_EXPORT extern struct bv_scene_obj *
+GED_EXPORT extern struct bsg_node *
 bsg_view_obj_first_solid(struct ged *gedp);
 
 /**
@@ -332,7 +332,7 @@ bsg_view_obj_solid_count(struct ged *gedp);
  * solid count, so negative indices and out-of-range indices are both
  * handled safely.  Returns NULL when no non-overlay solids are drawn.
  */
-GED_EXPORT extern struct bv_scene_obj *
+GED_EXPORT extern struct bsg_node *
 bsg_view_obj_solid_at(struct ged *gedp, int idx);
 
 /**
@@ -344,7 +344,7 @@ bsg_view_obj_solid_at(struct ged *gedp, int idx);
  * holding any internal iterator state.
  */
 GED_EXPORT extern int
-bsg_view_obj_solid_index(struct ged *gedp, struct bv_scene_obj *target);
+bsg_view_obj_solid_index(struct ged *gedp, struct bsg_node *target);
 
 /**
  * Advance @p sp by @p delta positions in DFS snapshot order (positive =
@@ -355,8 +355,8 @@ bsg_view_obj_solid_index(struct ged *gedp, struct bv_scene_obj *target);
  * calls inside MGED's f_aip(); direct callers of those functions can
  * migrate to this single API to avoid repeated snapshot construction.
  */
-GED_EXPORT extern struct bv_scene_obj *
-bsg_view_obj_advance_solid(struct ged *gedp, struct bv_scene_obj *sp, int delta);
+GED_EXPORT extern struct bsg_node *
+bsg_view_obj_advance_solid(struct ged *gedp, struct bsg_node *sp, int delta);
 
 /**
  * Returns the next drawn solid after @p sp in display order, wrapping
@@ -366,8 +366,8 @@ bsg_view_obj_advance_solid(struct ged *gedp, struct bv_scene_obj *sp, int delta)
  *
  * Delegates to bsg_view_obj_advance_solid(gedp, sp, +1).
  */
-GED_EXPORT extern struct bv_scene_obj *
-bsg_view_obj_next_solid(struct ged *gedp, struct bv_scene_obj *sp);
+GED_EXPORT extern struct bsg_node *
+bsg_view_obj_next_solid(struct ged *gedp, struct bsg_node *sp);
 
 /**
  * Returns the previous drawn solid before @p sp in display order,
@@ -377,23 +377,23 @@ bsg_view_obj_next_solid(struct ged *gedp, struct bv_scene_obj *sp);
  *
  * Delegates to bsg_view_obj_advance_solid(gedp, sp, -1).
  */
-GED_EXPORT extern struct bv_scene_obj *
-bsg_view_obj_prev_solid(struct ged *gedp, struct bv_scene_obj *sp);
+GED_EXPORT extern struct bsg_node *
+bsg_view_obj_prev_solid(struct ged *gedp, struct bsg_node *sp);
 
 /**
- * Returns the scene group (struct bv_scene_obj *) that contains @p sp,
+ * Returns the scene group (struct bsg_node *) that contains @p sp,
  * or NULL if @p sp is not a member of any current group.
  *
  * Used to update MGED's illum_gdlp after finding the illuminated solid
  * via bsg_view_obj_foreach_solid() or bsg_view_obj_first_solid().
  */
-GED_EXPORT extern struct bv_scene_obj *
-bsg_view_obj_group_of_solid(struct ged *gedp, struct bv_scene_obj *sp);
+GED_EXPORT extern struct bsg_node *
+bsg_view_obj_group_of_solid(struct ged *gedp, struct bsg_node *sp);
 
 /**
  * Iterate over scene groups, calling @p cb(group, userdata) for each
  * group.  @p cb returns 0 to stop iteration early.  The @p group
- * argument to @p cb is a struct bv_scene_obj * usable with
+ * argument to @p cb is a struct bsg_node * usable with
  * bsg_view_obj_group_first_solid(), bsg_view_obj_group_last_solid(),
  * bsg_view_obj_group_is_nonempty(), and bsg_view_obj_append_solid_to_group().
  *
@@ -402,26 +402,26 @@ bsg_view_obj_group_of_solid(struct ged *gedp, struct bv_scene_obj *sp);
  */
 GED_EXPORT extern void
 bsg_view_obj_foreach_group(struct ged *gedp,
-			   int (*cb)(struct bv_scene_obj *group, void *userdata),
+			   int (*cb)(struct bsg_node *group, void *userdata),
 			   void *userdata);
 
 /**
  * Returns the first drawn scene object in a group, or NULL if the group is empty.
  */
-GED_EXPORT extern struct bv_scene_obj *
-bsg_view_obj_group_first_solid(struct bv_scene_obj *group);
+GED_EXPORT extern struct bsg_node *
+bsg_view_obj_group_first_solid(struct bsg_node *group);
 
 /**
  * Returns the last drawn scene object in a group, or NULL if the group is empty.
  */
-GED_EXPORT extern struct bv_scene_obj *
-bsg_view_obj_group_last_solid(struct bv_scene_obj *group);
+GED_EXPORT extern struct bsg_node *
+bsg_view_obj_group_last_solid(struct bsg_node *group);
 
 /**
  * Returns 1 if a group has at least one drawn solid, 0 otherwise.
  */
 GED_EXPORT extern int
-bsg_view_obj_group_is_nonempty(struct bv_scene_obj *group);
+bsg_view_obj_group_is_nonempty(struct bsg_node *group);
 
 /**
  * Returns the path string associated with a group, or NULL if @p group
@@ -435,7 +435,7 @@ bsg_view_obj_group_is_nonempty(struct bv_scene_obj *group);
  *    cases that must format/log the path verbatim.
  */
 GED_EXPORT extern const char *
-bsg_view_obj_group_path(struct bv_scene_obj *group);
+bsg_view_obj_group_path(struct bsg_node *group);
 
 /**
  * Phase 10: structured counterpart to @ref bsg_view_obj_group_path.  Parses
@@ -448,7 +448,7 @@ bsg_view_obj_group_path(struct bv_scene_obj *group);
  */
 GED_EXPORT extern int
 bsg_view_obj_group_dbpath(struct ged *gedp,
-			  struct bv_scene_obj *group,
+			  struct bsg_node *group,
 			  struct db_full_path *out);
 
 /**
@@ -461,7 +461,7 @@ bsg_view_obj_group_dbpath(struct ged *gedp,
  *   BU_LIST_APPEND(gdlp->dl_head_scene_obj.back, &sp->l);
  */
 GED_EXPORT extern void
-bsg_view_obj_append_to_last_group(struct ged *gedp, struct bv_scene_obj *sp);
+bsg_view_obj_append_to_last_group(struct ged *gedp, struct bsg_node *sp);
 
 /**
  * Phase 10/13: db_full_path-keyed setter.  Set or update the path
@@ -473,7 +473,7 @@ bsg_view_obj_append_to_last_group(struct ged *gedp, struct bv_scene_obj *sp);
  * which was removed in Phase 13.
  */
 GED_EXPORT extern void
-bsg_view_obj_group_set_dbpath(struct bv_scene_obj *group,
+bsg_view_obj_group_set_dbpath(struct bsg_node *group,
 			      const struct db_full_path *new_dfp);
 
 /**
@@ -485,7 +485,7 @@ bsg_view_obj_group_set_dbpath(struct bv_scene_obj *group,
  * RT_DIR_PHONY_ADDR.
  */
 GED_EXPORT extern int
-bsg_view_obj_group_is_phony(struct bv_scene_obj *group);
+bsg_view_obj_group_is_phony(struct bsg_node *group);
 
 /**
  * Erase all display-list groups from @p gedp's drawn-object set,
@@ -514,8 +514,8 @@ bsg_view_obj_has_groups(struct ged *gedp);
  */
 GED_EXPORT extern void
 bsg_view_obj_append_solid_to_group(struct ged *gedp,
-				   struct bv_scene_obj *group,
-				   struct bv_scene_obj *sp);
+				   struct bsg_node *group,
+				   struct bsg_node *sp);
 
 /**
  * Per-solid s_free_callback that clears the GED illumination tracker
@@ -524,10 +524,10 @@ bsg_view_obj_append_solid_to_group(struct ged *gedp,
  *
  * Register this on every BSG_NODE_SHAPE node at creation time alongside
  * setting ged_bv_data::gedp.  The BSG freeing paths call it explicitly before
- * FREE_BV_SCENE_OBJ; bv_free() calls it again during pool teardown, but the
+ * FREE_BV_SCENE_OBJ; bsg_free() calls it again during pool teardown, but the
  * second call is a safe no-op (Phase 7 Step 9).
  */
-GED_EXPORT extern void ged_bv_illum_free_cb(struct bv_scene_obj *sp);
+GED_EXPORT extern void ged_bv_illum_free_cb(struct bsg_node *sp);
 
 __END_DECLS
 

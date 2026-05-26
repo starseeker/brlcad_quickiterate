@@ -59,11 +59,11 @@ extern "C" void ged_changed_callback(struct db_i *UNUSED(dbip), struct directory
 static void
 do_refresh(struct ged *gedp)
 {
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
     DbiState *dbis  = (DbiState *)gedp->dbi_state;
     BViewState *bvs = dbis->get_view_state(v);
     dbis->update();
-    std::unordered_set<struct bview *> uset;
+    std::unordered_set<struct bsg_view *> uset;
     uset.insert(v);
     bvs->redraw(NULL, uset, 1);
 
@@ -149,7 +149,7 @@ main(int ac, char *av[])
     struct ged *gedp = ged_open("db", "moss_bsg_parity_tmp.g", 1);
     gedp->dbi_state = new DbiState(gedp);
     gedp->new_cmd_forms = 1;
-    gedp->ged_lod = bv_mesh_lod_context_create(gedp->dbip->dbi_filename);
+    gedp->ged_lod = bsg_mesh_lod_context_create(gedp->dbip->dbi_filename);
     bu_setenv("DM_SWRAST", "1", 1);
     db_add_changed_clbk(gedp->dbip, &ged_changed_callback, (void *)gedp);
 
@@ -158,7 +158,7 @@ main(int ac, char *av[])
     s_av[0] = "dm"; s_av[1] = "attach"; s_av[2] = "swrast"; s_av[3] = "SW"; s_av[4] = NULL;
     ged_exec_dm(gedp, 4, s_av);
 
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
     struct dm *dmp  = (struct dm *)v->dmp;
     dm_set_width(dmp, 512);
     dm_set_height(dmp, 512);

@@ -29,7 +29,7 @@
  *
  * Typical usage sequence
  * ----------------------
- *  1. Create a QgView and obtain its struct bview * via view().
+ *  1. Create a QgView and obtain its struct bsg_view * via view().
  *  2. Call rt_edit_create() to open a sketch primitive for editing.
  *  3. Instantiate whichever filter(s) you need, setting the .es public member.
  *  4. Install the active filter:  view->installFilter(filter);
@@ -49,7 +49,7 @@
 
 extern "C" {
 #include "vmath.h"
-#include "bv.h"
+#include "bsg.h"
 #include "rt/edit.h"
 #include "rt/primitives/sketch.h"
 #include "rt/rt_ecmds.h"

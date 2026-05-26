@@ -22,7 +22,7 @@
  * Phase 4 of drawing_stack_modernization: core BSG scene-graph
  * lifecycle and query helpers.
  *
- * bsg_node is a typedef for struct bv_scene_obj; this file implements:
+ * bsg_node is a typedef for struct bsg_node; this file implements:
  *   bsg_scene_root_create  — wire v->bsg_root to v->gv_draw_root (Phase F)
  *   bsg_scene_root_sync    — no-op shim kept for binary compatibility
  *   bsg_scene_root_destroy — clear v->bsg_root pointer
@@ -31,7 +31,7 @@
  *
  * Phase F (drawing_stack_modernization): bsg_root is no longer a separate
  * synthetic node.  v->bsg_root is an alias for v->gv_draw_root — the same
- * bv_scene_obj that the BSG draw tree uses as its root.  bsg_root->children
+ * bsg_node that the BSG draw tree uses as its root.  bsg_root->children
  * IS gv_draw_root->children; it is maintained live by draw/erase mutations
  * (bsg_group_ensure_child / bsg_free_group in libbsg/draw_set.c) and by
  * bsg_view_obj_zap.  No per-frame rebuild is needed; bsg_scene_root_sync is
@@ -59,7 +59,7 @@
 /* ---------------------------------------------------------------------- */
 
 bsg_node *
-bsg_scene_root_create(struct bview *v)
+bsg_scene_root_create(struct bsg_view *v)
 {
     if (!v)
 	return NULL;
@@ -71,7 +71,7 @@ bsg_scene_root_create(struct bview *v)
 	struct bu_ptbl *views = bsg_set_views(v->vset);
 	if (views) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-		struct bview *sv = (struct bview *)BU_PTBL_GET(views, i);
+		struct bsg_view *sv = (struct bsg_view *)BU_PTBL_GET(views, i);
 		if (!sv || sv == v)
 		    continue;
 		if (sv->gv_draw_root) {
@@ -112,7 +112,7 @@ bsg_scene_root_create(struct bview *v)
  * only for binary / source compatibility with callers that have not yet been
  * updated.  It is a deliberate no-op. */
 void
-bsg_scene_root_sync(bsg_node *UNUSED(root), struct bview *UNUSED(v))
+bsg_scene_root_sync(bsg_node *UNUSED(root), struct bsg_view *UNUSED(v))
 {
 }
 
@@ -153,7 +153,7 @@ bsg_view_find_by_type(bsg_node *root, unsigned long long flags)
 
 
 void
-bsg_sensor_fire(bsg_node *root, struct bview *v)
+bsg_sensor_fire(bsg_node *root, struct bsg_view *v)
 {
     if (!root)
 	return;
@@ -182,7 +182,7 @@ bsg_sensor_fire(bsg_node *root, struct bview *v)
 
 /* Simple linked-list cell for the registry. */
 struct _bsg_ss_entry {
-    struct bview *v;
+    struct bsg_view *v;
     bsg_node *root;
     struct _bsg_ss_entry *next;
 };
@@ -216,7 +216,7 @@ bsg_scene_set_destroy(struct bsg_scene_set *ss)
 }
 
 void
-bsg_scene_set_add(struct bsg_scene_set *ss, struct bview *v, bsg_node *root)
+bsg_scene_set_add(struct bsg_scene_set *ss, struct bsg_view *v, bsg_node *root)
 {
     if (!ss || !v)
 	return;
@@ -239,7 +239,7 @@ bsg_scene_set_add(struct bsg_scene_set *ss, struct bview *v, bsg_node *root)
 }
 
 bsg_node *
-bsg_scene_set_get(struct bsg_scene_set *ss, struct bview *v)
+bsg_scene_set_get(struct bsg_scene_set *ss, struct bsg_view *v)
 {
     if (!ss || !v)
 	return NULL;
@@ -252,7 +252,7 @@ bsg_scene_set_get(struct bsg_scene_set *ss, struct bview *v)
 }
 
 void
-bsg_scene_set_remove(struct bsg_scene_set *ss, struct bview *v)
+bsg_scene_set_remove(struct bsg_scene_set *ss, struct bsg_view *v)
 {
     if (!ss || !v)
 	return;

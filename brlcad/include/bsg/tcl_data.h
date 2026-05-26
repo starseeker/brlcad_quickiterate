@@ -40,7 +40,7 @@
 #define BV_POLY_CONTOUR_MODE 16
 
 /* Separate these out, as we'll try not to use them in the new display work */
-struct bv_scene_obj_old_settings {
+struct bsg_node_old_settings {
     char s_wflag;		/**< @brief  work flag - used by various libged and Tcl functions */
     char s_dflag;		/**< @brief  1 - s_basecolor is derived from the default */
     unsigned char s_basecolor[3];	/**< @brief  color from containing region */
@@ -68,7 +68,7 @@ struct display_list {
     int                 dl_wflag;
 };
 
-struct bv_data_axes_state {
+struct bsg_data_axes_state {
     int       draw;
     int       color[3];
     int       line_width;          /* in pixels */
@@ -77,7 +77,7 @@ struct bv_data_axes_state {
     point_t   *points;             /* in model coordinates */
 };
 
-struct bv_data_arrow_state {
+struct bsg_data_arrow_state {
     int       gdas_draw;
     int       gdas_color[3];
     int       gdas_line_width;          /* in pixels */
@@ -87,7 +87,7 @@ struct bv_data_arrow_state {
     point_t   *gdas_points;             /* in model coordinates */
 };
 
-struct bv_data_label_state {
+struct bsg_data_label_state {
     int         gdls_draw;
     int         gdls_color[3];
     int         gdls_num_labels;
@@ -96,7 +96,7 @@ struct bv_data_label_state {
     point_t     *gdls_points;
 };
 
-struct bv_data_line_state {
+struct bsg_data_line_state {
     int       gdls_draw;
     int       gdls_color[3];
     int       gdls_line_width;          /* in pixels */
@@ -123,23 +123,23 @@ typedef struct {
     mat_t               gdps_model2view;
     struct bg_polygons  gdps_polygons;
     fastf_t             gdps_data_vZ;
-} bv_data_polygon_state;
+} bsg_data_polygon_state;
 
-struct bv_data_tclcad {
+struct bsg_data_tclcad {
     int           		gv_polygon_mode;  /* libtclcad polygon modes */
     int		  		gv_hide;          /* libtclcad setting for hiding view - unused? */
     fastf_t       		gv_data_vZ;
-    struct bv_data_arrow_state	gv_data_arrows;
-    struct bv_data_axes_state	gv_data_axes;
-    struct bv_data_label_state	gv_data_labels;
-    struct bv_data_line_state	gv_data_lines;
-    bv_data_polygon_state	gv_data_polygons;
-    struct bv_data_arrow_state	gv_sdata_arrows;
-    struct bv_data_axes_state	gv_sdata_axes;
-    struct bv_data_label_state	gv_sdata_labels;
-    struct bv_data_line_state	gv_sdata_lines;
-    bv_data_polygon_state	gv_sdata_polygons;
-    struct bv_other_state	gv_prim_labels;
+    struct bsg_data_arrow_state	gv_data_arrows;
+    struct bsg_data_axes_state	gv_data_axes;
+    struct bsg_data_label_state	gv_data_labels;
+    struct bsg_data_line_state	gv_data_lines;
+    bsg_data_polygon_state	gv_data_polygons;
+    struct bsg_data_arrow_state	gv_sdata_arrows;
+    struct bsg_data_axes_state	gv_sdata_axes;
+    struct bsg_data_label_state	gv_sdata_labels;
+    struct bsg_data_line_state	gv_sdata_lines;
+    bsg_data_polygon_state	gv_sdata_polygons;
+    struct bsg_other_state	gv_prim_labels;
 };
 
 #endif /* BSG_TCL_DATA_H */

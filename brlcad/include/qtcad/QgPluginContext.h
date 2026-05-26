@@ -29,7 +29,7 @@
  *
  * Accessors are deliberately function-pointer/std::function style so
  * the context can re-resolve handles on demand: the underlying ged*
- * and bview* may change across the lifetime of the host (db reopen,
+ * and bsg_view* may change across the lifetime of the host (db reopen,
  * view swap, quad-view switching) without the context having to be
  * rebuilt.
  *
@@ -51,7 +51,7 @@
  * can include them directly.  Keeping these out of the API header
  * minimises transitive include pressure for hosts. */
 struct ged;
-struct bview;
+struct bsg_view;
 class QgModel;
 
 /* QgPluginNotifier is a small QObject that emits the lifecycle
@@ -72,10 +72,10 @@ class QTCAD_EXPORT QgPluginNotifier : public QObject
 	/* The active .g database has changed (open/close/reopen). */
 	void dbChanged();
 
-	/* The active bview has changed (e.g. quad-view switch). */
+	/* The active bsg_view has changed (e.g. quad-view switch). */
 	void viewChanged();
 
-	/* The active bview's contents/settings updated; payload is the
+	/* The active bsg_view's contents/settings updated; payload is the
 	 * standard QgViewUpdateFlags bitmask. */
 	void viewUpdated(QgViewUpdateFlags flags);
 
@@ -97,9 +97,9 @@ class QTCAD_EXPORT QgPluginContext
 	 * database is open. */
 	std::function<struct ged *()> gedAccessor;
 
-	/* Accessor: the host's currently-active bview*.  May return
+	/* Accessor: the host's currently-active bsg_view*.  May return
 	 * NULL when no view is set up. */
-	std::function<struct bview *()> viewAccessor;
+	std::function<struct bsg_view *()> viewAccessor;
 
 	/* The host's QgModel, if any.  May be NULL for hosts that
 	 * don't surface the tree model. */
@@ -122,7 +122,7 @@ class QTCAD_EXPORT QgPluginContext
 
 	/* Convenience wrappers. */
 	struct ged *getGed() const { return gedAccessor ? gedAccessor() : nullptr; }
-	struct bview *getView() const { return viewAccessor ? viewAccessor() : nullptr; }
+	struct bsg_view *getView() const { return viewAccessor ? viewAccessor() : nullptr; }
 	void logMessage(const QString &msg) const { if (log) log(msg); }
 };
 

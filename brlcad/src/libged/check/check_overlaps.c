@@ -28,7 +28,7 @@
 #include "./check_private.h"
 
 struct ged_check_plot {
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     struct bu_list *vhead;
 };
 
@@ -306,8 +306,8 @@ int check_overlaps(struct ged *gedp, struct current_state *state,
     }
 
     if (options->overlaps_overlay_flag) {
-	check_plot.vbp = bv_vlblock_init(vlfree, 32);
-	check_plot.vhead = bv_vlblock_find(check_plot.vbp, 0xFF, 0xFF, 0x00);
+	check_plot.vbp = bsg_vlblock_init(vlfree, 32);
+	check_plot.vhead = bsg_vlblock_find(check_plot.vbp, 0xFF, 0xFF, 0x00);
     }
 
     callbackdata.noverlaps = 0;
@@ -342,12 +342,12 @@ int check_overlaps(struct ged *gedp, struct current_state *state,
 
     if (options->overlaps_overlay_flag) {
 	if (gedp->dbi_state) {
-	    struct bview *view = gedp->ged_gvp;
-	    bv_vlblock_obj(check_plot.vbp, view, "check::overlaps");
+	    struct bsg_view *view = gedp->ged_gvp;
+	    bsg_vlblock_obj(check_plot.vbp, view, "check::overlaps");
 	} else {
 	    _ged_cvt_vlblock_to_solids(gedp, check_plot.vbp, "OVERLAPS", 0);
 	}
-	bv_vlblock_free(check_plot.vbp);
+	bsg_vlblock_free(check_plot.vbp);
     }
 
     if (plot_overlaps) {

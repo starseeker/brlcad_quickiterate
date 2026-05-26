@@ -60,7 +60,7 @@ struct plot_data {
 
 /* Callback for floating-point 3D plot */
 static int
-plot_floating_cb(struct bv_scene_obj *sp, void *userdata)
+plot_floating_cb(struct bsg_node *sp, void *userdata)
 {
     struct plot_data *pd = (struct plot_data *)userdata;
 
@@ -75,13 +75,13 @@ plot_floating_cb(struct bv_scene_obj *sp, void *userdata)
 	    pl_linmod(pd->fp, "solid");
 	pd->Dashing = sp->s_soldash;
     }
-    bv_vlist_to_uplot(pd->fp, &(sp->s_vlist));
+    bsg_vlist_to_uplot(pd->fp, &(sp->s_vlist));
     return 1; /* continue */
 }
 
 /* Callback for integer plot (2D or 3D) */
 static int
-plot_integer_cb(struct bv_scene_obj *sp, void *userdata)
+plot_integer_cb(struct bsg_node *sp, void *userdata)
 {
     struct plot_data *pd = (struct plot_data *)userdata;
     bsg_vlist *vp;

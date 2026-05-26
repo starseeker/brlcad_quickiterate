@@ -59,8 +59,8 @@ QgGL::QgGL(QWidget *parent, struct fb *fbp)
 
     // Provide a view specific to this widget - set gedp->ged_gvp to v
     // if this is the current view
-    BU_GET(d->local_v, struct bview);
-    bv_init(d->local_v, nullptr);
+    BU_GET(d->local_v, struct bsg_view);
+    bsg_init(d->local_v, nullptr);
     bu_vls_sprintf(&d->local_v->gv_name, "qtgl");
     d->v = d->local_v;
 
@@ -96,7 +96,7 @@ fb_close_existing(d->ifp);
     d = nullptr;
 }
 
-struct bview *
+struct bsg_view *
 QgGL::view() const
 {
     return d->v;
@@ -133,14 +133,14 @@ QgGL::setDisplayManagerSet(struct bu_ptbl *set)
 }
 
 void
-QgGL::set_draw_custom(void (*draw_func)(struct bview *, void *), void *udata)
+QgGL::set_draw_custom(void (*draw_func)(struct bsg_view *, void *), void *udata)
 {
     d->draw_custom = draw_func;
     d->draw_udata  = udata;
 }
 
 void
-QgGL::set_view(struct bview *nv)
+QgGL::set_view(struct bsg_view *nv)
 {
     qgcanvas_set_view(*d, nv);
 }
@@ -270,7 +270,7 @@ dm_set_dirty(d->dmp, 1);
 
 void QgGL::need_update()
 {
-    bv_log(4, "QgGL::need_update");
+    bsg_log(4, "QgGL::need_update");
     QTCAD_SLOT("QgGL::need_update", 1);
     if (!d->dmp)
 return;

@@ -30,7 +30,7 @@
 extern "C" {
 #include "bu/ptbl.h"
 #include "bg/polygon.h"
-#include "bv.h"
+#include "bsg.h"
 }
 
 #include <QBoxLayout>
@@ -64,7 +64,7 @@ public:
 	bool close_polygon();
 
 	bg_clip_t op = bg_None;
-	struct bv_scene_obj *wp = nullptr;
+	struct bsg_node *wp = nullptr;
 	int ptype = BV_POLYGON_CIRCLE;
 	bool close_general_poly = true; // set to false if application wants to allow non-closed polygons
 	struct bu_color fill_color = BU_COLOR_BLUE;

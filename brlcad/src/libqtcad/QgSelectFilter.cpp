@@ -28,7 +28,7 @@
 extern "C" {
 #include "bu/malloc.h"
 #include "bg/aabb_ray.h"
-#include "bv.h"
+#include "bsg.h"
 #include "raytrace.h"
 }
 
@@ -37,14 +37,14 @@ extern "C" {
 #include "qtcad/QgSignalFlags.h"
 
 // Find the first bbox intersection under the XY view point.
-static struct bv_scene_obj *
-closest_obj_bbox(struct bu_ptbl *sset, struct bview *v)
+static struct bsg_node *
+closest_obj_bbox(struct bu_ptbl *sset, struct bsg_view *v)
 {
 	fastf_t vx = -FLT_MAX;
 	fastf_t vy = -FLT_MAX;
-	struct bv_scene_obj *s_closest = nullptr;
+	struct bsg_node *s_closest = nullptr;
 	double dist = DBL_MAX;
-	bv_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
+	bsg_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
 	point_t vpnt, mpnt;
 	VSET(vpnt, vx, vy, 0);
 	MAT4X3PNT(mpnt, v->gv_view2model, vpnt);
@@ -57,7 +57,7 @@ closest_obj_bbox(struct bu_ptbl *sset, struct bview *v)
 	VUNITIZE(dir);
 	bg_ray_invdir(&dir, dir);
 	for (size_t i = 0; i < BU_PTBL_LEN(sset); i++) {
-		struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(sset, i);
+		struct bsg_node *s = (struct bsg_node *)BU_PTBL_GET(sset, i);
 		if (bg_isect_aabb_ray(rmin, rmax, mpnt, dir, s->bmin, s->bmax)) {
 			double ndist = DIST_PNT_PNT(rmin, v->gv_vc_backout);
 			if (ndist < dist) {
@@ -78,7 +78,7 @@ QgSelectPntFilter::eventFilter(QObject *, QEvent *e)
 	if (!m_e)
 		return false;
 
-	struct bview *v = view();
+	struct bsg_view *v = view();
 
 	// Eat everything except the mouse release
 	if (e->type() != QEvent::MouseButtonRelease)
@@ -96,7 +96,7 @@ QgSelectPntFilter::eventFilter(QObject *, QEvent *e)
 	// scene.  This is faster than the raytrace-based test in some situations,
 	// but trades off that speed by only producing an approximate answer based
 	// on bounding boxes.
-	int scnt = bv_view_objs_select(&selected_set, v, v->gv_mouse_x, v->gv_mouse_y);
+	int scnt = bsg_view_objs_select(&selected_set, v, v->gv_mouse_x, v->gv_mouse_y);
 
 	// If the caller wants everything, or we got less than 2 objs, we're done
 	if (scnt < 2 || !first_only)
@@ -104,7 +104,7 @@ QgSelectPntFilter::eventFilter(QObject *, QEvent *e)
 
 	// If we want only the closest object (or more precisely, in this mode, the
 	// object with the closest bounding box) there's more work to do.
-	struct bv_scene_obj *s_closest = closest_obj_bbox(&selected_set, v);
+	struct bsg_node *s_closest = closest_obj_bbox(&selected_set, v);
 	bu_ptbl_reset(&selected_set);
 	bu_ptbl_ins(&selected_set, (long *)s_closest);
 
@@ -118,7 +118,7 @@ QgSelectBoxFilter::eventFilter(QObject *, QEvent *e)
 	if (!m_e)
 		return false;
 
-	struct bview *v = view();
+	struct bsg_view *v = view();
 
 	if (!v)
 		return false;
@@ -134,7 +134,7 @@ QgSelectBoxFilter::eventFilter(QObject *, QEvent *e)
 	if (e->type() == QEvent::MouseButtonPress) {
 		px = v->gv_mouse_x;
 		py = v->gv_mouse_y;
-		struct bv_interactive_rect_state *grsp = &v->gv_s->gv_rect;
+		struct bsg_interactive_rect_state *grsp = &v->gv_s->gv_rect;
 		grsp->line_width = 1;
 		grsp->dim[0] = 0;
 		grsp->dim[1] = 0;
@@ -150,7 +150,7 @@ QgSelectBoxFilter::eventFilter(QObject *, QEvent *e)
 	}
 
 	if (e->type() == QEvent::MouseMove) {
-		struct bv_interactive_rect_state *grsp = &v->gv_s->gv_rect;
+		struct bsg_interactive_rect_state *grsp = &v->gv_s->gv_rect;
 		grsp->draw = 1;
 		grsp->dim[0] = v->gv_mouse_x - px;
 		grsp->dim[1] = (v->gv_height - v->gv_mouse_y) - v->gv_s->gv_rect.pos[1];
@@ -166,7 +166,7 @@ QgSelectBoxFilter::eventFilter(QObject *, QEvent *e)
 		// Mouse release - time to use the rectangle to assemble the selected set
 		int ipx = (int)px;
 		int ipy = (int)py;
-		bv_view_objs_rect_select(&selected_set, v, ipx, ipy, v->gv_mouse_x, v->gv_mouse_y);
+		bsg_view_objs_rect_select(&selected_set, v, ipx, ipy, v->gv_mouse_x, v->gv_mouse_y);
 
 #if 0
 		// If we want only the closest object (or more precisely, in this mode,
@@ -175,13 +175,13 @@ QgSelectBoxFilter::eventFilter(QObject *, QEvent *e)
 		// be the distance between an aabb and a view plane.  Looks like we
 		// need to add that one to libbg... there's DIST_PNT_PLANE and
 		// MAT4X3VEC(view_pl, v->gv_view2model, dir) as starting points...
-		struct bv_scene_obj *s_closest = closest_obj_bbox(&selected_set, v);
+		struct bsg_node *s_closest = closest_obj_bbox(&selected_set, v);
 		bu_ptbl_reset(&selected_set);
 		bu_ptbl_ins(&selected_set, (long *)s_closest);
 #endif
 
 		// reset rectangle
-		struct bv_interactive_rect_state *grsp = &v->gv_s->gv_rect;
+		struct bsg_interactive_rect_state *grsp = &v->gv_s->gv_rect;
 		grsp->draw = 0;
 		grsp->line_width = 0;
 		grsp->pos[0] = 0;
@@ -247,7 +247,7 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
 	if (!m_e)
 		return false;
 
-	struct bview *v = view();
+	struct bsg_view *v = view();
 
 	// If we're raytracing, the view itself isn't enough - we have
 	// to have the dbip as well.
@@ -264,7 +264,7 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
 
 	// Pre-filter what we're going to be shooting using the bounding box tests.
 	// If we have no intersections, there's no point in doing the raytrace.
-	int scnt = bv_view_objs_select(&selected_set, v, v->gv_mouse_x, v->gv_mouse_y);
+	int scnt = bsg_view_objs_select(&selected_set, v, v->gv_mouse_x, v->gv_mouse_y);
 	if (!scnt)
 		return true;
 
@@ -286,7 +286,7 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
 	ap->a_rt_i = rtip;
 	const char **objs = (const char **)bu_calloc(BU_PTBL_LEN(&selected_set) + 1, sizeof(char *), "objs");
 	for (size_t i = 0; i < BU_PTBL_LEN(&selected_set); i++) {
-		struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&selected_set, i);
+		struct bsg_node *s = (struct bsg_node *)BU_PTBL_GET(&selected_set, i);
 		objs[i] = bu_vls_cstr(&s->s_name);
 	}
 	if (rt_gettrees_and_attrs(rtip, nullptr, scnt, objs, 1)) {
@@ -300,7 +300,7 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
 	rt_prep_parallel(rtip, (int)ncpus);
 	fastf_t vx = -FLT_MAX;
 	fastf_t vy = -FLT_MAX;
-	bv_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
+	bsg_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
 	point_t vpnt, mpnt;
 	VSET(vpnt, vx, vy, 0);
 	MAT4X3PNT(mpnt, v->gv_view2model, vpnt);
@@ -338,7 +338,7 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
 		bu_vls_sprintf(&dpath, "%s",  rc.closest.c_str());
 		if (bu_vls_cstr(&dpath)[0] == '/')
 			bu_vls_nibble(&dpath, 1);
-		struct bv_scene_obj *so = bv_find_obj(v, bu_vls_cstr(&dpath));
+		struct bsg_node *so = bsg_find_obj(v, bu_vls_cstr(&dpath));
 		if (so)
 			bu_ptbl_ins(&selected_set, (long *)so);
 	}
@@ -348,7 +348,7 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
 			bu_vls_sprintf(&dpath, "%s",  a_it->c_str());
 			if (bu_vls_cstr(&dpath)[0] == '/')
 				bu_vls_nibble(&dpath, 1);
-			struct bv_scene_obj *so = bv_find_obj(v, bu_vls_cstr(&dpath));
+			struct bsg_node *so = bsg_find_obj(v, bu_vls_cstr(&dpath));
 			if (so)
 				bu_ptbl_ins(&selected_set, (long *)so);
 		}

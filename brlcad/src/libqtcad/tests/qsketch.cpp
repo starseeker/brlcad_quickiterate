@@ -85,7 +85,7 @@
 #include "bu/malloc.h"
 #include "bu/str.h"
 #include "bn/tol.h"
-#include "bv.h"
+#include "bsg.h"
 #include "bsg/util.h"
 #include "dm.h"
 #include "raytrace.h"
@@ -180,11 +180,11 @@ sketch_create_empty(struct db_i *dbip, const char *name)
  */
 struct qsketch_draw_ctx {
     struct rt_edit *es;
-    struct bv_grid_state *grid;
+    struct bsg_grid_state *grid;
 };
 
 static void
-sketch_draw_custom(struct bview *v, void *udata)
+sketch_draw_custom(struct bsg_view *v, void *udata)
 {
     struct qsketch_draw_ctx *ctx = (struct qsketch_draw_ctx *)udata;
     if (!ctx || !ctx->es) return;
@@ -219,7 +219,7 @@ sketch_draw_custom(struct bview *v, void *udata)
 
 	dm_set_fg(dmp, 255, 255, 0, 1, 1.0);  /* yellow wireframe */
 	dm_draw_vlist(dmp, (bsg_vlist *)&vlist);
-	bv_vlist_cleanup(&vlist);
+	bsg_vlist_cleanup(&vlist);
     }
 }
 
@@ -419,7 +419,7 @@ private:
     /* ---- data ---- */
     struct db_i          *m_dbip = NULL;
     struct directory     *m_dp   = NULL;
-    struct bview         *m_bv   = NULL;
+    struct bsg_view         *m_bv   = NULL;
     struct rt_edit       *m_es   = NULL;
     struct bn_tol         m_tol;
     qsketch_draw_ctx      m_draw_ctx;
@@ -457,19 +457,19 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
     /* ---- tolerance ---- */
     BN_TOL_INIT(&m_tol);
 
-    /* ---- bview ---- */
-    BU_GET(m_bv, struct bview);
-    bv_init(m_bv, NULL);
+    /* ---- bsg_view ---- */
+    BU_GET(m_bv, struct bsg_view);
+    bsg_init(m_bv, NULL);
 
     /* Look along -Z toward +Z (top view, sketch in XY plane face-on).
      * az=0, el=90 gives view +X→right, +Y→up which matches the sketch
      * u_vec (1,0,0) and v_vec (0,1,0) defaults. */
     VSET(m_bv->gv_aet, 0.0, 90.0, 0.0);
-    bv_mat_aet(m_bv);
+    bsg_mat_aet(m_bv);
     m_bv->gv_scale  = 250.0;
     m_bv->gv_size   = 2.0 * m_bv->gv_scale;
     m_bv->gv_isize  = 1.0 / m_bv->gv_size;
-    bv_update(m_bv);
+    bsg_update(m_bv);
     bu_vls_sprintf(&m_bv->gv_name, "qsketch");
     m_bv->gv_width  = 700;
     m_bv->gv_height = 700;
@@ -671,8 +671,8 @@ QSketchEditWindow::~QSketchEditWindow()
     if (m_es)
 	rt_edit_destroy(m_es);
     if (m_bv) {
-	bv_free(m_bv);
-	BU_PUT(m_bv, struct bview);
+	bsg_free(m_bv);
+	BU_PUT(m_bv, struct bsg_view);
     }
 }
 
@@ -1145,7 +1145,7 @@ void QSketchEditWindow::on_fit_view()
     m_bv->gv_scale = span * 0.5;
     m_bv->gv_size  = span;
     m_bv->gv_isize = 1.0 / span;
-    bv_update(m_bv);
+    bsg_update(m_bv);
 
     m_view->need_update(QG_VIEW_REFRESH);
     set_status("View fitted to sketch bounds.");
@@ -1307,7 +1307,7 @@ void QSketchEditWindow::on_grid_settings()
 {
     if (!m_bv) return;
 
-    struct bv_grid_state *gs = &m_bv->gv_s->gv_grid;
+    struct bsg_grid_state *gs = &m_bv->gv_s->gv_grid;
 
     QDialog dlg(this);
     dlg.setWindowTitle("Grid Settings");

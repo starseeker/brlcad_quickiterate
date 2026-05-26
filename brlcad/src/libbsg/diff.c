@@ -27,9 +27,9 @@
 #include "bu/log.h"
 #include "bu/str.h"
 #include "bn/mat.h"
-#include "bv/vlist.h"
-#include "bv/defines.h"
-#include "bv/util.h"
+#include "bsg/vlist.h"
+#include "bsg/defines.h"
+#include "bsg/util.h"
 
 #define BV_DIFF(_r, _var) \
     do { \
@@ -80,7 +80,7 @@
 
 
 static int
-_bv_adc_state_differ(struct bv_adc_state *v1, struct bv_adc_state *v2)
+_bv_adc_state_differ(struct bsg_adc_state *v1, struct bsg_adc_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -115,7 +115,7 @@ _bv_adc_state_differ(struct bv_adc_state *v1, struct bv_adc_state *v2)
 }
 
 static int
-_bv_axes_differ(struct bv_axes *v1, struct bv_axes *v2)
+_bv_axes_differ(struct bsg_axes *v1, struct bsg_axes *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -150,10 +150,10 @@ _bv_axes_differ(struct bv_axes *v1, struct bv_axes *v2)
  * _bg_poly_contour_differ, _bg_polygon_differ, _bg_polygons_differ,
  * _bv_data_polygon_state_differ) were removed; the equivalent renderable
  * state now lives in BSG view-scope objects whose s_changed flag drives
- * view diffs without needing the legacy bv_data_* compares. */
+ * view diffs without needing the legacy bsg_data_* compares. */
 
 static int
-_bv_grid_state_differ(struct bv_grid_state *v1, struct bv_grid_state *v2)
+_bv_grid_state_differ(struct bsg_grid_state *v1, struct bsg_grid_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -175,7 +175,7 @@ _bv_grid_state_differ(struct bv_grid_state *v1, struct bv_grid_state *v2)
 }
 
 static int
-_bv_params_state_differ(struct bv_params_state *v1, struct bv_params_state *v2)
+_bv_params_state_differ(struct bsg_params_state *v1, struct bsg_params_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -196,7 +196,7 @@ _bv_params_state_differ(struct bv_params_state *v1, struct bv_params_state *v2)
 }
 
 static int
-_bv_other_state_differ(struct bv_other_state *v1, struct bv_other_state *v2)
+_bv_other_state_differ(struct bsg_other_state *v1, struct bsg_other_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -213,7 +213,7 @@ _bv_other_state_differ(struct bv_other_state *v1, struct bv_other_state *v2)
 
 
 static int
-_bv_interactive_rect_state_differ(struct bv_interactive_rect_state *v1, struct bv_interactive_rect_state *v2)
+_bv_interactive_rect_state_differ(struct bsg_interactive_rect_state *v1, struct bsg_interactive_rect_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -243,7 +243,7 @@ _bv_interactive_rect_state_differ(struct bv_interactive_rect_state *v1, struct b
 }
 
 static int
-_bv_settings_differ(struct bview_settings *v1, struct bview_settings *v2)
+_bv_settings_differ(struct bsg_view_settings *v1, struct bsg_view_settings *v2)
 {
     BV_CDIFF(1, _bv_adc_state_differ, gv_adc);
     BV_CDIFF(1, _bv_axes_differ, gv_model_axes);
@@ -271,7 +271,7 @@ _bv_settings_differ(struct bview_settings *v1, struct bview_settings *v2)
 
 
 int
-bv_differ(struct bview *v1, struct bview *v2)
+bsg_differ(struct bsg_view *v1, struct bsg_view *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -314,7 +314,7 @@ bv_differ(struct bview *v1, struct bview *v2)
      * mirrors into BSG VIEW_SCOPE objects whose s_changed flag drives
      * downstream redraws.  The gv_data_vZ scalar is internal scratch for
      * the libged "view vZ" command; it does not affect rendering and
-     * therefore intentionally does not contribute to bv_differ(). */
+     * therefore intentionally does not contribute to bsg_differ(). */
 
     if (v1->gv_s != v2->gv_s) {
 	return 1;

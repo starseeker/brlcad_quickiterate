@@ -65,8 +65,8 @@ struct dm_vars {
  * invalidation flags.
  */
 struct dm_dlist_sensor {
-    struct bv_scene_obj *s;                         /**< @brief associated scene object */
-    void (*callback)(struct bv_scene_obj *, void *); /**< @brief notification callback */
+    struct bsg_node *s;                         /**< @brief associated scene object */
+    void (*callback)(struct bsg_node *, void *); /**< @brief notification callback */
     void *data;                                     /**< @brief caller-provided context */
     struct dm_dlist_sensor *next;                   /**< @brief intrusive list linkage */
 };
@@ -92,7 +92,7 @@ struct dm_impl {
     int (*dm_drawPoints3D)(struct dm *dmp, int npoints, point_t *points);
     int (*dm_drawVList)(struct dm *dmp, bsg_vlist *vp);
     int (*dm_drawVListHiddenLine)(struct dm *dmp, bsg_vlist *vp);
-    int (*dm_draw_obj)(struct dm *dmp, struct bv_scene_obj *s);
+    int (*dm_draw_obj)(struct dm *dmp, struct bsg_node *s);
     int (*dm_draw)(struct dm *dmp, bsg_vlist *(*callback_function)(void *), void **data);	/**< @brief formerly dmr_object */
     int (*dm_setFGColor)(struct dm *dmp, unsigned char r, unsigned char g, unsigned char b, int strict, fastf_t transparency);
     int (*dm_setBGColor)(struct dm *, unsigned char, unsigned char, unsigned char, unsigned char, unsigned char, unsigned char);

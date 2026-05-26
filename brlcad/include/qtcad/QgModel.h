@@ -81,7 +81,7 @@
 
 /* Forward declarations — the implementation includes the full headers. */
 struct bu_vls;
-struct bview;
+struct bsg_view;
 struct db_i;
 struct directory;
 struct ged;

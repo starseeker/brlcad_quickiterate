@@ -45,18 +45,18 @@
 /* Helpers                                                              */
 /* ------------------------------------------------------------------ */
 
-static struct bview *
+static struct bsg_view *
 make_view(void)
 {
-    struct bview *v;
-    BU_ALLOC(v, struct bview);
+    struct bsg_view *v;
+    BU_ALLOC(v, struct bsg_view);
     bsg_view_init(v, NULL);
     bu_vls_sprintf(&v->gv_name, "test_view");
     return v;
 }
 
 static void
-free_view(struct bview *v)
+free_view(struct bsg_view *v)
 {
     if (!v)
 	return;
@@ -74,11 +74,11 @@ test_field_accessor(void)
 {
     printf("=== Test 1: field_accessor ===\n");
 
-    struct bview *v = make_view();
+    struct bsg_view *v = make_view();
     bsg_node *root = bsg_scene_root_create(v);
     if (!root) FAIL("bsg_scene_root_create returned NULL");
 
-    /* Use the root node itself as a target (it's a plain bv_scene_obj) */
+    /* Use the root node itself as a target (it's a plain bsg_node) */
     bsg_node_set_flag(root, UP);
     if (bsg_node_get_flag(root) != UP) FAIL("flag UP round-trip");
 
@@ -133,7 +133,7 @@ test_field_touch_sensor(void)
 {
     printf("=== Test 2: field_touch_sensor ===\n");
 
-    struct bview *v = make_view();
+    struct bsg_view *v = make_view();
     bsg_node *root = bsg_scene_root_create(v);
     if (!root) FAIL("bsg_scene_root_create returned NULL");
 
@@ -183,7 +183,7 @@ test_node_sensor(void)
 {
     printf("=== Test 3: node_sensor ===\n");
 
-    struct bview *v = make_view();
+    struct bsg_view *v = make_view();
     bsg_node *root = bsg_scene_root_create(v);
     if (!root) FAIL("bsg_scene_root_create returned NULL");
 
@@ -216,7 +216,7 @@ test_group_create_add_remove(void)
 {
     printf("=== Test 4: group_create_add_remove ===\n");
 
-    struct bview *v = make_view();
+    struct bsg_view *v = make_view();
     bsg_node *root = bsg_scene_root_create(v);
     if (!root) FAIL("bsg_scene_root_create returned NULL");
 
@@ -261,7 +261,7 @@ test_transform_matrix(void)
 {
     printf("=== Test 5: transform_matrix ===\n");
 
-    struct bview *v = make_view();
+    struct bsg_view *v = make_view();
     bsg_node *root = bsg_scene_root_create(v);
     if (!root) FAIL("bsg_scene_root_create returned NULL");
 
@@ -307,7 +307,7 @@ test_payload_type(void)
 {
     printf("=== Test 6: payload_type ===\n");
 
-    struct bview *v = make_view();
+    struct bsg_view *v = make_view();
     bsg_node *root = bsg_scene_root_create(v);
     if (!root) FAIL("bsg_scene_root_create returned NULL");
 

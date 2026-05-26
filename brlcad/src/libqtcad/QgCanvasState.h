@@ -40,7 +40,7 @@
 extern "C" {
 #include "bu/ptbl.h"
 #include "bu/malloc.h"
-#include "bv.h"
+#include "bsg.h"
 #define DM_WITH_RT
 #include "dm.h"
 }
@@ -60,7 +60,7 @@ extern "C" {
  *
  * v        – Normally points to local_v (the widget-owned view).  When
  *            QgCanvasBase::set_view() is called with a non-null external
- *            view, v points to that caller-owned bview instead.  Passing
+ *            view, v points to that caller-owned bsg_view instead.  Passing
  *            nullptr to set_view() reverts v back to local_v.  The canvas
  *            never frees v — it only frees local_v.
  *
@@ -79,16 +79,16 @@ extern "C" {
  */
 struct QgCanvasState {
 	/* ---- view / dm / fb plumbing ---- */
-	struct bview    *v = nullptr;       /* active view: normally == local_v,
+	struct bsg_view    *v = nullptr;       /* active view: normally == local_v,
 	                                       set_view() can redirect to an
-	                                       external caller-owned bview       */
+	                                       external caller-owned bsg_view       */
 	struct dm       *dmp = nullptr;     /* libdm display manager (canvas owns) */
 	struct fb       *ifp = nullptr;     /* framebuffer (see ownership note)  */
 	struct bu_ptbl  *dm_set = nullptr;  /* shared DM table (caller owns)     */
-	struct bview    *local_v = nullptr; /* widget-owned view (canvas owns)   */
+	struct bsg_view    *local_v = nullptr; /* widget-owned view (canvas owns)   */
 
 	/* ---- custom draw callback ---- */
-	void (*draw_custom)(struct bview *, void *) = nullptr;
+	void (*draw_custom)(struct bsg_view *, void *) = nullptr;
 	void *draw_udata = nullptr;
 
 	/* ---- hash tracking for incremental updates ---- */
@@ -133,7 +133,7 @@ static inline void
 qgcanvas_stash_hashes(QgCanvasState &s)
 {
 	s.prev_dhash = s.dmp ? dm_hash(s.dmp) : 0ULL;
-	s.prev_vhash = s.v   ? bv_hash(s.v)   : 0ULL;
+	s.prev_vhash = s.v   ? bsg_hash(s.v)   : 0ULL;
 }
 
 /**
@@ -149,7 +149,7 @@ qgcanvas_diff_hashes_check(QgCanvasState &s)
 {
 	bool ret = false;
 	unsigned long long c_dhash = s.dmp ? dm_hash(s.dmp) : 0ULL;
-	unsigned long long c_vhash = s.v   ? bv_hash(s.v)   : 0ULL;
+	unsigned long long c_vhash = s.v   ? bsg_hash(s.v)   : 0ULL;
 
 	if (s.dmp && dm_get_dirty(s.dmp))
 		ret = true;
@@ -174,13 +174,13 @@ qgcanvas_aet(QgCanvasState &s, double a, double e, double t)
 	fastf_t aet_v[3];
 	double  aetd[3] = {a, e, t};
 	VMOVE(aet_v, aetd);
-	bv_view_set_aet(s.v, aet_v);
-	bv_update(s.v);
+	bsg_view_set_aet(s.v, aet_v);
+	bsg_update(s.v);
 }
 
-/** Bind an external bview (or nullptr to revert to the widget-local view). */
+/** Bind an external bsg_view (or nullptr to revert to the widget-local view). */
 static inline void
-qgcanvas_set_view(QgCanvasState &s, struct bview *nv)
+qgcanvas_set_view(QgCanvasState &s, struct bsg_view *nv)
 {
 	if (!nv) {
 		/* Revert to the widget-owned local view. */

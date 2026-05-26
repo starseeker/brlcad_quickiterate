@@ -76,7 +76,7 @@ struct vd_curve {
 #define VD_CURVE_NULL   ((struct vd_curve *)NULL)
 
 struct ged_drawable {
-    struct bv_scene_obj         *gd_draw_root;          /**< @brief  BSG_NODE_GROUP root of drawn-set tree */
+    struct bsg_node         *gd_draw_root;          /**< @brief  BSG_NODE_GROUP root of drawn-set tree */
     uint64_t                     gd_draw_rev;           /**< @brief  monotonic revision counter; bumped on every structural mutation of the draw tree; reset to 0 by bsg_view_obj_zap */
     struct bsg_draw_ctx          bsg_ctx;               /**< @brief  draw-tree context stored in gd_draw_root->s_i_data; draw_rev points at gd_draw_rev so freeing helpers can bump without gedp (Phase 7 Step 10) */
     /* Phase 9.3 / 13 (drawing_stack_modernization B5 residual): NodeSensor
@@ -86,9 +86,9 @@ struct ged_drawable {
      * bsg_sensor_target()); a separate gd_illum_solid cache field used to
      * exist alongside it but was retired in Phase 13.  Owned by libged;
      * created and destroyed by _sg_set_illum on transitions to/from a
-     * non-NULL solid.  Stored as struct bv_scene_obj * (= bsg_node) to
+     * non-NULL solid.  Stored as struct bsg_node * (= bsg_node) to
      * avoid pulling in bsg/defines.h here. */
-    struct bv_scene_obj         *gd_illum_sensor;
+    struct bsg_node         *gd_illum_sensor;
     /* Phase 9.3 (drawing_stack_modernization B5 residual): monotonic
      * highlight-state revision counter.  Bumped on:
      *   - every transition of the illuminated solid (set/clear/replace) and
@@ -239,15 +239,15 @@ GED_EXPORT extern void ged_rt_fb_refresh(struct ged *gedp);
 /* Data for tree walk */
 struct draw_data_t {
     struct db_i *dbip;
-    struct bv_scene_group *g;
-    struct bview *v;
-    struct bv_obj_settings *vs;
+    struct bsg_scene_group *g;
+    struct bsg_view *v;
+    struct bsg_obj_settings *vs;
     const struct bn_tol *tol;
     const struct bg_tess_tol *ttol;
     struct bu_color c;
     int color_inherit;
     int bool_op;
-    struct bv_mesh_lod_context *mesh_c;
+    struct bsg_mesh_lod_context *mesh_c;
 
     /* To avoid the need for multiple subtree walking
      * functions, we also set up to support a bounding
@@ -291,11 +291,11 @@ GED_EXPORT extern int _ged_combadd2(struct ged *gedp,
 			 int validate);
 
 /* defined in bsg_view_obj.c */
-GED_EXPORT extern void color_soltab(struct db_i *dbip, struct bv_scene_obj *sp);
+GED_EXPORT extern void color_soltab(struct db_i *dbip, struct bsg_node *sp);
 
 /* defined in draw.c */
 GED_EXPORT extern void _ged_cvt_vlblock_to_solids(struct ged *gedp,
-				       struct bv_vlblock *vbp,
+				       struct bsg_vlblock *vbp,
 				       const char *name,
 				       int copy);
 
@@ -471,11 +471,11 @@ _ged_sort_existing_objs(struct db_i *dbip, int argc, const char *argv[], struct 
 GED_EXPORT extern int ged_view_data_lines(struct ged *gedp, int argc, const char *argv[]);
 
 
-GED_EXPORT extern void ged_push_scene_obj(struct ged *gedp, struct bv_scene_obj *sp);
-GED_EXPORT extern struct bv_scene_obj *ged_pop_scene_obj(struct ged *gedp);
-GED_EXPORT extern int ged_lod_install_mesh_ops(struct bv_scene_obj *lod, struct bv_scene_obj *s);
-GED_EXPORT extern int ged_lod_install_csg_ops(struct bv_scene_obj *lod, struct bv_scene_obj *s);
-GED_EXPORT extern int ged_lod_adaptive_toggle_sync(struct bv_scene_obj *lod, struct bview *v, int adaptive_on);
+GED_EXPORT extern void ged_push_scene_obj(struct ged *gedp, struct bsg_node *sp);
+GED_EXPORT extern struct bsg_node *ged_pop_scene_obj(struct ged *gedp);
+GED_EXPORT extern int ged_lod_install_mesh_ops(struct bsg_node *lod, struct bsg_node *s);
+GED_EXPORT extern int ged_lod_install_csg_ops(struct bsg_node *lod, struct bsg_node *s);
+GED_EXPORT extern int ged_lod_adaptive_toggle_sync(struct bsg_node *lod, struct bsg_view *v, int adaptive_on);
 GED_EXPORT extern const struct bu_opt_cmd_desc *_ged_cmd_schema(const char *cmd);
 
 GED_EXPORT extern int

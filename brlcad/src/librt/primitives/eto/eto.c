@@ -973,7 +973,7 @@ eto_ellipse_points(
 }
 
 int
-rt_eto_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bn_tol *tol, const struct bview *v, fastf_t s_size)
+rt_eto_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bn_tol *tol, const struct bsg_view *v, fastf_t s_size)
 {
     struct rt_eto_internal *eto;
     fastf_t radian, radian_step;
@@ -1115,7 +1115,7 @@ rt_eto_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const str
  * eto_rd Semiminor axis length (scalar) of eto cross section
  */
 int
-rt_eto_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *UNUSED(tol), const struct bview *UNUSED(info))
+rt_eto_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *UNUSED(tol), const struct bsg_view *UNUSED(info))
 {
     fastf_t a, b;	/* axis lengths of ellipse */
     fastf_t ang, ch, cv, dh, dv, ntol, dtol, phi, theta;

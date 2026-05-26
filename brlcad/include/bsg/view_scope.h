@@ -63,7 +63,7 @@ __BEGIN_DECLS
  * @p v must be non-NULL.  Returns NULL on failure.
  */
 BSG_EXPORT extern bsg_node *
-bsg_view_scope_create(struct bview *v);
+bsg_view_scope_create(struct bsg_view *v);
 
 /**
  * Return non-zero if @p node is a BSG_NODE_VIEW_SCOPE that should be
@@ -76,7 +76,7 @@ bsg_view_scope_create(struct bview *v);
  *   - node is NULL or not BSG_NODE_VIEW_SCOPE                   (returns 0).
  */
 BSG_EXPORT extern int
-bsg_view_scope_visible(bsg_node *node, struct bview *v);
+bsg_view_scope_visible(bsg_node *node, struct bsg_view *v);
 
 /**
  * Release the view-scope node back to the libbv free pool.

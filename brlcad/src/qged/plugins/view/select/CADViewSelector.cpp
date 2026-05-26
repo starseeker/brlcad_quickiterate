@@ -236,7 +236,7 @@ CADViewSelector::select_objs()
 
     struct bu_vls dpath = BU_VLS_INIT_ZERO;
     for (size_t i = 0; i < BU_PTBL_LEN(&cf->selected_set); i++) {
-	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&cf->selected_set, i);
+	struct bsg_node *s = (struct bsg_node *)BU_PTBL_GET(&cf->selected_set, i);
 	bu_vls_sprintf(&dpath, "%s",  bu_vls_cstr(&s->s_name));
 	if (bu_vls_cstr(&dpath)[0] != '/')
 	    bu_vls_prepend(&dpath, "/");
@@ -264,7 +264,7 @@ CADViewSelector::deselect_objs()
 
     struct bu_vls dpath = BU_VLS_INIT_ZERO;
     for (size_t i = 0; i < BU_PTBL_LEN(&cf->selected_set); i++) {
-	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&cf->selected_set, i);
+	struct bsg_node *s = (struct bsg_node *)BU_PTBL_GET(&cf->selected_set, i);
 	bu_vls_sprintf(&dpath, "%s",  bu_vls_cstr(&s->s_name));
 	if (bu_vls_cstr(&dpath)[0] != '/')
 	    bu_vls_prepend(&dpath, "/");
@@ -291,7 +291,7 @@ CADViewSelector::erase_objs()
     av[0] = "erase";
     int scnt = 1;
     for (size_t i = 0; i < BU_PTBL_LEN(&cf->selected_set); i++) {
-	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&cf->selected_set, i);
+	struct bsg_node *s = (struct bsg_node *)BU_PTBL_GET(&cf->selected_set, i);
 	if (!s)
 	    continue;
 	av[i+1] = bu_vls_cstr(&s->s_name);
@@ -372,7 +372,7 @@ CADViewSelector::eventFilter(QObject *o, QEvent *e)
     struct ged *gedp = m_ctx ? m_ctx->getGed() : nullptr;
     if (!gedp || !gedp->ged_gvp)
 	return false;
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
 
     // Set the libqtcad filter based on current options
     cf = pf;

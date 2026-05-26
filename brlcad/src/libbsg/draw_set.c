@@ -104,7 +104,7 @@ bsg_group_find_child(bsg_node *parent, const char *name)
 
 
 bsg_node *
-bsg_group_ensure_child(bsg_node *parent, struct bview *v,
+bsg_group_ensure_child(bsg_node *parent, struct bsg_view *v,
 		       const char *name, void *dp_hint)
 {
     if (!parent || !name)

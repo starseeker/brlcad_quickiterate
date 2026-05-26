@@ -48,7 +48,7 @@ __BEGIN_DECLS
 #define BV_POLYGON_RECTANGLE 3
 #define BV_POLYGON_SQUARE 4
 
-struct bv_polygon {
+struct bsg_polygon {
     int                 type;
     int                 fill_flag;         /* set to shade the interior */
     vect2d_t            fill_dir;
@@ -74,10 +74,10 @@ struct bv_polygon {
 };
 
 /* Given a polygon, create a scene object */
-BV_EXPORT extern struct bv_scene_obj *bv_create_polygon_obj(struct bview *v, int flags, struct bv_polygon *p);
+BV_EXPORT extern struct bsg_node *bsg_create_polygon_obj(struct bsg_view *v, int flags, struct bsg_polygon *p);
 
 /* Creates a scene object with a default polygon */
-BV_EXPORT extern struct bv_scene_obj *bv_create_polygon(struct bview *v, int flags, int type, point_t *fp);
+BV_EXPORT extern struct bsg_node *bsg_create_polygon(struct bsg_view *v, int flags, int type, point_t *fp);
 
 /* Various update modes have similar logic - we pass in the flags to the update
  * routine to enable/disable specific portions of the overall flow. */
@@ -87,38 +87,38 @@ BV_EXPORT extern struct bv_scene_obj *bv_create_polygon(struct bview *v, int fla
 #define BV_POLYGON_UPDATE_PT_SELECT_CLEAR 3
 #define BV_POLYGON_UPDATE_PT_MOVE 4
 #define BV_POLYGON_UPDATE_PT_APPEND 5
-BV_EXPORT extern int bv_update_polygon(struct bv_scene_obj *s, struct bview *v, int utype);
+BV_EXPORT extern int bsg_update_polygon(struct bsg_node *s, struct bsg_view *v, int utype);
 
 /* Update just the scene obj vlist, without altering the source polygon */
-BV_EXPORT extern void bv_polygon_vlist(struct bv_scene_obj *s);
+BV_EXPORT extern void bsg_polygon_vlist(struct bsg_node *s);
 
 /* Find the closest polygon obj to a point (caller-supplied ptbl) */
-BV_EXPORT extern struct bv_scene_obj *bv_select_polygon(struct bu_ptbl *objs, point_t *cp);
+BV_EXPORT extern struct bsg_node *bsg_select_polygon(struct bu_ptbl *objs, point_t *cp);
 
 /* Phase A0/A2: typed variant - walks all BSG view-scope nodes visible to v
  * and returns the polygon object closest to cp. */
-BV_EXPORT extern struct bv_scene_obj *bv_view_select_polygon(struct bview *v, point_t *cp);
+BV_EXPORT extern struct bsg_node *bsg_view_select_polygon(struct bsg_view *v, point_t *cp);
 
-BV_EXPORT extern int bv_move_polygon(struct bv_scene_obj *s, point_t *cp, point_t *pp);
-BV_EXPORT extern struct bv_scene_obj *bv_dup_view_polygon(const char *nname, struct bv_scene_obj *s);
+BV_EXPORT extern int bsg_move_polygon(struct bsg_node *s, point_t *cp, point_t *pp);
+BV_EXPORT extern struct bsg_node *bsg_dup_view_polygon(const char *nname, struct bsg_node *s);
 
 /* Copy a bv polygon.  Note that this also performs a
  * view sync - if the user is copying the polygon into
  * another view, they will have to update the output's
- * bview to match their target view. */
-BV_EXPORT extern void bv_polygon_cpy(struct bv_polygon *dest , struct bv_polygon *src);
+ * bsg_view to match their target view. */
+BV_EXPORT extern void bsg_polygon_cpy(struct bsg_polygon *dest , struct bsg_polygon *src);
 
 /* Calculate a suggested default fill delta based on the polygon structure.  The
  * idea is to try and strike a balance between line count and having enough fill
  * lines to highlight interior holes. */
-BV_EXPORT extern int bv_polygon_calc_fdelta(struct bv_polygon *p);
+BV_EXPORT extern int bsg_polygon_calc_fdelta(struct bsg_polygon *p);
 
 BV_EXPORT extern struct bg_polygon *
-bv_polygon_fill_segments(struct bg_polygon *poly, plane_t *vp, vect2d_t line_slope, fastf_t line_spacing);
+bsg_polygon_fill_segments(struct bg_polygon *poly, plane_t *vp, vect2d_t line_slope, fastf_t line_spacing);
 
-/* For all polygon bv_scene_objs in the objs table, apply the specified boolean
+/* For all polygon bsg_scene_objs in the objs table, apply the specified boolean
  * op using p and replace the original polygon geometry in objs with the results. */
-BV_EXPORT extern int bv_polygon_csg(struct bv_scene_obj *target, struct bv_scene_obj *stencil, bg_clip_t op);
+BV_EXPORT extern int bsg_polygon_csg(struct bsg_node *target, struct bsg_node *stencil, bg_clip_t op);
 
 __END_DECLS
 

@@ -57,7 +57,7 @@
 #include <bu.h>
 #include "bu/opt.h"
 #include "bu/time.h"
-#include <bv/lod.h>
+#include <bsg/lod.h>
 #define DM_WITH_RT
 #include <dm.h>
 #include <ged.h>
@@ -80,10 +80,10 @@ ged_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mode, 
     if (!ctx) return;
     ctx->clear_cache(dp);
     if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT && ctx->gedp) {
-	unsigned long long key = bv_mesh_lod_key_get(ctx->gedp->ged_lod, dp->d_namep);
+	unsigned long long key = bsg_mesh_lod_key_get(ctx->gedp->ged_lod, dp->d_namep);
 	if (key) {
-	    bv_mesh_lod_clear_cache(ctx->gedp->ged_lod, key);
-	    bv_mesh_lod_key_put(ctx->gedp->ged_lod, dp->d_namep, 0);
+	    bsg_mesh_lod_clear_cache(ctx->gedp->ged_lod, key);
+	    bsg_mesh_lod_key_put(ctx->gedp->ged_lod, dp->d_namep, 0);
 	}
     }
     switch (mode) {
@@ -120,7 +120,7 @@ open_and_draw(const char *gfile)
 	return NULL;
     gedp->dbi_state = new DbiState(gedp);
     gedp->new_cmd_forms = 1;
-    gedp->ged_lod = bv_mesh_lod_context_create(gedp->dbip->dbi_filename);
+    gedp->ged_lod = bsg_mesh_lod_context_create(gedp->dbip->dbi_filename);
     db_add_changed_clbk(gedp->dbip, &ged_changed_callback, (void *)gedp);
 
     const char *ae_av[4] = {"ae", "35", "25", NULL};
@@ -209,7 +209,7 @@ main(int ac, char *av[])
 	QgSW sw;
 	sw.resize(512, 512);
 	gedp_sw->ged_gvp = sw.view();
-	bv_set_add_view(&gedp_sw->ged_views, sw.view());
+	bsg_set_add_view(&gedp_sw->ged_views, sw.view());
 	sw.view()->gv_base2local = gedp_sw->dbip->dbi_base2local;
 	sw.view()->gv_local2base = gedp_sw->dbip->dbi_local2base;
 
@@ -267,7 +267,7 @@ main(int ac, char *av[])
 	QgGL gl;
 	gl.resize(512, 512);
 	gedp_gl->ged_gvp = gl.view();
-	bv_set_add_view(&gedp_gl->ged_views, gl.view());
+	bsg_set_add_view(&gedp_gl->ged_views, gl.view());
 	gl.view()->gv_base2local = gedp_gl->dbip->dbi_base2local;
 	gl.view()->gv_local2base = gedp_gl->dbip->dbi_local2base;
 

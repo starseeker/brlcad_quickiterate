@@ -117,7 +117,7 @@ Q_DECLARE_INTERFACE(IQgDialogFactory, QGTCAD_IID("IQgDialogFactory"))
  * ------------------------------------------------------------------
  * Lets plugins extend the host's console with commands that have
  * access to a QgPluginContext (and therefore to the host's ged and
- * bview).  The host wires invocation; the plugin provides the
+ * bsg_view).  The host wires invocation; the plugin provides the
  * verb name(s) and the run() callback.
  */
 class QTCAD_EXPORT IQgCommand

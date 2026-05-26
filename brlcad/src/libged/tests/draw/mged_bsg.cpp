@@ -67,7 +67,7 @@ extern "C" void ged_changed_callback(struct db_i *UNUSED(dbip), struct directory
 static void
 do_refresh(struct ged *gedp)
 {
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
     struct dm *dmp = (struct dm *)v->dmp;
     dm_draw_begin(dmp);
     dm_draw_objs(v, NULL, NULL);
@@ -79,11 +79,11 @@ do_refresh(struct ged *gedp)
 static void
 do_full_refresh(struct ged *gedp)
 {
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
     DbiState *dbis  = (DbiState *)gedp->dbi_state;
     BViewState *bvs = dbis->get_view_state(v);
     dbis->update();
-    std::unordered_set<struct bview *> uset;
+    std::unordered_set<struct bsg_view *> uset;
     uset.insert(v);
     bvs->redraw(NULL, uset, 1);
 
@@ -165,7 +165,7 @@ open_gedp(const char *gfile, int width, int height)
 
     gedp->dbi_state = new DbiState(gedp);
     gedp->new_cmd_forms = 1;
-    gedp->ged_lod = bv_mesh_lod_context_create(gedp->dbip->dbi_filename);
+    gedp->ged_lod = bsg_mesh_lod_context_create(gedp->dbip->dbi_filename);
     bu_setenv("DM_SWRAST", "1", 1);
     db_add_changed_clbk(gedp->dbip, &ged_changed_callback, (void *)gedp);
 
@@ -174,7 +174,7 @@ open_gedp(const char *gfile, int width, int height)
     s_av[0] = "dm"; s_av[1] = "attach"; s_av[2] = "swrast"; s_av[3] = "SW"; s_av[4] = NULL;
     ged_exec_dm(gedp, 4, s_av);
 
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
     struct dm *dmp  = (struct dm *)v->dmp;
     dm_set_width(dmp, width);
     dm_set_height(dmp, height);
@@ -214,7 +214,7 @@ test_wireframe(const char *datadir)
     struct ged *gedp = open_gedp("mged_bsg_t1.g", 512, 512);
     if (!gedp) { bu_log("FAIL: ged_open failed\n"); return 1; }
 
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
 
     /* Ensure BSG root is present */
     if (!v->bsg_root) {
@@ -280,11 +280,11 @@ test_illumination(const char *datadir)
     long white_base = count_white("mged_bsg_t2_base.png");
 
     /* Set the first drawn object's s_iflag to UP (illuminated / selected) */
-    struct bview *v = gedp->ged_gvp;
-    struct bu_ptbl *sobjs = bv_view_objs(v, BV_DB_OBJS);
-    struct bv_scene_obj *illum_sp = NULL;
+    struct bsg_view *v = gedp->ged_gvp;
+    struct bu_ptbl *sobjs = bsg_view_objs(v, BV_DB_OBJS);
+    struct bsg_node *illum_sp = NULL;
     if (sobjs && BU_PTBL_LEN(sobjs) > 0)
-	illum_sp = (struct bv_scene_obj *)BU_PTBL_GET(sobjs, 0);
+	illum_sp = (struct bsg_node *)BU_PTBL_GET(sobjs, 0);
 
     if (!illum_sp) {
 	bu_log("SKIP: no scene objects to illuminate\n");
@@ -344,11 +344,11 @@ test_edit_matrix(const char *datadir)
     s_av[0] = "autoview"; s_av[1] = NULL;
     ged_exec_autoview(gedp, 1, s_av);
 
-    struct bview *v = gedp->ged_gvp;
-    struct bu_ptbl *sobjs = bv_view_objs(v, BV_DB_OBJS);
-    struct bv_scene_obj *sp = NULL;
+    struct bsg_view *v = gedp->ged_gvp;
+    struct bu_ptbl *sobjs = bsg_view_objs(v, BV_DB_OBJS);
+    struct bsg_node *sp = NULL;
     if (sobjs && BU_PTBL_LEN(sobjs) > 0)
-	sp = (struct bv_scene_obj *)BU_PTBL_GET(sobjs, 0);
+	sp = (struct bsg_node *)BU_PTBL_GET(sobjs, 0);
 
     if (!sp) {
 	bu_log("SKIP: no scene objects for edit-matrix test\n");
@@ -421,7 +421,7 @@ test_faceplate(const char *datadir)
     s_av[0] = "autoview"; s_av[1] = NULL;
     ged_exec_autoview(gedp, 1, s_av);
 
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
 
     /* Render without center dot */
     v->gv_s->gv_center_dot.gos_draw = 0;

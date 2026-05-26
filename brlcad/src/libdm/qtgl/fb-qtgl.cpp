@@ -534,7 +534,7 @@ fb_qtgl_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
 	ifp->i->pp = NULL;
 	return -1;
     }
-    struct bview *canvas_view = canvas->view();
+    struct bsg_view *canvas_view = canvas->view();
     if (!canvas_view) {
 	dm_close(dmp);
 	qt_destroy(qi);

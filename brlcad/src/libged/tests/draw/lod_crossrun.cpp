@@ -21,7 +21,7 @@
  *
  * LoD cross-run cache-stability test.
  *
- * The bv_lod_cache unit test verifies in-process round-trips.  This test
+ * The bsg_lod_cache unit test verifies in-process round-trips.  This test
  * exercises the cross-process (or cross-ged_open) scenario:
  *
  *  Run 1:
@@ -56,7 +56,7 @@
 #define DM_WITH_RT
 #include <dm.h>
 #include <ged.h>
-#include <bv/lod.h>
+#include <bsg/lod.h>
 #include <icv.h>
 
 #include "../../dbi.h"
@@ -78,14 +78,14 @@ open_and_attach(const char *gfile)
     gedp->dbi_state = new DbiState(gedp);
     DbiState *dbis   = (DbiState *)gedp->dbi_state;
     gedp->new_cmd_forms = 1;
-    gedp->ged_lod = bv_mesh_lod_context_create(gedp->dbip->dbi_filename);
+    gedp->ged_lod = bsg_mesh_lod_context_create(gedp->dbip->dbi_filename);
     bu_setenv("DM_SWRAST", "1", 1);
     db_add_changed_clbk(gedp->dbip, &ged_changed_callback, (void *)gedp);
 
     const char *s_av[6] = {"dm", "attach", "swrast", "SW", NULL};
     ged_exec_dm(gedp, 4, s_av);
 
-    struct bview *v   = gedp->ged_gvp;
+    struct bsg_view *v   = gedp->ged_gvp;
     struct dm   *dmp  = (struct dm *)v->dmp;
     dm_set_width(dmp, 512);
     dm_set_height(dmp, 512);
@@ -118,11 +118,11 @@ open_and_attach(const char *gfile)
 static int
 render_to_file(struct ged *gedp, const char *outfile)
 {
-    struct bview *v   = gedp->ged_gvp;
+    struct bsg_view *v   = gedp->ged_gvp;
     DbiState     *dbis = (DbiState *)gedp->dbi_state;
     BViewState   *bvs  = dbis->get_view_state(v);
     dbis->update();
-    std::unordered_set<struct bview *> uset;
+    std::unordered_set<struct bsg_view *> uset;
     uset.insert(v);
     bvs->redraw(NULL, uset, 1);
 
@@ -235,7 +235,7 @@ main(int ac, char *av[])
     /* Close — releases all in-memory LoD structures; bu_cache stays on disk */
     delete (DbiState *)gedp->dbi_state;
     gedp->dbi_state = NULL;
-    bv_mesh_lod_context_destroy(gedp->ged_lod);
+    bsg_mesh_lod_context_destroy(gedp->ged_lod);
     gedp->ged_lod = NULL;
     ged_close(gedp);
 
@@ -268,7 +268,7 @@ main(int ac, char *av[])
 
     delete (DbiState *)gedp->dbi_state;
     gedp->dbi_state = NULL;
-    bv_mesh_lod_context_destroy(gedp->ged_lod);
+    bsg_mesh_lod_context_destroy(gedp->ged_lod);
     gedp->ged_lod = NULL;
     ged_close(gedp);
 

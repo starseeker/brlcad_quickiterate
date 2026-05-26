@@ -27,17 +27,17 @@
 
 #include <stdio.h>
 #include <bu.h>
-#include <bv.h>
+#include <bsg.h>
 #include <ged.h>
 #include <ged/bsg_ged_draw.h>
 
 struct gqa_match {
     const char *target;
-    struct bv_scene_obj *result;
+    struct bsg_node *result;
 };
 
 static int
-gqa_find_group(struct bv_scene_obj *group, void *userdata)
+gqa_find_group(struct bsg_node *group, void *userdata)
 {
     struct gqa_match *m = (struct gqa_match *)userdata;
     const char *path = bsg_view_obj_group_path(group);
@@ -77,7 +77,7 @@ main(int ac, char *av[]) {
     m.target = "OVERLAPSffff00";
     m.result = NULL;
     bsg_view_obj_foreach_group(gedp, gqa_find_group, &m);
-    struct bv_scene_obj *vdata = m.result;
+    struct bsg_node *vdata = m.result;
 
     if (vdata) {
 	FILE *fp;
@@ -85,7 +85,7 @@ main(int ac, char *av[]) {
 	if (!fp)
 	    bu_exit(EXIT_FAILURE, "Could not open %s for writing\n", gqa_plot_fname);
 	printf("Writing plot data to %s for inspection with overlay command\n", gqa_plot_fname);
-	bv_vlist_to_uplot(fp, &vdata->s_vlist);
+	bsg_vlist_to_uplot(fp, &vdata->s_vlist);
 	fclose(fp);
     } else {
 	bu_exit(EXIT_FAILURE, "No GQA plotting data found.\n");

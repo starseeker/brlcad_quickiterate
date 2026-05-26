@@ -61,7 +61,7 @@
 
 #include <bu.h>
 #include "bu/opt.h"
-#include <bv/lod.h>
+#include <bsg/lod.h>
 #define DM_WITH_RT
 #include <dm.h>
 #include <ged.h>
@@ -83,10 +83,10 @@ ged_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mode, 
     if (!ctx) return;
     ctx->clear_cache(dp);
     if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT && ctx->gedp) {
-	unsigned long long key = bv_mesh_lod_key_get(ctx->gedp->ged_lod, dp->d_namep);
+	unsigned long long key = bsg_mesh_lod_key_get(ctx->gedp->ged_lod, dp->d_namep);
 	if (key) {
-	    bv_mesh_lod_clear_cache(ctx->gedp->ged_lod, key);
-	    bv_mesh_lod_key_put(ctx->gedp->ged_lod, dp->d_namep, 0);
+	    bsg_mesh_lod_clear_cache(ctx->gedp->ged_lod, key);
+	    bsg_mesh_lod_key_put(ctx->gedp->ged_lod, dp->d_namep, 0);
 	}
     }
     switch (mode) {
@@ -176,12 +176,12 @@ main(int ac, char *av[])
     gedp->dbi_state = new DbiState(gedp);
     DbiState *dbis  = (DbiState *)gedp->dbi_state;
     gedp->new_cmd_forms = 1;
-    gedp->ged_lod = bv_mesh_lod_context_create(gedp->dbip->dbi_filename);
+    gedp->ged_lod = bsg_mesh_lod_context_create(gedp->dbip->dbi_filename);
     db_add_changed_clbk(gedp->dbip, &ged_changed_callback, (void *)gedp);
 
     /* Route draw commands into the QgSW view */
     gedp->ged_gvp = sw.view();
-    bv_set_add_view(&gedp->ged_views, sw.view());
+    bsg_set_add_view(&gedp->ged_views, sw.view());
     sw.view()->gv_base2local = gedp->dbip->dbi_base2local;
     sw.view()->gv_local2base = gedp->dbip->dbi_local2base;
 

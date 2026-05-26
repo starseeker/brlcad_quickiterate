@@ -32,7 +32,7 @@
  *      Without a draw root the call returns NULL; with one set it returns
  *      the draw root and bsg_root == gv_draw_root.
  *      bsg_scene_root_destroy clears the pointer without freeing the node.
- *   2. create_null   — NULL bview input returns NULL without crashing.
+ *   2. create_null   — NULL bsg_view input returns NULL without crashing.
  *   3. sync_noop     — bsg_scene_root_sync is a no-op; calling it does not
  *      change root->children.
  *   4. find_by_type  — bsg_view_find_by_type locates a child whose
@@ -69,27 +69,27 @@ static int g_fail = 0;
 
 /* ---- helpers -------------------------------------------------------- */
 
-static struct bview *
+static struct bsg_view *
 make_view(void)
 {
-    struct bview *v;
-    BU_GET(v, struct bview);
+    struct bsg_view *v;
+    BU_GET(v, struct bsg_view);
     bsg_view_init(v, NULL);
     return v;
 }
 
 static void
-free_view(struct bview *v)
+free_view(struct bsg_view *v)
 {
     bsg_view_free(v);
-    BU_PUT(v, struct bview);
+    BU_PUT(v, struct bsg_view);
 }
 
 /* Create a minimal synthetic draw-root group on a view so that
  * bsg_scene_root_create can wire bsg_root to it.  The caller owns the
  * returned node and must free it with bsg_obj_put() when done. */
 static bsg_node *
-attach_fake_draw_root(struct bview *v)
+attach_fake_draw_root(struct bsg_view *v)
 {
     bsg_node *dr = bsg_obj_create(v, BSG_OBJ_CHILD);
     if (!dr)
@@ -107,7 +107,7 @@ test_create_alias(void)
     bu_log("=== Test 1: create_alias ===\n");
 
     /* Without a draw root: standalone libbsg consumers get a minimal root. */
-    struct bview *v = make_view();
+    struct bsg_view *v = make_view();
     bsg_node *root = bsg_scene_root_create(v);
     BSGCHECK(root != NULL,     "bsg_scene_root_create(no draw root) creates root");
     BSGCHECK(v->bsg_root == root, "view->bsg_root is set when no draw root");
@@ -141,14 +141,14 @@ test_create_alias(void)
     free_view(v);
 }
 
-/* ---- Test 2: NULL bview -------------------------------------------- */
+/* ---- Test 2: NULL bsg_view -------------------------------------------- */
 static void
 test_create_null(void)
 {
     bu_log("=== Test 2: create_null ===\n");
     bsg_node *root = bsg_scene_root_create(NULL);
     BSGCHECK(root == NULL, "bsg_scene_root_create(NULL) returns NULL");
-    bu_log("  PASS: null bview guard\n");
+    bu_log("  PASS: null bsg_view guard\n");
 }
 
 /* ---- Test 3: sync is a no-op --------------------------------------- */
@@ -156,7 +156,7 @@ static void
 test_sync_noop(void)
 {
     bu_log("=== Test 3: sync_noop ===\n");
-    struct bview *v = make_view();
+    struct bsg_view *v = make_view();
 
     bsg_node *dr = attach_fake_draw_root(v);
     if (!dr) { g_fail++; free_view(v); return; }
@@ -182,7 +182,7 @@ static void
 test_find_by_type(void)
 {
     bu_log("=== Test 4: find_by_type ===\n");
-    struct bview *v = make_view();
+    struct bsg_view *v = make_view();
 
     bsg_node *dr = attach_fake_draw_root(v);
     if (!dr) { g_fail++; free_view(v); return; }
@@ -225,7 +225,7 @@ test_find_by_type(void)
 static int g_sensor_fired = 0;
 
 static int
-sensor_callback(bsg_node *UNUSED(s), struct bview *UNUSED(v), int UNUSED(mode))
+sensor_callback(bsg_node *UNUSED(s), struct bsg_view *UNUSED(v), int UNUSED(mode))
 {
     g_sensor_fired++;
     return 0;
@@ -237,7 +237,7 @@ test_sensor_fire(void)
     bu_log("=== Test 5: sensor_fire ===\n");
     g_sensor_fired = 0;
 
-    struct bview *v = make_view();
+    struct bsg_view *v = make_view();
 
     bsg_node *dr = attach_fake_draw_root(v);
     if (!dr) { g_fail++; free_view(v); return; }

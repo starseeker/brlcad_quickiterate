@@ -43,7 +43,7 @@ __BEGIN_DECLS
  * Returns NULL on failure.
  */
 BSG_EXPORT extern bsg_node *
-bsg_group_create(struct bview *v);
+bsg_group_create(struct bsg_view *v);
 
 /**
  * Append @p child to @p group's children list.

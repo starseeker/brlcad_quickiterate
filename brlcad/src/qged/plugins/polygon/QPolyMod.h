@@ -107,9 +107,9 @@ class QPolyMod : public QWidget
 	bool eventFilter(QObject *, QEvent *);
 
     private:
-	void poly_type_settings(struct bv_polygon *ip);
+	void poly_type_settings(struct bsg_polygon *ip);
 	int poly_cnt = 0;
-	struct bv_scene_obj *p = NULL;
+	struct bsg_node *p = NULL;
 	bool do_bool = false;
 
 	QgPolyFilter *cf = NULL;
@@ -120,7 +120,7 @@ class QPolyMod : public QWidget
 	QgPluginContext *m_ctx = nullptr;
 
 	struct ged *getGed() const;
-	struct bview *getView() const;
+	struct bsg_view *getView() const;
 };
 
 

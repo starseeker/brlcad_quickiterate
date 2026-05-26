@@ -158,7 +158,7 @@ namespace {
 	    lint_worker_data(struct rt_i *rtip, struct resource *res);
 	    ~lint_worker_data();
 	    void shoot(int ind, bool reverse);
-	    void plot_bad_tris(struct bv_vlblock *vbp, struct bu_list *vhead, struct bu_list *vlfree);
+	    void plot_bad_tris(struct bsg_vlblock *vbp, struct bu_list *vhead, struct bu_list *vlfree);
 
 	    nlohmann::json tresults;
 	    bool condition_flag = false;
@@ -257,7 +257,7 @@ lint_worker_data::shoot(int ind, bool reverse)
 }
 
 void
-lint_worker_data::plot_bad_tris(struct bv_vlblock *vbp, struct bu_list *vhead, struct bu_list *vlfree)
+lint_worker_data::plot_bad_tris(struct bsg_vlblock *vbp, struct bu_list *vhead, struct bu_list *vlfree)
 {
     if (!vbp || !vhead || !vlfree)
 	return;
@@ -650,12 +650,12 @@ bot_checks(lint_data *bdata, struct directory *dp, struct rt_bot_internal *bot)
 
     if (bdata->do_plot) {
 	struct bu_color *color = bdata->color;
-	struct bv_vlblock *vbp = bdata->vbp;
+	struct bsg_vlblock *vbp = bdata->vbp;
 	struct bu_list *vlfree = bdata->vlfree;
 	unsigned char rgb[3] = {255, 255, 0};
 	if (color)
 	    bu_color_to_rgb_chars(color, rgb);
-	struct bu_list *vhead = bv_vlblock_find(vbp, (int)rgb[0], (int)rgb[1], (int)rgb[2]);
+	struct bu_list *vhead = bsg_vlblock_find(vbp, (int)rgb[0], (int)rgb[1], (int)rgb[2]);
 	// Triangle plotting order doesn't matter particularly, just
 	// iterate over all the workers
 	for (size_t i = 0; i < ncpus; i++) {

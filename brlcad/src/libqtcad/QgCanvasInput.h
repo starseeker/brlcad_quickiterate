@@ -41,7 +41,7 @@
 
 #include "bsg/defines.h"
 
-typedef void (*qgcanvas_bounds_update_t)(struct bview *);
+typedef void (*qgcanvas_bounds_update_t)(struct bsg_view *);
 
 /**
  * Per-canvas input-binding handler.
@@ -56,26 +56,26 @@ public:
 	QgCanvasInput()  = default;
 	~QgCanvasInput() = default;
 
-	int keyPressEvent(struct bview *v, int x_prev, int y_prev,
+	int keyPressEvent(struct bsg_view *v, int x_prev, int y_prev,
 	                  QKeyEvent *k);
 
-	int mousePressEvent(struct bview *v, int x_prev, int y_prev,
+	int mousePressEvent(struct bsg_view *v, int x_prev, int y_prev,
 	                    QMouseEvent *e);
 
-	int mouseReleaseEvent(struct bview *v, double x_press, double y_press,
+	int mouseReleaseEvent(struct bsg_view *v, double x_press, double y_press,
 	                      int x_prev, int y_prev, QMouseEvent *e, int mode);
 
-	int mouseMoveEvent(struct bview *v, int x_prev, int y_prev,
+	int mouseMoveEvent(struct bsg_view *v, int x_prev, int y_prev,
 	                   QMouseEvent *e, int mode);
 
-	int wheelEvent(struct bview *v, QWheelEvent *e);
+	int wheelEvent(struct bsg_view *v, QWheelEvent *e);
 
 private:
-	void suspendDragBoundsUpdate(struct bview *v);
-	void restoreDragBoundsUpdate(struct bview *v, int refresh_bounds);
+	void suspendDragBoundsUpdate(struct bsg_view *v);
+	void restoreDragBoundsUpdate(struct bsg_view *v, int refresh_bounds);
 
-	std::unordered_map<struct bview *, qgcanvas_bounds_update_t> m_drag_bounds_updates;
-	std::unordered_map<struct bview *, long long>                m_drag_update_ts;
+	std::unordered_map<struct bsg_view *, qgcanvas_bounds_update_t> m_drag_bounds_updates;
+	std::unordered_map<struct bsg_view *, long long>                m_drag_update_ts;
 
 	static const long long s_drag_update_interval_ms = 16;
 };

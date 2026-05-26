@@ -34,7 +34,7 @@
 #include "../view/view.h"
 
 void
-go_refresh_draw(struct ged *gedp, struct bview *gdvp, int restore_zbuffer)
+go_refresh_draw(struct ged *gedp, struct bsg_view *gdvp, int restore_zbuffer)
 {
     struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
     if (tvd->gdv_fbs.fbs_mode == TCLCAD_OBJ_FB_MODE_OVERLAY) {
@@ -138,7 +138,7 @@ go_refresh_draw(struct ged *gedp, struct bview *gdvp, int restore_zbuffer)
 }
 
 void
-go_refresh(struct ged *gedp, struct bview *gdvp)
+go_refresh(struct ged *gedp, struct bsg_view *gdvp)
 {
     int restore_zbuffer = 0;
 
@@ -155,7 +155,7 @@ go_refresh(struct ged *gedp, struct bview *gdvp)
 }
 
 void
-to_refresh_view(struct bview *gdvp)
+to_refresh_view(struct bsg_view *gdvp)
 {
 
     if (current_top == NULL)
@@ -172,11 +172,11 @@ to_refresh_view(struct bview *gdvp)
 void
 to_refresh_all_views(struct tclcad_obj *top)
 {
-    struct bview *gdvp;
+    struct bsg_view *gdvp;
 
-    struct bu_ptbl *views = bv_set_views(&top->to_gedp->ged_views);
+    struct bu_ptbl *views = bsg_set_views(&top->to_gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	gdvp = (struct bview *)BU_PTBL_GET(views, i);
+	gdvp = (struct bsg_view *)BU_PTBL_GET(views, i);
 	to_refresh_view(gdvp);
     }
 }
@@ -266,9 +266,9 @@ int
 to_handle_refresh(struct ged *gedp,
 		  const char *name)
 {
-    struct bview *gdvp;
+    struct bsg_view *gdvp;
 
-    gdvp = bv_set_find_view(&gedp->ged_views, name);
+    gdvp = bsg_set_find_view(&gedp->ged_views, name);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", name);
 	return BRLCAD_ERROR;
@@ -283,7 +283,7 @@ to_handle_refresh(struct ged *gedp,
 void
 to_refresh_handler(void *clientdata)
 {
-    struct bview *gdvp = (struct bview *)clientdata;
+    struct bsg_view *gdvp = (struct bsg_view *)clientdata;
 
     /* Possibly do more here */
 

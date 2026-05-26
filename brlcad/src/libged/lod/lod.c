@@ -40,7 +40,7 @@ ged_lod_core(struct ged *gedp, int argc, const char *argv[])
     if (gedp->dbi_state)
 	return ged_lod2_core(gedp, argc, argv);
 
-    struct bview *gvp;
+    struct bsg_view *gvp;
     int printUsage = 0;
     static const char *usage = "lod (on|off|enabled)\n"
 			       "lod scale (points|curves) <factor>\n";

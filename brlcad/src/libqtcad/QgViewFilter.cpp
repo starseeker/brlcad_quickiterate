@@ -25,14 +25,14 @@
 #include "common.h"
 
 extern "C" {
-#include "bv.h"
+#include "bsg.h"
 }
 
 #include "qtcad/QgViewFilter.h"
 
 class QgViewFilter::QgViewFilterPrivate {
 public:
-	struct bview *v = nullptr;
+	struct bsg_view *v = nullptr;
 };
 
 QgViewFilter::QgViewFilter(QObject *parent)
@@ -46,12 +46,12 @@ QgViewFilter::~QgViewFilter()
 }
 
 void
-QgViewFilter::set_view(struct bview *nv)
+QgViewFilter::set_view(struct bsg_view *nv)
 {
 	m->v = nv;
 }
 
-struct bview *
+struct bsg_view *
 QgViewFilter::view() const
 {
 	return m->v;
@@ -80,12 +80,12 @@ QgViewFilter::view_sync(QEvent *e)
 	e_y = (int)m_e->position().y();
 #endif
 
-	/* Keep bview mouse state synchronized with the event stream. */
+	/* Keep bsg_view mouse state synchronized with the event stream. */
 	m->v->gv_prevMouseX = m->v->gv_mouse_x;
 	m->v->gv_prevMouseY = m->v->gv_mouse_y;
 	m->v->gv_mouse_x = e_x;
 	m->v->gv_mouse_y = e_y;
-	bv_screen_pt(&m->v->gv_point, (fastf_t)e_x, (fastf_t)e_y, m->v);
+	bsg_screen_pt(&m->v->gv_point, (fastf_t)e_x, (fastf_t)e_y, m->v);
 
 	/* Modifier keys are typically view-nav gestures, not edit operations. */
 	if (m_e->modifiers() != Qt::NoModifier)

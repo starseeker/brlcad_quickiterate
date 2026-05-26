@@ -53,13 +53,13 @@ QgSketchFilter::QgSketchFilter(QObject *parent)
 void
 QgSketchFilter::screen_to_view(int sx, int sy, vect_t mvec) const
 {
-	struct bview *v = view();
+	struct bsg_view *v = view();
 	if (!v) {
 		VSETALL(mvec, 0.0);
 		return;
 	}
 	fastf_t vx = 0.0, vy = 0.0;
-	bv_screen_to_view(v, &vx, &vy, (fastf_t)sx, (fastf_t)sy);
+	bsg_screen_to_view(v, &vx, &vy, (fastf_t)sx, (fastf_t)sy);
 	VSET(mvec, vx, vy, 0.0);
 }
 
@@ -67,7 +67,7 @@ bool
 QgSketchFilter::screen_to_uv(int sx, int sy,
                              fastf_t *u_out, fastf_t *v_out) const
 {
-	struct bview *v = view();
+	struct bsg_view *v = view();
 	if (!v || !es)
 		return false;
 
@@ -79,7 +79,7 @@ QgSketchFilter::screen_to_uv(int sx, int sy,
 
 	/* Unproject screen pixel → model-space 3-D point */
 	point_t p3d;
-	if (bv_screen_pt(&p3d, (fastf_t)sx, (fastf_t)sy, v) != 0)
+	if (bsg_screen_pt(&p3d, (fastf_t)sx, (fastf_t)sy, v) != 0)
 		return false;
 
 	/* Project the 3-D point onto the sketch plane.
@@ -104,7 +104,7 @@ QgSketchFilter::snap_vertex_uv(int sx, int sy,
 	if (!screen_to_uv(sx, sy, u_out, v_out))
 		return false;
 
-	struct bview *v = view();
+	struct bsg_view *v = view();
 	if (snap_px <= 0.0 || !es || !v)
 		return true;
 
@@ -189,7 +189,7 @@ QgSketchPickVertexFilter::eventFilter(QObject *, QEvent *e)
 		if (!se)
 			return true;
 
-		struct bview *v = view();
+		struct bsg_view *v = view();
 		vect_t mvec;
 		screen_to_view(v->gv_mouse_x, v->gv_mouse_y, mvec);
 		VSET(se->v_pos, mvec[X], mvec[Y], 0.0);
@@ -232,7 +232,7 @@ QgSketchMoveVertexFilter::eventFilter(QObject *, QEvent *e)
 	if (!se || se->curr_vert < 0)
 		return false;
 
-	struct bview *v = view();
+	struct bsg_view *v = view();
 
 	if (m_e->type() == QEvent::MouseButtonPress
 	                && m_e->buttons().testFlag(Qt::LeftButton)) {
@@ -285,7 +285,7 @@ QgSketchAddVertexFilter::eventFilter(QObject *, QEvent *e)
 	if (!es)
 		return false;
 
-	struct bview *v = view();
+	struct bsg_view *v = view();
 	if (m_e->type() == QEvent::MouseButtonPress
 	                && m_e->buttons().testFlag(Qt::LeftButton)) {
 
@@ -423,7 +423,7 @@ QgSketchPickSegmentFilter::eventFilter(QObject *, QEvent *e)
 
 		/* Build model→view matrix including any edit transform */
 		mat_t m2v;
-		struct bview *v = view();
+		struct bsg_view *v = view();
 		bn_mat_mul(m2v, v->gv_model2view, es->model_changes);
 
 		/* Cursor in view space */
@@ -494,7 +494,7 @@ QgSketchMoveSegmentFilter::eventFilter(QObject *, QEvent *e)
 	if (!se || se->curr_seg < 0)
 		return false;
 
-	struct bview *v = view();
+	struct bsg_view *v = view();
 	if (m_e->type() == QEvent::MouseButtonPress
 	                && m_e->buttons().testFlag(Qt::LeftButton)) {
 		/* Record starting UV position */
@@ -615,7 +615,7 @@ sketch_arc_center_uv(const struct rt_sketch_internal *skt,
 bool
 QgSketchArcRadiusFilter::eventFilter(QObject *, QEvent *e)
 {
-	struct bview *v = view();
+	struct bsg_view *v = view();
 	if (!es || !v)
 		return false;
 
@@ -767,7 +767,7 @@ QgSketchSetTangencyFilter::eventFilter(QObject *, QEvent *e)
 
 		/* Build model→view matrix */
 		mat_t m2v;
-		struct bview *v = view();
+		struct bsg_view *v = view();
 		bn_mat_mul(m2v, v->gv_model2view, es->model_changes);
 
 		/* Cursor in view space */

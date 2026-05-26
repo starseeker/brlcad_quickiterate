@@ -43,7 +43,7 @@ __BEGIN_DECLS
  * Returns NULL on failure.
  */
 BSG_EXPORT extern bsg_node *
-bsg_shape_create(struct bview *v);
+bsg_shape_create(struct bsg_view *v);
 
 /**
  * Copy the vlist starting at @p vhead into @p shape's s_vlist.

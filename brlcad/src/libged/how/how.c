@@ -43,7 +43,7 @@ struct how_data {
 };
 
 static int
-how_solid_cb(struct bv_scene_obj *sp, void *userdata)
+how_solid_cb(struct bsg_node *sp, void *userdata)
 {
     struct how_data *data = (struct how_data *)userdata;
     if (data->found)

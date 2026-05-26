@@ -104,7 +104,7 @@ qray_free(struct ged_drawable *gdp)
 
 void
 qray_data_to_vlist(struct ged *gedp,
-	struct bv_vlblock *vbp,
+	struct bsg_vlblock *vbp,
 	struct qray_dataList *headp,
 	vect_t dir,
 	int do_overlaps)
@@ -118,17 +118,17 @@ qray_data_to_vlist(struct ged *gedp,
 
     for (BU_LIST_FOR(ndlp, qray_dataList, &headp->l)) {
 	if (do_overlaps)
-	    vhead = bv_vlblock_find(vbp,
+	    vhead = bsg_vlblock_find(vbp,
 		    gedp->i->ged_gdp->gd_qray_overlap_color.r,
 		    gedp->i->ged_gdp->gd_qray_overlap_color.g,
 		    gedp->i->ged_gdp->gd_qray_overlap_color.b);
 	else if (i % 2)
-	    vhead = bv_vlblock_find(vbp,
+	    vhead = bsg_vlblock_find(vbp,
 		    gedp->i->ged_gdp->gd_qray_odd_color.r,
 		    gedp->i->ged_gdp->gd_qray_odd_color.g,
 		    gedp->i->ged_gdp->gd_qray_odd_color.b);
 	else
-	    vhead = bv_vlblock_find(vbp,
+	    vhead = bsg_vlblock_find(vbp,
 		    gedp->i->ged_gdp->gd_qray_even_color.r,
 		    gedp->i->ged_gdp->gd_qray_even_color.g,
 		    gedp->i->ged_gdp->gd_qray_even_color.b);
@@ -141,7 +141,7 @@ qray_data_to_vlist(struct ged *gedp,
 	BSG_ADD_VLIST(vlfree, vhead, out_pt, BSG_VLIST_LINE_DRAW);
 
 	if (!do_overlaps && i > 1 && !VNEAR_EQUAL(last_out_pt, in_pt, SQRT_SMALL_FASTF)) {
-	    vhead = bv_vlblock_find(vbp,
+	    vhead = bsg_vlblock_find(vbp,
 		    gedp->i->ged_gdp->gd_qray_void_color.r,
 		    gedp->i->ged_gdp->gd_qray_void_color.g,
 		    gedp->i->ged_gdp->gd_qray_void_color.b);

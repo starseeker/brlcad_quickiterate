@@ -75,7 +75,7 @@ struct bsg_timer_sensor {
 /**
  * Register a FieldSensor that fires @p cb(target, fid, data) whenever
  * bsg_node_field_touch(target, fid) is called.  @p root supplies the owning
- * view so that a bv_scene_obj handle can be allocated for the sensor.
+ * view so that a bsg_node handle can be allocated for the sensor.
  * Returns the sensor handle (BSG_NODE_SENSOR|BSG_SENSOR_FIELD node) or NULL.
  */
 BSG_EXPORT extern bsg_node *

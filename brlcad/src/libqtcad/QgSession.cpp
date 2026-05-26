@@ -96,17 +96,17 @@ QgSession::QgSession(QObject *parent)
     /* Create a default fallback view.  This guarantees that gedp->ged_gvp is
      * always non-null even before the application window creates its own
      * view widget. */
-    BU_GET(empty_gvp, struct bview);
-    bv_init(empty_gvp, &gedp->ged_views);
-    bv_set_add_view(&gedp->ged_views, empty_gvp);
+    BU_GET(empty_gvp, struct bsg_view);
+    bsg_init(empty_gvp, &gedp->ged_views);
+    bsg_set_add_view(&gedp->ged_views, empty_gvp);
     gedp->ged_gvp = empty_gvp;
     bu_vls_sprintf(&gedp->ged_gvp->gv_name, "default");
 }
 
 QgSession::~QgSession()
 {
-    bv_free(empty_gvp);
-    BU_PUT(empty_gvp, struct bview);
+    bsg_free(empty_gvp);
+    BU_PUT(empty_gvp, struct bsg_view);
     ged_close(gedp);
 }
 

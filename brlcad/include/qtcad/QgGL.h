@@ -39,7 +39,7 @@ class QResizeEvent;
 class QWheelEvent;
 
 struct bu_ptbl;
-struct bview;
+struct bsg_view;
 struct dm;
 struct fb;
 struct QgCanvasState;  /* private implementation — defined in QgCanvasState.h */
@@ -60,13 +60,13 @@ QWidget *canvasWidget() override { return this; }
 QObject *asQObject()    override { return this; }
 bool isValid() const    override { return QOpenGLWidget::isValid(); }
 
-struct bview *view()           const override;
+struct bsg_view *view()           const override;
 struct dm    *displayManager() const override;
 struct fb    *frameBuffer()    const override;
 
-void set_view(struct bview *)               override;
+void set_view(struct bsg_view *)               override;
 void setDisplayManagerSet(struct bu_ptbl *) override;
-void set_draw_custom(void (*fn)(struct bview *, void *),
+void set_draw_custom(void (*fn)(struct bsg_view *, void *),
      void *udata)           override;
 
 void stash_hashes() override;

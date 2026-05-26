@@ -33,8 +33,8 @@
  *     tracks the currently selected level and the view metrics that were
  *     current at the time of selection.
  *
- * The cursor map replaces the per-view duplicate bv_scene_obj subtrees
- * (bv_scene_obj::i->vobjs) for LoD-managed paths.  Levels are ordinary
+ * The cursor map replaces the per-view duplicate bsg_node subtrees
+ * (bsg_node::i->vobjs) for LoD-managed paths.  Levels are ordinary
  * BSG_NODE_SHAPE children of the LoD node; the LoD node selects which
  * child the render traversal should visit.
  *
@@ -56,7 +56,7 @@
 
 __BEGIN_DECLS
 
-struct bview;   /* forward declaration */
+struct bsg_view;   /* forward declaration */
 
 /* ------------------------------------------------------------------ */
 /* Per-view LoD cursor                                                  */
@@ -76,7 +76,7 @@ struct bview;   /* forward declaration */
  *   last_frame_rev   - gv_frame_rev at the time of the last select.
  */
 struct bsg_lod_view_cursor {
-    struct bview *v;
+    struct bsg_view *v;
     int           level;
     fastf_t       view_scale;
     fastf_t       curve_scale;
@@ -94,7 +94,7 @@ struct bsg_lod_view_cursor {
  * Policy vtable installed on a BSG_NODE_LOD node.
  *
  * Implementations are supplied by:
- *   - libbv (mesh pop-buffer LoD): wraps bv_mesh_lod_view.
+ *   - libbv (mesh pop-buffer LoD): wraps bsg_mesh_lod_view.
  *   - libged (CSG adaptive wireframe): wraps csg_wireframe_update /
  *     ft_adaptive_plot.
  *
@@ -110,7 +110,7 @@ struct bsg_lod_ops {
      * The cursor for view @p v must already exist when this is called;
      * the ops implementation may consult it via bsg_lod_node_get_cursor.
      */
-    int  (*select_level)(bsg_node *node, struct bview *v);
+    int  (*select_level)(bsg_node *node, struct bsg_view *v);
 
     /**
      * Make level @p level the active representation for view @p v.
@@ -121,7 +121,7 @@ struct bsg_lod_ops {
      *
      * @p level is guaranteed to be in [0, number_of_children).
      */
-    void (*activate_level)(bsg_node *node, struct bview *v, int level);
+    void (*activate_level)(bsg_node *node, struct bsg_view *v, int level);
 
     /**
      * Return non-zero if the cached level for view @p v is no longer
@@ -130,7 +130,7 @@ struct bsg_lod_ops {
      * Returning 0 is always safe (suppresses work); returning 1 triggers
      * a select_level → activate_level cycle.
      */
-    int  (*is_stale)(bsg_node *node, struct bview *v);
+    int  (*is_stale)(bsg_node *node, struct bsg_view *v);
 
     /**
      * Release any resources allocated by the ops implementation
@@ -142,7 +142,7 @@ struct bsg_lod_ops {
 
 
 /* ------------------------------------------------------------------ */
-/* LoD node payload (stored in bv_scene_obj::s_i_data)                 */
+/* LoD node payload (stored in bsg_node::s_i_data)                 */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -173,7 +173,7 @@ struct bsg_lod_payload {
  * Returns NULL on failure.
  */
 BSG_EXPORT extern bsg_node *
-bsg_lod_node_create(struct bview *v);
+bsg_lod_node_create(struct bsg_view *v);
 
 /**
  * Install the level-selection ops vtable @p ops and opaque policy
@@ -214,7 +214,7 @@ bsg_lod_node_attach_level(bsg_node *lod_node, bsg_node *level_node);
  * allocation failure.
  */
 BSG_EXPORT extern struct bsg_lod_view_cursor *
-bsg_lod_node_get_cursor(bsg_node *node, struct bview *v);
+bsg_lod_node_get_cursor(bsg_node *node, struct bsg_view *v);
 
 /**
  * Return the currently active level index for view @p v in LoD node
@@ -222,7 +222,7 @@ bsg_lod_node_get_cursor(bsg_node *node, struct bview *v);
  * cursor does not exist for this view.
  */
 BSG_EXPORT extern int
-bsg_lod_node_active_level(bsg_node *node, struct bview *v);
+bsg_lod_node_active_level(bsg_node *node, struct bsg_view *v);
 
 /**
  * Return the number of level children currently attached to LoD node
@@ -241,7 +241,7 @@ bsg_lod_node_level_count(bsg_node *node);
  * Returns the new LoD node, or NULL on failure.
  */
 BSG_EXPORT extern bsg_node *
-bsg_lod_node_insert_above(bsg_node *leaf, struct bview *v);
+bsg_lod_node_insert_above(bsg_node *leaf, struct bsg_view *v);
 
 __END_DECLS
 

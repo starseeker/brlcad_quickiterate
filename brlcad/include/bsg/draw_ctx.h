@@ -38,7 +38,7 @@
 
 #include <stdint.h>
 
-struct bv_scene_obj; /* forward-declare to avoid circular includes */
+struct bsg_node; /* forward-declare to avoid circular includes */
 
 /**
  * Per-root draw-tree context.  Stored in the draw root's s_i_data by
@@ -52,13 +52,13 @@ struct bv_scene_obj; /* forward-declare to avoid circular includes */
  *               creation time, Phase 7 Step 10).
  *   fso       - pointer to the draw-tree's free-object pool node whose
  *               bu_list chain is used for FREE_BV_SCENE_OBJ recycling
- *               (set by libged via bv_set_fsos at root-creation time,
+ *               (set by libged via bsg_set_fsos at root-creation time,
  *               Phase 7 Step 11).  If NULL, individual node->free_scene_obj
  *               pointers are used as fallback.
  */
 struct bsg_draw_ctx {
     uint64_t          *draw_rev;  /**< @brief pointer to the owner's revision counter */
-    struct bv_scene_obj *fso;     /**< @brief free-object pool for this draw tree */
+    struct bsg_node *fso;     /**< @brief free-object pool for this draw tree */
 };
 
 #endif /* BSG_DRAW_CTX_H */

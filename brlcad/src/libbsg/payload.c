@@ -61,7 +61,7 @@ bsg_node_get_payload_type(const bsg_node *node)
 
 
 void
-bsg_payload_dispatch(void *dmp, bsg_node *node, struct bview *v)
+bsg_payload_dispatch(void *dmp, bsg_node *node, struct bsg_view *v)
 {
     if (!node)
 	return;
@@ -81,7 +81,7 @@ bsg_payload_dispatch(void *dmp, bsg_node *node, struct bview *v)
      * geometry data before the renderer consumes it. */
     if (s->s_update_callback) {
 	/* dmp is not directly accessible through the generic update_callback
-	 * signature (int(*)(bv_scene_obj*, bview*, int)) so we pass the
+	 * signature (int(*)(bsg_node*, bsg_view*, int)) so we pass the
 	 * mode as 0.  Callbacks that need the dmp pointer should retrieve
 	 * it via v->dmp. */
 	(void)dmp;  /* consumed by caller context if needed */

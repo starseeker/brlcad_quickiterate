@@ -92,7 +92,7 @@ QEll::QEll()
 QEll::~QEll()
 {
     if (p)
-	bv_obj_put(p);
+	bsg_obj_put(p);
     bu_vls_free(&oname);
 }
 
@@ -102,7 +102,7 @@ QEll::getGed() const
     return m_ctx ? m_ctx->getGed() : nullptr;
 }
 
-struct bview *
+struct bsg_view *
 QEll::getView() const
 {
     return m_ctx ? m_ctx->getView() : nullptr;
@@ -181,17 +181,17 @@ QEll::update_obj_wireframe()
     struct ged *gedp = getGed();
     if (!gedp)
 	return;
-    struct bview *v = getView();
+    struct bsg_view *v = getView();
     if (!v)
 	return;
 
     // Make the object, if we've not already done so.  Phase H: use the
-    // typed BSG overlay API instead of the legacy bv_obj_get path.
+    // typed BSG overlay API instead of the legacy bsg_obj_get path.
     if (!p)
-	p = bv_view_obj_overlay_create(v, "_ell_edit", 1/*local*/);
+	p = bsg_view_obj_overlay_create(v, "_ell_edit", 1/*local*/);
 
     // Clear any old wireframes, labels, etc.
-    bv_obj_reset(p);
+    bsg_obj_reset(p);
 
     // Use whatever view is current to drive the update
     p->s_v = v;
@@ -226,9 +226,9 @@ QEll::update_obj_wireframe()
 	lcnt = intern.idb_meth->ft_labels(pl, 8, idn_mat, &intern, tol);
 
     for (int i = 0; i < lcnt; i++) {
-	struct bv_scene_obj *s = bv_obj_get_child(p);
-	struct bv_label *la;
-	BU_GET(la, struct bv_label);
+	struct bsg_node *s = bsg_obj_get_child(p);
+	struct bsg_label *la;
+	BU_GET(la, struct bsg_label);
 	s->s_i_data = (void *)la;
 
 	BU_LIST_INIT(&(s->s_vlist));
@@ -254,14 +254,14 @@ QEll::update_viewobj_name(const QString &)
     struct ged *gedp = getGed();
     if (!gedp)
 	return;
-    struct bview *v = getView();
+    struct bsg_view *v = getView();
     if (!v)
 	return;
 
     // Make the view object, if we've not already done so.  Phase H: use
-    // the typed BSG overlay API instead of the legacy bv_obj_get path.
+    // the typed BSG overlay API instead of the legacy bsg_obj_get path.
     if (!p)
-	p = bv_view_obj_overlay_create(v, "_ell_edit", 1/*local*/);
+	p = bsg_view_obj_overlay_create(v, "_ell_edit", 1/*local*/);
 
     // Make sure the view object names match whatever the dialog says
     // is the current (proposed) name for the written object

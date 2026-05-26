@@ -25,10 +25,10 @@
  * adornment-sync helpers (arrows, lines, labels, axes, polygons) behaves
  * correctly:
  *
- *   • bv_view_obj_lines_create  creates a named local-scope object
- *   • bv_view_obj_find          locates it by name
- *   • bv_view_obj_visit         visits it via the scope callback
- *   • bv_view_obj_remove        deletes it; subsequent find returns NULL
+ *   • bsg_view_obj_lines_create  creates a named local-scope object
+ *   • bsg_view_obj_find          locates it by name
+ *   • bsg_view_obj_visit         visits it via the scope callback
+ *   • bsg_view_obj_remove        deletes it; subsequent find returns NULL
  *   • dm_draw_objs              can be called headlessly (NULL dmp) without
  *                               crashing — the T2-final call site in
  *                               go_refresh_draw must be no-op safe.
@@ -46,7 +46,7 @@
 #include <fstream>
 
 #include <bu.h>
-#include <bv.h>
+#include <bsg.h>
 #include "bsg/tcl_data.h"
 #include "bsg/util.h"
 #include "bsg/vlist.h"
@@ -64,9 +64,9 @@
 static int nchecks = 0;
 static int nfails  = 0;
 
-/* Visitor that counts objects reached via bv_view_obj_visit. */
+/* Visitor that counts objects reached via bsg_view_obj_visit. */
 static int
-_count_visit_cb(struct bv_scene_obj * /*s*/, void *ud)
+_count_visit_cb(struct bsg_node * /*s*/, void *ud)
 {
     int *cnt = (int *)ud;
     (*cnt)++;
@@ -113,26 +113,26 @@ main(int ac, char *av[])
 
     bu_log("=== TCL adornment BSG lifecycle ===\n");
 
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
     ASSERT(v != NULL);
     ASSERT(v->gv_draw_root != NULL);
 
     /* ------------------------------------------------------------------ *
-     * [1] create: bv_view_obj_lines_create must return a non-NULL scene  *
+     * [1] create: bsg_view_obj_lines_create must return a non-NULL scene  *
      *     object and register it in the local scope.                     *
      * ------------------------------------------------------------------ */
-    bu_log("[1] bv_view_obj_lines_create...\n");
+    bu_log("[1] bsg_view_obj_lines_create...\n");
     const char *tname = "_tcl_test_adornment";
-    struct bv_scene_obj *obj = bv_view_obj_lines_create(v, tname, 1 /*local*/);
+    struct bsg_node *obj = bsg_view_obj_lines_create(v, tname, 1 /*local*/);
     ASSERT(obj != NULL);
     if (!obj) goto done;
 
     /* ------------------------------------------------------------------ *
-     * [2] find: bv_view_obj_find must locate the object by name.         *
+     * [2] find: bsg_view_obj_find must locate the object by name.         *
      * ------------------------------------------------------------------ */
-    bu_log("[2] bv_view_obj_find...\n");
+    bu_log("[2] bsg_view_obj_find...\n");
     {
-	struct bv_scene_obj *found = bv_view_obj_find(v, tname);
+	struct bsg_node *found = bsg_view_obj_find(v, tname);
 	ASSERT(found != NULL);
 	ASSERT(found == obj);
     }
@@ -153,21 +153,21 @@ main(int ac, char *av[])
      * [4] set_color / set_line_width / set_visible typed setters.        *
      * ------------------------------------------------------------------ */
     bu_log("[4] typed setters...\n");
-    bv_view_obj_set_color(obj, 255, 128, 0);
-    bv_view_obj_set_line_width(obj, 2);
-    bv_view_obj_set_visible(obj, 1);
+    bsg_view_obj_set_color(obj, 255, 128, 0);
+    bsg_view_obj_set_line_width(obj, 2);
+    bsg_view_obj_set_visible(obj, 1);
     ASSERT(obj->s_color[0] == 255 && obj->s_color[1] == 128 && obj->s_color[2] == 0);
     ASSERT(obj->s_os->s_line_width == 2);
     ASSERT(obj->s_force_draw == 1);
 
     /* ------------------------------------------------------------------ *
-     * [5] visit: bv_view_obj_visit with BV_VIEW_OBJ_SCOPE_LOCAL must    *
+     * [5] visit: bsg_view_obj_visit with BV_VIEW_OBJ_SCOPE_LOCAL must    *
      *     reach at least the one object we created.                      *
      * ------------------------------------------------------------------ */
-    bu_log("[5] bv_view_obj_visit (local scope)...\n");
+    bu_log("[5] bsg_view_obj_visit (local scope)...\n");
     {
 	int cnt = 0;
-	bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_LOCAL, _count_visit_cb, &cnt);
+	bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_LOCAL, _count_visit_cb, &cnt);
 	ASSERT(cnt >= 1);
     }
 
@@ -184,14 +184,14 @@ main(int ac, char *av[])
     }
 
     /* ------------------------------------------------------------------ *
-     * [7] remove: bv_view_obj_remove must delete the named object;       *
+     * [7] remove: bsg_view_obj_remove must delete the named object;       *
      *     a subsequent find must return NULL.                            *
      * ------------------------------------------------------------------ */
-    bu_log("[7] bv_view_obj_remove...\n");
+    bu_log("[7] bsg_view_obj_remove...\n");
     {
-	int r = bv_view_obj_remove(v, tname);
+	int r = bsg_view_obj_remove(v, tname);
 	ASSERT(r == 1);
-	struct bv_scene_obj *gone = bv_view_obj_find(v, tname);
+	struct bsg_node *gone = bsg_view_obj_find(v, tname);
 	ASSERT(gone == NULL);
     }
 
@@ -200,7 +200,7 @@ main(int ac, char *av[])
      * ------------------------------------------------------------------ */
     bu_log("[8] remove idempotency...\n");
     {
-	int r = bv_view_obj_remove(v, "_tcl_test_nonexistent");
+	int r = bsg_view_obj_remove(v, "_tcl_test_nonexistent");
 	(void)r; /* return value may differ by impl; the call must not crash */
     }
 
@@ -221,18 +221,18 @@ main(int ac, char *av[])
 	};
 	/* Create all slots */
 	for (int k = 0; slots[k]; k++) {
-	    struct bv_scene_obj *s = bv_view_obj_lines_create(v, slots[k], 1);
+	    struct bsg_node *s = bsg_view_obj_lines_create(v, slots[k], 1);
 	    ASSERT(s != NULL);
 	}
 	/* Verify all are findable */
 	for (int k = 0; slots[k]; k++) {
-	    struct bv_scene_obj *s = bv_view_obj_find(v, slots[k]);
+	    struct bsg_node *s = bsg_view_obj_find(v, slots[k]);
 	    ASSERT(s != NULL);
 	}
 	/* Remove all slots */
 	for (int k = 0; slots[k]; k++) {
-	    bv_view_obj_remove(v, slots[k]);
-	    struct bv_scene_obj *gone = bv_view_obj_find(v, slots[k]);
+	    bsg_view_obj_remove(v, slots[k]);
+	    struct bsg_node *gone = bsg_view_obj_find(v, slots[k]);
 	    ASSERT(gone == NULL);
 	}
     }

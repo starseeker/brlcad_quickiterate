@@ -131,7 +131,7 @@ main(int argc, char *argv[])
     TCHECK(!dialog_descs.isEmpty(),"at least one qged.dialog plugin discovered");
 
     /* ================================================================
-     * 5. QgPluginContext with NULL ged/bview -- simulates a minimal host
+     * 5. QgPluginContext with NULL ged/bsg_view -- simulates a minimal host
      *    (no ged instance, no open database).
      * ================================================================ */
     QgPluginNotifier notifier;

@@ -102,7 +102,7 @@ class QPolyCreate : public QWidget
     private:
 	bg_clip_t op = bg_Union;
 	int poly_cnt = 0;
-	struct bv_scene_obj *p = NULL;
+	struct bsg_node *p = NULL;
 	bool do_bool = false;
 
 	QgPolyFilter *cf = NULL;
@@ -110,7 +110,7 @@ class QPolyCreate : public QWidget
 	QgPluginContext *m_ctx = nullptr;
 
 	struct ged *getGed() const;
-	struct bview *getView() const;
+	struct bsg_view *getView() const;
 };
 
 #endif //QPOLYCREATE_H

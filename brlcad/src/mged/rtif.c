@@ -54,14 +54,14 @@ struct _rtif_eye_data {
     Tcl_Interp *interp;
     vect_t sav_start;
     vect_t sav_center;
-    struct bv_scene_obj *sp; /* set on match */
+    struct bsg_node *sp; /* set on match */
     int found;
 };
 
 static int
 _rtif_eye_solid_cb(bsg_node *n, void *ud)
 {
-    struct bv_scene_obj *fsp = (struct bv_scene_obj *)n;
+    struct bsg_node *fsp = (struct bsg_node *)n;
     struct _rtif_eye_data *d = (struct _rtif_eye_data *)ud;
     if (!fsp->s_u_data) return 1;
     struct ged_bv_data *bdata = (struct ged_bv_data *)fsp->s_u_data;
@@ -206,7 +206,7 @@ f_rmats(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 
     /* static due to setjmp */
     static int mode = 0;
-    static struct bv_scene_obj *sp;
+    static struct bsg_node *sp;
 
     CHECK_DBI_NULL;
 

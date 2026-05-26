@@ -26,20 +26,37 @@
 #ifndef LIBBSG_BSG_PRIVATE_H
 #define LIBBSG_BSG_PRIVATE_H
 
+#include "common.h"
+#include "bu/list.h"
+#include "bu/ptbl.h"
 #include "bsg/defines.h"
 #include "bsg/draw_ctx.h"
+
+/* Internal view-set implementation data */
+struct bsg_view_set_internal {
+    struct bu_ptbl views;
+    struct bu_ptbl shared_db_objs;
+
+    struct bsg_node  *free_scene_obj;
+    struct bu_list vlfree;
+};
+
+/* Internal scene-node implementation data (reserved for future use) */
+struct bsg_node_internal {
+    int placeholder;
+};
 
 /*
  * Walk node @p n up to the draw root and return the bsg_draw_ctx stored
  * in root->s_i_data.  Returns NULL if the root has no context.
  */
 static inline struct bsg_draw_ctx *
-_ctx_of_node(struct bv_scene_obj *n)
+_ctx_of_node(struct bsg_node *n)
 {
     if (!n)
 	return NULL;
     while (n->parent)
-	n = (struct bv_scene_obj *)n->parent;
+	n = (struct bsg_node *)n->parent;
     return (struct bsg_draw_ctx *)n->s_i_data;
 }
 

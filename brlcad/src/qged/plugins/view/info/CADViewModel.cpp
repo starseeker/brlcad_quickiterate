@@ -56,7 +56,7 @@ CADViewModel::update()
 void
 CADViewModel::refresh(unsigned long long)
 {
-    struct bview *v = m_ctx ? m_ctx->getView() : nullptr;
+    struct bsg_view *v = m_ctx ? m_ctx->getView() : nullptr;
     if (!v)
 	return;
 

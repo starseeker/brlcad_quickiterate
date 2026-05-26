@@ -76,7 +76,7 @@ struct _mged_count_drawn_ctx {
 static int
 _mged_count_drawn_cb(bsg_node *n, void *userdata)
 {
-    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct bsg_node *sp = (struct bsg_node *)n;
     struct _mged_count_drawn_ctx *ctx =
 	(struct _mged_count_drawn_ctx *)userdata;
     if (sp && sp->s_drawn_rev == ctx->frame_rev)
@@ -104,7 +104,7 @@ _mged_count_drawn_cb(bsg_node *n, void *userdata)
 void
 dozoom(struct mged_state *s, int which_eye)
 {
-    struct bview *v = view_state->vs_gvp;
+    struct bsg_view *v = view_state->vs_gvp;
 
     /*
      * The vectorThreshold stuff in libdm may turn the
@@ -221,7 +221,7 @@ dozoom(struct mged_state *s, int which_eye)
     /* Count drawn objects for usepen.c zone-based picking.  After
      * Phase 9.2 of the drawing-stack modernization, every shape under
      * the draw root carries a per-shape generation stamp (s_drawn_rev)
-     * that the renderer sets to the bview's current gv_frame_rev when
+     * that the renderer sets to the bsg_view's current gv_frame_rev when
      * actually painted.  Comparing against gv_frame_rev gives a correct
      * frame-by-frame "what got drawn" count without needing a per-frame
      * full-tree reset of s_flag.  Walk recursively via bsg_visit because

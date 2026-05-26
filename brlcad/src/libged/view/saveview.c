@@ -72,7 +72,7 @@ basename_without_suffix(const char *p1, const char *suff)
 
 /* Write a draw-path token for each drawn group. */
 static int
-saveview_draw_path_cb(struct bv_scene_obj *group, void *fp_)
+saveview_draw_path_cb(struct bsg_node *group, void *fp_)
 {
     FILE *fp = (FILE *)fp_;
     const char *path = bsg_view_obj_group_path(group);

@@ -31,11 +31,11 @@
 #include "vmath.h"
 #include "bu/log.h"
 #include "bu/malloc.h"
-#include "bv/polygon.h"
-#include "bv/util.h"
+#include "bsg/polygon.h"
+#include "bsg/util.h"
 
 int
-bv_polygon_csg(struct bv_scene_obj *target, struct bv_scene_obj *stencil, bg_clip_t op)
+bsg_polygon_csg(struct bsg_node *target, struct bsg_node *stencil, bg_clip_t op)
 {
     // Need data
     if (!target || !stencil)
@@ -49,8 +49,8 @@ bv_polygon_csg(struct bv_scene_obj *target, struct bv_scene_obj *stencil, bg_cli
     if (op == bg_None)
 	return 0;
 
-    struct bv_polygon *polyA = (struct bv_polygon *)target->s_i_data;
-    struct bv_polygon *polyB = (struct bv_polygon *)stencil->s_i_data;
+    struct bsg_polygon *polyA = (struct bsg_polygon *)target->s_i_data;
+    struct bsg_polygon *polyB = (struct bsg_polygon *)stencil->s_i_data;
     if (!polyA || !polyB)
 	return 0;
 
@@ -86,7 +86,7 @@ bv_polygon_csg(struct bv_scene_obj *target, struct bv_scene_obj *stencil, bg_cli
 	polyA->curr_point_i = polyB->curr_point_i;
 	VMOVE(polyA->origin_point, polyB->origin_point);
 	HMOVE(polyA->vp, polyB->vp);
-	bv_update_polygon(target, target->s_v, BV_POLYGON_UPDATE_DEFAULT);
+	bsg_update_polygon(target, target->s_v, BV_POLYGON_UPDATE_DEFAULT);
 	return 1;
     }
 
@@ -107,7 +107,7 @@ bv_polygon_csg(struct bv_scene_obj *target, struct bv_scene_obj *stencil, bg_cli
     polyA->type = BV_POLYGON_GENERAL;
 
     // Make sure everything's current
-    bv_update_polygon(target, target->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    bsg_update_polygon(target, target->s_v, BV_POLYGON_UPDATE_DEFAULT);
 
     return 1;
 }

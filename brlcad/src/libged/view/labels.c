@@ -33,7 +33,7 @@
 #include "bu/color.h"
 #include "bu/opt.h"
 #include "bu/vls.h"
-#include "bv.h"
+#include "bsg.h"
 
 #include "../ged_private.h"
 #include "./ged_view.h"
@@ -53,7 +53,7 @@ _label_cmd_create(void *bs, int argc, const char **argv)
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
 
-    struct bv_scene_obj *s = gd->s;
+    struct bsg_node *s = gd->s;
     if (s) {
         bu_vls_printf(gedp->ged_result_str, "View object named %s already exists\n", gd->vobj);
         return BRLCAD_ERROR;
@@ -80,7 +80,7 @@ _label_cmd_create(void *bs, int argc, const char **argv)
 	}
     } else {
 	fastf_t fx, fy;
-	if (bv_screen_to_view(gd->cv, &fx, &fy, (int)p[0], (int)p[1]) < 0) {
+	if (bsg_screen_to_view(gd->cv, &fx, &fy, (int)p[0], (int)p[1]) < 0) {
 	    return BRLCAD_ERROR;
 	}
 	p[0] = fx;
@@ -121,7 +121,7 @@ _label_cmd_create(void *bs, int argc, const char **argv)
 	}
     }
 
-    s = bv_view_obj_label_create(gd->cv, gd->vobj, gd->local_obj);
+    s = bsg_view_obj_label_create(gd->cv, gd->vobj, gd->local_obj);
     if (!s) {
 	bu_vls_printf(gedp->ged_result_str, "Failed to create %s\n", gd->vobj);
 	return BRLCAD_ERROR;
@@ -130,8 +130,8 @@ _label_cmd_create(void *bs, int argc, const char **argv)
     BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p, BSG_VLIST_LINE_MOVE);
     VSET(s->s_color, 255, 255, 0);
 
-    struct bv_label *l;
-    BU_GET(l, struct bv_label);
+    struct bsg_label *l;
+    BU_GET(l, struct bsg_label);
     BU_VLS_INIT(&l->label);
     bu_vls_sprintf(&l->label, "%s", argv[0]);
     VMOVE(l->p, p);

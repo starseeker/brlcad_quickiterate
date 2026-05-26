@@ -23,8 +23,8 @@
  * Phase 7 step 7 (A3 + C1/C3) of drawing_stack_modernization:
  * Pure-BSG draw-tree helpers that are independent of GED types.
  *
- * These functions operate on @c bsg_node (= struct bv_scene_obj) trees
- * and @c struct @c bview pointers.  They carry no dependency on
+ * These functions operate on @c bsg_node (= struct bsg_node) trees
+ * and @c struct @c bsg_view pointers.  They carry no dependency on
  * @c struct @c ged or @c ged_private.h, making them safe to implement in
  * libbsg.  GED-specific functionality (coloring, display-list callbacks,
  * database lookups) remains in libged/bsg_view_obj.c.
@@ -43,8 +43,8 @@
 
 __BEGIN_DECLS
 
-struct bview;          /* forward-declare to avoid circular includes */
-struct bv_scene_obj;   /* forward-declare to avoid circular includes */
+struct bsg_view;          /* forward-declare to avoid circular includes */
+struct bsg_node;   /* forward-declare to avoid circular includes */
 
 /**
  * Signature for a caller-supplied shape path-match predicate.
@@ -110,7 +110,7 @@ bsg_group_find_child(bsg_node *parent, const char *name);
  * the libged wrapper).
  */
 BSG_EXPORT extern bsg_node *
-bsg_group_ensure_child(bsg_node *parent, struct bview *v,
+bsg_group_ensure_child(bsg_node *parent, struct bsg_view *v,
 		       const char *name, void *dp_hint);
 
 
@@ -148,7 +148,7 @@ bsg_bump_rev_node(bsg_node *n);
  * src/libged/bsg_view_obj.c (Phase 7 Step 11).
  */
 BSG_EXPORT extern void
-bsg_free_children_recursive(bsg_node *g, struct bv_scene_obj *fso);
+bsg_free_children_recursive(bsg_node *g, struct bsg_node *fso);
 
 
 /**

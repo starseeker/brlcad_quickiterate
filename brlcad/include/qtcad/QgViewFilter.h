@@ -33,12 +33,12 @@
 #include "qtcad/defines.h"
 #include "qtcad/QgTypes.h"
 
-struct bview;
+struct bsg_view;
 
 /* Contract:
  * - Install on a QgView using QgView::installFilter(QgViewFilter *).
  * - Remove from a QgView using QgView::clearFilter(QgViewFilter *).
- * - The installed QgView supplies and maintains the active bview pointer. */
+ * - The installed QgView supplies and maintains the active bsg_view pointer. */
 class QTCAD_EXPORT QgViewFilter : public QObject {
 	Q_OBJECT
 	Q_DISABLE_COPY_MOVE(QgViewFilter)
@@ -48,8 +48,8 @@ public:
 	explicit QgViewFilter(QObject *parent = nullptr);
 	~QgViewFilter() override;
 
-	void set_view(struct bview *nv);
-	struct bview *view() const;
+	void set_view(struct bsg_view *nv);
+	struct bsg_view *view() const;
 
 	bool eventFilter(QObject *, QEvent *) override
 	{

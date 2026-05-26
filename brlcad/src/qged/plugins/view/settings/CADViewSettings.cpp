@@ -20,7 +20,7 @@
 /** @file CADViewSettings.cpp
  *
  * Widget implementation for viewing and controlling faceplate settings,
- * reflecting the current state of bview_settings and bv_params_state.
+ * reflecting the current state of bsg_view_settings and bsg_params_state.
  *
  */
 
@@ -181,7 +181,7 @@ CADViewSettings::view_update_int(int)
 void
 CADViewSettings::checkbox_refresh(unsigned long long)
 {
-    struct bview *v = m_ctx ? m_ctx->getView() : nullptr;
+    struct bsg_view *v = m_ctx ? m_ctx->getView() : nullptr;
     if (!v)
 	return;
 
@@ -205,7 +205,7 @@ CADViewSettings::checkbox_refresh(unsigned long long)
     fb_mode_combo->blockSignals(false);
 
     /* Parameters group: master draw toggle + per-element sub-flags */
-    struct bv_params_state *pst = &v->gv_s->gv_view_params;
+    struct bsg_params_state *pst = &v->gv_s->gv_view_params;
     set_ckbx(params_ckbx,        pst->draw);
     set_ckbx(params_size_ckbx,   pst->draw_size);
     set_ckbx(params_center_ckbx, pst->draw_center);
@@ -220,7 +220,7 @@ CADViewSettings::checkbox_refresh(unsigned long long)
 void
 CADViewSettings::view_refresh(unsigned long long)
 {
-    struct bview *v = m_ctx ? m_ctx->getView() : nullptr;
+    struct bsg_view *v = m_ctx ? m_ctx->getView() : nullptr;
     if (!v)
 	return;
 
@@ -238,7 +238,7 @@ CADViewSettings::view_refresh(unsigned long long)
     v->gv_s->gv_fb_mode = fb_mode_combo->currentIndex();
 
     /* Parameters: master draw flag + per-element sub-flags */
-    struct bv_params_state *pst = &v->gv_s->gv_view_params;
+    struct bsg_params_state *pst = &v->gv_s->gv_view_params;
     pst->draw        = ckbx_val(params_ckbx);
     pst->draw_size   = ckbx_val(params_size_ckbx);
     pst->draw_center = ckbx_val(params_center_ckbx);

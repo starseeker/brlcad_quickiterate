@@ -61,18 +61,18 @@ static int g_fail = 0;
 
 /* ---- helpers -------------------------------------------------------- */
 
-static struct bview *
+static struct bsg_view *
 make_view(const char *name)
 {
-    struct bview *v;
-    BU_ALLOC(v, struct bview);
+    struct bsg_view *v;
+    BU_ALLOC(v, struct bsg_view);
     bsg_view_init(v, NULL);
     bu_vls_sprintf(&v->gv_name, "%s", name);
     return v;
 }
 
 static void
-free_view(struct bview *v)
+free_view(struct bsg_view *v)
 {
     if (!v) return;
     bsg_view_free(v);
@@ -89,7 +89,7 @@ static int
 test_create(void)
 {
     printf("=== Test 1: create ===\n");
-    struct bview *v = make_view("t1");
+    struct bsg_view *v = make_view("t1");
 
     bsg_node *scope = bsg_view_scope_create(v);
     CHECK(scope != NULL, "bsg_view_scope_create returned non-NULL");
@@ -111,7 +111,7 @@ static int
 test_visible_match(void)
 {
     printf("=== Test 2: visible_match ===\n");
-    struct bview *v = make_view("t2");
+    struct bsg_view *v = make_view("t2");
 
     bsg_node *scope = bsg_view_scope_create(v);
     CHECK(scope != NULL, "create");
@@ -130,8 +130,8 @@ static int
 test_visible_nomatch(void)
 {
     printf("=== Test 3: visible_nomatch ===\n");
-    struct bview *v1 = make_view("t3a");
-    struct bview *v2 = make_view("t3b");
+    struct bsg_view *v1 = make_view("t3a");
+    struct bsg_view *v2 = make_view("t3b");
 
     bsg_node *scope = bsg_view_scope_create(v1);
     CHECK(scope != NULL, "create");
@@ -151,8 +151,8 @@ static int
 test_visible_shared(void)
 {
     printf("=== Test 4: visible_shared ===\n");
-    struct bview *v1 = make_view("t4a");
-    struct bview *v2 = make_view("t4b");
+    struct bsg_view *v1 = make_view("t4a");
+    struct bsg_view *v2 = make_view("t4b");
 
     bsg_node *scope = bsg_view_scope_create(v1);
     CHECK(scope != NULL, "create");
@@ -179,7 +179,7 @@ static int
 test_null_guards(void)
 {
     printf("=== Test 5: null_guards ===\n");
-    struct bview *v = make_view("t5");
+    struct bsg_view *v = make_view("t5");
 
     /* create with NULL view must return NULL without crash. */
     bsg_node *scope = bsg_view_scope_create(NULL);
@@ -209,7 +209,7 @@ static int
 test_destroy(void)
 {
     printf("=== Test 6: destroy ===\n");
-    struct bview *v = make_view("t6");
+    struct bsg_view *v = make_view("t6");
 
     bsg_node *scope = bsg_view_scope_create(v);
     CHECK(scope != NULL, "create");
@@ -237,7 +237,7 @@ static int
 test_wrong_type(void)
 {
     printf("=== Test 7: wrong_type ===\n");
-    struct bview *v = make_view("t7");
+    struct bsg_view *v = make_view("t7");
 
     bsg_node *grp = bsg_group_create(v);
     CHECK(grp != NULL, "group create");

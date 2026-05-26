@@ -86,10 +86,10 @@
 #include "bg/plane.h"
 #include "bg/sat.h"
 #include "bg/trimesh.h"
-#include "bv/plot3.h"
-#include "bv/lod.h"
-#include "bv/util.h"
-#include "bv/view_sets.h"
+#include "bsg/plot3.h"
+#include "bsg/lod.h"
+#include "bsg/util.h"
+#include "bsg/view_sets.h"
 
 // Number of levels of detail to define
 #define POP_MAXLEVEL 16
@@ -101,7 +101,7 @@
 #define MBUMP 1.01
 
 /* On-disk format version.  Increment whenever the binary layout of any cached
- * payload changes.  bv_mesh_lod_context_create() reads this from
+ * payload changes.  bsg_mesh_lod_context_create() reads this from
  * BU_DIR_CACHE/.POPLoD/format; a mismatch clears the entire .POPLoD tree. */
 #define CACHE_CURRENT_FORMAT 2
 
@@ -120,13 +120,13 @@
 #define CACHE_VERTNORM_LEVEL "vn"
 #define CACHE_TRI_LEVEL "t"
 
-typedef int (*full_detail_clbk_t)(struct bv_mesh_lod *, void *);
+typedef int (*full_detail_clbk_t)(struct bsg_mesh_lod *, void *);
 
 static void
-obj_bb(int *have_objs, vect_t *min, vect_t *max, struct bv_scene_obj *s, struct bview *v)
+obj_bb(int *have_objs, vect_t *min, vect_t *max, struct bsg_node *s, struct bsg_view *v)
 {
     vect_t minus, plus;
-    if (bv_scene_obj_bound(s, v)) {
+    if (bsg_scene_obj_bound(s, v)) {
 	*have_objs = 1;
 	minus[X] = s->s_center[X] - s->s_size;
 	minus[Y] = s->s_center[Y] - s->s_size;
@@ -138,7 +138,7 @@ obj_bb(int *have_objs, vect_t *min, vect_t *max, struct bv_scene_obj *s, struct 
 	VMAX(*max, plus);
     }
     for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	struct bv_scene_obj *sc = (struct bv_scene_obj *)BU_PTBL_GET(&s->children, i);
+	struct bsg_node *sc = (struct bsg_node *)BU_PTBL_GET(&s->children, i);
 	obj_bb(have_objs, min, max, sc, v);
     }
 }
@@ -202,11 +202,11 @@ struct _scene_radius_ctx {
     int *have_objs;
     vect_t *min;
     vect_t *max;
-    struct bview *v;
+    struct bsg_view *v;
 };
 
 static int
-_scene_radius_cb(struct bv_scene_obj *g, void *data)
+_scene_radius_cb(struct bsg_node *g, void *data)
 {
     struct _scene_radius_ctx *ctx = (struct _scene_radius_ctx *)data;
     obj_bb(ctx->have_objs, ctx->min, ctx->max, g, ctx->v);
@@ -214,7 +214,7 @@ _scene_radius_cb(struct bv_scene_obj *g, void *data)
 }
 
 static void
-view_obb(struct bview *v,
+view_obb(struct bsg_view *v,
 	point_t sbbc, fastf_t radius,
 	vect_t dir,
 	point_t ec, point_t ep1, point_t ep2)
@@ -238,13 +238,13 @@ view_obb(struct bview *v,
     VSUB2(v->obb_extent2, ep1, ec);
     VSUB2(v->obb_extent3, ep2, ec);
 
-    bv_log(3, "view_obb inputs[%s]: sbbc(%f %f %f) radius(%f) dir(%f %f %f)", bu_vls_cstr(&v->gv_name), V3ARGS(sbbc), radius, V3ARGS(dir));
-    bv_log(3, "view_obb[%s]: %f %f %f -> [%f %f %f] [%f %f %f] [%f %f %f]", bu_vls_cstr(&v->gv_name), V3ARGS(v->obb_center), V3ARGS(v->obb_extent1), V3ARGS(v->obb_extent2), V3ARGS(v->obb_extent3));
-    bv_log(3, "%s", obb_arb(v->obb_center, v->obb_extent1, v->obb_extent2, v->obb_extent3));
+    bsg_log(3, "view_obb inputs[%s]: sbbc(%f %f %f) radius(%f) dir(%f %f %f)", bu_vls_cstr(&v->gv_name), V3ARGS(sbbc), radius, V3ARGS(dir));
+    bsg_log(3, "view_obb[%s]: %f %f %f -> [%f %f %f] [%f %f %f] [%f %f %f]", bu_vls_cstr(&v->gv_name), V3ARGS(v->obb_center), V3ARGS(v->obb_extent1), V3ARGS(v->obb_extent2), V3ARGS(v->obb_extent3));
+    bsg_log(3, "%s", obb_arb(v->obb_center, v->obb_extent1, v->obb_extent2, v->obb_extent3));
 }
 
 static void
-_scene_radius(point_t *sbbc, fastf_t *radius, struct bview *v)
+_scene_radius(point_t *sbbc, fastf_t *radius, struct bsg_view *v)
 {
     if (!sbbc || !radius || !v)
 	return;
@@ -254,13 +254,13 @@ _scene_radius(point_t *sbbc, fastf_t *radius, struct bview *v)
     VSETALL(min,  INFINITY);
     VSETALL(max, -INFINITY);
     int have_objs = 0;
-    /* Phase B: use bv_view_objs_visit_db to traverse BSG tree when available */
+    /* Phase B: use bsg_view_objs_visit_db to traverse BSG tree when available */
     struct _scene_radius_ctx sr_ctx;
     sr_ctx.have_objs = &have_objs;
     sr_ctx.min = &min;
     sr_ctx.max = &max;
     sr_ctx.v = v;
-    bv_view_objs_visit_db(v, _scene_radius_cb, &sr_ctx);
+    bsg_view_objs_visit_db(v, _scene_radius_cb, &sr_ctx);
     if (have_objs) {
 	VADD2SCALE(*sbbc, max, min, 0.5);
 	VSUB2SCALE(work, max, min, 0.5);
@@ -269,7 +269,7 @@ _scene_radius(point_t *sbbc, fastf_t *radius, struct bview *v)
 }
 
 void
-bv_view_bounds(struct bview *v)
+bsg_view_bounds(struct bsg_view *v)
 {
     if (!v || !v->gv_width || !v->gv_height)
 	return;
@@ -287,14 +287,14 @@ bv_view_bounds(struct bview *v)
     int y = (int)(h * 0.5);
     //bu_log("w,h,x,y: %d %d %d %d\n", w,h, x, y);
     fastf_t x1 = 0.0, y1 = 0.0, x2 = 0.0, y2 = 0.0, xc = 0.0, yc = 0.0;
-    bv_screen_to_view(v, &x1, &y1, x, h);
-    bv_screen_to_view(v, &x2, &y2, w, y);
-    bv_screen_to_view(v, &xc, &yc, x, y);
+    bsg_screen_to_view(v, &x1, &y1, x, h);
+    bsg_screen_to_view(v, &x2, &y2, w, y);
+    bsg_screen_to_view(v, &xc, &yc, x, y);
 
     // Also stash the window's view space bbox
     fastf_t w0, w1, w2, w3;
-    bv_screen_to_view(v, &w0, &w1, 0, 0);
-    bv_screen_to_view(v, &w2, &w3, w, h);
+    bsg_screen_to_view(v, &w0, &w1, 0, 0);
+    bsg_screen_to_view(v, &w2, &w3, w, h);
     v->gv_wmin[0] = (w0 < w2) ? w0 : w2;
     v->gv_wmin[1] = (w1 < w3) ? w1 : w3;
     v->gv_wmax[0] = (w0 > w2) ? w0 : w2;
@@ -342,25 +342,25 @@ bv_view_bounds(struct bview *v)
 }
 
 static void
-_find_active_objs(std::set<struct bv_scene_obj *> &active, struct bv_scene_obj *s, struct bview *v, point_t obb_c, point_t obb_e1, point_t obb_e2, point_t obb_e3)
+_find_active_objs(std::set<struct bsg_node *> &active, struct bsg_node *s, struct bsg_view *v, point_t obb_c, point_t obb_e1, point_t obb_e2, point_t obb_e3)
 {
     if (BU_PTBL_LEN(&s->children)) {
 	for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	    struct bv_scene_obj *sc = (struct bv_scene_obj *)BU_PTBL_GET(&s->children, i);
+	    struct bsg_node *sc = (struct bsg_node *)BU_PTBL_GET(&s->children, i);
 	    _find_active_objs(active, sc, v, obb_c, obb_e1, obb_e2, obb_e3);
 	}
     } else {
-	bv_scene_obj_bound(s, v);
+	bsg_scene_obj_bound(s, v);
 	if (bg_sat_aabb_obb(s->bmin, s->bmax, obb_c, obb_e1, obb_e2, obb_e3))
 	    active.insert(s);
     }
 }
 
-/* Phase B: context for bv_view_objs_select / bv_view_objs_rect_select
- * bv_view_objs_visit_db callback. */
+/* Phase B: context for bsg_view_objs_select / bsg_view_objs_rect_select
+ * bsg_view_objs_visit_db callback. */
 struct _select_db_ctx {
-    std::set<struct bv_scene_obj *> *active;
-    struct bview *v;
+    std::set<struct bsg_node *> *active;
+    struct bsg_view *v;
     point_t obb_c;
     point_t obb_e1;
     point_t obb_e2;
@@ -368,7 +368,7 @@ struct _select_db_ctx {
 };
 
 static int
-_select_db_cb(struct bv_scene_obj *s, void *data)
+_select_db_cb(struct bsg_node *s, void *data)
 {
     struct _select_db_ctx *ctx = (struct _select_db_ctx *)data;
     _find_active_objs(*ctx->active, s, ctx->v,
@@ -377,7 +377,7 @@ _select_db_cb(struct bv_scene_obj *s, void *data)
 }
 
 int
-bv_view_objs_select(struct bu_ptbl *sset, struct bview *v, int x, int y)
+bsg_view_objs_select(struct bu_ptbl *sset, struct bsg_view *v, int x, int y)
 {
     if (!v || !sset || !v->gv_width || !v->gv_height)
 	return 0;
@@ -396,9 +396,9 @@ bv_view_objs_select(struct bu_ptbl *sset, struct bview *v, int x, int y)
     // Using the pixel width and height of the current "window", construct some
     // view space dimensions related to that window
     fastf_t x1 = 0.0, y1 = 0.0, x2 = 0.0, y2 = 0.0, xc = 0.0, yc = 0.0;
-    bv_screen_to_view(v, &x1, &y1, x, y+1);
-    bv_screen_to_view(v, &x2, &y2, x+1, y);
-    bv_screen_to_view(v, &xc, &yc, x, y);
+    bsg_screen_to_view(v, &x1, &y1, x, y+1);
+    bsg_screen_to_view(v, &x2, &y2, x+1, y);
+    bsg_screen_to_view(v, &xc, &yc, x, y);
 
     // Get the model space points for the mid points of the top and right edges
     // of the "pixel + 1" box.
@@ -443,8 +443,8 @@ bv_view_objs_select(struct bu_ptbl *sset, struct bview *v, int x, int y)
 
     // Having constructed the box, test the scene objects against it.  Any that intersect,
     // add them to the set
-    std::set<struct bv_scene_obj *> active;
-    /* Phase B: use bv_view_objs_visit_db to traverse BSG tree when available */
+    std::set<struct bsg_node *> active;
+    /* Phase B: use bsg_view_objs_visit_db to traverse BSG tree when available */
     struct _select_db_ctx sel_ctx;
     sel_ctx.active = &active;
     sel_ctx.v = v;
@@ -452,9 +452,9 @@ bv_view_objs_select(struct bu_ptbl *sset, struct bview *v, int x, int y)
     VMOVE(sel_ctx.obb_e1, obb_e1);
     VMOVE(sel_ctx.obb_e2, obb_e2);
     VMOVE(sel_ctx.obb_e3, obb_e3);
-    bv_view_objs_visit_db(v, _select_db_cb, &sel_ctx);
+    bsg_view_objs_visit_db(v, _select_db_cb, &sel_ctx);
     if (active.size()) {
-	std::set<struct bv_scene_obj *>::iterator a_it;
+	std::set<struct bsg_node *>::iterator a_it;
 	for (a_it = active.begin(); a_it != active.end(); a_it++) {
 	    bu_ptbl_ins(sset, (long *)*a_it);
 	}
@@ -464,7 +464,7 @@ bv_view_objs_select(struct bu_ptbl *sset, struct bview *v, int x, int y)
 }
 
 int
-bv_view_objs_rect_select(struct bu_ptbl *sset, struct bview *v, int x1, int y1, int x2, int y2)
+bsg_view_objs_rect_select(struct bu_ptbl *sset, struct bsg_view *v, int x1, int y1, int x2, int y2)
 {
     if (!v || !sset || !v->gv_width || !v->gv_height)
 	return 0;
@@ -485,9 +485,9 @@ bv_view_objs_rect_select(struct bu_ptbl *sset, struct bview *v, int x1, int y1, 
     // Using the pixel width and height of the current "window", construct some
     // view space dimensions related to that window
     fastf_t fx1 = 0.0, fy1 = 0.0, fx2 = 0.0, fy2 = 0.0, fxc = 0.0, fyc = 0.0;
-    bv_screen_to_view(v, &fx1, &fy1, (int)(0.5*(x1+x2)), y2);
-    bv_screen_to_view(v, &fx2, &fy2, x2, (int)(0.5*(y1+y2)));
-    bv_screen_to_view(v, &fxc, &fyc, (int)(0.5*(x1+x2)), (int)(0.5*(y1+y2)));
+    bsg_screen_to_view(v, &fx1, &fy1, (int)(0.5*(x1+x2)), y2);
+    bsg_screen_to_view(v, &fx2, &fy2, x2, (int)(0.5*(y1+y2)));
+    bsg_screen_to_view(v, &fxc, &fyc, (int)(0.5*(x1+x2)), (int)(0.5*(y1+y2)));
 
     // Get the model space points for the mid points of the top and right edges
     // of the box.
@@ -536,8 +536,8 @@ bv_view_objs_rect_select(struct bu_ptbl *sset, struct bview *v, int x1, int y1, 
 
     // Having constructed the box, test the scene objects against it.  Any that intersect,
     // add them to the set
-    std::set<struct bv_scene_obj *> active;
-    /* Phase B: use bv_view_objs_visit_db to traverse BSG tree when available */
+    std::set<struct bsg_node *> active;
+    /* Phase B: use bsg_view_objs_visit_db to traverse BSG tree when available */
     struct _select_db_ctx rsel_ctx;
     rsel_ctx.active = &active;
     rsel_ctx.v = v;
@@ -545,9 +545,9 @@ bv_view_objs_rect_select(struct bu_ptbl *sset, struct bview *v, int x1, int y1, 
     VMOVE(rsel_ctx.obb_e1, obb_e1);
     VMOVE(rsel_ctx.obb_e2, obb_e2);
     VMOVE(rsel_ctx.obb_e3, obb_e3);
-    bv_view_objs_visit_db(v, _select_db_cb, &rsel_ctx);
+    bsg_view_objs_visit_db(v, _select_db_cb, &rsel_ctx);
     if (active.size()) {
-	std::set<struct bv_scene_obj *>::iterator a_it;
+	std::set<struct bsg_node *>::iterator a_it;
 	for (a_it = active.begin(); a_it != active.end(); a_it++) {
 	    bu_ptbl_ins(sset, (long *)*a_it);
 	}
@@ -557,18 +557,18 @@ bv_view_objs_rect_select(struct bu_ptbl *sset, struct bview *v, int x1, int y1, 
 }
 
 static int
-_obj_visible(struct bv_scene_obj *s, struct bview *v)
+_obj_visible(struct bsg_node *s, struct bsg_view *v)
 {
     if (bg_sat_aabb_obb(s->bmin, s->bmax, v->obb_center, v->obb_extent1, v->obb_extent2, v->obb_extent3)) {
-	bv_log(3, "obj_visible[%s] - passed bg_sat_abb_obb: %f %f %f -> %f %f %f", bu_vls_cstr(&v->gv_name), V3ARGS(s->bmin), V3ARGS(s->bmax));
-	bv_log(3, "                          view abb : %f %f %f -> [%f %f %f] [%f %f %f] [%f %f %f]", V3ARGS(v->obb_center), V3ARGS(v->obb_extent1), V3ARGS(v->obb_extent2), V3ARGS(v->obb_extent3));
-	//bv_log(3, "%s", obb_arb(v->obb_center, v->obb_extent1, v->obb_extent2, v->obb_extent3));
+	bsg_log(3, "obj_visible[%s] - passed bg_sat_abb_obb: %f %f %f -> %f %f %f", bu_vls_cstr(&v->gv_name), V3ARGS(s->bmin), V3ARGS(s->bmax));
+	bsg_log(3, "                          view abb : %f %f %f -> [%f %f %f] [%f %f %f] [%f %f %f]", V3ARGS(v->obb_center), V3ARGS(v->obb_extent1), V3ARGS(v->obb_extent2), V3ARGS(v->obb_extent3));
+	//bsg_log(3, "%s", obb_arb(v->obb_center, v->obb_extent1, v->obb_extent2, v->obb_extent3));
 
 	return 1;
     } else {
-	bv_log(3, "obj_visible[%s] - FAILED bg_sat_abb_obb: %f %f %f -> %f %f %f", bu_vls_cstr(&v->gv_name),V3ARGS(s->bmin), V3ARGS(s->bmax));
-	bv_log(3, "                          view abb : %f %f %f -> [%f %f %f] [%f %f %f] [%f %f %f]", V3ARGS(v->obb_center), V3ARGS(v->obb_extent1), V3ARGS(v->obb_extent2), V3ARGS(v->obb_extent3));
-	//bv_log(3, "%s", obb_arb(v->obb_center, v->obb_extent1, v->obb_extent2, v->obb_extent3));
+	bsg_log(3, "obj_visible[%s] - FAILED bg_sat_abb_obb: %f %f %f -> %f %f %f", bu_vls_cstr(&v->gv_name),V3ARGS(s->bmin), V3ARGS(s->bmax));
+	bsg_log(3, "                          view abb : %f %f %f -> [%f %f %f] [%f %f %f] [%f %f %f]", V3ARGS(v->obb_center), V3ARGS(v->obb_extent1), V3ARGS(v->obb_extent2), V3ARGS(v->obb_extent3));
+	//bsg_log(3, "%s", obb_arb(v->obb_center, v->obb_extent1, v->obb_extent2, v->obb_extent3));
     }
 
     if (SMALL_FASTF < v->gv_perspective) {
@@ -606,7 +606,7 @@ _obj_visible(struct bv_scene_obj *s, struct bview *v)
     return 0;
 }
 
-struct bv_mesh_lod_context_internal {
+struct bsg_mesh_lod_context_internal {
     struct bu_cache *lod_cache;
     struct bu_cache_txn *lod_rtxn;  /* active read transaction, held across cache_get/cache_done */
 
@@ -615,8 +615,8 @@ struct bv_mesh_lod_context_internal {
     struct bu_vls *fname;
 };
 
-struct bv_mesh_lod_context *
-bv_mesh_lod_context_create(const char *name)
+struct bsg_mesh_lod_context *
+bsg_mesh_lod_context_create(const char *name)
 {
     if (!name)
 	return NULL;
@@ -634,10 +634,10 @@ bv_mesh_lod_context_create(const char *name)
     bu_vls_printf(&fname, "_%llu", hash);
 
     // Create the context
-    struct bv_mesh_lod_context *c;
-    BU_GET(c, struct bv_mesh_lod_context);
-    BU_GET(c->i, struct bv_mesh_lod_context_internal);
-    struct bv_mesh_lod_context_internal *i = c->i;
+    struct bsg_mesh_lod_context *c;
+    BU_GET(c, struct bsg_mesh_lod_context);
+    BU_GET(c->i, struct bsg_mesh_lod_context_internal);
+    struct bsg_mesh_lod_context_internal *i = c->i;
     BU_GET(i->fname, struct bu_vls);
     bu_vls_init(i->fname);
     bu_vls_sprintf(i->fname, "%s", bu_vls_cstr(&fname));
@@ -656,7 +656,7 @@ bv_mesh_lod_context_create(const char *name)
 	}
 	if (disk_format_version > 0 && disk_format_version != CACHE_CURRENT_FORMAT) {
 	    bu_log("Old mesh lod cache version (%ld) found in format file at %s - clearing\n", disk_format_version, format_path);
-	    bv_mesh_lod_clear_cache(NULL, 0);
+	    bsg_mesh_lod_clear_cache(NULL, 0);
 	}
 	FILE *fp = fopen(format_path, "w");
 	if (fp) {
@@ -686,8 +686,8 @@ bv_mesh_lod_context_create(const char *name)
 	    bu_cache_close(i->name_cache);
 	bu_vls_free(i->fname);
 	BU_PUT(i->fname, struct bu_vls);
-	BU_PUT(c->i, struct bv_mesh_lod_context_internal);
-	BU_PUT(c, struct bv_mesh_lod_context);
+	BU_PUT(c->i, struct bsg_mesh_lod_context_internal);
+	BU_PUT(c, struct bsg_mesh_lod_context);
 	return NULL;
     }
 
@@ -695,7 +695,7 @@ bv_mesh_lod_context_create(const char *name)
 }
 
 void
-bv_mesh_lod_context_destroy(struct bv_mesh_lod_context *c)
+bsg_mesh_lod_context_destroy(struct bsg_mesh_lod_context *c)
 {
     if (!c)
 	return;
@@ -703,12 +703,12 @@ bv_mesh_lod_context_destroy(struct bv_mesh_lod_context *c)
     bu_cache_close(c->i->lod_cache);
     bu_vls_free(c->i->fname);
     BU_PUT(c->i->fname, struct bu_vls);
-    BU_PUT(c->i, struct bv_mesh_lod_context_internal);
-    BU_PUT(c, struct bv_mesh_lod_context);
+    BU_PUT(c->i, struct bsg_mesh_lod_context_internal);
+    BU_PUT(c, struct bsg_mesh_lod_context);
 }
 
 unsigned long long
-bv_mesh_lod_key_get(struct bv_mesh_lod_context *c, const char *name)
+bsg_mesh_lod_key_get(struct bsg_mesh_lod_context *c, const char *name)
 {
     if (!c || !name)
 	return 0;
@@ -736,7 +736,7 @@ bv_mesh_lod_key_get(struct bv_mesh_lod_context *c, const char *name)
 }
 
 int
-bv_mesh_lod_key_put(struct bv_mesh_lod_context *c, const char *name, unsigned long long key)
+bsg_mesh_lod_key_put(struct bsg_mesh_lod_context *c, const char *name, unsigned long long key)
 {
     if (!c || !name || !key)
 	return -1;
@@ -767,7 +767,7 @@ class rec {
 
 
 class POPState;
-struct bv_mesh_lod_internal {
+struct bsg_mesh_lod_internal {
     POPState *s;
 };
 
@@ -775,10 +775,10 @@ class POPState {
     public:
 
 	// Create cached data (doesn't create a usable container)
-	POPState(struct bv_mesh_lod_context *ctx, const point_t *v, size_t vcnt, const vect_t *vn, int *faces, size_t fcnt, unsigned long long user_key, fastf_t pop_face_cnt_threshold_ratio);
+	POPState(struct bsg_mesh_lod_context *ctx, const point_t *v, size_t vcnt, const vect_t *vn, int *faces, size_t fcnt, unsigned long long user_key, fastf_t pop_face_cnt_threshold_ratio);
 
 	// Load cached data (DOES create a usable container)
-	POPState(struct bv_mesh_lod_context *ctx, unsigned long long key);
+	POPState(struct bsg_mesh_lod_context *ctx, unsigned long long key);
 
 	// Cleanup
 	~POPState();
@@ -840,7 +840,7 @@ class POPState {
 	point_t bbmin, bbmax;
 
 	// Info for drawing
-	struct bv_mesh_lod *lod = NULL;
+	struct bsg_mesh_lod *lod = NULL;
 
     private:
 
@@ -894,7 +894,7 @@ class POPState {
 	int *faces_array = NULL;
 
 	// Context
-	struct bv_mesh_lod_context *c;
+	struct bsg_mesh_lod_context *c;
 };
 
 void
@@ -1011,7 +1011,7 @@ POPState::tri_process()
     //bu_log("Max LoD POP level: %zd\n", max_pop_threshold_level);
 }
 
-POPState::POPState(struct bv_mesh_lod_context *ctx, const point_t *v, size_t vcnt, const vect_t *vn, int *faces, size_t fcnt, unsigned long long user_key, fastf_t pop_facecnt_threshold_ratio)
+POPState::POPState(struct bsg_mesh_lod_context *ctx, const point_t *v, size_t vcnt, const vect_t *vn, int *faces, size_t fcnt, unsigned long long user_key, fastf_t pop_facecnt_threshold_ratio)
 {
     // Store the context
     c = ctx;
@@ -1104,7 +1104,7 @@ POPState::POPState(struct bv_mesh_lod_context *ctx, const point_t *v, size_t vcn
 #endif
 }
 
-POPState::POPState(struct bv_mesh_lod_context *ctx, unsigned long long key)
+POPState::POPState(struct bsg_mesh_lod_context *ctx, unsigned long long key)
 {
     // Store the context
     c = ctx;
@@ -1346,9 +1346,9 @@ POPState::get_level(fastf_t vlen)
     // view.  In principle we might also be able to back the LoD down further
     // for very distant objects, but a quick test with that resulted in too much
     // loss of detail so for now just look at the "need more" case.
-    struct bu_ptbl *vsets = (lod && lod->s) ? bv_set_views(lod->s->s_v->vset) : NULL;
+    struct bu_ptbl *vsets = (lod && lod->s) ? bsg_set_views(lod->s->s_v->vset) : NULL;
     if (!vsets) {
-	struct bview *v = (lod && lod->s) ? lod->s->s_v : NULL;
+	struct bsg_view *v = (lod && lod->s) ? lod->s->s_v : NULL;
 	if (v && SMALL_FASTF < v->gv_perspective) {
 	    fastf_t cdist = 0;
 	    point_t pbmin, pbmax;
@@ -1361,7 +1361,7 @@ POPState::get_level(fastf_t vlen)
     } else {
 	for (size_t i = 0; i < BU_PTBL_LEN(vsets); i++) {
 	    fastf_t cdist = 0;
-	    struct bview *cv = (struct bview *)BU_PTBL_GET(vsets, i);
+	    struct bsg_view *cv = (struct bsg_view *)BU_PTBL_GET(vsets, i);
 	    if (!_obj_visible(lod->s, cv))
 		continue;
 	    if (SMALL_FASTF < cv->gv_perspective) {
@@ -1378,11 +1378,11 @@ POPState::get_level(fastf_t vlen)
     for (int lev = 0; lev < POP_MAXLEVEL; lev++) {
 	fastf_t diag_slice = bdiag/pow(2,lev);
 	if (diag_slice < delta) {
-	    bv_log(2, "POPState::get_level %g->%d", vlen, lev);
+	    bsg_log(2, "POPState::get_level %g->%d", vlen, lev);
 	    return lev;
 	}
     }
-    bv_log(2, "POPState::get_level %g->%d", vlen, POP_MAXLEVEL - 1);
+    bsg_log(2, "POPState::get_level %g->%d", vlen, POP_MAXLEVEL - 1);
     return POP_MAXLEVEL - 1;
 }
 
@@ -1793,7 +1793,7 @@ POPState::plot(const char *root)
 
 
 extern "C" unsigned long long
-bv_mesh_lod_cache(struct bv_mesh_lod_context *c, const point_t *v, size_t vcnt, const vect_t *vn, int *faces, size_t fcnt, unsigned long long user_key, double fratio)
+bsg_mesh_lod_cache(struct bsg_mesh_lod_context *c, const point_t *v, size_t vcnt, const vect_t *vn, int *faces, size_t fcnt, unsigned long long user_key, double fratio)
 {
     unsigned long long key = 0;
 
@@ -1809,8 +1809,8 @@ bv_mesh_lod_cache(struct bv_mesh_lod_context *c, const point_t *v, size_t vcnt, 
     return key;
 }
 
-extern "C" struct bv_mesh_lod *
-bv_mesh_lod_create(struct bv_mesh_lod_context *c, unsigned long long key)
+extern "C" struct bsg_mesh_lod *
+bsg_mesh_lod_create(struct bsg_mesh_lod_context *c, unsigned long long key)
 {
     if (!c || !key)
 	return NULL;
@@ -1825,10 +1825,10 @@ bv_mesh_lod_create(struct bv_mesh_lod_context *c, unsigned long long key)
     }
 
     // Set up info container
-    struct bv_mesh_lod *lod;
-    BU_GET(lod, struct bv_mesh_lod);
-    BU_GET(lod->i, struct bv_mesh_lod_internal);
-    ((struct bv_mesh_lod_internal *)lod->i)->s = p;
+    struct bsg_mesh_lod *lod;
+    BU_GET(lod, struct bsg_mesh_lod);
+    BU_GET(lod->i, struct bsg_mesh_lod_internal);
+    ((struct bsg_mesh_lod_internal *)lod->i)->s = p;
     lod->c = (void *)c;
     p->lod = lod;
 
@@ -1843,41 +1843,41 @@ bv_mesh_lod_create(struct bv_mesh_lod_context *c, unsigned long long key)
 }
 
 extern "C" void
-bv_mesh_lod_destroy(struct bv_mesh_lod *lod)
+bsg_mesh_lod_destroy(struct bsg_mesh_lod *lod)
 {
     if (!lod)
 	return;
 
-    struct bv_mesh_lod_internal *i = (struct bv_mesh_lod_internal *)lod->i;
+    struct bsg_mesh_lod_internal *i = (struct bsg_mesh_lod_internal *)lod->i;
     delete i->s;
     i->s = NULL;
-    BU_PUT(i, struct bv_mesh_lod_internal);
+    BU_PUT(i, struct bsg_mesh_lod_internal);
     lod->i = NULL;
-    BU_PUT(lod, struct bv_mesh_lod);
+    BU_PUT(lod, struct bsg_mesh_lod);
 }
 
 static void
-dlist_stale(struct bv_scene_obj *s)
+dlist_stale(struct bsg_node *s)
 {
     for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	struct bv_scene_group *cg = (struct bv_scene_group *)BU_PTBL_GET(&s->children, i);
+	struct bsg_scene_group *cg = (struct bsg_scene_group *)BU_PTBL_GET(&s->children, i);
 	dlist_stale(cg);
     }
     /* Phase 11: route through the backend contract so any registered
      * invalidate callback fires. */
-    bv_scene_obj_invalidate_backend(s);
+    bsg_scene_obj_invalidate_backend(s);
 }
 
 extern "C" int
-bv_mesh_lod_level(struct bv_scene_obj *s, int level, int reset)
+bsg_mesh_lod_level(struct bsg_node *s, int level, int reset)
 {
     if (!s)
 	return -1;
 
-    struct bv_mesh_lod *l = (struct bv_mesh_lod *)s->draw_data;
+    struct bsg_mesh_lod *l = (struct bsg_mesh_lod *)s->draw_data;
     if (!l)
 	return -1;
-    struct bv_mesh_lod_internal *i = (struct bv_mesh_lod_internal *)l->i;
+    struct bsg_mesh_lod_internal *i = (struct bsg_mesh_lod_internal *)l->i;
     POPState *sp = i->s;
     if (level < 0)
 	return sp->curr_level;
@@ -1910,7 +1910,7 @@ bv_mesh_lod_level(struct bv_scene_obj *s, int level, int reset)
 	l->pcnt = (int)sp->lod_tri_pnts_snapped.size();
     }
 
-    bv_log(2, "bv_mesh_lod_level %s[%d](%d): %d", bu_vls_cstr(&s->s_name), level, reset, l->fcnt);
+    bsg_log(2, "bsg_mesh_lod_level %s[%d](%d): %d", bu_vls_cstr(&s->s_name), level, reset, l->fcnt);
 
     // If the data changed, any Display List we may have previously generated
     // is now obsolete
@@ -1922,48 +1922,48 @@ bv_mesh_lod_level(struct bv_scene_obj *s, int level, int reset)
 
 
 extern "C" int
-bv_mesh_lod_view(struct bv_scene_obj *s, struct bview *v, int reset)
+bsg_mesh_lod_view(struct bsg_node *s, struct bsg_view *v, int reset)
 {
     if (!s || !v)
 	return -1;
-    struct bv_mesh_lod *l = (struct bv_mesh_lod *)s->draw_data;
+    struct bsg_mesh_lod *l = (struct bsg_mesh_lod *)s->draw_data;
     if (!l)
 	return -1;
 
-    struct bv_mesh_lod_internal *i = (struct bv_mesh_lod_internal *)l->i;
+    struct bsg_mesh_lod_internal *i = (struct bsg_mesh_lod_internal *)l->i;
     POPState *sp = i->s;
     int ret = sp->curr_level;
     int vscale = (int)((double)sp->get_level(v->gv_size) * v->gv_s->lod_scale);
     vscale = (vscale < 0) ? 0 : vscale;
     vscale = (vscale >= POP_MAXLEVEL) ? POP_MAXLEVEL-1 : vscale;
 
-    bv_log(2, "bv_mesh_lod_view %s[%s][%d]", bu_vls_cstr(&s->s_name), bu_vls_cstr(&v->gv_name), vscale);
+    bsg_log(2, "bsg_mesh_lod_view %s[%s][%d]", bu_vls_cstr(&s->s_name), bu_vls_cstr(&v->gv_name), vscale);
 
     // If the object is not visible in the scene, don't change the data
     //bu_log("min: %f %f %f max: %f %f %f\n", V3ARGS(s->bmin), V3ARGS(s->bmax));
     if (_obj_visible(s, v))
-	ret = bv_mesh_lod_level(s, vscale, reset);
+	ret = bsg_mesh_lod_level(s, vscale, reset);
 
     return ret;
 }
 
 extern "C" void
-bv_mesh_lod_memshrink(struct bv_scene_obj *s)
+bsg_mesh_lod_memshrink(struct bsg_node *s)
 {
     if (!s)
 	return;
-    struct bv_mesh_lod *l = (struct bv_mesh_lod *)s->draw_data;
+    struct bsg_mesh_lod *l = (struct bsg_mesh_lod *)s->draw_data;
     if (!l)
 	return;
 
-    struct bv_mesh_lod_internal *i = (struct bv_mesh_lod_internal *)l->i;
+    struct bsg_mesh_lod_internal *i = (struct bsg_mesh_lod_internal *)l->i;
     POPState *sp = i->s;
     sp->shrink_memory();
     bu_log("memshrink\n");
 }
 
 static void
-cache_del(struct bv_mesh_lod_context *c, unsigned long long hash, const char *component)
+cache_del(struct bsg_mesh_lod_context *c, unsigned long long hash, const char *component)
 {
     std::string keystr = std::to_string(hash) + std::string(":") + std::string(component);
     bu_cache_clear(keystr.c_str(), c->i->lod_cache, NULL);
@@ -1971,7 +1971,7 @@ cache_del(struct bv_mesh_lod_context *c, unsigned long long hash, const char *co
 
 
 extern "C" void
-bv_mesh_lod_clear_cache(struct bv_mesh_lod_context *c, unsigned long long key)
+bsg_mesh_lod_clear_cache(struct bsg_mesh_lod_context *c, unsigned long long key)
 {
     char dir[MAXPATHLEN];
 
@@ -2048,56 +2048,56 @@ bv_mesh_lod_clear_cache(struct bv_mesh_lod_context *c, unsigned long long key)
 }
 
 extern "C" void
-bv_mesh_lod_detail_setup_clbk(
-	struct bv_mesh_lod *lod,
-	int (*clbk)(struct bv_mesh_lod *, void *),
+bsg_mesh_lod_detail_setup_clbk(
+	struct bsg_mesh_lod *lod,
+	int (*clbk)(struct bsg_mesh_lod *, void *),
 	void *clbk_data
 	)
 {
     if (!lod || !clbk)
 	return;
 
-    struct bv_mesh_lod_internal *i = (struct bv_mesh_lod_internal *)lod->i;
+    struct bsg_mesh_lod_internal *i = (struct bsg_mesh_lod_internal *)lod->i;
     POPState *s = i->s;
     s->full_detail_setup_clbk = clbk;
     s->detail_clbk_data = clbk_data;
 }
 
 extern "C" void
-bv_mesh_lod_detail_clear_clbk(
-	struct bv_mesh_lod *lod,
-	int (*clbk)(struct bv_mesh_lod *, void *)
+bsg_mesh_lod_detail_clear_clbk(
+	struct bsg_mesh_lod *lod,
+	int (*clbk)(struct bsg_mesh_lod *, void *)
 	)
 {
     if (!lod || !clbk)
 	return;
 
-    struct bv_mesh_lod_internal *i = (struct bv_mesh_lod_internal *)lod->i;
+    struct bsg_mesh_lod_internal *i = (struct bsg_mesh_lod_internal *)lod->i;
     POPState *s = i->s;
     s->full_detail_clear_clbk = clbk;
 }
 
 extern "C" void
-bv_mesh_lod_detail_free_clbk(
-	struct bv_mesh_lod *lod,
-	int (*clbk)(struct bv_mesh_lod *, void *)
+bsg_mesh_lod_detail_free_clbk(
+	struct bsg_mesh_lod *lod,
+	int (*clbk)(struct bsg_mesh_lod *, void *)
 	)
 {
     if (!lod || !clbk)
 	return;
 
-    struct bv_mesh_lod_internal *i = (struct bv_mesh_lod_internal *)lod->i;
+    struct bsg_mesh_lod_internal *i = (struct bsg_mesh_lod_internal *)lod->i;
     POPState *s = i->s;
     s->full_detail_free_clbk = clbk;
 }
 
 void
-bv_mesh_lod_free(struct bv_scene_obj *s)
+bsg_mesh_lod_free(struct bsg_node *s)
 {
     if (!s || !s->draw_data)
 	return;
-    struct bv_mesh_lod *l = (struct bv_mesh_lod *)s->draw_data;
-    struct bv_mesh_lod_internal *i = (struct bv_mesh_lod_internal *)l->i;
+    struct bsg_mesh_lod *l = (struct bsg_mesh_lod *)s->draw_data;
+    struct bsg_mesh_lod_internal *i = (struct bsg_mesh_lod_internal *)l->i;
     delete i->s;
     s->draw_data = NULL;
 }

@@ -249,7 +249,7 @@ rt_generic_form(struct bu_vls *logstr, const struct rt_functab *ftp)
 }
 
 static int
-rt_wireframe_plot(struct bv_scene_obj *s, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const struct bview *v)
+rt_wireframe_plot(struct bsg_node *s, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const struct bsg_view *v)
 {
     // If we meet the conditions for an adaptive wireframe, do that
     if (v && s->adaptive_wireframe && ip->idb_meth->ft_adaptive_plot) {
@@ -263,14 +263,14 @@ rt_wireframe_plot(struct bv_scene_obj *s, struct rt_db_internal *ip, const struc
     if (ip->idb_meth->ft_plot)
 	ip->idb_meth->ft_plot(&s->s_vlist, ip, ttol, tol, s->s_v);
 
-    // If we didn't have a plotting method, we have an empty bv_scene_obj,
+    // If we didn't have a plotting method, we have an empty bsg_node,
     // which is fine.  Otherwise, we're good to go - either way, return
     // BRLCAD_OK.
     return BRLCAD_OK;
 }
 
 static int
-rt_shaded_plot(struct bv_scene_obj *s, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol)
+rt_shaded_plot(struct bsg_node *s, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol)
 {
     if (!ip->idb_meth || !ip->idb_meth->ft_tessellate) {
         bu_log("ERROR: tessellation support not available\n");
@@ -297,7 +297,7 @@ rt_shaded_plot(struct bv_scene_obj *s, struct rt_db_internal *ip, const struct b
  * plotting
  */
 int
-rt_generic_scene_obj(struct bv_scene_obj *s, struct directory *dp, struct db_i *dbip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const struct bview *v)
+rt_generic_scene_obj(struct bsg_node *s, struct directory *dp, struct db_i *dbip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const struct bsg_view *v)
 {
     int ret = BRLCAD_ERROR;
 

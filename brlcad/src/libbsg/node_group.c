@@ -33,7 +33,7 @@
 
 
 bsg_node *
-bsg_group_create(struct bview *v)
+bsg_group_create(struct bsg_view *v)
 {
     if (!v)
 	return NULL;

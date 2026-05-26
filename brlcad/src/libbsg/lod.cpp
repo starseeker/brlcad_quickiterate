@@ -46,7 +46,7 @@
 /* ------------------------------------------------------------------ */
 
 static void
-_lod_update_recursive(bsg_node *node, struct bview *v)
+_lod_update_recursive(bsg_node *node, struct bsg_view *v)
 {
     if (!node || !v)
 	return;
@@ -88,7 +88,7 @@ _lod_update_recursive(bsg_node *node, struct bview *v)
 /* ------------------------------------------------------------------ */
 
 void
-bsg_lod_update(bsg_node *root, struct bview *v)
+bsg_lod_update(bsg_node *root, struct bsg_view *v)
 {
     if (!root || !v)
 	return;
@@ -99,7 +99,7 @@ bsg_lod_update(bsg_node *root, struct bview *v)
 
 
 int
-bsg_lod_stale(bsg_node *n, struct bview *v)
+bsg_lod_stale(bsg_node *n, struct bsg_view *v)
 {
     if (!n || !v)
 	return 0;

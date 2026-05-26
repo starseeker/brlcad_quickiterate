@@ -47,7 +47,7 @@
 int
 go_data_arrows(Tcl_Interp *interp,
 	       struct ged *gedp,
-	       struct bview *gdvp,
+	       struct bsg_view *gdvp,
 	       int argc,
 	       const char *argv[],
 	       const char *usage)
@@ -90,7 +90,7 @@ to_data_arrows(struct ged *gedp,
 	       const char *usage,
 	       int UNUSED(maxargs))
 {
-    struct bview *gdvp;
+    struct bsg_view *gdvp;
     int ret;
 
     /* initialize result */
@@ -107,7 +107,7 @@ to_data_arrows(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    gdvp = bv_set_find_view(&gedp->ged_views, argv[1]);
+    gdvp = bsg_set_find_view(&gedp->ged_views, argv[1]);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -126,7 +126,7 @@ to_data_arrows(struct ged *gedp,
 int
 to_data_arrows_func(Tcl_Interp *interp,
 		    struct ged *gedp,
-		    struct bview *gdvp,
+		    struct bsg_view *gdvp,
 		    int argc,
 		    const char *argv[])
 {
@@ -136,7 +136,7 @@ to_data_arrows_func(Tcl_Interp *interp,
     if (BU_STR_EQUAL(argv[1], "draw")) {
 	if (argc == 2) {
 	    /* T3: read draw state from BSG (object presence encodes draw=1). */
-	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bsg_view_obj_find(gdvp, bsg_name);
 	    bu_vls_printf(gedp->ged_result_str, "%d", _s ? 1 : 0);
 	    return BRLCAD_OK;
 	}
@@ -148,9 +148,9 @@ to_data_arrows_func(Tcl_Interp *interp,
 		goto bad;
 
 	    /* T3: toggle visibility of existing BSG object (no gv_tcl write). */
-	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bsg_view_obj_find(gdvp, bsg_name);
 	    if (_s)
-		bv_view_obj_set_visible(_s, i ? 1 : 0);
+		bsg_view_obj_set_visible(_s, i ? 1 : 0);
 	    /* If no BSG object exists and draw=1 is requested, nothing to show
 	     * yet (no points have been set); silently no-op. */
 
@@ -164,7 +164,7 @@ to_data_arrows_func(Tcl_Interp *interp,
     if (BU_STR_EQUAL(argv[1], "color")) {
 	if (argc == 2) {
 	    /* T3: read color from BSG object. */
-	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bsg_view_obj_find(gdvp, bsg_name);
 	    if (_s)
 		bu_vls_printf(gedp->ged_result_str, "%d %d %d",
 			      (int)_s->s_color[0], (int)_s->s_color[1], (int)_s->s_color[2]);
@@ -189,9 +189,9 @@ to_data_arrows_func(Tcl_Interp *interp,
 		goto bad;
 
 	    /* T3: update BSG object in-place (no gv_tcl write). */
-	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bsg_view_obj_find(gdvp, bsg_name);
 	    if (_s)
-		bv_view_obj_set_color(_s, r, g, b);
+		bsg_view_obj_set_color(_s, r, g, b);
 
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
@@ -203,7 +203,7 @@ to_data_arrows_func(Tcl_Interp *interp,
     if (BU_STR_EQUAL(argv[1], "line_width")) {
 	if (argc == 2) {
 	    /* T3: read line_width from BSG object settings. */
-	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bsg_view_obj_find(gdvp, bsg_name);
 	    if (_s && _s->s_os)
 		bu_vls_printf(gedp->ged_result_str, "%d", _s->s_os->s_line_width);
 	    else
@@ -218,9 +218,9 @@ to_data_arrows_func(Tcl_Interp *interp,
 		goto bad;
 
 	    /* T3: update BSG object in-place (no gv_tcl write). */
-	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bsg_view_obj_find(gdvp, bsg_name);
 	    if (_s)
-		bv_view_obj_set_line_width(_s, line_width);
+		bsg_view_obj_set_line_width(_s, line_width);
 
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
@@ -234,7 +234,7 @@ to_data_arrows_func(Tcl_Interp *interp,
 
 	if (argc == 2) {
 	    /* T3: read points from BSG vlist. */
-	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bsg_view_obj_find(gdvp, bsg_name);
 	    if (_s) {
 		bsg_vlist *_vp;
 		size_t _j;
@@ -265,12 +265,12 @@ to_data_arrows_func(Tcl_Interp *interp,
 
 	    /* T3: save style from existing BSG object before replacing it. */
 	    int saved_color[3]; int saved_lw, saved_tl, saved_tw, saved_vis;
-	    struct bv_scene_obj *old_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *old_s = bsg_view_obj_find(gdvp, bsg_name);
 	    _bsg_read_style(old_s, saved_color, &saved_lw, &saved_tl, &saved_tw, &saved_vis);
 
 	    /* Clear out: remove old BSG object. */
 	    if (ac < 2) {
-		bv_view_obj_remove(gdvp, bsg_name);
+		bsg_view_obj_remove(gdvp, bsg_name);
 		Tcl_Free((char *)av);
 		to_refresh_view(gdvp);
 		return BRLCAD_OK;
@@ -303,7 +303,7 @@ to_data_arrows_func(Tcl_Interp *interp,
     if (BU_STR_EQUAL(argv[1], "tip_length")) {
 	if (argc == 2) {
 	    /* T3: read tip_length from BSG object settings. */
-	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bsg_view_obj_find(gdvp, bsg_name);
 	    if (_s && _s->s_os)
 		bu_vls_printf(gedp->ged_result_str, "%d", (int)_s->s_os->s_arrow_tip_length);
 	    else
@@ -318,10 +318,10 @@ to_data_arrows_func(Tcl_Interp *interp,
 		goto bad;
 
 	    /* T3: update BSG object in-place (no gv_tcl write). */
-	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bsg_view_obj_find(gdvp, bsg_name);
 	    if (_s && _s->s_os) {
 		_s->s_os->s_arrow_tip_length = (fastf_t)tip_length;
-		bv_obj_stale(_s);
+		bsg_obj_stale(_s);
 	    }
 
 	    to_refresh_view(gdvp);
@@ -334,7 +334,7 @@ to_data_arrows_func(Tcl_Interp *interp,
     if (BU_STR_EQUAL(argv[1], "tip_width")) {
 	if (argc == 2) {
 	    /* T3: read tip_width from BSG object settings. */
-	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bsg_view_obj_find(gdvp, bsg_name);
 	    if (_s && _s->s_os)
 		bu_vls_printf(gedp->ged_result_str, "%d", (int)_s->s_os->s_arrow_tip_width);
 	    else
@@ -349,10 +349,10 @@ to_data_arrows_func(Tcl_Interp *interp,
 		goto bad;
 
 	    /* T3: update BSG object in-place (no gv_tcl write). */
-	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bsg_view_obj_find(gdvp, bsg_name);
 	    if (_s && _s->s_os) {
 		_s->s_os->s_arrow_tip_width = (fastf_t)tip_width;
-		bv_obj_stale(_s);
+		bsg_obj_stale(_s);
 	    }
 
 	    to_refresh_view(gdvp);

@@ -34,7 +34,7 @@
 
 
 bsg_node *
-bsg_shape_create(struct bview *v)
+bsg_shape_create(struct bsg_view *v)
 {
     if (!v)
 	return NULL;

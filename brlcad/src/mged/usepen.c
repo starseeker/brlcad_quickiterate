@@ -37,8 +37,8 @@
 #include "./menu.h"
 
 
-struct bv_scene_obj *illum_gdlp = NULL;
-struct bv_scene_obj *illump = NULL;	/* == 0 if none, else points to ill. solid */
+struct bsg_node *illum_gdlp = NULL;
+struct bsg_node *illump = NULL;	/* == 0 if none, else points to ill. solid */
 int ipathpos = 0;	/* path index of illuminated element */
 
 
@@ -50,7 +50,7 @@ struct _illuminate_data {
 static int
 _illuminate_cb(bsg_node *n, void *ud)
 {
-    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct bsg_node *sp = (struct bsg_node *)n;
     struct _illuminate_data *d = (struct _illuminate_data *)ud;
     if (sp->s_flag == UP) {
 	if (d->count-- == 0) {
@@ -58,10 +58,10 @@ _illuminate_cb(bsg_node *n, void *ud)
 	    illump = sp;
 	    /* Walk up to the root child (depth-1 group) */
 	    {
-		struct bv_scene_obj *_g = (struct bv_scene_obj *)sp->parent;
+		struct bsg_node *_g = (struct bsg_node *)sp->parent;
 		while (_g && _g->parent &&
-		       ((struct bv_scene_obj *)_g->parent)->parent != NULL)
-		    _g = (struct bv_scene_obj *)_g->parent;
+		       ((struct bsg_node *)_g->parent)->parent != NULL)
+		    _g = (struct bsg_node *)_g->parent;
 		illum_gdlp = _g;
 	    }
 	} else {
@@ -81,7 +81,7 @@ struct _matpick_data {
 static int
 _matpick_topmat_cb(bsg_node *n, void *ud)
 {
-    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct bsg_node *sp = (struct bsg_node *)n;
     struct _matpick_data *d = (struct _matpick_data *)ud;
     size_t j;
     if (!sp->s_u_data) return 1;
@@ -134,7 +134,7 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
 
-    struct bv_scene_obj *sp;
+    struct bsg_node *sp;
     struct ged_bv_data *bdata = NULL;
 
     if (argc < 1 || 2 < argc) {

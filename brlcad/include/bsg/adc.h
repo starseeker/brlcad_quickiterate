@@ -34,10 +34,10 @@
 
 __BEGIN_DECLS
 
-BV_EXPORT void adc_model_to_adc_view(struct bv_adc_state *adcs, mat_t model2view, fastf_t amax);
-BV_EXPORT void adc_grid_to_adc_view(struct bv_adc_state *adcs, mat_t model2view, fastf_t amax);
-BV_EXPORT void adc_view_to_adc_grid(struct bv_adc_state *adcs, mat_t model2view);
-BV_EXPORT void adc_reset(struct bv_adc_state *adcs, mat_t view2model, mat_t model2view);
+BV_EXPORT void adc_model_to_adc_view(struct bsg_adc_state *adcs, mat_t model2view, fastf_t amax);
+BV_EXPORT void adc_grid_to_adc_view(struct bsg_adc_state *adcs, mat_t model2view, fastf_t amax);
+BV_EXPORT void adc_view_to_adc_grid(struct bsg_adc_state *adcs, mat_t model2view);
+BV_EXPORT void adc_reset(struct bsg_adc_state *adcs, mat_t view2model, mat_t model2view);
 
 __END_DECLS
 

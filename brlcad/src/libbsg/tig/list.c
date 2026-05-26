@@ -22,8 +22,8 @@
 
 #include <stdio.h>
 #include "vmath.h"
-#include "bv/plot3.h"
-#include "bv/tig.h"
+#include "bsg/plot3.h"
+#include "bsg/tig.h"
 
 /* Modes for internal flag */
 #define TP_MARK 1 /* Draw marks */

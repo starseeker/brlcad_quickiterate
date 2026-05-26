@@ -30,8 +30,8 @@
 #include <vector>
 
 #include <bu.h>
-#include <bv.h>
-#include <bv/lod.h>
+#include <bsg.h>
+#include <bsg/lod.h>
 #include <ged.h>
 
 #include "../../dbi.h"
@@ -48,7 +48,7 @@ static int nchecks = 0;
 static int nfails = 0;
 
 static std::vector<std::string>
-drawn_paths(struct ged *gedp, struct bview *v)
+drawn_paths(struct ged *gedp, struct bsg_view *v)
 {
     DbiState *dbis = (DbiState *)gedp->dbi_state;
     BViewState *bvs = dbis->get_view_state(v);
@@ -100,29 +100,29 @@ main(int argc, const char **argv)
 
     gedp->dbi_state = new DbiState(gedp);
     gedp->new_cmd_forms = 1;
-    gedp->ged_lod = bv_mesh_lod_context_create(gedp->dbip->dbi_filename);
+    gedp->ged_lod = bsg_mesh_lod_context_create(gedp->dbip->dbi_filename);
 
-    bv_set_rm_view(&gedp->ged_views, NULL);
-    struct bview *views[2] = {NULL, NULL};
+    bsg_set_rm_view(&gedp->ged_views, NULL);
+    struct bsg_view *views[2] = {NULL, NULL};
     for (int i = 0; i < 2; i++) {
-	BU_GET(views[i], struct bview);
-	bv_init(views[i], &gedp->ged_views);
+	BU_GET(views[i], struct bsg_view);
+	bsg_init(views[i], &gedp->ged_views);
 	bu_vls_sprintf(&views[i]->gv_name, "V%d", i);
-	bv_set_add_view(&gedp->ged_views, views[i]);
+	bsg_set_add_view(&gedp->ged_views, views[i]);
 	bu_ptbl_ins(&gedp->ged_free_views, (long *)views[i]);
 	if (!i)
 	    gedp->ged_gvp = views[i];
     }
 
     ASSERT(draw_shared(gedp, "all.g") == BRLCAD_OK);
-    ASSERT(!bv_view_is_independent(views[0]));
+    ASSERT(!bsg_view_is_independent(views[0]));
     ASSERT(drawn_paths(gedp, views[0]).size() == 1);
     ASSERT(has_path(drawn_paths(gedp, views[0]), "all.g"));
     ASSERT(drawn_paths(gedp, views[1]).size() == 1);
 
     ASSERT(set_view_independent(gedp, "V0", 1) == BRLCAD_OK);
-    ASSERT(bv_view_is_independent(views[0]));
-    ASSERT(bv_view_independent_scope(views[0], 0) != NULL);
+    ASSERT(bsg_view_is_independent(views[0]));
+    ASSERT(bsg_view_independent_scope(views[0], 0) != NULL);
     ASSERT(drawn_paths(gedp, views[0]).size() == 1);
     ASSERT(has_path(drawn_paths(gedp, views[0]), "all.g"));
 
@@ -138,8 +138,8 @@ main(int argc, const char **argv)
     ASSERT(!has_path(drawn_paths(gedp, views[1]), "tor.r"));
 
     ASSERT(set_view_independent(gedp, "V0", 0) == BRLCAD_OK);
-    ASSERT(!bv_view_is_independent(views[0]));
-    ASSERT(bv_view_independent_scope(views[0], 0) == NULL);
+    ASSERT(!bsg_view_is_independent(views[0]));
+    ASSERT(bsg_view_independent_scope(views[0], 0) == NULL);
     ASSERT(drawn_paths(gedp, views[0]).size() == 2);
     ASSERT(has_path(drawn_paths(gedp, views[0]), "all.g"));
     ASSERT(has_path(drawn_paths(gedp, views[0]), "box.r"));

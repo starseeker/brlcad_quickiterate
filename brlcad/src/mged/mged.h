@@ -77,7 +77,7 @@
 #include "ged.h"
 #include "wdb.h"
 
-/* Needed to define struct bv_scene_obj */
+/* Needed to define struct bsg_node */
 #include "bsg/defines.h"
 
 // We have to use different I/O mechanisms based on which
@@ -295,7 +295,7 @@ extern void sig2(int);
 extern void sig3(int);
 
 /* mged.c */
-extern void mged_view_callback(struct bview *gvp, void *clientData);
+extern void mged_view_callback(struct bsg_view *gvp, void *clientData);
 
 /* buttons.c */
 extern void button(struct mged_state *s, int bnum);
@@ -318,8 +318,8 @@ void history_setup(void);
 #define ROTARROW 010 /* Object rotation enabled */
 extern int movedir;  /* RARROW | UARROW | SARROW | ROTARROW */
 
-extern struct bv_scene_obj *illum_gdlp; /* Pointer to solid in solid table to be illuminated */
-extern struct bv_scene_obj *illump; /* == 0 if none, else points to ill. solid */
+extern struct bsg_node *illum_gdlp; /* Pointer to solid in solid table to be illuminated */
+extern struct bsg_node *illump; /* == 0 if none, else points to ill. solid */
 extern int ipathpos; /* path index of illuminated element */
 extern int sedraw; /* apply solid editing changes */
 extern int edobj; /* object editing options */
@@ -439,9 +439,9 @@ void vls_col_item(struct bu_vls *str, const char *cp);
 void vls_col_eol(struct bu_vls *str);
 
 /* dodraw.c */
-int replot_modified_solid(struct mged_state *s, struct bv_scene_obj *sp, struct rt_db_internal *ip, const mat_t mat);
-int replot_original_solid(struct mged_state *s, struct bv_scene_obj *sp);
-void add_solid_path_to_result(Tcl_Interp *interpreter, struct bv_scene_obj *sp);
+int replot_modified_solid(struct mged_state *s, struct bsg_node *sp, struct rt_db_internal *ip, const mat_t mat);
+int replot_original_solid(struct mged_state *s, struct bsg_node *sp);
+void add_solid_path_to_result(Tcl_Interp *interpreter, struct bsg_node *sp);
 int redraw_visible_objects(struct mged_state *s);
 
 /* dozoom.c */

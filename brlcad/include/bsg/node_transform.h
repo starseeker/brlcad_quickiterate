@@ -45,7 +45,7 @@ __BEGIN_DECLS
  * Returns NULL on failure.
  */
 BSG_EXPORT extern bsg_node *
-bsg_transform_create(struct bview *v);
+bsg_transform_create(struct bsg_view *v);
 
 /**
  * Copy @p mat into @p transform's s_mat.

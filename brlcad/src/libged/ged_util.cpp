@@ -53,7 +53,7 @@
 #include "bu/str.h"
 #include "bu/units.h"
 #include "bu/vls.h"
-#include "bv.h"
+#include "bsg.h"
 
 #include "ged.h"
 #include "ged/bsg_ged_draw.h"
@@ -248,7 +248,7 @@ _ged_subcmd2_help(struct ged *gedp, struct bu_opt_desc *gopts, std::map<std::str
     return BRLCAD_OK;
 }
 
-/* Phase B: context + callback for bv_view_objs_visit_db used to accumulate
+/* Phase B: context + callback for bsg_view_objs_visit_db used to accumulate
  * bounding sphere extents (replaces scene_bounding_sph for GED sessions). */
 struct _scene_bsph_ctx {
     vect_t *vmin;
@@ -256,7 +256,7 @@ struct _scene_bsph_ctx {
 };
 
 static int
-_scene_bsph_cb(struct bv_scene_obj *s, void *data)
+_scene_bsph_cb(struct bsg_node *s, void *data)
 {
     struct _scene_bsph_ctx *ctx = (struct _scene_bsph_ctx *)data;
     vect_t minus, plus;
@@ -264,8 +264,8 @@ _scene_bsph_cb(struct bv_scene_obj *s, void *data)
      * For non-BSG top-level groups, recurse into children first. */
     if (BU_PTBL_LEN(&s->children)) {
 	for (size_t j = 0; j < BU_PTBL_LEN(&s->children); j++) {
-	    struct bv_scene_obj *sp =
-		(struct bv_scene_obj *)BU_PTBL_GET(&s->children, j);
+	    struct bsg_node *sp =
+		(struct bsg_node *)BU_PTBL_GET(&s->children, j);
 	    minus[X] = sp->s_center[X] - sp->s_size;
 	    minus[Y] = sp->s_center[Y] - sp->s_size;
 	    minus[Z] = sp->s_center[Z] - sp->s_size;
@@ -1047,7 +1047,7 @@ ged_scale_args(struct ged *gedp, int argc, const char *argv[], fastf_t *sf1, fas
 
 /* Callback for ged_who_argc to count groups */
 static int
-who_argc_cb(struct bv_scene_obj * /* group */, void *userdata)
+who_argc_cb(struct bsg_node * /* group */, void *userdata)
 {
     size_t *cnt = (size_t *)userdata;
     (*cnt)++;
@@ -1086,7 +1086,7 @@ struct who_argv_data {
 
 /* Callback for ged_who_argv */
 static int
-who_argv_cb(struct bv_scene_obj *group, void *userdata)
+who_argv_cb(struct bsg_node *group, void *userdata)
 {
     struct who_argv_data *data = (struct who_argv_data *)userdata;
 
@@ -1227,7 +1227,7 @@ _ged_do_list(struct ged *gedp, struct directory *dp, int verbose)
 }
 
 void
-_ged_cvt_vlblock_to_solids(struct ged *gedp, struct bv_vlblock *vbp, const char *name, int copy)
+_ged_cvt_vlblock_to_solids(struct ged *gedp, struct bsg_vlblock *vbp, const char *name, int copy)
 {
     size_t i;
     char shortname[32] = {0};
@@ -1715,13 +1715,13 @@ _ged_rt_set_eye_model(struct ged *gedp,
 	if (gedp->dbi_state) {
 	    VSETALL(extremum[0],  INFINITY);
 	    VSETALL(extremum[1], -INFINITY);
-	    /* Phase B: use bv_view_objs_visit_db to traverse BSG tree when
+	    /* Phase B: use bsg_view_objs_visit_db to traverse BSG tree when
 	     * gv_draw_root is set, so GED sessions work after BV_DB_OBJS
 	     * ptbls are emptied by B-full-1. */
 	    struct _scene_bsph_ctx bsph_ctx;
 	    bsph_ctx.vmin = &extremum[0];
 	    bsph_ctx.vmax = &extremum[1];
-	    bv_view_objs_visit_db(gedp->ged_gvp, _scene_bsph_cb, &bsph_ctx);
+	    bsg_view_objs_visit_db(gedp->ged_gvp, _scene_bsph_cb, &bsph_ctx);
 	} else {
 	    (void)bsg_view_obj_bounds(gedp, &(extremum[0]), &(extremum[1]), 1);
 	}
@@ -1974,7 +1974,7 @@ struct bitwise_and_data {
 
 /* Callback for dl_bitwise_and_fullpath */
 static int
-bitwise_and_fullpath_cb(struct bv_scene_obj *sp, void *userdata)
+bitwise_and_fullpath_cb(struct bsg_node *sp, void *userdata)
 {
     struct bitwise_and_data *data = (struct bitwise_and_data *)userdata;
 
@@ -2004,7 +2004,7 @@ struct write_animate_data {
 
 /* Callback for dl_write_animate */
 static int
-write_animate_cb(struct bv_scene_obj *sp, void *userdata)
+write_animate_cb(struct bsg_node *sp, void *userdata)
 {
     struct write_animate_data *data = (struct write_animate_data *)userdata;
 
@@ -2039,7 +2039,7 @@ struct rt_write_draw_data {
 
 /* Callback for writing draw commands in _ged_rt_write */
 static int
-rt_write_draw_cb(struct bv_scene_obj *group, void *userdata)
+rt_write_draw_cb(struct bsg_node *group, void *userdata)
 {
     struct rt_write_draw_data *data = (struct rt_write_draw_data *)userdata;
 
@@ -2624,7 +2624,7 @@ _ged_characterize_pathspec(struct bu_vls *normalized, struct ged *gedp, const ch
 
 #endif
 
-struct bv_scene_obj *
+struct bsg_node *
 ged_dl(struct ged *gedp)
 {
     if (!gedp || !gedp->i || !gedp->i->ged_gdp)

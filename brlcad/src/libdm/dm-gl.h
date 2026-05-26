@@ -163,7 +163,7 @@ DMGL_EXPORT extern int gl_drawPoint3D(struct dm *dmp, point_t point);
 DMGL_EXPORT extern int gl_drawPoints3D(struct dm *dmp, int npoints, point_t *points);
 DMGL_EXPORT extern int gl_drawVList(struct dm *dmp, bsg_vlist *vp);
 DMGL_EXPORT extern int gl_drawVListHiddenLine(struct dm *dmp, bsg_vlist *vp);
-DMGL_EXPORT extern int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s);
+DMGL_EXPORT extern int gl_draw_obj(struct dm *dmp, struct bsg_node *s);
 DMGL_EXPORT extern void gl_dlist_delete_enqueue(struct dm *dmp, unsigned int list);
 DMGL_EXPORT extern void gl_dlist_delete_flush(struct dm *dmp);
 

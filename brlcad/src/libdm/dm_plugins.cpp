@@ -125,7 +125,7 @@ dm_graphics_system(const char *dmtype)
  * at the application level (see QgEdApp.cpp).
  *
  * For headless / scripted use with mged, pass --dm-type swrast on the command
- * line; dm_open() accepts swrast without a widget context by using the bview
+ * line; dm_open() accepts swrast without a widget context by using the bsg_view
  * pointer (view_state->vs_gvp) as the ctx argument.
  */
 static const char *priority_list[] = {"wgl", "ogl", "X", NULL};

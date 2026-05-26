@@ -408,8 +408,8 @@ test_dbistate(const char *moss_g_path)
 
 	    /* redraw expands staged paths into scene objects.
 	     * We need non-NULL vs for staged paths to be processed. */
-	    struct bv_obj_settings vs = BV_OBJ_SETTINGS_INIT;
-	    std::unordered_set<struct bview *> views;
+	    struct bsg_obj_settings vs = BV_OBJ_SETTINGS_INIT;
+	    std::unordered_set<struct bsg_view *> views;
 	    views.insert(gedp->ged_gvp);
 
 	    bvs->redraw(&vs, views, 1 /* no_autoview */);

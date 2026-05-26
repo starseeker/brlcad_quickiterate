@@ -70,7 +70,7 @@ bsg_node_get_payload_type(const bsg_node *node);
  * No-op if @p node is NULL.
  */
 BSG_EXPORT extern void
-bsg_payload_dispatch(void *dmp, bsg_node *node, struct bview *v);
+bsg_payload_dispatch(void *dmp, bsg_node *node, struct bsg_view *v);
 
 __END_DECLS
 

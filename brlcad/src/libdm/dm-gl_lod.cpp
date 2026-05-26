@@ -41,7 +41,7 @@ extern "C" {
 }
 
 struct swrast_vars_fast {
-    struct bview *v;
+    struct bsg_view *v;
     void *ctx;
     void *os_b;
 };
@@ -50,7 +50,7 @@ static const fastf_t GL_SWRAST_PERSPECTIVE_DELTA_FACTOR = 0.0001;
 static const int GL_SWRAST_GED_COORD_SCALE = 2047;
 
 static int
-gl_swrast_database_wireframe(struct dm *dmp, struct bv_scene_obj *s)
+gl_swrast_database_wireframe(struct dm *dmp, struct bsg_node *s)
 {
     if (!dmp || !s)
 	return 0;
@@ -66,7 +66,7 @@ gl_swrast_database_wireframe(struct dm *dmp, struct bv_scene_obj *s)
 }
 
 static int
-gl_swrast_wireframe_obj(struct dm *dmp, struct bv_scene_obj *s)
+gl_swrast_wireframe_obj(struct dm *dmp, struct bsg_node *s)
 {
     if (!dmp || !s || !dm_get_dm_name(dmp) || !BU_STR_EQUAL(dm_get_dm_name(dmp), "swrast"))
 	return 0;
@@ -298,7 +298,7 @@ swrast_draw_vlist_fast(struct dm *dmp, bsg_vlist *vp)
  *
  * The GL family of display managers (dm-gl, dm-qtgl, dm-glx, dm-wgl,
  * dm-swrast) caches its per-shape OpenGL display list and the mode it was
- * compiled in here, attached to the generic bv_scene_obj::s_backend slot.
+ * compiled in here, attached to the generic bsg_node::s_backend slot.
  * This replaces the BV_DEPRECATED s_dlist / s_dlist_mode / s_dlist_stale
  * fields that previously lived on every scene object.
  *
@@ -308,8 +308,8 @@ swrast_draw_vlist_fast(struct dm *dmp, bsg_vlist *vp)
  *   - the dm_backend_ops invalidate callback (gl_backend_invalidate_obj)
  *     simply flips dlist_stale on the existing handle if any;
  *   - the dm_backend_ops release callback (gl_backend_release_obj) is
- *     fired through bv_scene_obj_release_backend (from bv_obj_reset,
- *     bv_obj_put, the libbsg tree free paths, ...) and tears down the GL
+ *     fired through bsg_scene_obj_release_backend (from bsg_obj_reset,
+ *     bsg_obj_put, the libbsg tree free paths, ...) and tears down the GL
  *     list and the handle itself.
  */
 struct gl_backend_handle {
@@ -318,14 +318,14 @@ struct gl_backend_handle {
     int dlist_stale;        /* set by invalidate_obj; next draw regenerates */
 };
 
-static void gl_backend_release_obj(struct dm *dmp, struct bv_scene_obj *s);
-static void gl_backend_release_obj_free(struct bv_scene_obj *s);
-static void gl_backend_invalidate_obj_free(struct bv_scene_obj *s);
+static void gl_backend_release_obj(struct dm *dmp, struct bsg_node *s);
+static void gl_backend_release_obj_free(struct bsg_node *s);
+static void gl_backend_invalidate_obj_free(struct bsg_node *s);
 
 /* Fetch (or lazily allocate) the GL backend handle for shape s.
  * Returns NULL if no handle exists and create==false, or if s is NULL. */
 static struct gl_backend_handle *
-gl_backend_handle_get(struct bv_scene_obj *s, bool create)
+gl_backend_handle_get(struct bsg_node *s, bool create)
 {
     if (!s)
 	return NULL;
@@ -337,8 +337,8 @@ gl_backend_handle_get(struct bv_scene_obj *s, bool create)
     if (!create)
 	return NULL;
 
-    struct bv_obj_backend *be;
-    BU_GET(be, struct bv_obj_backend);
+    struct bsg_backend *be;
+    BU_GET(be, struct bsg_backend);
     be->type_tag = BV_BACKEND_GL;
     be->free = gl_backend_release_obj_free;
     be->invalidate = gl_backend_invalidate_obj_free;
@@ -354,16 +354,16 @@ gl_backend_handle_get(struct bv_scene_obj *s, bool create)
 }
 
 /* Release any GL display list held by shape s and free the backing
- * gl_backend_handle / bv_obj_backend descriptor.  Recurses into children
+ * gl_backend_handle / bsg_backend descriptor.  Recurses into children
  * for group-style scene objects, matching the legacy dlist_free_callback
  * walk.  Safe to call when no backend handle is attached. */
 static void
-gl_backend_handle_release(struct bv_scene_obj *s, int enqueue_delete)
+gl_backend_handle_release(struct bsg_node *s, int enqueue_delete)
 {
     if (!s)
 	return;
     /* Do not recurse into children here.  Backend release is triggered per
-     * object by higher-level scene teardown paths (e.g. bv_obj_put on each
+     * object by higher-level scene teardown paths (e.g. bsg_obj_put on each
      * leaf).  Recursing from a parent can double-release child backend state,
      * leading to stale GL list IDs reaching glDeleteLists. */
     if (s->s_backend && s->s_backend->type_tag == BV_BACKEND_GL) {
@@ -375,23 +375,23 @@ gl_backend_handle_release(struct bv_scene_obj *s, int enqueue_delete)
 	    BU_PUT(h, struct gl_backend_handle);
 	    s->s_backend->handle = NULL;
 	}
-	BU_PUT(s->s_backend, struct bv_obj_backend);
+	BU_PUT(s->s_backend, struct bsg_backend);
 	s->s_backend = NULL;
     }
 }
 
 /* dm_backend_ops::release_obj — tear down GL state for this shape. */
 static void
-gl_backend_release_obj(struct dm *dmp, struct bv_scene_obj *s)
+gl_backend_release_obj(struct dm *dmp, struct bsg_node *s)
 {
     (void)dmp;
     gl_backend_handle_release(s, 1);
 }
 
-/* bv_obj_backend::free — also fired indirectly by
- * bv_scene_obj_release_backend; same semantics as the dm-side wrapper. */
+/* bsg_backend::free — also fired indirectly by
+ * bsg_scene_obj_release_backend; same semantics as the dm-side wrapper. */
 static void
-gl_backend_release_obj_free(struct bv_scene_obj *s)
+gl_backend_release_obj_free(struct bsg_node *s)
 {
 	/* Called from generic scene-teardown paths where owning dm/m_vars may
 	 * already be partially torn down.  Avoid touching dm-owned delete queues.
@@ -399,11 +399,11 @@ gl_backend_release_obj_free(struct bv_scene_obj *s)
 	gl_backend_handle_release(s, 0);
 }
 
-extern "C" int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s);
+extern "C" int gl_draw_obj(struct dm *dmp, struct bsg_node *s);
 
 /* dm_backend_ops::invalidate_obj — mark the cached GL list stale. */
 static void
-gl_backend_invalidate_obj(struct dm *dmp, struct bv_scene_obj *s)
+gl_backend_invalidate_obj(struct dm *dmp, struct bsg_node *s)
 {
     (void)dmp;
     struct gl_backend_handle *h = gl_backend_handle_get(s, false);
@@ -411,9 +411,9 @@ gl_backend_invalidate_obj(struct dm *dmp, struct bv_scene_obj *s)
 	h->dlist_stale = 1;
 }
 
-/* bv_obj_backend::invalidate — same semantics as the dm-side wrapper. */
+/* bsg_backend::invalidate — same semantics as the dm-side wrapper. */
 static void
-gl_backend_invalidate_obj_free(struct bv_scene_obj *s)
+gl_backend_invalidate_obj_free(struct bsg_node *s)
 {
     struct gl_backend_handle *h = gl_backend_handle_get(s, false);
     if (h)
@@ -434,7 +434,7 @@ extern "C" const struct dm_backend_ops gl_backend_ops = {
 // down the big mesh into smaller pieces as in the earlier LoD experiments in
 // order to keep using display lists...
 static int
-gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
+gl_draw_tri(struct dm *dmp, struct bsg_mesh_lod *lod)
 {
     int fcnt = lod->fcnt;
     int pcnt = lod->pcnt;
@@ -442,7 +442,7 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
     const point_t *points = lod->points;
     const point_t *points_orig = lod->points_orig;
     const vect_t *normals = lod->normals;
-    struct bv_scene_obj *s = lod->s;
+    struct bsg_node *s = lod->s;
     int mode = s->s_os->s_dmode;
     mat_t save_mat, draw_mat;
 
@@ -472,10 +472,10 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 	    // If we've had a memshrink, the loaded data isn't
 	    // going to be correct to generate new draw info.
 	    // First, find out the current level:
-	    int curr_level = bv_mesh_lod_level(s, -1, 0);
+	    int curr_level = bsg_mesh_lod_level(s, -1, 0);
 
 	    // Trigger a load operation to restore it
-	    bv_mesh_lod_level(s, curr_level, 1);
+	    bsg_mesh_lod_level(s, curr_level, 1);
 
 	    fcnt = lod->fcnt;
 	    pcnt = lod->pcnt;
@@ -613,7 +613,7 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 		// If the original data is sizable, clear it to save system memory.
 		// The dlist has what it needs, and the LoD code will re-load info
 		// as needed for updates.
-		bv_mesh_lod_memshrink(s);
+		bsg_mesh_lod_memshrink(s);
 	    }
 
 	    MAT_COPY(save_mat, s->s_v->gv_model2view);
@@ -720,7 +720,7 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 		// If the original data is sizable, clear it to save system memory.
 		// The dlist has what it needs, and the LoD code will re-load info
 		// as needed for updates.
-		bv_mesh_lod_memshrink(s);
+		bsg_mesh_lod_memshrink(s);
 	    }
 
 	    /* notify registered sensors that the dlist was regenerated */
@@ -752,7 +752,7 @@ gl_draw_tri(struct dm *dmp, struct bv_mesh_lod *lod)
 }
 
 extern "C"
-int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
+int gl_draw_obj(struct dm *dmp, struct bsg_node *s)
 {
     GLint originalShadeModel = 0;
     int restoreShadeModel = 0;
@@ -762,7 +762,7 @@ int gl_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
     gl_dlist_delete_flush(dmp);
 
     if (s->mesh_obj && s->draw_data) {
-	struct bv_mesh_lod *lod = (struct bv_mesh_lod *)s->draw_data;
+	struct bsg_mesh_lod *lod = (struct bsg_mesh_lod *)s->draw_data;
 	return gl_draw_tri(dmp, lod);
     }
 

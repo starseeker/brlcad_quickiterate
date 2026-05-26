@@ -125,7 +125,7 @@ _alloc_sensor_node(bsg_node *root, unsigned long long stype)
 	return NULL;
 
     bsg_node *r = (bsg_node *)root;
-    struct bview *v = r->s_v;
+    struct bsg_view *v = r->s_v;
     if (!v)
 	return NULL;
 

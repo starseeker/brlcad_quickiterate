@@ -816,7 +816,7 @@ ON_Brep_CDT_VList_Face(
 }
 
 int ON_Brep_CDT_VList(
-	struct bv_vlblock *vbp,
+	struct bsg_vlblock *vbp,
 	struct bu_list *vlfree,
 	struct bu_color *c,
 	int mode,
@@ -836,7 +836,7 @@ int ON_Brep_CDT_VList(
        return -1;
    }
 
-   vhead = bv_vlblock_find(vbp, r, g, b);
+   vhead = bsg_vlblock_find(vbp, r, g, b);
 
    if (UNLIKELY(!vhead)) {
        return -1;

@@ -37,13 +37,13 @@ extern "C" {
 #include "qtcad/defines.h"
 #include "bindings.h"
 
-typedef void (*bounds_update_t)(struct bview *);
-static std::unordered_map<struct bview *, bounds_update_t> drag_bounds_updates;
-static std::unordered_map<struct bview *, long long> drag_update_ts;
+typedef void (*bounds_update_t)(struct bsg_view *);
+static std::unordered_map<struct bsg_view *, bounds_update_t> drag_bounds_updates;
+static std::unordered_map<struct bsg_view *, long long> drag_update_ts;
 static const long long drag_update_interval_ms = 16;
 
 static void
-suspend_drag_bounds_update(struct bview *v)
+suspend_drag_bounds_update(struct bsg_view *v)
 {
 	if (!v || !v->gv_bounds_update)
 		return;
@@ -54,11 +54,11 @@ suspend_drag_bounds_update(struct bview *v)
 }
 
 static void
-restore_drag_bounds_update(struct bview *v, int refresh_bounds)
+restore_drag_bounds_update(struct bsg_view *v, int refresh_bounds)
 {
 	if (!v)
 		return;
-	std::unordered_map<struct bview *, bounds_update_t>::iterator it = drag_bounds_updates.find(v);
+	std::unordered_map<struct bsg_view *, bounds_update_t>::iterator it = drag_bounds_updates.find(v);
 	if (it == drag_bounds_updates.end())
 		return;
 	v->gv_bounds_update = it->second;
@@ -70,7 +70,7 @@ restore_drag_bounds_update(struct bview *v, int refresh_bounds)
 
 // TODO - look into QShortcut, see if it might be a better way
 // to manage this
-int CADkeyPressEvent(struct bview *v, int UNUSED(x_prev), int UNUSED(y_prev), QKeyEvent *k)
+int CADkeyPressEvent(struct bsg_view *v, int UNUSED(x_prev), int UNUSED(y_prev), QKeyEvent *k)
 {
 	QTCAD_EVENT("keyPress", 1);
 	if (!v)
@@ -92,71 +92,71 @@ int CADkeyPressEvent(struct bview *v, int UNUSED(x_prev), int UNUSED(y_prev), QK
 	case '2': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "35 -25 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case '3': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "35 25 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case '4': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "45 45 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case '5': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "145 25 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case '6': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "215 25 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case '7': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "325 25 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case 'F': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "0 0 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case 'T': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "270 90 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case 'B': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "270 -90 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case 'L': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "90 0 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case 'R': {
@@ -167,8 +167,8 @@ int CADkeyPressEvent(struct bview *v, int UNUSED(x_prev), int UNUSED(y_prev), QK
 		else {
 			bn_decode_vect(aet_vec, "270 0 0");
 		}
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	default:
@@ -177,7 +177,7 @@ int CADkeyPressEvent(struct bview *v, int UNUSED(x_prev), int UNUSED(y_prev), QK
 	return 0;
 }
 
-int CADmousePressEvent(struct bview *v, int UNUSED(x_prev), int UNUSED(y_prev), QMouseEvent *e)
+int CADmousePressEvent(struct bsg_view *v, int UNUSED(x_prev), int UNUSED(y_prev), QMouseEvent *e)
 {
 	QTCAD_EVENT("mousePress", 1);
 
@@ -208,7 +208,7 @@ int CADmousePressEvent(struct bview *v, int UNUSED(x_prev), int UNUSED(y_prev), 
 	return 0;
 }
 
-int CADmouseReleaseEvent(struct bview *v, double x_press, double y_press, int UNUSED(x_prev), int UNUSED(y_prev), QMouseEvent *e, int mode)
+int CADmouseReleaseEvent(struct bsg_view *v, double x_press, double y_press, int UNUSED(x_prev), int UNUSED(y_prev), QMouseEvent *e, int mode)
 {
 	QTCAD_EVENT("mouseRelease", 1);
 
@@ -276,10 +276,10 @@ int CADmouseReleaseEvent(struct bview *v, double x_press, double y_press, int UN
 	}
 
 	point_t keypt = VINIT_ZERO;
-	return bv_adjust(v, dx, dy, keypt, 0, view_flags);
+	return bsg_adjust(v, dx, dy, keypt, 0, view_flags);
 }
 
-int CADmouseMoveEvent(struct bview *v, int x_prev, int y_prev, QMouseEvent *e, int mode)
+int CADmouseMoveEvent(struct bsg_view *v, int x_prev, int y_prev, QMouseEvent *e, int mode)
 {
 	QTCAD_EVENT("mouseMove", 2);
 
@@ -330,7 +330,7 @@ int CADmouseMoveEvent(struct bview *v, int x_prev, int y_prev, QMouseEvent *e, i
 
 	long long now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
 	                           std::chrono::steady_clock::now().time_since_epoch()).count();
-	std::unordered_map<struct bview *, long long>::iterator ts_it = drag_update_ts.find(v);
+	std::unordered_map<struct bsg_view *, long long>::iterator ts_it = drag_update_ts.find(v);
 	if (ts_it != drag_update_ts.end() && (now_ms - ts_it->second) < drag_update_interval_ms)
 		return -1;
 	drag_update_ts[v] = now_ms;
@@ -363,7 +363,7 @@ int CADmouseMoveEvent(struct bview *v, int x_prev, int y_prev, QMouseEvent *e, i
 	// TODO - the key point and the mode/flags are all hardcoded
 	// right now, but eventually for shift grips they will need to
 	// respond to the various mod keys.  The intent is to set flags
-	// based on which mod keys are set to allow bv_adjust to
+	// based on which mod keys are set to allow bsg_adjust to
 	// do the correct math.
 	point_t center;
 	MAT_DELTAS_GET_NEG(center, v->gv_center);
@@ -371,11 +371,11 @@ int CADmouseMoveEvent(struct bview *v, int x_prev, int y_prev, QMouseEvent *e, i
 	if (view_flags & (BV_ROT | BV_TRANS | BV_SCALE))
 		suspend_drag_bounds_update(v);
 
-	return bv_adjust(v, dx, dy, center, 0, view_flags);
+	return bsg_adjust(v, dx, dy, center, 0, view_flags);
 
 }
 
-int CADwheelEvent(struct bview *v, QWheelEvent *e)
+int CADwheelEvent(struct bsg_view *v, QWheelEvent *e)
 {
 	QTCAD_EVENT("mouseWheel", 1);
 
@@ -389,7 +389,7 @@ int CADwheelEvent(struct bview *v, QWheelEvent *e)
 	int dy = 100;
 
 	point_t origin = VINIT_ZERO;
-	return bv_adjust(v, dx, dy, origin, 0, BV_SCALE);
+	return bsg_adjust(v, dx, dy, origin, 0, BV_SCALE);
 
 }
 

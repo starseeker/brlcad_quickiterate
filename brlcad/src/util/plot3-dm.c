@@ -76,7 +76,7 @@ struct plot_list{
     int pl_draw;
     int pl_edit;
     struct bu_vls pl_name;
-    struct bv_vlblock *pl_vbp;
+    struct bsg_vlblock *pl_vbp;
 };
 
 
@@ -500,7 +500,7 @@ size_reset(void)
     VSETALL(max, -INFINITY);
 
     for (BU_LIST_FOR(plp, plot_list, &HeadPlot.l)) {
-	struct bv_vlblock *vbp;
+	struct bsg_vlblock *vbp;
 
 	vbp = plp->pl_vbp;
 	for (i=0; i < vbp->nused; i++) {
@@ -607,7 +607,7 @@ cmd_openpl(ClientData UNUSED(clientData), Tcl_Interp *interp, int argc, char **a
 	for (BU_LIST_FOR(plp, plot_list, &HeadPlot.l)) {
 	    /* found object with same name */
 	    if (BU_STR_EQUAL(bu_vls_addr(&plp->pl_name), bnp)) {
-		bv_vlblock_free(plp->pl_vbp);
+		bsg_vlblock_free(plp->pl_vbp);
 		goto up_to_vl;
 	    }
 	}
@@ -734,7 +734,7 @@ cmd_closepl(ClientData UNUSED(clientData), Tcl_Interp *interp, int argc, char **
 	    if (BU_STR_EQUAL(argv[i], bu_vls_addr(&plp->pl_name))) {
 		BU_LIST_DEQUEUE(&plp->l);
 		bu_vls_free(&plp->pl_name);
-		bv_vlblock_free(plp->pl_vbp);
+		bsg_vlblock_free(plp->pl_vbp);
 		bu_free((void *)plp, "cmd_closepl");
 		break;
 	    }

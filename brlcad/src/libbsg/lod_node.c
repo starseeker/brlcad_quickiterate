@@ -94,7 +94,7 @@ _lod_node_free_cb(bsg_node *s)
 /* ------------------------------------------------------------------ */
 
 bsg_node *
-bsg_lod_node_create(struct bview *v)
+bsg_lod_node_create(struct bsg_view *v)
 {
     if (!v)
 	return NULL;
@@ -163,7 +163,7 @@ bsg_lod_node_attach_level(bsg_node *lod_node, bsg_node *level_node)
 
 
 struct bsg_lod_view_cursor *
-bsg_lod_node_get_cursor(bsg_node *node, struct bview *v)
+bsg_lod_node_get_cursor(bsg_node *node, struct bsg_view *v)
 {
     struct bsg_lod_payload *pl = _lod_payload(node);
     if (!pl || !v)
@@ -198,7 +198,7 @@ bsg_lod_node_get_cursor(bsg_node *node, struct bview *v)
 
 
 int
-bsg_lod_node_active_level(bsg_node *node, struct bview *v)
+bsg_lod_node_active_level(bsg_node *node, struct bsg_view *v)
 {
     struct bsg_lod_payload *pl = _lod_payload(node);
     if (!pl || !v)
@@ -224,7 +224,7 @@ bsg_lod_node_level_count(bsg_node *node)
 
 
 bsg_node *
-bsg_lod_node_insert_above(bsg_node *leaf, struct bview *v)
+bsg_lod_node_insert_above(bsg_node *leaf, struct bsg_view *v)
 {
     if (!leaf || !v)
 	return NULL;
