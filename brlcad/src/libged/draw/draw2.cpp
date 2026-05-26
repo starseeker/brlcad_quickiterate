@@ -206,23 +206,16 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     // Before we start doing anything with the object set, record if things are
     // starting out empty.
     int blank_slate = 0;
-    /* Phase A1 (drawing_stack_modernization): use the typed visitor APIs
-     * for both DB and view-only checks so we no longer rely on the legacy
-     * BV_VIEW_OBJS ptbl shim.  Both visitors stop after the first hit by
-     * returning 0 from the callback. */
+    /* For autoview gating, base blank-slate detection on DB draw state.
+     * View-only objects (overlays, helpers, etc.) should not suppress
+     * autoview when no DB geometry is currently drawn. */
     int have_db_obj = 0;
-    int have_view_obj = 0;
     auto _count_one_db = [](struct bsg_node *, void *data) -> int {
 	*((int *)data) = 1;
 	return 0; /* stop after first hit */
     };
-    auto _count_one_view = [](struct bsg_node *, void *data) -> int {
-	*((int *)data) = 1;
-	return 0; /* stop after first hit */
-    };
     bsg_view_objs_visit_db(cv, _count_one_db, &have_db_obj);
-    bsg_view_obj_visit(cv, BV_VIEW_OBJ_SCOPE_ALL, _count_one_view, &have_view_obj);
-    if (!have_db_obj && !have_view_obj) {
+    if (!have_db_obj) {
 	blank_slate = 1;
     }
 
