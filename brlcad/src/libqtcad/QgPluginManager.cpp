@@ -145,7 +145,7 @@ QgPluginManager::rescan()
     /* Pick up static plugins first.  They are intrinsic to the host
      * binary and cannot be removed. */
     const QObjectList staticInstances = QPluginLoader::staticInstances();
-    QList<QStaticPlugin> staticPlugins = QPluginLoader::staticPlugins();
+    QVector<QStaticPlugin> staticPlugins = QPluginLoader::staticPlugins();
     for (int i = 0; i < staticPlugins.size() && i < staticInstances.size(); ++i) {
 	QJsonObject meta = staticPlugins.at(i).metaData();
 	QgPluginDescriptor d = descriptorFromMetadata(meta);

@@ -348,8 +348,8 @@ set(GED_PUBLIC_LIBS ${libged_deps})
 set(
   GED_PRIVATE_LIBS
   PNG::PNG
-  LMDB::LMDB
   REGEX::REGEX
+  Threads::Threads
   ${WINSOCK_LIB}
   ${M_LIBRARY}
   ${DL_LIBRARY}
