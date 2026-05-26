@@ -1,0 +1,9 @@
+node structure	1028
+identity/path	538
+payload/vlist	367
+appearance/style	346
+bounds	280
+material/color	143
+selection/illumination	58
+backend cache	25
+transform	23
