@@ -1135,6 +1135,53 @@ macro(find_package_opencv)
   endif(NOT OpenCV_FOUND)
 endmacro(find_package_opencv)
 
+# Helper: ensure a shared library has a SONAME embedded.  Without a
+# SONAME, CMake passes the full build-tree path to the linker which
+# records a relative DT_NEEDED entry; at runtime the dynamic loader
+# tries to resolve that relative path from CWD rather than via RUNPATH,
+# causing load failures.
+#
+# Prefer plief (P_RPATH_EXECUTABLE) since it is already used for RPATH
+# management and now supports --print-soname / --set-soname.  Fall back
+# to patchelf if plief is not available.
+function(_brlcad_ensure_soname lib_path)
+  if(NOT lib_path OR NOT EXISTS "${lib_path}")
+    return()
+  endif()
+  # Only shared libraries (.so / .dylib) need a SONAME.
+  if(NOT lib_path MATCHES "\\.so(\\.[0-9]+)*$" AND NOT lib_path MATCHES "\\.dylib$")
+    return()
+  endif()
+  # Determine the expected SONAME: just the bare filename.
+  get_filename_component(_soname "${lib_path}" NAME)
+  # Prefer the already-located P_RPATH_EXECUTABLE (plief); fall back to patchelf.
+  set(_soname_tool "${P_RPATH_EXECUTABLE}")
+  if(NOT _soname_tool)
+    find_program(_soname_tool NAMES patchelf
+      HINTS "${BRLCAD_EXT_NOINSTALL_DIR}/${BIN_DIR}" /usr/bin /usr/local/bin)
+  endif()
+  if(NOT _soname_tool)
+    return()
+  endif()
+  # Read the existing SONAME (empty output = no SONAME).
+  execute_process(
+    COMMAND "${_soname_tool}" --print-soname "${lib_path}"
+    OUTPUT_VARIABLE _existing_soname
+    ERROR_QUIET
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  if(_existing_soname STREQUAL "")
+    message(STATUS "Setting SONAME ${_soname} on ${lib_path}")
+    execute_process(
+      COMMAND "${_soname_tool}" --set-soname "${_soname}" "${lib_path}"
+      RESULT_VARIABLE _soname_result
+    )
+    if(_soname_result)
+      message(WARNING "${_soname_tool} --set-soname failed for ${lib_path}")
+    endif()
+  endif()
+endfunction()
+
 # TCL - scripting language.  For Tcl/Tk builds we want static lib
 # building on so we get the stub libraries.
 macro(find_package_tcl)
@@ -1158,6 +1205,16 @@ macro(find_package_tcl)
     find_package(TCL REQUIRED)
   else()
     find_package(TCL)
+  endif()
+
+  # Ensure the bundled Tcl/Tk shared libraries have a SONAME.  Without
+  # one the linker records a relative DT_NEEDED path, which the dynamic
+  # loader cannot resolve at runtime via RUNPATH.
+  if(TCL_FOUND AND TCL_LIBRARY)
+    _brlcad_ensure_soname("${TCL_LIBRARY}")
+  endif()
+  if(TK_LIBRARY)
+    _brlcad_ensure_soname("${TK_LIBRARY}")
   endif()
 endmacro(find_package_tcl)
 
@@ -1237,6 +1294,62 @@ macro(find_package_qt)
   mark_as_advanced(Qt5Core_DIR)
   mark_as_advanced(Qt5Gui_DIR)
 endmacro(find_package_qt)
+
+# Bullet - physics library
+macro(find_package_bullet)
+  cmake_parse_arguments(F "REQUIRED" "" "" ${ARGN})
+
+  find_package_reset(Bullet RESET_TP)
+  unset(BULLET_STATUS CACHE)
+  unset(BULLET_BT_USE_DOUBLE_PRECISION CACHE)
+
+  # Prefer bundled/noinstall external deps when available.
+  set(Bullet_ROOT "${BRLCAD_EXT_NOINSTALL_DIR}")
+  if(F_REQUIRED)
+    find_package(Bullet REQUIRED)
+  else()
+    find_package(Bullet)
+  endif()
+
+  if(BULLET_LIBRARIES)
+    list(GET BULLET_LIBRARIES 0 _bullet_lib0)
+    set(_bullet_double OFF)
+    if(CMAKE_NM AND EXISTS "${_bullet_lib0}")
+      execute_process(
+        COMMAND "${CMAKE_NM}" -C "${_bullet_lib0}"
+        OUTPUT_VARIABLE _bullet_dump
+        ERROR_QUIET)
+    elseif(COMMAND brlcad_binary_dump)
+      brlcad_binary_dump(_bullet_dump "${_bullet_lib0}")
+    endif()
+    if(_bullet_dump)
+      string(FIND "${_bullet_dump}" "btRigidBody::setMassProps(double, btVector3 const&)" _has_double)
+      if(_has_double GREATER -1)
+        set(_bullet_double ON)
+      endif()
+    endif()
+    unset(_bullet_dump)
+    unset(_has_double)
+    if(_bullet_double)
+      set(BULLET_BT_USE_DOUBLE_PRECISION ON CACHE BOOL "Bullet btScalar is double" FORCE)
+    else()
+      set(BULLET_BT_USE_DOUBLE_PRECISION OFF CACHE BOOL "Bullet btScalar is double" FORCE)
+    endif()
+
+    is_subpath("${CMAKE_BINARY_DIR}" "${_bullet_lib0}" BULLET_LOCAL_TEST)
+    is_subpath("${BRLCAD_EXT_NOINSTALL_DIR}" "${_bullet_lib0}" BULLET_EXT_TEST)
+    if(BULLET_LOCAL_TEST OR BULLET_EXT_TEST)
+      set(BULLET_STATUS "Bundled" CACHE STRING "Bullet bundled status" FORCE)
+    else()
+      set(BULLET_STATUS "System" CACHE STRING "Bullet bundled status" FORCE)
+    endif()
+  elseif(Bullet_FOUND)
+    set(BULLET_STATUS "System" CACHE STRING "Bullet bundled status" FORCE)
+    set(BULLET_BT_USE_DOUBLE_PRECISION OFF CACHE BOOL "Bullet btScalar is double" FORCE)
+  else()
+    set(BULLET_STATUS "NotFound" CACHE STRING "Bullet bundled status" FORCE)
+  endif()
+endmacro(find_package_bullet)
 
 # Local Variables:
 # tab-width: 8

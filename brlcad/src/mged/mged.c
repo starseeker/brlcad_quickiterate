@@ -388,6 +388,44 @@ mged_dm_during_clbk(int ac, const char **av, void *UNUSED(u1), void *u2)
     return BRLCAD_OK;
 }
 
+static int
+mged_dm_during_clbk(int ac, const char **av, void *UNUSED(u1), void *u2)
+{
+    struct mged_state *s = (struct mged_state *)u2;
+    if (!s || ac < 2 || !av)
+        return BRLCAD_OK;
+
+    const char *dbg = getenv("GED_DM_DURING_DEBUG");
+    if (dbg && BU_STR_EQUAL(dbg, "1")) {
+        bu_log("mged dm during callback: ");
+        for (int i = 0; i < ac; i++) {
+            bu_log("%s%s", av[i], (i + 1 < ac) ? " " : "\n");
+        }
+    }
+
+    if (BU_STR_EQUAL(av[1], "set")) {
+        if (ac > 2 && BU_STR_EQUAL(av[2], "zclip") && DMP && view_state && view_state->vs_gvp && view_state->vs_gvp->gv_s) {
+            view_state->vs_gvp->gv_s->gv_zclip = dm_get_zclip(DMP);
+        }
+        if (view_state)
+            view_state->vs_flag = 1;
+        DMP_dirty = 1;
+        if (DMP)
+            dm_set_dirty(DMP, 1);
+        return BRLCAD_OK;
+    }
+
+    if (BU_STR_EQUAL(av[1], "bg") || BU_STR_EQUAL(av[1], "attach")) {
+        if (view_state)
+            view_state->vs_flag = 1;
+        DMP_dirty = 1;
+        if (DMP)
+            dm_set_dirty(DMP, 1);
+    }
+
+    return BRLCAD_OK;
+}
+
 
 /*
  * Sentinel values used by struct mged_cli_overrides to distinguish "not
