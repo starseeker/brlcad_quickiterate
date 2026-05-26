@@ -2096,7 +2096,8 @@ mged_finish(struct mged_state *s, int exitcode)
 	}
     }
 
-    /* Release all displays */
+    /* Release all displays.  Iterate backwards because bu_ptbl_rm modifies
+     * active_dm_set as entries are removed. */
     for (size_t di = BU_PTBL_LEN(&active_dm_set); di > 0; di--) {
 	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di - 1);
 
@@ -2136,6 +2137,8 @@ mged_finish(struct mged_state *s, int exitcode)
     /* Be certain to close the database cleanly before exiting */
     if (s->interp) {
 	Tcl_Preserve((ClientData)s->interp);
+	/* Rename only commands that still exist, and log unexpected failures
+	 * instead of letting Tcl errors interrupt staged shutdown. */
 	mged_rename_tcl_cmd(s->interp, MGED_DB_NAME);
 	mged_rename_tcl_cmd(s->interp, ".inmem");
 	Tcl_Release((ClientData)s->interp);
@@ -2162,6 +2165,8 @@ mged_finish(struct mged_state *s, int exitcode)
 
     /* Make sure anything trying to use this after free gets a magic failure. */
     s->magic = 0;
+    /* Record finalized after invalidating the magic so stale users fail
+     * MGED_CK_STATE before observing a partially torn-down state object. */
     s->shutdown_state = MGED_SHUTDOWN_FINALIZED;
     bu_vls_free(&s->input_str);
     bu_vls_free(&s->input_str_prefix);
