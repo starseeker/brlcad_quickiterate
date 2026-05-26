@@ -752,8 +752,6 @@ QgEdApp::run_qcmd(const QString &command)
 	bu_vls_trunc(mdl->ged()->ged_result_str, 0);
     }
     bu_vls_free(&msg);
-    bu_free(input, "input copy");
-    bu_free(av, "input argv");
 }
 
 void

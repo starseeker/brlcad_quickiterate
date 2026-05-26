@@ -40,6 +40,7 @@
 #include "rt/view.h"
 
 #include "ged/view.h"
+#include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
 #include "../dbi.h"
 
@@ -206,23 +207,7 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     // Before we start doing anything with the object set, record if things are
     // starting out empty.
     int blank_slate = 0;
-    /* Phase A1 (drawing_stack_modernization): use the typed visitor APIs
-     * for both DB and view-only checks so we no longer rely on the legacy
-     * BV_VIEW_OBJS ptbl shim.  Both visitors stop after the first hit by
-     * returning 0 from the callback. */
-    int have_db_obj = 0;
-    int have_view_obj = 0;
-    auto _count_one_db = [](struct bv_scene_obj *, void *data) -> int {
-	*((int *)data) = 1;
-	return 0; /* stop after first hit */
-    };
-    auto _count_one_view = [](struct bv_scene_obj *, void *data) -> int {
-	*((int *)data) = 1;
-	return 0; /* stop after first hit */
-    };
-    bv_view_objs_visit_db(cv, _count_one_db, &have_db_obj);
-    bv_view_obj_visit(cv, BV_VIEW_OBJ_SCOPE_ALL, _count_one_view, &have_view_obj);
-    if (!have_db_obj && !have_view_obj) {
+    if (!bsg_view_obj_is_nonempty(gedp)) {
 	blank_slate = 1;
     }
 
@@ -251,7 +236,7 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
 	if (bv_view_is_independent(v))
 	    continue;
 	DbiState *dbis = (DbiState *)gedp->dbi_state;
-	BViewState *bvs = dbis->get_view_state(cv);
+	BViewState *bvs = dbis->get_view_state(v);
 	if (!bvs)
 	    continue;
 	vmap[bvs].insert(v);

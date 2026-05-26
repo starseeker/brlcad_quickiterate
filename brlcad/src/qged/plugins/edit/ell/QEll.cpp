@@ -185,10 +185,23 @@ QEll::update_obj_wireframe()
     if (!v)
 	return;
 
-    // Make the object, if we've not already done so.  Phase H: use the
-    // typed BSG overlay API instead of the legacy bv_obj_get path.
+    // Re-acquire the overlay object each time in case a view clear (e.g. zap)
+    // has removed it since the last update.
+    p = bv_view_obj_find(v, "_ell_edit");
     if (!p)
 	p = bv_view_obj_overlay_create(v, "_ell_edit", 1/*local*/);
+    if (!p)
+	return;
+
+    // Keep dp synchronized with the current object name before trying to draw.
+    // If there is no valid object selection, hide any existing preview.
+    if (bu_vls_strlen(&oname))
+	dp = db_lookup(gedp->dbip, bu_vls_cstr(&oname), LOOKUP_QUIET);
+    if (!dp || dp->d_minor_type != DB5_MINORTYPE_BRLCAD_ELL) {
+	p->s_flag = DOWN;
+	emit view_updated(QG_VIEW_REFRESH);
+	return;
+    }
 
     // Clear any old wireframes, labels, etc.
     bv_obj_reset(p);
@@ -206,6 +219,8 @@ QEll::update_obj_wireframe()
     if (!intern.idb_meth->ft_plot)
 	return;
     struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
+    if (!wdbp)
+	return;
     struct bn_tol *tol = &wdbp->wdb_tol;
     struct bg_tess_tol *ttol = &wdbp->wdb_ttol;
     intern.idb_meth->ft_plot(&p->s_vlist, &intern, ttol, tol, p->s_v);
@@ -258,10 +273,13 @@ QEll::update_viewobj_name(const QString &)
     if (!v)
 	return;
 
-    // Make the view object, if we've not already done so.  Phase H: use
-    // the typed BSG overlay API instead of the legacy bv_obj_get path.
+    // Re-acquire the overlay object each time in case a view clear has
+    // removed it since the last update.
+    p = bv_view_obj_find(v, "_ell_edit");
     if (!p)
 	p = bv_view_obj_overlay_create(v, "_ell_edit", 1/*local*/);
+    if (!p)
+	return;
 
     // Make sure the view object names match whatever the dialog says
     // is the current (proposed) name for the written object
