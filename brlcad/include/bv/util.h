@@ -318,39 +318,47 @@ BV_EXPORT extern void bv_obj_sync(struct bv_scene_obj *dest, struct bv_scene_obj
  * data is accessed (effectively, making the internal storage of bv_scene_obj fully hidden
  * a.l.a the libdm rework.)  Not sure what the best option is yet... leaning towards #2
  * if it is "fast enough"... */
-/* BV_DEPRECATED (Slice 11): use bsg_node_stale() from bsg/renderer_attach.h
- * for new code.  This wrapper remains for the transition period. */
+/**
+ * @deprecated Use bsg_node_stale() from bsg/renderer_attach.h for new code.
+ * This wrapper delegates to bsg_node_stale() and remains for the transition period.
+ */
 BV_EXPORT void bv_obj_stale(struct bv_scene_obj *s);
 
-/* BV_DEPRECATED (Slice 11): renderer-backend lifecycle helpers.
+/**
+ * @deprecated Renderer-backend lifecycle helpers.
  *
  * These functions now delegate to the BSG-native implementations in libbsg
  * (bsg_node_backend_release / bsg_node_backend_invalidate from
  * bsg/renderer_attach.h).  New code must call the BSG functions directly.
- *
- * bv_scene_obj_release_backend  - delegates to bsg_node_backend_release().
- * bv_scene_obj_invalidate_backend - delegates to bsg_node_backend_invalidate(). */
+ */
 BV_EXPORT void bv_scene_obj_release_backend(struct bv_scene_obj *s);
+/**
+ * @deprecated Use bsg_node_backend_invalidate() from bsg/renderer_attach.h.
+ */
 BV_EXPORT void bv_scene_obj_invalidate_backend(struct bv_scene_obj *s);
 
 
-/* Given a view, create an object of the specified type.  Like bv_obj_get, except it
- * leaves the addition of objects to the client.  Lower level. */
+/**
+ * @deprecated Lower-level object creation leaving registration to the caller.
+ * Use the bv_view_obj_*_create() family for view-only objects, or BSG draw
+ * APIs (bsg_node_add_child, bsg_scene_root_create) for DB-backed content.
+ */
 BV_EXPORT struct bv_scene_obj *
 bv_obj_create(struct bview *v, int type);
 
-/* Given a view, create an object of the specified type and add it to the
- * appropriate container.  Issues such as memory management as a function of
- * view settings are handled internally, so client codes don't need to manage
- * it. */
+/**
+ * @deprecated Create and register a typed scene object.
+ * For view-only objects, use bv_view_obj_*_create() instead.
+ * For DB-backed objects, use the BSG draw APIs directly.
+ */
 BV_EXPORT struct bv_scene_obj *
 bv_obj_get(struct bview *v, int type);
 
-/* Like bv_obj_get, but does NOT register the object in any gv_objs ptbl.
- * Use this when the object will be owned and indexed by an external structure
- * (e.g. the BSG draw tree) so that ptbl-based iterators do not double-count
- * it.  The object type flags are set as requested; lifecycle management
- * (bv_obj_put) works normally. */
+/**
+ * @deprecated Create an unregistered typed scene object.
+ * Use this form only in BSG-aware internal code that manages its own
+ * object-table registration.  Prefer BSG creation helpers for new consumers.
+ */
 BV_EXPORT struct bv_scene_obj *
 bv_obj_get_unregistered(struct bview *v, int type);
 
@@ -467,9 +475,11 @@ bv_view_obj_set_line_width(struct bv_scene_obj *s, int line_width);
 BV_EXPORT void
 bv_view_obj_set_visible(struct bv_scene_obj *s, int visible);
 
-/* Given an object, create an object that is a child of that object.  Issues
- * such as memory management as a function of view settings are handled
- * internally, so client codes don't need to manage it. */
+/**
+ * @deprecated Create a child object under @p s.
+ * Prefer bsg_node_add_child() for new code.  This wrapper remains for
+ * compatibility with libbv-aware producers during the transition period.
+ */
 BV_EXPORT struct bv_scene_obj *
 bv_obj_get_child(struct bv_scene_obj *s);
 
@@ -501,11 +511,11 @@ bv_obj_bsg_node(struct bv_scene_obj *s)
 BV_EXPORT struct bv_scene_obj *
 bv_find_child(struct bv_scene_obj *s, const char *vname);
 
-/* Given a view and a name vname, glob match names and uuids to attempt to
- * locate a scene object in v that matches vname.
- *
- * NOTE - currently this is searching the top level objects, but does not walk
- * down into their children.  May want to support that in the future... */
+/**
+ * @deprecated Use bv_view_obj_find() for view-only objects, or BSG search
+ * actions (bsg_search_action) for DB-backed geometry.  This function searches
+ * only top-level objects and does not descend into children.
+ */
 BV_EXPORT struct bv_scene_obj *
 bv_find_obj(struct bview *v, const char *vname);
 
@@ -517,19 +527,24 @@ bv_find_obj(struct bview *v, const char *vname);
 BV_EXPORT void
 bv_uniq_obj_name(struct bu_vls *oname, const char *seed, struct bview *v);
 
-/* Set the illumination state on the object and its children to ill_state.
- * Returns 0 if no states were changed, and 1 if one or more states were
- * updated. */
+/**
+ * @deprecated Set the illumination state on the object and its children.
+ * For new code, prefer bsg_node_set_legacy_illum() or bsg_node_set_selected()
+ * (BSG selection API).  Returns 0 if no states were changed, 1 if one or
+ * more states were updated.
+ */
 BV_EXPORT int
 bv_illum_obj(struct bv_scene_obj *s, char ill_state);
 
-/* For the given view, return a pointer to the bu_ptbl holding active scene
- * objects with the specified type.  Note that view-specific db objects are not
- * part of these sets.
+/**
+ * Return the bu_ptbl holding active scene objects of the specified type for @p v.
  *
  * Valid type flags: BV_DB_OBJS, BV_DB_OBJS|BV_LOCAL_OBJS.
- * BV_VIEW_OBJS queries are no longer supported (Phase D,
- * drawing_stack_modernization); use bv_view_obj_visit instead.
+ *
+ * @deprecated BV_VIEW_OBJS queries are no longer supported (Phase D,
+ * drawing_stack_modernization); those callers must use bv_view_obj_visit()
+ * instead.  BV_DB_OBJS callers should migrate to bv_view_objs_visit_db()
+ * for future compatibility.
  */
 BV_EXPORT struct bu_ptbl *
 bv_view_objs(struct bview *v, int type);

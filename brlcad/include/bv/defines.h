@@ -217,23 +217,26 @@ struct bv_scene_obj  {
     void *dp;       		/**< @brief deprecated — use bsg_node_uptr_get/set(n, 0) */
     mat_t s_mat;		/**< @brief mat to use for internal lookup and mesh LoD drawing */
 
-    /* Associated bv.  Note that scene objects are not assigned uniquely to
+    /**
+     * Associated bv.  Note that scene objects are not assigned uniquely to
      * one view.  This value may be changed by the application in a multi-view
      * scenario as an object is edited from multiple different views, to supply
      * the necessary view context for editing. If the object needs to retain
      * knowledge of its original/creation view, it should save that info
      * internally in its s_i_data container.
      *
-     * BV_DEPRECATED: do not use s_v for view-policy control flow;
-     * scene data should not drive rendering decisions.  Use BViewState::redraw()
-     * or bv_view_get/set_* accessors instead. */
+     * @deprecated Do not use s_v for view-policy control flow.
+     * Scene data should not drive rendering decisions.  Use BViewState::redraw()
+     * or bv_view_get/set_* accessors instead.
+     */
     struct bview *s_v;
 
     /* Knowledge of how to create/update s_vlist and the other 3D geometry data, as well as
      * manage any custom data specific to this object */
     void *s_i_data;  /**< @brief custom view data (bv_line_seg, bv_label, bv_polyon, etc) */
 
-    /* BV_DEPRECATED: LoD and CSG adaptive-wireframe update callbacks are now
+    /**
+     * @deprecated LoD and CSG adaptive-wireframe update callbacks are now
      * driven by the BSG LoD node (bsg_lod_update via dm_draw_objs); this field
      * is retained for non-LoD users such as polygon update callbacks.
      */
@@ -279,14 +282,13 @@ struct bv_scene_obj  {
 
     /* Display properties */
     unsigned char s_color[3];	/**< @brief  color to draw as.
-				 *  BV_DEPRECATED (Slice 9): this field is the
-				 *  legacy BSG/BV compatibility mirror.  Read via
+				 *  @deprecated Legacy BSG/BV compatibility mirror.  Read via
 				 *  bsg_node_material_get(); write via
-				 *  bsg_node_material_set() or
-				 *  bv_view_obj_set_color().  Direct writes bypass
-				 *  the BSG material sidecar and will be removed. */
-    uint32_t s_color_rev;       /**< @brief  material-revision stamp; set to gd_mater_rev each time this shape's color is recalculated by bsg_view_obj_color_from_soltab (B4 infrastructure, Phase 7 Step 14).
-				 *  BV_DEPRECATED (Slice 9): internal to BSG material sync; do not access directly. */
+				 *  bsg_node_material_set() or bv_view_obj_set_color().
+				 *  Direct writes bypass the BSG material sidecar. */
+    uint32_t s_color_rev;       /**< @brief  material-revision stamp.
+				 *  @deprecated Internal to BSG material sync; do not access directly.
+				 *  Use bsg_node_material_get() to read material revision. */
     /* Phase 9.2 (drawing_stack_modernization): per-shape "drawn this frame"
      * generation counter.  When the renderer paints the object during
      * dm_draw_objs(), it stamps s_drawn_rev := bview::gv_frame_rev.  Callers
@@ -298,15 +300,16 @@ struct bv_scene_obj  {
      * will always disagree with the current frame. */
     uint64_t s_drawn_rev;
     int s_soldash;		/**< @brief  solid/dashed line flag: 0 = solid, 1 = dashed.
-				 *  BV_DEPRECATED (Slice 9): legacy BSG/BV compatibility mirror.
+				 *  @deprecated Legacy BSG/BV compatibility mirror.
 				 *  Use bsg_node_set_line_style() / bsg_node_line_style(). */
     int s_arrow;		/**< @brief  arrow flag for view object drawing routines.
-				 *  BV_DEPRECATED (Slice 9): legacy BSG/BV compatibility mirror.
+				 *  @deprecated Legacy BSG/BV compatibility mirror.
 				 *  Use bsg_node_set_draw_arrows() / bsg_node_draw_arrows(). */
     int s_changed;		/**< @brief  changed flag - set by s_update_callback if a change occurred */
     int current;
 
-    /* Adaptive plotting info.
+    /**
+     * Adaptive plotting info.
      *
      * The adaptive wireframe flag is set if the wireframe was created while
      * adaptive mode is on - this is to allow reversion to non-adaptive
@@ -317,12 +320,12 @@ struct bv_scene_obj  {
      * settings.  These values SHOULD NOT be directly manipulated by any user
      * facing commands (such as view obj).
      *
-     * BV_DEPRECATED: adaptive_wireframe, view_scale, bot_threshold,
+     * @deprecated adaptive_wireframe, view_scale, bot_threshold,
      * curve_scale, and point_scale are snapshot values used to detect when a
      * redraw is needed.  The owning decision logic is being moved to
-     * BViewState::redraw().
-     * These fields will be removed after one release cycle once BViewState
-     * owns the full redraw trigger. */
+     * BViewState::redraw().  These fields will be removed after one release
+     * cycle once BViewState owns the full redraw trigger.
+     */
     int     adaptive_wireframe;
     int     csg_obj;
     int     mesh_obj;
@@ -331,16 +334,19 @@ struct bv_scene_obj  {
     fastf_t curve_scale;
     fastf_t point_scale;
 
-    /* Scene object settings which also (potentially) have global defaults but
+    /**
+     * Scene object settings which also (potentially) have global defaults but
      * may be overridden locally.
-     * BV_DEPRECATED (Slice 9): s_os, s_local_os, and s_inherit_settings are
+     *
+     * @deprecated s_os, s_local_os, and s_inherit_settings are
      * legacy BSG/BV compatibility mirrors.  External callers must use the BSG
      * settings API (bsg_node_settings_get/set, bsg_node_appearance_get/set)
-     * rather than accessing these fields directly. */
+     * rather than accessing these fields directly.
+     */
     struct bsg_settings *s_os;
     struct bsg_settings s_local_os;
     int s_inherit_settings;           /**< @brief  Use current obj settings when drawing children instead of their settings.
-				       *  BV_DEPRECATED (Slice 9): use bsg_node_appearance_get/set with bsg_appearance::inherit_settings. */
+				       *  @deprecated Use bsg_node_appearance_get/set with bsg_appearance::inherit_settings. */
 
     /* Settings that may be less necessary... */
     struct bv_scene_obj_old_settings s_old;

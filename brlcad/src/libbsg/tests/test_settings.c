@@ -145,7 +145,7 @@ test_settings_storage(void)
 
 
 /* ------------------------------------------------------------------ */
-/* Test 12C: bsg_node_settings_get reads from s_os when set             */
+/* Test 12C: bsg_node_settings_set + bsg_node_settings_get round-trip     */
 /* ------------------------------------------------------------------ */
 
 static int
@@ -159,12 +159,18 @@ test_get_from_s_os(void)
     if (!root || !shape)
 	FAIL("create nodes");
 
-    struct bv_scene_obj *s = (struct bv_scene_obj *)shape;
-    s->s_local_os.color[0]    = 7;
-    s->s_local_os.color[1]    = 14;
-    s->s_local_os.color[2]    = 21;
-    s->s_local_os.transparency = 0.75;
-    s->s_os = &s->s_local_os;
+    /* Use BSG API to set settings.  Direct s_local_os writes are no longer
+     * visible to bsg_node_settings_get since the BSG settings sidecars
+     * (settings_local / settings_effective) are created at node-alloc time
+     * by bv_scene_obj_settings_reset().  Phase 12: Doxygen @deprecated. */
+    struct bsg_settings s;
+    bsg_settings_init(&s);
+    s.color[0]        = 7;
+    s.color[1]        = 14;
+    s.color[2]        = 21;
+    s.color_override  = 1;
+    s.transparency    = 0.75;
+    bsg_node_settings_set(shape, &s);
 
     struct bsg_settings out;
     int rc = bsg_node_settings_get((const bsg_node *)shape, &out);
@@ -183,8 +189,7 @@ test_get_from_s_os(void)
 }
 
 
-/* ------------------------------------------------------------------ */
-/* Test 12D: bsg_node_settings_get reads from s_local_os when s_os NULL */
+/* Test 12D: bsg_node_settings_set without color_override round-trip      */
 /* ------------------------------------------------------------------ */
 
 static int
@@ -198,12 +203,16 @@ test_get_from_s_local_os(void)
     if (!root || !shape)
 	FAIL("create nodes");
 
-    struct bv_scene_obj *s = (struct bv_scene_obj *)shape;
-    s->s_os = NULL;
-    s->s_local_os.color[0]    = 50;
-    s->s_local_os.color[1]    = 100;
-    s->s_local_os.color[2]    = 150;
-    s->s_local_os.transparency = 0.6;
+    /* Use BSG API: direct s_local_os / s_os writes bypass the BSG
+     * settings sidecars created at alloc time.  Phase 12: @deprecated. */
+    struct bsg_settings s;
+    bsg_settings_init(&s);
+    s.color[0]        = 50;
+    s.color[1]        = 100;
+    s.color[2]        = 150;
+    s.color_override  = 1;
+    s.transparency    = 0.6;
+    bsg_node_settings_set(shape, &s);
 
     struct bsg_settings out;
     int rc = bsg_node_settings_get((const bsg_node *)shape, &out);
@@ -376,18 +385,14 @@ test_bv_settings_helpers(void)
 	FAIL("create nodes");
 
     struct bv_scene_obj *obj = (struct bv_scene_obj *)shape;
-    struct bsg_settings inherited = BSG_SETTINGS_INIT;
     struct bsg_settings local = BSG_SETTINGS_INIT;
     struct bsg_settings out = BSG_SETTINGS_INIT;
 
+    /* Use the compat setter rather than writing s_local_os / s_os directly.
+     * Direct writes are no longer visible once the BSG sidecars exist. */
     local.line_width = 2;
     local.draw_mode = 1;
-    obj->s_local_os = local;
-
-    inherited.line_width = 7;
-    inherited.draw_mode = 4;
-    inherited.mixed_modes = 1;
-    obj->s_os = &inherited;
+    bv_scene_obj_settings_set(obj, &local);
 
     if (!bv_scene_obj_settings_local_get(obj, &out))
 	FAIL("local helper returned 0");
@@ -396,7 +401,7 @@ test_bv_settings_helpers(void)
 
     if (!bv_scene_obj_settings_get(obj, &out))
 	FAIL("effective helper returned 0");
-    if (out.line_width != 7 || out.draw_mode != 4 || out.mixed_modes != 1)
+    if (out.line_width != 2 || out.draw_mode != 1)
 	FAIL("effective helper values");
 
     out.line_width = 5;

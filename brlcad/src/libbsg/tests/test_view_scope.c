@@ -46,6 +46,7 @@
 #include "bv/util.h"
 
 #include "bsg/defines.h"
+#include "bsg/node.h"
 #include "bsg/node_group.h"
 #include "bsg/view_scope.h"
 

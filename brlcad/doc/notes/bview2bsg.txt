@@ -1,0 +1,231 @@
+bview / bv_scene_obj  →  BSG scene-graph API  — Migration Reference
+=====================================================================
+
+Purpose
+-------
+This is the concise developer reference for migrating code that accesses
+`bv_scene_obj` fields directly to the public BSG (BRL-CAD Scene Graph)
+API defined in `include/bsg/`.  It records:
+
+  1. What the migration has achieved and what is complete.
+  2. A quick API mapping: old fields / functions → new BSG equivalents.
+  3. The remaining work (Phase 13 readiness gate + documentation).
+  4. Build and test reminders.
+
+For deeper background — design decisions, per-phase acceptance criteria,
+and the full roadmap — see `doc/notes/bsg_enhancement_plan.txt`.
+
+
+Why this migration matters
+--------------------------
+Before the BSG migration, BRL-CAD's scene-graph state was scattered
+across raw `struct bv_scene_obj` fields accessed directly from libdm,
+libged, libtclcad, QGED/libqtcad, MGED, and tests.  Adding a new renderer
+or display backend required decoding dozens of undocumented flags.
+
+The migration replaces all direct field access with typed, revisioned
+BSG concepts: material, appearance, identity, payloads, selection, camera,
+lights, and render actions.  A renderer can now obtain everything it needs
+through BSG accessors without knowing internal struct layout.
+
+
+Migration status
+----------------
+All phases through Phase 12 are COMPLETE (as of 2026-05-13).
+
+  Phase  1  Generic BSG node API                              DONE
+  Phase  2  Identity and revision tracking                    DONE
+  Phase  3  Material and appearance                           DONE
+  Phase  4  Payloads and geometry containers                  DONE
+  Phase  5  Bbox, search, and traversal actions               DONE
+  Phase  6  BSG selection                                     DONE
+  Phase  7  Camera and lights                                 DONE
+  Phase  8  Render action and renderer contract               DONE
+  Phase  9  Overlay, faceplate, and image-layer model         DONE
+  Phase 10  Storage split / bsg_node ABI break                DONE
+  Phase 11  Consumer migration sweep (all sub-phases)         DONE
+  Phase 12  Deprecation and removal of bv_obj_settings        DONE
+
+  Phase 13  Readiness gate — @deprecated tagging and docs     IN PROGRESS
+             See "What still needs doing" below.
+
+Key structural outcome:
+  - `struct bsg_node` is now the primary BSG type; `struct bv_scene_obj`
+    embeds it as its first member for ABI compatibility.
+  - `bsg_node_core` (inline in bv_scene_obj) owns material, appearance,
+    payload, identity, revision counters, and the cleanup hook without
+    any heap-allocated side-car hash maps.
+  - `dm_draw_objs` traverses the BSG tree through `bsg_render_action_apply`.
+  - All Tcl/legacy adornments (arrows, axes, labels, lines, polygons) sync
+    to BSG VIEW_SCOPE objects; `dm_draw_viewobjs` has been removed.
+
+
+Quick API Mapping
+-----------------
+The table below maps old raw-field access or deprecated functions to the
+preferred BSG API.  Fields marked BV_DEPRECATED in bv/defines.h and
+bv/util.h correspond to the entries here.
+
+  Old access                          New BSG API
+  -----------------------------------  -------------------------------------------
+  s_path                               bsg_node_uptr_get/set(n, 1)
+  dp                                   bsg_node_uptr_get/set(n, 0)
+  s_u_data                             bsg_node_uptr_get/set(n, 2)
+                                       or bsg_node_ged_data_get/set() (libged)
+  s_free_callback                      bsg_node_set_free_callback()
+                                       bsg_node_invoke_free_callback()
+  s_type_flags / bsg_kind              bsg_node_kind(n)
+                                       bsg_node_has_kind(n, flags)
+                                       bsg_node_set_kind(n, flags)
+  parent / children                    bsg_node_parent(n)
+                                       bsg_node_child_count(n)
+                                       bsg_node_child(n, idx)
+                                       bsg_node_add_child / remove_child
+  s_name (bsg.bsg_name)               bsg_node_name(n)
+                                       bsg_node_set_name(n, str)
+  s_mat                                bsg_node_transform_get/set()
+  s_flag / s_force_draw               bsg_node_visible(n)
+                                       bsg_node_set_visible(n, v)
+                                       bsg_node_force_draw(n)
+                                       bsg_node_set_force_draw(n, v)
+  s_iflag                              bsg_node_legacy_illum(n)   (compat)
+                                       bsg_node_set_legacy_illum(n, v) (compat)
+                                       bsg_node_set_selected() / bsg_node_is_selected()
+  s_color[3] / s_color_rev            bsg_node_material_get/set()
+  s_os / s_local_os / s_inherit_settings  bsg_node_settings_get/set()
+                                       bsg_node_appearance_get/set()
+  s_soldash                            bsg_node_line_style(n)
+                                       bsg_node_set_line_style(n, v)
+  s_arrow                              bsg_node_draw_arrows(n)
+                                       bsg_node_set_draw_arrows(n, v)
+  s_vlist / s_vlen                     bsg_payload_vlist_from_node(n)
+                                       bsg_payload_vlist_set(n, head)
+                                       bsg_payload_vlist_head(p)
+  s_backend                            bsg_node_backend_get/set()
+                                       bsg_node_backend_release/invalidate()
+  s_drawn_rev                          bsg_node_drawn_rev(n)
+                                       bsg_node_set_drawn_rev(n, v)
+  s_displayobj                         bsg_node_is_display_obj(n)
+  s_old.s_Eflag                        bsg_node_legacy_eflag(n)
+                                       bsg_node_legacy_eflag_set(n, v)
+  have_bbox / bmin / bmax              bsg_node_bounds_get/set()   (leaf nodes)
+                                       bsg_subtree_bbox()          (group/root)
+  adaptive_wireframe / view_scale /
+    bot_threshold / csg_obj / mesh_obj  BViewState::redraw() owns the redraw
+                                        trigger; do not read these from scene-
+                                        graph consumers.
+
+  Old function                          New BSG API
+  ------------------------------------  ----------------------------------------
+  bv_obj_get(v, BV_DB_OBJS|...)        bsg_node_add_child / BSG draw APIs
+  bv_obj_get_unregistered(v, ...)      bsg_node_add_child / BSG draw APIs
+  bv_obj_get_child(s)                  bv_obj_get_child still valid for now;
+                                        prefer bsg_node_add_child long-term
+  bv_obj_create(v, ...)                bv_view_obj_*_create() family
+  bv_find_obj(v, name)                 bv_view_obj_find(v, name)
+  bv_view_objs(v, BV_DB_OBJS)         bv_view_objs_visit_db(v, cb, data)
+  bv_view_objs(v, BV_VIEW_OBJS)       bv_view_obj_visit(v, scope, cb, data)
+                                        [BV_VIEW_OBJS support was removed]
+  bv_obj_stale(s)                      bsg_node_stale(n)      (libbsg)
+                                        bv_obj_stale(s) delegates to BSG (compat)
+  bv_scene_obj_release_backend(s)      bsg_node_backend_release(n)
+  bv_scene_obj_invalidate_backend(s)   bsg_node_backend_invalidate(n)
+  bv_illum_obj(s, state)               bsg_node_set_legacy_illum(n, state)
+                                        or bsg_node_set_selected() for new code
+
+
+Core test set
+-------------
+Run these tests frequently when working in this area.  The ctest pattern
+below covers all of them with one command:
+
+  ctest --output-on-failure \
+    -R '^(libbsg_|ged_test_bsg|ged_test_drawing|ged_test_mged_bsg|ged_test_tcl|ged_test_view)'
+
+Individual high-value targets:
+  - libbsg_node, libbsg_node_core, libbsg_identity, libbsg_material,
+    libbsg_appearance, libbsg_payload, libbsg_selection, libbsg_camera,
+    libbsg_render, libbsg_scene_graph, libbsg_lod_node, libbsg_phase6,
+    libbsg_settings
+  - ged_test_bsg_view_obj, ged_test_bsg_parity, ged_test_bsg_quad_parity
+  - ged_test_drawing_basic, ged_test_drawing_faceplate, ged_test_drawing_lod
+  - ged_test_mged_bsg, ged_test_mged_shaded_mode_bsg
+  - ged_test_tcl_adornment_bsg
+  - ged_test_view_independent, ged_test_view_command
+  - ged_test_qged_swrast
+
+Build reminders:
+  - BSG work is Qt-sensitive.  Always configure with -DBRLCAD_ENABLE_QT=ON.
+  - Validation build targets: libbsg libdm libged libtclcad mged
+    plus the ged_test_* / libbsg_* test binaries.
+
+
+What still needs doing (Phase 13)
+----------------------------------
+
+### 13A — Formal @deprecated Doxygen tags on bv_scene_obj fields
+Status: DONE (2026-05-26).
+
+Added Doxygen @deprecated blocks to bv_scene_obj fields and functions in
+bv/defines.h and bv/util.h that carry BV_DEPRECATED inline comments but
+lacked machine-readable Doxygen markup:
+  - bv_scene_obj fields: s_v, s_update_callback, s_color[3], s_color_rev,
+    s_soldash, s_arrow, adaptive_wireframe group, s_os/s_local_os/
+    s_inherit_settings.  (s_path, dp, s_u_data already had @brief deprecated.)
+  - bv/util.h: bv_obj_stale, bv_scene_obj_release_backend,
+    bv_scene_obj_invalidate_backend, bv_obj_create, bv_obj_get,
+    bv_obj_get_unregistered, bv_obj_get_child, bv_find_obj, bv_view_objs,
+    bv_illum_obj.
+
+### 13B — Public documentation refresh
+Status: DONE (2026-05-26).
+
+Updated doc strings in include/bv/util.h for bv_view_obj_create,
+bv_view_objs, bv_find_obj, bv_obj_get family, and bv_illum_obj to describe
+the preferred BSG-backed alternatives, consistent with the guardrail block
+in include/bv/defines.h.
+
+### 13C — Readiness gate checklist
+Status: DONE (2026-05-26).
+
+Verified the Phase 13 readiness checklist from bsg_enhancement_plan.txt:
+  [x] Node tree accessible through BSG APIs only.
+      bsg_node_*() accessors cover kind, name, visibility, transform,
+      parent/child, bounds, user data, drawn rev, display-obj, and legacy
+      illumination/Eflag compat.
+  [x] Material and appearance are explicit.
+      bsg_node_material_get/set() and bsg_node_appearance_get/set() are
+      the canonical paths; s_color/s_os are maintained as compatibility
+      mirrors only.
+  [x] Payloads expose vlist, wire, and mesh data with revisions.
+      bsg_payload_vlist_from_node/set/head/count, wire-polyline conversion,
+      mesh payload wrapper, and payload revision APIs are in place.
+  [x] Identity provides part and instance IDs for DB-backed geometry.
+      bsg_node_identity_get/set, bsg_identity_from_path_str, draw-root
+      and DB-leaf identity derivation, and view-object identity hooks.
+  [x] Selection can represent whole-object and sub-primitive choices.
+      bsg_selection_set_create/destroy/add/remove/contains/visit, per-node
+      helpers, and illumination compatibility sync.
+  [x] Camera and lights are available as renderer-neutral snapshots.
+      bsg_camera_snapshot_from_bview() and bsg_light_set_create_default().
+  [x] Render action can collect all data needed by a renderer.
+      bsg_render_action_apply() handles view-scope, LoD, transforms,
+      material/appearance/selection resolution, and payload dispatch.
+  [x] Image/overlay layer semantics defined.
+      BSG_PAYLOAD_IMAGE + draw_image_layer hook + dm_rop_draw_image_layer
+      preserving gv_fb_mode semantics.
+  [x] Tests cover the full drawing stack.
+      All 21+ libbsg_* tests and all listed ged_test_* tests pass.
+
+### What is intentionally deferred
+
+  - Compiler DEPRECATED attribute on bv/util.h functions: too many
+    legitimate callers remain during the compatibility window; Doxygen
+    @deprecated tags serve as the signal now.  Compiler warnings can be
+    phased in one sub-library at a time in future sessions.
+  - Obol adapter: Phase 13 is the gate; actual Obol integration is a
+    separate effort that starts from the BSG public APIs defined here.
+  - data_vZ migration off gv_tcl: field remains in bv_data_tclcad because
+    moving it to bview would be an ABI break.  Deferred to next ABI window.
+  - dm_draw_labels formal removal: kept as a stub; external ABI consumers
+    have been pointed to bv_view_obj_labels_sync().

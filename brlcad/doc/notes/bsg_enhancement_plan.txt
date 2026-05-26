@@ -1196,7 +1196,7 @@ Validation:
     → 4/4 PASS
 
 
-Phase 13: Renderer and Obol Readiness Gate
+Phase 13: Renderer and Obol Readiness Gate  [DONE — 2026-05-26]
 ------------------------------------------
 Objective:
 Confirm the enhanced BSG model is ready for optional Obol targeting or any other
@@ -1204,18 +1204,53 @@ renderer backend.
 
 Readiness checklist:
 
-- Node tree is accessible through BSG APIs only.
-- Material and appearance are explicit.
-- Payloads expose vlist, wire, and mesh data with revisions.
-- Identity provides part and instance IDs for DB-backed geometry.
-- Selection can represent whole-object and sub-primitive choices.
-- Camera and lights are available as renderer-neutral snapshots.
-- Render action can collect all data needed by a renderer without libdm-specific
-  field reads.
-- Image/overlay layer semantics are defined enough for framebuffer and faceplate
-  parity.
-- Tests cover draw, erase, redraw, faceplate, framebuffer, selection, LoD,
-  independent views, shaded mode, and view-object lifecycle.
+- [x] Node tree is accessible through BSG APIs only.
+      bsg_node_*() accessors cover kind, name, visibility, transform,
+      parent/child, bounds, user data, drawn rev, display-obj, and legacy
+      illumination/Eflag compat.
+- [x] Material and appearance are explicit.
+      bsg_node_material_get/set() and bsg_node_appearance_get/set() are the
+      canonical paths; s_color/s_os are compatibility mirrors only.
+- [x] Payloads expose vlist, wire, and mesh data with revisions.
+      bsg_payload_vlist_from_node/set/head/count, wire-polyline conversion,
+      mesh payload wrapper, and payload revision APIs are in place.
+- [x] Identity provides part and instance IDs for DB-backed geometry.
+      bsg_node_identity_get/set, bsg_identity_from_path_str, draw-root
+      and DB-leaf identity derivation, and view-object identity hooks.
+- [x] Selection can represent whole-object and sub-primitive choices.
+      bsg_selection_set_create/destroy/add/remove/contains/visit, per-node
+      helpers, and illumination compatibility sync.
+- [x] Camera and lights are available as renderer-neutral snapshots.
+      bsg_camera_snapshot_from_bview() and bsg_light_set_create_default().
+- [x] Render action can collect all data needed by a renderer without libdm-specific
+      field reads.
+      bsg_render_action_apply() handles view-scope, LoD, transforms,
+      material/appearance/selection resolution, and payload dispatch.
+- [x] Image/overlay layer semantics are defined enough for framebuffer and faceplate
+      parity.
+      BSG_PAYLOAD_IMAGE + draw_image_layer hook + dm_rop_draw_image_layer
+      preserving gv_fb_mode semantics.
+- [x] Tests cover draw, erase, redraw, faceplate, framebuffer, selection, LoD,
+      independent views, shaded mode, and view-object lifecycle.
+      All 21+ libbsg_* tests and all listed ged_test_* tests pass.
+
+What was done (2026-05-26):
+- Added Doxygen @deprecated blocks to bv_scene_obj fields in bv/defines.h:
+  s_v, s_update_callback, s_color[3], s_color_rev, s_soldash, s_arrow,
+  adaptive_wireframe group, s_os/s_local_os/s_inherit_settings.
+  (s_path, dp, s_u_data already had @brief deprecated.)
+- Added Doxygen @deprecated blocks to bv/util.h functions:
+  bv_obj_stale, bv_scene_obj_release_backend, bv_scene_obj_invalidate_backend,
+  bv_obj_create, bv_obj_get, bv_obj_get_unregistered, bv_obj_get_child,
+  bv_find_obj, bv_view_objs, bv_illum_obj.
+- Created doc/notes/bview2bsg.txt as the concise developer migration reference.
+
+Intentionally deferred:
+- Compiler DEPRECATED attribute on bv/util.h functions: too many legitimate
+  callers remain during the compatibility window.  Doxygen @deprecated tags
+  serve as the signal now; compiler warnings can be phased in per-library.
+- Obol adapter: this is the gate; actual Obol integration is a separate effort.
+- data_vZ migration off gv_tcl: deferred to next ABI window.
 
 Only after this gate should a serious Obol adapter be built. At that point the
 adapter should map clean BSG concepts to Obol concepts rather than translating
@@ -1786,21 +1821,34 @@ What is partially complete:
       `lod_raw->s_i_data == NULL` assertion → `bsg_node_user_data_get == NULL`.
     - Added `bsg/material.h` include to `bsg_view_obj.cpp`.
   - Remaining 11B / 11E / 11F / 11G cleanup: complete.
+- Phase 13 deprecation and readiness gate: DONE (2026-05-26).
+  - Doxygen @deprecated blocks added to all BV_DEPRECATED fields in bv/defines.h.
+  - Doxygen @deprecated blocks added to legacy bv/util.h functions.
+  - Created doc/notes/bview2bsg.txt as the concise developer migration reference.
+  - Phase 13 readiness checklist verified against current implementation.
 
 What is not yet implemented in this roadmap:
 
-- Phase 13 deprecation and readiness gate execution.
+All phases through Phase 13 are complete.  The enhancement roadmap for
+the bview → BSG migration is now finished.
+
+Remaining optional follow-up (not required for the readiness gate):
+- Compiler DEPRECATED attribute phased in per-library (deferred from Phase 13).
+- Obol adapter (out of scope for this plan; starts from clean BSG APIs).
+- data_vZ migration off gv_tcl (deferred to next ABI window).
+- Formal Doxygen API pages for BSG concepts (incremental).
 
 
 Immediate Next-Session Stage Prompts
 -------------------------------------
-Use these as concrete "small-unit" prompts for the next work sessions.
+The migration enhancement plan is complete.  Future sessions that touch the
+BSG drawing stack should:
 
-1. Phase 13 readiness gate:
-   Execute Phase 13 deprecation tagging (mark old `bv_scene_obj` direct-access
-   patterns as `/** @deprecated */`) now that Phase 12 `bv_obj_settings`
-   removal is complete.
-
-2. Public documentation refresh:
-   Update user-facing view/draw/material documentation to describe BSG-backed
-   scene-object settings and the remaining `bv_scene_obj` compatibility window.
+1. Use bview2bsg.txt (doc/notes/bview2bsg.txt) as the quick API reference.
+2. Use bsg_enhancement_plan.txt for deeper rationale and phase history.
+3. Run the core test set after any change:
+     ctest --output-on-failure \
+       -R '^(libbsg_|ged_test_bsg|ged_test_drawing|ged_test_mged_bsg|ged_test_tcl|ged_test_view)'
+4. Any new scene-graph code should use BSG APIs exclusively.
+   Direct bv_scene_obj field writes outside libbsg/libbv compatibility code
+   should be treated as bugs to be reported and fixed.

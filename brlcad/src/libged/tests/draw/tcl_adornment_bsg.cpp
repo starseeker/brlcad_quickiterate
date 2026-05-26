@@ -50,6 +50,7 @@
 #include "bsg/appearance.h"
 #include "bsg/material.h"
 #include "bsg/node.h"
+#include "bsg/payload.h"
 #include "bv/tcl_data.h"
 #include "bv/util.h"
 #include "bv/vlist.h"
