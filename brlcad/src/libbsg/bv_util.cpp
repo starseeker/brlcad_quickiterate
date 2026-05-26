@@ -35,7 +35,9 @@
 #include "bu/vls.h"
 #include "bn/mat.h"
 #include "bg/plane.h"
+#include "bsg/appearance.h"
 #include "bsg/defines.h"
+#include "bsg/material.h"
 #include "bsg/snap.h"
 #include "bsg/util.h"
 #include "bsg/view_sets.h"
@@ -1913,9 +1915,10 @@ bsg_view_obj_set_color(struct bsg_node *s, int r, int g, int b)
 {
     if (!s)
 	return;
-    s->s_color[0] = (unsigned char)_bv_clamp_byte(r);
-    s->s_color[1] = (unsigned char)_bv_clamp_byte(g);
-    s->s_color[2] = (unsigned char)_bv_clamp_byte(b);
+    bsg_material_set_rgb(s,
+			 (unsigned char)_bv_clamp_byte(r),
+			 (unsigned char)_bv_clamp_byte(g),
+			 (unsigned char)_bv_clamp_byte(b));
     s->s_changed++;
     bsg_obj_stale(s);
 }
@@ -1930,8 +1933,7 @@ bsg_view_obj_set_line_width(struct bsg_node *s, int line_width)
     /* By convention bsg_obj_reset() sets s_os = &s->s_local_os, but other
      * code paths in this file defensively fall back to s_local_os when
      * s_os is unset; do the same here. */
-    struct bsg_obj_settings *os = (s->s_os) ? s->s_os : &s->s_local_os;
-    os->s_line_width = line_width;
+    bsg_appearance_set_line_width(s, line_width);
     s->s_changed++;
     bsg_obj_stale(s);
 }
@@ -1941,7 +1943,7 @@ bsg_view_obj_set_visible(struct bsg_node *s, int visible)
 {
     if (!s)
 	return;
-    s->s_force_draw = visible ? 1 : 0;
+    bsg_appearance_set_force_draw(s, visible);
     s->s_changed++;
     bsg_obj_stale(s);
 }

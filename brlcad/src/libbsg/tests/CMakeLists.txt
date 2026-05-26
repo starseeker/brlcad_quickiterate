@@ -43,6 +43,12 @@ brlcad_addexec(test_bsg_identity test_identity.c "libbsg;libbu" TEST)
 brlcad_add_test(NAME libbsg_identity COMMAND test_bsg_identity)
 
 #
+# Phase 3: material vs appearance split
+#
+brlcad_addexec(test_bsg_material_appearance test_material_appearance.c "libbsg;libbu" TEST)
+brlcad_add_test(NAME libbsg_material_appearance COMMAND test_bsg_material_appearance)
+
+#
 # Phase V1: BSG_NODE_VIEW_SCOPE lifecycle (create/visible/destroy)
 #
 brlcad_addexec(test_bsg_view_scope test_view_scope.c "libbsg;libbu" TEST)
@@ -59,6 +65,7 @@ cmakefiles(
   test_arb8.c
   test_identity.c
   test_lod_node.c
+  test_material_appearance.c
   test_node.c
   test_phase6.c
   test_scene_graph.c

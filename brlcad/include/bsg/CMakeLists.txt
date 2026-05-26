@@ -1,6 +1,7 @@
 set(
   bsg_headers
   adc.h
+  appearance.h
   defines.h
   draw_ctx.h
   draw_set.h
@@ -10,6 +11,7 @@ set(
   identity.h
   lod.h
   lod_ops.h
+  material.h
   node.h
   node_group.h
   node_shape.h

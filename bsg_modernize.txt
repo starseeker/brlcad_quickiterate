@@ -225,13 +225,39 @@ Phase 2 exit criteria:
 - [x] selected node helper internals use identity/revision API
 - [x] focused identity/revision tests added/registered
 
+Phase 3 — Material / Appearance Split (COMPLETE, 2026-05-26)
+-------------------------------------------------------------
+Delivered:
+- Added material API:
+  - `brlcad/include/bsg/material.h`
+  - `brlcad/src/libbsg/material.c`
+  - color + material-revision accessors over existing node storage.
+- Added appearance API:
+  - `brlcad/include/bsg/appearance.h`
+  - `brlcad/src/libbsg/appearance.c`
+  - visibility / force-draw / line-style / line-width accessors.
+- Wired material/appearance sources and headers into libbsg CMake files.
+- Migrated selected raw-field writes to helper APIs in:
+  - `brlcad/src/libbsg/field.c`
+  - `brlcad/src/libbsg/bv_util.cpp`
+- Added focused tests:
+  - `brlcad/src/libbsg/tests/test_material_appearance.c`
+  - `libbsg_material_appearance` CTest registration.
+
+Phase 3 exit criteria:
+- [x] `include/bsg/material.h` added
+- [x] `include/bsg/appearance.h` added
+- [x] material/appearance accessors implemented in libbsg
+- [x] selected style/color raw-field writes migrated to helper APIs
+- [x] focused material/appearance tests added/registered
+
 
 Modernization Phases
 --------------------
 - [x] Phase 0: Baseline audit
 - [x] Phase 1: Introduce generic node API (`include/bsg/node.h`, `src/libbsg/node.c`)
 - [x] Phase 2: Add identity and revision model (`include/bsg/identity.h`)
-- [ ] Phase 3: Split material and appearance (`include/bsg/material.h`, `include/bsg/appearance.h`)
+- [x] Phase 3: Split material and appearance (`include/bsg/material.h`, `include/bsg/appearance.h`)
 - [ ] Phase 4: Replace implicit geometry with typed payloads (`include/bsg/payload.h`)
 - [ ] Phase 5: Add BSG action framework (`include/bsg/action.h`)
 - [ ] Phase 6: Add first-class selection (`include/bsg/selection.h`)
