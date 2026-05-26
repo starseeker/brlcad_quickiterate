@@ -17,7 +17,7 @@ wire
 [[description]]
 == DESCRIPTION
 
-*wire* creates a BRL-CAD database of solid wires or fuel lines. This program is designed to be run strictly interactively. The user is prompted to enter the target database name, the number of wire segments, the coordinates of the starting and ending points for each segment, and the radius at each point. The program is limited to a maximum of 100 segments. The resulting wires are constructed as combinations of truncated cones (tgc) for the straight segments and spheres to produce rounded joints.
+*wire* creates a BRL-CAD database of solid wires or fuel lines. This program is designed to be run strictly interactively. The user is prompted to enter the target database name, the number of wire segments, the coordinates of the starting and ending points for each segment, and the radius at each point. The program is limited to a maximum of 100 segments. The resulting wires are constructed as combinations of truncated cones (TGC) for the straight segments and spheres to produce rounded joints.
 
 
 [[examples]]

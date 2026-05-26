@@ -91,6 +91,7 @@ bu_strlcatm(char *dst, const char *src, size_t size, const char *label)
 	if (copylen > 0) {
 	    memcpy(dst + dstsize, src, copylen);
 	}
+	dst[dstsize + copylen] = '\0';
     }
 #endif
 
