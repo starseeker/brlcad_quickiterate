@@ -40,7 +40,7 @@
 #include "bu/color.h"
 #include "bu/opt.h"
 #include "bu/vls.h"
-#include "bv.h"
+#include "bsg.h"
 #include "bsg/defines.h"
 
 #include "../ged_private.h"

@@ -27,7 +27,7 @@
 
 #include <stdio.h>
 #include <bu.h>
-#include <bv.h>
+#include <bsg.h>
 #include <ged.h>
 #include <ged/bsg_ged_draw.h>
 

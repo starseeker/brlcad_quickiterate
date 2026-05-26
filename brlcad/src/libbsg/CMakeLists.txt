@@ -67,7 +67,6 @@ add_subdirectory(tests)
 cmakefiles(
   CMakeLists.txt
   bsg_private.h
-  bv_private.h
   draw_set.c
   field.c
   lod_node.c

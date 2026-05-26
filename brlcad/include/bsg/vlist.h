@@ -234,9 +234,6 @@ BV_EXPORT extern void bsg_vlist_to_uplot(FILE *fp, const struct bu_list *vhead);
 
 __END_DECLS
 
-/* Compat alias - old bsg_vlblock name for transitional callers */
-typedef struct bsg_vlblock bsg_vlblock;
-
 #endif /* BSG_VLIST_H */
 
 /** @} */

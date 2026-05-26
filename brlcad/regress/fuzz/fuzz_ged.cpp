@@ -26,7 +26,7 @@
 #include <cassert>
 
 #include "bu.h"
-#include "bv.h"
+#include "bsg.h"
 #include "ged.h"
 
 const size_t MAX_ARGS = 5;

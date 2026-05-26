@@ -34,7 +34,7 @@
 #include "common.h"
 
 #include "vmath.h"
-#include "bv.h"
+#include "bsg.h"
 #include "rt/db4.h"
 #include "raytrace.h"
 

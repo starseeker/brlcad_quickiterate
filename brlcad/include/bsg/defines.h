@@ -875,21 +875,6 @@ struct bsg_view_set {
 typedef struct bsg_node bsg_node;
 typedef struct bsg_node bsg_shape;
 
-/* Compat aliases - old bv_/bview names for transitional callers */
-typedef struct bsg_view       bview;
-typedef struct bsg_view_set   bview_set;
-typedef struct bsg_node       bsg_scene_obj;
-typedef struct bsg_axes       bsg_axes;
-typedef struct bsg_obj_settings bsg_obj_settings;
-typedef struct bsg_view_settings bview_settings;
-typedef struct bsg_view_obj_pool  bview_objs;
-typedef struct bsg_view_knobs bview_knobs;
-typedef struct bsg_label      bsg_label;
-typedef struct bsg_backend    bsg_obj_backend;
-typedef struct bsg_mesh_lod   bsg_mesh_lod;
-typedef struct bsg_view_set_internal bview_set_internal;
-typedef struct bsg_node_internal bsg_scene_obj_internal;
-
 __END_DECLS
 
 #endif /* BSG_DEFINES_H */

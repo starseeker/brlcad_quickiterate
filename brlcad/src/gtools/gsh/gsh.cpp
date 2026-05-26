@@ -37,7 +37,7 @@
 
 #include "brlcad_ident.h"
 #include "bu.h"
-#include "bv.h"
+#include "bsg.h"
 
 #define USE_DM 1
 #ifdef USE_DM

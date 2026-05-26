@@ -308,9 +308,6 @@ BV_EXPORT void bsg_view_print(const char *title, struct bsg_view *v, int verbosi
 
 __END_DECLS
 
-/* Compat alias - old bsg_view_obj_opts name for transitional callers */
-typedef struct bsg_view_obj_opts bsg_view_obj_opts;
-
 #endif /* BSG_UTIL_H */
 
 /** @} */

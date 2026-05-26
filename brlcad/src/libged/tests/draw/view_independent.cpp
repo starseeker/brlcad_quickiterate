@@ -30,7 +30,7 @@
 #include <vector>
 
 #include <bu.h>
-#include <bv.h>
+#include <bsg.h>
 #include <bsg/lod.h>
 #include <ged.h>
 

@@ -22,7 +22,7 @@
 
 #include "vmath.h"
 #include "bu/app.h"
-#include "bv.h"
+#include "bsg.h"
 #include "raytrace.h"
 #include "rt/primitives/sketch.h"
 #include "rt/db_diff.h"

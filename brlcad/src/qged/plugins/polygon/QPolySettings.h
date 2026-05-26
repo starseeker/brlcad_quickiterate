@@ -27,7 +27,7 @@
 #include <QLineEdit>
 #include <QCheckBox>
 #include <QComboBox>
-#include "bv.h"
+#include "bsg.h"
 #include "qtcad/QgColorRGB.h"
 
 class QPolySettings : public QWidget

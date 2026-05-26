@@ -202,7 +202,7 @@ Slice 28b – Remove libbv from the build entirely  [COMPLETE 2026-05-26]
   * Updated all bv/ includes in libbsg merged files to use bsg/ headers
   * Replaced BV_VLIST_*/BV_FREE_VLIST/etc. with BSG_ equivalents in merged files
   * Updated all CMakeLists.txt: libbv → libbsg
-  * bv.h retained as bridge that includes bsg/ headers
+  * bv.h retained (temporarily) as bridge that includes bsg/ headers
   * 15/15 tests pass
 
 Slice 26 – Rename struct tags and types  [COMPLETE 2026-05-26]
@@ -223,7 +223,7 @@ Slice 26 – Rename struct tags and types  [COMPLETE 2026-05-26]
     bv_view_obj_opts → bsg_view_obj_opts
   Note: struct bview_objs renamed to bsg_view_obj_pool (not bsg_view_objs) to
   avoid collision with function bsg_view_objs().
-  Added typedef compat aliases for all old names in bsg/ headers.
+  Temporary typedef compat aliases added to bsg/ headers (removed in Slice 28c).
   15/15 tests pass.
 
 Slice 27 – Rename function prefixes bv_ → bsg_  [COMPLETE 2026-05-26]
@@ -233,16 +233,33 @@ Slice 27 – Rename function prefixes bv_ → bsg_  [COMPLETE 2026-05-26]
   * Fixed bsg_view_objs/bsg_view_obj_pool struct/function name collision
   * Fixed bsg_node_internal empty struct (added placeholder field)
   * Updated bsg_private.h to include bv_private.h for internal struct defs
-  * Added 104 #define bv_xxx bsg_xxx compat function aliases in bv.h
+  * Added 104 #define bv_xxx bsg_xxx compat function aliases in bv.h (removed in 28c)
   * 15/15 tests pass
 
-DEPENDENCY GRAPH (current, as of Slice 28)
+Slice 28c – Eliminate all bv compat aliases and bv.h  [COMPLETE 2026-05-26]
+  * Removed all compat typedef blocks from bsg/ headers:
+      defines.h: removed bview/bview_set/bview_settings/bview_objs/bview_knobs/
+                 bview_set_internal/bsg_scene_obj/bsg_obj_backend/bsg_scene_obj_internal
+      faceplate.h: removed self-typedef block (comment mislabelled as compat)
+      tcl_data.h:  removed bsg_scene_obj_old_settings + redundant self-typedefs
+      lod.h:       removed self-typedef block (comment mislabelled as compat)
+      polygon.h:   removed bsg_polygon self-typedef
+      util.h:      removed bsg_view_obj_opts self-typedef
+      vlist.h:     removed bsg_vlblock self-typedef
+  * Deleted bv.h; expanded bsg.h to include all headers bv.h used to provide
+    (bsg/adc.h, bsg/polygon.h, bsg/snap.h, bsg/view_sets.h, plus existing ones)
+  * Replaced all 42 #include "bv.h" / #include <bv.h> with bsg.h equivalents
+  * Merged bv_private.h struct definitions into bsg_private.h; deleted bv_private.h
+  * Updated include/CMakeLists.txt: removed bv.h install entry
+  * Updated src/libbsg/CMakeLists.txt: removed bv_private.h from cmakefiles list
+  * 15/15 tests pass
+
+DEPENDENCY GRAPH (current, as of Slice 28c)
 ---------------------------
   libbu  → (none)
   libbn  → libbu
   libbg  → libbn libbu
-  libbv  → libbg libbn libbu          [ORPHANED: nothing links to it; pending removal]
-  libbsg → libbg libbn libbu          [now owns all former libbv functionality]
+  libbsg → libbg libbn libbu          [owns all former libbv functionality; libbv deleted]
   libnmg → libbg libbsg libbn libbu
   libbrep → libbsg libbu
   librt  → libbrep libnmg libbsg libbn libbu
@@ -251,23 +268,22 @@ DEPENDENCY GRAPH (current, as of Slice 28)
   libqtcad → libged libdm libbsg libbn libbu
   libtclcad → libged libdm libbsg libbn libbu
 
-HEADER OWNERSHIP (current, as of Slice 25)
+HEADER OWNERSHIP (current, as of Slice 28c)
 --------------------------------------------
+  bsg.h          — UMBRELLA: includes all major bsg/ sub-headers (replaces bv.h)
   bsg/defines.h  — CANONICAL: all view/scene-graph structs, BV_EXPORT, BSG_EXPORT,
                    BSG_NODE_*, BSG_PAYLOAD_*, BSG_OBJ_* flags.
-                   Now includes bsg/tcl_data.h + bsg/faceplate.h (zero bv/ includes).
-  bsg/faceplate.h — CANONICAL: bv_adc_state, bv_grid_state,
-                    bv_interactive_rect_state, bv_params_state, bv_other_state
-  bsg/tcl_data.h — CANONICAL: bv_data_* states, bv_data_tclcad, display_list,
-                   bv_scene_obj_old_settings (includes bsg/faceplate.h)
-  bsg/vlist.h    — CANONICAL: struct bsg_vlist typedef, BSG_VLIST_* constants/macros,
-                   bsg_vlist_cmd_cnt/copy/arb8 API; ALSO struct bv_vlblock and all
-                   bv_vlist_*/bv_vlblock_* function declarations (pending rename to bsg_)
-  bsg/util.h     — CANONICAL: all bsg_* lifecycle/query wrappers PLUS full
-                   bv_* view/camera/object API (moved from bv/util.h)
-  bsg/view_sets.h — CANONICAL: bv_set_{init,free,add_view,rm_view,views,find_view,fsos}
-  bsg/snap.h     — CANONICAL: bv_snap_lines_2d/3d, bv_snap_grid_2d,
-                   bv_view_center_linesnap
+                   Includes bsg/tcl_data.h + bsg/faceplate.h.
+  bsg/faceplate.h — CANONICAL: bsg_adc_state, bsg_grid_state,
+                    bsg_interactive_rect_state, bsg_params_state, bsg_other_state
+  bsg/tcl_data.h — CANONICAL: bsg_data_* states, bsg_data_tclcad, display_list,
+                   bsg_node_old_settings (includes bsg/faceplate.h)
+  bsg/vlist.h    — CANONICAL: struct bsg_vlist, BSG_VLIST_* constants/macros,
+                   struct bsg_vlblock and all bsg_vlist_*/bsg_vlblock_* function decls
+  bsg/util.h     — CANONICAL: all bsg_* lifecycle/query/camera/view/object API
+  bsg/view_sets.h — CANONICAL: bsg_set_{init,free,add_view,rm_view,views,find_view,...}
+  bsg/snap.h     — CANONICAL: bsg_snap_lines_2d/3d, bsg_snap_grid_2d,
+                   bsg_view_center_linesnap
   bsg/adc.h      — CANONICAL: adc_model_to_adc_view, adc_grid_to_adc_view,
                    adc_view_to_adc_grid, adc_reset
   bsg/polygon.h  — CANONICAL: struct bv_polygon, all bv_*polygon* functions,

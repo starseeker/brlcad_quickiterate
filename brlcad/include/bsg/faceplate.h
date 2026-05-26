@@ -107,13 +107,6 @@ struct bsg_other_state {
     int gos_font_size;
 };
 
-/* Compat aliases - old bv_ names for transitional callers */
-typedef struct bsg_adc_state                bsg_adc_state;
-typedef struct bsg_grid_state               bsg_grid_state;
-typedef struct bsg_interactive_rect_state   bsg_interactive_rect_state;
-typedef struct bsg_params_state             bsg_params_state;
-typedef struct bsg_other_state              bsg_other_state;
-
 #endif /* BSG_FACEPLATE_H */
 
 /** @} */

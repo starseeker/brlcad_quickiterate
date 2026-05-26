@@ -181,11 +181,6 @@ bsg_lod_stale(bsg_node *n, struct bsg_view *v);
 
 __END_DECLS
 
-/* Compat aliases - old bv_ names for transitional callers */
-typedef struct bsg_mesh_lod              bsg_mesh_lod;
-typedef struct bsg_mesh_lod_context      bsg_mesh_lod_context;
-typedef struct bsg_mesh_lod_context_internal bsg_mesh_lod_context_internal;
-
 #endif /* BSG_LOD_H */
 
 /** @} */

@@ -122,9 +122,6 @@ BV_EXPORT extern int bsg_polygon_csg(struct bsg_node *target, struct bsg_node *s
 
 __END_DECLS
 
-/* Compat alias - old bsg_polygon name for transitional callers */
-typedef struct bsg_polygon bsg_polygon;
-
 #endif  /* BSG_POLYGON_H */
 /** @} */
 /*

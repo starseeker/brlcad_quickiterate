@@ -25,7 +25,7 @@
 #include "common.h"
 
 extern "C" {
-#include "bv.h"
+#include "bsg.h"
 }
 
 #include "qtcad/QgViewFilter.h"

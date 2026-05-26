@@ -85,7 +85,7 @@
 #include "bu/malloc.h"
 #include "bu/str.h"
 #include "bn/tol.h"
-#include "bv.h"
+#include "bsg.h"
 #include "bsg/util.h"
 #include "dm.h"
 #include "raytrace.h"

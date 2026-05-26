@@ -42,7 +42,7 @@
 #include <cstring>
 
 #include <bu.h>
-#include <bv.h>
+#include <bsg.h>
 #include "bsg/tcl_data.h"
 #include "bsg/util.h"
 #include "dm.h"

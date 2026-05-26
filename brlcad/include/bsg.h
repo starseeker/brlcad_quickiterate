@@ -31,11 +31,15 @@
 #ifndef BSG_H
 #define BSG_H
 
+#include "bsg/adc.h"
 #include "bsg/defines.h"
 #include "bsg/lod.h"
 #include "bsg/obol_node.h"
+#include "bsg/polygon.h"
 #include "bsg/scene_set.h"
+#include "bsg/snap.h"
 #include "bsg/util.h"
+#include "bsg/view_sets.h"
 #include "bsg/vlist.h"
 
 #endif /* BSG_H */
