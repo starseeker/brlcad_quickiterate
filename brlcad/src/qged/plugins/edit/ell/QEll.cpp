@@ -91,8 +91,10 @@ QEll::QEll()
 
 QEll::~QEll()
 {
-    if (p)
-	bsg_obj_put(p);
+    struct bsg_view *v = getView();
+    if (v)
+	bsg_view_obj_remove(v, "_ell_edit");
+    p = NULL;
     bu_vls_free(&oname);
 }
 
@@ -185,10 +187,31 @@ QEll::update_obj_wireframe()
     if (!v)
 	return;
 
-    // Make the object, if we've not already done so.  Phase H: use the
-    // typed BSG overlay API instead of the legacy bsg_obj_get path.
+    // Resolve the edit object fresh in case it was removed externally
+    // (e.g. by a clear/zap command).
+    p = bsg_view_obj_find(v, "_ell_edit");
     if (!p)
 	p = bsg_view_obj_overlay_create(v, "_ell_edit", 1/*local*/);
+    if (!p)
+	return;
+
+    // No active db or object name means there is nothing to edit - make sure
+    // the edit wireframe is hidden.
+    if (!gedp->dbip || !bu_vls_strlen(&oname)) {
+	bsg_obj_reset(p);
+	p->s_flag = DOWN;
+	return;
+    }
+
+    // Refresh the directory pointer from the current object name.  This avoids
+    // stale pointers if scene/database content changed.
+    struct directory *ndp = db_lookup(gedp->dbip, bu_vls_cstr(&oname), LOOKUP_QUIET);
+    dp = ndp;
+    if (!dp || dp->d_minor_type != DB5_MINORTYPE_BRLCAD_ELL) {
+	bsg_obj_reset(p);
+	p->s_flag = DOWN;
+	return;
+    }
 
     // Clear any old wireframes, labels, etc.
     bsg_obj_reset(p);
@@ -203,7 +226,7 @@ QEll::update_obj_wireframe()
     intern.idb_type = ID_ELL;
     intern.idb_ptr = &ell;
     intern.idb_meth = &OBJ[intern.idb_type];
-    if (!intern.idb_meth->ft_plot || !gedp->dbip)
+    if (!intern.idb_meth->ft_plot)
 	return;
     struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
     struct bn_tol *tol = &wdbp->wdb_tol;
@@ -252,16 +275,19 @@ void
 QEll::update_viewobj_name(const QString &)
 {
     struct ged *gedp = getGed();
-    if (!gedp)
+    if (!gedp || !gedp->dbip)
 	return;
     struct bsg_view *v = getView();
     if (!v)
 	return;
 
-    // Make the view object, if we've not already done so.  Phase H: use
-    // the typed BSG overlay API instead of the legacy bsg_obj_get path.
+    // Resolve/create the edit view object.  Don't trust cached pointers here
+    // since clear/zap may have removed it.
+    p = bsg_view_obj_find(v, "_ell_edit");
     if (!p)
 	p = bsg_view_obj_overlay_create(v, "_ell_edit", 1/*local*/);
+    if (!p)
+	return;
 
     // Make sure the view object names match whatever the dialog says
     // is the current (proposed) name for the written object
@@ -286,6 +312,7 @@ QEll::update_viewobj_name(const QString &)
 	} else {
 	    // Turning off wireframe - obj name is now invalid; clear highlight
 	    bsg_view_obj_set_illum(gedp, NULL);
+	    bsg_obj_reset(p);
 	    p->s_flag = DOWN;
 	    emit view_updated(QG_VIEW_REFRESH);
 	}
