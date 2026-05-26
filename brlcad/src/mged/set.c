@@ -294,8 +294,9 @@ mged_variable_teardown(struct mged_state *s)
 
     interp = s->interp;
     for (sp = &mged_vparse[0]; sp->sp_name != NULL; sp++) {
-	/* The traces are registered with distinct callbacks, so remove each
-	 * callback with the same flag set used at registration time. */
+	/* Reverse the registrations from mged_variable_setup(): the traces are
+	 * registered with distinct callbacks, so remove each callback with the
+	 * same flag set used at registration time. */
 	Tcl_UntraceVar(interp, sp->sp_name, TCL_TRACE_READS|TCL_GLOBAL_ONLY,
 		       (Tcl_VarTraceProc *)read_var, (ClientData)sp);
 	Tcl_UntraceVar(interp, sp->sp_name, TCL_TRACE_WRITES|TCL_GLOBAL_ONLY,
