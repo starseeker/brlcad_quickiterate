@@ -1,0 +1,129 @@
+BSG Modernization Plan and Work Log
+===================================
+
+Purpose
+-------
+Track the API-maturation work needed to move libbsg from a legacy-shaped
+scene/view container to a conceptually primary scene-graph API.
+
+
+Current repository check (confirmed)
+------------------------------------
+- `include/bsg/defines.h` still exposes `struct bsg_node` directly with many
+  legacy `BV_*` names and view/draw fields.
+- `include/bsg/payload.h` currently provides payload type flags/accessors, not
+  typed payload objects.
+- Existing BSG public headers include group/shape/transform/LOD/view-scope/
+  sensor/field/visit support, but not `node.h`, `identity.h`, `material.h`,
+  `appearance.h`, `action.h`, `render.h`, `selection.h`, `camera.h`,
+  `light.h`, or `settings.h`.
+- `brlcad/doc/notes/drawing_stack_modernization.txt` shows draw-stack
+  migration is largely complete; next work should focus on conceptual API
+  maturation.
+
+
+Modernization phases
+--------------------
+[x] Phase 0: Baseline audit
+[ ] Phase 1: Introduce generic node API (`include/bsg/node.h`, `src/libbsg/node.c`)
+[ ] Phase 2: Add identity and revision model (`include/bsg/identity.h`)
+[ ] Phase 3: Split material and appearance (`include/bsg/material.h`, `include/bsg/appearance.h`)
+[ ] Phase 4: Replace implicit geometry with typed payloads (`include/bsg/payload.h`)
+[ ] Phase 5: Add BSG action framework (`include/bsg/action.h`)
+[ ] Phase 6: Add first-class selection (`include/bsg/selection.h`)
+[ ] Phase 7: Add camera and light snapshots (`include/bsg/camera.h`, `include/bsg/light.h`)
+[ ] Phase 8: Move rendering behind BSG render action (`include/bsg/render.h`)
+[ ] Phase 9: Add Obol as adapter/backend only
+[ ] Phase 10: Final cleanup and deprecation removal
+
+
+Phase 0 — Baseline audit (COMPLETE, 2026-05-26)
+------------------------------------------------
+Scope required by plan:
+- `include/`
+- `src/libbsg`
+- `src/libdm`
+- `src/libged`
+- `src/libqtcad`
+- `src/qged`
+- Tcl path: `src/libtclcad`
+- MGED path: `src/mged`
+
+Inventory result (direct `bsg_node` raw-field access):
+- Total matched direct field accesses in scoped paths: 2808
+
+Category totals:
+- node structure: 1028
+- identity/path: 538
+- payload/vlist: 367
+- appearance/style: 346
+- bounds: 280
+- material/color: 143
+- selection/illumination: 58
+- backend cache: 25
+- transform: 23
+
+Category concentration by major subsystem:
+- `src/libbsg`: node structure (404), bounds (173), payload/vlist (119)
+- `src/libdm`: identity/path (135), appearance/style (54), node structure (51)
+- `src/libged`: node structure (318), identity/path (247), appearance/style (151), payload/vlist (133)
+- `src/libqtcad`: node structure (68), payload/vlist (29)
+- `src/qged`: node structure (28), payload/vlist (26)
+- `src/libtclcad`: appearance/style (45), node structure (37), payload/vlist (28)
+- `src/mged`: identity/path (142), node structure (116)
+
+Top raw-access hotspots (file-level):
+- `brlcad/src/libbsg/bv_util.cpp` (366)
+- `brlcad/src/libged/bsg_ged_draw.c` (144)
+- `brlcad/src/libged/draw.cpp` (114)
+- `brlcad/src/libged/dbi_state.cpp` (100)
+- `brlcad/src/mged/edsol.c` (90)
+- `brlcad/src/libbsg/polygon.c` (88)
+- `brlcad/src/libbsg/draw_set.c` (86)
+- `brlcad/src/libdm/view.c` (79)
+- `brlcad/src/libdm/X/dm-X.c` (79)
+- `brlcad/src/libged/draw/draw.c` (77)
+
+Validation targets recorded from drawing-stack note:
+- Qt-sensitive configure reminder from:
+  `brlcad/doc/notes/drawing_stack_modernization.txt`
+- Keep healthy targets:
+  - `libqtcad`
+  - `dm-qtgl`
+  - `dm-swrast`
+  - `qged`
+  - `archer`
+- Most relevant regression tests:
+  - `libbsg_lod_node`
+  - `ged_test_bsg_view_obj`
+  - `ged_test_drawing_basic`
+  - `ged_test_drawing_faceplate`
+  - `ged_test_drawing_lod`
+  - `ged_test_lod_crossrun`
+  - `ged_test_bsg_parity`
+  - `ged_test_bsg_quad_parity`
+  - `ged_test_qged_swrast`
+  - `ged_test_mged_bsg`
+  - `ged_test_rtwizard_bsg`
+  - `ged_test_mged_shaded_mode_bsg`
+  - `ged_test_view_independent`
+  - `ged_test_view_command`
+
+Phase 0 exit criteria status:
+- [x] Field-access inventory complete for required directories
+- [x] Accesses categorized by modernization concern
+- [x] Validation targets captured from drawing-stack note
+- [x] Modernization tracker file created and updated
+
+
+Phase 1 entry criteria (next)
+-----------------------------
+1) Add `brlcad/include/bsg/node.h`.
+2) Add `brlcad/src/libbsg/node.c`.
+3) Provide generic node lifecycle/kind/name/parent-child/visibility/transform/
+   bounds/user-data/revision accessors without changing underlying
+   `struct bsg_node` storage.
+4) Migrate existing `node_group`, `node_shape`, `node_transform`, `lod`,
+   and `view_scope` helpers to call the generic node API internally.
+5) Add/extend focused `libbsg` tests for the new node API before broader
+   caller migration.
