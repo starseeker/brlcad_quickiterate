@@ -42,6 +42,8 @@
 
 #include "common.h"
 
+#include <cerrno>
+#include <cstdio>
 #include <cstring>
 #include <fstream>
 
@@ -87,8 +89,17 @@ main(int ac, char *av[])
      * ------------------------------------------------------------------ */
     struct bu_vls fname = BU_VLS_INIT_ZERO;
     struct bu_vls moss = BU_VLS_INIT_ZERO;
-    bu_vls_sprintf(&fname, "%s/tcl_adornment_bsg_tmp.g", av[1]);
     bu_vls_sprintf(&moss, "%s/moss.g", av[1]);
+    char tmpname[MAXPATHLEN];
+    FILE *fp = bu_temp_file(tmpname, MAXPATHLEN);
+    if (!fp) {
+	bu_log("failed to create temp db path: %s\n", std::strerror(errno));
+	bu_vls_free(&moss);
+	bu_vls_free(&fname);
+	return 1;
+    }
+    fclose(fp);
+    bu_vls_sprintf(&fname, "%s", tmpname);
     {
 	/* This test is headless, but ged_open still requires a valid .g file. */
 	std::ifstream orig(bu_vls_cstr(&moss), std::ios::binary);
@@ -105,9 +116,10 @@ main(int ac, char *av[])
     }
     struct ged *gedp = ged_open("db", bu_vls_cstr(&fname), 1);
     bu_vls_free(&moss);
-    bu_vls_free(&fname);
     if (!gedp) {
 	bu_log("ged_open failed\n");
+	bu_file_delete(bu_vls_cstr(&fname));
+	bu_vls_free(&fname);
 	return 1;
     }
 
@@ -239,6 +251,8 @@ main(int ac, char *av[])
 
 done:
     ged_close(gedp);
+    bu_file_delete(bu_vls_cstr(&fname));
+    bu_vls_free(&fname);
 
     bu_log("Result: %d checks, %d failures\n", nchecks, nfails);
     return (nfails > 0) ? 1 : 0;
