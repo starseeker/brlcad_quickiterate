@@ -1,10 +1,14 @@
 set(
   LIBBSG_SRCS
   # BSG scene-graph sources (native)
+  appearance.c
   draw_set.c
   field.c
+  identity.c
   lod.cpp
   lod_node.c
+  material.c
+  node.c
   node_group.c
   node_root.c
   node_shape.c
@@ -68,9 +72,13 @@ add_subdirectory(tests)
 cmakefiles(
   CMakeLists.txt
   bsg_private.h
+  appearance.c
   draw_set.c
   field.c
+  identity.c
   lod_node.c
+  material.c
+  node.c
   node_group.c
   node_root.c
   node_shape.c

@@ -31,7 +31,9 @@
 #include "common.h"
 
 #include "bsg/defines.h"
+#include "bsg/appearance.h"
 #include "bsg/field.h"
+#include "bsg/material.h"
 #include "bsg/sensor.h"
 
 
@@ -77,10 +79,7 @@ bsg_node_set_color(bsg_node *n,
     if (!n)
 	return;
 
-    bsg_node *s = (bsg_node *)n;
-    s->s_color[0] = r;
-    s->s_color[1] = g;
-    s->s_color[2] = b;
+    bsg_material_set_rgb(n, r, g, b);
     bsg_node_field_touch(n, BSG_FIELD_COLOR);
 }
 
@@ -94,10 +93,7 @@ bsg_node_get_color(const bsg_node *n,
     if (!n)
 	return;
 
-    const bsg_node *s = (const bsg_node *)n;
-    if (r) *r = s->s_color[0];
-    if (g) *g = s->s_color[1];
-    if (b) *b = s->s_color[2];
+    bsg_material_get_rgb(n, r, g, b);
 }
 
 
@@ -107,8 +103,7 @@ bsg_node_set_visible(bsg_node *n, int on)
     if (!n)
 	return;
 
-    bsg_node *s = (bsg_node *)n;
-    s->s_flag = on ? UP : DOWN;
+    bsg_appearance_set_visible(n, on);
     bsg_node_field_touch(n, BSG_FIELD_VISIBILITY);
 }
 
@@ -119,7 +114,7 @@ bsg_node_get_visible(const bsg_node *n)
     if (!n)
 	return 0;
 
-    return ((const bsg_node *)n)->s_flag == UP;
+    return bsg_appearance_visible(n);
 }
 
 /*

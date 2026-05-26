@@ -1,4 +1,4 @@
-/*                   N O D E _ S H A P E . C
+/*                     M A T E R I A L . C
  * BRL-CAD
  *
  * Copyright (c) 2026 United States Government as represented by
@@ -17,58 +17,58 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file libbsg/node_shape.c
+/** @file libbsg/material.c
  *
- * Phase 6-C: BSG_NODE_SHAPE lifecycle (create / set_vlist / destroy).
- * A shape node is a drawable leaf that carries a vlist or a
- * s_update_callback-based payload.
+ * BSG node material accessors.
  */
 
 #include "common.h"
 
-#include "bu/list.h"
-#include "bsg/defines.h"
-#include "bsg/node.h"
-#include "bsg/util.h"
-#include "bsg/vlist.h"
-#include "bsg/node_shape.h"
+#include "bsg/material.h"
 
 
-bsg_node *
-bsg_shape_create(struct bsg_view *v)
+void
+bsg_material_set_rgb(bsg_node *node, unsigned char r, unsigned char g, unsigned char b)
 {
-    if (!v)
-	return NULL;
+    if (!node)
+	return;
 
-    return bsg_node_create(v, BSG_NODE_SHAPE);
+    node->s_color[0] = r;
+    node->s_color[1] = g;
+    node->s_color[2] = b;
 }
 
 
 void
-bsg_shape_set_vlist(bsg_node *shape, struct bu_list *vhead)
+bsg_material_get_rgb(const bsg_node *node, unsigned char *r, unsigned char *g, unsigned char *b)
 {
-    if (!shape || !vhead)
+    if (!node)
 	return;
 
-    bsg_node *s = (bsg_node *)shape;
-
-    /* Free any existing vlist */
-    if (BU_LIST_IS_INITIALIZED(&s->s_vlist))
-	BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
-    BU_LIST_INIT(&s->s_vlist);
-
-    /* Copy in the new vlist */
-    bsg_vlist_copy(s->vlfree, &s->s_vlist, vhead);
+    if (r)
+	*r = node->s_color[0];
+    if (g)
+	*g = node->s_color[1];
+    if (b)
+	*b = node->s_color[2];
 }
 
 
 void
-bsg_shape_destroy(bsg_node *shape)
+bsg_material_set_revision(bsg_node *node, uint32_t revision)
 {
-    if (!shape)
+    if (!node)
 	return;
+    node->s_color_rev = revision;
+}
 
-    bsg_node_destroy(shape);
+
+uint32_t
+bsg_material_revision(const bsg_node *node)
+{
+    if (!node)
+	return 0;
+    return node->s_color_rev;
 }
 
 /*

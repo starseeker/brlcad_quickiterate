@@ -31,6 +31,7 @@
 
 #include "bu/ptbl.h"
 #include "bsg/defines.h"
+#include "bsg/node.h"
 #include "bsg/util.h"
 #include "bsg/view_scope.h"
 
@@ -41,12 +42,10 @@ bsg_view_scope_create(struct bsg_view *v)
     if (!v)
 	return NULL;
 
-    bsg_node *s = bsg_obj_create(v, BSG_OBJ_VIEW | BSG_OBJ_LOCAL);
+    bsg_node *s = bsg_node_create(v, BSG_NODE_VIEW_SCOPE);
     if (!s)
 	return NULL;
 
-    s->s_type_flags = BSG_NODE_VIEW_SCOPE;
-    s->s_flag       = UP;
     /* s_v is already set by bsg_obj_create to v; make the ownership explicit. */
     s->s_v          = v;
 
@@ -79,12 +78,7 @@ bsg_view_scope_destroy(bsg_node *scope)
     if (!scope)
 	return;
 
-    bsg_node *s = (bsg_node *)scope;
-
-    /* Clear the children list (borrowed references — do not free). */
-    bu_ptbl_reset(&s->children);
-
-    bsg_obj_put(s);
+    bsg_node_destroy(scope);
 }
 
 /*

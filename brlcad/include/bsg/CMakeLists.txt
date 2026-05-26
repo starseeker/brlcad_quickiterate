@@ -1,14 +1,18 @@
 set(
   bsg_headers
   adc.h
+  appearance.h
   defines.h
   draw_ctx.h
   draw_set.h
   events.h
   faceplate.h
   field.h
+  identity.h
   lod.h
   lod_ops.h
+  material.h
+  node.h
   node_group.h
   node_shape.h
   node_transform.h
