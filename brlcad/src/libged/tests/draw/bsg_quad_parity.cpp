@@ -59,7 +59,7 @@ extern "C" void ged_changed_callback(struct db_i *UNUSED(dbip), struct directory
 static void
 refresh_view(struct ged *gedp, int vnum)
 {
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
     struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, vnum);
     if (!v)
 	return;
@@ -85,7 +85,7 @@ refresh_view(struct ged *gedp, int vnum)
 static int
 grab_view(struct ged *gedp, int vnum, const char *fname)
 {
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
     struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, vnum);
     if (!v)
 	return -1;
@@ -159,12 +159,12 @@ main(int ac, char *av[])
 
     gedp->dbi_state = new DbiState(gedp);
     gedp->new_cmd_forms = 1;
-    gedp->ged_lod = bv_mesh_lod_context_create(gedp->dbip->dbi_filename);
+    gedp->ged_lod = bsg_mesh_lod_context_create(gedp->dbip->dbi_filename);
     bu_setenv("DM_SWRAST", "1", 1);
     db_add_changed_clbk(gedp->dbip, &ged_changed_callback, (void *)gedp);
 
     /* Remove the default view; we'll add our own four */
-    bv_set_rm_view(&gedp->ged_views, NULL);
+    bsg_set_rm_view(&gedp->ged_views, NULL);
 
     /* az/el per view matching the quad test reference */
     const double aet[4][3] = {{35,25,0},{90,0,0},{0,90,0},{0,0,90}};
@@ -175,11 +175,11 @@ main(int ac, char *av[])
 	BU_GET(v, struct bsg_view);
 	if (!i)
 	    gedp->ged_gvp = v;
-	bv_init(v, &gedp->ged_views);
+	bsg_init(v, &gedp->ged_views);
 	bu_vls_sprintf(&v->gv_name, "V%d", i);
-	bv_set_add_view(&gedp->ged_views, v);
+	bsg_set_add_view(&gedp->ged_views, v);
 	bu_ptbl_ins(&gedp->ged_free_views, (long *)v);
-	bv_view_independent_scope(v, 1 /*create*/);  /* Phase D: replaces v->independent = 1 */
+	bsg_view_independent_scope(v, 1 /*create*/);  /* Phase D: replaces v->independent = 1 */
 
 	/* Attach one swrast DM per view */
 	struct bu_vls dm_name = BU_VLS_INIT_ZERO;
@@ -227,7 +227,7 @@ main(int ac, char *av[])
     ged_exec_draw(gedp, 3, s_av);
 
     /* Force per-view autoview */
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
     for (int i = 0; i < 4; i++) {
 	struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, i);
 	gedp->ged_gvp = v;

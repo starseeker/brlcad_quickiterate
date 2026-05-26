@@ -254,7 +254,7 @@ _objs_cmd_delete(void *bs, int argc, const char **argv)
 	bu_vls_printf(gedp->ged_result_str, "View object %s is associated with a database object - use 'erase' cmd to clear\n", gd->vobj);
 	return BRLCAD_ERROR;
     }
-    bv_obj_put(s);
+    bsg_obj_put(s);
 
     return BRLCAD_OK;
 }
@@ -471,7 +471,7 @@ _objs_cmd_update(void *bs, int argc, const char **argv)
 	}
 	v->gv_mouse_x = x;
 	v->gv_mouse_y = y;
-	bv_screen_pt(&v->gv_point, x, y, v);
+	bsg_screen_pt(&v->gv_point, x, y, v);
     }
 
     update_recurse(s, v, 0);

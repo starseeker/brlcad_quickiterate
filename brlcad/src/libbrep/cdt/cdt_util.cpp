@@ -836,7 +836,7 @@ int ON_Brep_CDT_VList(
        return -1;
    }
 
-   vhead = bv_vlblock_find(vbp, r, g, b);
+   vhead = bsg_vlblock_find(vbp, r, g, b);
 
    if (UNLIKELY(!vhead)) {
        return -1;

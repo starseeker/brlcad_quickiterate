@@ -35,7 +35,7 @@
 #include "bsg/util.h"
 
 int
-bv_polygon_csg(struct bsg_node *target, struct bsg_node *stencil, bg_clip_t op)
+bsg_polygon_csg(struct bsg_node *target, struct bsg_node *stencil, bg_clip_t op)
 {
     // Need data
     if (!target || !stencil)
@@ -86,7 +86,7 @@ bv_polygon_csg(struct bsg_node *target, struct bsg_node *stencil, bg_clip_t op)
 	polyA->curr_point_i = polyB->curr_point_i;
 	VMOVE(polyA->origin_point, polyB->origin_point);
 	HMOVE(polyA->vp, polyB->vp);
-	bv_update_polygon(target, target->s_v, BV_POLYGON_UPDATE_DEFAULT);
+	bsg_update_polygon(target, target->s_v, BV_POLYGON_UPDATE_DEFAULT);
 	return 1;
     }
 
@@ -107,7 +107,7 @@ bv_polygon_csg(struct bsg_node *target, struct bsg_node *stencil, bg_clip_t op)
     polyA->type = BV_POLYGON_GENERAL;
 
     // Make sure everything's current
-    bv_update_polygon(target, target->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    bsg_update_polygon(target, target->s_v, BV_POLYGON_UPDATE_DEFAULT);
 
     return 1;
 }

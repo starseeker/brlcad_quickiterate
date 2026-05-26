@@ -172,7 +172,7 @@ DisplayHash::hash(struct ged *gedp, bool dbi_state_check, bool new_cmd_forms)
 	return false;
 
     d = dm_hash(dmp);
-    v = bv_hash(bv);
+    v = bsg_hash(bv);
 
     if (new_cmd_forms && gedp->dbi_state) {
 	if (dbi_state_check) {
@@ -406,7 +406,7 @@ GshState::GshState()
 GshState::~GshState()
 {
 #ifdef USE_DM
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, i);
 	if (v->dmp) {

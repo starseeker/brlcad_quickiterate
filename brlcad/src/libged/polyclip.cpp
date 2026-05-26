@@ -295,7 +295,7 @@ ged_polygons_overlap(struct ged *gedp, struct bg_polygon *polyA, struct bg_polyg
     struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
 
     plane_t pl;
-    bv_view_plane(&pl, gedp->ged_gvp);
+    bsg_view_plane(&pl, gedp->ged_gvp);
 
     return bg_polygons_overlap(polyA, polyB, &pl, &wdbp->wdb_tol, gedp->ged_gvp->gv_scale);
 }

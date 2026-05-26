@@ -33,12 +33,12 @@
  *               └─ BSG_NODE_SHAPE bsg_node leaves
  *                    └─ parent = containing sub-group
  *
- * Group nodes are allocated via bv_obj_create(v, BV_CHILD_OBJS) so
+ * Group nodes are allocated via bsg_obj_create(v, BV_CHILD_OBJS) so
  * they are NOT inserted into any view object table.  Shape nodes are
- * allocated via bv_obj_get_unregistered(v, BV_DB_OBJS) — they have
+ * allocated via bsg_obj_get_unregistered(v, BV_DB_OBJS) — they have
  * s_type_flags = BV_DB_OBJS but are NOT inserted into any gv_objs ptbl.
  * The BSG tree (gd_draw_root) is the sole index for rendering and
- * iteration (bv_view_objs_visit_db).
+ * iteration (bsg_view_objs_visit_db).
  */
 
 #include "common.h"
@@ -173,7 +173,7 @@ _mesh_lod_select_level(bsg_node *node, struct bsg_view *v)
     struct ged_lod_state *st = (struct ged_lod_state *)pl->user_data;
     if (!st->s || !st->s->draw_data)
 	return 0;
-    bv_mesh_lod_view(st->s, v, 0);
+    bsg_mesh_lod_view(st->s, v, 0);
     return 0;
 }
 
@@ -337,7 +337,7 @@ _sg_root(struct ged *gedp)
     if (!v)
         return NULL;
 
-    struct bsg_node *root = bv_obj_create(v, BV_CHILD_OBJS);
+    struct bsg_node *root = bsg_obj_create(v, BV_CHILD_OBJS);
     if (!root)
         return NULL;
 
@@ -352,9 +352,9 @@ _sg_root(struct ged *gedp)
      * freeing helpers can bump gd_draw_rev without carrying gedp.
      * Phase 7 Step 11: also store the free-object pool pointer (fso) so
      * that bsg_free_group_contents / bsg_free_children_recursive can
-     * recycle nodes without calling bv_set_fsos (which needs gedp). */
+     * recycle nodes without calling bsg_set_fsos (which needs gedp). */
     gedp->i->ged_gdp->bsg_ctx.draw_rev = &gedp->i->ged_gdp->gd_draw_rev;
-    gedp->i->ged_gdp->bsg_ctx.fso      = bv_set_fsos(&gedp->ged_views);
+    gedp->i->ged_gdp->bsg_ctx.fso      = bsg_set_fsos(&gedp->ged_views);
     root->s_i_data = &gedp->i->ged_gdp->bsg_ctx;
 
     /* A3: register in the view so that the BSG render loop can traverse the
@@ -400,7 +400,7 @@ _sg_erase_overlay_by_name(struct ged *gedp, const char *name)
  * is currently registered as the illuminated solid.
  *
  * This fires both when the BSG freeing path explicitly calls it before
- * FREE_BV_SCENE_OBJ, and again (harmlessly) during pool teardown in bv_free.
+ * FREE_BV_SCENE_OBJ, and again (harmlessly) during pool teardown in bsg_free.
  * The second call is a no-op because gd_illum_solid will already be NULL or
  * pointing to a different solid.
  *
@@ -510,8 +510,8 @@ _sg_add_path(struct ged *gedp, const char *name)
     if (!root)
         return NULL;
     struct bsg_node *base = root;
-    if (gedp->ged_gvp && bv_view_is_independent(gedp->ged_gvp)) {
-	struct bsg_node *scope = bv_view_independent_scope(gedp->ged_gvp, 1);
+    if (gedp->ged_gvp && bsg_view_is_independent(gedp->ged_gvp)) {
+	struct bsg_node *scope = bsg_view_independent_scope(gedp->ged_gvp, 1);
 	if (scope)
 	    base = scope;
     }
@@ -864,7 +864,7 @@ solid_append_vlist(struct bsg_node *sp, bsg_vlist *vlist)
 {
     if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
         sp->s_vlen = 0;
-    sp->s_vlen += bv_vlist_cmd_cnt(vlist);
+    sp->s_vlen += bsg_vlist_cmd_cnt(vlist);
     BU_LIST_APPEND_LIST(&(sp->s_vlist), &(vlist->l));
 }
 
@@ -873,8 +873,8 @@ solid_copy_vlist(struct db_i *UNUSED(dbip), struct bsg_node *sp,
                  bsg_vlist *vlist, struct bu_list *vlfree)
 {
     BU_LIST_INIT(&(sp->s_vlist));
-    bv_vlist_copy(vlfree, &(sp->s_vlist), (struct bu_list *)vlist);
-    sp->s_vlen = bv_vlist_cmd_cnt((bsg_vlist *)(&(sp->s_vlist)));
+    bsg_vlist_copy(vlfree, &(sp->s_vlist), (struct bu_list *)vlist);
+    sp->s_vlen = bsg_vlist_cmd_cnt((bsg_vlist *)(&(sp->s_vlist)));
 }
 
 
@@ -902,7 +902,7 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     _sg_erase_overlay_by_name(gedp, name);
 
     /* Obtain a fresh solid structure. */
-    struct bsg_node *sp = bv_obj_get(gedp->ged_gvp, BV_DB_OBJS);
+    struct bsg_node *sp = bsg_obj_get(gedp->ged_gvp, BV_DB_OBJS);
     sp->s_type_flags |= BSG_NODE_SHAPE | BSG_PAYLOAD_OVERLAY;
     bu_vls_sprintf(&sp->s_name, "%s", name);
 
@@ -927,7 +927,7 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
         solid_append_vlist(sp, (bsg_vlist *)vhead);
         BU_LIST_INIT(vhead);
     }
-    bv_scene_obj_bound(sp, gedp->ged_gvp);
+    bsg_scene_obj_bound(sp, gedp->ged_gvp);
 
     /* Attach to the _overlays subgroup (no phony db entry needed). */
     struct bsg_node *ov = _sg_overlay_root(gedp);

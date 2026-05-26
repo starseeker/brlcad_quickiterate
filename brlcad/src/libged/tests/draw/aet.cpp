@@ -39,7 +39,7 @@
 void
 dm_refresh(struct ged *gedp, int vnum)
 {
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
     struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, vnum);
     if (!v)
 	return;
@@ -81,7 +81,7 @@ img_cmp(int vnum, int id, struct ged *gedp, const char *cdir, int soft_fail)
 
     dm_refresh(gedp, vnum);
 
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
     struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, vnum);
     if (!v)
 	bu_exit(EXIT_FAILURE, "Invalid view specifier: %d\n", vnum);
@@ -206,7 +206,7 @@ main(int ac, char *av[]) {
     bu_setenv("DM_SWRAST", "1", 1);
 
     // We don't want the default GED views for this test
-    bv_set_rm_view(&gedp->ged_views, NULL);
+    bsg_set_rm_view(&gedp->ged_views, NULL);
 
     // Set up the views.  Unlike the other drawing tests, we are explicitly
     // out to test the behavior of multiple views and dms, so we need to
@@ -219,9 +219,9 @@ main(int ac, char *av[]) {
 	if (!i)
 	    gedp->ged_gvp = views[i];
 	struct bsg_view *v = views[i];
-	bv_init(v, &gedp->ged_views);
+	bsg_init(v, &gedp->ged_views);
 	bu_vls_sprintf(&v->gv_name, "V%zd", i);
-	bv_set_add_view(&gedp->ged_views, v);
+	bsg_set_add_view(&gedp->ged_views, v);
 	bu_ptbl_ins(&gedp->ged_free_views, (long *)v);
 
 	/* To generate images that will allow us to check if the drawing
@@ -262,20 +262,20 @@ main(int ac, char *av[]) {
      * the potential to be challenging in "gimbal lock" positions in
      * multiples of 90 degrees and using non-zero twist components. */
     VSET(views[0]->gv_aet, 0, 0, 90);
-    bv_mat_aet(views[0]);
-    bv_update(views[0]);
+    bsg_mat_aet(views[0]);
+    bsg_update(views[0]);
 
     VSET(views[1]->gv_aet, 90, 90, 180);
-    bv_mat_aet(views[1]);
-    bv_update(views[1]);
+    bsg_mat_aet(views[1]);
+    bsg_update(views[1]);
 
     VSET(views[2]->gv_aet, -90, 270, -90);
-    bv_mat_aet(views[2]);
-    bv_update(views[2]);
+    bsg_mat_aet(views[2]);
+    bsg_update(views[2]);
 
     VSET(views[3]->gv_aet, 270, -180, 90);
-    bv_mat_aet(views[3]);
-    bv_update(views[3]);
+    bsg_mat_aet(views[3]);
+    bsg_update(views[3]);
 
 
     /************************************************************************/
@@ -307,7 +307,7 @@ main(int ac, char *av[]) {
 	dm_configure_win(dmp, 0);
 	// NOTE:  deliberately not resetting aet here - we want to see if it is
 	// stable without adjustment.
-	bv_update(views[i]);
+	bsg_update(views[i]);
     }
     ret += img_cmp(0, 2, gedp, av[1], soft_fail);
     ret += img_cmp(1, 2, gedp, av[1], soft_fail);
@@ -326,7 +326,7 @@ main(int ac, char *av[]) {
 	dm_configure_win(dmp, 0);
 	// NOTE:  deliberately not resetting aet here - we want to see if it is
 	// stable without adjustment.
-	bv_update(views[i]);
+	bsg_update(views[i]);
     }
     ret += img_cmp(0, 1, gedp, av[1], soft_fail);
     ret += img_cmp(1, 1, gedp, av[1], soft_fail);
@@ -345,7 +345,7 @@ main(int ac, char *av[]) {
 	    dm_configure_win(dmp, 0);
 	    // NOTE:  deliberately not resetting aet here - we want to see if it is
 	    // stable without adjustment.
-	    bv_update(views[j]);
+	    bsg_update(views[j]);
 	}
     }
     len = 512;
@@ -358,7 +358,7 @@ main(int ac, char *av[]) {
 	dm_configure_win(dmp, 0);
 	// NOTE:  deliberately not resetting aet here - we want to see if it is
 	// stable without adjustment.
-	bv_update(views[i]);
+	bsg_update(views[i]);
     }
     ret += img_cmp(0, 1, gedp, av[1], soft_fail);
     ret += img_cmp(1, 1, gedp, av[1], soft_fail);

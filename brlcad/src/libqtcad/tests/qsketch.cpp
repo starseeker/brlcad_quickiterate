@@ -219,7 +219,7 @@ sketch_draw_custom(struct bsg_view *v, void *udata)
 
 	dm_set_fg(dmp, 255, 255, 0, 1, 1.0);  /* yellow wireframe */
 	dm_draw_vlist(dmp, (bsg_vlist *)&vlist);
-	bv_vlist_cleanup(&vlist);
+	bsg_vlist_cleanup(&vlist);
     }
 }
 
@@ -459,17 +459,17 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
 
     /* ---- bsg_view ---- */
     BU_GET(m_bv, struct bsg_view);
-    bv_init(m_bv, NULL);
+    bsg_init(m_bv, NULL);
 
     /* Look along -Z toward +Z (top view, sketch in XY plane face-on).
      * az=0, el=90 gives view +X→right, +Y→up which matches the sketch
      * u_vec (1,0,0) and v_vec (0,1,0) defaults. */
     VSET(m_bv->gv_aet, 0.0, 90.0, 0.0);
-    bv_mat_aet(m_bv);
+    bsg_mat_aet(m_bv);
     m_bv->gv_scale  = 250.0;
     m_bv->gv_size   = 2.0 * m_bv->gv_scale;
     m_bv->gv_isize  = 1.0 / m_bv->gv_size;
-    bv_update(m_bv);
+    bsg_update(m_bv);
     bu_vls_sprintf(&m_bv->gv_name, "qsketch");
     m_bv->gv_width  = 700;
     m_bv->gv_height = 700;
@@ -671,7 +671,7 @@ QSketchEditWindow::~QSketchEditWindow()
     if (m_es)
 	rt_edit_destroy(m_es);
     if (m_bv) {
-	bv_free(m_bv);
+	bsg_free(m_bv);
 	BU_PUT(m_bv, struct bsg_view);
     }
 }
@@ -1145,7 +1145,7 @@ void QSketchEditWindow::on_fit_view()
     m_bv->gv_scale = span * 0.5;
     m_bv->gv_size  = span;
     m_bv->gv_isize = 1.0 / span;
-    bv_update(m_bv);
+    bsg_update(m_bv);
 
     m_view->need_update(QG_VIEW_REFRESH);
     set_status("View fitted to sketch bounds.");

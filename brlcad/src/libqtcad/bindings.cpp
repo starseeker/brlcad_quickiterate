@@ -92,71 +92,71 @@ int CADkeyPressEvent(struct bsg_view *v, int UNUSED(x_prev), int UNUSED(y_prev),
 	case '2': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "35 -25 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case '3': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "35 25 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case '4': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "45 45 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case '5': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "145 25 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case '6': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "215 25 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case '7': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "325 25 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case 'F': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "0 0 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case 'T': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "270 90 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case 'B': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "270 -90 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case 'L': {
 		vect_t aet_vec;
 		bn_decode_vect(aet_vec, "90 0 0");
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	case 'R': {
@@ -167,8 +167,8 @@ int CADkeyPressEvent(struct bsg_view *v, int UNUSED(x_prev), int UNUSED(y_prev),
 		else {
 			bn_decode_vect(aet_vec, "270 0 0");
 		}
-		bv_view_set_aet(v, aet_vec);
-		bv_update(v);
+		bsg_view_set_aet(v, aet_vec);
+		bsg_update(v);
 		return 1;
 	}
 	default:
@@ -276,7 +276,7 @@ int CADmouseReleaseEvent(struct bsg_view *v, double x_press, double y_press, int
 	}
 
 	point_t keypt = VINIT_ZERO;
-	return bv_adjust(v, dx, dy, keypt, 0, view_flags);
+	return bsg_adjust(v, dx, dy, keypt, 0, view_flags);
 }
 
 int CADmouseMoveEvent(struct bsg_view *v, int x_prev, int y_prev, QMouseEvent *e, int mode)
@@ -363,7 +363,7 @@ int CADmouseMoveEvent(struct bsg_view *v, int x_prev, int y_prev, QMouseEvent *e
 	// TODO - the key point and the mode/flags are all hardcoded
 	// right now, but eventually for shift grips they will need to
 	// respond to the various mod keys.  The intent is to set flags
-	// based on which mod keys are set to allow bv_adjust to
+	// based on which mod keys are set to allow bsg_adjust to
 	// do the correct math.
 	point_t center;
 	MAT_DELTAS_GET_NEG(center, v->gv_center);
@@ -371,7 +371,7 @@ int CADmouseMoveEvent(struct bsg_view *v, int x_prev, int y_prev, QMouseEvent *e
 	if (view_flags & (BV_ROT | BV_TRANS | BV_SCALE))
 		suspend_drag_bounds_update(v);
 
-	return bv_adjust(v, dx, dy, center, 0, view_flags);
+	return bsg_adjust(v, dx, dy, center, 0, view_flags);
 
 }
 
@@ -389,7 +389,7 @@ int CADwheelEvent(struct bsg_view *v, QWheelEvent *e)
 	int dy = 100;
 
 	point_t origin = VINIT_ZERO;
-	return bv_adjust(v, dx, dy, origin, 0, BV_SCALE);
+	return bsg_adjust(v, dx, dy, origin, 0, BV_SCALE);
 
 }
 

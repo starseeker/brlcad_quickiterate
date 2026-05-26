@@ -133,7 +133,7 @@ static inline void
 qgcanvas_stash_hashes(QgCanvasState &s)
 {
 	s.prev_dhash = s.dmp ? dm_hash(s.dmp) : 0ULL;
-	s.prev_vhash = s.v   ? bv_hash(s.v)   : 0ULL;
+	s.prev_vhash = s.v   ? bsg_hash(s.v)   : 0ULL;
 }
 
 /**
@@ -149,7 +149,7 @@ qgcanvas_diff_hashes_check(QgCanvasState &s)
 {
 	bool ret = false;
 	unsigned long long c_dhash = s.dmp ? dm_hash(s.dmp) : 0ULL;
-	unsigned long long c_vhash = s.v   ? bv_hash(s.v)   : 0ULL;
+	unsigned long long c_vhash = s.v   ? bsg_hash(s.v)   : 0ULL;
 
 	if (s.dmp && dm_get_dirty(s.dmp))
 		ret = true;
@@ -174,8 +174,8 @@ qgcanvas_aet(QgCanvasState &s, double a, double e, double t)
 	fastf_t aet_v[3];
 	double  aetd[3] = {a, e, t};
 	VMOVE(aet_v, aetd);
-	bv_view_set_aet(s.v, aet_v);
-	bv_update(s.v);
+	bsg_view_set_aet(s.v, aet_v);
+	bsg_update(s.v);
 }
 
 /** Bind an external bsg_view (or nullptr to revert to the widget-local view). */

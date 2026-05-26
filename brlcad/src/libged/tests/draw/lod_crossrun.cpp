@@ -21,7 +21,7 @@
  *
  * LoD cross-run cache-stability test.
  *
- * The bv_lod_cache unit test verifies in-process round-trips.  This test
+ * The bsg_lod_cache unit test verifies in-process round-trips.  This test
  * exercises the cross-process (or cross-ged_open) scenario:
  *
  *  Run 1:
@@ -78,7 +78,7 @@ open_and_attach(const char *gfile)
     gedp->dbi_state = new DbiState(gedp);
     DbiState *dbis   = (DbiState *)gedp->dbi_state;
     gedp->new_cmd_forms = 1;
-    gedp->ged_lod = bv_mesh_lod_context_create(gedp->dbip->dbi_filename);
+    gedp->ged_lod = bsg_mesh_lod_context_create(gedp->dbip->dbi_filename);
     bu_setenv("DM_SWRAST", "1", 1);
     db_add_changed_clbk(gedp->dbip, &ged_changed_callback, (void *)gedp);
 
@@ -235,7 +235,7 @@ main(int ac, char *av[])
     /* Close — releases all in-memory LoD structures; bu_cache stays on disk */
     delete (DbiState *)gedp->dbi_state;
     gedp->dbi_state = NULL;
-    bv_mesh_lod_context_destroy(gedp->ged_lod);
+    bsg_mesh_lod_context_destroy(gedp->ged_lod);
     gedp->ged_lod = NULL;
     ged_close(gedp);
 
@@ -268,7 +268,7 @@ main(int ac, char *av[])
 
     delete (DbiState *)gedp->dbi_state;
     gedp->dbi_state = NULL;
-    bv_mesh_lod_context_destroy(gedp->ged_lod);
+    bsg_mesh_lod_context_destroy(gedp->ged_lod);
     gedp->ged_lod = NULL;
     ged_close(gedp);
 

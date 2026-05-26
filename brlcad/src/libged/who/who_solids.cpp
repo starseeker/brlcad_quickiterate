@@ -214,13 +214,13 @@ who_solids_print_scene_obj(struct bsg_node *sp, struct db_i *dbip, int lvl, stru
 
 	for (i = 0; i < nused; i++, cmd++, pt++) {
 	    bu_vls_printf(vls, "  %s (%g, %g, %g)\n",
-			  bv_vlist_get_cmd_description(*cmd),
+			  bsg_vlist_get_cmd_description(*cmd),
 			  V3ARGS(*pt));
 	}
     }
 
     bu_vls_printf(vls, "  %zu vlist structures, %zu pts\n", nvlist, npts);
-    bu_vls_printf(vls, "  %zu pts (via bv_ck_vlist)\n", bv_ck_vlist(&sp->s_vlist));
+    bu_vls_printf(vls, "  %zu pts (via bsg_ck_vlist)\n", bsg_ck_vlist(&sp->s_vlist));
 }
 
 
@@ -234,8 +234,8 @@ who_solids_print_view(struct bsg_view *v, struct db_i *dbip, int mode, int lvl, 
     if (!v)
 	return;
 
-    tbls[0] = bv_view_objs(v, BV_DB_OBJS);
-    tbls[1] = bv_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+    tbls[0] = bsg_view_objs(v, BV_DB_OBJS);
+    tbls[1] = bsg_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
 
     for (size_t t = 0; t < 2; t++) {
 	struct bu_ptbl *tbl = tbls[t];
@@ -353,7 +353,7 @@ who_solids_impl(struct ged *gedp, int argc, const char *argv[], int subcmd_usage
 
     struct bsg_view *v = gedp->ged_gvp;
     if (bu_vls_strlen(&cvls)) {
-	v = bv_set_find_view(&gedp->ged_views, bu_vls_cstr(&cvls));
+	v = bsg_set_find_view(&gedp->ged_views, bu_vls_cstr(&cvls));
 	if (!v) {
 	    bu_vls_printf(gedp->ged_result_str, "Specified view %s not found\n", bu_vls_cstr(&cvls));
 	    bu_vls_free(&cvls);

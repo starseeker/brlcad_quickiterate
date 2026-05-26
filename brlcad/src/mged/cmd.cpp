@@ -2936,7 +2936,7 @@ _view_mutation_hash(struct mged_state *ms, struct bsg_view *v)
     bu_data_hash_update(state, &v->gv_rotate_about, sizeof(char));
 
     /* Knob state (rates + absolute values + flags + origins) */
-    bv_knobs_hash(&v->k, state);
+    bsg_knobs_hash(&v->k, state);
 
     /*
      * If we are in an edit mode (solid or object) include the active edit
@@ -2959,7 +2959,7 @@ _view_mutation_hash(struct mged_state *ms, struct bsg_view *v)
 	bu_data_hash_update(state, &e->acc_sc_obj, sizeof(e->acc_sc_obj));
 	bu_data_hash_update(state, &e->acc_sc, sizeof(e->acc_sc));
 	/* Edit knob state */
-	bv_knobs_hash(&e->k, state);
+	bsg_knobs_hash(&e->k, state);
     }
 
     unsigned long long hv = bu_data_hash_val(state);
@@ -3006,7 +3006,7 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
     } else {
 	/* No existing ged_gvp: create ephemeral staging view */
 	staging = (struct bsg_view *)bu_calloc(1, sizeof(struct bsg_view), "temporary staging bsg_view");
-	bv_init(staging, NULL);
+	bsg_init(staging, NULL);
 	created_temp = 1;
 	/* Carry over dimensions for screen-dependent ops */
 	if (mged_view) {
@@ -3063,7 +3063,7 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	    if (!created_temp)
 		_view_cache_restore(&prev, staging);
 	    else {
-		bv_free(staging);
+		bsg_free(staging);
 		bu_free(staging, "free staging bsg_view");
 		s->gedp->ged_gvp = NULL;
 	    }
@@ -3086,7 +3086,7 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	    if (!created_temp) {
 		_view_cache_restore(&prev, staging);
 	    } else {
-		bv_free(staging);
+		bsg_free(staging);
 		bu_free(staging, "free staging bsg_view");
 		s->gedp->ged_gvp = NULL;
 	    }
@@ -3125,7 +3125,7 @@ cmd_view(ClientData clientData, Tcl_Interp *interpreter, int argc, const char *a
 	    }
 	} else {
 	    /* Ephemeral staging freed; detach from ged */
-	    bv_free(staging);
+	    bsg_free(staging);
 	    bu_free(staging, "free staging bsg_view");
 	    s->gedp->ged_gvp = NULL;
 	}

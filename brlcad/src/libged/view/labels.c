@@ -80,7 +80,7 @@ _label_cmd_create(void *bs, int argc, const char **argv)
 	}
     } else {
 	fastf_t fx, fy;
-	if (bv_screen_to_view(gd->cv, &fx, &fy, (int)p[0], (int)p[1]) < 0) {
+	if (bsg_screen_to_view(gd->cv, &fx, &fy, (int)p[0], (int)p[1]) < 0) {
 	    return BRLCAD_ERROR;
 	}
 	p[0] = fx;
@@ -121,7 +121,7 @@ _label_cmd_create(void *bs, int argc, const char **argv)
 	}
     }
 
-    s = bv_view_obj_label_create(gd->cv, gd->vobj, gd->local_obj);
+    s = bsg_view_obj_label_create(gd->cv, gd->vobj, gd->local_obj);
     if (!s) {
 	bu_vls_printf(gedp->ged_result_str, "Failed to create %s\n", gd->vobj);
 	return BRLCAD_ERROR;

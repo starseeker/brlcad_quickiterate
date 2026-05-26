@@ -239,7 +239,7 @@ GED_EXPORT extern void ged_rt_fb_refresh(struct ged *gedp);
 /* Data for tree walk */
 struct draw_data_t {
     struct db_i *dbip;
-    struct bv_scene_group *g;
+    struct bsg_scene_group *g;
     struct bsg_view *v;
     struct bsg_obj_settings *vs;
     const struct bn_tol *tol;

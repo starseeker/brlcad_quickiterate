@@ -59,7 +59,7 @@ main(int argc, char *argv[])
     // Create the view
     struct bsg_view *v;
     BU_GET(v, struct bsg_view);
-    bv_init(v, NULL);
+    bsg_init(v, NULL);
 
     struct bsg_node *pobj = db_sketch_to_scene_obj("poly", dbip, dp, v, 0);
 

@@ -94,14 +94,14 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     if (bu_vls_strlen(&cvls)) {
-	cv = bv_set_find_view(&gedp->ged_views, bu_vls_cstr(&cvls));
+	cv = bsg_set_find_view(&gedp->ged_views, bu_vls_cstr(&cvls));
 	if (!cv) {
 	    bu_vls_printf(gedp->ged_result_str, "Specified view %s not found\n", bu_vls_cstr(&cvls));
 	    bu_vls_free(&cvls);
 	    return BRLCAD_ERROR;
 	}
 
-	if (!bv_view_is_independent(cv)) {
+	if (!bsg_view_is_independent(cv)) {
 	    bu_vls_printf(gedp->ged_result_str, "Specified view %s is not an independent view, and as such does not support specifying db objects for display in only this view.  To change the view's status, the command 'view independent %s 1' may be applied.\n", bu_vls_cstr(&cvls), bu_vls_cstr(&cvls));
 	    bu_vls_free(&cvls);
 	    return BRLCAD_ERROR;
@@ -110,11 +110,11 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
 
     // If we don't have a specified view, and the default view isn't a shared view, see if
     // we can find a shared view in the view set.
-    if (!bu_vls_strlen(&cvls) && (!cv || bv_view_is_independent(cv))) {
-	struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    if (!bu_vls_strlen(&cvls) && (!cv || bsg_view_is_independent(cv))) {
+	struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
 	for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	    struct bsg_view *bv = (struct bsg_view *)BU_PTBL_GET(views, i);
-	    if (!bv_view_is_independent(bv)) {
+	    if (!bsg_view_is_independent(bv)) {
 		cv = bv;
 		break;
 	    }
@@ -220,8 +220,8 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
 	*((int *)data) = 1;
 	return 0; /* stop after first hit */
     };
-    bv_view_objs_visit_db(cv, _count_one_db, &have_db_obj);
-    bv_view_obj_visit(cv, BV_VIEW_OBJ_SCOPE_ALL, _count_one_view, &have_view_obj);
+    bsg_view_objs_visit_db(cv, _count_one_db, &have_db_obj);
+    bsg_view_obj_visit(cv, BV_VIEW_OBJ_SCOPE_ALL, _count_one_view, &have_view_obj);
     if (!have_db_obj && !have_view_obj) {
 	blank_slate = 1;
     }
@@ -229,7 +229,7 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     // Drawing can get complicated when we have multiple active views with
     // different settings. The simplest case is when the current or specified
     // view is an independent view - we just update it and return.
-    if (bv_view_is_independent(cv)) {
+    if (bsg_view_is_independent(cv)) {
 	DbiState *dbis = (DbiState *)gedp->dbi_state;
 	BViewState *bvs = dbis->get_view_state(cv);
 	for (size_t i = 0; i < (size_t)argc; ++i)
@@ -245,10 +245,10 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     // view specific geometry to generate) but this is not true when adaptive
     // plotting is enabled.
     std::unordered_map<BViewState *, std::unordered_set<struct bsg_view *>> vmap;
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, i);
-	if (bv_view_is_independent(v))
+	if (bsg_view_is_independent(v))
 	    continue;
 	DbiState *dbis = (DbiState *)gedp->dbi_state;
 	BViewState *bvs = dbis->get_view_state(cv);
@@ -256,11 +256,11 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
 	    continue;
 	vmap[bvs].insert(v);
     }
-    std::unordered_map<BViewState *, std::unordered_set<struct bsg_view *>>::iterator bv_it;
-    for (bv_it = vmap.begin(); bv_it != vmap.end(); bv_it++) {
+    std::unordered_map<BViewState *, std::unordered_set<struct bsg_view *>>::iterator bsg_it;
+    for (bsg_it = vmap.begin(); bsg_it != vmap.end(); bsg_it++) {
 	for (size_t i = 0; i < (size_t)argc; ++i)
-	    bv_it->first->add_path(argv[i]);
-	bv_it->first->redraw(&vs, bv_it->second, !(blank_slate && !no_autoview));
+	    bsg_it->first->add_path(argv[i]);
+	bsg_it->first->redraw(&vs, bsg_it->second, !(blank_slate && !no_autoview));
     }
 
     return BRLCAD_OK;
@@ -302,7 +302,7 @@ ged_redraw2_core(struct ged *gedp, int argc, const char *argv[])
     int opt_ret = bu_opt_parse(NULL, argc, argv, vd);
     argc = opt_ret;
     if (bu_vls_strlen(&cvls)) {
-	cv = bv_set_find_view(&gedp->ged_views, bu_vls_cstr(&cvls));
+	cv = bsg_set_find_view(&gedp->ged_views, bu_vls_cstr(&cvls));
 	if (!cv) {
 	    bu_vls_printf(gedp->ged_result_str, "Specified view %s not found\n", bu_vls_cstr(&cvls));
 	    bu_vls_free(&cvls);
@@ -315,7 +315,7 @@ ged_redraw2_core(struct ged *gedp, int argc, const char *argv[])
     if (cv) {
 	return _ged_redraw_view(gedp, cv, argc, argv);
     } else {
-	struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+	struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
 	if (!BU_PTBL_LEN(views)) {
 	    bu_vls_printf(gedp->ged_result_str, "No views defined\n");
 	    return BRLCAD_OK;

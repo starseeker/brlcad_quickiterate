@@ -248,7 +248,7 @@ _ged_subcmd2_help(struct ged *gedp, struct bu_opt_desc *gopts, std::map<std::str
     return BRLCAD_OK;
 }
 
-/* Phase B: context + callback for bv_view_objs_visit_db used to accumulate
+/* Phase B: context + callback for bsg_view_objs_visit_db used to accumulate
  * bounding sphere extents (replaces scene_bounding_sph for GED sessions). */
 struct _scene_bsph_ctx {
     vect_t *vmin;
@@ -1715,13 +1715,13 @@ _ged_rt_set_eye_model(struct ged *gedp,
 	if (gedp->dbi_state) {
 	    VSETALL(extremum[0],  INFINITY);
 	    VSETALL(extremum[1], -INFINITY);
-	    /* Phase B: use bv_view_objs_visit_db to traverse BSG tree when
+	    /* Phase B: use bsg_view_objs_visit_db to traverse BSG tree when
 	     * gv_draw_root is set, so GED sessions work after BV_DB_OBJS
 	     * ptbls are emptied by B-full-1. */
 	    struct _scene_bsph_ctx bsph_ctx;
 	    bsph_ctx.vmin = &extremum[0];
 	    bsph_ctx.vmax = &extremum[1];
-	    bv_view_objs_visit_db(gedp->ged_gvp, _scene_bsph_cb, &bsph_ctx);
+	    bsg_view_objs_visit_db(gedp->ged_gvp, _scene_bsph_cb, &bsph_ctx);
 	} else {
 	    (void)bsg_view_obj_bounds(gedp, &(extremum[0]), &(extremum[1]), 1);
 	}

@@ -98,7 +98,7 @@ open_gedp_null(const char *gfile)
 
     gedp->dbi_state = new DbiState(gedp);
     gedp->new_cmd_forms = 1;
-    gedp->ged_lod = bv_mesh_lod_context_create(gedp->dbip->dbi_filename);
+    gedp->ged_lod = bsg_mesh_lod_context_create(gedp->dbip->dbi_filename);
     db_add_changed_clbk(gedp->dbip, &ged_changed_callback, (void *)gedp);
 
     struct bsg_view *v = gedp->ged_gvp;
@@ -121,7 +121,7 @@ make_null_view(struct ged *gedp, const char *vname)
 {
     struct bsg_view *v;
     BU_GET(v, struct bsg_view);
-    bv_init(v, &gedp->ged_views);
+    bsg_init(v, &gedp->ged_views);
     bu_vls_sprintf(&v->gv_name, "%s", vname);
     v->gv_base2local = gedp->dbip->dbi_base2local;
     v->gv_local2base = gedp->dbip->dbi_local2base;
@@ -130,7 +130,7 @@ make_null_view(struct ged *gedp, const char *vname)
      * (libtclcad/commands.c bsg_scene_root_create call). */
     bsg_scene_root_create(v);
 
-    bv_set_add_view(&gedp->ged_views, v);
+    bsg_set_add_view(&gedp->ged_views, v);
     bu_ptbl_ins(&gedp->ged_free_views, (long *)v);
 
     return v;
@@ -360,7 +360,7 @@ open_gedp_swrast(const char *gfile, int width, int height)
 
     gedp->dbi_state = new DbiState(gedp);
     gedp->new_cmd_forms = 1;
-    gedp->ged_lod = bv_mesh_lod_context_create(gedp->dbip->dbi_filename);
+    gedp->ged_lod = bsg_mesh_lod_context_create(gedp->dbip->dbi_filename);
     bu_setenv("DM_SWRAST", "1", 1);
     db_add_changed_clbk(gedp->dbip, &ged_changed_callback, (void *)gedp);
 

@@ -136,7 +136,7 @@ ged_knob_core(struct ged *gedp, int argc, const char *argv[])
 		BU_STR_EQUAL(cmd, "clear") || BU_STR_EQUAL(cmd, "stop")) {
 	    // Per MGED, this command seems to reset the rate entries
 	    // but not the absolute entries.
-	    bv_knobs_reset(&v->k, BV_KNOBS_RATE);
+	    bsg_knobs_reset(&v->k, BV_KNOBS_RATE);
 	    continue;
 	}
 	if (BU_STR_EQUAL(cmd, "calibrate")) {
@@ -169,7 +169,7 @@ ged_knob_core(struct ged *gedp, int argc, const char *argv[])
 	--argc;	++argv;
 
 	// Process the actual command
-	int kp_ret = bv_knobs_cmd_process(
+	int kp_ret = bsg_knobs_cmd_process(
 		&rvec, &do_rot, &tvec, &do_tran,
 		v, cmd, f,
 		origin, model_flag, incr_flag);
@@ -181,15 +181,15 @@ ged_knob_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     if (do_tran) {
-	bv_knobs_tran(v, tvec, model_flag);
+	bsg_knobs_tran(v, tvec, model_flag);
     }
 
     if (do_rot) {
 	// Note - we don't (currently) support 'o' coords here, so the obj_rot matrix is always NULL.
-	bv_knobs_rot(v, rvec, origin, (model_flag ? 'm' : 'v'), NULL, (origin == 'k') ? gedp->ged_gvp->gv_keypoint : NULL);
+	bsg_knobs_rot(v, rvec, origin, (model_flag ? 'm' : 'v'), NULL, (origin == 'k') ? gedp->ged_gvp->gv_keypoint : NULL);
     }
 
-    bv_update_rate_flags(v);
+    bsg_update_rate_flags(v);
 
     return BRLCAD_OK;
 }

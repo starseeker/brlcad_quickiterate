@@ -108,7 +108,7 @@ open_edit(struct directory *dp, struct db_i *dbip)
 
     struct bsg_view *v;
     BU_GET(v, struct bsg_view);
-    bv_init(v, NULL);
+    bsg_init(v, NULL);
     bu_vls_sprintf(&v->gv_name, "default");
     v->gv_width  = 512;
     v->gv_height = 512;

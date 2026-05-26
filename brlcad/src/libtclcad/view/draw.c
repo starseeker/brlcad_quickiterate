@@ -221,11 +221,11 @@ to_edit_redraw(struct ged *gedp,
 
     /* Phase 6: iterate the BSG view tree (BV_DB_OBJS) instead of walking
      * the legacy ged_dl / dl_head_scene_obj display-list chain. */
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
     size_t vi;
     for (vi = 0; vi < BU_PTBL_LEN(views); vi++) {
 	struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, vi);
-	struct bu_ptbl *db_objs = bv_view_objs(v, BV_DB_OBJS);
+	struct bu_ptbl *db_objs = bsg_view_objs(v, BV_DB_OBJS);
 	if (!db_objs)
 	    continue;
 

@@ -1007,8 +1007,8 @@ main(int ac, char *av[])
     /* ---------------------------------------------------------------- *
      * [16] Phase 11: renderer-backend contract.                         *
      *      Stub a dm_backend_ops, attach an s_backend descriptor on a  *
-     *      shape, and verify that bv_scene_obj_invalidate_backend /    *
-     *      bv_scene_obj_release_backend fire the new ops.              *
+     *      shape, and verify that bsg_scene_obj_invalidate_backend /    *
+     *      bsg_scene_obj_release_backend fire the new ops.              *
      * ---------------------------------------------------------------- */
     {
 	bu_log("[16] Phase 11: renderer-backend contract...\n");
@@ -1061,19 +1061,19 @@ main(int ac, char *av[])
 	target->s_backend = be;
 
 	/* Sub-test 1: invalidate fires the new contract callback. */
-	bv_scene_obj_invalidate_backend(target);
+	bsg_scene_obj_invalidate_backend(target);
 	ASSERT(st.invalidate_calls == 1);
 	ASSERT(st.last_obj == target);
 
-	/* Sub-test 2: bv_obj_stale recurses into children and ultimately
-	 * reaches our shape via bv_scene_obj_invalidate_backend. */
+	/* Sub-test 2: bsg_obj_stale recurses into children and ultimately
+	 * reaches our shape via bsg_scene_obj_invalidate_backend. */
 	st.invalidate_calls = 0;
-	bv_obj_stale(target);
+	bsg_obj_stale(target);
 	ASSERT(st.invalidate_calls == 1);
 
 	/* Sub-test 3: release_backend fires the new free and clears the
 	 * s_backend slot. */
-	bv_scene_obj_release_backend(target);
+	bsg_scene_obj_release_backend(target);
 	ASSERT(st.free_calls == 1);
 	ASSERT(target->s_backend == NULL);
 
@@ -1082,12 +1082,12 @@ main(int ac, char *av[])
 	struct bsg_node *bare = bsg_view_obj_next_solid(gedp, target);
 	if (bare && bare != target) {
 	    bare->s_backend = NULL;
-	    bv_scene_obj_release_backend(bare);
+	    bsg_scene_obj_release_backend(bare);
 	    ASSERT(bare->s_backend == NULL);
 	}
 
 	/* Sub-test 5: dm-side dispatch wrappers tolerate a NULL dmp. */
-	bv_scene_obj_release_backend(NULL); /* must not crash */
+	bsg_scene_obj_release_backend(NULL); /* must not crash */
 	dm_backend_invalidate_obj(NULL, target);
 	dm_backend_release_obj(NULL, target);
 

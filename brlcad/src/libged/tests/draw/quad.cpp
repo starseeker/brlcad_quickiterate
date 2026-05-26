@@ -60,10 +60,10 @@ ged_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mode, 
 
     // Need to invalidate any LoD caches associated with this dp
     if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT && ctx->gedp) {
-	unsigned long long key = bv_mesh_lod_key_get(ctx->gedp->ged_lod, dp->d_namep);
+	unsigned long long key = bsg_mesh_lod_key_get(ctx->gedp->ged_lod, dp->d_namep);
 	if (key) {
-	    bv_mesh_lod_clear_cache(ctx->gedp->ged_lod, key);
-	    bv_mesh_lod_key_put(ctx->gedp->ged_lod, dp->d_namep, 0);
+	    bsg_mesh_lod_clear_cache(ctx->gedp->ged_lod, key);
+	    bsg_mesh_lod_key_put(ctx->gedp->ged_lod, dp->d_namep, 0);
 	}
     }
 
@@ -90,7 +90,7 @@ ged_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mode, 
 void
 dm_refresh(struct ged *gedp, int vnum)
 {
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
     struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, vnum);
     if (!v)
 	return;
@@ -167,12 +167,12 @@ img_cmp(int vnum, int id, struct ged *gedp, const char *cdir, bool clear, int so
 
     dm_refresh(gedp, vnum);
 
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
     struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, vnum);
     if (!v)
 	bu_exit(EXIT_FAILURE, "Invalid view specifier: %d\n", vnum);
     struct dm *dmp = (struct dm *)v->dmp;
-    int cnum = (bv_view_is_independent(v)) ? vnum : -1;
+    int cnum = (bsg_view_is_independent(v)) ? vnum : -1;
 
     const char *s_av[4] = {NULL};
     s_av[0] = "screengrab";
@@ -465,7 +465,7 @@ main(int ac, char *av[]) {
     bu_setenv("DM_SWRAST", "1", 1);
 
     // We don't want the default GED views for this test
-    bv_set_rm_view(&gedp->ged_views, NULL);
+    bsg_set_rm_view(&gedp->ged_views, NULL);
 
     // Set callback so database changes will update dbi_state
     db_add_changed_clbk(gedp->dbip, &ged_changed_callback, (void *)gedp);
@@ -480,9 +480,9 @@ main(int ac, char *av[]) {
 	BU_GET(v, struct bsg_view);
 	if (!i)
 	    gedp->ged_gvp = v;
-	bv_init(v, &gedp->ged_views);
+	bsg_init(v, &gedp->ged_views);
 	bu_vls_sprintf(&v->gv_name, "V%zd", i);
-	bv_set_add_view(&gedp->ged_views, v);
+	bsg_set_add_view(&gedp->ged_views, v);
 	bu_ptbl_ins(&gedp->ged_free_views, (long *)v);
 
 	/* To generate images that will allow us to check if the drawing
@@ -613,7 +613,7 @@ main(int ac, char *av[]) {
     /* Check view independent behavior - basic drawing */
     bu_log("Basic independent views drawing test - V1 active\n");
 
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	set_independent(gedp, (int)i, 1);
     }

@@ -118,7 +118,7 @@ _dm_name_lookup(struct _ged_dm_info *gd, const char *dm_name)
     }
 
     struct ged *gedp = gd->gedp;
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
     if (!BU_PTBL_LEN(views)) {
 	bu_vls_printf(gedp->ged_result_str, ": no views defined in GED\n");
 	return NULL;
@@ -350,7 +350,7 @@ _dm_cmd_list(void *ds, int argc, const char **argv)
 	}
     }
 
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
     if (!BU_PTBL_LEN(views) && !cdmp) {
 	bu_vls_printf(gedp->ged_result_str, ": no views defined in GED\n");
 	return BRLCAD_ERROR;
@@ -572,7 +572,7 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
 	// No name - generate one
 	bu_vls_sprintf(&dm_name, "%s-0", argv[0]);
 	int exists = 0;
-	struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+	struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
 	for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	    struct bsg_view *gdvp = (struct bsg_view *)BU_PTBL_GET(views, i);
 	    struct dm *ndmp = (struct dm *)gdvp->dmp;
@@ -617,7 +617,7 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
 	}
 	// Have name - see if it already exists
 	int exists = 0;
-	struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+	struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
 	for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	    struct bsg_view *gdvp = (struct bsg_view *)BU_PTBL_GET(views, i);
 	    struct dm *ndmp = (struct dm *)gdvp->dmp;
@@ -638,7 +638,7 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
 
     struct bsg_view *target_view = NULL;
     if (bu_vls_strlen(&view_name)) {
-	struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+	struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
 	for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	    struct bsg_view *tview = (struct bsg_view *)BU_PTBL_GET(views, i);
 	    if (!bu_vls_strcmp(&view_name, &tview->gv_name)) {
@@ -652,8 +652,8 @@ _dm_cmd_attach(void *ds, int argc, const char **argv)
 
     if (!target_view) {
 	BU_GET(target_view, struct bsg_view);
-	bv_init(target_view, &gedp->ged_views);
-	bv_set_add_view(&gedp->ged_views, target_view);
+	bsg_init(target_view, &gedp->ged_views);
+	bsg_set_add_view(&gedp->ged_views, target_view);
 	// This view is being created by GED, so it needs to be cleaned
 	// up by GED as well
 	bu_ptbl_ins(&gedp->ged_free_views, (long *)target_view);

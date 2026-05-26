@@ -369,7 +369,7 @@ ged_gdiff_core(struct ged *gedp, int argc, const char *argv[])
 	struct bsg_vlblock *vbp;
 	struct bu_list local_vlist;
 	BU_LIST_INIT(&local_vlist);
-	vbp = bv_vlblock_init(&local_vlist, 32);
+	vbp = bsg_vlblock_init(&local_vlist, 32);
 
 	/* Clear any previous diff drawing */
 	{
@@ -393,7 +393,7 @@ ged_gdiff_core(struct ged *gedp, int argc, const char *argv[])
 		struct diff_seg *dseg = (struct diff_seg *)BU_PTBL_GET(results->left, i);
 		VMOVE(a, dseg->in_pt);
 		VMOVE(b, dseg->out_pt);
-		vhead = bv_vlblock_find(vbp, 255, 0, 0); /* should be red */
+		vhead = bsg_vlblock_find(vbp, 255, 0, 0); /* should be red */
 		BSG_ADD_VLIST(vbp->free_vlist_hd, vhead, a, BSG_VLIST_LINE_MOVE);
 		BSG_ADD_VLIST(vbp->free_vlist_hd, vhead, b, BSG_VLIST_LINE_DRAW);
 	    }
@@ -404,7 +404,7 @@ ged_gdiff_core(struct ged *gedp, int argc, const char *argv[])
 		struct diff_seg *dseg = (struct diff_seg *)BU_PTBL_GET(results->both, i);
 		VMOVE(a, dseg->in_pt);
 		VMOVE(b, dseg->out_pt);
-		vhead = bv_vlblock_find(vbp, 255, 255, 255); /* should be white */
+		vhead = bsg_vlblock_find(vbp, 255, 255, 255); /* should be white */
 		BSG_ADD_VLIST(vbp->free_vlist_hd, vhead, a, BSG_VLIST_LINE_MOVE);
 		BSG_ADD_VLIST(vbp->free_vlist_hd, vhead, b, BSG_VLIST_LINE_DRAW);
 
@@ -416,7 +416,7 @@ ged_gdiff_core(struct ged *gedp, int argc, const char *argv[])
 		struct diff_seg *dseg = (struct diff_seg *)BU_PTBL_GET(results->right, i);
 		VMOVE(a, dseg->in_pt);
 		VMOVE(b, dseg->out_pt);
-		vhead = bv_vlblock_find(vbp, 0, 0, 255); /* should be blue */
+		vhead = bsg_vlblock_find(vbp, 0, 0, 255); /* should be blue */
 		BSG_ADD_VLIST(vbp->free_vlist_hd, vhead, a, BSG_VLIST_LINE_MOVE);
 		BSG_ADD_VLIST(vbp->free_vlist_hd, vhead, b, BSG_VLIST_LINE_DRAW);
 	    }
@@ -424,13 +424,13 @@ ged_gdiff_core(struct ged *gedp, int argc, const char *argv[])
 
 	if (gedp->dbi_state) {
 	    struct bsg_view *view = gedp->ged_gvp;
-	    bv_vlblock_obj(vbp, view, "gdiff");
+	    bsg_vlblock_obj(vbp, view, "gdiff");
 	} else {
 	    _ged_cvt_vlblock_to_solids(gedp, vbp, "diff_visual", 0);
 	}
 
-	bv_vlist_cleanup(&local_vlist);
-	bv_vlblock_free(vbp);
+	bsg_vlist_cleanup(&local_vlist);
+	bsg_vlblock_free(vbp);
     }
     analyze_raydiff_results_free(results);
 

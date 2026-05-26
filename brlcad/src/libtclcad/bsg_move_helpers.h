@@ -140,10 +140,10 @@ _bsg_rebuild_arrows(struct bsg_view *v,
 		    int visible)
 {
     if (!v || !bsg_name) return;
-    bv_view_obj_remove(v, bsg_name);
+    bsg_view_obj_remove(v, bsg_name);
     if (!pts || npts < 2) return;
 
-    struct bsg_node *ns = bv_view_obj_arrow_create(v, bsg_name, 1 /* local */);
+    struct bsg_node *ns = bsg_view_obj_arrow_create(v, bsg_name, 1 /* local */);
     if (!ns) return;
 
     for (int i = 0; i + 1 < npts; i += 2) {
@@ -151,13 +151,13 @@ _bsg_rebuild_arrows(struct bsg_view *v,
 	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, pts[i+1], BSG_VLIST_LINE_DRAW);
     }
     if (color)
-	bv_view_obj_set_color(ns, color[0], color[1], color[2]);
-    bv_view_obj_set_line_width(ns, lw);
+	bsg_view_obj_set_color(ns, color[0], color[1], color[2]);
+    bsg_view_obj_set_line_width(ns, lw);
     if (ns->s_os) {
 	ns->s_os->s_arrow_tip_length = (fastf_t)tip_len;
 	ns->s_os->s_arrow_tip_width  = (fastf_t)tip_wid;
     }
-    bv_view_obj_set_visible(ns, visible);
+    bsg_view_obj_set_visible(ns, visible);
 }
 
 /**
@@ -172,10 +172,10 @@ _bsg_rebuild_lines(struct bsg_view *v,
 		   int visible)
 {
     if (!v || !bsg_name) return;
-    bv_view_obj_remove(v, bsg_name);
+    bsg_view_obj_remove(v, bsg_name);
     if (!pts || npts < 2) return;
 
-    struct bsg_node *ns = bv_view_obj_lines_create(v, bsg_name, 1 /* local */);
+    struct bsg_node *ns = bsg_view_obj_lines_create(v, bsg_name, 1 /* local */);
     if (!ns) return;
 
     for (int i = 0; i + 1 < npts; i += 2) {
@@ -183,9 +183,9 @@ _bsg_rebuild_lines(struct bsg_view *v,
 	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, pts[i+1], BSG_VLIST_LINE_DRAW);
     }
     if (color)
-	bv_view_obj_set_color(ns, color[0], color[1], color[2]);
-    bv_view_obj_set_line_width(ns, lw);
-    bv_view_obj_set_visible(ns, visible);
+	bsg_view_obj_set_color(ns, color[0], color[1], color[2]);
+    bsg_view_obj_set_line_width(ns, lw);
+    bsg_view_obj_set_visible(ns, visible);
 }
 
 /**
@@ -201,10 +201,10 @@ _bsg_rebuild_axes(struct bsg_view *v,
 		  int visible)
 {
     if (!v || !bsg_name) return;
-    bv_view_obj_remove(v, bsg_name);
+    bsg_view_obj_remove(v, bsg_name);
     if (!centers || ncenters < 1) return;
 
-    struct bsg_node *ns = bv_view_obj_lines_create(v, bsg_name, 1 /* local */);
+    struct bsg_node *ns = bsg_view_obj_lines_create(v, bsg_name, 1 /* local */);
     if (!ns) return;
 
     for (int i = 0; i < ncenters; i++) {
@@ -227,9 +227,9 @@ _bsg_rebuild_axes(struct bsg_view *v,
     }
 
     if (color)
-	bv_view_obj_set_color(ns, color[0], color[1], color[2]);
-    bv_view_obj_set_line_width(ns, lw);
-    bv_view_obj_set_visible(ns, visible);
+	bsg_view_obj_set_color(ns, color[0], color[1], color[2]);
+    bsg_view_obj_set_line_width(ns, lw);
+    bsg_view_obj_set_visible(ns, visible);
 }
 
 /* --------------------------------------------------------------------------

@@ -150,7 +150,7 @@ _bv_axes_differ(struct bsg_axes *v1, struct bsg_axes *v2)
  * _bg_poly_contour_differ, _bg_polygon_differ, _bg_polygons_differ,
  * _bv_data_polygon_state_differ) were removed; the equivalent renderable
  * state now lives in BSG view-scope objects whose s_changed flag drives
- * view diffs without needing the legacy bv_data_* compares. */
+ * view diffs without needing the legacy bsg_data_* compares. */
 
 static int
 _bv_grid_state_differ(struct bsg_grid_state *v1, struct bsg_grid_state *v2)
@@ -271,7 +271,7 @@ _bv_settings_differ(struct bsg_view_settings *v1, struct bsg_view_settings *v2)
 
 
 int
-bv_differ(struct bsg_view *v1, struct bsg_view *v2)
+bsg_differ(struct bsg_view *v1, struct bsg_view *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -314,7 +314,7 @@ bv_differ(struct bsg_view *v1, struct bsg_view *v2)
      * mirrors into BSG VIEW_SCOPE objects whose s_changed flag drives
      * downstream redraws.  The gv_data_vZ scalar is internal scratch for
      * the libged "view vZ" command; it does not affect rendering and
-     * therefore intentionally does not contribute to bv_differ(). */
+     * therefore intentionally does not contribute to bsg_differ(). */
 
     if (v1->gv_s != v2->gv_s) {
 	return 1;

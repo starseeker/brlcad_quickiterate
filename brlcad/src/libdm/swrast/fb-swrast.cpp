@@ -433,7 +433,7 @@ fb_swrast_open(struct fb *ifp, const char *UNUSED(file), int width, int height)
 	ifp->i->pp = NULL;
 	return -1;
     }
-    bv_init(canvas_view, NULL);
+    bsg_init(canvas_view, NULL);
     canvas_view->gv_s->gv_fb_mode = 1;
     canvas_view->gv_width = width;
     canvas_view->gv_height = height;

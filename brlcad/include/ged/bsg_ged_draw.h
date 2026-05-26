@@ -524,7 +524,7 @@ bsg_view_obj_append_solid_to_group(struct ged *gedp,
  *
  * Register this on every BSG_NODE_SHAPE node at creation time alongside
  * setting ged_bv_data::gedp.  The BSG freeing paths call it explicitly before
- * FREE_BV_SCENE_OBJ; bv_free() calls it again during pool teardown, but the
+ * FREE_BV_SCENE_OBJ; bsg_free() calls it again during pool teardown, but the
  * second call is a safe no-op (Phase 7 Step 9).
  */
 GED_EXPORT extern void ged_bv_illum_free_cb(struct bsg_node *sp);

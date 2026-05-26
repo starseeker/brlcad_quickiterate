@@ -164,7 +164,7 @@ rt_sample_pnts(struct bsg_node *s, struct rt_db_internal *ip)
 	db_close(dbip);
 
     // Update the bounding box
-    bv_scene_obj_bound(s, NULL);
+    bsg_scene_obj_bound(s, NULL);
 
     return BRLCAD_OK;
 }

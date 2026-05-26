@@ -15,7 +15,7 @@ API.  bv/ headers exist only as TEMPORARY bridges during the migration — once 
 have been updated the bridges will be deleted along with libbv.
 
 ===========================================================================
-MIGRATION STATUS  (updated: 2026-05-23)
+MIGRATION STATUS  (updated: 2026-05-26)
 ===========================================================================
 
 DONE
@@ -196,31 +196,45 @@ compatibility will be maintained in bsg/ headers.  bv/ headers exist
 only as temporary bridges; once all callers are migrated they are
 deleted together with libbv.
 
-Slice 28b – Remove libbv from the build entirely
-  * Remove set_deps(libbv ...) from source_dirs.cmake
-  * Remove or disable src/libbv/CMakeLists.txt (comment out brlcad_addlib call,
-    or add a conditional guard)
-  * Remove add_subdirectory(libbv) from src/CMakeLists.txt
-  * Verify that libbv.so is no longer built and no linker can find it
-  * Delete src/libbv/ directory
-  * Delete include/bv/ directory
+Slice 28b – Remove libbv from the build entirely  [COMPLETE 2026-05-26]
+  * Removed set_deps(libbv ...) from source_dirs.cmake
+  * Deleted src/libbv/ directory and include/bv/ directory
+  * Updated all bv/ includes in libbsg merged files to use bsg/ headers
+  * Replaced BV_VLIST_*/BV_FREE_VLIST/etc. with BSG_ equivalents in merged files
+  * Updated all CMakeLists.txt: libbv → libbsg
+  * bv.h retained as bridge that includes bsg/ headers
+  * 15/15 tests pass
 
-Slice 26 – Rename struct tags and types in bsg/defines.h:
-    bview        → bsg_view
-    bview_set    → bsg_view_set
-    bv_scene_obj → bsg_node
-    bv_axes      → bsg_axes
-    bv_obj_settings → bsg_obj_settings
-    bview_settings  → bsg_view_settings
-    bview_objs   → bsg_view_objs
-    bview_knobs  → bsg_view_knobs
-  Add typedef aliases in bsg/defines.h for the old names to ease migration.
-  Update all callers systematically.
+Slice 26 – Rename struct tags and types  [COMPLETE 2026-05-26]
+  Renamed throughout entire codebase via bulk sed:
+    bview        → bsg_view         bview_set    → bsg_view_set
+    bv_scene_obj → bsg_node         bv_axes      → bsg_axes
+    bv_obj_settings → bsg_obj_settings  bview_settings → bsg_view_settings
+    bview_objs   → bsg_view_obj_pool bview_knobs → bsg_view_knobs
+    bv_label     → bsg_label        bv_scene_obj_internal → bsg_node_internal
+    bv_obj_backend → bsg_backend    bv_mesh_lod  → bsg_mesh_lod
+    bv_mesh_lod_context → bsg_mesh_lod_context   bview_set_internal → bsg_view_set_internal
+    bv_adc_state → bsg_adc_state    bv_grid_state → bsg_grid_state
+    bv_interactive_rect_state → bsg_interactive_rect_state
+    bv_params_state → bsg_params_state  bv_other_state → bsg_other_state
+    bv_polygon   → bsg_polygon      bv_vlblock   → bsg_vlblock
+    bv_scene_obj_old_settings → bsg_node_old_settings
+    all bv_data_* states → bsg_data_*   bv_data_tclcad → bsg_data_tclcad
+    bv_view_obj_opts → bsg_view_obj_opts
+  Note: struct bview_objs renamed to bsg_view_obj_pool (not bsg_view_objs) to
+  avoid collision with function bsg_view_objs().
+  Added typedef compat aliases for all old names in bsg/ headers.
+  15/15 tests pass.
 
-Slice 27 – Rename function prefixes bv_ → bsg_, BV_ → BSG_ throughout the
-  codebase (util, view_sets, snap, adc, polygon, vectfont, tig, plot3,
-  vlist, vlblock, etc.).  Update bv/ bridge headers to provide
-  #define bv_foo bsg_foo aliases for any remaining external consumers.
+Slice 27 – Rename function prefixes bv_ → bsg_  [COMPLETE 2026-05-26]
+  * Bulk renamed all bv_[a-z] function/symbol names → bsg_ throughout
+    all source files (3310 files, ~1861 occurrences)
+  * Removed redundant self-calling wrappers in util.c and vlist.c
+  * Fixed bsg_view_objs/bsg_view_obj_pool struct/function name collision
+  * Fixed bsg_node_internal empty struct (added placeholder field)
+  * Updated bsg_private.h to include bv_private.h for internal struct defs
+  * Added 104 #define bv_xxx bsg_xxx compat function aliases in bv.h
+  * 15/15 tests pass
 
 DEPENDENCY GRAPH (current, as of Slice 28)
 ---------------------------

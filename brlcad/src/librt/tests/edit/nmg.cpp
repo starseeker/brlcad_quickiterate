@@ -205,9 +205,9 @@ main(int argc, char *argv[])
 
     struct bsg_view *v;
     BU_GET(v, struct bsg_view);
-    bv_init(v, NULL);
+    bsg_init(v, NULL);
     VSET(v->gv_aet, 45, 35, 0);
-    bv_mat_aet(v);
+    bsg_mat_aet(v);
     v->gv_size  = 73.3197;
     v->gv_isize = 1.0 / v->gv_size;
 
@@ -370,11 +370,11 @@ main(int argc, char *argv[])
 
 	struct bsg_view *wv;
 	BU_GET(wv, struct bsg_view);
-	bv_init(wv, NULL);
+	bsg_init(wv, NULL);
 	wv->gv_size  = 10.0;
 	wv->gv_isize = 0.1;
 	wv->gv_scale = 5.0;
-	bv_update(wv);
+	bsg_update(wv);
 	bu_vls_sprintf(&wv->gv_name, "default");
 	wv->gv_width = wv->gv_height = 512;
 

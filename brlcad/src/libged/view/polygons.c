@@ -77,7 +77,7 @@ _poly_cmd_create(void *bs, int argc, const char **argv)
     }
 
     point_t sp;
-    bv_screen_pt(&sp, (fastf_t)x, (fastf_t)y, gedp->ged_gvp);
+    bsg_screen_pt(&sp, (fastf_t)x, (fastf_t)y, gedp->ged_gvp);
 
     int type = BV_POLYGON_GENERAL;
     if (argc == 3) {
@@ -98,12 +98,12 @@ _poly_cmd_create(void *bs, int argc, const char **argv)
     int flags = BV_VIEW_OBJS;
     if (gd->local_obj)
 	flags |= BV_LOCAL_OBJS;
-    s = bv_create_polygon(gd->cv, flags, type, &sp);
+    s = bsg_create_polygon(gd->cv, flags, type, &sp);
     if (!s) {
 	bu_vls_printf(gedp->ged_result_str, "Failed to create %s\n", gd->vobj);
 	return BRLCAD_ERROR;
     }
-    /* Phase A1: s_name is initialized by bv_obj_reset; just overwrite. */
+    /* Phase A1: s_name is initialized by bsg_obj_reset; just overwrite. */
     bu_vls_sprintf(&s->s_name, "%s", gd->vobj);
 
     return BRLCAD_OK;
@@ -170,9 +170,9 @@ _poly_cmd_select(void *bs, int argc, const char **argv)
     p->curr_contour_i = contour_ind;
     s->s_v->gv_mouse_x = x;
     s->s_v->gv_mouse_y = y;
-    bv_screen_pt(&s->s_v->gv_point, (fastf_t)x, (fastf_t)y, gedp->ged_gvp);
+    bsg_screen_pt(&s->s_v->gv_point, (fastf_t)x, (fastf_t)y, gedp->ged_gvp);
 
-    bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_PT_SELECT);
+    bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_PT_SELECT);
 
     return BRLCAD_OK;
 }
@@ -237,8 +237,8 @@ _poly_cmd_append(void *bs, int argc, const char **argv)
 
     s->s_v->gv_mouse_x = x;
     s->s_v->gv_mouse_y = y;
-    bv_screen_pt(&s->s_v->gv_point, (fastf_t)x, (fastf_t)y, gedp->ged_gvp);
-    bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_PT_APPEND);
+    bsg_screen_pt(&s->s_v->gv_point, (fastf_t)x, (fastf_t)y, gedp->ged_gvp);
+    bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_PT_APPEND);
 
     return BRLCAD_OK;
 }
@@ -290,8 +290,8 @@ _poly_cmd_move(void *bs, int argc, const char **argv)
 
     s->s_v->gv_mouse_x = x;
     s->s_v->gv_mouse_y = y;
-    bv_screen_pt(&s->s_v->gv_point, (fastf_t)x, (fastf_t)y, gedp->ged_gvp);
-    bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_PT_MOVE);
+    bsg_screen_pt(&s->s_v->gv_point, (fastf_t)x, (fastf_t)y, gedp->ged_gvp);
+    bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_PT_MOVE);
 
     return BRLCAD_OK;
 }
@@ -324,7 +324,7 @@ _poly_cmd_clear(void *bs, int argc, const char **argv)
     struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
     p->curr_contour_i = 0;
     p->curr_point_i = -1;
-    bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
 
     return BRLCAD_OK;
 }
@@ -380,7 +380,7 @@ _poly_cmd_close(void *bs, int argc, const char **argv)
        p->polygon.contour[ind].open = 0;
    }
 
-    bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
 
     return BRLCAD_OK;
 }
@@ -437,7 +437,7 @@ _poly_cmd_open(void *bs, int argc, const char **argv)
        p->polygon.contour[ind].open = 1;
    }
 
-    bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
 
     return BRLCAD_OK;
 }
@@ -513,10 +513,10 @@ _poly_cmd_overlap(void *bs, int argc, const char **argv)
     // Look up the polygon to check for overlaps.
     //
     // Phase A1 (drawing_stack_modernization): replaced two BV_VIEW_OBJS
-    // ptbl scans with a single bv_view_obj_find call (which walks both
+    // ptbl scans with a single bsg_view_obj_find call (which walks both
     // shared and local view scopes via the BSG tree).
     struct bsg_view *v = gd->cv;
-    struct bsg_node *s2 = bv_view_obj_find(v, argv[0]);
+    struct bsg_node *s2 = bsg_view_obj_find(v, argv[0]);
     if (!s2) {
 	bu_vls_printf(gedp->ged_result_str, "View object %s does not exist\n", argv[0]);
 	return BRLCAD_ERROR;
@@ -672,7 +672,7 @@ _poly_cmd_fill(void *bs, int argc, const char **argv)
     if (argc == 1 && BU_STR_EQUAL(argv[0], "0")) {
 	struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
 	p->fill_flag = 0;
-	bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
+	bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
 	return BRLCAD_OK;
     }
 
@@ -699,7 +699,7 @@ _poly_cmd_fill(void *bs, int argc, const char **argv)
     p->fill_flag = 1;
     V2MOVE(p->fill_dir, vdir);
     p->fill_delta = vdelta;
-    bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
 
     return BRLCAD_OK;
 }
@@ -745,7 +745,7 @@ _poly_cmd_fill_color(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    struct bsg_node *fobj = bv_find_child(s, "*fill*");
+    struct bsg_node *fobj = bsg_find_child(s, "*fill*");
     if (fobj) {
 	bu_color_to_rgb_chars(&p->fill_color, fobj->s_color);
     }
@@ -803,9 +803,9 @@ _poly_cmd_csg(void *bs, int argc, const char **argv)
     // Look up the polygon to check for overlaps.
     //
     // Phase A1 (drawing_stack_modernization): replaced two BV_VIEW_OBJS
-    // ptbl scans with a single bv_view_obj_find call.
+    // ptbl scans with a single bsg_view_obj_find call.
     struct bsg_view *v = gd->cv;
-    struct bsg_node *s2 = bv_view_obj_find(v, argv[1]);
+    struct bsg_node *s2 = bsg_view_obj_find(v, argv[1]);
     if (!s2) {
 	bu_vls_printf(gedp->ged_result_str, "View object %s does not exist\n", argv[0]);
 	return BRLCAD_ERROR;
@@ -834,7 +834,7 @@ _poly_cmd_csg(void *bs, int argc, const char **argv)
     polyA->type = BV_POLYGON_GENERAL;
 
     BU_PUT(cp, struct bg_polygon);
-    bv_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
 
     return BRLCAD_OK;
 }

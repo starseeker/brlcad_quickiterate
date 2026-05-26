@@ -623,14 +623,14 @@ dp_lod_worker(std::shared_ptr<DrawPipelineState> p)
 		    bu_data_hash(name, strlen(name) * sizeof(char));
 
 		unsigned long long key =
-		    bv_mesh_lod_key_get(p->lod_ctx, name);
+		    bsg_mesh_lod_key_get(p->lod_ctx, name);
 		if (!key) {
-		    key = bv_mesh_lod_cache(
+		    key = bsg_mesh_lod_cache(
 			p->lod_ctx,
 			(const point_t *)bot->vertices, bot->num_vertices,
 			NULL, bot->faces, bot->num_faces, 0, 0.66);
 		    if (key)
-			bv_mesh_lod_key_put(p->lod_ctx, name, key);
+			bsg_mesh_lod_key_put(p->lod_ctx, name, key);
 		}
 		if (key) {
 		    DrawInternalResult dr{};
@@ -1784,9 +1784,9 @@ DbiState::get_bbox(point_t *bbmin, point_t *bbmax, matp_t curr_mat, unsigned lon
 	return false;
     if (!have_bbox) {
 	if (dp->d_minor_type == DB5_MINORTYPE_BRLCAD_BOT && gedp->ged_lod) {
-	    key = bv_mesh_lod_key_get(gedp->ged_lod, dp->d_namep);
+	    key = bsg_mesh_lod_key_get(gedp->ged_lod, dp->d_namep);
 	    if (key) {
-		struct bsg_mesh_lod *lod = bv_mesh_lod_create(gedp->ged_lod, key);
+		struct bsg_mesh_lod *lod = bsg_mesh_lod_create(gedp->ged_lod, key);
 		if (lod) {
 		    VMOVE(bmin, lod->bmin);
 		    VMOVE(bmax, lod->bmax);
@@ -1871,7 +1871,7 @@ DbiState::get_path_bbox(point_t *bbmin, point_t *bbmax, std::vector<unsigned lon
 BViewState *
 DbiState::get_view_state(struct bsg_view *v)
 {
-    if (!bv_view_is_independent(v))
+    if (!bsg_view_is_independent(v))
 	return shared_vs;
     if (view_states.find(v) != view_states.end())
 	return view_states[v];
@@ -2230,7 +2230,7 @@ DbiState::update()
     // For all associated view states, execute any necessary changes to
     // view objects and lists
     std::unordered_map<BViewState *, std::unordered_set<struct bsg_view *>> vmap;
-    struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
+    struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, i);
 	DbiState *dbis = (DbiState *)gedp->dbi_state;
@@ -2239,9 +2239,9 @@ DbiState::update()
 	    continue;
 	vmap[bvs].insert(v);
     }
-    std::unordered_map<BViewState *, std::unordered_set<struct bsg_view *>>::iterator bv_it;
-    for (bv_it = vmap.begin(); bv_it != vmap.end(); bv_it++) {
-	bv_it->first->redraw(NULL, bv_it->second, 1);
+    std::unordered_map<BViewState *, std::unordered_set<struct bsg_view *>>::iterator bsg_it;
+    for (bsg_it = vmap.begin(); bsg_it != vmap.end(); bsg_it++) {
+	bsg_it->first->redraw(NULL, bsg_it->second, 1);
     }
 
     // Phase 1-C: build change events before clearing the sets
@@ -2398,7 +2398,7 @@ BViewState::BViewState(DbiState *s)
 /* BSG integration helpers (Phase B short-term hot-fix).               */
 /*                                                                    */
 /* BViewState was historically depositing its leaf scene objects into  */
-/* bv_view_objs(v, BV_DB_OBJS).  The BSG render path in dm_draw_objs   */
+/* bsg_view_objs(v, BV_DB_OBJS).  The BSG render path in dm_draw_objs   */
 /* now reads from gd_draw_root only, so those leaves were invisible.   */
 /* These helpers attach/detach BViewState-allocated leaves to/from the */
 /* GED draw tree at gd_draw_root via the public bsg_view_obj_* API,    */
@@ -2487,7 +2487,7 @@ _bview_state_attach_leaf(struct ged *gedp,
  * revision counter and invalidate cached aggregate bboxes.  Safe to
  * call on objects that were never attached (sp->parent == NULL).
  *
- * Must be called before bv_obj_put(sp), because bv_obj_put() does NOT
+ * Must be called before bsg_obj_put(sp), because bsg_obj_put() does NOT
  * remove the object from any parent BSG node's children ptbl — only
  * from sp->otbl (the gv_objs ptbl it was minted into).
  */
@@ -2708,7 +2708,7 @@ BViewState::erase_hpath(int mode, unsigned long long c_hash, std::vector<unsigne
 	    if (mode < 0) {
 		for (s_it = sm_it->second.begin(); s_it != sm_it->second.end(); s_it++) {
 		    _bview_state_detach_leaf(s_it->second);
-		    bv_obj_put(s_it->second);
+		    bsg_obj_put(s_it->second);
 		}
 		for (m_it = drawn_paths.begin(); m_it != drawn_paths.end(); m_it++)
 		    m_it->second.erase(phash);
@@ -2717,7 +2717,7 @@ BViewState::erase_hpath(int mode, unsigned long long c_hash, std::vector<unsigne
 		s_it = sm_it->second.find(mode);
 		if (s_it != sm_it->second.end()) {
 		    _bview_state_detach_leaf(s_it->second);
-		    bv_obj_put(s_it->second);
+		    bsg_obj_put(s_it->second);
 		    sm_it->second.erase(s_it);
 		    drawn_paths[mode].erase(phash);
 		    s_map[phash].erase(mode);
@@ -3011,7 +3011,7 @@ BViewState::scene_obj(
 		    if (sp->s_flag != UP)
 			sp->s_flag = UP;
 		}
-		if (bv_obj_settings_sync(sp->s_os, vs))
+		if (bsg_obj_settings_sync(sp->s_os, vs))
 		    objs.insert(sp);
 	    }
 
@@ -3038,7 +3038,7 @@ BViewState::scene_obj(
 		    if (sp->mesh_obj)
 			adaptive_on = ((*v_it)->gv_s->adaptive_plot_mesh) ? 1 : 0;
 		    if (ged_lod_adaptive_toggle_sync(lod, *v_it, adaptive_on)) {
-			bv_obj_stale(sp);
+			bsg_obj_stale(sp);
 			objs.insert(sp);
 		    }
 		}
@@ -3063,7 +3063,7 @@ BViewState::scene_obj(
     }
 
     // No pre-existing object - make a new one
-    sp = bv_obj_get_unregistered(v, BV_DB_OBJS);
+    sp = bsg_obj_get_unregistered(v, BV_DB_OBJS);
 
     // Find the leaf directory pointer
     struct directory *dp = dbis->get_hdp(path_hashes[path_hashes.size()-1]);
@@ -3147,9 +3147,9 @@ BViewState::scene_obj(
     s_map[phash][sp->s_os->s_dmode] = sp;
     s_keys[phash] = path_hashes;
 
-    /* Phase B-full: the leaf is allocated via bv_obj_get_unregistered so it
+    /* Phase B-full: the leaf is allocated via bsg_obj_get_unregistered so it
      * does NOT enter any gv_objs ptbl.  The BSG tree (gd_draw_root) is the
-     * sole index for rendering and iteration (bv_view_objs_visit_db).
+     * sole index for rendering and iteration (bsg_view_objs_visit_db).
      * BViewState's s_map[phash][mode] continues to own the path-hash
      * → bsg_node mapping lifetime. */
     if (dbis && dbis->gedp)
@@ -3261,14 +3261,14 @@ void
 BViewState::clear()
 {
     /* Phase B-full: detach and free every leaf.  After B-full-1 the leaves are
-     * allocated via bv_obj_get_unregistered, so they are NOT in any gv_objs
-     * ptbl.  We must explicitly call bv_obj_put to return them to the free
-     * list; relying on a subsequent bv_clear() would leak. */
+     * allocated via bsg_obj_get_unregistered, so they are NOT in any gv_objs
+     * ptbl.  We must explicitly call bsg_obj_put to return them to the free
+     * list; relying on a subsequent bsg_clear() would leak. */
     if (dbis && dbis->gedp) {
 	for (auto &kv : s_map) {
 	    for (auto &mkv : kv.second) {
 		_bview_state_detach_leaf(mkv.second);
-		bv_obj_put(mkv.second);
+		bsg_obj_put(mkv.second);
 	    }
 	}
     }
@@ -3393,13 +3393,13 @@ BViewState::refresh(struct bsg_view *v, int argc, const char **argv)
     if (!v)
 	return 0;
 
-    bv_log(1, "BViewState::refresh");
+    bsg_log(1, "BViewState::refresh");
     // We (well, callers) need to be able to tell if the redraw pass actually
     // changed anything.
     unsigned long long ret = 0;
 
     // Make sure the view knows how to update the oriented bounding box
-    v->gv_bounds_update = &bv_view_bounds;
+    v->gv_bounds_update = &bsg_view_bounds;
 
     // If we have specific paths specified, the leaves of those paths
     // denote which paths need refreshing.  We need to process them
@@ -3461,8 +3461,8 @@ BViewState::refresh(struct bsg_view *v, int argc, const char **argv)
 	    }
 	    if (!s)
 		continue;
-	    struct bsg_node *nso = bv_obj_get_unregistered(v, BV_DB_OBJS);
-	    bv_obj_sync(nso, s);
+	    struct bsg_node *nso = bsg_obj_get_unregistered(v, BV_DB_OBJS);
+	    bsg_obj_sync(nso, s);
 	    nso->s_i_data = s->s_i_data;
 	    s->s_i_data = NULL;
 	    s_map[*k_it].erase(mm_it->first);
@@ -3481,9 +3481,9 @@ BViewState::refresh(struct bsg_view *v, int argc, const char **argv)
 		_bview_state_attach_leaf(dbis->gedp, nso, cp, dbis);
 	    }
 
-	    bv_log(3, "refresh %s[%s]", bu_vls_cstr(&(nso->s_name)), bu_vls_cstr(&(v->gv_name)));
+	    bsg_log(3, "refresh %s[%s]", bu_vls_cstr(&(nso->s_name)), bu_vls_cstr(&(v->gv_name)));
 	    draw_scene(nso, v);
-	    bv_obj_put(s);
+	    bsg_obj_put(s);
 	}
     }
 
@@ -3500,7 +3500,7 @@ BViewState::refresh(struct bsg_view *v, int argc, const char **argv)
 unsigned long long
 BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bsg_view *> &views, int no_autoview)
 {
-    bv_log(1, "BViewState::redraw");
+    bsg_log(1, "BViewState::redraw");
     // We (well, callers) need to be able to tell if the redraw pass actually
     // changed anything.
     unsigned long long ret = 0;
@@ -3512,7 +3512,7 @@ BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bsg_vi
     std::unordered_set<struct bsg_view *>::iterator v_it;
     for (v_it = views.begin(); v_it != views.end(); v_it++) {
 	struct bsg_view *v = *v_it;
-	v->gv_bounds_update = &bv_view_bounds;
+	v->gv_bounds_update = &bsg_view_bounds;
     }
 
     // For most operations on objects, we need only the current view (for
@@ -3525,7 +3525,7 @@ BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bsg_vi
 	// If we have multiple views, we want a non-independent view
 	for (v_it = views.begin(); v_it != views.end(); v_it++) {
 	    struct bsg_view *nv = *v_it;
-	    if (bv_view_is_independent(nv))
+	    if (bsg_view_is_independent(nv))
 		continue;
 	    v = nv;
 	    break;
@@ -3604,10 +3604,10 @@ BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bsg_vi
 		if (s) {
 		    // Invalid - remove any scene object geometry
 		    ret = GED_DBISTATE_VIEW_CHANGE;
-		    bv_obj_reset(s);
+		    bsg_obj_reset(s);
 		    s->s_v = v;
 		} else {
-		    s = bv_obj_get_unregistered(v, BV_DB_OBJS);
+		    s = bsg_obj_get_unregistered(v, BV_DB_OBJS);
 		    // print path name, set view - otherwise empty
 		    dbis->print_path(&s->s_name, cp);
 		    s->s_v = v;
@@ -3618,7 +3618,7 @@ BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bsg_vi
 	    if (s) {
 		// Geometry is suspect - clear to prepare for regeneration
 		_bview_state_detach_leaf(s);
-		bv_obj_put(s);
+		bsg_obj_put(s);
 		s_map[*iv_it].erase(mm_it->first);
 		ret = GED_DBISTATE_VIEW_CHANGE;
 	    }
@@ -3663,7 +3663,7 @@ BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bsg_vi
 	}
 	for (sz_it = draw_invalid_collapsed.begin(); sz_it != draw_invalid_collapsed.end(); sz_it++) {
 	    std::vector<unsigned long long> cpath = ms_it->second[*sz_it];
-	    struct bsg_node *s = bv_obj_get_unregistered(v, BV_DB_OBJS);
+	    struct bsg_node *s = bsg_obj_get_unregistered(v, BV_DB_OBJS);
 	    // print path name, set view - otherwise empty
 	    dbis->print_path(&s->s_name, cpath);
 	    s->s_v = v;
@@ -3705,7 +3705,7 @@ BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bsg_vi
     // routines have a rough idea of the correct dimensions to use
     if (!no_autoview) {
 	for (v_it = views.begin(); v_it != views.end(); v_it++) {
-	    bv_autoview(*v_it, BV_AUTOVIEW_SCALE_DEFAULT, 0);
+	    bsg_autoview(*v_it, BV_AUTOVIEW_SCALE_DEFAULT, 0);
 	}
     }
 
@@ -3723,7 +3723,7 @@ BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bsg_vi
     for (v_it = views.begin(); v_it != views.end(); v_it++) {
 	std::unordered_set<struct bsg_node *>::iterator o_it;
 	for (o_it = objs.begin(); o_it != objs.end(); o_it++) {
-	    bv_log(3, "redraw %s[%s]", bu_vls_cstr(&((*(*o_it)).s_name)), bu_vls_cstr(&((*(*v_it)).gv_name)));
+	    bsg_log(3, "redraw %s[%s]", bu_vls_cstr(&((*(*o_it)).s_name)), bu_vls_cstr(&((*(*v_it)).gv_name)));
 	    draw_scene(*o_it, *v_it);
 	}
     }
@@ -3802,7 +3802,7 @@ BViewState::redraw(struct bsg_obj_settings *vs, std::unordered_set<struct bsg_vi
     // unless suppressed
     if (!no_autoview) {
 	for (v_it = views.begin(); v_it != views.end(); v_it++) {
-	    bv_autoview(*v_it, BV_AUTOVIEW_SCALE_DEFAULT, 0);
+	    bsg_autoview(*v_it, BV_AUTOVIEW_SCALE_DEFAULT, 0);
 	}
     }
 
@@ -4418,7 +4418,7 @@ SelectionSet::draw_sync()
     bool changed = false;
     std::unordered_set<BViewState *> vstates;
 
-    struct bu_ptbl *views = bv_set_views(&dbis->gedp->ged_views);
+    struct bu_ptbl *views = bsg_set_views(&dbis->gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
 	struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, i);
 	BViewState *vs = dbis->get_view_state(v);
@@ -4434,7 +4434,7 @@ SelectionSet::draw_sync()
 	    //bu_log("select ill_state: %s\n", (ill_state == UP) ? "up" : "down");
 	    for (m_it = so_it->second.begin(); m_it != so_it->second.end(); m_it++) {
 		struct bsg_node *so = m_it->second;
-		int ill_changed = bv_illum_obj(so, ill_state);
+		int ill_changed = bsg_illum_obj(so, ill_state);
 		if (ill_changed)
 		    changed = true;
 	    }
@@ -4927,7 +4927,7 @@ DbiState::drain_geom_results()
 	    obbs[r.hash] = obb_data;
 	}
 	/* LOD results: LoD data is now in the bsg_mesh_lod_context cache;
-	 * bv_mesh_lod_view() will use it on the next redraw.  No extra work
+	 * bsg_mesh_lod_view() will use it on the next redraw.  No extra work
 	 * needed here for Phase 3.5; future phases can stale scene objects. */
     }
 

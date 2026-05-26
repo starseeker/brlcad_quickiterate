@@ -148,7 +148,7 @@ QgView::do_view_changed()
 void
 QgView::need_update(QgViewUpdateFlags)
 {
-    bv_log(4, "QgView::need_update");
+    bsg_log(4, "QgView::need_update");
     QTCAD_SLOT("QgView::need_update", 1);
     if (canvas)
 canvas->need_update();

@@ -60,7 +60,7 @@ QgGL::QgGL(QWidget *parent, struct fb *fbp)
     // Provide a view specific to this widget - set gedp->ged_gvp to v
     // if this is the current view
     BU_GET(d->local_v, struct bsg_view);
-    bv_init(d->local_v, nullptr);
+    bsg_init(d->local_v, nullptr);
     bu_vls_sprintf(&d->local_v->gv_name, "qtgl");
     d->v = d->local_v;
 
@@ -270,7 +270,7 @@ dm_set_dirty(d->dmp, 1);
 
 void QgGL::need_update()
 {
-    bv_log(4, "QgGL::need_update");
+    bsg_log(4, "QgGL::need_update");
     QTCAD_SLOT("QgGL::need_update", 1);
     if (!d->dmp)
 return;

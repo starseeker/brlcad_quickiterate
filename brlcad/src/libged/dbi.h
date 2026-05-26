@@ -368,7 +368,7 @@ typedef SelectionSet BSelectState;
  *   1. attr_worker  — reads region attrs from AVS, writes to cache
  *   2. aabb_worker  — calls ft_bbox, writes AABB to cache, posts Result::AABB
  *   3. obb_worker   — calls ft_oriented_bbox (real OBB), posts Result::OBB
- *   4. lod_worker   — bv_mesh_lod_cache for BoTs, posts Result::LOD
+ *   4. lod_worker   — bsg_mesh_lod_cache for BoTs, posts Result::LOD
  *   5. write_worker — serialises all bu_cache writes
  *
  * Thread-safety: push() and drain() must be called from the main thread.

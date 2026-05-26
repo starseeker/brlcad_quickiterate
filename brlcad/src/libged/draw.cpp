@@ -108,7 +108,7 @@ mesh_lod_draw_free(struct bsg_node *s)
 {
     if (!s)
 	return;
-    bv_mesh_lod_free(s);
+    bsg_mesh_lod_free(s);
     draw_free_data(s);
 }
 
@@ -124,7 +124,7 @@ csg_wireframe_update(struct bsg_node *vo, struct bsg_view *v, int flag)
     if (!v->gv_s->adaptive_plot_csg)
 	return 0;
 
-    bv_log(1, "csg_wireframe_update %s[%s]", bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
+    bsg_log(1, "csg_wireframe_update %s[%s]", bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
 
     vo->csg_obj = 1;
 
@@ -180,7 +180,7 @@ csg_wireframe_update(struct bsg_node *vo, struct bsg_view *v, int flag)
 
     if (ip->idb_meth->ft_adaptive_plot) {
 	ip->idb_meth->ft_adaptive_plot(&vo->s_vlist, ip, d->tol, v, vo->s_size);
-	bv_obj_stale(vo);
+	bsg_obj_stale(vo);
     }
 
     return 1;
@@ -262,7 +262,7 @@ bot_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
     s->csg_obj = 0;
     s->mesh_obj = 1;
 
-    bv_log(1, "bot_adaptive_plot %s[%s]", bu_vls_cstr(&s->s_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
+    bsg_log(1, "bot_adaptive_plot %s[%s]", bu_vls_cstr(&s->s_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
 
     if (!s->draw_data) {
 
@@ -281,7 +281,7 @@ bot_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
 
 	// We need the key to look up the LoD data from the cache, and if we don't
 	// already have cache data for this bot we need to generate it.
-	unsigned long long key = bv_mesh_lod_key_get(d->mesh_c, dp->d_namep);
+	unsigned long long key = bsg_mesh_lod_key_get(d->mesh_c, dp->d_namep);
 	if (!key) {
 	    // We don't have a key associated with the name.  Get and check the BoT
 	    // data itself, creating the LoD data if we don't already have it
@@ -293,8 +293,8 @@ bot_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
 		return;
 	    struct rt_bot_internal *bot = (struct rt_bot_internal *)ip->idb_ptr;
 	    RT_BOT_CK_MAGIC(bot);
-	    key = bv_mesh_lod_cache(d->mesh_c, (const point_t *)bot->vertices, bot->num_vertices, NULL, bot->faces, bot->num_faces, 0, 0.66);
-	    bv_mesh_lod_key_put(d->mesh_c, dp->d_namep, key);
+	    key = bsg_mesh_lod_cache(d->mesh_c, (const point_t *)bot->vertices, bot->num_vertices, NULL, bot->faces, bot->num_faces, 0, 0.66);
+	    bsg_mesh_lod_key_put(d->mesh_c, dp->d_namep, key);
 	    rt_db_free_internal(&dbintern);
 	}
 	if (!key)
@@ -302,11 +302,11 @@ bot_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
 
 	// Once we have a valid key, proceed to create the necessary
 	// data structures and objects.
-	struct bsg_mesh_lod *lod = bv_mesh_lod_create(d->mesh_c, key);
+	struct bsg_mesh_lod *lod = bsg_mesh_lod_create(d->mesh_c, key);
 	if (!lod) {
 	    // Stale key?  Clear it and try a regeneration
 	    unsigned long long old_key = key;
-	    bv_mesh_lod_clear_cache(d->mesh_c, key);
+	    bsg_mesh_lod_clear_cache(d->mesh_c, key);
 
 	    // Load mesh and process
 	    struct rt_db_internal dbintern;
@@ -317,8 +317,8 @@ bot_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
 		return;
 	    struct rt_bot_internal *bot = (struct rt_bot_internal *)ip->idb_ptr;
 	    RT_BOT_CK_MAGIC(bot);
-	    key = bv_mesh_lod_cache(d->mesh_c, (const point_t *)bot->vertices, bot->num_vertices, NULL, bot->faces, bot->num_faces, 0, 0.66);
-	    bv_mesh_lod_key_put(d->mesh_c, dp->d_namep, key);
+	    key = bsg_mesh_lod_cache(d->mesh_c, (const point_t *)bot->vertices, bot->num_vertices, NULL, bot->faces, bot->num_faces, 0, 0.66);
+	    bsg_mesh_lod_key_put(d->mesh_c, dp->d_namep, key);
 	    rt_db_free_internal(&dbintern);
 
 	    // Sanity
@@ -326,14 +326,14 @@ bot_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
 		bu_log("%s: LoD lookup by key failed, but regeneration generated the same key (?)\n", dp->d_namep);
 		return;
 	    }
-	    unsigned long long new_key = bv_mesh_lod_key_get(d->mesh_c, dp->d_namep);
+	    unsigned long long new_key = bsg_mesh_lod_key_get(d->mesh_c, dp->d_namep);
 	    if (new_key == old_key) {
 		bu_log("%s: LoD regenerated with new key, but key lookup still returns old key (?)\n", dp->d_namep);
 		return;
 	    }
 
 	    // If after all that we STILL don't get an LoD struct, give up
-	    lod = bv_mesh_lod_create(d->mesh_c, key);
+	    lod = bsg_mesh_lod_create(d->mesh_c, key);
 	    if (!lod)
 		return;
 	}
@@ -361,21 +361,21 @@ bot_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
 	cbd->dbip = dbip;
 	cbd->dp = dp;
 	cbd->intern = NULL;
-	bv_mesh_lod_detail_setup_clbk(lod, &bot_mesh_info_clbk, (void *)cbd);
-	bv_mesh_lod_detail_clear_clbk(lod, &bot_mesh_info_clear_clbk);
-	bv_mesh_lod_detail_free_clbk(lod, &bot_mesh_info_free_clbk);
+	bsg_mesh_lod_detail_setup_clbk(lod, &bot_mesh_info_clbk, (void *)cbd);
+	bsg_mesh_lod_detail_clear_clbk(lod, &bot_mesh_info_clear_clbk);
+	bsg_mesh_lod_detail_free_clbk(lod, &bot_mesh_info_free_clbk);
 
 	s->s_free_callback = &mesh_lod_draw_free;
 
 	// Initialize the LoD data to the current view
-	int level = bv_mesh_lod_view(s, v, 0);
+	int level = bsg_mesh_lod_view(s, v, 0);
 	if (level < 0) {
 	    bu_log("Error loading info for initial LoD view\n");
 	}
     }
 
-    bv_mesh_lod_view(s, v, 0);
-    bv_obj_stale(s);
+    bsg_mesh_lod_view(s, v, 0);
+    bsg_obj_stale(s);
 
     return;
 }
@@ -388,7 +388,7 @@ brep_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
     struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
     if (!d || !d->mesh_c)
 	return;
-    bv_log(1, "brep_adaptive_plot %s[%s]", bu_vls_cstr(&s->s_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
+    bsg_log(1, "brep_adaptive_plot %s[%s]", bu_vls_cstr(&s->s_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
 
     s->csg_obj = 0;
     s->mesh_obj = 1;
@@ -408,7 +408,7 @@ brep_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
 
 	// We need the key to look up the LoD data from the cache, and if we don't
 	// already have cache data for this brep we need to generate it.
-	unsigned long long key = bv_mesh_lod_key_get(d->mesh_c, dp->d_namep);
+	unsigned long long key = bsg_mesh_lod_key_get(d->mesh_c, dp->d_namep);
 	if (!key) {
 	    // We don't have a key associated with the name.  Get and check the
 	    // Brep data itself, creating the mesh data and the corresponding LoD
@@ -420,10 +420,10 @@ brep_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
 	    bu_free_external(&ext);
 	    if (!key)
 		return;
-	    lod = bv_mesh_lod_create(d->mesh_c, key);
+	    lod = bsg_mesh_lod_create(d->mesh_c, key);
 	    if (!lod) {
 		// Just in case we have a stale key...
-		bv_mesh_lod_clear_cache(d->mesh_c, key);
+		bsg_mesh_lod_clear_cache(d->mesh_c, key);
 
 		struct rt_db_internal dbintern;
 		RT_DB_INTERNAL_INIT(&dbintern);
@@ -452,10 +452,10 @@ brep_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
 
 		// Because we won't have the internal data to use for a full detail scenario, we set the ratio
 		// to 1 rather than .66 for breps...
-		key = bv_mesh_lod_cache(d->mesh_c, (const point_t *)pnts, pnt_cnt, normals, faces, face_cnt, key, 1);
+		key = bsg_mesh_lod_cache(d->mesh_c, (const point_t *)pnts, pnt_cnt, normals, faces, face_cnt, key, 1);
 
 		if (key)
-		    bv_mesh_lod_key_put(d->mesh_c, dp->d_namep, key);
+		    bsg_mesh_lod_key_put(d->mesh_c, dp->d_namep, key);
 
 		rt_db_free_internal(&dbintern);
 
@@ -470,7 +470,7 @@ brep_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
 	// Once we have a valid key, proceed to create the necessary
 	// data structures and objects.  If the above didn't get us
 	// a valid mesh, no point in trying further
-	lod = bv_mesh_lod_create(d->mesh_c, key);
+	lod = bsg_mesh_lod_create(d->mesh_c, key);
 	if (!lod)
 	    return;
 
@@ -497,21 +497,21 @@ brep_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
 	cbd->dbip = dbip;
 	cbd->dp = dp;
 	cbd->intern = NULL;
-	bv_mesh_lod_detail_setup_clbk(lod, &bot_mesh_info_clbk, (void *)cbd);
-	bv_mesh_lod_detail_clear_clbk(lod, &bot_mesh_info_clear_clbk);
-	bv_mesh_lod_detail_free_clbk(lod, &bot_mesh_info_free_clbk);
+	bsg_mesh_lod_detail_setup_clbk(lod, &bot_mesh_info_clbk, (void *)cbd);
+	bsg_mesh_lod_detail_clear_clbk(lod, &bot_mesh_info_clear_clbk);
+	bsg_mesh_lod_detail_free_clbk(lod, &bot_mesh_info_free_clbk);
 
 	s->s_free_callback = &mesh_lod_draw_free;
 
 	// Initialize the LoD data to the current view
-	int level = bv_mesh_lod_view(s, v, 0);
+	int level = bsg_mesh_lod_view(s, v, 0);
 	if (level < 0) {
 	    bu_log("Error loading info for initial LoD view\n");
 	}
     }
 
-    bv_mesh_lod_view(s, v, 0);
-    bv_obj_stale(s);
+    bsg_mesh_lod_view(s, v, 0);
+    bsg_obj_stale(s);
 
     return;
 }
@@ -520,7 +520,7 @@ brep_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
 static void
 wireframe_plot(struct bsg_node *s, struct bsg_view *v, struct rt_db_internal *ip)
 {
-    bv_log(1, "wireframe_plot %s[%s]", bu_vls_cstr(&s->s_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
+    bsg_log(1, "wireframe_plot %s[%s]", bu_vls_cstr(&s->s_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
     struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
     const struct bn_tol *tol = d->tol;
     const struct bg_tess_tol *ttol = d->ttol;
@@ -567,7 +567,7 @@ draw_scene(struct bsg_node *s, struct bsg_view *v)
     if (s->current && !v)
 	return;
 
-    bv_log(1, "draw_scene %s[%s]", bu_vls_cstr(&s->s_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
+    bsg_log(1, "draw_scene %s[%s]", bu_vls_cstr(&s->s_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
 
     // If we're not adaptive, trigger the view insensitive drawing routines
     if (v && !v->gv_s->adaptive_plot_csg && !v->gv_s->adaptive_plot_mesh) {
@@ -596,7 +596,7 @@ draw_scene(struct bsg_node *s, struct bsg_view *v)
      * the individual solid wireframes */
     if (s->s_os->s_dmode == 3) {
 	draw_m3(s);
-	bv_scene_obj_bound(s, v);
+	bsg_scene_obj_bound(s, v);
 	s->current = 1;
 	return;
     }
@@ -604,7 +604,7 @@ draw_scene(struct bsg_node *s, struct bsg_view *v)
     /* Mode 5 draws a point cloud in lieu of wireframes */
     if (s->s_os->s_dmode == 5) {
 	draw_points(s);
-	bv_scene_obj_bound(s, v);
+	bsg_scene_obj_bound(s, v);
 	s->current = 1;
 	return;
     }
@@ -733,7 +733,7 @@ draw_scene(struct bsg_node *s, struct bsg_view *v)
 geom_done:
 
     // Update s_size and s_center
-    bv_scene_obj_bound(s, v);
+    bsg_scene_obj_bound(s, v);
 
     // Store current view info, in case of adaptive plotting
     s->adaptive_wireframe = s->s_v->gv_s->adaptive_plot_csg;
@@ -962,14 +962,14 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 	// will end up getting handled by the object update callbacks, and the
 	// job here will just be to set up the key data for later use...
 
-	struct bsg_node *s = bv_obj_get_child(dd->g);
+	struct bsg_node *s = bsg_obj_get_child(dd->g);
 	db_path_to_vls(&s->s_name, path);
 	BU_GET(s->s_path, struct db_full_path);
 	db_full_path_init((struct db_full_path *)s->s_path);
 	db_dup_full_path((struct db_full_path *)s->s_path, path);
 
 	MAT_COPY(s->s_mat, *curr_mat);
-	bv_obj_settings_sync(s->s_os, dd->g->s_os);
+	bsg_obj_settings_sync(s->s_os, dd->g->s_os);
 	s->s_type_flags = BV_DBOBJ_BASED;
 	s->current = 0;
 	s->s_changed++;

@@ -91,7 +91,7 @@ ged_close(struct ged *gedp)
     }
 
     if (gedp->ged_lod) {
-	bv_mesh_lod_context_destroy(gedp->ged_lod);
+	bsg_mesh_lod_context_destroy(gedp->ged_lod);
 	gedp->ged_lod = NULL;
     }
 
@@ -129,7 +129,7 @@ ged_init(struct ged *gedp)
     bu_vls_init(&gedp->go_name);
 
     // View related containers
-    bv_set_init(&gedp->ged_views);
+    bsg_set_init(&gedp->ged_views);
     BU_PTBL_INIT(&gedp->ged_free_views);
 
     /* TODO: If we're init-ing the list here, does that mean the gedp has
@@ -140,9 +140,9 @@ ged_init(struct ged *gedp)
 
     // Establish an initial view
     BU_ALLOC(gedp->ged_gvp, struct bsg_view);
-    bv_init(gedp->ged_gvp, &gedp->ged_views);
+    bsg_init(gedp->ged_gvp, &gedp->ged_views);
     bu_vls_sprintf(&gedp->ged_gvp->gv_name, "default");
-    bv_set_add_view(&gedp->ged_views, gedp->ged_gvp);
+    bsg_set_add_view(&gedp->ged_views, gedp->ged_gvp);
     bu_ptbl_ins(&gedp->ged_free_views, (long *)gedp->ged_gvp);
 
     /* Phase 4-C: create the BSG scene root for the default view */
@@ -231,11 +231,11 @@ ged_free(struct ged *gedp)
 
     for (size_t i = 0; i < BU_PTBL_LEN(&gedp->ged_free_views); i++) {
 	struct bsg_view *gdvp = (struct bsg_view *)BU_PTBL_GET(&gedp->ged_free_views, i);
-	bv_free(gdvp);
+	bsg_free(gdvp);
 	bu_free((void *)gdvp, "bv");
     }
     bu_ptbl_free(&gedp->ged_free_views);
-    bv_set_free(&gedp->ged_views);
+    bsg_set_free(&gedp->ged_views);
 
     if (gedp->i->ged_gdp != GED_DRAWABLE_NULL) {
 

@@ -65,7 +65,7 @@ mged_bound_solid(struct mged_state *s, struct bsg_node *sp)
     VSET(bmin, INFINITY, INFINITY, INFINITY);
     VSET(bmax, -INFINITY, -INFINITY, -INFINITY);
 
-    cmd = bv_vlist_bbox(&sp->s_vlist, &bmin, &bmax, &length, &dispmode);
+    cmd = bsg_vlist_bbox(&sp->s_vlist, &bmin, &bmax, &length, &dispmode);
     if (cmd) {
 	struct bu_vls tmp_vls = BU_VLS_INIT_ZERO;
 	bu_vls_printf(&tmp_vls, "unknown vlist op %d\n", cmd);
@@ -98,7 +98,7 @@ drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const str
 
     if (!existing_sp) {
 	/* Handling a new solid */
-	struct bsg_node *free_scene_obj = bv_set_fsos(&s->gedp->ged_views);
+	struct bsg_node *free_scene_obj = bsg_set_fsos(&s->gedp->ged_views);
 	GET_BV_SCENE_OBJ(sp, &free_scene_obj->l);
 	BU_LIST_APPEND(&free_scene_obj->l, &((sp)->l) );
     } else {

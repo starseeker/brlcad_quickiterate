@@ -90,7 +90,7 @@ CADViewMeasure::CADViewMeasure(QWidget *)
 CADViewMeasure::~CADViewMeasure()
 {
     if (s)
-	bv_obj_put(s);
+	bsg_obj_put(s);
 }
 
 void

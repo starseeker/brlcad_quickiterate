@@ -91,18 +91,18 @@ struct bu_bitv *
 bu_bitv_new(size_t nbits)
 {
     struct bu_bitv *bv;
-    size_t bv_bytes;
+    size_t bsg_bytes;
     size_t total_bytes;
 
-    bv_bytes = BU_BITS2BYTES(nbits);
-    total_bytes = sizeof(struct bu_bitv) - 2*sizeof(bitv_t) + bv_bytes;
+    bsg_bytes = BU_BITS2BYTES(nbits);
+    total_bytes = sizeof(struct bu_bitv) - 2*sizeof(bitv_t) + bsg_bytes;
 
     /* allocate bigger than struct, bits array extends past the end */
     bv = (struct bu_bitv *)bu_malloc(total_bytes, "struct bu_bitv");
 
     /* manually initialize */
     BU_LIST_INIT_MAGIC(&(bv->l), BU_BITV_MAGIC);
-    bv->nbits = bv_bytes * BITS_PER_BYTE;
+    bv->nbits = bsg_bytes * BITS_PER_BYTE;
     BU_BITV_ZEROALL(bv);
 
     return bv;

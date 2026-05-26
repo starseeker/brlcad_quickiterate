@@ -32,70 +32,18 @@
 #include "bsg/view_sets.h"
 #include "bsg/vlist.h"
 
-/* Forward declarations of underlying libbv functions used by BSG wrappers */
-extern void bv_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_list *src);
-
 
 void
 bsg_view_init(struct bsg_view *v, struct bsg_view_set *s)
 {
-    bv_init(v, s);
+    bsg_init(v, s);
 }
 
 
 void
 bsg_view_free(struct bsg_view *v)
 {
-    bv_free(v);
-}
-
-
-bsg_node *
-bsg_obj_create(struct bsg_view *v, int type)
-{
-    return (bsg_node *)bv_obj_create(v, type);
-}
-
-
-bsg_node *
-bsg_obj_get_unregistered(struct bsg_view *v, int type)
-{
-    return (bsg_node *)bv_obj_get_unregistered(v, type);
-}
-
-
-void
-bsg_obj_put(bsg_node *obj)
-{
-    bv_obj_put((struct bsg_node *)obj);
-}
-
-
-void
-bsg_scene_obj_release_backend(bsg_node *obj)
-{
-    bv_scene_obj_release_backend((struct bsg_node *)obj);
-}
-
-
-void
-bsg_scene_obj_invalidate_backend(bsg_node *obj)
-{
-    bv_scene_obj_invalidate_backend((struct bsg_node *)obj);
-}
-
-
-void
-bsg_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_list *src)
-{
-    bv_vlist_copy(vlists, dest, src);
-}
-
-
-struct bu_ptbl *
-bsg_set_views(struct bsg_view_set *s)
-{
-    return bv_set_views(s);
+    bsg_free(v);
 }
 
 /*

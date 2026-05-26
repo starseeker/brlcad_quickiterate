@@ -37,7 +37,7 @@
 #include "bsg/util.h"
 
 size_t
-bv_vlist_cmd_cnt(struct bsg_vlist *vlist)
+bsg_vlist_cmd_cnt(struct bsg_vlist *vlist)
 {
     size_t num_commands;
     struct bsg_vlist *vp;
@@ -55,7 +55,7 @@ bv_vlist_cmd_cnt(struct bsg_vlist *vlist)
 }
 
 static int
-bv_vlist_bbox_internal(struct bsg_vlist *vp, point_t *bmin, point_t *bmax, int *disp_mode, int *dispmode_used)
+bsg_vlist_bbox_internal(struct bsg_vlist *vp, point_t *bmin, point_t *bmax, int *disp_mode, int *dispmode_used)
 {
     size_t i;
     size_t nused = vp->nused;
@@ -112,7 +112,7 @@ bv_vlist_bbox_internal(struct bsg_vlist *vp, point_t *bmin, point_t *bmax, int *
 }
 
 int
-bv_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *length, int *dispmode)
+bsg_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *length, int *dispmode)
 {
     struct bsg_vlist* vp;
     int cmd = 0;
@@ -120,7 +120,7 @@ bv_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *leng
     int dispmode_used = 0;
     size_t len = 0;
     for (BU_LIST_FOR(vp, bsg_vlist, vlistp)) {
-	cmd = bv_vlist_bbox_internal(vp, bmin, bmax, &disp_mode, &dispmode_used);
+	cmd = bsg_vlist_bbox_internal(vp, bmin, bmax, &disp_mode, &dispmode_used);
 	if (cmd) {
 	    break;
 	}
@@ -136,13 +136,13 @@ bv_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *leng
 }
 
 const char *
-bv_vlist_get_cmd_description(int cmd)
+bsg_vlist_get_cmd_description(int cmd)
 {
-    /* bv_vlist_cmd_descriptions contains descriptions of the first
+    /* bsg_vlist_cmd_descriptions contains descriptions of the first
      * num_described_cmds vlist cmds
      */
     const int num_described_cmds = 13;
-    static const char *bv_vlist_cmd_descriptions[] = {
+    static const char *bsg_vlist_cmd_descriptions[] = {
 	"line move ",
 	"line draw ",
 	"poly start",
@@ -160,14 +160,14 @@ bv_vlist_get_cmd_description(int cmd)
 	"display mat",
     };
     if (cmd < num_described_cmds) {
-	return bv_vlist_cmd_descriptions[cmd];
+	return bsg_vlist_cmd_descriptions[cmd];
     } else {
 	return "**unknown*";
     }
 }
 
 size_t
-bv_ck_vlist(const struct bu_list *vhead)
+bsg_ck_vlist(const struct bu_list *vhead)
 {
     register struct bsg_vlist *vp;
     size_t npts = 0;
@@ -195,14 +195,14 @@ bv_ck_vlist(const struct bu_list *vhead)
 		    /* Number is good */
 		} else {
 		    bu_log("  %s (%g, %g, %g)\n",
-			   bv_vlist_get_cmd_description(*cmd),
+			   bsg_vlist_get_cmd_description(*cmd),
 			   V3ARGS(*pt));
-		    bu_bomb("bv_ck_vlist() bad coordinate value\n");
+		    bu_bomb("bsg_ck_vlist() bad coordinate value\n");
 		}
 		/* XXX Need a define for largest command number */
 		if (*cmd < 0 || *cmd > BSG_VLIST_CMD_MAX) {
 		    bu_log("cmd = x%x (%d.)\n", *cmd, *cmd);
-		    bu_bomb("bv_ck_vlist() bad vlist command\n");
+		    bu_bomb("bsg_ck_vlist() bad vlist command\n");
 		}
 	    }
 	}
@@ -211,7 +211,7 @@ bv_ck_vlist(const struct bu_list *vhead)
 }
 
 void
-bv_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_list *src)
+bsg_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_list *src)
 {
     struct bsg_vlist *vp;
 
@@ -227,7 +227,7 @@ bv_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_list
 }
 
 void
-bv_vlist_cleanup(struct bu_list *hd)
+bsg_vlist_cleanup(struct bu_list *hd)
 {
     register struct bsg_vlist *vp;
 
@@ -244,7 +244,7 @@ bv_vlist_cleanup(struct bu_list *hd)
 }
 
 void
-bv_vlist_export(struct bu_vls *vls, struct bu_list *hp, const char *name)
+bsg_vlist_export(struct bu_vls *vls, struct bu_list *hp, const char *name)
 {
     register struct bsg_vlist *vp;
     size_t nelem;
@@ -305,7 +305,7 @@ bv_vlist_export(struct bu_vls *vls, struct bu_list *hp, const char *name)
 }
 
 void
-bv_vlist_import(struct bu_list *vlists, struct bu_list *hp, struct bu_vls *namevls, const unsigned char *buf)
+bsg_vlist_import(struct bu_list *vlists, struct bu_list *hp, struct bu_vls *namevls, const unsigned char *buf)
 {
     register const unsigned char *bp;
     const unsigned char *pp;            /* point pointer */
@@ -338,7 +338,7 @@ bv_vlist_import(struct bu_list *vlists, struct bu_list *hp, struct bu_vls *namev
 }
 
 struct bsg_vlblock *
-bv_vlblock_init(struct bu_list *free_vlist_hd, /**< where to get/put free vlists */
+bsg_vlblock_init(struct bu_list *free_vlist_hd, /**< where to get/put free vlists */
 		int max_ent /**< maximum number of entities to get/put */)
 {
     struct bsg_vlblock *vbp;
@@ -369,7 +369,7 @@ bv_vlblock_init(struct bu_list *free_vlist_hd, /**< where to get/put free vlists
 }
 
 void
-bv_vlblock_free(struct bsg_vlblock *vbp)
+bsg_vlblock_free(struct bsg_vlblock *vbp)
 {
     size_t i;
 
@@ -388,7 +388,7 @@ bv_vlblock_free(struct bsg_vlblock *vbp)
 }
 
 struct bu_list *
-bv_vlblock_find(struct bsg_vlblock *vbp, int r, int g, int b)
+bsg_vlblock_find(struct bsg_vlblock *vbp, int r, int g, int b)
 {
     long newrgb;
     size_t n;
@@ -449,11 +449,11 @@ bv_vlblock_find(struct bsg_vlblock *vbp, int r, int g, int b)
     }
 
     /* here we go again */
-    return bv_vlblock_find(vbp, r, g, b);
+    return bsg_vlblock_find(vbp, r, g, b);
 }
 
 void
-bv_vlist_rpp(struct bu_list *vlists, struct bu_list *hd, const point_t minn, const point_t maxx)
+bsg_vlist_rpp(struct bu_list *vlists, struct bu_list *hd, const point_t minn, const point_t maxx)
 {
     point_t p;
 
@@ -504,7 +504,7 @@ bv_vlist_rpp(struct bu_list *vlists, struct bu_list *hd, const point_t minn, con
 }
 
 void
-bv_plot_vlblock(FILE *fp, const struct bsg_vlblock *vbp)
+bsg_plot_vlblock(FILE *fp, const struct bsg_vlblock *vbp)
 {
     size_t i;
 
@@ -517,7 +517,7 @@ bv_plot_vlblock(FILE *fp, const struct bsg_vlblock *vbp)
 		 (vbp->rgb[i]>>16) & 0xFF,
 		 (vbp->rgb[i]>> 8) & 0xFF,
 		 (vbp->rgb[i]) & 0xFF);
-	bv_vlist_to_uplot(fp, &(vbp->head[i]));
+	bsg_vlist_to_uplot(fp, &(vbp->head[i]));
     }
 }
 
@@ -537,7 +537,7 @@ bv_plot_vlblock(FILE *fp, const struct bsg_vlblock *vbp)
     BSG_FREE_VLIST(vlf, &((p)->s_vlist)); }
 
 void
-bv_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bsg_vlblock *vbp, struct bsg_view *v, struct bsg_node *f, struct bu_list *vlfree)
+bsg_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bsg_vlblock *vbp, struct bsg_view *v, struct bsg_node *f, struct bu_list *vlfree)
 {
     if (!out || !vbp || !f)
 	return;
@@ -571,7 +571,7 @@ bv_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bsg_vlbloc
 	    bu_vls_sprintf(&s->s_name, "%sobj%zd", name_root, i);
 	    struct bsg_vlist *bvl = (struct bsg_vlist *)&vbp->head[i];
 	    long int rgb = vbp->rgb[i];
-	    s->s_vlen = bv_vlist_cmd_cnt(bvl);
+	    s->s_vlen = bsg_vlist_cmd_cnt(bvl);
 	    BU_LIST_APPEND_LIST(&(s->s_vlist), &(bvl->l));
 	    BU_LIST_INIT(&(bvl->l));
 	    s->s_color[0] = (rgb>>16);
@@ -583,26 +583,26 @@ bv_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bsg_vlbloc
 }
 
 struct bsg_node *
-bv_vlblock_obj(struct bsg_vlblock *vbp, struct bsg_view *v, const char *name)
+bsg_vlblock_obj(struct bsg_vlblock *vbp, struct bsg_view *v, const char *name)
 {
     if (!vbp || !v)
 	return NULL;
 
     /* Phase A0 (drawing_stack_modernization): use typed view-object APIs
-     * directly rather than the legacy bv_find_obj + bv_obj_get path. */
-    struct bsg_node *s = bv_view_obj_find(v, name);
+     * directly rather than the legacy bsg_find_obj + bsg_obj_get path. */
+    struct bsg_node *s = bsg_view_obj_find(v, name);
     if (s) {
-	bv_obj_reset(s);
+	bsg_obj_reset(s);
     } else {
-	s = bv_view_obj_overlay_create(v, name, 0);
+	s = bsg_view_obj_overlay_create(v, name, 0);
     }
 
     for (size_t i = 0; i < vbp->nused; i++) {
 	if (!BU_LIST_IS_EMPTY(&(vbp->head[i]))) {
-	    struct bsg_node *sc = bv_obj_get_child(s);
+	    struct bsg_node *sc = bsg_obj_get_child(s);
 	    struct bsg_vlist *bvl = (struct bsg_vlist *)&vbp->head[i];
 	    long int rgb = vbp->rgb[i];
-	    sc->s_vlen = bv_vlist_cmd_cnt(bvl);
+	    sc->s_vlen = bsg_vlist_cmd_cnt(bvl);
 	    BU_LIST_APPEND_LIST(&(sc->s_vlist), &(bvl->l));
 	    BU_LIST_INIT(&(bvl->l));
 	    sc->s_color[0] = (rgb>>16);
@@ -616,7 +616,7 @@ bv_vlblock_obj(struct bsg_vlblock *vbp, struct bsg_view *v, const char *name)
 }
 
 void
-bv_vlist_to_uplot(FILE *fp, const struct bu_list *vhead)
+bsg_vlist_to_uplot(FILE *fp, const struct bu_list *vhead)
 {
     register struct bsg_vlist *vp;
 
@@ -644,7 +644,7 @@ bv_vlist_to_uplot(FILE *fp, const struct bu_list *vhead)
 		    pdv_3cont(fp, *pt);
 		    break;
 		default:
-		    bu_log("bv_vlist_to_uplot: unknown vlist cmd x%x\n",
+		    bu_log("bsg_vlist_to_uplot: unknown vlist cmd x%x\n",
 			   *cmd);
 	    }
 	}

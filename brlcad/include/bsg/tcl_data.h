@@ -143,13 +143,13 @@ struct bsg_data_tclcad {
 };
 
 /* Compat aliases - old bv_ names for transitional callers */
-typedef struct bsg_node_old_settings   bv_scene_obj_old_settings;
-typedef struct bsg_data_axes_state     bv_data_axes_state;
-typedef struct bsg_data_arrow_state    bv_data_arrow_state;
-typedef struct bsg_data_label_state    bv_data_label_state;
-typedef struct bsg_data_line_state     bv_data_line_state;
-typedef bsg_data_polygon_state         bv_data_polygon_state;
-typedef struct bsg_data_tclcad         bv_data_tclcad;
+typedef struct bsg_node_old_settings   bsg_scene_obj_old_settings;
+typedef struct bsg_data_axes_state     bsg_data_axes_state;
+typedef struct bsg_data_arrow_state    bsg_data_arrow_state;
+typedef struct bsg_data_label_state    bsg_data_label_state;
+typedef struct bsg_data_line_state     bsg_data_line_state;
+typedef bsg_data_polygon_state         bsg_data_polygon_state;
+typedef struct bsg_data_tclcad         bsg_data_tclcad;
 
 #endif /* BSG_TCL_DATA_H */
 

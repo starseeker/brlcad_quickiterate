@@ -225,12 +225,12 @@ struct bsg_node;
  * Lifecycle:
  *  - allocated lazily by the backend (typically when it first needs to cache
  *    a GPU resource for the shape);
- *  - released by bv_scene_obj_release_backend() when the shape is destroyed
- *    or recycled (also called from bv_obj_reset, bv_obj_put, and the libbsg
+ *  - released by bsg_scene_obj_release_backend() when the shape is destroyed
+ *    or recycled (also called from bsg_obj_reset, bsg_obj_put, and the libbsg
  *    tree free paths);
- *  - invalidated by bv_scene_obj_invalidate_backend() when the source data
+ *  - invalidated by bsg_scene_obj_invalidate_backend() when the source data
  *    that drives the cached resource has changed (called from
- *    bv_obj_stale() and any other code that needs to flag the cached
+ *    bsg_obj_stale() and any other code that needs to flag the cached
  *    resource as out of date).
  *
  * Backends are expected to provide a free callback; invalidate is optional
@@ -265,12 +265,12 @@ struct bsg_node  {
      *
      * BV_DEPRECATED: do not use s_v for view-policy control flow;
      * scene data should not drive rendering decisions.  Use BViewState::redraw()
-     * or bv_view_get/set_* accessors instead. */
+     * or bsg_view_get/set_* accessors instead. */
     struct bsg_view *s_v;
 
     /* Knowledge of how to create/update s_vlist and the other 3D geometry data, as well as
      * manage any custom data specific to this object */
-    void *s_i_data;  /**< @brief custom view data (bv_line_seg, bsg_label, bv_polyon, etc) */
+    void *s_i_data;  /**< @brief custom view data (bsg_line_seg, bsg_label, bsg_polyon, etc) */
 
     /* BV_DEPRECATED: LoD and CSG adaptive-wireframe update callbacks are now
      * driven by the BSG LoD node (bsg_lod_update via dm_draw_objs); this field
@@ -292,15 +292,15 @@ struct bsg_node  {
      *     BV_BACKEND_OBOL) so cross-backend mistakes can be caught;
      *   - handle:   backend-private per-shape state (compiled GL display list,
      *     vertex buffer object, GPU resource handle, ...);
-     *   - free:     cleanup callback fired by bv_scene_obj_release_backend()
+     *   - free:     cleanup callback fired by bsg_scene_obj_release_backend()
      *     when the shape is destroyed/recycled;
      *   - invalidate: optional callback fired by
-     *     bv_scene_obj_invalidate_backend() when the source data has changed
+     *     bsg_scene_obj_invalidate_backend() when the source data has changed
      *     and any cached GPU resource must be recomputed.
      *
      * NULL if the active backend does not need per-shape state.  Backends are
      * expected to allocate one bsg_backend per shape (typically lazily) and
-     * store it here; bv_obj_reset() / bv_obj_put() will fire the free callback
+     * store it here; bsg_obj_reset() / bsg_obj_put() will fire the free callback
      * and clear the slot.  See struct gl_backend_handle in libdm/dm-gl_lod.cpp
      * for the GL family's per-shape state (display list index/mode/stale
      * flag) — formerly the BV_DEPRECATED s_dlist / s_dlist_mode /
@@ -408,7 +408,7 @@ struct bsg_node  {
 
 
 
-/* bv_scene_groups (one level above scene objects, conceptually equivalent
+/* bsg_scene_groups (one level above scene objects, conceptually equivalent
  * to display_list) are used to capture the intent of drawing commands.  For
  * example, in the scenario where a draw command is used to visualize a comb
  * with sub-combs a and b:
@@ -437,9 +437,9 @@ struct bsg_node  {
  * subsequently drawn, it will be a no-op since "comb" is already covering that
  * case.
  *
- * The rule with bv_scene_group instances is their children must specify a
+ * The rule with bsg_scene_group instances is their children must specify a
  * fully realized entity - if the s_name is "/comb/a" then everything below
- * /comb/a is drawn.  If /comb/a/obj1.s is erased, new bv_scene_group
+ * /comb/a is drawn.  If /comb/a/obj1.s is erased, new bsg_scene_group
  * entities will be needed to reflect the partial nature of /comb/a in the
  * visualization.  That requirement also propagates back up the tree. If a has
  * obj1.s and obj2.s below it, and /comb/a/obj1.s is erased, an original
@@ -467,9 +467,9 @@ struct bsg_node  {
  * code what is a conceptually a group and what is an individual scene object.
  *
  * TODO - once the latest drawing code update matures, the path management
- * done there should make the idea of a bv_scene_group moot.
+ * done there should make the idea of a bsg_scene_group moot.
  */
-#define bv_scene_group bsg_node
+#define bsg_scene_group bsg_node
 
 
 /* The primary "working" data for mesh Level-of-Detail (LoD) drawing is stored
@@ -576,7 +576,7 @@ struct bsg_view_settings {
  * scene objects cannot also be common - the representations of the objects
  * may be different in each view, even though the object list is shared.
  */
-struct bsg_view_objs {
+struct bsg_view_obj_pool {
 
     // Container for db object groups unique to this view (typical use case is
     // adaptive plotting, where geometry wireframes may differ from view to
@@ -716,12 +716,12 @@ struct bsg_view {
      * topic and depends on whether a view is shared, independent or adaptive.
      * Shared objects are common across views to make more efficient use of
      * system memory. */
-    struct bsg_view_objs gv_objs;
+    struct bsg_view_obj_pool gv_objs;
 
     /* We sometimes need to define the volume in space that is "active" for the
      * view.  For an orthogonal camera this is the oriented bounding box
      * extruded to contain active scene objects visible in the view  The app
-     * must set the gv_bounds_update callback to bg_view_bound so a bv_update
+     * must set the gv_bounds_update callback to bg_view_bound so a bsg_update
      * call can update these values.*/
     point_t obb_center;
     vect_t obb_extent1;
@@ -878,17 +878,17 @@ typedef struct bsg_node bsg_shape;
 /* Compat aliases - old bv_/bview names for transitional callers */
 typedef struct bsg_view       bview;
 typedef struct bsg_view_set   bview_set;
-typedef struct bsg_node       bv_scene_obj;
-typedef struct bsg_axes       bv_axes;
-typedef struct bsg_obj_settings bv_obj_settings;
+typedef struct bsg_node       bsg_scene_obj;
+typedef struct bsg_axes       bsg_axes;
+typedef struct bsg_obj_settings bsg_obj_settings;
 typedef struct bsg_view_settings bview_settings;
-typedef struct bsg_view_objs  bview_objs;
+typedef struct bsg_view_obj_pool  bview_objs;
 typedef struct bsg_view_knobs bview_knobs;
-typedef struct bsg_label      bv_label;
-typedef struct bsg_backend    bv_obj_backend;
-typedef struct bsg_mesh_lod   bv_mesh_lod;
+typedef struct bsg_label      bsg_label;
+typedef struct bsg_backend    bsg_obj_backend;
+typedef struct bsg_mesh_lod   bsg_mesh_lod;
 typedef struct bsg_view_set_internal bview_set_internal;
-typedef struct bsg_node_internal bv_scene_obj_internal;
+typedef struct bsg_node_internal bsg_scene_obj_internal;
 
 __END_DECLS
 

@@ -122,13 +122,13 @@ main(int argc, char *argv[])
 
     struct bsg_view *v;
     BU_GET(v, struct bsg_view);
-    bv_init(v, NULL);
+    bsg_init(v, NULL);
     VSET(v->gv_aet, 45, 35, 0);
-    bv_mat_aet(v);
+    bsg_mat_aet(v);
     v->gv_size = 10.0;
     v->gv_isize = 0.1;
     v->gv_scale = 5.0;
-    bv_update(v);
+    bsg_update(v);
     bu_vls_sprintf(&v->gv_name, "default");
     v->gv_width  = 512;
     v->gv_height = 512;

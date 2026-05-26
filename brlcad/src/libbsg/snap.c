@@ -40,7 +40,7 @@
 #include "bsg/util.h"
 #include "bsg/vlist.h"
 
-struct bv_cp_info {
+struct bsg_cp_info {
     double ctol_sq; // square of the distance that defines "close to a line"
     point_t cp;  // closest point on closest line
     double dsq;  // squared distance to closest line
@@ -50,14 +50,14 @@ struct bv_cp_info {
 #define BV_CP_INFO_INIT {BN_TOL_DIST, VINIT_ZERO, DBL_MAX, VINIT_ZERO, DBL_MAX}
 
 /* Phase T-final (drawing_stack_modernization): the legacy gv_tcl
- * data_line_state snapping helpers (bv_cp_info_tcl /
+ * data_line_state snapping helpers (bsg_cp_info_tcl /
  * _find_closest_tcl_point / _find_close_isect_tcl) were removed.  Tcl
  * data_lines / sdata_lines are now stored as BSG VIEW_SCOPE line objects
  * (`_tcl_data_lines`, `_tcl_sdata_lines`) and snapped through the same
  * vlist-based path used for every other view-only line object. */
 
 static int
-_find_closest_obj_point(struct bv_cp_info *s, point_t *p, struct bsg_node *o)
+_find_closest_obj_point(struct bsg_cp_info *s, point_t *p, struct bsg_node *o)
 {
     int ret = 0;
     if (!s || !p || !o)
@@ -138,9 +138,9 @@ line_tol_sq(struct bsg_view *v, int lwidth)
     return lrsize*lrsize;
 }
 
-/* Phase B: context for snap BV_DB_OBJS bv_view_objs_visit_db callback. */
+/* Phase B: context for snap BV_DB_OBJS bsg_view_objs_visit_db callback. */
 struct _bv_snap_db_ctx {
-    struct bv_cp_info *s;
+    struct bsg_cp_info *s;
     point_t *p;
     int *ret;
 };
@@ -154,7 +154,7 @@ _bv_snap_db_obj_cb(struct bsg_node *so, void *data)
 }
 
 /* Phase A0 (drawing_stack_modernization): callback for snap_lines view-only
- * scope iteration via bv_view_obj_visit. */
+ * scope iteration via bsg_view_obj_visit. */
 static int
 _bv_snap_view_obj_cb(struct bsg_node *so, void *data)
 {
@@ -164,18 +164,18 @@ _bv_snap_view_obj_cb(struct bsg_node *so, void *data)
 }
 
 int
-bv_snap_lines_3d(point_t *out_pt, struct bsg_view *v, point_t *p)
+bsg_snap_lines_3d(point_t *out_pt, struct bsg_view *v, point_t *p)
 {
     int ret = 0;
     struct bsg_view_settings *gv_s = (v->gv_s) ? v->gv_s : &v->gv_ls;
-    struct bv_cp_info cpinfo = BV_CP_INFO_INIT;
+    struct bsg_cp_info cpinfo = BV_CP_INFO_INIT;
 
     if (!p || !v) return 0;
 
     // If we're not in Tcl mode only, we are looking at objects - either
     // all of them, or a specified subset
     if (gv_s->gv_snap_flags != BV_SNAP_TCL) {
-	struct bv_cp_info *s = &cpinfo;
+	struct bsg_cp_info *s = &cpinfo;
 	s->ctol_sq = line_tol_sq(v, 1);
 	if (BU_PTBL_LEN(&gv_s->gv_snap_objs) > 0) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(&gv_s->gv_snap_objs); i++) {
@@ -192,7 +192,7 @@ bv_snap_lines_3d(point_t *out_pt, struct bsg_view *v, point_t *p)
 	    }
 	} else {
 	    if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_DB)) {
-		/* Phase B: use bv_view_objs_visit_db to traverse BSG tree when
+		/* Phase B: use bsg_view_objs_visit_db to traverse BSG tree when
 		 * gv_draw_root is set; falls back to shared+local ptbls for
 		 * non-GED consumers.  The BV_SNAP_SHARED/LOCAL sub-distinction
 		 * is handled transparently by the helper's two-ptbl fallback. */
@@ -200,10 +200,10 @@ bv_snap_lines_3d(point_t *out_pt, struct bsg_view *v, point_t *p)
 		snap_ctx.s = s;
 		snap_ctx.p = p;
 		snap_ctx.ret = &ret;
-		bv_view_objs_visit_db(v, _bv_snap_db_obj_cb, &snap_ctx);
+		bsg_view_objs_visit_db(v, _bv_snap_db_obj_cb, &snap_ctx);
 	    }
 	    if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_VIEW)) {
-		/* Phase A0 (drawing_stack_modernization): use bv_view_obj_visit
+		/* Phase A0 (drawing_stack_modernization): use bsg_view_obj_visit
 		 * for the view-only scope.  scope_mask honors the same
 		 * BV_SNAP_SHARED / BV_SNAP_LOCAL distinction as the legacy
 		 * ptbl scan. */
@@ -217,7 +217,7 @@ bv_snap_lines_3d(point_t *out_pt, struct bsg_view *v, point_t *p)
 		    snap_ctx.s = s;
 		    snap_ctx.p = p;
 		    snap_ctx.ret = &ret;
-		    bv_view_obj_visit(v, scope_mask, _bv_snap_view_obj_cb, &snap_ctx);
+		    bsg_view_obj_visit(v, scope_mask, _bv_snap_view_obj_cb, &snap_ctx);
 		}
 	    }
 	}
@@ -233,7 +233,7 @@ bv_snap_lines_3d(point_t *out_pt, struct bsg_view *v, point_t *p)
     // data_lines / sdata_lines snap branch was removed.  After T1, the Tcl
     // data_lines state is mirrored into BSG view-scope objects
     // (`_tcl_data_lines`, `_tcl_sdata_lines`), which the BV_SNAP_VIEW
-    // branch above already snaps against via bv_view_obj_visit.  The
+    // branch above already snaps against via bsg_view_obj_visit.  The
     // BV_SNAP_TCL flag is now equivalent to BV_SNAP_VIEW and is retained
     // only for caller backward-compatibility.
     if (gv_s->gv_snap_flags == BV_SNAP_TCL) {
@@ -242,7 +242,7 @@ bv_snap_lines_3d(point_t *out_pt, struct bsg_view *v, point_t *p)
 	snap_ctx.s = &cpinfo;
 	snap_ctx.p = p;
 	snap_ctx.ret = &ret;
-	bv_view_obj_visit(v, scope_mask, _bv_snap_view_obj_cb, &snap_ctx);
+	bsg_view_obj_visit(v, scope_mask, _bv_snap_view_obj_cb, &snap_ctx);
     }
 
     // If we found something, we can snap
@@ -255,7 +255,7 @@ bv_snap_lines_3d(point_t *out_pt, struct bsg_view *v, point_t *p)
 }
 
 int
-bv_snap_lines_2d(struct bsg_view *v, fastf_t *vx, fastf_t *vy)
+bsg_snap_lines_2d(struct bsg_view *v, fastf_t *vx, fastf_t *vy)
 {
     if (!v || !vx || !vy) return 0;
 
@@ -266,7 +266,7 @@ bv_snap_lines_2d(struct bsg_view *v, fastf_t *vx, fastf_t *vy)
     point_t p = VINIT_ZERO;
     MAT4X3PNT(p, v->gv_view2model, vp);
     point_t out_pt = VINIT_ZERO;
-    if (bv_snap_lines_3d(&out_pt, v, &p) == 1) {
+    if (bsg_snap_lines_3d(&out_pt, v, &p) == 1) {
 	MAT4X3PNT(vp, v->gv_model2view, out_pt);
 	(*vx) = vp[0];
 	(*vy) = vp[1];
@@ -277,21 +277,21 @@ bv_snap_lines_2d(struct bsg_view *v, fastf_t *vx, fastf_t *vy)
 }
 
 void
-bv_view_center_linesnap(struct bsg_view *v)
+bsg_view_center_linesnap(struct bsg_view *v)
 {
     point_t view_pt;
     point_t model_pt;
 
     MAT_DELTAS_GET_NEG(model_pt, v->gv_center);
     MAT4X3PNT(view_pt, v->gv_model2view, model_pt);
-    bv_snap_lines_2d(v, &view_pt[X], &view_pt[Y]);
+    bsg_snap_lines_2d(v, &view_pt[X], &view_pt[Y]);
     MAT4X3PNT(model_pt, v->gv_view2model, view_pt);
     MAT_DELTAS_VEC_NEG(v->gv_center, model_pt);
-    bv_update(v);
+    bsg_update(v);
 }
 
 int
-bv_snap_grid_2d(struct bsg_view *v, fastf_t *vx, fastf_t *vy)
+bsg_snap_grid_2d(struct bsg_view *v, fastf_t *vx, fastf_t *vy)
 {
     point_t view_pt;
     point_t grid_origin;

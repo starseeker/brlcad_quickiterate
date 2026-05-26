@@ -1674,9 +1674,9 @@ knob_apply_misc(struct mged_state *s,
 		const char *token)
 {
     if (BU_STR_EQUAL(token, "zap") || BU_STR_EQUAL(token, "zero")) {
-	bv_knobs_reset(&view_state->vs_gvp->k, 0);
+	bsg_knobs_reset(&view_state->vs_gvp->k, 0);
 	if (MEDIT(s)) {
-	    bv_knobs_reset(&MEDIT(s)->k, BV_KNOBS_RATE);
+	    bsg_knobs_reset(&MEDIT(s)->k, BV_KNOBS_RATE);
 	}
 	view_state->k = view_state->vs_gvp->k;
 	update_all_rate_flags(s);
@@ -1852,7 +1852,7 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		    view_state->vs_gvp->gv_base2local = s->dbip->dbi_base2local;
 		}
 		int model_mode = model_flag || (mged_variables->mv_coords == 'm' && !view_flag);
-		if (bv_knobs_cmd_process(&view_rvec, &view_do_rot, &view_tvec, &view_do_tran,
+		if (bsg_knobs_cmd_process(&view_rvec, &view_do_rot, &view_tvec, &view_do_tran,
 			    view_state->vs_gvp,
 			    token, fval,
 			    origin, model_mode, incr_flag) != BRLCAD_OK) {
@@ -1882,7 +1882,7 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	}
 
 	if (view_do_tran) {
-	    bv_knobs_tran(view_state->vs_gvp, view_tvec, model_mode_final);
+	    bsg_knobs_tran(view_state->vs_gvp, view_tvec, model_mode_final);
 	}
 
 	if (view_do_rot) {
@@ -1890,7 +1890,7 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	    mat_t old_rot, old_rot_inv, delta, delta_inv;
 	    MAT_COPY(old_rot, view_state->vs_gvp->gv_rotation);
 
-	    bv_knobs_rot(view_state->vs_gvp, view_rvec, origin, vcoords,
+	    bsg_knobs_rot(view_state->vs_gvp, view_rvec, origin, vcoords,
 		    (vcoords == 'o') ? MEDIT(s)->acc_rot_sol : NULL,
 		    NULL);
 
@@ -2200,7 +2200,7 @@ mged_svbase(struct mged_state *s)
     VMOVE(saved_rot_o_abs_last, view_state->k.rot_o_abs_last);
 
     /* Reset all absolute knob baselines */
-    bv_knobs_reset(&view_state->k, 2);
+    bsg_knobs_reset(&view_state->k, 2);
 
     /* Restore object absolute rotations to preserve legacy behavior
      * TODO - for now we're preserving existing behavior, but should these

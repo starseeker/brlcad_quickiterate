@@ -205,13 +205,13 @@ end:
     bu_free((void *)all_segment_nodes, "all_segment_nodes");
 
     /* Create the scene object here so we can read a default color */
-    struct bsg_node *s = bv_create_polygon_obj(sv, flags, p);
+    struct bsg_node *s = bsg_create_polygon_obj(sv, flags, p);
     if (!s) {
 	bg_polygon_free(&p->polygon);
 	BU_PUT(p, struct bsg_polygon);
 	return NULL;
     }
-    /* Phase A1: s_name is initialized by bv_obj_reset; just overwrite. */
+    /* Phase A1: s_name is initialized by bsg_obj_reset; just overwrite. */
     bu_vls_sprintf(&s->s_name, "%s", sname);
 
     // check attributes for visual properties
@@ -323,7 +323,7 @@ end:
     }
 
     /* Have new polygon, now update view object vlist */
-    bv_polygon_vlist(s);
+    bsg_polygon_vlist(s);
 
     rt_db_free_internal(&intern);
     return s;

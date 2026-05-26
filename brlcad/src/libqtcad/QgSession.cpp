@@ -97,15 +97,15 @@ QgSession::QgSession(QObject *parent)
      * always non-null even before the application window creates its own
      * view widget. */
     BU_GET(empty_gvp, struct bsg_view);
-    bv_init(empty_gvp, &gedp->ged_views);
-    bv_set_add_view(&gedp->ged_views, empty_gvp);
+    bsg_init(empty_gvp, &gedp->ged_views);
+    bsg_set_add_view(&gedp->ged_views, empty_gvp);
     gedp->ged_gvp = empty_gvp;
     bu_vls_sprintf(&gedp->ged_gvp->gv_name, "default");
 }
 
 QgSession::~QgSession()
 {
-    bv_free(empty_gvp);
+    bsg_free(empty_gvp);
     BU_PUT(empty_gvp, struct bsg_view);
     ged_close(gedp);
 }

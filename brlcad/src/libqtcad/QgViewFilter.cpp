@@ -85,7 +85,7 @@ QgViewFilter::view_sync(QEvent *e)
 	m->v->gv_prevMouseY = m->v->gv_mouse_y;
 	m->v->gv_mouse_x = e_x;
 	m->v->gv_mouse_y = e_y;
-	bv_screen_pt(&m->v->gv_point, (fastf_t)e_x, (fastf_t)e_y, m->v);
+	bsg_screen_pt(&m->v->gv_point, (fastf_t)e_x, (fastf_t)e_y, m->v);
 
 	/* Modifier keys are typically view-nav gestures, not edit operations. */
 	if (m_e->modifiers() != Qt::NoModifier)

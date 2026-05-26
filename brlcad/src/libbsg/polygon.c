@@ -42,7 +42,7 @@
 #include "bsg/snap.h"
 
 void
-bv_polygon_contour(struct bsg_node *s, struct bg_poly_contour *c, int curr_c, int curr_i, int do_pnt)
+bsg_polygon_contour(struct bsg_node *s, struct bg_poly_contour *c, int curr_c, int curr_i, int do_pnt)
 {
     if (!s || !c || !s->s_v)
 	return;
@@ -69,15 +69,15 @@ bv_polygon_contour(struct bsg_node *s, struct bg_poly_contour *c, int curr_c, in
 }
 
 void
-bv_fill_polygon(struct bsg_node *s)
+bsg_fill_polygon(struct bsg_node *s)
 {
     if (!s)
 	return;
 
     // free old fill, if present
-    struct bsg_node *fobj = bv_find_child(s, "*fill*");
+    struct bsg_node *fobj = bsg_find_child(s, "*fill*");
     if (fobj)
-	bv_obj_put(fobj);
+	bsg_obj_put(fobj);
 
     struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
 
@@ -90,23 +90,23 @@ bv_fill_polygon(struct bsg_node *s)
     if (p->fill_delta < BN_TOL_DIST)
 	return;
 
-    struct bg_polygon *fill = bv_polygon_fill_segments(&p->polygon, &p->vp, p->fill_dir, p->fill_delta);
+    struct bg_polygon *fill = bsg_polygon_fill_segments(&p->polygon, &p->vp, p->fill_dir, p->fill_delta);
     if (!fill)
 	return;
 
     // Got fill, create lines
-    fobj = bv_obj_get_child(s);
+    fobj = bsg_obj_get_child(s);
     bu_vls_printf(&fobj->s_name, ":fill");
     fobj->s_os->s_line_width = 1;
     fobj->s_soldash = 0;
     bu_color_to_rgb_chars(&p->fill_color, fobj->s_color);
     for (size_t i = 0; i < fill->num_contours; i++) {
-	bv_polygon_contour(fobj, &fill->contour[i], 0, -1, 0);
+	bsg_polygon_contour(fobj, &fill->contour[i], 0, -1, 0);
     }
 }
 
 void
-bv_polygon_vlist(struct bsg_node *s)
+bsg_polygon_vlist(struct bsg_node *s)
 {
     if (!s)
 	return;
@@ -123,7 +123,7 @@ bv_polygon_vlist(struct bsg_node *s)
     // Clear any old holes
     for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
 	struct bsg_node *s_c = (struct bsg_node *)BU_PTBL_GET(&s->children, i);
-	bv_obj_put(s_c);
+	bsg_obj_put(s_c);
     }
 
     for (size_t i = 0; i < p->polygon.num_contours; ++i) {
@@ -149,41 +149,41 @@ bv_polygon_vlist(struct bsg_node *s)
 	}
 
 	if (p->polygon.hole[i]) {
-	    struct bsg_node *s_c = bv_obj_get_child(s);
+	    struct bsg_node *s_c = bsg_obj_get_child(s);
 	    s_c->s_soldash = 1;
 	    s_c->s_color[0] = s->s_color[0];
 	    s_c->s_color[1] = s->s_color[1];
 	    s_c->s_color[2] = s->s_color[2];
 	    s_c->s_v = s->s_v;
-	    bv_polygon_contour(s_c, &p->polygon.contour[i], ((int)i == p->curr_contour_i), p->curr_point_i, do_pnt);
+	    bsg_polygon_contour(s_c, &p->polygon.contour[i], ((int)i == p->curr_contour_i), p->curr_point_i, do_pnt);
 	    bu_ptbl_ins(&s->children, (long *)s_c);
 	    continue;
 	}
 
-	bv_polygon_contour(s, &p->polygon.contour[i], ((int)i == p->curr_contour_i), p->curr_point_i, do_pnt);
+	bsg_polygon_contour(s, &p->polygon.contour[i], ((int)i == p->curr_contour_i), p->curr_point_i, do_pnt);
     }
 
     if (p->fill_flag) {
-	bv_fill_polygon(s);
+	bsg_fill_polygon(s);
     } else {
-	struct bsg_node *fobj = bv_find_child(s, "*fill*");
+	struct bsg_node *fobj = bsg_find_child(s, "*fill*");
 	if (fobj)
-	    bv_obj_put(fobj);
+	    bsg_obj_put(fobj);
 
     }
 }
 
 struct bsg_node *
-bv_create_polygon_obj(struct bsg_view *v, int flags, struct bsg_polygon *p)
+bsg_create_polygon_obj(struct bsg_view *v, int flags, struct bsg_polygon *p)
 {
     struct bsg_node *s = NULL;
     if (flags & BV_VIEW_OBJS) {
 	/* Phase V3: view-only polygon producers now attach directly under
 	 * BSG view-scope nodes rather than relying on ptbl registration +
 	 * bridge proxy nodes. */
-	s = bv_view_obj_overlay_create(v, NULL, (flags & BV_LOCAL_OBJS) ? 1 : 0);
+	s = bsg_view_obj_overlay_create(v, NULL, (flags & BV_LOCAL_OBJS) ? 1 : 0);
     } else {
-	s = bv_obj_get(v, flags);
+	s = bsg_obj_get(v, flags);
     }
     if (!s)
 	return NULL;
@@ -191,17 +191,17 @@ bv_create_polygon_obj(struct bsg_view *v, int flags, struct bsg_polygon *p)
     s->s_type_flags |= BV_VIEWONLY;
 
     // Construct the plane
-    bv_view_plane(&p->vp, v);
+    bsg_view_plane(&p->vp, v);
 
     s->s_os->s_line_width = 1;
     s->s_color[0] = 255;
     s->s_color[1] = 255;
     s->s_color[2] = 0;
     s->s_i_data = (void *)p;
-    s->s_update_callback = &bv_update_polygon;
+    s->s_update_callback = &bsg_update_polygon;
 
     /* Have new polygon, now update view object vlist */
-    bv_polygon_vlist(s);
+    bsg_polygon_vlist(s);
 
     /* updated */
     s->s_changed++;
@@ -210,7 +210,7 @@ bv_create_polygon_obj(struct bsg_view *v, int flags, struct bsg_polygon *p)
 }
 
 struct bsg_node *
-bv_create_polygon(struct bsg_view *v, int flags, int type, point_t *fp)
+bsg_create_polygon(struct bsg_view *v, int flags, int type, point_t *fp)
 {
     struct bsg_polygon *p;
     BU_GET(p, struct bsg_polygon);
@@ -223,7 +223,7 @@ bv_create_polygon(struct bsg_view *v, int flags, int type, point_t *fp)
     bu_color_from_rgb_chars(&p->fill_color, frgb);
 
     // Construct the plane
-    bv_view_plane(&p->vp, v);
+    bsg_view_plane(&p->vp, v);
 
     // Construct closest point to fp on plane
     fastf_t fx, fy;
@@ -260,14 +260,14 @@ bv_create_polygon(struct bsg_view *v, int flags, int type, point_t *fp)
 	p->polygon.contour[0].open = 1;
 
     // Have polygon, now make scene object
-    struct bsg_node *s = bv_create_polygon_obj(v, flags, p);
+    struct bsg_node *s = bsg_create_polygon_obj(v, flags, p);
     if (!s)
 	BU_PUT(p, struct bsg_polygon);
     return s;
 }
 
 void
-bv_polygon_cpy(struct bsg_polygon *dest, struct bsg_polygon *src)
+bsg_polygon_cpy(struct bsg_polygon *dest, struct bsg_polygon *src)
 {
     if (!src || !dest)
 	return;
@@ -288,7 +288,7 @@ bv_polygon_cpy(struct bsg_polygon *dest, struct bsg_polygon *src)
 }
 
 int
-bv_append_polygon_pt(struct bsg_node *s, point_t *np)
+bsg_append_polygon_pt(struct bsg_node *s, point_t *np)
 {
     struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
     if (p->type != BV_POLYGON_GENERAL)
@@ -309,7 +309,7 @@ bv_append_polygon_pt(struct bsg_node *s, point_t *np)
     VMOVE(c->point[c->num_points-1], m_pt);
 
     /* Have new polygon, now update view object vlist */
-    bv_polygon_vlist(s);
+    bsg_polygon_vlist(s);
 
     /* Updated */
     s->s_changed++;
@@ -321,7 +321,7 @@ bv_append_polygon_pt(struct bsg_node *s, point_t *np)
 // the moment...  Would be better for repeated sampling of relatively static
 // scenes to build an RTree first...
 struct bsg_node *
-bv_select_polygon(struct bu_ptbl *objs, point_t *cp)
+bsg_select_polygon(struct bu_ptbl *objs, point_t *cp)
 {
     if (!objs)
 	return NULL;
@@ -367,8 +367,8 @@ bv_select_polygon(struct bu_ptbl *objs, point_t *cp)
     return closest;
 }
 
-/* Phase A0/A2 (drawing_stack_modernization): typed version of bv_select_polygon
- * that uses bv_view_obj_visit internally rather than a caller-supplied ptbl.
+/* Phase A0/A2 (drawing_stack_modernization): typed version of bsg_select_polygon
+ * that uses bsg_view_obj_visit internally rather than a caller-supplied ptbl.
  * Walks all BSG view-scope nodes visible to v, finds the polygon object whose
  * edge is closest to cp, and returns it. */
 struct _bv_poly_select_ptbl {
@@ -385,21 +385,21 @@ _bv_poly_collect_cb(struct bsg_node *obj, void *data)
 }
 
 struct bsg_node *
-bv_view_select_polygon(struct bsg_view *v, point_t *cp)
+bsg_view_select_polygon(struct bsg_view *v, point_t *cp)
 {
     if (!v || !cp)
 	return NULL;
 
     struct _bv_poly_select_ptbl state;
-    bu_ptbl_init(&state.objs, 8, "bv_view_select_polygon objs");
-    bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _bv_poly_collect_cb, &state);
-    struct bsg_node *result = bv_select_polygon(&state.objs, cp);
+    bu_ptbl_init(&state.objs, 8, "bsg_view_select_polygon objs");
+    bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _bv_poly_collect_cb, &state);
+    struct bsg_node *result = bsg_select_polygon(&state.objs, cp);
     bu_ptbl_free(&state.objs);
     return result;
 }
 
 int
-bv_select_polygon_pt(struct bsg_node *s, point_t *cp)
+bsg_select_polygon_pt(struct bsg_node *s, point_t *cp)
 {
     struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
     if (p->type != BV_POLYGON_GENERAL)
@@ -446,7 +446,7 @@ bv_select_polygon_pt(struct bsg_node *s, point_t *cp)
     p->curr_contour_i = closest_contour;
 
     /* Have new polygon, now update view object vlist */
-    bv_polygon_vlist(s);
+    bsg_polygon_vlist(s);
 
     /* Updated */
     s->s_changed++;
@@ -456,7 +456,7 @@ bv_select_polygon_pt(struct bsg_node *s, point_t *cp)
 
 
 void
-bv_select_clear_polygon_pt(struct bsg_node *s)
+bsg_select_clear_polygon_pt(struct bsg_node *s)
 {
     if (!s)
 	return;
@@ -465,7 +465,7 @@ bv_select_clear_polygon_pt(struct bsg_node *s)
 	struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
 	p->curr_point_i = -1;
 	p->curr_contour_i = -1;
-	bv_polygon_vlist(s);
+	bsg_polygon_vlist(s);
 	/* Updated */
 	s->s_changed++;
     }
@@ -473,7 +473,7 @@ bv_select_clear_polygon_pt(struct bsg_node *s)
 
 
 int
-bv_move_polygon(struct bsg_node *s, point_t *cp, point_t *prev_point)
+bsg_move_polygon(struct bsg_node *s, point_t *cp, point_t *prev_point)
 {
     fastf_t pfx, pfy, fx, fy;
     struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
@@ -497,7 +497,7 @@ bv_move_polygon(struct bsg_node *s, point_t *cp, point_t *prev_point)
     }
 
     /* Have new polygon, now update view object vlist */
-    bv_polygon_vlist(s);
+    bsg_polygon_vlist(s);
 
     // Shift the origin point.
     VADD2(p->origin_point, p->origin_point, v_mv);
@@ -509,7 +509,7 @@ bv_move_polygon(struct bsg_node *s, point_t *cp, point_t *prev_point)
 }
 
 int
-bv_move_polygon_pt(struct bsg_node *s, point_t *mp)
+bsg_move_polygon_pt(struct bsg_node *s, point_t *mp)
 {
     struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
     if (p->type != BV_POLYGON_GENERAL)
@@ -531,7 +531,7 @@ bv_move_polygon_pt(struct bsg_node *s, point_t *mp)
     VMOVE(c->point[p->curr_point_i], m_pt);
 
     /* Have new polygon, now update view object vlist */
-    bv_polygon_vlist(s);
+    bsg_polygon_vlist(s);
 
     /* Updated */
     s->s_changed++;
@@ -540,7 +540,7 @@ bv_move_polygon_pt(struct bsg_node *s, point_t *mp)
 }
 
 int
-bv_update_polygon_circle(struct bsg_node *s, point_t *cp, fastf_t pixel_size)
+bsg_update_polygon_circle(struct bsg_node *s, point_t *cp, fastf_t pixel_size)
 {
     struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
 
@@ -596,7 +596,7 @@ bv_update_polygon_circle(struct bsg_node *s, point_t *cp, fastf_t pixel_size)
     p->polygon.contour = gp.contour;
 
     /* Have new polygon, now update view object vlist */
-    bv_polygon_vlist(s);
+    bsg_polygon_vlist(s);
 
     /* Updated */
     s->s_changed++;
@@ -605,7 +605,7 @@ bv_update_polygon_circle(struct bsg_node *s, point_t *cp, fastf_t pixel_size)
 }
 
 int
-bv_update_polygon_ellipse(struct bsg_node *s, point_t *cp, fastf_t pixel_size)
+bsg_update_polygon_ellipse(struct bsg_node *s, point_t *cp, fastf_t pixel_size)
 {
     struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
 
@@ -683,7 +683,7 @@ bv_update_polygon_ellipse(struct bsg_node *s, point_t *cp, fastf_t pixel_size)
     p->polygon.contour = gp.contour;
 
     /* Have new polygon, now update view object vlist */
-    bv_polygon_vlist(s);
+    bsg_polygon_vlist(s);
 
     /* Updated */
     s->s_changed++;
@@ -692,7 +692,7 @@ bv_update_polygon_ellipse(struct bsg_node *s, point_t *cp, fastf_t pixel_size)
 }
 
 int
-bv_update_polygon_rectangle(struct bsg_node *s, point_t *cp)
+bsg_update_polygon_rectangle(struct bsg_node *s, point_t *cp)
 {
     struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
 
@@ -712,7 +712,7 @@ bv_update_polygon_rectangle(struct bsg_node *s, point_t *cp)
     p->polygon.contour[0].open = 0;
 
     /* Polygon updated, now update view object vlist */
-    bv_polygon_vlist(s);
+    bsg_polygon_vlist(s);
 
     /* Updated */
     s->s_changed++;
@@ -721,7 +721,7 @@ bv_update_polygon_rectangle(struct bsg_node *s, point_t *cp)
 }
 
 int
-bv_update_polygon_square(struct bsg_node *s, point_t *cp)
+bsg_update_polygon_square(struct bsg_node *s, point_t *cp)
 {
     struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
 
@@ -755,7 +755,7 @@ bv_update_polygon_square(struct bsg_node *s, point_t *cp)
     bg_plane_pt_at(&p->polygon.contour[0].point[3], &zpln, fx, pfy);
 
     /* Polygon updated, now update view object vlist */
-    bv_polygon_vlist(s);
+    bsg_polygon_vlist(s);
 
     /* Updated */
     s->s_changed++;
@@ -764,31 +764,31 @@ bv_update_polygon_square(struct bsg_node *s, point_t *cp)
 }
 
 int
-bv_update_general_polygon(struct bsg_node *s, int utype, point_t *cp)
+bsg_update_general_polygon(struct bsg_node *s, int utype, point_t *cp)
 {
     struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
     if (p->type != BV_POLYGON_GENERAL)
 	return 0;
 
     if (utype == BV_POLYGON_UPDATE_PT_APPEND) {
-	return bv_append_polygon_pt(s, cp);
+	return bsg_append_polygon_pt(s, cp);
     }
 
     if (utype == BV_POLYGON_UPDATE_PT_SELECT) {
-	return bv_select_polygon_pt(s, cp);
+	return bsg_select_polygon_pt(s, cp);
     }
 
     if (utype == BV_POLYGON_UPDATE_PT_SELECT_CLEAR) {
-	bv_select_clear_polygon_pt(s);
+	bsg_select_clear_polygon_pt(s);
 	return 1;
     }
 
     if (utype == BV_POLYGON_UPDATE_PT_MOVE) {
-	return bv_move_polygon_pt(s, cp);
+	return bsg_move_polygon_pt(s, cp);
     }
 
     /* Polygon updated, now update view object vlist */
-    bv_polygon_vlist(s);
+    bsg_polygon_vlist(s);
 
     /* Updated */
     s->s_changed++;
@@ -797,7 +797,7 @@ bv_update_general_polygon(struct bsg_node *s, int utype, point_t *cp)
 }
 
 int
-bv_update_polygon(struct bsg_node *s, struct bsg_view *v, int utype)
+bsg_update_polygon(struct bsg_node *s, struct bsg_view *v, int utype)
 {
     if (!s)
 	return 0;
@@ -805,7 +805,7 @@ bv_update_polygon(struct bsg_node *s, struct bsg_view *v, int utype)
     struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
 
     // Regardless of type, sync fill color
-    struct bsg_node *fobj = bv_find_child(s, "*fill*");
+    struct bsg_node *fobj = bsg_find_child(s, "*fill*");
     if (fobj) {
 	bu_color_to_rgb_chars(&p->fill_color, fobj->s_color);
     }
@@ -822,10 +822,10 @@ bv_update_polygon(struct bsg_node *s, struct bsg_view *v, int utype)
 	}
 
 	if (p->fill_flag) {
-	    bv_fill_polygon(s);
+	    bsg_fill_polygon(s);
 	} else {
 	    if (fobj)
-		bv_obj_put(fobj);
+		bsg_obj_put(fobj);
 	}
 
 	return 0;
@@ -838,30 +838,30 @@ bv_update_polygon(struct bsg_node *s, struct bsg_view *v, int utype)
 	// Need the length of the diagonal of a pixel
 	vect_t c1 = VINIT_ZERO;
 	vect_t c2 = VINIT_ZERO;
-	bv_screen_to_view(v, &c1[0], &c1[1], 0, 0);
-	bv_screen_to_view(v, &c2[0], &c2[1], 1, 1);
+	bsg_screen_to_view(v, &c1[0], &c1[1], 0, 0);
+	bsg_screen_to_view(v, &c2[0], &c2[1], 1, 1);
 	point_t p1, p2;
 	MAT4X3PNT(p1, v->gv_view2model, c1);
 	MAT4X3PNT(p2, v->gv_view2model, c2);
 	fastf_t d = DIST_PNT_PNT(p1, p2);
 
 	if (p->type == BV_POLYGON_CIRCLE)
-	    return bv_update_polygon_circle(s, &v->gv_point, d);
+	    return bsg_update_polygon_circle(s, &v->gv_point, d);
 	if (p->type == BV_POLYGON_ELLIPSE)
-	    return bv_update_polygon_ellipse(s, &v->gv_point, d);
+	    return bsg_update_polygon_ellipse(s, &v->gv_point, d);
     }
 
     if (p->type == BV_POLYGON_RECTANGLE)
-	return bv_update_polygon_rectangle(s, &v->gv_point);
+	return bsg_update_polygon_rectangle(s, &v->gv_point);
     if (p->type == BV_POLYGON_SQUARE)
-	return bv_update_polygon_square(s, &v->gv_point);
+	return bsg_update_polygon_square(s, &v->gv_point);
     if (p->type != BV_POLYGON_GENERAL)
 	return 0;
-    return bv_update_general_polygon(s, utype, &v->gv_point);
+    return bsg_update_general_polygon(s, utype, &v->gv_point);
 }
 
 struct bsg_node *
-bv_dup_view_polygon(const char *nname, struct bsg_node *s)
+bsg_dup_view_polygon(const char *nname, struct bsg_node *s)
 {
     if (!nname || !s)
 	return NULL;
@@ -870,17 +870,17 @@ bv_dup_view_polygon(const char *nname, struct bsg_node *s)
 
     struct bsg_polygon *p;
     BU_GET(p, struct bsg_polygon);
-    bv_polygon_cpy(p, ip);
+    bsg_polygon_cpy(p, ip);
 
-    struct bsg_node *np = bv_create_polygon_obj(s->s_v, s->s_type_flags, p);
+    struct bsg_node *np = bsg_create_polygon_obj(s->s_v, s->s_type_flags, p);
 
     // Have geometry, now copy visual settings
     VMOVE(np->s_color, s->s_color);
 
     // Update scene obj vlist
-    bv_polygon_vlist(np);
+    bsg_polygon_vlist(np);
 
-    // Set new name (s_name was initialized by bv_obj_reset; just overwrite it)
+    // Set new name (s_name was initialized by bsg_obj_reset; just overwrite it)
     bu_vls_sprintf(&np->s_name, "%s", nname);
 
     // Return new object

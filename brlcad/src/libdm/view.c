@@ -332,7 +332,7 @@ dm_draw_label(struct dm *dmp, struct bsg_node *s)
 	    for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
 		    point_t t3d, tpt;
-		    if (bv_screen_to_view(s->s_v, &t3d[0], &t3d[1], (int)xvals[i], (int)yvals[j]) < 0) {
+		    if (bsg_screen_to_view(s->s_v, &t3d[0], &t3d[1], (int)xvals[i], (int)yvals[j]) < 0) {
 			return;
 		    }
 		    t3d[2] = 0;
@@ -378,7 +378,7 @@ dm_draw_label(struct dm *dmp, struct bsg_node *s)
 		    return;
 	    }
 	}
-	bv_screen_to_view(s->s_v, &l3d[0], &l3d[1], (int)anchor[0], (int)anchor[1]);
+	bsg_screen_to_view(s->s_v, &l3d[0], &l3d[1], (int)anchor[0], (int)anchor[1]);
 	MAT4X3PNT(mpt, s->s_v->gv_view2model, l3d);
     } else {
 	VMOVE(mpt, l->p);
@@ -486,7 +486,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
     // Primary object drawing.
     if (s->s_type_flags & BV_DB_OBJS) {
 	struct bsg_node *vo = s;
-	bv_log(1, "dm_draw_scene_obj - drawing %s[%s]", bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
+	bsg_log(1, "dm_draw_scene_obj - drawing %s[%s]", bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
 
 	/* Phase 11 (drawing_stack_modernization): renderer-backend contract.
 	 * dm_backend_draw_obj() routes through the dm's registered
@@ -569,7 +569,7 @@ _bsg_view_traverse_impl(struct bsg_view *v, void *root,
 
     struct bsg_node *r = (struct bsg_node *)root;
     int independent_root = 0;
-    if (bv_view_is_independent(v) && r == (struct bsg_node *)v->bsg_root) {
+    if (bsg_view_is_independent(v) && r == (struct bsg_node *)v->bsg_root) {
 	independent_root = 1;
     }
     for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
@@ -652,7 +652,7 @@ _bsg_view_traverse_impl(struct bsg_view *v, void *root,
 void
 bsg_view_traverse(struct bsg_view *v, void *root)
 {
-    bv_log(3, "libdm:bsg_view_traverse");
+    bsg_log(3, "libdm:bsg_view_traverse");
     _bsg_view_traverse_impl(v, root, /*transparency_pass=*/0, /*cur_mat=*/NULL);
 }
 
@@ -670,7 +670,7 @@ bsg_view_traverse(struct bsg_view *v, void *root)
 void
 dm_draw_objs(struct bsg_view *v, void (*dm_draw_custom)(struct bsg_view *, void *), void *u_data)
 {
-    bv_log(3, "libdm:dm_draw_objs");
+    bsg_log(3, "libdm:dm_draw_objs");
     if (dm_draw_custom) {
 	(*dm_draw_custom)(v, u_data);
 	return;

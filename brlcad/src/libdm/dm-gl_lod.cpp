@@ -308,8 +308,8 @@ swrast_draw_vlist_fast(struct dm *dmp, bsg_vlist *vp)
  *   - the dm_backend_ops invalidate callback (gl_backend_invalidate_obj)
  *     simply flips dlist_stale on the existing handle if any;
  *   - the dm_backend_ops release callback (gl_backend_release_obj) is
- *     fired through bv_scene_obj_release_backend (from bv_obj_reset,
- *     bv_obj_put, the libbsg tree free paths, ...) and tears down the GL
+ *     fired through bsg_scene_obj_release_backend (from bsg_obj_reset,
+ *     bsg_obj_put, the libbsg tree free paths, ...) and tears down the GL
  *     list and the handle itself.
  */
 struct gl_backend_handle {
@@ -363,7 +363,7 @@ gl_backend_handle_release(struct bsg_node *s, int enqueue_delete)
     if (!s)
 	return;
     /* Do not recurse into children here.  Backend release is triggered per
-     * object by higher-level scene teardown paths (e.g. bv_obj_put on each
+     * object by higher-level scene teardown paths (e.g. bsg_obj_put on each
      * leaf).  Recursing from a parent can double-release child backend state,
      * leading to stale GL list IDs reaching glDeleteLists. */
     if (s->s_backend && s->s_backend->type_tag == BV_BACKEND_GL) {
@@ -389,7 +389,7 @@ gl_backend_release_obj(struct dm *dmp, struct bsg_node *s)
 }
 
 /* bsg_backend::free — also fired indirectly by
- * bv_scene_obj_release_backend; same semantics as the dm-side wrapper. */
+ * bsg_scene_obj_release_backend; same semantics as the dm-side wrapper. */
 static void
 gl_backend_release_obj_free(struct bsg_node *s)
 {
@@ -472,10 +472,10 @@ gl_draw_tri(struct dm *dmp, struct bsg_mesh_lod *lod)
 	    // If we've had a memshrink, the loaded data isn't
 	    // going to be correct to generate new draw info.
 	    // First, find out the current level:
-	    int curr_level = bv_mesh_lod_level(s, -1, 0);
+	    int curr_level = bsg_mesh_lod_level(s, -1, 0);
 
 	    // Trigger a load operation to restore it
-	    bv_mesh_lod_level(s, curr_level, 1);
+	    bsg_mesh_lod_level(s, curr_level, 1);
 
 	    fcnt = lod->fcnt;
 	    pcnt = lod->pcnt;
@@ -613,7 +613,7 @@ gl_draw_tri(struct dm *dmp, struct bsg_mesh_lod *lod)
 		// If the original data is sizable, clear it to save system memory.
 		// The dlist has what it needs, and the LoD code will re-load info
 		// as needed for updates.
-		bv_mesh_lod_memshrink(s);
+		bsg_mesh_lod_memshrink(s);
 	    }
 
 	    MAT_COPY(save_mat, s->s_v->gv_model2view);
@@ -720,7 +720,7 @@ gl_draw_tri(struct dm *dmp, struct bsg_mesh_lod *lod)
 		// If the original data is sizable, clear it to save system memory.
 		// The dlist has what it needs, and the LoD code will re-load info
 		// as needed for updates.
-		bv_mesh_lod_memshrink(s);
+		bsg_mesh_lod_memshrink(s);
 	    }
 
 	    /* notify registered sensors that the dlist was regenerated */

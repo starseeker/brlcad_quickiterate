@@ -65,7 +65,7 @@ QgSW::QgSW(QWidget *parent, struct fb *fbp)
     // Provide a view specific to this widget - set gedp->ged_gvp to v
     // if this is the current view
     BU_GET(d->local_v, struct bsg_view);
-    bv_init(d->local_v, nullptr);
+    bsg_init(d->local_v, nullptr);
     bu_vls_sprintf(&d->local_v->gv_name, "swrast");
     d->v = d->local_v;
 

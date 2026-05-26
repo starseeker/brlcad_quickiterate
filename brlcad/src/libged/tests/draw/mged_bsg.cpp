@@ -165,7 +165,7 @@ open_gedp(const char *gfile, int width, int height)
 
     gedp->dbi_state = new DbiState(gedp);
     gedp->new_cmd_forms = 1;
-    gedp->ged_lod = bv_mesh_lod_context_create(gedp->dbip->dbi_filename);
+    gedp->ged_lod = bsg_mesh_lod_context_create(gedp->dbip->dbi_filename);
     bu_setenv("DM_SWRAST", "1", 1);
     db_add_changed_clbk(gedp->dbip, &ged_changed_callback, (void *)gedp);
 
@@ -281,7 +281,7 @@ test_illumination(const char *datadir)
 
     /* Set the first drawn object's s_iflag to UP (illuminated / selected) */
     struct bsg_view *v = gedp->ged_gvp;
-    struct bu_ptbl *sobjs = bv_view_objs(v, BV_DB_OBJS);
+    struct bu_ptbl *sobjs = bsg_view_objs(v, BV_DB_OBJS);
     struct bsg_node *illum_sp = NULL;
     if (sobjs && BU_PTBL_LEN(sobjs) > 0)
 	illum_sp = (struct bsg_node *)BU_PTBL_GET(sobjs, 0);
@@ -345,7 +345,7 @@ test_edit_matrix(const char *datadir)
     ged_exec_autoview(gedp, 1, s_av);
 
     struct bsg_view *v = gedp->ged_gvp;
-    struct bu_ptbl *sobjs = bv_view_objs(v, BV_DB_OBJS);
+    struct bu_ptbl *sobjs = bsg_view_objs(v, BV_DB_OBJS);
     struct bsg_node *sp = NULL;
     if (sobjs && BU_PTBL_LEN(sobjs) > 0)
 	sp = (struct bsg_node *)BU_PTBL_GET(sobjs, 0);

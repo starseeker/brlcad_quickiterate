@@ -94,7 +94,7 @@ struct bsg_lod_view_cursor {
  * Policy vtable installed on a BSG_NODE_LOD node.
  *
  * Implementations are supplied by:
- *   - libbv (mesh pop-buffer LoD): wraps bv_mesh_lod_view.
+ *   - libbv (mesh pop-buffer LoD): wraps bsg_mesh_lod_view.
  *   - libged (CSG adaptive wireframe): wraps csg_wireframe_update /
  *     ft_adaptive_plot.
  *

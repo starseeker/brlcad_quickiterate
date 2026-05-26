@@ -39,44 +39,44 @@ __BEGIN_DECLS
  * Initialize an empty view set
  */
 BV_EXPORT void
-bv_set_init(struct bsg_view_set *s);
+bsg_set_init(struct bsg_view_set *s);
 
 /**
  * Free view set
  */
 BV_EXPORT void
-bv_set_free(struct bsg_view_set *s);
+bsg_set_free(struct bsg_view_set *s);
 
 /**
  * Add view v to set s, handling shared memory assignments.
  */
 BV_EXPORT void
-bv_set_add_view(struct bsg_view_set *s, struct bsg_view *v);
+bsg_set_add_view(struct bsg_view_set *s, struct bsg_view *v);
 
 /**
  * Remove view v from set s.  If v == NULL, all views
  * are removed from the set.
  */
 BV_EXPORT void
-bv_set_rm_view(struct bsg_view_set *s, struct bsg_view *v);
+bsg_set_rm_view(struct bsg_view_set *s, struct bsg_view *v);
 
 /**
  * Return a bu_ptbl holding pointers to all views in set s
  */
 BV_EXPORT struct bu_ptbl *
-bv_set_views(struct bsg_view_set *s);
+bsg_set_views(struct bsg_view_set *s);
 
 /**
  * Return a pointer to the view with name vname, if it is present in s.  If not
  * found, returns NULL
  */
 BV_EXPORT struct bsg_view *
-bv_set_find_view(struct bsg_view_set *s, const char *vname);
+bsg_set_find_view(struct bsg_view_set *s, const char *vname);
 
 
 /* Expose free_scene_obj for older codes - do not use in new coding */
 BV_EXPORT struct bsg_node *
-bv_set_fsos(struct bsg_view_set *s);
+bsg_set_fsos(struct bsg_view_set *s);
 
 
 __END_DECLS

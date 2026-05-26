@@ -513,7 +513,7 @@ to_data_axes(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    gdvp = bv_set_find_view(&gedp->ged_views, argv[1]);
+    gdvp = bsg_set_find_view(&gedp->ged_views, argv[1]);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;
@@ -541,7 +541,7 @@ to_data_axes_func(Tcl_Interp *interp,
     if (BU_STR_EQUAL(argv[1], "draw")) {
 	if (argc == 2) {
 	    /* T3: BSG object presence encodes draw>0. Return 1/0. */
-	    struct bsg_node *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bsg_view_obj_find(gdvp, bsg_name);
 	    bu_vls_printf(gedp->ged_result_str, "%d", _s ? 1 : 0);
 	    return BRLCAD_OK;
 	}
@@ -553,9 +553,9 @@ to_data_axes_func(Tcl_Interp *interp,
 		goto bad;
 
 	    /* T3: toggle visibility; no gv_tcl write. */
-	    struct bsg_node *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bsg_view_obj_find(gdvp, bsg_name);
 	    if (_s)
-		bv_view_obj_set_visible(_s, i ? 1 : 0);
+		bsg_view_obj_set_visible(_s, i ? 1 : 0);
 
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
@@ -567,7 +567,7 @@ to_data_axes_func(Tcl_Interp *interp,
     if (BU_STR_EQUAL(argv[1], "color")) {
 	if (argc == 2) {
 	    /* T3: read color from BSG object. */
-	    struct bsg_node *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bsg_view_obj_find(gdvp, bsg_name);
 	    if (_s)
 		bu_vls_printf(gedp->ged_result_str, "%d %d %d",
 			      (int)_s->s_color[0], (int)_s->s_color[1], (int)_s->s_color[2]);
@@ -592,9 +592,9 @@ to_data_axes_func(Tcl_Interp *interp,
 		goto bad;
 
 	    /* T3: update BSG object in-place; no gv_tcl write. */
-	    struct bsg_node *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bsg_view_obj_find(gdvp, bsg_name);
 	    if (_s)
-		bv_view_obj_set_color(_s, r, g, b);
+		bsg_view_obj_set_color(_s, r, g, b);
 
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
@@ -606,7 +606,7 @@ to_data_axes_func(Tcl_Interp *interp,
     if (BU_STR_EQUAL(argv[1], "line_width")) {
 	if (argc == 2) {
 	    /* T3: read line_width from BSG object settings. */
-	    struct bsg_node *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bsg_view_obj_find(gdvp, bsg_name);
 	    if (_s && _s->s_os)
 		bu_vls_printf(gedp->ged_result_str, "%d", _s->s_os->s_line_width);
 	    else
@@ -621,9 +621,9 @@ to_data_axes_func(Tcl_Interp *interp,
 		goto bad;
 
 	    /* T3: update BSG object in-place; no gv_tcl write. */
-	    struct bsg_node *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bsg_view_obj_find(gdvp, bsg_name);
 	    if (_s)
-		bv_view_obj_set_line_width(_s, line_width);
+		bsg_view_obj_set_line_width(_s, line_width);
 
 	    to_refresh_view(gdvp);
 	    return BRLCAD_OK;
@@ -636,7 +636,7 @@ to_data_axes_func(Tcl_Interp *interp,
 	if (argc == 2) {
 	    /* T3: recover the encoded half-size from BSG X-axis endpoints and
 	     * back-compute size = 2*half / sf.  Returns approximate value. */
-	    struct bsg_node *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bsg_view_obj_find(gdvp, bsg_name);
 	    if (_s) {
 		point_t *_all = NULL;
 		int _ntotal = _bsg_extract_pts(_s, &_all);
@@ -667,7 +667,7 @@ to_data_axes_func(Tcl_Interp *interp,
 		goto bad;
 
 	    /* T3: extract current centers, rebuild with new halfAxesSize; no gv_tcl write. */
-	    struct bsg_node *old_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *old_s = bsg_view_obj_find(gdvp, bsg_name);
 	    int _color[3]; int _lw, _vis;
 	    _bsg_read_style(old_s, _color, &_lw, NULL, NULL, &_vis);
 
@@ -697,7 +697,7 @@ to_data_axes_func(Tcl_Interp *interp,
 
 	if (argc == 2) {
 	    /* T3: recover center points from BSG vlist. */
-	    struct bsg_node *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bsg_view_obj_find(gdvp, bsg_name);
 	    if (_s) {
 		point_t *_cpts = NULL;
 		int _ncpts = _bsg_extract_axes_centers(_s, &_cpts);
@@ -718,7 +718,7 @@ to_data_axes_func(Tcl_Interp *interp,
 	    }
 
 	    /* T3: save style and size from existing BSG object before replacing it. */
-	    struct bsg_node *old_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *old_s = bsg_view_obj_find(gdvp, bsg_name);
 	    int _color[3]; int _lw, _vis;
 	    _bsg_read_style(old_s, _color, &_lw, NULL, NULL, &_vis);
 
@@ -734,7 +734,7 @@ to_data_axes_func(Tcl_Interp *interp,
 
 	    /* Clear out: remove old BSG object. */
 	    if (ac < 1) {
-		bv_view_obj_remove(gdvp, bsg_name);
+		bsg_view_obj_remove(gdvp, bsg_name);
 		to_refresh_view(gdvp);
 		Tcl_Free((char *)av);
 		return BRLCAD_OK;
@@ -791,7 +791,7 @@ to_model_axes(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    gdvp = bv_set_find_view(&gedp->ged_views, argv[1]);
+    gdvp = bsg_set_find_view(&gedp->ged_views, argv[1]);
     if (!gdvp) {
         bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
         return BRLCAD_ERROR;
@@ -849,7 +849,7 @@ to_view_axes(struct ged *gedp,
 	return BRLCAD_ERROR;
     }
 
-    gdvp = bv_set_find_view(&gedp->ged_views, argv[1]);
+    gdvp = bsg_set_find_view(&gedp->ged_views, argv[1]);
     if (!gdvp) {
 	bu_vls_printf(gedp->ged_result_str, "View not found - %s", argv[1]);
 	return BRLCAD_ERROR;

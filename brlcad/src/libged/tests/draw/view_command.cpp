@@ -62,15 +62,15 @@ main(int argc, const char **argv)
 
     gedp->dbi_state = new DbiState(gedp);
     gedp->new_cmd_forms = 1;
-    gedp->ged_lod = bv_mesh_lod_context_create(gedp->dbip->dbi_filename);
+    gedp->ged_lod = bsg_mesh_lod_context_create(gedp->dbip->dbi_filename);
 
-    bv_set_rm_view(&gedp->ged_views, NULL);
+    bsg_set_rm_view(&gedp->ged_views, NULL);
     struct bsg_view *views[2] = {NULL, NULL};
     for (int i = 0; i < 2; i++) {
 	BU_GET(views[i], struct bsg_view);
-	bv_init(views[i], &gedp->ged_views);
+	bsg_init(views[i], &gedp->ged_views);
 	bu_vls_sprintf(&views[i]->gv_name, "V%d", i);
-	bv_set_add_view(&gedp->ged_views, views[i]);
+	bsg_set_add_view(&gedp->ged_views, views[i]);
 	bu_ptbl_ins(&gedp->ged_free_views, (long *)views[i]);
 	if (!i)
 	    gedp->ged_gvp = views[i];

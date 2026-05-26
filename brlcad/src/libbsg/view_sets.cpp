@@ -33,10 +33,10 @@
 #include "bsg/defines.h"
 #include "bsg/util.h"
 #include "bsg/view_sets.h"
-#include "./bv_private.h"
+#include "./bsg_private.h"
 
 void
-bv_set_init(struct bsg_view_set *s)
+bsg_set_init(struct bsg_view_set *s)
 {
     BU_GET(s->i, struct bsg_view_set_internal);
     BU_PTBL_INIT(&s->i->views);
@@ -48,7 +48,7 @@ bv_set_init(struct bsg_view_set *s)
 }
 
 void
-bv_set_free(struct bsg_view_set *s)
+bsg_set_free(struct bsg_view_set *s)
 {
     if (s->i) {
 	bu_ptbl_free(&s->i->views);
@@ -63,7 +63,7 @@ bv_set_free(struct bsg_view_set *s)
 	    if (sp->s_free_callback)
 		(*sp->s_free_callback)(sp);
 	    /* Phase 11: route backend release through the generic contract. */
-	    bv_scene_obj_release_backend(sp);
+	    bsg_scene_obj_release_backend(sp);
 	    bu_ptbl_free(&sp->children);
 	    BU_PUT(sp, struct bsg_node);
 	    sp = nsp;
@@ -76,7 +76,7 @@ bv_set_free(struct bsg_view_set *s)
 }
 
 void
-bv_set_add_view(struct bsg_view_set *s, struct bsg_view *v){
+bsg_set_add_view(struct bsg_view_set *s, struct bsg_view *v){
     if (!s || !v)
 	return;
 
@@ -86,11 +86,11 @@ bv_set_add_view(struct bsg_view_set *s, struct bsg_view *v){
 
     // By default, when we add a view to a set it is no longer independent;
     // remove any existing independent scope from the BSG tree.
-    bv_view_independent_scope_destroy(v);
+    bsg_view_independent_scope_destroy(v);
 }
 
 void
-bv_set_rm_view(struct bsg_view_set *s, struct bsg_view *v){
+bsg_set_rm_view(struct bsg_view_set *s, struct bsg_view *v){
     if (!s)
 	return;
 
@@ -105,12 +105,12 @@ bv_set_rm_view(struct bsg_view_set *s, struct bsg_view *v){
 
     // By default, when we remove a view from a set it is independent;
     // create an independent scope in the BSG tree when possible.
-    bv_view_independent_scope(v, 1 /*create*/);
+    bsg_view_independent_scope(v, 1 /*create*/);
 }
 
 
 struct bu_ptbl *
-bv_set_views(struct bsg_view_set *s){
+bsg_set_views(struct bsg_view_set *s){
     if (!s)
 	return NULL;
 
@@ -118,7 +118,7 @@ bv_set_views(struct bsg_view_set *s){
 }
 
 struct bsg_view *
-bv_set_find_view(struct bsg_view_set *s, const char *vname)
+bsg_set_find_view(struct bsg_view_set *s, const char *vname)
 {
     struct bsg_view *v = NULL;
     for (size_t i = 0; i < BU_PTBL_LEN(&s->i->views); i++) {
@@ -133,7 +133,7 @@ bv_set_find_view(struct bsg_view_set *s, const char *vname)
 }
 
 struct bsg_node *
-bv_set_fsos(struct bsg_view_set *s)
+bsg_set_fsos(struct bsg_view_set *s)
 {
     return s->i->free_scene_obj;
 }

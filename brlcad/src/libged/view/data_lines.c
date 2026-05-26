@@ -68,12 +68,12 @@ _rebuild_bsg_dlines(struct bsg_view *v, const char *bsg_name,
     if (!v || !bsg_name)
 	return;
 
-    bv_view_obj_remove(v, bsg_name);
+    bsg_view_obj_remove(v, bsg_name);
 
     if (!draw || npts < 2 || !pts)
 	return;
 
-    struct bsg_node *s = bv_view_obj_lines_create(v, bsg_name, 1 /* local */);
+    struct bsg_node *s = bsg_view_obj_lines_create(v, bsg_name, 1 /* local */);
     if (!s)
 	return;
 
@@ -83,9 +83,9 @@ _rebuild_bsg_dlines(struct bsg_view *v, const char *bsg_name,
     }
 
     if (color)
-	bv_view_obj_set_color(s, color[0], color[1], color[2]);
-    bv_view_obj_set_line_width(s, line_width);
-    bv_view_obj_set_visible(s, 1);
+	bsg_view_obj_set_color(s, color[0], color[1], color[2]);
+    bsg_view_obj_set_line_width(s, line_width);
+    bsg_view_obj_set_visible(s, 1);
 }
 
 static int
@@ -96,7 +96,7 @@ _view_dlines_cmd_draw(void *bs, int argc, const char **argv)
     struct bsg_view *v = gedp->ged_gvp;
 
     if (argc == 1) {
-	struct bsg_node *s = bv_view_obj_find(v, vs->bsg_name);
+	struct bsg_node *s = bsg_view_obj_find(v, vs->bsg_name);
 	bu_vls_printf(gedp->ged_result_str, "%d", s ? 1 : 0);
 	return BRLCAD_OK;
     }
@@ -108,7 +108,7 @@ _view_dlines_cmd_draw(void *bs, int argc, const char **argv)
 
 	/* BSG is the sole owner; just remove or hide the object. */
 	if (!i)
-	    bv_view_obj_remove(v, vs->bsg_name);
+	    bsg_view_obj_remove(v, vs->bsg_name);
 	/* draw=1 is a no-op here; use "points" to create/re-enable. */
 
 	ged_refresh_cb(gedp);
@@ -150,7 +150,7 @@ _view_dlines_cmd_color(void *bs, int argc, const char **argv)
     struct bsg_view *v = gedp->ged_gvp;
 
     if (argc == 1) {
-	struct bsg_node *s = bv_view_obj_find(v, vs->bsg_name);
+	struct bsg_node *s = bsg_view_obj_find(v, vs->bsg_name);
 	if (s)
 	    bu_vls_printf(gedp->ged_result_str, "%d %d %d",
 			  (int)s->s_color[0], (int)s->s_color[1], (int)s->s_color[2]);
@@ -174,9 +174,9 @@ _view_dlines_cmd_color(void *bs, int argc, const char **argv)
 		b < 0 || 255 < b)
 	    return BRLCAD_ERROR;
 
-	struct bsg_node *s = bv_view_obj_find(v, vs->bsg_name);
+	struct bsg_node *s = bsg_view_obj_find(v, vs->bsg_name);
 	if (s)
-	    bv_view_obj_set_color(s, r, g, b);
+	    bsg_view_obj_set_color(s, r, g, b);
 
 	ged_refresh_cb(gedp);
 
@@ -194,7 +194,7 @@ _view_dlines_cmd_line_width(void *bs, int argc, const char **argv)
     struct bsg_view *v = gedp->ged_gvp;
 
     if (argc == 1) {
-	struct bsg_node *s = bv_view_obj_find(v, vs->bsg_name);
+	struct bsg_node *s = bsg_view_obj_find(v, vs->bsg_name);
 	if (s && s->s_os)
 	    bu_vls_printf(gedp->ged_result_str, "%d", s->s_os->s_line_width);
 	else
@@ -208,9 +208,9 @@ _view_dlines_cmd_line_width(void *bs, int argc, const char **argv)
 	if (bu_sscanf(argv[1], "%d", &line_width) != 1)
 	    return BRLCAD_ERROR;
 
-	struct bsg_node *s = bv_view_obj_find(v, vs->bsg_name);
+	struct bsg_node *s = bsg_view_obj_find(v, vs->bsg_name);
 	if (s)
-	    bv_view_obj_set_line_width(s, line_width);
+	    bsg_view_obj_set_line_width(s, line_width);
 
 	ged_refresh_cb(gedp);
 
@@ -230,7 +230,7 @@ _view_dlines_cmd_points(void *bs, int argc, const char **argv)
 
     if (argc == 1) {
 	/* Read: walk the BSG vlist. */
-	struct bsg_node *s = bv_view_obj_find(v, vs->bsg_name);
+	struct bsg_node *s = bsg_view_obj_find(v, vs->bsg_name);
 	if (s) {
 	    bsg_vlist *vp;
 	    size_t j;
@@ -261,7 +261,7 @@ _view_dlines_cmd_points(void *bs, int argc, const char **argv)
 	/* BSG is the sole persistent store; preserve style from existing object. */
 	int saved_color[3] = {255, 255, 0}; /* default yellow */
 	int saved_lw = 0;
-	struct bsg_node *old_s = bv_view_obj_find(v, vs->bsg_name);
+	struct bsg_node *old_s = bsg_view_obj_find(v, vs->bsg_name);
 	if (old_s) {
 	    saved_color[0] = (int)old_s->s_color[0];
 	    saved_color[1] = (int)old_s->s_color[1];
@@ -271,7 +271,7 @@ _view_dlines_cmd_points(void *bs, int argc, const char **argv)
 	}
 
 	if (ac < 2) {
-	    bv_view_obj_remove(v, vs->bsg_name);
+	    bsg_view_obj_remove(v, vs->bsg_name);
 	    ged_refresh_cb(gedp);
 	    bu_free((char *)av, "av");
 	    return BRLCAD_OK;

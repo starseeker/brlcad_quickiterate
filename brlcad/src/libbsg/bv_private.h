@@ -17,7 +17,7 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file bv_private.h
+/** @file bsg_private.h
  *
  * Internal shared data structures
  *
@@ -40,6 +40,7 @@ struct bsg_view_set_internal {
 };
 
 struct bsg_node_internal {
+    int placeholder;
 };
 
 #endif /* LIBBV_BV_PRIVATE_H */

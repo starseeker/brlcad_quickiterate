@@ -52,7 +52,7 @@ struct bsg_node; /* forward-declare to avoid circular includes */
  *               creation time, Phase 7 Step 10).
  *   fso       - pointer to the draw-tree's free-object pool node whose
  *               bu_list chain is used for FREE_BV_SCENE_OBJ recycling
- *               (set by libged via bv_set_fsos at root-creation time,
+ *               (set by libged via bsg_set_fsos at root-creation time,
  *               Phase 7 Step 11).  If NULL, individual node->free_scene_obj
  *               pointers are used as fallback.
  */

@@ -77,7 +77,7 @@ _line_cmd_create(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    s = bv_view_obj_lines_create(gd->cv, gd->vobj, gd->local_obj);
+    s = bsg_view_obj_lines_create(gd->cv, gd->vobj, gd->local_obj);
     if (!s) {
 	bu_vls_printf(gedp->ged_result_str, "Failed to create %s\n", gd->vobj);
 	return BRLCAD_ERROR;

@@ -37,7 +37,7 @@
 #include "qtcad/QgSignalFlags.h"
 
 /* Phase A2 (drawing_stack_modernization): typed visitor helpers that replace
- * bv_view_objs(BV_VIEW_OBJS) ptbl loops with bv_view_obj_visit callbacks. */
+ * bsg_view_objs(BV_VIEW_OBJS) ptbl loops with bsg_view_obj_visit callbacks. */
 
 /* Collect polygon objects, optionally excluding one. */
 struct _qpolycreate_poly_collect {
@@ -68,7 +68,7 @@ _qpolycreate_clear_pts_cb(struct bsg_node *obj, void *data)
 	*s->draw_change = true;
 	ip->curr_point_i = -1;
 	ip->curr_contour_i = 0;
-	bv_update_polygon(obj, obj->s_v, BV_POLYGON_UPDATE_PROPS_ONLY);
+	bsg_update_polygon(obj, obj->s_v, BV_POLYGON_UPDATE_PROPS_ONLY);
     }
     return 1;
 }
@@ -302,7 +302,7 @@ QPolyCreate::do_vpoly_copy()
 	return;
     }
     char *sname = bu_strdup(vpoly_name->text().toLocal8Bit().data());
-    struct bsg_node *src_obj = bv_find_obj(v, sname);
+    struct bsg_node *src_obj = bsg_find_obj(v, sname);
     bu_free(sname, "name cpy");
     if (!src_obj) {
 	bu_vls_free(&vname);
@@ -310,7 +310,7 @@ QPolyCreate::do_vpoly_copy()
     }
 
     // Names are valid, src_obj is ready - do the copy
-    p = bv_dup_view_polygon(bu_vls_cstr(&vname), src_obj);
+    p = bsg_dup_view_polygon(bu_vls_cstr(&vname), src_obj);
     bu_vls_free(&vname);
     if (!p)
 	return;
@@ -455,11 +455,11 @@ QPolyCreate::toggle_line_snapping(bool s)
     if (!s) {
 	v->gv_s->gv_snap_lines = 0;
     } else {
-	/* Phase A2: use bv_view_obj_visit instead of bv_view_objs ptbl. */
+	/* Phase A2: use bsg_view_obj_visit instead of bsg_view_objs ptbl. */
 	struct _qpolycreate_snap_collect sc;
 	sc.exclude = co;
 	sc.snap_objs = &v->gv_s->gv_snap_objs;
-	bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _qpolycreate_snap_collect_cb, &sc);
+	bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _qpolycreate_snap_collect_cb, &sc);
 	v->gv_s->gv_snap_lines = BU_PTBL_LEN(&v->gv_s->gv_snap_objs) ? 1 : 0;
     }
 
@@ -549,10 +549,10 @@ QPolyCreate::toplevel_config(bool)
     // This function is called when a top level mode change was initiated
     // by a selection button.  Clear any selected points being displayed.
     if (gedp) {
-	/* Phase A2: use bv_view_obj_visit instead of bv_view_objs ptbl. */
+	/* Phase A2: use bsg_view_obj_visit instead of bsg_view_objs ptbl. */
 	struct _qpolycreate_clear_pts cps;
 	cps.draw_change = &draw_change;
-	bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _qpolycreate_clear_pts_cb, &cps);
+	bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _qpolycreate_clear_pts_cb, &cps);
     }
 
     if (draw_change && gedp)
@@ -644,13 +644,13 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
     // For this particular application, we want to apply booleans to
     // all polygons
     bu_ptbl_reset(&pcf->bool_objs);
-    /* Phase A2: use bv_view_obj_visit instead of bv_view_objs ptbl. */
+    /* Phase A2: use bsg_view_obj_visit instead of bsg_view_objs ptbl. */
     {
 	std::vector<struct bsg_node *> polyvec;
 	struct _qpolycreate_poly_collect pc;
 	pc.polys = &polyvec;
 	pc.exclude = p;
-	bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _qpolycreate_poly_collect_cb, &pc);
+	bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _qpolycreate_poly_collect_cb, &pc);
 	for (auto *s : polyvec)
 	    bu_ptbl_ins(&pcf->bool_objs, (long *)s);
     }

@@ -114,7 +114,7 @@ _bv_obj_settings_hash(struct bu_data_hash_state *state, struct bsg_obj_settings 
 }
 
 void
-bv_scene_obj_hash(struct bu_data_hash_state *state, struct bsg_node *s)
+bsg_scene_obj_hash(struct bu_data_hash_state *state, struct bsg_node *s)
 {
     /* First, do sanity checks */
     if (!s || !state)
@@ -131,7 +131,7 @@ bv_scene_obj_hash(struct bu_data_hash_state *state, struct bsg_node *s)
 }
 
 void
-bv_settings_hash(struct bu_data_hash_state *state, struct bsg_view_settings *s)
+bsg_settings_hash(struct bu_data_hash_state *state, struct bsg_view_settings *s)
 {
     bu_data_hash_update(state, s, sizeof(struct bsg_view_settings));
 
@@ -153,7 +153,7 @@ bv_settings_hash(struct bu_data_hash_state *state, struct bsg_view_settings *s)
 
 }
 
-/* Phase B: callback for bv_view_objs_visit_db in bv_hash. */
+/* Phase B: callback for bsg_view_objs_visit_db in bsg_hash. */
 static int
 _bv_hash_db_obj_cb(struct bsg_node *s, void *data)
 {
@@ -162,10 +162,10 @@ _bv_hash_db_obj_cb(struct bsg_node *s, void *data)
     if (BU_PTBL_IS_INITIALIZED(&s->children)) {
 	for (size_t j = 0; j < BU_PTBL_LEN(&s->children); j++) {
 	    struct bsg_node *s_c = (struct bsg_node *)BU_PTBL_GET(&s->children, j);
-	    bv_scene_obj_hash(state, s_c);
+	    bsg_scene_obj_hash(state, s_c);
 	}
     }
-    bv_scene_obj_hash(state, s);
+    bsg_scene_obj_hash(state, s);
     return 1;
 }
 
@@ -179,15 +179,15 @@ _bv_hash_view_obj_cb(struct bsg_node *s, void *data)
     if (BU_PTBL_IS_INITIALIZED(&s->children)) {
 	for (size_t j = 0; j < BU_PTBL_LEN(&s->children); j++) {
 	    struct bsg_node *s_c = (struct bsg_node *)BU_PTBL_GET(&s->children, j);
-	    bv_scene_obj_hash(state, s_c);
+	    bsg_scene_obj_hash(state, s_c);
 	}
     }
-    bv_scene_obj_hash(state, s);
+    bsg_scene_obj_hash(state, s);
     return 1;
 }
 
 unsigned long long
-bv_hash(struct bsg_view *v)
+bsg_hash(struct bsg_view *v)
 {
     if (!v)
 	return 0;
@@ -200,26 +200,26 @@ bv_hash(struct bsg_view *v)
     bu_data_hash_update(state, v, sizeof(struct bsg_view));
 
     if (v->gv_s)
-	bv_settings_hash(state, v->gv_s);
-    bv_settings_hash(state, &v->gv_ls);
+	bsg_settings_hash(state, v->gv_s);
+    bsg_settings_hash(state, &v->gv_ls);
 
     /* Phase T-final (drawing_stack_modernization): the Tcl-specific
      * gv_tcl block (gv_data_arrows / gv_data_axes / gv_data_labels /
      * gv_data_lines / gv_data_polygons and their sdata twins, plus
      * gv_prim_labels) is no longer hashed here.  After T1 these are
      * mirrored into BSG VIEW_SCOPE objects (`_tcl_data_*` /
-     * `_tcl_sdata_*`) and are picked up by the bv_view_obj_visit walk
+     * `_tcl_sdata_*`) and are picked up by the bsg_view_obj_visit walk
      * below.  BSG is now the source of truth for renderable view
      * adornment state. */
 
-    /* Phase A0 (drawing_stack_modernization): use bv_view_obj_visit so we
+    /* Phase A0 (drawing_stack_modernization): use bsg_view_obj_visit so we
      * walk the BSG view-scope subtree directly rather than the legacy
      * BV_VIEW_OBJS ptbl.  Both shared and local scopes are covered by
      * BV_VIEW_OBJ_SCOPE_ALL. */
-    bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _bv_hash_view_obj_cb, state);
+    bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _bv_hash_view_obj_cb, state);
 
     /* Hash DB-derived objects via the BSG-aware helper */
-    bv_view_objs_visit_db(v, _bv_hash_db_obj_cb, state);
+    bsg_view_objs_visit_db(v, _bv_hash_db_obj_cb, state);
 
     unsigned long long hash_val = bu_data_hash_val(state);
     bu_data_hash_destroy(state);

@@ -212,30 +212,30 @@ struct bsg_vlblock {
 };
 #define BV_CK_VLBLOCK(_p) BU_CKMAG((_p), BV_VLBLOCK_MAGIC, "bsg_vlblock")
 
-/* bv_vlist_* and bv_vlblock_* function declarations (still bv_ prefixed until rename slice) */
-BV_EXPORT extern size_t bv_vlist_cmd_cnt(bsg_vlist *vlist);
-BV_EXPORT extern int bv_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *length, int *dispmode);
-BV_EXPORT extern void bv_vlist_3string(struct bu_list *vhead, struct bu_list *free_hd, const char *string, const point_t origin, const mat_t rot, double scale);
-BV_EXPORT extern void bv_vlist_2string(struct bu_list *vhead, struct bu_list *free_hd, const char *string, double x, double y, double scale, double theta);
-BV_EXPORT extern const char *bv_vlist_get_cmd_description(int cmd);
-BV_EXPORT extern size_t bv_ck_vlist(const struct bu_list *vhead);
-BV_EXPORT extern void bv_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_list *src);
-BV_EXPORT extern void bv_vlist_export(struct bu_vls *vls, struct bu_list *hp, const char *name);
-BV_EXPORT extern void bv_vlist_import(struct bu_list *vlists, struct bu_list *hp, struct bu_vls *namevls, const unsigned char *buf);
-BV_EXPORT extern void bv_vlist_cleanup(struct bu_list *hd);
-BV_EXPORT extern struct bsg_vlblock *bv_vlblock_init(struct bu_list *free_vlist_hd, int max_ent);
-BV_EXPORT extern void bv_vlblock_free(struct bsg_vlblock *vbp);
-BV_EXPORT extern struct bu_list *bv_vlblock_find(struct bsg_vlblock *vbp, int r, int g, int b);
-BV_EXPORT void bv_vlist_rpp(struct bu_list *vlists, struct bu_list *hd, const point_t minn, const point_t maxx);
-BV_EXPORT extern void bv_plot_vlblock(FILE *fp, const struct bsg_vlblock *vbp);
-BV_EXPORT extern void bv_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bsg_vlblock *vbp, struct bsg_view *v, struct bsg_node *f, struct bu_list *vlfree);
-BV_EXPORT extern struct bsg_node *bv_vlblock_obj(struct bsg_vlblock *vbp, struct bsg_view *v, const char *name);
-BV_EXPORT extern void bv_vlist_to_uplot(FILE *fp, const struct bu_list *vhead);
+/* bsg_vlist_* and bsg_vlblock_* function declarations (still bv_ prefixed until rename slice) */
+BV_EXPORT extern size_t bsg_vlist_cmd_cnt(bsg_vlist *vlist);
+BV_EXPORT extern int bsg_vlist_bbox(struct bu_list *vlistp, point_t *bmin, point_t *bmax, size_t *length, int *dispmode);
+BV_EXPORT extern void bsg_vlist_3string(struct bu_list *vhead, struct bu_list *free_hd, const char *string, const point_t origin, const mat_t rot, double scale);
+BV_EXPORT extern void bsg_vlist_2string(struct bu_list *vhead, struct bu_list *free_hd, const char *string, double x, double y, double scale, double theta);
+BV_EXPORT extern const char *bsg_vlist_get_cmd_description(int cmd);
+BV_EXPORT extern size_t bsg_ck_vlist(const struct bu_list *vhead);
+BV_EXPORT extern void bsg_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_list *src);
+BV_EXPORT extern void bsg_vlist_export(struct bu_vls *vls, struct bu_list *hp, const char *name);
+BV_EXPORT extern void bsg_vlist_import(struct bu_list *vlists, struct bu_list *hp, struct bu_vls *namevls, const unsigned char *buf);
+BV_EXPORT extern void bsg_vlist_cleanup(struct bu_list *hd);
+BV_EXPORT extern struct bsg_vlblock *bsg_vlblock_init(struct bu_list *free_vlist_hd, int max_ent);
+BV_EXPORT extern void bsg_vlblock_free(struct bsg_vlblock *vbp);
+BV_EXPORT extern struct bu_list *bsg_vlblock_find(struct bsg_vlblock *vbp, int r, int g, int b);
+BV_EXPORT void bsg_vlist_rpp(struct bu_list *vlists, struct bu_list *hd, const point_t minn, const point_t maxx);
+BV_EXPORT extern void bsg_plot_vlblock(FILE *fp, const struct bsg_vlblock *vbp);
+BV_EXPORT extern void bsg_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bsg_vlblock *vbp, struct bsg_view *v, struct bsg_node *f, struct bu_list *vlfree);
+BV_EXPORT extern struct bsg_node *bsg_vlblock_obj(struct bsg_vlblock *vbp, struct bsg_view *v, const char *name);
+BV_EXPORT extern void bsg_vlist_to_uplot(FILE *fp, const struct bu_list *vhead);
 
 __END_DECLS
 
-/* Compat alias - old bv_vlblock name for transitional callers */
-typedef struct bsg_vlblock bv_vlblock;
+/* Compat alias - old bsg_vlblock name for transitional callers */
+typedef struct bsg_vlblock bsg_vlblock;
 
 #endif /* BSG_VLIST_H */
 

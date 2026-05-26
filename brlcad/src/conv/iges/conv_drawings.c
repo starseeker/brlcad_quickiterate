@@ -186,12 +186,12 @@ Note_to_vlist(size_t entno, struct bu_list *vhead)
 		tmp_y -= ydel;
 		one_char[0] = str[j];
 
-		bv_vlist_2string(vhead, &free_hd, one_char ,
+		bsg_vlist_2string(vhead, &free_hd, one_char ,
 				 tmp_x, tmp_y, local_scale,
 				 (double)(rot_ang*RAD2DEG));
 	    }
 	} else
-	    bv_vlist_2string(vhead, &free_hd, str ,
+	    bsg_vlist_2string(vhead, &free_hd, str ,
 			     (double)loc[X], (double)loc[Y], local_scale,
 			     (double)(rot_ang*RAD2DEG));
 

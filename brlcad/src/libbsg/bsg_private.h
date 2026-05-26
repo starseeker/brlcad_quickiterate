@@ -28,6 +28,7 @@
 
 #include "bsg/defines.h"
 #include "bsg/draw_ctx.h"
+#include "bv_private.h"
 
 /*
  * Walk node @p n up to the draw root and return the bsg_draw_ctx stored
