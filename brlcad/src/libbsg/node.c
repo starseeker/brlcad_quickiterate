@@ -29,6 +29,7 @@
 
 #include "bsg/defines.h"
 #include "bsg/draw_set.h"
+#include "bsg/identity.h"
 #include "bsg/node.h"
 #include "bsg/util.h"
 
@@ -93,22 +94,14 @@ bsg_node_is_kind(const bsg_node *node, unsigned long long kind)
 void
 bsg_node_set_name(bsg_node *node, const char *name)
 {
-    if (!node)
-	return;
-    if (!name) {
-	bu_vls_trunc(&node->s_name, 0);
-	return;
-    }
-    bu_vls_sprintf(&node->s_name, "%s", name);
+    bsg_node_identity_set_name(node, name);
 }
 
 
 const char *
 bsg_node_name(const bsg_node *node)
 {
-    if (!node)
-	return NULL;
-    return bu_vls_cstr(&node->s_name);
+    return bsg_node_identity_name(node);
 }
 
 
@@ -268,19 +261,14 @@ bsg_node_user_data(const bsg_node *node)
 uint64_t
 bsg_node_revision(const bsg_node *node)
 {
-    if (!node)
-	return 0;
-    return (node->s_changed < 0) ? 0 : (uint64_t)node->s_changed;
+    return bsg_node_revision_get(node);
 }
 
 
 void
 bsg_node_touch(bsg_node *node)
 {
-    if (!node)
-	return;
-    node->s_changed++;
-    bsg_bump_rev_node(node);
+    (void)bsg_node_revision_bump(node);
 }
 
 /*

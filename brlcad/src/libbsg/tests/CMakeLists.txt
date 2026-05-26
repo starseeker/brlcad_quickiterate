@@ -37,6 +37,12 @@ brlcad_addexec(test_bsg_lod_node test_lod_node.c "libbsg;libbu" TEST)
 brlcad_add_test(NAME libbsg_lod_node COMMAND test_bsg_lod_node)
 
 #
+# Phase 2: identity/revision model API
+#
+brlcad_addexec(test_bsg_identity test_identity.c "libbsg;libbu" TEST)
+brlcad_add_test(NAME libbsg_identity COMMAND test_bsg_identity)
+
+#
 # Phase V1: BSG_NODE_VIEW_SCOPE lifecycle (create/visible/destroy)
 #
 brlcad_addexec(test_bsg_view_scope test_view_scope.c "libbsg;libbu" TEST)
@@ -51,6 +57,7 @@ brlcad_add_test(NAME libbsg_node COMMAND test_bsg_node)
 cmakefiles(
   CMakeLists.txt
   test_arb8.c
+  test_identity.c
   test_lod_node.c
   test_node.c
   test_phase6.c

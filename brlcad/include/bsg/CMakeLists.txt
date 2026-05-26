@@ -7,6 +7,7 @@ set(
   events.h
   faceplate.h
   field.h
+  identity.h
   lod.h
   lod_ops.h
   node.h

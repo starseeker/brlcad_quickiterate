@@ -205,12 +205,32 @@ Phase 1 exit criteria:
 - [x] Existing node helpers migrated to generic node API internally
 - [x] Focused libbsg node API tests added/registered
 
+Phase 2 — Identity and Revision Model (COMPLETE, 2026-05-26)
+-------------------------------------------------------------
+Delivered:
+- Added `brlcad/include/bsg/identity.h` and `brlcad/src/libbsg/identity.c`
+  with identity/revision helpers over existing node storage:
+  - name/path/source accessors (`s_name`, `s_path`, `dp`)
+  - revision get/set/bump accessors (`s_changed`, draw-tree revision bump)
+- Wired identity API into libbsg build and header install lists.
+- Migrated generic node API (`node.c`) to use identity/revision helpers for
+  name and revision operations.
+- Added focused identity tests:
+  - `brlcad/src/libbsg/tests/test_identity.c`
+  - `libbsg_identity` CTest registration.
+
+Phase 2 exit criteria:
+- [x] `include/bsg/identity.h` added
+- [x] identity/revision accessor implementation added in libbsg
+- [x] selected node helper internals use identity/revision API
+- [x] focused identity/revision tests added/registered
+
 
 Modernization Phases
 --------------------
 - [x] Phase 0: Baseline audit
 - [x] Phase 1: Introduce generic node API (`include/bsg/node.h`, `src/libbsg/node.c`)
-- [ ] Phase 2: Add identity and revision model (`include/bsg/identity.h`)
+- [x] Phase 2: Add identity and revision model (`include/bsg/identity.h`)
 - [ ] Phase 3: Split material and appearance (`include/bsg/material.h`, `include/bsg/appearance.h`)
 - [ ] Phase 4: Replace implicit geometry with typed payloads (`include/bsg/payload.h`)
 - [ ] Phase 5: Add BSG action framework (`include/bsg/action.h`)
