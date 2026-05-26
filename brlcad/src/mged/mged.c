@@ -204,6 +204,23 @@ mged_quiesce_tcl(struct mged_state *s)
     }
 }
 
+
+static void
+mged_rename_tcl_cmd(Tcl_Interp *interp, const char *cmd)
+{
+    Tcl_CmdInfo info;
+    struct bu_vls vls = BU_VLS_INIT_ZERO;
+
+    if (!interp || !cmd || !Tcl_GetCommandInfo(interp, cmd, &info))
+	return;
+
+    bu_vls_printf(&vls, "rename %s \"\"", cmd);
+    if (Tcl_Eval(interp, bu_vls_cstr(&vls)) != TCL_OK)
+	bu_log("mged shutdown: failed to rename Tcl command \"%s\": %s\n",
+	       cmd, Tcl_GetStringResult(interp));
+    bu_vls_free(&vls);
+}
+
 // FIXME: Global
 int cbreak_mode = 0;    /* >0 means in cbreak_mode */
 
@@ -2081,6 +2098,8 @@ mged_finish(struct mged_state *s, int exitcode)
 
     /* Release all displays */
     while (BU_PTBL_LEN(&active_dm_set)) {
+	/* Always take index 0: bu_ptbl_rm compacts the table, so incrementing
+	 * an index here can skip the element shifted into the removed slot. */
 	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, 0);
 
 	bu_ptbl_rm(&active_dm_set, (long *)p);
@@ -2119,7 +2138,8 @@ mged_finish(struct mged_state *s, int exitcode)
     /* Be certain to close the database cleanly before exiting */
     if (s->interp) {
 	Tcl_Preserve((ClientData)s->interp);
-	Tcl_Eval(s->interp, "catch {rename " MGED_DB_NAME " \"\"}; catch {rename .inmem \"\"}");
+	mged_rename_tcl_cmd(s->interp, MGED_DB_NAME);
+	mged_rename_tcl_cmd(s->interp, ".inmem");
 	Tcl_Release((ClientData)s->interp);
     }
 
@@ -2137,6 +2157,8 @@ mged_finish(struct mged_state *s, int exitcode)
 
     /* XXX should deallocate libbu semaphores */
 
+    /* Remove structparse traces before unlinking Tcl_LinkVar variables so
+     * no MGED trace callback can run after backing C storage is released. */
     mged_variable_teardown(s);
     mged_global_variable_teardown(s);
 
