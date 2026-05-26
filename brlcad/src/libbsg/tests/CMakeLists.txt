@@ -42,10 +42,17 @@ brlcad_add_test(NAME libbsg_lod_node COMMAND test_bsg_lod_node)
 brlcad_addexec(test_bsg_view_scope test_view_scope.c "libbsg;libbu" TEST)
 brlcad_add_test(NAME libbsg_view_scope COMMAND test_bsg_view_scope)
 
+#
+# Phase 1: generic node API (lifecycle/kind/name/child/transform/bounds/revision)
+#
+brlcad_addexec(test_bsg_node test_node.c "libbsg;libbu" TEST)
+brlcad_add_test(NAME libbsg_node COMMAND test_bsg_node)
+
 cmakefiles(
   CMakeLists.txt
   test_arb8.c
   test_lod_node.c
+  test_node.c
   test_phase6.c
   test_scene_graph.c
   test_view_scope.c

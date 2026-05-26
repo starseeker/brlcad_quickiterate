@@ -28,6 +28,7 @@
 
 #include "vmath.h"
 #include "bsg/defines.h"
+#include "bsg/node.h"
 #include "bsg/util.h"
 #include "bsg/node_transform.h"
 
@@ -38,14 +39,7 @@ bsg_transform_create(struct bsg_view *v)
     if (!v)
 	return NULL;
 
-    bsg_node *t = bsg_obj_create(v, BSG_OBJ_VIEW | BSG_OBJ_LOCAL);
-    if (!t)
-	return NULL;
-
-    t->s_type_flags = BSG_NODE_TRANSFORM;
-    t->s_flag = UP;
-    MAT_IDN(t->s_mat);
-    return (bsg_node *)t;
+    return bsg_node_create(v, BSG_NODE_TRANSFORM);
 }
 
 
@@ -55,7 +49,7 @@ bsg_transform_set_matrix(bsg_node *transform, const mat_t mat)
     if (!transform || !mat)
 	return;
 
-    MAT_COPY(((bsg_node *)transform)->s_mat, mat);
+    bsg_node_set_transform(transform, mat);
 }
 
 
@@ -65,7 +59,7 @@ bsg_transform_get_matrix(const bsg_node *transform, mat_t mat)
     if (!transform || !mat)
 	return;
 
-    MAT_COPY(mat, ((const bsg_node *)transform)->s_mat);
+    bsg_node_transform(transform, mat);
 }
 
 
@@ -75,9 +69,7 @@ bsg_transform_destroy(bsg_node *transform)
     if (!transform)
 	return;
 
-    bsg_node *t = (bsg_node *)transform;
-    bu_ptbl_reset(&t->children);
-    bsg_obj_put(t);
+    bsg_node_destroy(transform);
 }
 
 /*

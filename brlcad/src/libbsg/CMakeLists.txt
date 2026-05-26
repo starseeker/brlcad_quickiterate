@@ -5,6 +5,7 @@ set(
   field.c
   lod.cpp
   lod_node.c
+  node.c
   node_group.c
   node_root.c
   node_shape.c
@@ -71,6 +72,7 @@ cmakefiles(
   draw_set.c
   field.c
   lod_node.c
+  node.c
   node_group.c
   node_root.c
   node_shape.c

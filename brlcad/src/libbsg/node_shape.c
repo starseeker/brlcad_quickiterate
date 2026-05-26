@@ -28,6 +28,7 @@
 
 #include "bu/list.h"
 #include "bsg/defines.h"
+#include "bsg/node.h"
 #include "bsg/util.h"
 #include "bsg/vlist.h"
 #include "bsg/node_shape.h"
@@ -39,13 +40,7 @@ bsg_shape_create(struct bsg_view *v)
     if (!v)
 	return NULL;
 
-    bsg_node *s = bsg_obj_create(v, BSG_OBJ_VIEW | BSG_OBJ_LOCAL);
-    if (!s)
-	return NULL;
-
-    s->s_type_flags = BSG_NODE_SHAPE;
-    s->s_flag = UP;
-    return (bsg_node *)s;
+    return bsg_node_create(v, BSG_NODE_SHAPE);
 }
 
 
@@ -73,7 +68,7 @@ bsg_shape_destroy(bsg_node *shape)
     if (!shape)
 	return;
 
-    bsg_obj_put((bsg_node *)shape);
+    bsg_node_destroy(shape);
 }
 
 /*

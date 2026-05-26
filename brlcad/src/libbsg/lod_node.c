@@ -39,6 +39,7 @@
 #include "bu/malloc.h"
 #include "bu/ptbl.h"
 #include "bsg/defines.h"
+#include "bsg/node.h"
 #include "bsg/util.h"
 
 #include "bsg/draw_set.h"
@@ -60,7 +61,7 @@ _lod_payload(bsg_node *node)
     if (!node)
 	return NULL;
     bsg_node *n = (bsg_node *)node;
-    if (!(n->s_type_flags & BSG_NODE_LOD))
+    if (!bsg_node_is_kind(n, BSG_NODE_LOD))
 	return NULL;
     return (struct bsg_lod_payload *)n->s_i_data;
 }
@@ -99,13 +100,9 @@ bsg_lod_node_create(struct bsg_view *v)
     if (!v)
 	return NULL;
 
-    /* Allocate as a view object so it participates in the normal pool. */
-    bsg_node *n = bsg_obj_create(v, BSG_OBJ_VIEW | BSG_OBJ_LOCAL);
+    bsg_node *n = bsg_node_create(v, BSG_NODE_LOD);
     if (!n)
 	return NULL;
-
-    n->s_type_flags = BSG_NODE_LOD;
-    n->s_flag       = UP;
 
     /* Allocate the payload. */
     struct bsg_lod_payload *pl;
@@ -147,18 +144,11 @@ bsg_lod_node_attach_level(bsg_node *lod_node, bsg_node *level_node)
     if (!lod_node || !level_node)
 	return;
     bsg_node *n = (bsg_node *)lod_node;
-    if (!(n->s_type_flags & BSG_NODE_LOD))
+    if (!bsg_node_is_kind(n, BSG_NODE_LOD))
 	return;
     bsg_node *c = (bsg_node *)level_node;
 
-    /* Avoid duplicates. */
-    for (size_t i = 0; i < BU_PTBL_LEN(&n->children); i++) {
-	if ((bsg_node *)BU_PTBL_GET(&n->children, i) == c)
-	    return;
-    }
-
-    c->parent = n;
-    bu_ptbl_ins(&n->children, (long *)c);
+    bsg_node_add_child(n, c);
 }
 
 
@@ -217,7 +207,7 @@ bsg_lod_node_level_count(bsg_node *node)
     if (!node)
 	return 0;
     bsg_node *n = (bsg_node *)node;
-    if (!(n->s_type_flags & BSG_NODE_LOD))
+    if (!bsg_node_is_kind(n, BSG_NODE_LOD))
 	return 0;
     return (int)BU_PTBL_LEN(&n->children);
 }

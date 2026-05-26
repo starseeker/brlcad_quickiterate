@@ -9,6 +9,7 @@ set(
   field.h
   lod.h
   lod_ops.h
+  node.h
   node_group.h
   node_shape.h
   node_transform.h

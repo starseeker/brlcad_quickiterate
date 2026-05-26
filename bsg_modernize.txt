@@ -182,11 +182,34 @@ Phase 1 Entry Criteria
 5) Add/extend focused `libbsg` tests for the new node API before broader
    caller migration.
 
+Phase 1 — Generic Node API Foundation (COMPLETE, 2026-05-26)
+-------------------------------------------------------------
+Delivered:
+- Added `brlcad/include/bsg/node.h` with generic node lifecycle/kind/name/
+  parent-child/visibility/transform/bounds/user-data/revision accessors.
+- Added `brlcad/src/libbsg/node.c` implementing the generic node API on top
+  of existing `struct bsg_node` storage.
+- Migrated `node_group`, `node_shape`, `node_transform`, `lod_node`, and
+  `view_scope` internals to use the generic node API helpers.
+- Added focused libbsg tests:
+  - `brlcad/src/libbsg/tests/test_node.c`
+  - `libbsg_node` CTest registration in `brlcad/src/libbsg/tests/CMakeLists.txt`
+- Updated CMake integration:
+  - `brlcad/include/bsg/CMakeLists.txt` now installs `node.h`
+  - `brlcad/src/libbsg/CMakeLists.txt` now builds `node.c`
+
+Phase 1 exit criteria:
+- [x] `include/bsg/node.h` added
+- [x] `src/libbsg/node.c` added
+- [x] Generic node accessors provided without changing `struct bsg_node` storage
+- [x] Existing node helpers migrated to generic node API internally
+- [x] Focused libbsg node API tests added/registered
+
 
 Modernization Phases
 --------------------
 - [x] Phase 0: Baseline audit
-- [ ] Phase 1: Introduce generic node API (`include/bsg/node.h`, `src/libbsg/node.c`)
+- [x] Phase 1: Introduce generic node API (`include/bsg/node.h`, `src/libbsg/node.c`)
 - [ ] Phase 2: Add identity and revision model (`include/bsg/identity.h`)
 - [ ] Phase 3: Split material and appearance (`include/bsg/material.h`, `include/bsg/appearance.h`)
 - [ ] Phase 4: Replace implicit geometry with typed payloads (`include/bsg/payload.h`)

@@ -28,6 +28,7 @@
 
 #include "bu/ptbl.h"
 #include "bsg/defines.h"
+#include "bsg/node.h"
 #include "bsg/util.h"
 #include "bsg/node_group.h"
 
@@ -38,13 +39,7 @@ bsg_group_create(struct bsg_view *v)
     if (!v)
 	return NULL;
 
-    bsg_node *g = bsg_obj_create(v, BSG_OBJ_VIEW | BSG_OBJ_LOCAL);
-    if (!g)
-	return NULL;
-
-    g->s_type_flags = BSG_NODE_GROUP;
-    g->s_flag = UP;
-    return (bsg_node *)g;
+    return bsg_node_create(v, BSG_NODE_GROUP);
 }
 
 
@@ -54,16 +49,7 @@ bsg_group_add_child(bsg_node *group, bsg_node *child)
     if (!group || !child)
 	return;
 
-    bsg_node *g = (bsg_node *)group;
-    bsg_node *c = (bsg_node *)child;
-
-    /* Avoid duplicates */
-    for (size_t i = 0; i < BU_PTBL_LEN(&g->children); i++) {
-	if ((bsg_node *)BU_PTBL_GET(&g->children, i) == c)
-	    return;
-    }
-
-    bu_ptbl_ins(&g->children, (long *)c);
+    bsg_node_add_child(group, child);
 }
 
 
@@ -73,10 +59,7 @@ bsg_group_remove_child(bsg_node *group, bsg_node *child)
     if (!group || !child)
 	return;
 
-    bsg_node *g = (bsg_node *)group;
-    bsg_node *c = (bsg_node *)child;
-
-    bu_ptbl_rm(&g->children, (const long *)c);
+    bsg_node_remove_child(group, child);
 }
 
 
@@ -86,12 +69,7 @@ bsg_group_destroy(bsg_node *group)
     if (!group)
 	return;
 
-    bsg_node *g = (bsg_node *)group;
-
-    /* Clear the children list (borrowed references — do not free). */
-    bu_ptbl_reset(&g->children);
-
-    bsg_obj_put(g);
+    bsg_node_destroy(group);
 }
 
 /*
