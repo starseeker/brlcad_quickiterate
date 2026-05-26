@@ -203,9 +203,7 @@ QEll::update_obj_wireframe()
     intern.idb_type = ID_ELL;
     intern.idb_ptr = &ell;
     intern.idb_meth = &OBJ[intern.idb_type];
-    if (!intern.idb_meth->ft_plot)
-	return;
-    if (!gedp->dbip)
+    if (!intern.idb_meth->ft_plot || !gedp->dbip)
 	return;
     struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
     struct bn_tol *tol = &wdbp->wdb_tol;
