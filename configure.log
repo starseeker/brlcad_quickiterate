@@ -1,0 +1,1359 @@
+-- The C compiler identification is GNU 13.3.0
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+CMAKE_SOURCE_DIR: /tmp/workspace/starseeker/brlcad_quickiterate/brlcad
+CMAKE_BINARY_DIR: /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build
+-- CMake version: 3.31.6
+-- Looking for sys/types.h
+-- Looking for sys/types.h - found
+-- Looking for stdint.h
+-- Looking for stdint.h - found
+-- Looking for stddef.h
+-- Looking for stddef.h - found
+-- Check size of void *
+-- Check size of void * - done
+CMake Warning at misc/CMake/BRLCAD_EXT_Setup.cmake:112 (message):
+  External dependencies will be downloaded, configured, and built
+  automatically as-needed.  Set BRLCAD_EXT_DIR to specify instead.
+Call Stack (most recent call first):
+  CMakeLists.txt:234 (brlcad_bext_init)
+
+
+-- BRLCAD_EXT_DIR specifies prebuilt external dependencies directory
+containing 'install' and 'noinstall' folders, outputs from installing
+https://github.com/BRL-CAD/bext.
+
+**********************************************************
+*** Configuring BRL-CAD Release 7.43.0, Build 20260526 ***
+**********************************************************
+-- Performing Test WORKING__D_POSIX_C_SOURCE_200809L
+-- Performing Test WORKING__D_POSIX_C_SOURCE_200809L - Success
+-- Performing Test WORKING__D_XOPEN_SOURCE_700
+-- Performing Test WORKING__D_XOPEN_SOURCE_700 - Success
+***********************************************************
+*        Stage 1 of 9 - Top Level Configure Options       *
+***********************************************************
+-- Could NOT find X11 (missing: X11_X11_INCLUDE_PATH X11_X11_LIB) 
+-- Could NOT find OpenGL (missing: OPENGL_opengl_LIBRARY OPENGL_glx_LIBRARY OPENGL_INCLUDE_DIR) 
+***********************************************************
+*             Stage 2 of 9 - Check for Programs           *
+***********************************************************
+-- Found SHELL_SUPPORTED: /usr/bin/sh
+-- Found SWIG: /usr/bin/swig4.0 (found version "4.2.0")
+-- Could NOT find Doxygen (missing: DOXYGEN_EXECUTABLE) 
+***********************************************************
+*     Stage 3 of 9 - Check for Compiler Characteristics   *
+***********************************************************
+-- Performing Test PIPE_C_FLAG_FOUND
+-- Performing Test PIPE_C_FLAG_FOUND - Success
+-- Performing Test PIPE_CXX_FLAG_FOUND
+-- Performing Test PIPE_CXX_FLAG_FOUND - Success
+-- Performing Test FVISIBILITY_HIDDEN_C_FLAG_FOUND
+-- Performing Test FVISIBILITY_HIDDEN_C_FLAG_FOUND - Success
+-- Performing Test FVISIBILITY_HIDDEN_CXX_FLAG_FOUND
+-- Performing Test FVISIBILITY_HIDDEN_CXX_FLAG_FOUND - Success
+-- Performing Test BRLCAD_LINKER_NO_UNDEFINED_C_FLAG_FOUND
+-- Performing Test BRLCAD_LINKER_NO_UNDEFINED_C_FLAG_FOUND - Success
+-- Performing Test BRLCAD_LINKER_NO_UNDEFINED_CXX_FLAG_FOUND
+-- Performing Test BRLCAD_LINKER_NO_UNDEFINED_CXX_FLAG_FOUND - Success
+-- Performing Test BRLCAD_LINKER_WHOLE_ARCHIVE_GROUP_C_FLAG_FOUND
+-- Performing Test BRLCAD_LINKER_WHOLE_ARCHIVE_GROUP_C_FLAG_FOUND - Success
+-- Performing Test BRLCAD_LINKER_WHOLE_ARCHIVE_GROUP_CXX_FLAG_FOUND
+-- Performing Test BRLCAD_LINKER_WHOLE_ARCHIVE_GROUP_CXX_FLAG_FOUND - Success
+-- Performing Test FNO_STRICT_ALIASING_C_FLAG_FOUND
+-- Performing Test FNO_STRICT_ALIASING_C_FLAG_FOUND - Success
+-- Performing Test FNO_STRICT_ALIASING_CXX_FLAG_FOUND
+-- Performing Test FNO_STRICT_ALIASING_CXX_FLAG_FOUND - Success
+-- Performing Test FNO_COMMON_C_FLAG_FOUND
+-- Performing Test FNO_COMMON_C_FLAG_FOUND - Success
+-- Performing Test FNO_COMMON_CXX_FLAG_FOUND
+-- Performing Test FNO_COMMON_CXX_FLAG_FOUND - Success
+-- Performing Test FEXCEPTIONS_C_FLAG_FOUND
+-- Performing Test FEXCEPTIONS_C_FLAG_FOUND - Success
+-- Performing Test FEXCEPTIONS_CXX_FLAG_FOUND
+-- Performing Test FEXCEPTIONS_CXX_FLAG_FOUND - Success
+-- Performing Test FTEMPLATE_DEPTH_128_CXX_FLAG_FOUND
+-- Performing Test FTEMPLATE_DEPTH_128_CXX_FLAG_FOUND - Success
+-- Performing Test M64_C_FLAG_FOUND
+-- Performing Test M64_C_FLAG_FOUND - Success
+-- Performing Test G_C_FLAG_FOUND
+-- Performing Test G_C_FLAG_FOUND - Success
+-- Performing Test G_CXX_FLAG_FOUND
+-- Performing Test G_CXX_FLAG_FOUND - Success
+-- Performing Test GGDB3_C_FLAG_FOUND
+-- Performing Test GGDB3_C_FLAG_FOUND - Success
+-- Performing Test GGDB3_CXX_FLAG_FOUND
+-- Performing Test GGDB3_CXX_FLAG_FOUND - Success
+-- Performing Test HAVE_INLINE_KEYWORD
+-- Performing Test HAVE_INLINE_KEYWORD - Success
+-- Performing Test WERROR_C_FLAG_FOUND
+-- Performing Test WERROR_C_FLAG_FOUND - Success
+-- Performing Test HAVE_PRINTF12_ATTRIBUTE
+-- Performing Test HAVE_PRINTF12_ATTRIBUTE - Success
+-- Performing Test HAVE_PRINTF23_ATTRIBUTE
+-- Performing Test HAVE_PRINTF23_ATTRIBUTE - Success
+-- Performing Test HAVE_SCANF23_ATTRIBUTE
+-- Performing Test HAVE_SCANF23_ATTRIBUTE - Success
+-- Performing Test HAVE_DEPRECATED_ATTRIBUTE
+-- Performing Test HAVE_DEPRECATED_ATTRIBUTE - Success
+-- Performing Test HAVE_DEPRECATED_DECLSPEC
+-- Performing Test HAVE_DEPRECATED_DECLSPEC - Failed
+-- Performing Test HAVE_NORETURN_ATTRIBUTE
+-- Performing Test HAVE_NORETURN_ATTRIBUTE - Success
+-- Performing Test HAVE_NORETURN_DECLSPEC
+-- Performing Test HAVE_NORETURN_DECLSPEC - Failed
+-- Performing Test HAVE_ANALYZER_NORETURN_ATTRIBUTE
+-- Performing Test HAVE_ANALYZER_NORETURN_ATTRIBUTE - Failed
+-- Performing Test HAVE_ALWAYS_INLINE_ATTRIBUTE
+-- Performing Test HAVE_ALWAYS_INLINE_ATTRIBUTE - Success
+-- Performing Test HAVE_FORCEINLINE
+-- Performing Test HAVE_FORCEINLINE - Failed
+-- Performing Test HAVE_CONST_ATTRIBUTE
+-- Performing Test HAVE_CONST_ATTRIBUTE - Failed
+-- Performing Test HAVE_PURE_ATTRIBUTE
+-- Performing Test HAVE_PURE_ATTRIBUTE - Failed
+-- Performing Test HAVE_COLD_ATTRIBUTE
+-- Performing Test HAVE_COLD_ATTRIBUTE - Success
+-- Performing Test HAVE_HOT_ATTRIBUTE
+-- Performing Test HAVE_HOT_ATTRIBUTE - Success
+-- Performing Test HAVE_NONNULL_ATTRIBUTE
+-- Performing Test HAVE_NONNULL_ATTRIBUTE - Success
+-- Performing Test HAVE_WARN_UNUSED_RESULT_ATTRIBUTE
+-- Performing Test HAVE_WARN_UNUSED_RESULT_ATTRIBUTE - Success
+-- Performing Test HAVE_FLATTEN_ATTRIBUTE
+-- Performing Test HAVE_FLATTEN_ATTRIBUTE - Success
+-- Performing Test QUNUSED_ARGUMENTS_C_FLAG_FOUND
+-- Performing Test QUNUSED_ARGUMENTS_C_FLAG_FOUND - Failed
+-- Performing Test QUNUSED_ARGUMENTS_CXX_FLAG_FOUND
+-- Performing Test QUNUSED_ARGUMENTS_CXX_FLAG_FOUND - Failed
+-- Performing Test HAVE_RESTRICT__
+-- Performing Test HAVE_RESTRICT__ - Success
+-- Performing Test HAVE_BUILTIN_ASSUME_ALIGNED
+-- Performing Test HAVE_BUILTIN_ASSUME_ALIGNED - Success
+-- Performing Test HAVE_DEBUGBREAK
+-- Performing Test HAVE_DEBUGBREAK - Failed
+-- Performing Test HAVE_PRAGMA_FP_CONTRACT
+-- Performing Test HAVE_PRAGMA_FP_CONTRACT - Failed
+-- Performing Test HAVE_MM_PAUSE
+-- Performing Test HAVE_MM_PAUSE - Success
+-- Performing Test HAVE_ALIGNED_MALLOC
+-- Performing Test HAVE_ALIGNED_MALLOC - Failed
+-- Looking for include file pthread.h
+-- Looking for include file pthread.h - found
+-- Performing Test O3_C_FLAG_FOUND
+-- Performing Test O3_C_FLAG_FOUND - Success
+-- Performing Test O3_CXX_FLAG_FOUND
+-- Performing Test O3_CXX_FLAG_FOUND - Success
+-- Performing Test FIPA_PTA_C_FLAG_FOUND
+-- Performing Test FIPA_PTA_C_FLAG_FOUND - Success
+-- Performing Test FIPA_PTA_CXX_FLAG_FOUND
+-- Performing Test FIPA_PTA_CXX_FLAG_FOUND - Success
+-- Performing Test FSTRENGTH_REDUCE_C_FLAG_FOUND
+-- Performing Test FSTRENGTH_REDUCE_C_FLAG_FOUND - Success
+-- Performing Test FSTRENGTH_REDUCE_CXX_FLAG_FOUND
+-- Performing Test FSTRENGTH_REDUCE_CXX_FLAG_FOUND - Success
+-- Performing Test FEXPENSIVE_OPTIMIZATIONS_C_FLAG_FOUND
+-- Performing Test FEXPENSIVE_OPTIMIZATIONS_C_FLAG_FOUND - Success
+-- Performing Test FEXPENSIVE_OPTIMIZATIONS_CXX_FLAG_FOUND
+-- Performing Test FEXPENSIVE_OPTIMIZATIONS_CXX_FLAG_FOUND - Success
+-- Performing Test FINLINE_FUNCTIONS_C_FLAG_FOUND
+-- Performing Test FINLINE_FUNCTIONS_C_FLAG_FOUND - Success
+-- Performing Test FINLINE_FUNCTIONS_CXX_FLAG_FOUND
+-- Performing Test FINLINE_FUNCTIONS_CXX_FLAG_FOUND - Success
+-- Performing Test FLTO_AUTO_C_FLAG_FOUND
+-- Performing Test FLTO_AUTO_C_FLAG_FOUND - Success
+-- Performing Test FLTO_AUTO_CXX_FLAG_FOUND
+-- Performing Test FLTO_AUTO_CXX_FLAG_FOUND - Success
+-- Performing Test FNO_OMIT_FRAME_POINTER_C_FLAG_FOUND
+-- Performing Test FNO_OMIT_FRAME_POINTER_C_FLAG_FOUND - Success
+-- Performing Test FNO_OMIT_FRAME_POINTER_CXX_FLAG_FOUND
+-- Performing Test FNO_OMIT_FRAME_POINTER_CXX_FLAG_FOUND - Success
+-- Performing Test PEDANTIC_C_FLAG_FOUND
+-- Performing Test PEDANTIC_C_FLAG_FOUND - Success
+-- Performing Test PEDANTIC_CXX_FLAG_FOUND
+-- Performing Test PEDANTIC_CXX_FLAG_FOUND - Success
+-- Performing Test WALL_C_FLAG_FOUND
+-- Performing Test WALL_C_FLAG_FOUND - Success
+-- Performing Test WALL_CXX_FLAG_FOUND
+-- Performing Test WALL_CXX_FLAG_FOUND - Success
+-- Performing Test WEXTRA_C_FLAG_FOUND
+-- Performing Test WEXTRA_C_FLAG_FOUND - Success
+-- Performing Test WEXTRA_CXX_FLAG_FOUND
+-- Performing Test WEXTRA_CXX_FLAG_FOUND - Success
+-- Performing Test WUNDEF_C_FLAG_FOUND
+-- Performing Test WUNDEF_C_FLAG_FOUND - Success
+-- Performing Test WUNDEF_CXX_FLAG_FOUND
+-- Performing Test WUNDEF_CXX_FLAG_FOUND - Success
+-- Performing Test WFLOAT_EQUAL_C_FLAG_FOUND
+-- Performing Test WFLOAT_EQUAL_C_FLAG_FOUND - Success
+-- Performing Test WFLOAT_EQUAL_CXX_FLAG_FOUND
+-- Performing Test WFLOAT_EQUAL_CXX_FLAG_FOUND - Success
+-- Performing Test WSHADOW_C_FLAG_FOUND
+-- Performing Test WSHADOW_C_FLAG_FOUND - Success
+-- Performing Test WSHADOW_CXX_FLAG_FOUND
+-- Performing Test WSHADOW_CXX_FLAG_FOUND - Success
+-- Performing Test WBAD_FUNCTION_CAST_C_FLAG_FOUND
+-- Performing Test WBAD_FUNCTION_CAST_C_FLAG_FOUND - Success
+-- Performing Test WBAD_FUNCTION_CAST_CXX_FLAG_FOUND
+-- Performing Test WBAD_FUNCTION_CAST_CXX_FLAG_FOUND - Failed
+-- Performing Test WC___COMPAT_C_FLAG_FOUND
+-- Performing Test WC___COMPAT_C_FLAG_FOUND - Success
+-- Performing Test WINLINE_C_FLAG_FOUND
+-- Performing Test WINLINE_C_FLAG_FOUND - Success
+-- Performing Test WNO_INLINE_CXX_FLAG_FOUND
+-- Performing Test WNO_INLINE_CXX_FLAG_FOUND - Success
+-- Performing Test WNO_ERROR_LONG_LONG_C_FLAG_FOUND
+-- Performing Test WNO_ERROR_LONG_LONG_C_FLAG_FOUND - Success
+-- Performing Test WNO_LONG_LONG_C_FLAG_FOUND
+-- Performing Test WNO_LONG_LONG_C_FLAG_FOUND - Success
+-- Performing Test WNO_LONG_LONG_CXX_FLAG_FOUND
+-- Performing Test WNO_LONG_LONG_CXX_FLAG_FOUND - Success
+-- Performing Test WNO_ERROR_VARIADIC_MACROS_C_FLAG_FOUND
+-- Performing Test WNO_ERROR_VARIADIC_MACROS_C_FLAG_FOUND - Success
+-- Performing Test WNO_VARIADIC_MACROS_C_FLAG_FOUND
+-- Performing Test WNO_VARIADIC_MACROS_C_FLAG_FOUND - Success
+-- Performing Test WNO_VARIADIC_MACROS_CXX_FLAG_FOUND
+-- Performing Test WNO_VARIADIC_MACROS_CXX_FLAG_FOUND - Success
+-- Performing Test WDOCUMENTATION_C_FLAG_FOUND
+-- Performing Test WDOCUMENTATION_C_FLAG_FOUND - Failed
+-- Performing Test WDOCUMENTATION_CXX_FLAG_FOUND
+-- Performing Test WDOCUMENTATION_CXX_FLAG_FOUND - Failed
+-- Performing Test WERROR_CXX_FLAG_FOUND
+-- Performing Test WERROR_CXX_FLAG_FOUND - Success
+-- Performing Test HAVE_C_WUNUSED_CONST_VARIABLE
+-- Performing Test HAVE_C_WUNUSED_CONST_VARIABLE - Success
+***********************************************************
+*             Stage 4 of 9 - Check for Libraries          *
+***********************************************************
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Performing Test STL_LIB_TEST
+-- Performing Test STL_LIB_TEST - Success
+-- Checking for module 'mpi-c'
+--   Package 'mpi-c', required by 'virtual:world', not found
+-- Could NOT find MPI_C (missing: MPI_C_LIB_NAMES MPI_C_HEADER_DIR MPI_C_WORKS) 
+-- Could NOT find MPI (missing: MPI_C_FOUND C) 
+-- Performing Test HAVE_NO_BUILTIN
+-- Performing Test HAVE_NO_BUILTIN - Success
+-- Looking for daemon in bsd
+-- Looking for daemon in bsd - not found
+-- Looking for daemon in c
+-- Looking for daemon in c - found
+-- Looking for cos in m
+-- Looking for cos in m - found
+-- Looking for socket in socket
+-- Looking for socket in socket - not found
+-- Looking for gethostbyaddr in nsl
+-- Looking for gethostbyaddr in nsl - not found
+-- Looking for socket in network
+-- Looking for socket in network - not found
+-- Looking for mallopt in c
+-- Looking for mallopt in c - found
+-- Looking for mallopt
+-- Looking for mallopt - found
+-- Looking for dlopen in dl
+-- Looking for dlopen in dl - found
+-- Looking for yyless in l
+-- Looking for yyless in l - not found
+***********************************************************
+*               Stage 5 of 9 - Check for Headers          *
+***********************************************************
+-- Performing Test WORKING_SYS_WAIT
+-- Performing Test WORKING_SYS_WAIT - Success
+-- Looking for include file dirent.h
+-- Looking for include file dirent.h - found
+-- Looking for include file arpa/inet.h
+-- Looking for include file arpa/inet.h - found
+-- Looking for include file conio.h
+-- Looking for include file conio.h - not found
+-- Looking for include file direct.h
+-- Looking for include file direct.h - not found
+-- Looking for include file dlfcn.h
+-- Looking for include file dlfcn.h - found
+-- Looking for include file dslib.h
+-- Looking for include file dslib.h - not found
+-- Looking for include file emmintrin.h
+-- Looking for include file emmintrin.h - found
+-- Looking for include file getopt.h
+-- Looking for include file getopt.h - found
+-- Looking for include file GL/gl.h
+-- Looking for include file GL/gl.h - not found
+-- Looking for include file gl/device.h
+-- Looking for include file gl/device.h - not found
+-- Looking for include file gl/glext.h
+-- Looking for include file gl/glext.h - not found
+-- Looking for include file gl/wglext.h
+-- Looking for include file gl/wglext.h - not found
+-- Looking for include file glob.h
+-- Looking for include file glob.h - found
+-- Looking for include file grp.h
+-- Looking for include file grp.h - found
+-- Looking for include file inttypes.h
+-- Looking for include file inttypes.h - found
+-- Looking for include file io.h
+-- Looking for include file io.h - not found
+-- Looking for include file libgen.h
+-- Looking for include file libgen.h - found
+-- Looking for include file mach/host_info.h
+-- Looking for include file mach/host_info.h - not found
+-- Looking for include file mach/mach_host.h
+-- Looking for include file mach/mach_host.h - not found
+-- Looking for include file mach/thread_policy.h
+-- Looking for include file mach/thread_policy.h - not found
+-- Looking for include file memory.h
+-- Looking for include file memory.h - found
+-- Looking for include file netdb.h
+-- Looking for include file netdb.h - found
+-- Looking for include file netinet/in.h
+-- Looking for include file netinet/in.h - found
+-- Looking for include file poll.h
+-- Looking for include file poll.h - found
+-- Looking for include file process.h
+-- Looking for include file process.h - not found
+-- Looking for include file pthread.h
+-- Looking for include file pthread.h - found
+-- Looking for include file pthread_np.h
+-- Looking for include file pthread_np.h - not found
+-- Looking for include file pwd.h
+-- Looking for include file pwd.h - found
+-- Looking for include file sched.h
+-- Looking for include file sched.h - found
+-- Looking for include file sgtty.h
+-- Looking for include file sgtty.h - found
+-- Looking for include file signal.h
+-- Looking for include file signal.h - found
+-- Looking for include file stdlib.h
+-- Looking for include file stdlib.h - found
+-- Looking for include file string.h
+-- Looking for include file string.h - found
+-- Looking for include file strings.h
+-- Looking for include file strings.h - found
+-- Looking for include file strsafe.h
+-- Looking for include file strsafe.h - not found
+-- Looking for include file sys/cpuset.h
+-- Looking for include file sys/cpuset.h - not found
+-- Looking for include file sys/file.h
+-- Looking for include file sys/file.h - found
+-- Looking for include file sys/ioctl.h
+-- Looking for include file sys/ioctl.h - found
+-- Looking for include file sys/ioctl_compat.h
+-- Looking for include file sys/ioctl_compat.h - not found
+-- Looking for include file sys/ipc.h
+-- Looking for include file sys/ipc.h - found
+-- Looking for include file sys/machd.h
+-- Looking for include file sys/machd.h - not found
+-- Looking for include file sys/mman.h
+-- Looking for include file sys/mman.h - found
+-- Looking for include file sys/mount.h
+-- Looking for include file sys/mount.h - found
+-- Looking for include file sys/param.h
+-- Looking for include file sys/param.h - found
+-- Looking for include file sys/prctl.h
+-- Looking for include file sys/prctl.h - found
+-- Looking for include file sys/resource.h
+-- Looking for include file sys/resource.h - found
+-- Looking for include file sys/sched.h
+-- Looking for include file sys/sched.h - not found
+-- Looking for include file sys/select.h
+-- Looking for include file sys/select.h - found
+-- Looking for include file sys/shm.h
+-- Looking for include file sys/shm.h - found
+-- Looking for include file sys/signal.h
+-- Looking for include file sys/signal.h - found
+-- Looking for include file sys/socket.h
+-- Looking for include file sys/socket.h - found
+-- Looking for include file sys/stat.h
+-- Looking for include file sys/stat.h - found
+-- Looking for include file sys/syscall.h
+-- Looking for include file sys/syscall.h - found
+-- Looking for include file sys/sysctl.h
+-- Looking for include file sys/sysctl.h - not found
+-- Looking for include file sys/sysinfo.h
+-- Looking for include file sys/sysinfo.h - found
+-- Looking for include file sys/sysmp.h
+-- Looking for include file sys/sysmp.h - not found
+-- Looking for include file sys/time.h
+-- Looking for include file sys/time.h - found
+-- Looking for include file sys/times.h
+-- Looking for include file sys/times.h - found
+-- Looking for include file sys/uio.h
+-- Looking for include file sys/uio.h - found
+-- Looking for include file sys/un.h
+-- Looking for include file sys/un.h - found
+-- Looking for include file sys/utsname.h
+-- Looking for include file sys/utsname.h - found
+-- Looking for include file sys/wait.h
+-- Looking for include file sys/wait.h - found
+-- Looking for include file syslog.h
+-- Looking for include file syslog.h - found
+-- Looking for include file ulocks.h
+-- Looking for include file ulocks.h - not found
+-- Looking for include file uuid.h
+-- Looking for include file uuid.h - not found
+-- Looking for include file unistd.h
+-- Looking for include file unistd.h - found
+-- Looking for include file uuid/uuid.h
+-- Looking for include file uuid/uuid.h - not found
+-- Performing Test HAVE_LIBPROC_H
+-- Performing Test HAVE_LIBPROC_H - Failed
+-- Looking for include file termios.h
+-- Looking for include file termios.h - found
+-- Looking for include file termio.h
+-- Looking for include file termio.h - found
+-- Looking for C++ include istream
+-- Looking for C++ include istream - found
+-- Looking for C++ include limits
+-- Looking for C++ include limits - found
+-- Performing Test HAVE_BASENAME
+-- Performing Test HAVE_BASENAME - Success
+-- Performing Test HAVE_DIRNAME
+-- Performing Test HAVE_DIRNAME - Success
+-- Performing Test HAVE_EMMINTRIN
+-- Performing Test HAVE_EMMINTRIN - Success
+***********************************************************
+*          Stage 6 of 9 - Check for Types/Structures      *
+***********************************************************
+-- Performing Test HAVE_STRUCT_STAT_ST_BLKSIZE
+-- Performing Test HAVE_STRUCT_STAT_ST_BLKSIZE - Success
+-- Performing Test HAVE_STRUCT_STAT_ST_BLOCKS
+-- Performing Test HAVE_STRUCT_STAT_ST_BLOCKS - Success
+-- Performing Test HAVE_STRUCT_STAT_ST_RDEV
+-- Performing Test HAVE_STRUCT_STAT_ST_RDEV - Success
+-- Performing Test HAVE_STRUCT_TIMESPEC
+-- Performing Test HAVE_STRUCT_TIMESPEC - Success
+-- Check size of socklen_t
+-- Check size of socklen_t - failed
+-- Check size of socklen_t
+-- Check size of socklen_t - failed
+-- Check size of socklen_t
+-- Check size of socklen_t - done
+-- Check size of cpu_set_t
+-- Check size of cpu_set_t - done
+-- Check size of int
+-- Check size of int - done
+-- Check size of long
+-- Check size of long - done
+-- Check size of long long
+-- Check size of long long - done
+-- Check size of off_t
+-- Check size of off_t - done
+-- Check size of ptrdiff_t
+-- Check size of ptrdiff_t - done
+-- Check size of size_t
+-- Check size of size_t - done
+-- Check size of ssize_t
+-- Check size of ssize_t - done
+-- Check size of uint64_t
+-- Check size of uint64_t - done
+-- Check size of uintptr_t
+-- Check size of uintptr_t - done
+-- Check size of u_char
+-- Check size of u_char - failed
+-- Check size of u_int
+-- Check size of u_int - failed
+-- Check size of u_long
+-- Check size of u_long - failed
+-- Check size of u_short
+-- Check size of u_short - failed
+-- Performing Test HAVE_THREAD_LOCAL
+-- Performing Test HAVE_THREAD_LOCAL - Success
+-- Performing Test HAVE_PERCENT_Z
+-- Performing Test HAVE_PERCENT_Z - Success
+-- Performing Test HAVE_STATIC_ARRAYS
+-- Performing Test HAVE_STATIC_ARRAYS - Success
+***********************************************************
+*              Stage 7 of 9 - Check for Functions         *
+***********************************************************
+-- Looking for XQueryExtension
+-- Looking for XQueryExtension - not found
+-- Looking for _putenv_s
+-- Looking for _putenv_s - not found
+-- Looking for _splitpath
+-- Looking for _splitpath - not found
+-- Looking for _strtoi64
+-- Looking for _strtoi64 - not found
+-- Looking for alarm
+-- Looking for alarm - found
+-- Performing Test HAVE_DECL_ALARM
+-- Performing Test HAVE_DECL_ALARM - Success
+-- Looking for asinh
+-- Looking for asinh - found
+-- Performing Test HAVE_DECL_ASINH
+-- Performing Test HAVE_DECL_ASINH - Success
+-- Looking for confstr
+-- Looking for confstr - found
+-- Performing Test HAVE_DECL_CONFSTR
+-- Performing Test HAVE_DECL_CONFSTR - Success
+-- Looking for dlopen
+-- Looking for dlopen - found
+-- Performing Test HAVE_DECL_DLOPEN
+-- Performing Test HAVE_DECL_DLOPEN - Failed
+-- Looking for dladdr
+-- Looking for dladdr - found
+-- Performing Test HAVE_DECL_DLADDR
+-- Performing Test HAVE_DECL_DLADDR - Failed
+-- Looking for drand48
+-- Looking for drand48 - found
+-- Performing Test HAVE_DECL_DRAND48
+-- Performing Test HAVE_DECL_DRAND48 - Success
+-- Looking for fchmod
+-- Looking for fchmod - found
+-- Performing Test HAVE_DECL_FCHMOD
+-- Performing Test HAVE_DECL_FCHMOD - Success
+-- Looking for fdopen
+-- Looking for fdopen - found
+-- Performing Test HAVE_DECL_FDOPEN
+-- Performing Test HAVE_DECL_FDOPEN - Success
+-- Looking for fmemopen
+-- Looking for fmemopen - found
+-- Performing Test HAVE_DECL_FMEMOPEN
+-- Performing Test HAVE_DECL_FMEMOPEN - Success
+-- Looking for fpclassify
+-- Looking for fpclassify - not found
+-- Looking for fseeko
+-- Looking for fseeko - found
+-- Performing Test HAVE_DECL_FSEEKO
+-- Performing Test HAVE_DECL_FSEEKO - Success
+-- Looking for fsync
+-- Looking for fsync - found
+-- Performing Test HAVE_DECL_FSYNC
+-- Performing Test HAVE_DECL_FSYNC - Success
+-- Looking for funopen
+-- Looking for funopen - not found
+-- Looking for getcwd
+-- Looking for getcwd - found
+-- Performing Test HAVE_DECL_GETCWD
+-- Performing Test HAVE_DECL_GETCWD - Success
+-- Looking for getegid
+-- Looking for getegid - found
+-- Performing Test HAVE_DECL_GETEGID
+-- Performing Test HAVE_DECL_GETEGID - Success
+-- Looking for getenv_s
+-- Looking for getenv_s - not found
+-- Looking for geteuid
+-- Looking for geteuid - found
+-- Performing Test HAVE_DECL_GETEUID
+-- Performing Test HAVE_DECL_GETEUID - Success
+-- Looking for gethostname
+-- Looking for gethostname - found
+-- Performing Test HAVE_DECL_GETHOSTNAME
+-- Performing Test HAVE_DECL_GETHOSTNAME - Success
+-- Looking for getloadavg
+-- Looking for getloadavg - found
+-- Performing Test HAVE_DECL_GETLOADAVG
+-- Performing Test HAVE_DECL_GETLOADAVG - Failed
+-- Looking for getopt_long
+-- Looking for getopt_long - found
+-- Performing Test HAVE_DECL_GETOPT_LONG
+-- Performing Test HAVE_DECL_GETOPT_LONG - Success
+-- Looking for getpid
+-- Looking for getpid - found
+-- Performing Test HAVE_DECL_GETPID
+-- Performing Test HAVE_DECL_GETPID - Success
+-- Looking for getprogname
+-- Looking for getprogname - not found
+-- Looking for gettimeofday
+-- Looking for gettimeofday - found
+-- Performing Test HAVE_DECL_GETTIMEOFDAY
+-- Performing Test HAVE_DECL_GETTIMEOFDAY - Success
+-- Looking for htonl
+-- Looking for htonl - found
+-- Performing Test HAVE_DECL_HTONL
+-- Performing Test HAVE_DECL_HTONL - Success
+-- Looking for htonll
+-- Looking for htonll - not found
+-- Looking for hypot
+-- Looking for hypot - found
+-- Performing Test HAVE_DECL_HYPOT
+-- Performing Test HAVE_DECL_HYPOT - Success
+-- Looking for isascii
+-- Looking for isascii - found
+-- Performing Test HAVE_DECL_ISASCII
+-- Performing Test HAVE_DECL_ISASCII - Success
+-- Looking for isinf
+-- Looking for isinf - found
+-- Performing Test HAVE_DECL_ISINF
+-- Performing Test HAVE_DECL_ISINF - Failed
+-- Looking for isnan
+-- Looking for isnan - found
+-- Performing Test HAVE_DECL_ISNAN
+-- Performing Test HAVE_DECL_ISNAN - Failed
+-- Looking for logb
+-- Looking for logb - found
+-- Performing Test HAVE_DECL_LOGB
+-- Performing Test HAVE_DECL_LOGB - Success
+-- Looking for lrand48
+-- Looking for lrand48 - found
+-- Performing Test HAVE_DECL_LRAND48
+-- Performing Test HAVE_DECL_LRAND48 - Success
+-- Looking for lseek
+-- Looking for lseek - found
+-- Performing Test HAVE_DECL_LSEEK
+-- Performing Test HAVE_DECL_LSEEK - Success
+-- Looking for mkstemp
+-- Looking for mkstemp - found
+-- Performing Test HAVE_DECL_MKSTEMP
+-- Performing Test HAVE_DECL_MKSTEMP - Success
+-- Looking for modff
+-- Looking for modff - found
+-- Performing Test HAVE_DECL_MODFF
+-- Performing Test HAVE_DECL_MODFF - Success
+-- Looking for nextafter
+-- Looking for nextafter - found
+-- Performing Test HAVE_DECL_NEXTAFTER
+-- Performing Test HAVE_DECL_NEXTAFTER - Success
+-- Looking for nextafterf
+-- Looking for nextafterf - found
+-- Performing Test HAVE_DECL_NEXTAFTERF
+-- Performing Test HAVE_DECL_NEXTAFTERF - Success
+-- Looking for ntohll
+-- Looking for ntohll - not found
+-- Looking for pipe
+-- Looking for pipe - found
+-- Performing Test HAVE_DECL_PIPE
+-- Performing Test HAVE_DECL_PIPE - Success
+-- Looking for _pipe
+-- Looking for _pipe - not found
+-- Looking for popen
+-- Looking for popen - found
+-- Performing Test HAVE_DECL_POPEN
+-- Performing Test HAVE_DECL_POPEN - Success
+-- Looking for posix_memalign
+-- Looking for posix_memalign - found
+-- Performing Test HAVE_DECL_POSIX_MEMALIGN
+-- Performing Test HAVE_DECL_POSIX_MEMALIGN - Success
+-- Looking for proc_pidpath
+-- Looking for proc_pidpath - not found
+-- Looking for program_invocation_name
+-- Looking for program_invocation_name - found
+-- Performing Test HAVE_DECL_PROGRAM_INVOCATION_NAME
+-- Performing Test HAVE_DECL_PROGRAM_INVOCATION_NAME - Failed
+-- Looking for random
+-- Looking for random - found
+-- Performing Test HAVE_DECL_RANDOM
+-- Performing Test HAVE_DECL_RANDOM - Success
+-- Looking for realpath
+-- Looking for realpath - found
+-- Performing Test HAVE_DECL_REALPATH
+-- Performing Test HAVE_DECL_REALPATH - Success
+-- Looking for rint
+-- Looking for rint - found
+-- Performing Test HAVE_DECL_RINT
+-- Performing Test HAVE_DECL_RINT - Success
+-- Looking for setenv
+-- Looking for setenv - found
+-- Performing Test HAVE_DECL_SETENV
+-- Performing Test HAVE_DECL_SETENV - Success
+-- Looking for setpgid
+-- Looking for setpgid - found
+-- Performing Test HAVE_DECL_SETPGID
+-- Performing Test HAVE_DECL_SETPGID - Success
+-- Looking for setpriority
+-- Looking for setpriority - found
+-- Performing Test HAVE_DECL_SETPRIORITY
+-- Performing Test HAVE_DECL_SETPRIORITY - Success
+-- Looking for setsid
+-- Looking for setsid - found
+-- Performing Test HAVE_DECL_SETSID
+-- Performing Test HAVE_DECL_SETSID - Success
+-- Looking for shmat
+-- Looking for shmat - found
+-- Performing Test HAVE_DECL_SHMAT
+-- Performing Test HAVE_DECL_SHMAT - Success
+-- Looking for shmctl
+-- Looking for shmctl - found
+-- Performing Test HAVE_DECL_SHMCTL
+-- Performing Test HAVE_DECL_SHMCTL - Success
+-- Looking for shmdt
+-- Looking for shmdt - found
+-- Performing Test HAVE_DECL_SHMDT
+-- Performing Test HAVE_DECL_SHMDT - Success
+-- Looking for shmget
+-- Looking for shmget - found
+-- Performing Test HAVE_DECL_SHMGET
+-- Performing Test HAVE_DECL_SHMGET - Success
+-- Looking for snprintf
+-- Looking for snprintf - found
+-- Performing Test HAVE_DECL_SNPRINTF
+-- Performing Test HAVE_DECL_SNPRINTF - Success
+-- Looking for srand48
+-- Looking for srand48 - found
+-- Performing Test HAVE_DECL_SRAND48
+-- Performing Test HAVE_DECL_SRAND48 - Success
+-- Looking for strcasecmp
+-- Looking for strcasecmp - found
+-- Performing Test HAVE_DECL_STRCASECMP
+-- Performing Test HAVE_DECL_STRCASECMP - Failed
+-- Looking for strdup
+-- Looking for strdup - found
+-- Performing Test HAVE_DECL_STRDUP
+-- Performing Test HAVE_DECL_STRDUP - Success
+-- Looking for strlcat
+-- Looking for strlcat - found
+-- Performing Test HAVE_DECL_STRLCAT
+-- Performing Test HAVE_DECL_STRLCAT - Failed
+-- Looking for strlcpy
+-- Looking for strlcpy - found
+-- Performing Test HAVE_DECL_STRLCPY
+-- Performing Test HAVE_DECL_STRLCPY - Failed
+-- Looking for strncasecmp
+-- Looking for strncasecmp - found
+-- Performing Test HAVE_DECL_STRNCASECMP
+-- Performing Test HAVE_DECL_STRNCASECMP - Failed
+-- Looking for strtoll
+-- Looking for strtoll - found
+-- Performing Test HAVE_DECL_STRTOLL
+-- Performing Test HAVE_DECL_STRTOLL - Success
+-- Looking for sync
+-- Looking for sync - found
+-- Performing Test HAVE_DECL_SYNC
+-- Performing Test HAVE_DECL_SYNC - Success
+-- Looking for syscall
+-- Looking for syscall - found
+-- Performing Test HAVE_DECL_SYSCALL
+-- Performing Test HAVE_DECL_SYSCALL - Failed
+-- Looking for sysctl
+-- Looking for sysctl - not found
+-- Looking for sysmp
+-- Looking for sysmp - not found
+-- Looking for time
+-- Looking for time - found
+-- Performing Test HAVE_DECL_TIME
+-- Performing Test HAVE_DECL_TIME - Failed
+-- Looking for toascii
+-- Looking for toascii - found
+-- Performing Test HAVE_DECL_TOASCII
+-- Performing Test HAVE_DECL_TOASCII - Success
+-- Looking for tzset
+-- Looking for tzset - found
+-- Performing Test HAVE_DECL_TZSET
+-- Performing Test HAVE_DECL_TZSET - Failed
+-- Looking for uname
+-- Looking for uname - found
+-- Performing Test HAVE_DECL_UNAME
+-- Performing Test HAVE_DECL_UNAME - Failed
+-- Looking for vfork
+-- Looking for vfork - found
+-- Performing Test HAVE_DECL_VFORK
+-- Performing Test HAVE_DECL_VFORK - Failed
+-- Looking for vsnprintf
+-- Looking for vsnprintf - found
+-- Performing Test HAVE_DECL_VSNPRINTF
+-- Performing Test HAVE_DECL_VSNPRINTF - Success
+-- Looking for vsscanf
+-- Looking for vsscanf - found
+-- Performing Test HAVE_DECL_VSSCANF
+-- Performing Test HAVE_DECL_VSSCANF - Success
+-- Looking for wait
+-- Looking for wait - found
+-- Performing Test HAVE_DECL_WAIT
+-- Performing Test HAVE_DECL_WAIT - Success
+-- Looking for writev
+-- Looking for writev - found
+-- Performing Test HAVE_DECL_WRITEV
+-- Performing Test HAVE_DECL_WRITEV - Success
+-- Performing Test WORKING_ALLOCA
+-- Performing Test WORKING_ALLOCA - Success
+-- Looking for kill
+-- Looking for kill - found
+-- Performing Test HAVE_DECL_KILL
+-- Performing Test HAVE_DECL_KILL - Success
+-- Looking for fileno
+-- Looking for fileno - found
+-- Performing Test HAVE_DECL_FILENO
+-- Performing Test HAVE_DECL_FILENO - Success
+-- Looking for daemon
+-- Looking for daemon - found
+-- Performing Test HAVE_DECL_DAEMON
+-- Performing Test HAVE_DECL_DAEMON - Failed
+-- Performing Test HAVE_WORKING_DAEMON_FUNCTION
+-- Performing Test HAVE_WORKING_DAEMON_FUNCTION - Failed
+-- Looking for sysconf
+-- Looking for sysconf - found
+-- Performing Test HAVE_DECL_SYSCONF
+-- Performing Test HAVE_DECL_SYSCONF - Success
+-- Performing Test HAVE_SYSCONF_AVPHYS
+-- Performing Test HAVE_SYSCONF_AVPHYS - Success
+-- Looking for ntohll
+-- Looking for ntohll - not found
+-- Looking for htonll
+-- Looking for htonll - not found
+-- Performing Test HAVE_WORKING_REALPATH
+-- Performing Test HAVE_WORKING_REALPATH - Success
+-- Performing Test HAVE_GETFULLPATHNAME
+-- Performing Test HAVE_GETFULLPATHNAME - Failed
+-- Performing Test HAVE_GETPROCESSTIMES
+-- Performing Test HAVE_GETPROCESSTIMES - Failed
+-- Performing Test HAVE_GETCURRENTPROCESSID
+-- Performing Test HAVE_GETCURRENTPROCESSID - Failed
+-- Looking for lrint
+-- Looking for lrint - found
+-- Performing Test HAVE_DECL_LRINT
+-- Performing Test HAVE_DECL_LRINT - Success
+-- Looking for tgamma
+-- Looking for tgamma - found
+-- Performing Test HAVE_DECL_TGAMMA
+-- Performing Test HAVE_DECL_TGAMMA - Success
+-- Looking for gethostbyaddr
+-- Looking for gethostbyaddr - found
+-- Performing Test HAVE_DECL_GETHOSTBYADDR
+-- Performing Test HAVE_DECL_GETHOSTBYADDR - Success
+-- Looking for gethostbyname
+-- Looking for gethostbyname - found
+-- Performing Test HAVE_DECL_GETHOSTBYNAME
+-- Performing Test HAVE_DECL_GETHOSTBYNAME - Success
+-- Performing Test HAVE_CXX_LOGB
+-- Performing Test HAVE_CXX_LOGB - Success
+***********************************************************
+*          Stage 8 of 9 - Check for System Services       *
+***********************************************************
+-- Performing Test COMPILER_SUPPORTS_O3
+-- Performing Test COMPILER_SUPPORTS_O3 - Success
+Attempting to prepare our own version of the bext dependencies
+
+BRL-CAD bext clone command: /usr/bin/git clone https://github.com/BRL-CAD/bext.git
+Cloning into 'bext'...
+BRL-CAD bext checkout command: /usr/bin/git -c advice.detachedHead=false checkout 7eaec4272310a7a741817c8f680d8db49abe2387
+HEAD is now at 7eaec427 configure submodules to pull a shallow clone by default.  cuts disk usage in half (~10gb).
+/usr/local/bin/cmake -S;/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext;-B;/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build;-DGIT_SHALLOW_CLONE=ON;-DENABLE_ALL=OFF;-DUSE_GDAL=ON;-DUSE_QT=ON;-DUSE_TCL=ON;-DUSE_APPLESEED=OFF;-DCMAKE_BUILD_TYPE=Release;-DCMAKE_INSTALL_PREFIX=/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_output
+-- The C compiler identification is GNU 13.3.0
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+prefix is /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_output
+Submodule 'astyle/astyle' (https://github.com/BRL-CAD/astyle) registered for path 'astyle'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/astyle/astyle'...
+From https://github.com/BRL-CAD/astyle
+ * branch            35f559a2f62bba26ad49b064762458cdc74e4ccd -> FETCH_HEAD
+Submodule path 'astyle': checked out '35f559a2f62bba26ad49b064762458cdc74e4ccd'
+-- Could NOT find LEMON (missing: LEMON_EXECUTABLE LEMON_TEMPLATE) 
+Submodule 'lemon/lemon' (https://github.com/BRL-CAD/lemon) registered for path 'lemon'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/lemon/lemon'...
+Submodule path 'lemon': checked out 'b0e459f6feb0ee5ed4167192bdbbb0270eaf0ecd'
+-- Could NOT find RE2C (missing: RE2C_EXECUTABLE) 
+Submodule 're2c/re2c' (https://github.com/BRL-CAD/re2c) registered for path 're2c'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/re2c/re2c'...
+From https://github.com/BRL-CAD/re2c
+ * branch              ece4bb76e39db7071d5dd374d166008d5f982c3f -> FETCH_HEAD
+Submodule path 're2c': checked out 'ece4bb76e39db7071d5dd374d166008d5f982c3f'
+Submodule 'benchmarks/submatch_java/REgen' (https://github.com/skvadrik/REgen.git) registered for path 're2c/benchmarks/submatch_java/REgen'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/re2c/re2c/benchmarks/submatch_java/REgen'...
+Submodule path 're2c/benchmarks/submatch_java/REgen': checked out 'b5dd94d15d07b626169b75ccd34bc4558f525874'
+-- Could NOT find PERPLEX (missing: PERPLEX_EXECUTABLE PERPLEX_TEMPLATE) 
+Submodule 'perplex/perplex' (https://github.com/BRL-CAD/perplex) registered for path 'perplex'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/perplex/perplex'...
+Submodule path 'perplex': checked out '9c2cba2719a6010ed0b940f5cf99612c207df3c6'
+Submodule 'strclear/strclear' (https://github.com/BRL-CAD/strclear) registered for path 'strclear'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/strclear/strclear'...
+Submodule path 'strclear': checked out 'ffc9b19b73761e4f58cd30e31802ac53b6b98b92'
+Submodule 'xmltools/xmltools' (https://github.com/BRL-CAD/xmltools) registered for path 'xmltools'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/xmltools/xmltools'...
+Submodule path 'xmltools': checked out '35d025f7e25ad97dc6bf5b3f446e40887399dbec'
+CMake Warning at CMake/Utils.cmake:224 (find_package):
+  By not providing "FindLIEF.cmake" in CMAKE_MODULE_PATH this project has
+  asked CMake to find a package configuration file provided by "LIEF", but
+  CMake did not find one.
+
+  Could not find a package configuration file provided by "LIEF" with any of
+  the following names:
+
+    LIEFConfig.cmake
+    lief-config.cmake
+
+  Add the installation prefix of "LIEF" to CMAKE_PREFIX_PATH or set
+  "LIEF_DIR" to a directory containing one of the above files.  If "LIEF"
+  provides a separate development package or SDK, be sure it has been
+  installed.
+Call Stack (most recent call first):
+  lief/CMakeLists.txt:7 (bext_enable)
+
+
+Submodule 'lief/LIEF' (https://github.com/BRL-CAD/LIEF) registered for path 'LIEF'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/lief/LIEF'...
+From https://github.com/BRL-CAD/LIEF
+ * branch              cb383d3f870b0f05227e8cc7b5beef327e3b49ca -> FETCH_HEAD
+Submodule path 'LIEF': checked out 'cb383d3f870b0f05227e8cc7b5beef327e3b49ca'
+Submodule 'plief/plief' (https://github.com/BRL-CAD/plief) registered for path 'plief'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/plief/plief'...
+Submodule path 'plief': checked out '0bc779cd2012ddb981098a4ca58e7bb288b54581'
+-- Found ZLIB: /usr/lib/x86_64-linux-gnu/libz.so (found version "1.3.#define ZLIB_VERSION "1.3"")
+-- Could NOT find REGEX (missing: REGEX_LIBRARY) 
+Submodule 'regex/regex' (https://github.com/BRL-CAD/regex) registered for path 'regex'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/regex/regex'...
+Submodule path 'regex': checked out 'd26a6f727005adf483c84e95b838ac1c7980fea8'
+-- Could NOT find NETPBM (missing: NETPBM_LIBRARY NETPBM_INCLUDE_DIR) 
+Submodule 'netpbm/netpbm' (https://github.com/BRL-CAD/netpbm) registered for path 'netpbm'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/netpbm/netpbm'...
+From https://github.com/BRL-CAD/netpbm
+ * branch            99ce8abc6f9acb8bbad7124c4e72142149482b93 -> FETCH_HEAD
+Submodule path 'netpbm': checked out '99ce8abc6f9acb8bbad7124c4e72142149482b93'
+-- Could NOT find JPEG (missing: JPEG_LIBRARY JPEG_INCLUDE_DIR) 
+Submodule 'jpeg/libjpeg-turbo' (https://github.com/BRL-CAD/libjpeg-turbo) registered for path 'libjpeg-turbo'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/jpeg/libjpeg-turbo'...
+From https://github.com/BRL-CAD/libjpeg-turbo
+ * branch              af9c1c268520a29adf98cad5138dafe612b3d318 -> FETCH_HEAD
+Submodule path 'libjpeg-turbo': checked out 'af9c1c268520a29adf98cad5138dafe612b3d318'
+-- Could NOT find PNG (missing: PNG_LIBRARY PNG_PNG_INCLUDE_DIR) 
+Submodule 'png/libpng' (https://github.com/BRL-CAD/libpng) registered for path 'libpng'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/png/libpng'...
+From https://github.com/BRL-CAD/libpng
+ * branch            02f2b4f4699f0ef9111a6534f093b53732df4452 -> FETCH_HEAD
+Submodule path 'libpng': checked out '02f2b4f4699f0ef9111a6534f093b53732df4452'
+-- Could NOT find TIFF (missing: TIFF_LIBRARY TIFF_INCLUDE_DIR) 
+Submodule 'tiff/libtiff' (https://github.com/BRL-CAD/libtiff) registered for path 'libtiff'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/tiff/libtiff'...
+From https://github.com/BRL-CAD/libtiff
+ * branch              5fe20d0e9aba49a6a350ed533459d1505203838f -> FETCH_HEAD
+Submodule path 'libtiff': checked out '5fe20d0e9aba49a6a350ed533459d1505203838f'
+-- Could NOT find LMDB (missing: LMDB_LIBRARY LMDB_INCLUDE_DIR) 
+Submodule 'lmdb/lmdb' (https://github.com/BRL-CAD/lmdb) registered for path 'lmdb'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/lmdb/lmdb'...
+From https://github.com/BRL-CAD/lmdb
+ * branch            1e4cd2d79224c16c89c9832738b1a99e5f5646df -> FETCH_HEAD
+Submodule path 'lmdb': checked out '1e4cd2d79224c16c89c9832738b1a99e5f5646df'
+-- Could NOT find Eigen3 (missing: Eigen3_DIR)
+Submodule 'eigen/eigen' (https://github.com/BRL-CAD/eigen) registered for path 'eigen'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/eigen/eigen'...
+From https://github.com/BRL-CAD/eigen
+ * branch                3147391d946bb4b6c68edd901f2add6ac1f31f8c -> FETCH_HEAD
+Submodule path 'eigen': checked out '3147391d946bb4b6c68edd901f2add6ac1f31f8c'
+-- Could NOT find STEPCODE (missing: STEPCODE_DAI_DIR STEPCODE_EDITOR_DIR STEPCODE_STEPCORE_DIR STEPCODE_UTILS_DIR STEPCODE_EXPPP_DIR STEPCODE_EXPRESS_DIR STEPCODE_INCLUDE_DIR STEPCODE_EXPRESS_LIBRARY STEPCODE_EXPPP_LIBRARY STEPCODE_CORE_LIBRARY STEPCODE_EDITOR_LIBRARY STEPCODE_DAI_LIBRARY STEPCODE_UTILS_LIBRARY EXP2CXX_EXECUTABLE EXPPP_EXECUTABLE) 
+Submodule 'stepcode/stepcode' (https://github.com/BRL-CAD/stepcode) registered for path 'stepcode'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/stepcode/stepcode'...
+From https://github.com/BRL-CAD/stepcode
+ * branch              206d83a4c2023b572ad6a43ed9434f74357d0bcb -> FETCH_HEAD
+Submodule path 'stepcode': checked out '206d83a4c2023b572ad6a43ed9434f74357d0bcb'
+-- Found SQLite3: /usr/include (found version "3.45.1")
+-- Could NOT find PROJ (missing: PROJ_LIBRARY PROJ_INCLUDE_DIR) 
+Submodule 'proj/PROJ' (https://github.com/BRL-CAD/PROJ) registered for path 'PROJ'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/proj/PROJ'...
+From https://github.com/BRL-CAD/PROJ
+ * branch              30b6e69ac1f07983c91e2671f3f864eb5e0151a8 -> FETCH_HEAD
+Submodule path 'PROJ': checked out '30b6e69ac1f07983c91e2671f3f864eb5e0151a8'
+-- Could NOT find GDAL (missing: GDAL_LIBRARY GDAL_INCLUDE_DIR) (found version "GDAL_VERSION-NOTFOUND")
+Submodule 'gdal/gdal' (https://github.com/BRL-CAD/gdal) registered for path 'gdal'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/gdal/gdal'...
+From https://github.com/BRL-CAD/gdal
+ * branch                  ecf8a961b231a1a40dc33e9f7c792f583eee8010 -> FETCH_HEAD
+Submodule path 'gdal': checked out 'ecf8a961b231a1a40dc33e9f7c792f583eee8010'
+-- Could NOT find tinygltf (missing: tinygltf_DIR)
+Submodule 'tinygltf/tinygltf' (https://github.com/BRL-CAD/tinygltf.git) registered for path 'tinygltf'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/tinygltf/tinygltf'...
+Submodule path 'tinygltf': checked out '116d0030f9a55151eb1890b7b7131e4c0602de96'
+CMake Warning at CMake/Utils.cmake:224 (find_package):
+  By not providing "FindPUGIXML.cmake" in CMAKE_MODULE_PATH this project has
+  asked CMake to find a package configuration file provided by "PUGIXML", but
+  CMake did not find one.
+
+  Could not find a package configuration file provided by "PUGIXML" with any
+  of the following names:
+
+    PUGIXMLConfig.cmake
+    pugixml-config.cmake
+
+  Add the installation prefix of "PUGIXML" to CMAKE_PREFIX_PATH or set
+  "PUGIXML_DIR" to a directory containing one of the above files.  If
+  "PUGIXML" provides a separate development package or SDK, be sure it has
+  been installed.
+Call Stack (most recent call first):
+  pugixml/CMakeLists.txt:5 (bext_enable)
+
+
+Submodule 'pugixml/pugixml' (https://github.com/BRL-CAD/pugixml) registered for path 'pugixml'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/pugixml/pugixml'...
+From https://github.com/BRL-CAD/pugixml
+ * branch            ee86beb30e4973f5feffe3ce63bfa4fbadf72f38 -> FETCH_HEAD
+Submodule path 'pugixml': checked out 'ee86beb30e4973f5feffe3ce63bfa4fbadf72f38'
+-- Could NOT find ASSETIMPORT (missing: ASSETIMPORT_LIBRARY ASSETIMPORT_INCLUDE_DIR) 
+Submodule 'assetimport/assimp' (https://github.com/BRL-CAD/assimp) registered for path 'assimp'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/assetimport/assimp'...
+From https://github.com/BRL-CAD/assimp
+ * branch                cfc14a26d2103df97dba445ef203a01be82395bf -> FETCH_HEAD
+Submodule path 'assimp': checked out 'cfc14a26d2103df97dba445ef203a01be82395bf'
+CMake Warning at CMake/Utils.cmake:224 (find_package):
+  By not providing "FindOpenCV.cmake" in CMAKE_MODULE_PATH this project has
+  asked CMake to find a package configuration file provided by "OpenCV", but
+  CMake did not find one.
+
+  Could not find a package configuration file provided by "OpenCV" with any
+  of the following names:
+
+    OpenCVConfig.cmake
+    opencv-config.cmake
+
+  Add the installation prefix of "OpenCV" to CMAKE_PREFIX_PATH or set
+  "OpenCV_DIR" to a directory containing one of the above files.  If "OpenCV"
+  provides a separate development package or SDK, be sure it has been
+  installed.
+Call Stack (most recent call first):
+  opencv/CMakeLists.txt:4 (bext_enable)
+
+
+Submodule 'opencv/opencv' (https://github.com/BRL-CAD/opencv) registered for path 'opencv'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/opencv/opencv'...
+From https://github.com/BRL-CAD/opencv
+ * branch                  ed26aa55c1eb9e4e9790d6a900eb8246e85be845 -> FETCH_HEAD
+Submodule path 'opencv': checked out 'ed26aa55c1eb9e4e9790d6a900eb8246e85be845'
+CMake Warning at CMake/Utils.cmake:224 (find_package):
+  By not providing "FindCLIPPER2.cmake" in CMAKE_MODULE_PATH this project has
+  asked CMake to find a package configuration file provided by "CLIPPER2",
+  but CMake did not find one.
+
+  Could not find a package configuration file provided by "CLIPPER2" with any
+  of the following names:
+
+    CLIPPER2Config.cmake
+    clipper2-config.cmake
+
+  Add the installation prefix of "CLIPPER2" to CMAKE_PREFIX_PATH or set
+  "CLIPPER2_DIR" to a directory containing one of the above files.  If
+  "CLIPPER2" provides a separate development package or SDK, be sure it has
+  been installed.
+Call Stack (most recent call first):
+  clipper2/CMakeLists.txt:4 (bext_enable)
+
+
+Submodule 'clipper2/Clipper2' (https://github.com/BRL-CAD/Clipper2.git) registered for path 'Clipper2'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/clipper2/Clipper2'...
+From https://github.com/BRL-CAD/Clipper2
+ * branch            6901921c4be75126d1de60bfd24bd86a61319fd0 -> FETCH_HEAD
+Submodule path 'Clipper2': checked out '6901921c4be75126d1de60bfd24bd86a61319fd0'
+-- Could NOT find GTE (missing: GTE_INCLUDE_DIR) 
+Submodule 'gte/GeometricTools' (https://github.com/BRL-CAD/GeometricTools) registered for path 'GeometricTools'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/gte/GeometricTools'...
+From https://github.com/BRL-CAD/GeometricTools
+ * branch              7adae93f85c2c2d0e949d4b717f4f408954d1a86 -> FETCH_HEAD
+Submodule path 'GeometricTools': checked out '7adae93f85c2c2d0e949d4b717f4f408954d1a86'
+-- Could NOT find POISSONRECON (missing: POISSONRECON_INCLUDE_DIR) 
+Submodule 'poissonrecon/PoissonRecon' (https://github.com/BRL-CAD/PoissonRecon) registered for path 'PoissonRecon'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/poissonrecon/PoissonRecon'...
+Submodule path 'PoissonRecon': checked out '2641b492baa1b12aecbd44ebe53b76094a45af34'
+-- Could NOT find MMESH (missing: MMESH_LIBRARY MMESH_INCLUDE_DIR) 
+Submodule 'mmesh/mmesh' (https://github.com/BRL-CAD/mmesh.git) registered for path 'mmesh'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/mmesh/mmesh'...
+Submodule path 'mmesh': checked out '9e40c7789a14663eb34bef3a7b38a5ec3719b1f1'
+-- Could NOT find MANIFOLD (missing: MANIFOLD_LIBRARY MANIFOLD_INCLUDE_DIR) 
+Submodule 'manifold/manifold' (https://github.com/BRL-CAD/manifold.git) registered for path 'manifold'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/manifold/manifold'...
+From https://github.com/BRL-CAD/manifold
+ * branch            7e2292bb244627647c35f3c7d74c98f053b2aa44 -> FETCH_HEAD
+Submodule path 'manifold': checked out '7e2292bb244627647c35f3c7d74c98f053b2aa44'
+-- Could NOT find OPENNURBS (missing: OPENNURBS_LIBRARY OPENNURBS_INCLUDE_DIR OPENNURBS_X_INCLUDE_DIR) 
+Submodule 'opennurbs/opennurbs' (https://github.com/BRL-CAD/opennurbs) registered for path 'opennurbs'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/opennurbs/opennurbs'...
+Submodule path 'opennurbs': checked out '285c43ce2bd6c917bdc3e3f1eca0da466c1b07d1'
+-- Could NOT find OSMESA (missing: OSMESA_LIBRARY OSMESA_INCLUDE_DIR) 
+Submodule 'osmesa/osmesa' (https://github.com/BRL-CAD/osmesa) registered for path 'osmesa'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/osmesa/osmesa'...
+Submodule path 'osmesa': checked out 'c759bdb33fac9b2f1e503951d11024e8893091b4'
+-- Could NOT find Bullet (missing: BULLET_DYNAMICS_LIBRARY BULLET_COLLISION_LIBRARY BULLET_MATH_LIBRARY BULLET_SOFTBODY_LIBRARY BULLET_INCLUDE_DIR) 
+Submodule 'bullet/bullet3' (https://github.com/BRL-CAD/bullet3.git) registered for path 'bullet3'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/bullet/bullet3'...
+Submodule path 'bullet3': checked out '63c4d67e337017f9d8b298c900e9aabdb69296e7'
+-- Could NOT find TCL (missing: TCL_STUB_LIBRARY TCL_INCLUDE_PATH) (Required is at least version "8.6")
+-- Could NOT find TCLTK (missing: TCL_STUB_LIBRARY TCL_INCLUDE_PATH TK_STUB_LIBRARY TK_INCLUDE_PATH) 
+-- Could NOT find TK (missing: TK_STUB_LIBRARY TK_INCLUDE_PATH) 
+Submodule 'tcl/tcl' (https://github.com/BRL-CAD/tcl.git) registered for path 'tcl'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/tcl/tcl'...
+From https://github.com/BRL-CAD/tcl
+ * branch                794c4efb40b5ac2527cea809e884a0822026c4f4 -> FETCH_HEAD
+Submodule path 'tcl': checked out '794c4efb40b5ac2527cea809e884a0822026c4f4'
+Submodule 'tk/tk' (https://github.com/BRL-CAD/tk) registered for path 'tk'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/tk/tk'...
+From https://github.com/BRL-CAD/tk
+ * branch                f195332797683d3a7c048a0d1282b9ef1781435f -> FETCH_HEAD
+Submodule path 'tk': checked out 'f195332797683d3a7c048a0d1282b9ef1781435f'
+-- Could NOT find ITCL (missing: ITCL_LIBRARY ITCL_STUB_LIBRARY ITCL_INCLUDE_PATH) 
+Submodule 'itcl3/itcl' (https://github.com/BRL-CAD/itcl) registered for path 'itcl'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/itcl/itcl'...
+From https://github.com/BRL-CAD/itcl
+ * branch            33cea588fa63d9c4ef33e5f4f7d7fae08163a220 -> FETCH_HEAD
+Submodule path 'itcl': checked out '33cea588fa63d9c4ef33e5f4f7d7fae08163a220'
+Submodule 'itk3/itk' (https://github.com/BRL-CAD/itk) registered for path 'itk'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/itk/itk'...
+From https://github.com/BRL-CAD/itk
+ * branch            0d1dc9780c59c2b81e78a1351652fd4488fe67c0 -> FETCH_HEAD
+Submodule path 'itk': checked out '0d1dc9780c59c2b81e78a1351652fd4488fe67c0'
+Submodule 'iwidgets/iwidgets' (https://github.com/BRL-CAD/iwidgets) registered for path 'iwidgets'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/iwidgets/iwidgets'...
+Submodule path 'iwidgets': checked out 'ce8f624329a32c042c7da110166d03a6f5ad03c3'
+Submodule 'tkhtml/tkhtml' (https://github.com/BRL-CAD/tkhtml) registered for path 'tkhtml'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/tkhtml/tkhtml'...
+Submodule path 'tkhtml': checked out '194cd5a3121936a00f0d8393df324b86c4b7627d'
+Submodule 'tktable/tktable' (https://github.com/BRL-CAD/tktable) registered for path 'tktable'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/tktable/tktable'...
+Submodule path 'tktable': checked out '05e3a95b79c140a5001ba99774209b1ff78026f4'
+CMake Warning at qt/CMakeLists.txt:6 (find_package):
+  By not providing "FindQt6.cmake" in CMAKE_MODULE_PATH this project has
+  asked CMake to find a package configuration file provided by "Qt6", but
+  CMake did not find one.
+
+  Could not find a package configuration file provided by "Qt6" with any of
+  the following names:
+
+    Qt6Config.cmake
+    qt6-config.cmake
+
+  Add the installation prefix of "Qt6" to CMAKE_PREFIX_PATH or set "Qt6_DIR"
+  to a directory containing one of the above files.  If "Qt6" provides a
+  separate development package or SDK, be sure it has been installed.
+
+
+Submodule 'qt/qt' (https://github.com/BRL-CAD/qt) registered for path 'qt'
+Cloning into '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext/qt/qt'...
+Submodule path 'qt': checked out '0c0a85eb92267bbd7e8c3cbd18590735871dc687'
+Output directory: /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_output
+-- Configuring done (249.3s)
+-- Generating done (0.1s)
+-- Build files have been written to: /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build
+/usr/local/bin/cmake --build /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build --parallel 8 --config Release
+[  1%] Creating directories for 'ASTYLE_BLD'
+[  1%] Creating directories for 'RE2C_BLD'
+[  1%] Creating directories for 'LEMON_BLD'
+[  2%] Creating directories for 'STRCLEAR_BLD'
+[  2%] Built target BuildStamp
+[  3%] Creating directories for 'XMLTOOLS_BLD'
+[  3%] Creating directories for 'LIEF_BLD'
+[  3%] Creating directories for 'REGEX_BLD'
+[  3%] Performing download step (DIR copy) for 'ASTYLE_BLD'
+[  4%] Performing download step (DIR copy) for 'RE2C_BLD'
+[  4%] Performing download step (DIR copy) for 'LEMON_BLD'
+[  4%] Performing download step (DIR copy) for 'STRCLEAR_BLD'
+[  4%] Creating directories for 'NETPBM_BLD'
+[  4%] No download step for 'XMLTOOLS_BLD'
+[  5%] Performing download step (DIR copy) for 'LIEF_BLD'
+[  5%] No download step for 'REGEX_BLD'
+[  5%] No update step for 'XMLTOOLS_BLD'
+[  6%] No download step for 'NETPBM_BLD'
+[  7%] No update step for 'LEMON_BLD'
+[  7%] No update step for 'STRCLEAR_BLD'
+[  8%] No patch step for 'XMLTOOLS_BLD'
+[  8%] No update step for 'NETPBM_BLD'
+[  9%] No update step for 'REGEX_BLD'
+[ 10%] Performing patch step for 'LEMON_BLD'
+[ 10%] No patch step for 'STRCLEAR_BLD'
+patching file CMakeLists.txt
+[ 10%] No update step for 'ASTYLE_BLD'
+[ 10%] No patch step for 'NETPBM_BLD'
+[ 10%] Performing configure step for 'XMLTOOLS_BLD'
+[ 10%] No patch step for 'REGEX_BLD'
+[ 10%] Performing configure step for 'LEMON_BLD'
+[ 11%] Performing patch step for 'ASTYLE_BLD'
+patching file build/cmake/InstallOptions.cmake
+patching file CMakeLists.txt
+[ 11%] Performing configure step for 'STRCLEAR_BLD'
+[ 11%] Performing configure step for 'REGEX_BLD'
+[ 12%] Performing configure step for 'NETPBM_BLD'
+[ 12%] Performing configure step for 'ASTYLE_BLD'
+-- ASTYLE_BLD configure command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/astyle/ASTYLE_BLD-prefix/src/ASTYLE_BLD-stamp/ASTYLE_BLD-configure-*.log
+[ 12%] Performing build step for 'ASTYLE_BLD'
+-- REGEX_BLD configure command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/regex/REGEX_BLD-prefix/src/REGEX_BLD-stamp/REGEX_BLD-configure-*.log
+[ 12%] Performing build step for 'REGEX_BLD'
+[ 12%] No update step for 'LIEF_BLD'
+[ 12%] Performing patch step for 'LIEF_BLD'
+patching file CMakeLists.txt
+[ 13%] Performing configure step for 'LIEF_BLD'
+-- LEMON_BLD configure command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/lemon/LEMON_BLD-prefix/src/LEMON_BLD-stamp/LEMON_BLD-configure-*.log
+[ 14%] Performing build step for 'LEMON_BLD'
+[ 14%] No update step for 'RE2C_BLD'
+[ 14%] Performing patch step for 'RE2C_BLD'
+patching file CMakeLists.txt
+[ 15%] Performing configure step for 'RE2C_BLD'
+-- STRCLEAR_BLD configure command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/strclear/STRCLEAR_BLD-prefix/src/STRCLEAR_BLD-stamp/STRCLEAR_BLD-configure-*.log
+[ 15%] Performing build step for 'STRCLEAR_BLD'
+-- LIEF_BLD configure command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/lief/LIEF_BLD-prefix/src/LIEF_BLD-stamp/LIEF_BLD-configure-*.log
+[ 15%] Performing build step for 'LIEF_BLD'
+-- NETPBM_BLD configure command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/netpbm/NETPBM_BLD-prefix/src/NETPBM_BLD-stamp/NETPBM_BLD-configure-*.log
+[ 15%] Performing build step for 'NETPBM_BLD'
+-- LEMON_BLD build command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/lemon/LEMON_BLD-prefix/src/LEMON_BLD-stamp/LEMON_BLD-build-*.log
+[ 15%] Performing install step for 'LEMON_BLD'
+-- LEMON_BLD install command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/lemon/LEMON_BLD-prefix/src/LEMON_BLD-stamp/LEMON_BLD-install-*.log
+[ 15%] Built target LEMON_BLD-install
+-- RE2C_BLD configure command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/re2c/RE2C_BLD-prefix/src/RE2C_BLD-stamp/RE2C_BLD-configure-*.log
+[ 15%] Performing build step for 'RE2C_BLD'
+-- REGEX_BLD build command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/regex/REGEX_BLD-prefix/src/REGEX_BLD-stamp/REGEX_BLD-build-*.log
+[ 16%] Performing install step for 'REGEX_BLD'
+-- REGEX_BLD install command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/regex/REGEX_BLD-prefix/src/REGEX_BLD-stamp/REGEX_BLD-install-*.log
+[ 16%] Built target REGEX_BLD-install
+[ 17%] Creating directories for 'JPEG_BLD'
+[ 17%] Performing download step (DIR copy) for 'JPEG_BLD'
+[ 17%] No update step for 'JPEG_BLD'
+[ 18%] No patch step for 'JPEG_BLD'
+[ 18%] Performing configure step for 'JPEG_BLD'
+-- JPEG_BLD configure command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/jpeg/JPEG_BLD-prefix/src/JPEG_BLD-stamp/JPEG_BLD-configure-*.log
+[ 18%] Performing build step for 'JPEG_BLD'
+-- XMLTOOLS_BLD configure command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/xmltools/XMLTOOLS_BLD-prefix/src/XMLTOOLS_BLD-stamp/XMLTOOLS_BLD-configure-*.log
+[ 18%] Performing build step for 'XMLTOOLS_BLD'
+-- NETPBM_BLD build command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/netpbm/NETPBM_BLD-prefix/src/NETPBM_BLD-stamp/NETPBM_BLD-build-*.log
+[ 18%] Performing install step for 'NETPBM_BLD'
+-- STRCLEAR_BLD build command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/strclear/STRCLEAR_BLD-prefix/src/STRCLEAR_BLD-stamp/STRCLEAR_BLD-build-*.log
+[ 19%] Performing install step for 'STRCLEAR_BLD'
+-- STRCLEAR_BLD install command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/strclear/STRCLEAR_BLD-prefix/src/STRCLEAR_BLD-stamp/STRCLEAR_BLD-install-*.log
+[ 19%] Built target STRCLEAR_BLD-install
+[ 19%] Creating directories for 'PNG_BLD'
+[ 19%] Performing download step (DIR copy) for 'PNG_BLD'
+-- NETPBM_BLD install command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/netpbm/NETPBM_BLD-prefix/src/NETPBM_BLD-stamp/NETPBM_BLD-install-*.log
+[ 19%] Built target NETPBM_BLD-install
+[ 19%] No update step for 'PNG_BLD'
+[ 20%] Performing patch step for 'PNG_BLD'
+patching file CMakeLists.txt
+Hunk #1 succeeded at 29 with fuzz 2.
+Hunk #4 succeeded at 1064 (offset 7 lines).
+[ 20%] Performing configure step for 'PNG_BLD'
+-- PNG_BLD configure command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/png/PNG_BLD-prefix/src/PNG_BLD-stamp/PNG_BLD-configure-*.log
+[ 20%] Performing build step for 'PNG_BLD'
+-- ASTYLE_BLD build command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/astyle/ASTYLE_BLD-prefix/src/ASTYLE_BLD-stamp/ASTYLE_BLD-build-*.log
+[ 21%] Performing install step for 'ASTYLE_BLD'
+-- ASTYLE_BLD install command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/astyle/ASTYLE_BLD-prefix/src/ASTYLE_BLD-stamp/ASTYLE_BLD-install-*.log
+[ 21%] Built target ASTYLE_BLD-install
+[ 21%] Creating directories for 'LMDB_BLD'
+[ 21%] Performing download step (DIR copy) for 'LMDB_BLD'
+[ 22%] No update step for 'LMDB_BLD'
+[ 22%] Performing patch step for 'LMDB_BLD'
+patching file CMakeLists.txt
+patching file libraries/liblmdb/lmdb.h
+patching file libraries/liblmdb/mdb.c
+Hunk #1 succeeded at 8006 (offset 71 lines).
+[ 22%] Performing configure step for 'LMDB_BLD'
+-- LMDB_BLD configure command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/lmdb/LMDB_BLD-prefix/src/LMDB_BLD-stamp/LMDB_BLD-configure-*.log
+[ 23%] Performing build step for 'LMDB_BLD'
+-- PNG_BLD build command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/png/PNG_BLD-prefix/src/PNG_BLD-stamp/PNG_BLD-build-*.log
+[ 24%] Performing install step for 'PNG_BLD'
+-- PNG_BLD install command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/png/PNG_BLD-prefix/src/PNG_BLD-stamp/PNG_BLD-install-*.log
+[ 24%] Built target PNG_BLD-install
+-- LMDB_BLD build command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/lmdb/LMDB_BLD-prefix/src/LMDB_BLD-stamp/LMDB_BLD-build-*.log
+[ 24%] Performing install step for 'LMDB_BLD'
+-- LMDB_BLD install command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/lmdb/LMDB_BLD-prefix/src/LMDB_BLD-stamp/LMDB_BLD-install-*.log
+[ 24%] Built target LMDB_BLD-install
+[ 24%] Creating directories for 'EIGEN_BLD'
+[ 24%] Performing download step (DIR copy) for 'EIGEN_BLD'
+[ 25%] No update step for 'EIGEN_BLD'
+[ 25%] Performing patch step for 'EIGEN_BLD'
+patching file CMakeLists.txt
+patching file Eigen/src/Core/util/Memory.h
+[ 25%] Performing configure step for 'EIGEN_BLD'
+-- EIGEN_BLD configure command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/eigen/EIGEN_BLD-prefix/src/EIGEN_BLD-stamp/EIGEN_BLD-configure-*.log
+[ 26%] Performing build step for 'EIGEN_BLD'
+-- EIGEN_BLD build command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/eigen/EIGEN_BLD-prefix/src/EIGEN_BLD-stamp/EIGEN_BLD-build-*.log
+[ 26%] Performing install step for 'EIGEN_BLD'
+-- EIGEN_BLD install command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/eigen/EIGEN_BLD-prefix/src/EIGEN_BLD-stamp/EIGEN_BLD-install-*.log
+[ 26%] Built target EIGEN_BLD-install
+[ 27%] Creating directories for 'PROJ_BLD'
+[ 27%] Performing download step (DIR copy) for 'PROJ_BLD'
+[ 27%] No update step for 'PROJ_BLD'
+[ 28%] Performing patch step for 'PROJ_BLD'
+patching file CMakeLists.txt
+Hunk #1 succeeded at 216 (offset 19 lines).
+[ 28%] Performing configure step for 'PROJ_BLD'
+[ 28%] Creating directories for 'TINYGLTF_BLD'
+[ 28%] Performing download step (DIR copy) for 'TINYGLTF_BLD'
+CMake Error at /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/proj/PROJ_BLD-prefix/src/PROJ_BLD-stamp/PROJ_BLD-configure-Release.cmake:37 (message):
+  Command failed: 1
+
+   '/usr/local/bin/cmake' '-DCMAKE_BUILD_TYPE=Release' '-DBIN_DIR=bin' '-DLIB_DIR=lib' '-DBUILD_STATIC_LIBS=ON' '-DCMAKE_CXX_COMPILER=/usr/bin/c++' '-DCMAKE_C_COMPILER=/usr/bin/cc' '-DCMAKE_INSTALL_PREFIX=/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_output/install' '-DCMAKE_INSTALL_LIBDIR:PATH=lib' '-DCMAKE_INSTALL_RPATH=/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_output/install/lib' '-DPROJ_LIB_DIR=/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_output/install/share/proj' '-DSQLite3_ROOT=' '-DBUILD_TESTING=OFF' '-DENABLE_TIFF=OFF' '-DENABLE_CURL=OFF' '-DBUILD_PROJSYNC=OFF' '-GUnix Makefiles' '-S' '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/proj/PROJ_BLD-prefix/src/PROJ_BLD' '-B' '/tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/proj/PROJ_BLD-prefix/src/PROJ_BLD-build'
+
+  See also
+
+    /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/proj/PROJ_BLD-prefix/src/PROJ_BLD-stamp/PROJ_BLD-configure-*.log
+
+
+-- stdout output is:
+-- The C compiler identification is GNU 13.3.0
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Requiring C++17
+-- Requiring C++17 - done
+-- Requiring C99
+-- Requiring C99 - done
+-- Configuring PROJ:
+-- PROJ_VERSION                   = 9.7.1
+-- Looking for localeconv
+-- Looking for localeconv - found
+-- Looking for strerror
+-- Looking for strerror - found
+-- Looking for dladdr in dl
+-- Looking for dladdr in dl - found
+-- Looking for exp in m
+-- Looking for exp in m - found
+-- nlohmann/json: internal
+-- Configuring incomplete, errors occurred!
+
+-- stderr output is:
+CMake Error at /usr/local/share/cmake-3.31/Modules/FindPackageHandleStandardArgs.cmake:233 (message):
+  Could NOT find SQLite3 (missing: SQLite3_INCLUDE_DIR SQLite3_LIBRARY)
+Call Stack (most recent call first):
+  /usr/local/share/cmake-3.31/Modules/FindPackageHandleStandardArgs.cmake:603 (_FPHSA_FAILURE_MESSAGE)
+  cmake/FindSQLite3.cmake:67 (find_package_handle_standard_args)
+  CMakeLists.txt:234 (find_package)
+
+
+
+CMake Error at /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/proj/PROJ_BLD-prefix/src/PROJ_BLD-stamp/PROJ_BLD-configure-Release.cmake:47 (message):
+  Stopping after outputting logs.
+
+
+gmake[2]: *** [proj/CMakeFiles/PROJ_BLD-install.dir/build.make:88: proj/PROJ_BLD-prefix/src/PROJ_BLD-stamp/PROJ_BLD-configure] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:2221: proj/CMakeFiles/PROJ_BLD-install.dir/all] Error 2
+gmake[1]: *** Waiting for unfinished jobs....
+[ 29%] No update step for 'TINYGLTF_BLD'
+[ 29%] No patch step for 'TINYGLTF_BLD'
+[ 29%] Performing configure step for 'TINYGLTF_BLD'
+-- TINYGLTF_BLD configure command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/tinygltf/TINYGLTF_BLD-prefix/src/TINYGLTF_BLD-stamp/TINYGLTF_BLD-configure-*.log
+[ 30%] Performing build step for 'TINYGLTF_BLD'
+-- RE2C_BLD build command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/re2c/RE2C_BLD-prefix/src/RE2C_BLD-stamp/RE2C_BLD-build-*.log
+[ 30%] Performing install step for 'RE2C_BLD'
+-- RE2C_BLD install command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/re2c/RE2C_BLD-prefix/src/RE2C_BLD-stamp/RE2C_BLD-install-*.log
+[ 30%] Built target RE2C_BLD-install
+-- XMLTOOLS_BLD build command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/xmltools/XMLTOOLS_BLD-prefix/src/XMLTOOLS_BLD-stamp/XMLTOOLS_BLD-build-*.log
+[ 31%] Performing install step for 'XMLTOOLS_BLD'
+-- XMLTOOLS_BLD install command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/xmltools/XMLTOOLS_BLD-prefix/src/XMLTOOLS_BLD-stamp/XMLTOOLS_BLD-install-*.log
+[ 31%] Built target XMLTOOLS_BLD-install
+-- TINYGLTF_BLD build command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/tinygltf/TINYGLTF_BLD-prefix/src/TINYGLTF_BLD-stamp/TINYGLTF_BLD-build-*.log
+[ 31%] Performing install step for 'TINYGLTF_BLD'
+-- TINYGLTF_BLD install command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/tinygltf/TINYGLTF_BLD-prefix/src/TINYGLTF_BLD-stamp/TINYGLTF_BLD-install-*.log
+[ 31%] Built target TINYGLTF_BLD-install
+-- JPEG_BLD build command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/jpeg/JPEG_BLD-prefix/src/JPEG_BLD-stamp/JPEG_BLD-build-*.log
+[ 32%] Performing install step for 'JPEG_BLD'
+-- JPEG_BLD install command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/jpeg/JPEG_BLD-prefix/src/JPEG_BLD-stamp/JPEG_BLD-install-*.log
+[ 32%] Built target JPEG_BLD-install
+-- LIEF_BLD build command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/lief/LIEF_BLD-prefix/src/LIEF_BLD-stamp/LIEF_BLD-build-*.log
+[ 32%] Performing install step for 'LIEF_BLD'
+-- LIEF_BLD install command succeeded.  See also /tmp/workspace/starseeker/brlcad_quickiterate/brlcad_build/bext_build/lief/LIEF_BLD-prefix/src/LIEF_BLD-stamp/LIEF_BLD-install-*.log
+[ 32%] Built target LIEF_BLD-install
+gmake: *** [Makefile:91: all] Error 2
+CMake Error at misc/CMake/BRLCAD_Util.cmake:168 (_message):
+  Unable to successfully build bext dependency repository
+Call Stack (most recent call first):
+  misc/CMake/BRLCAD_EXT_Setup.cmake:479 (message)
+  misc/CMake/BRLCAD_ExternalDeps.cmake:547 (brlcad_ext_setup)
+  CMakeLists.txt:2245 (brlcad_bext_process)
+
+
+-- Configuring incomplete, errors occurred!
