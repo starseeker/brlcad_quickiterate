@@ -137,6 +137,9 @@ struct stdio_data {
     struct mged_state *s;
 };
 
+void stdin_input(ClientData clientData, int mask);
+void std_out_or_err(ClientData clientData, int mask);
+
 struct mged_state *MGED_STATE = NULL;
 
 jmp_buf jmp_env;	/* For non-local gotos */
@@ -147,6 +150,59 @@ double frametime;	/* time needed to draw last frame */
 struct rt_wdb rtg_headwdb;  /* head of database object list */
 
 void (*cur_sigint)(int);	/* Current SIGINT status */
+
+
+int
+mged_shutting_down(struct mged_state *s)
+{
+    return !s || s->shutdown_state >= MGED_SHUTDOWN_REQUESTED;
+}
+
+
+void
+mged_request_shutdown(struct mged_state *s, int exitcode)
+{
+    if (!s || s->shutdown_state >= MGED_SHUTDOWN_REQUESTED)
+	return;
+
+    s->shutdown_state = MGED_SHUTDOWN_REQUESTED;
+    s->shutdown_exitcode = exitcode;
+    if (s->interp) {
+	Tcl_SetVar(s->interp, "mged_shutting_down", "1", TCL_GLOBAL_ONLY);
+	(void)Tcl_Eval(s->interp, "catch {foreach id [after info] {after cancel $id}}");
+    }
+}
+
+
+static void
+mged_quiesce_tcl(struct mged_state *s)
+{
+    if (!s)
+	return;
+
+    s->shutdown_state = MGED_SHUTDOWN_IN_PROGRESS;
+    if (s->interp) {
+	Tcl_SetVar(s->interp, "mged_shutting_down", "1", TCL_GLOBAL_ONLY);
+	(void)Tcl_Eval(s->interp, "catch {foreach id [after info] {after cancel $id}}");
+    }
+
+    mged_stop_log_drain_timer(s);
+
+    if (s->stdin_chan && s->stdin_data) {
+	Tcl_DeleteChannelHandler(s->stdin_chan, stdin_input, (ClientData)s->stdin_data);
+	BU_PUT(s->stdin_data, struct stdio_data);
+	s->stdin_data = NULL;
+	s->stdin_chan = NULL;
+    }
+    if (s->stdout_chan) {
+	Tcl_DeleteChannelHandler(s->stdout_chan, std_out_or_err, (ClientData)s->stdout_chan);
+	s->stdout_chan = NULL;
+    }
+    if (s->stderr_chan) {
+	Tcl_DeleteChannelHandler(s->stderr_chan, std_out_or_err, (ClientData)s->stderr_chan);
+	s->stderr_chan = NULL;
+    }
+}
 
 // FIXME: Global
 int cbreak_mode = 0;    /* >0 means in cbreak_mode */
@@ -1234,6 +1290,9 @@ event_check(struct mged_state *s, int non_blocking)
     struct mged_dm *save_dm_list;
     int save_edflag;
 
+    if (mged_shutting_down(s))
+	return -1;
+
     /* Let cool Tk event handler do most of the work */
 
     if (non_blocking) {
@@ -1243,16 +1302,21 @@ event_check(struct mged_state *s, int non_blocking)
 	 * keypresses, redraw events, etc...
 	 */
 
-	while (Tcl_DoOneEvent(TCL_ALL_EVENTS|TCL_DONT_WAIT)) {
+	while (!mged_shutting_down(s) && Tcl_DoOneEvent(TCL_ALL_EVENTS|TCL_DONT_WAIT)) {
 	}
     } else {
 	/* Wait for an event, then handle it */
 	Tcl_DoOneEvent(TCL_ALL_EVENTS);
+	if (mged_shutting_down(s))
+	    return -1;
 
 	/* Handle any other events in the queue */
-	while (Tcl_DoOneEvent(TCL_ALL_EVENTS|TCL_DONT_WAIT)) {
+	while (!mged_shutting_down(s) && Tcl_DoOneEvent(TCL_ALL_EVENTS|TCL_DONT_WAIT)) {
 	}
     }
+
+    if (mged_shutting_down(s))
+	return -1;
 
     non_blocking = 0;
 
@@ -1558,6 +1622,9 @@ stdin_input(ClientData clientData, int UNUSED(mask))
     struct stdio_data *sd = (struct stdio_data *)clientData;
     struct mged_state *s = sd->s;
 
+    if (mged_shutting_down(s))
+	return;
+
     /* When not in cbreak mode, just process an entire line of input,
      * and don't do any command-line manipulation.
      */
@@ -1580,8 +1647,8 @@ stdin_input(ClientData clientData, int UNUSED(mask))
 		Tcl_DStringFree(&ds);
 		return;
 	    }
-	    BU_PUT(sd, struct stdio_data);
-	    quit(s); /* does not return */
+	    mged_request_shutdown(s, 0);
+	    return;
 	}
 
 	/* If a GED command is already executing in a worker thread, consume the
@@ -1694,8 +1761,10 @@ stdin_input(ClientData clientData, int UNUSED(mask))
 	if (count < 0)
 	    perror("READ ERROR");
 
-	if (count <= 0 && Tcl_Eof(sd->chan))
-	    Tcl_Eval(s->interp, "q");
+	if (count <= 0 && Tcl_Eof(sd->chan)) {
+	    mged_request_shutdown(s, 0);
+	    return;
+	}
 
 	/* On a non-blocking channel Tcl_Read returns 0 for EAGAIN (no data
 	 * available right now).  Guard here so we don't crash on buf[0]. */
@@ -1727,6 +1796,9 @@ void
 std_out_or_err(ClientData clientData, int UNUSED(mask))
 {
     struct mged_state *s = MGED_STATE;
+
+    if (mged_shutting_down(s))
+	return;
 
     /* clientData is the Tcl_Channel wrapping the pipe read end.  We read via
      * the Tcl channel API so this works correctly on all platforms.  On
@@ -1780,6 +1852,9 @@ refresh(struct mged_state *s)
     int do_overlay = 1;
     int64_t elapsed_time, start_time = bu_gettime();
     int do_time = 0;
+
+    if (mged_shutting_down(s))
+	return;
 
     /* Flush any accumulated bu_log output to the command prompt.
      * The log-drain timer handles live streaming during long commands;
@@ -1974,6 +2049,14 @@ mged_finish(struct mged_state *s, int exitcode)
     struct cmd_list *c;
     int ret;
 
+    if (!s)
+	Tcl_Exit(exitcode);
+
+    if (s->shutdown_state == MGED_SHUTDOWN_FINALIZED)
+	Tcl_Exit(exitcode);
+
+    mged_quiesce_tcl(s);
+
     (void)sprintf(place, "exit_status=%d", exitcode);
 
     /* If we're in script mode, wait for subprocesses to finish before we
@@ -1997,8 +2080,8 @@ mged_finish(struct mged_state *s, int exitcode)
     }
 
     /* Release all displays */
-    for (size_t di = 0; di < BU_PTBL_LEN(&active_dm_set); di++) {
-	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di);
+    while (BU_PTBL_LEN(&active_dm_set)) {
+	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, 0);
 
 	bu_ptbl_rm(&active_dm_set, (long *)p);
 
@@ -2021,9 +2104,6 @@ mged_finish(struct mged_state *s, int exitcode)
     /* no longer send bu_log() output to Tcl */
     bu_log_delete_hook(gui_output, (void *)s);
 
-    /* cancel the periodic log-drain timer before tearing down the interp */
-    mged_stop_log_drain_timer(s);
-
 #ifdef HAVE_PIPE
     /* restore stdout/stderr just in case anyone tries to write before
      * we finally exit (e.g., an atexit() callback).
@@ -2037,15 +2117,19 @@ mged_finish(struct mged_state *s, int exitcode)
 #endif
 
     /* Be certain to close the database cleanly before exiting */
-    Tcl_Preserve((ClientData)s->interp);
-    Tcl_Eval(s->interp, "rename " MGED_DB_NAME " \"\"; rename .inmem \"\"");
-    Tcl_Release((ClientData)s->interp);
+    if (s->interp) {
+	Tcl_Preserve((ClientData)s->interp);
+	Tcl_Eval(s->interp, "catch {rename " MGED_DB_NAME " \"\"}; catch {rename .inmem \"\"}");
+	Tcl_Release((ClientData)s->interp);
+    }
 
-    struct tclcad_io_data *giod = (struct tclcad_io_data *)s->gedp->ged_io_data;
-    ged_close(s->gedp);
-    s->gedp = GED_NULL;
-    if (giod) {
-	tclcad_destroy_io_data(giod);
+    if (s->gedp) {
+	struct tclcad_io_data *giod = (struct tclcad_io_data *)s->gedp->ged_io_data;
+	ged_close(s->gedp);
+	s->gedp = GED_NULL;
+	if (giod) {
+	    tclcad_destroy_io_data(giod);
+	}
     }
 
     s->wdbp = RT_WDB_NULL;
@@ -2053,8 +2137,10 @@ mged_finish(struct mged_state *s, int exitcode)
 
     /* XXX should deallocate libbu semaphores */
 
+    mged_variable_teardown(s);
     mged_global_variable_teardown(s);
 
+    s->shutdown_state = MGED_SHUTDOWN_FINALIZED;
     s->magic = 0; // make sure anything trying to use this after free gets a magic failure
     bu_vls_free(&s->input_str);
     bu_vls_free(&s->input_str_prefix);
@@ -2083,8 +2169,7 @@ mged_finish(struct mged_state *s, int exitcode)
 void
 quit(struct mged_state *s)
 {
-    mged_finish(s, 0);
-    /* NOTREACHED */
+    mged_request_shutdown(s, 0);
 }
 
 /*
@@ -2308,6 +2393,12 @@ main(int argc, char *argv[])
     s->dpy_string = NULL;
     s->cmd_running = 0;
     s->log_drain_timer = NULL;
+    s->shutdown_state = MGED_SHUTDOWN_RUNNING;
+    s->shutdown_exitcode = 0;
+    s->stdin_chan = NULL;
+    s->stdout_chan = NULL;
+    s->stderr_chan = NULL;
+    s->stdin_data = NULL;
     s->pipe_mode = 0;
 
     /* Set up linked lists */
@@ -3013,6 +3104,8 @@ main(int argc, char *argv[])
 	}
 
 	Tcl_Eval(s->interp, "q");
+	if (mged_shutting_down(s))
+	    mged_finish(s, s->shutdown_exitcode);
 	/* NOTREACHED */
     }
 
@@ -3040,6 +3133,8 @@ main(int argc, char *argv[])
 	 * event loop. */
 	Tcl_SetChannelOption(NULL, sd->chan, "-blocking", "0");
 
+	s->stdin_chan = sd->chan;
+	s->stdin_data = sd;
 	Tcl_CreateChannelHandler(sd->chan, TCL_READABLE, stdin_input, sd);
 
 #ifdef SIGINT
@@ -3188,10 +3283,12 @@ main(int argc, char *argv[])
 	     * Tcl_Read return whatever bytes are currently available. */
 	    Tcl_SetChannelOption(s->interp, out_chan, "-blocking", "0");
 	    Tcl_RegisterChannel(s->interp, out_chan);
+	    s->stdout_chan = out_chan;
 	    Tcl_CreateChannelHandler(out_chan, TCL_READABLE, std_out_or_err, out_chan);
 
 	    Tcl_SetChannelOption(s->interp, err_chan, "-blocking", "0");
 	    Tcl_RegisterChannel(s->interp, err_chan);
+	    s->stderr_chan = err_chan;
 	    Tcl_CreateChannelHandler(err_chan, TCL_READABLE, std_out_or_err, err_chan);
 	}
 #endif /* HAVE_PIPE */
@@ -3206,6 +3303,8 @@ main(int argc, char *argv[])
 	 */
 	if ((rateflag = event_check(s, rateflag)) < 0)
 	    break;
+	if (mged_shutting_down(s))
+	    break;
 
 	/*
 	 * Cause the control portion of the displaylist to be updated
@@ -3213,6 +3312,8 @@ main(int argc, char *argv[])
 	 */
 	refresh(s);
     }
+    if (mged_shutting_down(s))
+	mged_finish(s, s->shutdown_exitcode);
     return 0;
 }
 
