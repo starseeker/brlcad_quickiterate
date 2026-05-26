@@ -2075,6 +2075,7 @@ mged_finish(struct mged_state *s, int exitcode)
     mged_quiesce_tcl(s);
 
     (void)sprintf(place, "exit_status=%d", exitcode);
+    size_t active_dm_cnt;
 
     /* If we're in script mode, wait for subprocesses to finish before we
      * wrap up */
@@ -2097,8 +2098,12 @@ mged_finish(struct mged_state *s, int exitcode)
     }
 
     /* Release all displays. */
-    while (BU_PTBL_LEN(&active_dm_set) > 0) {
-	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, BU_PTBL_LEN(&active_dm_set) - 1);
+    active_dm_cnt = BU_PTBL_LEN(&active_dm_set);
+    while (active_dm_cnt > 0) {
+	struct mged_dm *p;
+
+	active_dm_cnt--;
+	p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, active_dm_cnt);
 
 	bu_ptbl_rm(&active_dm_set, (long *)p);
 
