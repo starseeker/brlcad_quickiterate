@@ -89,7 +89,7 @@ main(int ac, char *av[])
     struct bu_vls fname = BU_VLS_INIT_ZERO;
     struct bu_vls moss = BU_VLS_INIT_ZERO;
     bu_vls_sprintf(&moss, "%s/moss.g", av[1]);
-    char tmpname[MAXPATHLEN] = {0};
+    char tmpname[MAXPATHLEN];
     FILE *fp = bu_temp_file(tmpname, MAXPATHLEN);
     if (!fp) {
 	bu_log("failed to create temp db path\n");

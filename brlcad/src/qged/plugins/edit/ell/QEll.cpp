@@ -205,8 +205,7 @@ QEll::update_obj_wireframe()
 
     // Refresh the directory pointer from the current object name.  This avoids
     // stale pointers if scene/database content changed.
-    struct directory *ndp = db_lookup(gedp->dbip, bu_vls_cstr(&oname), LOOKUP_QUIET);
-    dp = ndp;
+    dp = db_lookup(gedp->dbip, bu_vls_cstr(&oname), LOOKUP_QUIET);
     if (!dp || dp->d_minor_type != DB5_MINORTYPE_BRLCAD_ELL) {
 	bsg_obj_reset(p);
 	p->s_flag = DOWN;
