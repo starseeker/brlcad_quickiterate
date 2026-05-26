@@ -49,7 +49,6 @@ CADViewModel::~CADViewModel()
 void
 CADViewModel::update()
 {
-    printf("view model update\n");
     refresh(QG_VIEW_REFRESH);
 }
 
@@ -104,5 +103,4 @@ CADViewModel::refresh(unsigned long long)
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-
 
