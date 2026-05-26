@@ -251,7 +251,7 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
 	if (bsg_view_is_independent(v))
 	    continue;
 	DbiState *dbis = (DbiState *)gedp->dbi_state;
-	BViewState *bvs = dbis->get_view_state(cv);
+	BViewState *bvs = dbis->get_view_state(v);
 	if (!bvs)
 	    continue;
 	vmap[bvs].insert(v);
