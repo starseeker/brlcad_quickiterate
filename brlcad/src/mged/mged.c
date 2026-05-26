@@ -2098,9 +2098,7 @@ mged_finish(struct mged_state *s, int exitcode)
 
     /* Release all displays */
     while (BU_PTBL_LEN(&active_dm_set)) {
-	/* Always take index 0: bu_ptbl_rm compacts the table, so incrementing
-	 * an index here can skip the element shifted into the removed slot. */
-	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, 0);
+	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, BU_PTBL_LEN(&active_dm_set) - 1);
 
 	bu_ptbl_rm(&active_dm_set, (long *)p);
 
@@ -2163,7 +2161,8 @@ mged_finish(struct mged_state *s, int exitcode)
     mged_global_variable_teardown(s);
 
     s->shutdown_state = MGED_SHUTDOWN_FINALIZED;
-    s->magic = 0; // make sure anything trying to use this after free gets a magic failure
+    /* Make sure anything trying to use this after free gets a magic failure. */
+    s->magic = 0;
     bu_vls_free(&s->input_str);
     bu_vls_free(&s->input_str_prefix);
     bu_vls_free(&s->scratchline);
@@ -2171,7 +2170,7 @@ mged_finish(struct mged_state *s, int exitcode)
     rt_edit_destroy(s->s_edit->e);
     BU_PUT(s->s_edit, struct mged_edit_state);
     BU_PUT(s, struct mged_state);
-    MGED_STATE = NULL; // sanity
+    MGED_STATE = NULL;
 
     /* 8.5 seems to have some bugs in their reference counting */
     /* Tcl_DeleteInterp(INTERP); */
