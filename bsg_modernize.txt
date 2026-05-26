@@ -1,633 +1,116 @@
 BSG Modernization Plan and Work Log
 ===================================
 
-We surveyed the available branches related to modernizing the drawing stack
-bview2bsg is the best current baseline because it has:
-
-
-    Removed libbv as a separate dependency and moved former libbv functionality under libbsg.
-
-    Migrated the major caller stack to bsg/ headers and bsg_* names.
-
-    Established a BSG draw tree path for GED/MGED-style drawing.
-
-    Added foundational scene-graph concepts:
-
-        BSG_NODE_GROUP
-
-        BSG_NODE_SHAPE
-
-        BSG_NODE_TRANSFORM
-
-        BSG_NODE_LOD
-
-        BSG_NODE_VIEW_SCOPE
-
-        sensors/fields in early form
-
-        payload type bits
-
-        visitor traversal
-
-        draw-tree helpers
-
-        overlay helpers
-
-        per-view scene root plumbing
-
-
-
-
-But the key design issue remains: libbsg is standalone mechanically, not yet conceptually mature. The central bsg_node/bsg_view definitions still behave like a renamed legacy drawing/view “god struct” rather than a clean OpenInventor/Obol-style API.
-
-
-Branch survey summary
-
-qged
-
-Early transitional work. Useful mainly as historical context:
-
-
-    Introduced initial bsg naming and mapping language.
-
-    Still treated many bsg_* types as aliases/wrappers over legacy bv_*.
-
-    Not worth porting directly.
-
-
-bview
-
-Important conceptual prototype:
-
-
-    Proposed bv_node, bv_scene, and bview_new.
-
-    Explicitly mapped BRL-CAD concepts to Inventor analogs:
-
-        node → SoNode
-
-        group/separator → SoGroup/SoSeparator
-
-        transform → SoTransform
-
-        camera → SoCamera
-
-        material → SoMaterial
-
-        viewport → SbViewportRegion
-
-
-
-    Valuable as design input, but not as code to merge wholesale.
-
-
-bview2
-
-Intermediate modernization branch:
-
-
-    Continued the same direction as bview.
-
-    Added render-context sync ideas and view/scene synchronization.
-
-    Largely superseded by bview2bsg.
-
-
-qged_obol
-
-Radical Obol integration path:
-
-
-    Added a direct Obol build mode.
-
-    Used QgObolView, SoViewport, SoRenderManager, SoGLRenderAction.
-
-    Added camera synchronization between BRL-CAD view state and Obol camera state.
-
-    Added picking via SoRayPickAction.
-
-    Added qged/mged/archer Obol paths and libdm gating in Obol builds.
-
-    Demonstrated that Obol can render BRL-CAD scenes, but it bypassed too much of BRL-CAD’s own drawing model.
-
-
-Capture concepts, not architecture:
-
-
-    camera sync
-
-    pick mapping
-
-    offscreen/swrast renderer path
-
-    framebuffer/image layer lessons
-
-    high-level parity gates for qged/mged/rtwizard
-
-
-qged_radical
-
-Most useful Obol experiment:
-
-
-    Added obol_cad_assembly.cpp using Obol CAD concepts:
-
-        SoCADAssembly
-
-        PartId
-
-        InstanceId
-
-        SoCADDetail
-
-
-
-    Implemented deterministic path-to-instance ID mapping.
-
-    Fixed BRL-CAD mat_t → Coin/Obol matrix transpose issues.
-
-    Added richer QgObolView/QgObolSwrastView design with sensor queue integration, quad view, camera sync, picking, and offscreen rendering.
-
-
-Capture:
-
-
-    CAD assembly identity model.
-
-    Matrix conversion rules.
-
-    Pick-detail mapping back to BSG/BRL-CAD objects.
-
-    Hardware/swrast split.
-
-    Obol adapter cache strategy.
-
-
-radicalcmp
-
-Primarily useful as a comparison/aggregation branch:
-
-
-    Contains notes and comparison material around qged-obol vs drawstack direction.
-
-    Supports the conclusion that BSG should mature first, then Obol should be an adapter/backend.
-
-
-drawstack
-
-Very relevant to draw-stack semantics:
-
-
-    Replaced the old display_list mental model with a BSG draw tree.
-
-    Moved overlays away from fake DB objects toward explicit BSG overlay payloads.
-
-    Added DFS traversal concepts.
-
-    Added draw revision tracking.
-
-    Clarified which policy belongs in libged rather than libbsg.
-
-
-Most of this appears to have been captured or surpassed in bview2bsg, but the design notes remain important.
-
-mdraw
-
-Production-oriented version of draw-stack modernization:
-
-
-    Reinforces the BSG-tree-as-authoritative-drawn-set design.
-
-    Useful for checking behavior and parity expectations.
-
-    Less conceptually advanced than bsg2.
-
-
-bsg2
-
-Most important branch to mine for future work.
-
-It contains the missing conceptual maturity layer that bview2bsg still lacks:
-
-
-    bsg/node.h
-
-    bsg/identity.h
-
-    bsg/material.h
-
-    bsg/appearance.h
-
-    bsg/payload.h expanded into typed payloads
-
-    bsg/action.h
-
-    bsg/render.h
-
-    bsg/selection.h
-
-    bsg/camera.h
-
-    bsg/light.h
-
-    bsg/settings.h
-
-    bsg/node_core.h
-
-    tests for the above
-
-
-This branch should not be merged wholesale because it was still transitional and assumed some libbv compatibility, but its concepts should be incorporated deliberately into bview2bsg.
-
-Concepts missing or under-realized in bview2bsg
-
-Highest-value missing pieces:
-
-
-
-    Generic node API
-
-
-        Current code has node type flags and helper headers, but lacks a complete bsg_node_* public API.
-
-        Add name, kind, parent/child, visibility, transform, bounds, user data, revisions, lifecycle accessors.
-
-
-
-
-    Stable identity
-
-
-        Need node ID, part ID, instance ID, source kind, source path.
-
-        Required for Obol CAD assembly, picking, selection, and cache stability.
-
-
-
-
-    Material vs appearance split
-
-
-        Current color/settings remain legacy-shaped.
-
-        Need:
-
-            material: color, alpha, material source, material revision
-
-            appearance: draw mode, line width, dash policy, depth policy, shaded/wire/hidden-line policy
-
-
-
-
-
-
-    Typed payloads
-
-
-        Current payload support is mostly flags + update dispatch.
-
-        Need explicit payload objects:
-
-            vlist
-
-            wire polyline
-
-            mesh
-
-            CSG reference
-
-            BRep reference
-
-            overlay
-
-            image/framebuffer layer
-
-            text/axes/polygon adornments
-
-
-
-
-
-
-    Actions
-
-
-        OpenInventor’s action model is a major conceptual win.
-
-        Add BSG actions for:
-
-            traversal
-
-            bounding box
-
-            search
-
-            collect renderables
-
-            render
-
-            pick
-
-            export/write
-
-
-
-
-
-
-    Selection
-
-
-        Selection should not be s_iflag.
-
-        Add named selection sets with entries for node, part, instance, face, edge, vertex, and pick point.
-
-
-
-
-    Camera and lights
-
-
-        bsg_view currently owns a lot of camera/view state, but renderers need clean snapshots.
-
-        Add renderer-neutral camera snapshots and BSG light objects/default-light policy.
-
-
-
-
-    Renderer contract
-
-
-        libdm should consume BSG render actions, not raw node fields.
-
-        Obol should be an adapter over the same BSG render/action model.
-
-
-
-
-    Sensor/field system maturity
-
-
-        Current sensors are a useful stub.
-
-        Move away from global fixed registry toward scene-owned sensors, field revisions, dirty propagation, and action invalidation.
-
-
-
-
-    API cleanup
-
-
-
-
-    Remove lingering BV_* naming and legacy comments from public bsg headers.
-
-    Make bsg_node conceptually primary, not “former bv_scene_obj with new names.”
-
-
-Recommended implementation plan
-
-Phase 0 — Baseline audit
-
-
-    Record current bview2bsg behavior and test set.
-
-    Inventory raw bsg_node field access.
-
-    Identify all current consumers of:
-
-        color/settings
-
-        payload/vlist
-
-        selection/illumination
-
-        transform
-
-        bounds
-
-        backend cache
-
-        draw tree traversal
-
-
-
-
-Phase 1 — Add generic bsg_node API
-
-
-    Add bsg/node.h.
-
-    Provide node lifecycle, kind, name, parent/child, transform, visibility, bounds, and user-data APIs.
-
-    Migrate existing group/shape/transform/view-scope helpers to use it.
-
-    Keep storage stable initially.
-
-
-Phase 2 — Add identity and revisions
-
-
-    Add bsg/identity.h.
-
-    Define node ID, part ID, instance ID, source kind, and source path.
-
-    Add revision counters for structure, transform, material, appearance, payload, selection, and bounds.
-
-    Use this for GED draw leaves and view-only objects.
-
-    Use qged_radical’s PartId/InstanceId lessons as design input.
-
-
-Phase 3 — Add material and appearance
-
-
-    Add bsg/material.h and bsg/appearance.h.
-
-    Keep material separate from draw style.
-
-    Migrate color, transparency, draw mode, line width, dash policy, and hidden-line/shaded policy behind BSG APIs.
-
-    Preserve behavior by syncing legacy fields during the transition.
-
-
-Phase 4 — Replace implicit geometry with typed payloads
-
-
-    Expand bsg/payload.h.
-
-    Add vlist, wire, mesh, CSG ref, BRep ref, overlay, image, text, axes, and polygon payload concepts.
-
-    Add payload revision and bounds APIs.
-
-    Migrate renderers and producers to payload accessors.
-
-
-Phase 5 — Add BSG actions
-
-
-    Add bsg/action.h.
-
-    Implement bbox, search, and collect actions first.
-
-    Replace manual tree walks with actions.
-
-    Then add render and pick actions.
-
-
-Phase 6 — Add first-class selection
-
-
-    Add bsg/selection.h.
-
-    Implement named selection sets.
-
-    Treat legacy illumination as compatibility output from selection state.
-
-    Add pick-detail support suitable for Obol SoCADDetail.
-
-
-Phase 7 — Add camera and light APIs
-
-
-    Add bsg/camera.h and bsg/light.h.
-
-    Produce renderer-neutral camera snapshots from bsg_view.
-
-    Add default light scene/view policy.
-
-    Map existing dm_set_light behavior onto BSG light state.
-
-
-Phase 8 — Move render traversal behind BSG render action
-
-
-    Add bsg/render.h.
-
-    Define renderer callback ops:
-
-        begin/end frame
-
-        set camera
-
-        push/pop transform
-
-        set material
-
-        set appearance
-
-        draw payload
-
-        draw overlay/image
-
-        query capability
-
-
-
-    Make libdm the first consumer.
-
-    Preserve two-pass transparency, framebuffer ordering, HUD/faceplate behavior, LoD, and view-scope filtering.
-
-
-Phase 9 — Build Obol adapter after BSG is clean
-
-
-    Do not expose Obol types in core BRL-CAD C headers.
-
-    Add an optional adapter translating BSG to:
-
-        ordinary Inventor nodes for simple scenes
-
-        Obol CAD assembly nodes for large CAD scenes
-
-
-
-    Reuse qged_radical lessons:
-
-        matrix transpose rule
-
-        PartId/InstanceId
-
-        SoCADDetail picking
-
-        Obol-side cache maps
-
-        hardware/swrast split
-
-        camera sync
-
-
-
-
-Phase 10 — Final cleanup
-
-
-    Remove legacy-shaped public APIs where possible.
-
-    Remove path-string-only entry points or replace them with identity/path object APIs.
-
-    Eliminate direct raw field access outside internal compatibility code.
-
-    Make bsg_node opaque or at least conceptually primary.
-
-    Update docs and tests to describe BSG as the canonical scene API.
-
-
-Highest-priority captures from other branches
-
-
-    From bsg2: node, identity, material, appearance, payload, action, render, selection, camera, light, settings concepts.
-
-    From qged_radical: Obol CAD assembly identity/picking/matrix/camera lessons.
-
-    From qged_obol: end-to-end Obol renderer parity lessons, especially qged/mged/offscreen/fbserv.
-
-    From drawstack/mdraw: draw-tree policy split and “do not reintroduce display_list” guidance.
-
-    From bview: clean conceptual mapping tables to Inventor/Obol analogs.
-
-
-Bottom line
-
-Use bview2bsg as the code baseline, but use bsg2 as the conceptual roadmap. The next major goal should not be direct Obol integration; it should be making libbsg a real OpenInventor-like BRL-CAD scene API first. Once BSG has identity, material, appearance, payloads, actions, selection, camera, lights, and render contracts, Obol becomes a clean adapter/backend instead of another migration crutch.
-
-
-
 Purpose
 -------
-Track the API-maturation work needed to move libbsg from a legacy-shaped
+Track API-maturation work needed to move libbsg from a legacy-shaped
 scene/view container to a conceptually primary scene-graph API.
 
 
-Current repository check (confirmed)
+Baseline and Direction
+----------------------
+Use `bview2bsg` as the implementation baseline. It already:
+- Removed libbv as a separate dependency by moving former libbv functionality
+  under libbsg.
+- Migrated major callers to `bsg/` headers and `bsg_*` names.
+- Established a BSG draw-tree path for GED/MGED-style drawing.
+- Added early scene-graph foundations:
+  - node kinds (`GROUP`, `SHAPE`, `TRANSFORM`, `LOD`, `VIEW_SCOPE`)
+  - sensors/fields (early form)
+  - payload type bits
+  - visitor traversal
+  - draw-tree/overlay helpers
+  - per-view scene-root plumbing
+
+Key issue still to solve:
+- libbsg is mechanically standalone, but conceptually still resembles a renamed
+  legacy view/draw "god struct". Public API maturity is incomplete.
+
+
+Branch Survey Summary
+---------------------
+- `qged`
+  - Early transitional branch.
+  - Useful as historical context; not a direct port target.
+
+- `bview`
+  - Important conceptual prototype.
+  - Introduced `bv_node`, `bv_scene`, `bview_new`, and useful Inventor analog mapping.
+
+- `bview2`
+  - Intermediate step toward modernization.
+  - Largely superseded by `bview2bsg`.
+
+- `qged_obol`
+  - Demonstrated end-to-end Obol rendering and camera/pick integration.
+  - Valuable for lessons; bypassed too much of BRL-CAD's native drawing model.
+
+- `qged_radical`
+  - Most useful Obol experiment.
+  - Key captures: CAD assembly identity model, path-to-instance mapping,
+    matrix conversion rules, pick-detail mapping, hardware/swrast split.
+
+- `radicalcmp`
+  - Comparison notes reinforcing "mature BSG first, then Obol adapter".
+
+- `drawstack`
+  - Highly relevant draw-stack semantics work.
+  - Shifted from legacy display-list mental model to BSG draw-tree semantics.
+
+- `mdraw`
+  - Production-oriented draw-stack modernization.
+  - Useful for parity and behavior checks.
+
+- `bsg2`
+  - Most important conceptual mine for future work.
+  - Contains missing maturity concepts (node/identity/material/appearance/
+    payload/action/render/selection/camera/light/settings and tests).
+  - Should be harvested conceptually, not merged wholesale.
+
+
+Concepts Missing or Under-Realized in `bview2bsg`
+--------------------------------------------------
+High-value gaps:
+- Generic node API (`bsg_node_*` lifecycle/structure/accessors)
+- Stable identity model (node/part/instance/source IDs and paths)
+- Material vs appearance split
+- Typed payload model (vlist/wire/mesh/CSG/BRep/overlay/image/text/etc.)
+- Action framework (bbox/search/collect/render/pick/export)
+- First-class selection model (not `s_iflag`)
+- Renderer-neutral camera snapshots and explicit light model
+- Renderer contract where backends consume render actions, not raw node fields
+- Sensor/field maturity (scene-owned sensors, revisions, dirty propagation)
+- Public API cleanup removing legacy naming/assumptions
+
+
+Current Repository Check (confirmed)
 ------------------------------------
 - `include/bsg/defines.h` still exposes `struct bsg_node` directly with many
   legacy `BV_*` names and view/draw fields.
-- `include/bsg/payload.h` currently provides payload type flags/accessors, not
-  typed payload objects.
-- Existing BSG public headers include group/shape/transform/LOD/view-scope/
-  sensor/field/visit support, but not `node.h`, `identity.h`, `material.h`,
-  `appearance.h`, `action.h`, `render.h`, `selection.h`, `camera.h`,
-  `light.h`, or `settings.h`.
-- `brlcad/doc/notes/drawing_stack_modernization.txt` shows draw-stack
-  migration is largely complete; next work should focus on conceptual API
-  maturation.
+- `include/bsg/payload.h` currently provides payload flags/accessors, not typed
+  payload objects.
+- Existing public BSG headers include group/shape/transform/LOD/view-scope/
+  sensor/field/visit support, but not:
+  - `node.h`, `identity.h`, `material.h`, `appearance.h`, `action.h`,
+    `render.h`, `selection.h`, `camera.h`, `light.h`, `settings.h`
+- `brlcad/doc/notes/drawing_stack_modernization.txt` indicates draw-stack
+  migration is largely complete and API maturation is the next priority.
 
 
-Phase 0 — Baseline audit (COMPLETE, 2026-05-26)
+Phase 0 — Baseline Audit (COMPLETE, 2026-05-26)
 ------------------------------------------------
-Scope required by plan:
+Scope:
 - `include/`
 - `src/libbsg`
 - `src/libdm`
 - `src/libged`
 - `src/libqtcad`
 - `src/qged`
-- Tcl path: `src/libtclcad`
-- MGED path: `src/mged`
+- `src/libtclcad`
+- `src/mged`
 
-Inventory result (direct `bsg_node` raw-field access):
-- Total matched direct field accesses in scoped paths: 2808
+Direct raw-field access inventory (`bsg_node`):
+- Total matches: 2808
 
 Category totals:
 - node structure: 1028
@@ -640,7 +123,7 @@ Category totals:
 - backend cache: 25
 - transform: 23
 
-Category concentration by major subsystem:
+Category concentration by subsystem:
 - `src/libbsg`: node structure (404), bounds (173), payload/vlist (119)
 - `src/libdm`: identity/path (135), appearance/style (54), node structure (51)
 - `src/libged`: node structure (318), identity/path (247), appearance/style (151), payload/vlist (133)
@@ -649,7 +132,7 @@ Category concentration by major subsystem:
 - `src/libtclcad`: appearance/style (45), node structure (37), payload/vlist (28)
 - `src/mged`: identity/path (142), node structure (116)
 
-Top raw-access hotspots (file-level):
+Top raw-access hotspots:
 - `brlcad/src/libbsg/bv_util.cpp` (366)
 - `brlcad/src/libged/bsg_ged_draw.c` (144)
 - `brlcad/src/libged/draw.cpp` (114)
@@ -661,16 +144,10 @@ Top raw-access hotspots (file-level):
 - `brlcad/src/libdm/X/dm-X.c` (79)
 - `brlcad/src/libged/draw/draw.c` (77)
 
-Validation targets recorded from drawing-stack note:
-- Qt-sensitive configure reminder from:
-  `brlcad/doc/notes/drawing_stack_modernization.txt`
-- Keep healthy targets:
-  - `libqtcad`
-  - `dm-qtgl`
-  - `dm-swrast`
-  - `qged`
-  - `archer`
-- Most relevant regression tests:
+Validation targets captured:
+- Build-health targets:
+  - `libqtcad`, `dm-qtgl`, `dm-swrast`, `qged`, `archer`
+- High-value regression tests:
   - `libbsg_lod_node`
   - `ged_test_bsg_view_obj`
   - `ged_test_drawing_basic`
@@ -686,40 +163,54 @@ Validation targets recorded from drawing-stack note:
   - `ged_test_view_independent`
   - `ged_test_view_command`
 
-Phase 0 exit criteria status:
+Phase 0 exit criteria:
 - [x] Field-access inventory complete for required directories
 - [x] Accesses categorized by modernization concern
 - [x] Validation targets captured from drawing-stack note
 - [x] Modernization tracker file created and updated
 
 
-Phase 1 entry criteria (next)
------------------------------
+Phase 1 Entry Criteria
+----------------------
 1) Add `brlcad/include/bsg/node.h`.
 2) Add `brlcad/src/libbsg/node.c`.
 3) Provide generic node lifecycle/kind/name/parent-child/visibility/transform/
    bounds/user-data/revision accessors without changing underlying
    `struct bsg_node` storage.
-4) Migrate existing `node_group`, `node_shape`, `node_transform`, `lod`,
-   and `view_scope` helpers to call the generic node API internally.
+4) Migrate existing `node_group`, `node_shape`, `node_transform`, `lod`, and
+   `view_scope` helpers to use the generic node API internally.
 5) Add/extend focused `libbsg` tests for the new node API before broader
    caller migration.
 
 
-
-Modernization phases
+Modernization Phases
 --------------------
-[x] Phase 0: Baseline audit
-[ ] Phase 1: Introduce generic node API (`include/bsg/node.h`, `src/libbsg/node.c`)
-[ ] Phase 2: Add identity and revision model (`include/bsg/identity.h`)
-[ ] Phase 3: Split material and appearance (`include/bsg/material.h`, `include/bsg/appearance.h`)
-[ ] Phase 4: Replace implicit geometry with typed payloads (`include/bsg/payload.h`)
-[ ] Phase 5: Add BSG action framework (`include/bsg/action.h`)
-[ ] Phase 6: Add first-class selection (`include/bsg/selection.h`)
-[ ] Phase 7: Add camera and light snapshots (`include/bsg/camera.h`, `include/bsg/light.h`)
-[ ] Phase 8: Move rendering behind BSG render action (`include/bsg/render.h`)
-[ ] Phase 9: Add Obol as adapter/backend only
-[ ] Phase 10: Final cleanup and deprecation removal
+- [x] Phase 0: Baseline audit
+- [ ] Phase 1: Introduce generic node API (`include/bsg/node.h`, `src/libbsg/node.c`)
+- [ ] Phase 2: Add identity and revision model (`include/bsg/identity.h`)
+- [ ] Phase 3: Split material and appearance (`include/bsg/material.h`, `include/bsg/appearance.h`)
+- [ ] Phase 4: Replace implicit geometry with typed payloads (`include/bsg/payload.h`)
+- [ ] Phase 5: Add BSG action framework (`include/bsg/action.h`)
+- [ ] Phase 6: Add first-class selection (`include/bsg/selection.h`)
+- [ ] Phase 7: Add camera and light snapshots (`include/bsg/camera.h`, `include/bsg/light.h`)
+- [ ] Phase 8: Move rendering behind BSG render action (`include/bsg/render.h`)
+- [ ] Phase 9: Add Obol as adapter/backend only
+- [ ] Phase 10: Final cleanup and deprecation removal
 
 
+Capture Priorities from Other Branches
+--------------------------------------
+- From `bsg2`: node, identity, material, appearance, payload, action, render,
+  selection, camera, light, settings concepts.
+- From `qged_radical`: Obol CAD assembly identity/picking/matrix/camera lessons.
+- From `qged_obol`: renderer parity lessons (qged/mged/offscreen/fbserv).
+- From `drawstack`/`mdraw`: draw-tree policy split and "do not reintroduce
+  display_list" guidance.
+- From `bview`: conceptual mapping to Inventor/Obol analogs.
 
+
+Bottom Line
+-----------
+Use `bview2bsg` as code baseline and `bsg2` as conceptual roadmap. Prioritize
+making libbsg a clean OpenInventor-like BRL-CAD scene API first; then layer
+Obol as an adapter/backend on top of that mature API.
