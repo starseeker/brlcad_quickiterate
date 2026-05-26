@@ -123,7 +123,6 @@ cmakefiles(
   ged_tests.g
   test_cmd_schemas.cpp
   pnts_in_out.g
-  ged_test_rm.c
 )
 
 cmakefiles(CMakeLists.txt)

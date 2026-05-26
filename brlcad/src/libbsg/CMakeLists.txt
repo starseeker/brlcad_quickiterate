@@ -47,7 +47,8 @@ set(BSG_LOCAL_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR})
 # bv_vlist.c defines PLOT3_IMPLEMENTATION before including bsg/plot3.h, so it
 # must be excluded from unity builds to ensure the plot3_* function bodies are
 # compiled exactly once.
-brlcad_addlib(libbsg "${LIBBSG_SRCS}" "${libbsg_deps}" "" "${BSG_LOCAL_INCLUDE_DIRS}"
+brlcad_addlib(libbsg "${LIBBSG_SRCS}" "" "${BSG_LOCAL_INCLUDE_DIRS}"
+  PUBLIC_LIBS ${libbsg_deps}
   UNITY_BUILD_SKIP bv_vlist.c
 )
 set_target_properties(libbsg PROPERTIES VERSION 1.0.0 SOVERSION 1)
