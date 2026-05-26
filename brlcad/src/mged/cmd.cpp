@@ -188,6 +188,8 @@ log_drain_callback(ClientData clientData)
 {
     struct mged_state *s = (struct mged_state *)clientData;
     MGED_CK_STATE(s);
+    /* Defensive guard for a timer already dispatched before shutdown
+     * quiescence deletes the pending timer token. */
     if (mged_shutting_down(s))
 	return;
     mged_pr_output(s->interp);

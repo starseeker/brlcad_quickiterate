@@ -2097,8 +2097,8 @@ mged_finish(struct mged_state *s, int exitcode)
     }
 
     /* Release all displays */
-    while (BU_PTBL_LEN(&active_dm_set)) {
-	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, BU_PTBL_LEN(&active_dm_set) - 1);
+    for (size_t di = BU_PTBL_LEN(&active_dm_set); di > 0; di--) {
+	struct mged_dm *p = (struct mged_dm *)BU_PTBL_GET(&active_dm_set, di - 1);
 
 	bu_ptbl_rm(&active_dm_set, (long *)p);
 
@@ -2160,9 +2160,9 @@ mged_finish(struct mged_state *s, int exitcode)
     mged_variable_teardown(s);
     mged_global_variable_teardown(s);
 
-    s->shutdown_state = MGED_SHUTDOWN_FINALIZED;
     /* Make sure anything trying to use this after free gets a magic failure. */
     s->magic = 0;
+    s->shutdown_state = MGED_SHUTDOWN_FINALIZED;
     bu_vls_free(&s->input_str);
     bu_vls_free(&s->input_str_prefix);
     bu_vls_free(&s->scratchline);
