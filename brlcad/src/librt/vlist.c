@@ -36,7 +36,7 @@
 #include "bsg/vlist.h"
 
 
-struct bv_vlblock *
+struct bsg_vlblock *
 rt_vlblock_init(void)
 {
     struct bu_list *vlfree = &rt_vlfree;
@@ -254,7 +254,7 @@ rt_uplot_get_text_args(FILE *fp, const struct uplot *up, char *carg, fastf_t *ar
 
 int
 rt_process_uplot_value(register struct bu_list **vhead,
-		       struct bv_vlblock *vbp,
+		       struct bsg_vlblock *vbp,
 		       FILE *fp,
 		       register int c,
 		       double char_size,
@@ -406,7 +406,7 @@ rt_process_uplot_value(register struct bu_list **vhead,
 
 
 int
-rt_uplot_to_vlist(struct bv_vlblock *vbp, register FILE *fp, double char_size, int mode)
+rt_uplot_to_vlist(struct bsg_vlblock *vbp, register FILE *fp, double char_size, int mode)
 {
     struct bu_list *vhead;
     register int c;
@@ -431,7 +431,7 @@ rt_uplot_to_vlist(struct bv_vlblock *vbp, register FILE *fp, double char_size, i
 }
 
 void
-rt_label_vlist_verts(struct bv_vlblock *vbp, struct bu_list *src, mat_t mat, double sz, double mm2local)
+rt_label_vlist_verts(struct bsg_vlblock *vbp, struct bu_list *src, mat_t mat, double sz, double mm2local)
 {
     bsg_vlist *vp;
     struct bu_list *vhead;
@@ -454,7 +454,7 @@ rt_label_vlist_verts(struct bv_vlblock *vbp, struct bu_list *src, mat_t mat, dou
 }
 
 void
-rt_label_vlist_faces(struct bv_vlblock* vbp, struct bu_list* f_list,
+rt_label_vlist_faces(struct bsg_vlblock* vbp, struct bu_list* f_list,
 		     mat_t mat, double sz, double UNUSED(mm2local) )
 {
     struct bu_list* vhead;

@@ -39,7 +39,7 @@ extern "C" {
 #include "./ged_draw.h"
 }
 
-static struct bv_vlblock *preview_vbp;
+static struct bsg_vlblock *preview_vbp;
 static double preview_delay;
 static int preview_mode;
 static int preview_desiredframe;
@@ -440,7 +440,7 @@ ged_preview_core(struct ged *gedp, int argc, const char *argv[])
 
     if (draw_eye_path) {
 	if (gedp->dbi_state) {
-	    struct bview *view = gedp->ged_gvp;
+	    struct bsg_view *view = gedp->ged_gvp;
 	    bv_vlblock_obj(preview_vbp, view, "preview::eye_path");
 	} else {
 	    _ged_cvt_vlblock_to_solids(gedp, preview_vbp, "EYE_PATH", 0);
@@ -449,7 +449,7 @@ ged_preview_core(struct ged *gedp, int argc, const char *argv[])
 
     if (preview_vbp) {
 	bv_vlblock_free(preview_vbp);
-	preview_vbp = (struct bv_vlblock *)NULL;
+	preview_vbp = (struct bsg_vlblock *)NULL;
     }
     db_free_anim(gedp->dbip);	/* Forget any anim commands */
 

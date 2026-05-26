@@ -356,7 +356,7 @@ bot_opt_unit(struct bu_vls *UNUSED(msg), size_t argc, const char **argv, void *s
 
 // TODO - right now this is not at all general, and in fact will only write out a few
 // Tcl specific data containers.  Needs to be rethought.  Probably should be revisited
-// after we switch to the new drawing path, which uses bview scene objects - that will
+// after we switch to the new drawing path, which uses bsg_view scene objects - that will
 // likely make writing out a scene simpler overall.
 static int
 viewdata_dump(struct _ged_bot_dump_client_data *d, struct ged *gedp, FILE *fp)
@@ -418,7 +418,7 @@ viewdata_dump(struct _ged_bot_dump_client_data *d, struct ged *gedp, FILE *fp)
 
 /* Callback for dl_botdump solid iteration */
 static int
-botdump_solid_cb(struct bv_scene_obj *sp, void *userdata)
+botdump_solid_cb(struct bsg_node *sp, void *userdata)
 {
     struct _ged_bot_dump_client_data *d = (struct _ged_bot_dump_client_data *)userdata;
     struct db_i *dbip = d->gedp->dbip;

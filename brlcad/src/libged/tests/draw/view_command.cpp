@@ -65,9 +65,9 @@ main(int argc, const char **argv)
     gedp->ged_lod = bv_mesh_lod_context_create(gedp->dbip->dbi_filename);
 
     bv_set_rm_view(&gedp->ged_views, NULL);
-    struct bview *views[2] = {NULL, NULL};
+    struct bsg_view *views[2] = {NULL, NULL};
     for (int i = 0; i < 2; i++) {
-	BU_GET(views[i], struct bview);
+	BU_GET(views[i], struct bsg_view);
 	bv_init(views[i], &gedp->ged_views);
 	bu_vls_sprintf(&views[i]->gv_name, "V%d", i);
 	bv_set_add_view(&gedp->ged_views, views[i]);

@@ -57,7 +57,7 @@ struct bv_cp_info {
  * vlist-based path used for every other view-only line object. */
 
 static int
-_find_closest_obj_point(struct bv_cp_info *s, point_t *p, struct bv_scene_obj *o)
+_find_closest_obj_point(struct bv_cp_info *s, point_t *p, struct bsg_node *o)
 {
     int ret = 0;
     if (!s || !p || !o)
@@ -116,7 +116,7 @@ _find_closest_obj_point(struct bv_cp_info *s, point_t *p, struct bv_scene_obj *o
 }
 
 static double
-line_tol_sq(struct bview *v, int lwidth)
+line_tol_sq(struct bsg_view *v, int lwidth)
 {
     if (!v || lwidth <= 0)
 	return 100*100;
@@ -132,7 +132,7 @@ line_tol_sq(struct bview *v, int lwidth)
     double lavg = ((double)width + (double)height) * 0.5;
     double lratio = ((double)lwidth)/lavg;
 
-    struct bview_settings *gv_s = (v->gv_s) ? v->gv_s : &v->gv_ls;
+    struct bsg_view_settings *gv_s = (v->gv_s) ? v->gv_s : &v->gv_ls;
     double lrsize = v->gv_size * lratio * gv_s->gv_snap_tol_factor;
 
     return lrsize*lrsize;
@@ -146,7 +146,7 @@ struct _bv_snap_db_ctx {
 };
 
 static int
-_bv_snap_db_obj_cb(struct bv_scene_obj *so, void *data)
+_bv_snap_db_obj_cb(struct bsg_node *so, void *data)
 {
     struct _bv_snap_db_ctx *ctx = (struct _bv_snap_db_ctx *)data;
     *ctx->ret += _find_closest_obj_point(ctx->s, ctx->p, so);
@@ -156,7 +156,7 @@ _bv_snap_db_obj_cb(struct bv_scene_obj *so, void *data)
 /* Phase A0 (drawing_stack_modernization): callback for snap_lines view-only
  * scope iteration via bv_view_obj_visit. */
 static int
-_bv_snap_view_obj_cb(struct bv_scene_obj *so, void *data)
+_bv_snap_view_obj_cb(struct bsg_node *so, void *data)
 {
     struct _bv_snap_db_ctx *ctx = (struct _bv_snap_db_ctx *)data;
     *ctx->ret += _find_closest_obj_point(ctx->s, ctx->p, so);
@@ -164,10 +164,10 @@ _bv_snap_view_obj_cb(struct bv_scene_obj *so, void *data)
 }
 
 int
-bv_snap_lines_3d(point_t *out_pt, struct bview *v, point_t *p)
+bv_snap_lines_3d(point_t *out_pt, struct bsg_view *v, point_t *p)
 {
     int ret = 0;
-    struct bview_settings *gv_s = (v->gv_s) ? v->gv_s : &v->gv_ls;
+    struct bsg_view_settings *gv_s = (v->gv_s) ? v->gv_s : &v->gv_ls;
     struct bv_cp_info cpinfo = BV_CP_INFO_INIT;
 
     if (!p || !v) return 0;
@@ -179,14 +179,14 @@ bv_snap_lines_3d(point_t *out_pt, struct bview *v, point_t *p)
 	s->ctol_sq = line_tol_sq(v, 1);
 	if (BU_PTBL_LEN(&gv_s->gv_snap_objs) > 0) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(&gv_s->gv_snap_objs); i++) {
-		struct bv_scene_obj *so = (struct bv_scene_obj *)BU_PTBL_GET(&gv_s->gv_snap_objs, i);
+		struct bsg_node *so = (struct bsg_node *)BU_PTBL_GET(&gv_s->gv_snap_objs, i);
 		if (gv_s->gv_snap_flags) {
 		    if (gv_s->gv_snap_flags == BV_SNAP_DB && (!(so->s_type_flags & BV_DB_OBJS)))
 			continue;
 		    if (gv_s->gv_snap_flags == BV_SNAP_VIEW && (!(so->s_type_flags & BV_VIEW_OBJS)))
 			continue;
 		}
-		struct bv_obj_settings *s_os = (so->s_os) ? so->s_os : &so->s_local_os;
+		struct bsg_obj_settings *s_os = (so->s_os) ? so->s_os : &so->s_local_os;
 		s->ctol_sq = line_tol_sq(v, (s_os->s_line_width) ? s_os->s_line_width : 1);
 		ret += _find_closest_obj_point(s, p, so);
 	    }
@@ -255,7 +255,7 @@ bv_snap_lines_3d(point_t *out_pt, struct bview *v, point_t *p)
 }
 
 int
-bv_snap_lines_2d(struct bview *v, fastf_t *vx, fastf_t *vy)
+bv_snap_lines_2d(struct bsg_view *v, fastf_t *vx, fastf_t *vy)
 {
     if (!v || !vx || !vy) return 0;
 
@@ -277,7 +277,7 @@ bv_snap_lines_2d(struct bview *v, fastf_t *vx, fastf_t *vy)
 }
 
 void
-bv_view_center_linesnap(struct bview *v)
+bv_view_center_linesnap(struct bsg_view *v)
 {
     point_t view_pt;
     point_t model_pt;
@@ -291,7 +291,7 @@ bv_view_center_linesnap(struct bview *v)
 }
 
 int
-bv_snap_grid_2d(struct bview *v, fastf_t *vx, fastf_t *vy)
+bv_snap_grid_2d(struct bsg_view *v, fastf_t *vx, fastf_t *vy)
 {
     point_t view_pt;
     point_t grid_origin;
@@ -300,7 +300,7 @@ bv_snap_grid_2d(struct bview *v, fastf_t *vx, fastf_t *vy)
     if (!v || !vx || !vy)
 	return 0;
 
-    struct bview_settings *gv_s = (v->gv_s) ? v->gv_s : &v->gv_ls;
+    struct bsg_view_settings *gv_s = (v->gv_s) ? v->gv_s : &v->gv_ls;
 
     if (ZERO(gv_s->gv_grid.res_h) ||
 	ZERO(gv_s->gv_grid.res_v))

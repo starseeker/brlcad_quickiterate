@@ -31,7 +31,7 @@
 #include "common.h"
 #include "vmath.h"
 
-struct bv_adc_state {
+struct bsg_adc_state {
     int         draw;
     int         dv_x;
     int         dv_y;
@@ -56,7 +56,7 @@ struct bv_adc_state {
     int         line_width;
 };
 
-struct bv_grid_state {
+struct bsg_grid_state {
     int       rc;
     int       draw;               /* draw grid */
     int       adaptive;           /* adapt to view size */
@@ -69,7 +69,7 @@ struct bv_grid_state {
     int       color[3];
 };
 
-struct bv_interactive_rect_state {
+struct bsg_interactive_rect_state {
     int        active;     /* 1 - actively drawing a rectangle */
     int        draw;       /* draw rubber band rectangle */
     int        line_width;
@@ -87,7 +87,7 @@ struct bv_interactive_rect_state {
 };
 
 
-struct bv_params_state {
+struct bsg_params_state {
     int draw;              /* Overall on/off toggle */
     int draw_size;         /* Print view size */
     int draw_center;       /* Print view X,Y,Z center point */
@@ -100,12 +100,19 @@ struct bv_params_state {
 };
 
 
-struct bv_other_state {
+struct bsg_other_state {
     int gos_draw;
     int gos_line_color[3];
     int gos_text_color[3];
     int gos_font_size;
 };
+
+/* Compat aliases - old bv_ names for transitional callers */
+typedef struct bsg_adc_state                bv_adc_state;
+typedef struct bsg_grid_state               bv_grid_state;
+typedef struct bsg_interactive_rect_state   bv_interactive_rect_state;
+typedef struct bsg_params_state             bv_params_state;
+typedef struct bsg_other_state              bv_other_state;
 
 #endif /* BSG_FACEPLATE_H */
 

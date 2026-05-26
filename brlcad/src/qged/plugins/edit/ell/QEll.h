@@ -75,12 +75,12 @@ class QEll : public QWidget
     private:
 	struct directory *dp = NULL;
 	struct rt_ell_internal ell;
-	struct bv_scene_obj *p = NULL;
+	struct bsg_node *p = NULL;
 	struct bu_vls oname = BU_VLS_INIT_ZERO;
 	QgPluginContext *m_ctx = nullptr;
 
 	struct ged *getGed() const;
-	struct bview *getView() const;
+	struct bsg_view *getView() const;
 };
 
 #endif //QELL_H

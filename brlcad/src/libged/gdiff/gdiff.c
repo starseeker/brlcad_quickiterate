@@ -366,7 +366,7 @@ ged_gdiff_core(struct ged *gedp, int argc, const char *argv[])
 	/* Visualize the differences */
 	struct bu_list *vhead;
 	point_t a, b;
-	struct bv_vlblock *vbp;
+	struct bsg_vlblock *vbp;
 	struct bu_list local_vlist;
 	BU_LIST_INIT(&local_vlist);
 	vbp = bv_vlblock_init(&local_vlist, 32);
@@ -423,7 +423,7 @@ ged_gdiff_core(struct ged *gedp, int argc, const char *argv[])
 	}
 
 	if (gedp->dbi_state) {
-	    struct bview *view = gedp->ged_gvp;
+	    struct bsg_view *view = gedp->ged_gvp;
 	    bv_vlblock_obj(vbp, view, "gdiff");
 	} else {
 	    _ged_cvt_vlblock_to_solids(gedp, vbp, "diff_visual", 0);

@@ -76,7 +76,7 @@ struct plot_list{
     int pl_draw;
     int pl_edit;
     struct bu_vls pl_name;
-    struct bv_vlblock *pl_vbp;
+    struct bsg_vlblock *pl_vbp;
 };
 
 
@@ -500,7 +500,7 @@ size_reset(void)
     VSETALL(max, -INFINITY);
 
     for (BU_LIST_FOR(plp, plot_list, &HeadPlot.l)) {
-	struct bv_vlblock *vbp;
+	struct bsg_vlblock *vbp;
 
 	vbp = plp->pl_vbp;
 	for (i=0; i < vbp->nused; i++) {

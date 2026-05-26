@@ -100,16 +100,16 @@ DM_EXPORT extern int dm_processOptions(struct dm *dmp, struct bu_vls *init_proc_
 
 /* adc.c */
 DM_EXPORT extern void dm_draw_adc(struct dm *dmp,
-				  struct bv_adc_state *adcp, mat_t view2model, mat_t model2view);
+				  struct bsg_adc_state *adcp, mat_t view2model, mat_t model2view);
 
 /* axes.c */
-DM_EXPORT extern void dm_draw_scene_axes(struct dm *dmp, struct bv_scene_obj *s);
+DM_EXPORT extern void dm_draw_scene_axes(struct dm *dmp, struct bsg_node *s);
 
 
 DM_EXPORT extern void dm_draw_hud_axes(struct dm *dmp,
 				   fastf_t viewSize,
 				   const mat_t rmat,
-				   struct bv_axes *bnasp);
+				   struct bsg_axes *bnasp);
 
 /* clip.c */
 DM_EXPORT extern int clip(fastf_t *,
@@ -123,7 +123,7 @@ DM_EXPORT extern int vclip(point_t,
 
 /* grid.c */
 DM_EXPORT extern void dm_draw_grid(struct dm *dmp,
-				   struct bv_grid_state *ggsp,
+				   struct bsg_grid_state *ggsp,
 				   fastf_t scale,
 				   mat_t model2view,
 				   fastf_t base2local);
@@ -144,7 +144,7 @@ DM_EXPORT extern int dm_draw_prim_labels(struct dm *dmp,
 
 /* rect.c */
 DM_EXPORT extern void dm_draw_rect(struct dm *dmp,
-				   struct bv_interactive_rect_state *grsp);
+				   struct bsg_interactive_rect_state *grsp);
 
 /* scale.c */
 DM_EXPORT extern void dm_draw_scale(struct dm *dmp,
@@ -267,7 +267,7 @@ DM_EXPORT extern void dm_set_bound_flag(struct dm *dmp, int bound);
 
 
 
-DM_EXPORT extern int dm_draw_obj(struct dm *dmp, struct bv_scene_obj *s);
+DM_EXPORT extern int dm_draw_obj(struct dm *dmp, struct bsg_node *s);
 
 /* Dlist sensor API
  *
@@ -280,8 +280,8 @@ DM_EXPORT extern int dm_draw_obj(struct dm *dmp, struct bv_scene_obj *s);
  *                             this after regenerating any display list.
  * dm_dlist_sensors_clear    - free all sensors registered on this dm. */
 DM_EXPORT extern int  dm_register_dlist_sensor(struct dm *dmp,
-					       struct bv_scene_obj *s,
-					       void (*callback)(struct bv_scene_obj *, void *),
+					       struct bsg_node *s,
+					       void (*callback)(struct bsg_node *, void *),
 					       void *data);
 DM_EXPORT extern void dm_fire_dlist_sensors(struct dm *dmp);
 DM_EXPORT extern void dm_dlist_sensors_clear(struct dm *dmp);
@@ -290,12 +290,12 @@ DM_EXPORT extern void dm_dlist_sensors_clear(struct dm *dmp);
 /* Phase 11 (drawing_stack_modernization): renderer-backend contract.
  *
  * struct dm_backend_ops is the display-manager-side counterpart of
- * struct bv_obj_backend.  A backend (dm-gl, dm-swrast, future dm-obol)
+ * struct bsg_backend.  A backend (dm-gl, dm-swrast, future dm-obol)
  * registers a single static dm_backend_ops with each dm instance it
  * creates; clients invoke per-shape backend operations through the
  * thin dm_backend_*() wrappers below, which forward to the registered
  * ops if any.  This replaces the previous pattern of widening
- * struct bv_scene_obj with backend-specific fields.
+ * struct bsg_node with backend-specific fields.
  *
  * Lifecycle of a per-shape backend resource:
  *  - draw_obj:       per-frame draw of one shape; if non-NULL, the
@@ -315,12 +315,12 @@ DM_EXPORT extern void dm_dlist_sensors_clear(struct dm *dmp);
  *
  * The actual backend_ops pointer lives in struct dm_impl (libdm-private)
  * and is set during dm initialization. */
-struct bv_scene_obj;
+struct bsg_node;
 struct dm_backend_ops {
     uint32_t type_tag;                                                       /**< @brief BV_BACKEND_* matching the tag stamped on s_backend */
-    int  (*draw_obj)(struct dm *dmp, struct bv_scene_obj *s);                /**< @brief per-shape draw; NULL => fall back to dm_impl::dm_draw_obj */
-    void (*invalidate_obj)(struct dm *dmp, struct bv_scene_obj *s);          /**< @brief mark cached backend resource stale; NULL => no-op */
-    void (*release_obj)(struct dm *dmp, struct bv_scene_obj *s);             /**< @brief release cached backend resource and free s_backend */
+    int  (*draw_obj)(struct dm *dmp, struct bsg_node *s);                /**< @brief per-shape draw; NULL => fall back to dm_impl::dm_draw_obj */
+    void (*invalidate_obj)(struct dm *dmp, struct bsg_node *s);          /**< @brief mark cached backend resource stale; NULL => no-op */
+    void (*release_obj)(struct dm *dmp, struct bsg_node *s);             /**< @brief release cached backend resource and free s_backend */
 };
 
 /* Backend-ops accessors (libdm-private storage on dm_impl). */
@@ -330,9 +330,9 @@ DM_EXPORT extern void dm_set_backend_ops(struct dm *dmp, const struct dm_backend
 /* Backend-ops dispatch wrappers.  Each is safe to call with a NULL dmp or
  * a NULL ops pointer; draw_obj falls back to dm_impl::dm_draw_obj when no
  * ops are registered, the others are no-ops in that case. */
-DM_EXPORT extern int  dm_backend_draw_obj(struct dm *dmp, struct bv_scene_obj *s);
-DM_EXPORT extern void dm_backend_invalidate_obj(struct dm *dmp, struct bv_scene_obj *s);
-DM_EXPORT extern void dm_backend_release_obj(struct dm *dmp, struct bv_scene_obj *s);
+DM_EXPORT extern int  dm_backend_draw_obj(struct dm *dmp, struct bsg_node *s);
+DM_EXPORT extern void dm_backend_invalidate_obj(struct dm *dmp, struct bsg_node *s);
+DM_EXPORT extern void dm_backend_release_obj(struct dm *dmp, struct bsg_node *s);
 
 
 /* Rather low level exposure of display list concepts.  Needed for MGED

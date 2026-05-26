@@ -71,7 +71,7 @@ class CADViewMeasure : public QWidget
 	bool eventFilter(QObject *, QEvent *);
 
     private:
-	struct bv_scene_obj *s = NULL;
+	struct bsg_node *s = NULL;
 	QgMeasureFilter *mf = NULL;
 	QMeasure2DFilter *f2d = NULL;
 	QMeasure3DFilter *f3d = NULL;

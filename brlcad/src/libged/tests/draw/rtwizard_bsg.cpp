@@ -101,7 +101,7 @@ open_gedp_null(const char *gfile)
     gedp->ged_lod = bv_mesh_lod_context_create(gedp->dbip->dbi_filename);
     db_add_changed_clbk(gedp->dbip, &ged_changed_callback, (void *)gedp);
 
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
     v->gv_base2local = gedp->dbip->dbi_base2local;
     v->gv_local2base = gedp->dbip->dbi_local2base;
 
@@ -116,11 +116,11 @@ open_gedp_null(const char *gfile)
  * to carry a camera matrix (gv_size, gv_center, gv_rotation) for computing
  * the eye model.  We leave v->dmp = NULL just as libtclcad does for "nu".
  */
-static struct bview *
+static struct bsg_view *
 make_null_view(struct ged *gedp, const char *vname)
 {
-    struct bview *v;
-    BU_GET(v, struct bview);
+    struct bsg_view *v;
+    BU_GET(v, struct bsg_view);
     bv_init(v, &gedp->ged_views);
     bu_vls_sprintf(&v->gv_name, "%s", vname);
     v->gv_base2local = gedp->dbip->dbi_base2local;
@@ -160,7 +160,7 @@ test_null_view_bsg_root(const char *datadir)
     }
 
     /* Create a secondary null-DM view, simulating "db new_view v1 nu" */
-    struct bview *v1 = make_null_view(gedp, "v1");
+    struct bsg_view *v1 = make_null_view(gedp, "v1");
 
     int fail = 0;
     if (!v1->bsg_root) {
@@ -207,14 +207,14 @@ test_eyemodel_finite(const char *datadir)
     }
 
     /* Create secondary null-DM view (rtwizard "new_view v1 nu") */
-    struct bview *v1 = make_null_view(gedp, "v1");
+    struct bsg_view *v1 = make_null_view(gedp, "v1");
 
     /* Draw objects (rtwizard "db draw $item" for each object in color_objlist) */
     const char *s_av[4] = {"draw", "all.g", NULL};
     ged_exec_draw(gedp, 2, s_av);
 
     /* Autoview on v1 (rtwizard "db autoview v1") */
-    struct bview *prev = gedp->ged_gvp;
+    struct bsg_view *prev = gedp->ged_gvp;
     gedp->ged_gvp = v1;
     s_av[0] = "autoview"; s_av[1] = NULL;
     ged_exec_autoview(gedp, 1, s_av);
@@ -310,7 +310,7 @@ test_nodisplaylist_path(const char *datadir)
     ged_exec_draw(gedp, 2, s_av);
 
     /* Create four secondary views and verify root sharing with the active tree */
-    struct bview *views[4];
+    struct bsg_view *views[4];
     char vname[4][8];
     int fail = 0;
     for (int i = 0; i < 4; i++) {
@@ -367,7 +367,7 @@ open_gedp_swrast(const char *gfile, int width, int height)
     const char *s_av[6] = {"dm", "attach", "swrast", "RTW_SW", NULL};
     ged_exec_dm(gedp, 4, s_av);
 
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
     struct dm *dmp  = (struct dm *)v->dmp;
     dm_set_width(dmp, width);
     dm_set_height(dmp, height);
@@ -389,7 +389,7 @@ open_gedp_swrast(const char *gfile, int width, int height)
 static void
 do_swrast_refresh(struct ged *gedp)
 {
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
     struct dm *dmp  = (struct dm *)v->dmp;
     dm_draw_begin(dmp);
     dm_draw_objs(v, NULL, NULL);
@@ -552,7 +552,7 @@ test_gui_eyemodel_consistency(const char *datadir)
     ged_exec_ae(gedp, 4, s_av);
 
     /* Save the view matrix for comparison */
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
     mat_t saved_m2v;
     MAT_COPY(saved_m2v, v->gv_model2view);
 

@@ -163,7 +163,7 @@ bool
 DisplayHash::hash(struct ged *gedp, bool dbi_state_check, bool new_cmd_forms)
 {
     d = 0; v = 0; l = 0; g = 0;
-    struct bview *bv = gedp->ged_gvp;
+    struct bsg_view *bv = gedp->ged_gvp;
     if (!bv)
 	return false;
 
@@ -198,7 +198,7 @@ DisplayHash::hash(struct ged *gedp, bool dbi_state_check, bool new_cmd_forms)
 void
 DisplayHash::dirty(struct ged *gedp, const DisplayHash &o)
 {
-    struct bview *bv = gedp->ged_gvp;
+    struct bsg_view *bv = gedp->ged_gvp;
     if (!bv)
 	return;
 
@@ -408,7 +408,7 @@ GshState::~GshState()
 #ifdef USE_DM
     struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
+	struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, i);
 	if (v->dmp) {
 	    dm_close((struct dm *)v->dmp);
 	    v->dmp = NULL;
@@ -578,7 +578,7 @@ GshState::view_update()
 
     hashes.dirty(gedp, prev_hash);
 
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
     struct dm *dmp = (struct dm *)v->dmp;
     if (dm_get_dirty(dmp)) {
 	if (new_cmd_forms) {

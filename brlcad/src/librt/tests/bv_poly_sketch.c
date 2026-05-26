@@ -57,11 +57,11 @@ main(int argc, char *argv[])
 	bu_exit(EXIT_FAILURE, "ERROR: Unable to look up object poly.s\n");
 
     // Create the view
-    struct bview *v;
-    BU_GET(v, struct bview);
+    struct bsg_view *v;
+    BU_GET(v, struct bsg_view);
     bv_init(v, NULL);
 
-    struct bv_scene_obj *pobj = db_sketch_to_scene_obj("poly", dbip, dp, v, 0);
+    struct bsg_node *pobj = db_sketch_to_scene_obj("poly", dbip, dp, v, 0);
 
     if (!pobj)
 	bu_exit(EXIT_FAILURE, "Failed to create scene object from poly.s\n");

@@ -53,7 +53,7 @@ _label_cmd_create(void *bs, int argc, const char **argv)
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
 
-    struct bv_scene_obj *s = gd->s;
+    struct bsg_node *s = gd->s;
     if (s) {
         bu_vls_printf(gedp->ged_result_str, "View object named %s already exists\n", gd->vobj);
         return BRLCAD_ERROR;
@@ -130,8 +130,8 @@ _label_cmd_create(void *bs, int argc, const char **argv)
     BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p, BSG_VLIST_LINE_MOVE);
     VSET(s->s_color, 255, 255, 0);
 
-    struct bv_label *l;
-    BU_GET(l, struct bv_label);
+    struct bsg_label *l;
+    BU_GET(l, struct bsg_label);
     BU_VLS_INIT(&l->label);
     bu_vls_sprintf(&l->label, "%s", argv[0]);
     VMOVE(l->p, p);

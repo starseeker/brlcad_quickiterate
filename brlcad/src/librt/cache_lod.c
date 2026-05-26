@@ -162,7 +162,7 @@ db_mesh_lod_update(struct db_i *dbip, const char *name)
     // Make sure we can retrieve the cached data
     // TODO - may not really be necessary to verify this here once we're
     // working - including during early stages for testing.
-    struct bv_mesh_lod *lod = bv_mesh_lod_create(dbip->i->mesh_c, key);
+    struct bsg_mesh_lod *lod = bv_mesh_lod_create(dbip->i->mesh_c, key);
     if (!lod) {
 	bu_log("Error processing %s - unable to retrieve LoD data\n", dp->d_namep);
 	rt_db_free_internal(&dbintern);
@@ -174,13 +174,13 @@ db_mesh_lod_update(struct db_i *dbip, const char *name)
     return BRLCAD_OK;
 }
 
-struct bv_mesh_lod *
+struct bsg_mesh_lod *
 db_mesh_lod_get(struct db_i *dbip, const char *name)
 {
     if (!dbip || !name)
 	return NULL;
 
-    struct bv_mesh_lod *lod = NULL;
+    struct bsg_mesh_lod *lod = NULL;
 
     unsigned long long key = bv_mesh_lod_key_get(dbip->i->mesh_c, name);
     if (key)

@@ -67,7 +67,7 @@ struct ged_bv_data {
     void *u_data;
 };
 
-GED_EXPORT extern int ged_export_polygon(struct ged *gedp, bv_data_polygon_state *gdpsp, size_t polygon_i, const char *sname);
+GED_EXPORT extern int ged_export_polygon(struct ged *gedp, bsg_data_polygon_state *gdpsp, size_t polygon_i, const char *sname);
 GED_EXPORT extern struct bg_polygon *ged_import_polygon(struct ged *gedp, const char *sname);
 GED_EXPORT extern int ged_polygons_overlap(struct ged *gedp, struct bg_polygon *polyA, struct bg_polygon *polyB);
 GED_EXPORT extern void ged_polygon_fill_segments(struct ged *gedp, struct bg_polygon *poly, vect2d_t vfilldir, fastf_t vfilldelta);
@@ -204,7 +204,7 @@ struct draw_update_data_t {
     struct db_full_path *fp;
     const struct bn_tol *tol;
     const struct bg_tess_tol *ttol;
-    struct bv_mesh_lod_context *mesh_c;
+    struct bsg_mesh_lod_context *mesh_c;
 };
 
 /**
@@ -230,7 +230,7 @@ GED_EXPORT struct rt_selection_set *ged_get_selection_set(struct ged *gedp,
  */
 typedef void (*ged_drawable_notify_func_t)(int);
 
-GED_EXPORT struct bv_scene_obj *
+GED_EXPORT struct bsg_node *
 ged_dl(struct ged *gedp);
 GED_EXPORT void
 ged_dl_notify_func_set(struct ged *gedp, ged_drawable_notify_func_t f);

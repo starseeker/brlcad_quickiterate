@@ -67,7 +67,7 @@ struct _replot_modified_data {
 static int
 _replot_modified_solid_cb(bsg_node *n, void *ud)
 {
-    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct bsg_node *sp = (struct bsg_node *)n;
     struct _replot_modified_data *d = (struct _replot_modified_data *)ud;
     if (!sp->s_u_data) return 1;
     struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
@@ -89,7 +89,7 @@ struct _replot_active_data {
 static int
 _replot_active_solid_cb(bsg_node *n, void *ud)
 {
-    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct bsg_node *sp = (struct bsg_node *)n;
     struct _replot_active_data *d = (struct _replot_active_data *)ud;
     if (sp->s_iflag == DOWN) return 1;
     (void)replot_original_solid(d->s, sp);
@@ -107,7 +107,7 @@ struct _replot_lastsol_data {
 static int
 _replot_lastsol_cb(bsg_node *n, void *ud)
 {
-    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct bsg_node *sp = (struct bsg_node *)n;
     struct _replot_lastsol_data *d = (struct _replot_lastsol_data *)ud;
     if (!sp->s_u_data) return 1;
     struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;

@@ -231,8 +231,8 @@ LLVMFuzzerTestOneInput(const int8_t *data, size_t size)
     BU_LIST_INIT(&rt_vlfree);
 
     /* Need a view for commands that expect a view */
-    struct bview *gvp;
-    BU_GET(gvp, struct bview);
+    struct bsg_view *gvp;
+    BU_GET(gvp, struct bsg_view);
     bv_init(gvp, &g->ged_views);
     g->ged_gvp = gvp;
 

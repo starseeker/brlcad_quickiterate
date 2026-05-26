@@ -100,7 +100,7 @@ __BEGIN_DECLS
 #define BV_ANCHOR_TOP_LEFT      7
 #define BV_ANCHOR_TOP_CENTER    8
 #define BV_ANCHOR_TOP_RIGHT     9
-struct bv_label {
+struct bsg_label {
     int           size;
     struct bu_vls label;
     point_t       p;         // 3D base of label text
@@ -115,7 +115,7 @@ struct bv_label {
  * elaborate visuals associated with the Archer style model axes.  The latter
  * is a superset of the former, so there should be no need for a separate data
  * type. */
-struct bv_axes {
+struct bsg_axes {
     int       draw;
     point_t   axes_pos;             /* in model coordinates */
     fastf_t   axes_size;            /* in view coordinates for HUD drawing-mode axes */
@@ -143,7 +143,7 @@ struct bv_axes {
 //
 // TODO - once this settles down, it will probably warrant a bu_structparse
 // for value setting
-struct bv_obj_settings {
+struct bsg_obj_settings {
 
     int s_dmode;         	/**< @brief  draw modes (TODO - are these accurate?):
 				 *            0 - wireframe
@@ -171,7 +171,7 @@ struct bv_obj_settings {
  * corresponding directly to the wireframe of a database shape) but also based
  * off of database data.  Evaluated shaded objects would be an example, as
  * would NIRT solid shotline visualizations or overlap visualizations.  The
- * categorizations for the various types of bv_scene_obj objects would be:
+ * categorizations for the various types of bsg_node objects would be:
  *
  * solid wireframe/triangles (obj.s):  BV_DBOBJ_BASED
  * rtcheck overlap visual:             BV_DBOBJ_BASED & BV_VIEWONLY
@@ -182,11 +182,11 @@ struct bv_obj_settings {
  * libged) should be the one managing the semantic meanings of objects.
  *
  * The distinction between objects (lines, labels, etc.) defined as
- * bv_scene_obj VIEW ONLY objects and the faceplate elements is objects defined
- * as bv_scene_obj objects DO exist in the 3D scene, and will move as 3D
+ * bsg_node VIEW ONLY objects and the faceplate elements is objects defined
+ * as bsg_node objects DO exist in the 3D scene, and will move as 3D
  * elements when the view is manipulated (although label text is drawn parallel
  * to the view plane.)  Faceplate elements exist ONLY in the HUD and are not
- * managed as bv_scene_obj objects - they will not move with view manipulation.
+ * managed as bsg_node objects - they will not move with view manipulation.
  */
 #define BV_DBOBJ_BASED    0x01
 #define BV_VIEWONLY       0x02
@@ -195,19 +195,19 @@ struct bv_obj_settings {
 #define BV_AXES           0x10
 #define BV_POLYGONS       0x20
 
-struct bview;
+struct bsg_view;
 
 #define BV_DB_OBJS 0x01
 #define BV_VIEW_OBJS 0x02
 #define BV_LOCAL_OBJS 0x04
 #define BV_CHILD_OBJS 0x08
 
-struct bv_scene_obj_internal;
-struct bv_scene_obj;
+struct bsg_node_internal;
+struct bsg_node;
 
 /* Phase 11 (drawing_stack_modernization): renderer-backend contract.
  *
- * type_tag values for struct bv_obj_backend.  Backends register their tag at
+ * type_tag values for struct bsg_backend.  Backends register their tag at
  * dm registration time; the per-shape s_backend slot carries the matching tag
  * so cross-backend handle confusion can be caught.  More tags will be added as
  * additional backends adopt the contract (e.g. dm-obol). */
@@ -218,9 +218,9 @@ struct bv_scene_obj;
  * Phase 11 (drawing_stack_modernization): per-shape backend state.
  *
  * Replaces the previous pattern of adding backend-specific fields directly on
- * struct bv_scene_obj.  One bv_obj_backend describes a single backend's
+ * struct bsg_node.  One bsg_backend describes a single backend's
  * per-shape state; the active scene object stores the descriptor in
- * bv_scene_obj::s_backend.
+ * bsg_node::s_backend.
  *
  * Lifecycle:
  *  - allocated lazily by the backend (typically when it first needs to cache
@@ -236,18 +236,18 @@ struct bv_scene_obj;
  * Backends are expected to provide a free callback; invalidate is optional
  * and may be NULL for backends that have no separately-cacheable resource.
  */
-struct bv_obj_backend {
+struct bsg_backend {
     uint32_t type_tag;                          /**< @brief BV_BACKEND_* identifying the owner */
     void *handle;                               /**< @brief backend-private per-shape state */
-    void (*free)(struct bv_scene_obj *);        /**< @brief release backend resources and free this descriptor */
-    void (*invalidate)(struct bv_scene_obj *);  /**< @brief mark cached resource stale; may be NULL */
+    void (*free)(struct bsg_node *);        /**< @brief release backend resources and free this descriptor */
+    void (*invalidate)(struct bsg_node *);  /**< @brief mark cached resource stale; may be NULL */
 };
 
-struct bv_scene_obj  {
+struct bsg_node  {
     struct bu_list l;
 
     /* Internal implementation storage */
-    struct bv_scene_obj_internal *i;
+    struct bsg_node_internal *i;
 
     /* View object name and type id */
     unsigned long long s_type_flags;
@@ -266,18 +266,18 @@ struct bv_scene_obj  {
      * BV_DEPRECATED: do not use s_v for view-policy control flow;
      * scene data should not drive rendering decisions.  Use BViewState::redraw()
      * or bv_view_get/set_* accessors instead. */
-    struct bview *s_v;
+    struct bsg_view *s_v;
 
     /* Knowledge of how to create/update s_vlist and the other 3D geometry data, as well as
      * manage any custom data specific to this object */
-    void *s_i_data;  /**< @brief custom view data (bv_line_seg, bv_label, bv_polyon, etc) */
+    void *s_i_data;  /**< @brief custom view data (bv_line_seg, bsg_label, bv_polyon, etc) */
 
     /* BV_DEPRECATED: LoD and CSG adaptive-wireframe update callbacks are now
      * driven by the BSG LoD node (bsg_lod_update via dm_draw_objs); this field
      * is retained for non-LoD users such as polygon update callbacks.
      */
-    int (*s_update_callback)(struct bv_scene_obj *, struct bview *, int);  /**< @brief custom update/generator for s_vlist */
-    void (*s_free_callback)(struct bv_scene_obj *);  /**< @brief free any info stored in s_i_data, s_path and draw_data */
+    int (*s_update_callback)(struct bsg_node *, struct bsg_view *, int);  /**< @brief custom update/generator for s_vlist */
+    void (*s_free_callback)(struct bsg_node *);  /**< @brief free any info stored in s_i_data, s_path and draw_data */
 
     /* 3D vector list geometry data */
     struct bu_list s_vlist;	/**< @brief  Pointer to unclipped vector list */
@@ -286,7 +286,7 @@ struct bv_scene_obj  {
     /* Phase 11 (drawing_stack_modernization): generic renderer-backend slot.
      *
      * One backend-owned pointer per scene object replaces the previous pattern
-     * of adding backend-specific fields directly on bv_scene_obj.  The
+     * of adding backend-specific fields directly on bsg_node.  The
      * descriptor records:
      *   - type_tag: identifies the owning backend (e.g. BV_BACKEND_GL, future
      *     BV_BACKEND_OBOL) so cross-backend mistakes can be caught;
@@ -299,13 +299,13 @@ struct bv_scene_obj  {
      *     and any cached GPU resource must be recomputed.
      *
      * NULL if the active backend does not need per-shape state.  Backends are
-     * expected to allocate one bv_obj_backend per shape (typically lazily) and
+     * expected to allocate one bsg_backend per shape (typically lazily) and
      * store it here; bv_obj_reset() / bv_obj_put() will fire the free callback
      * and clear the slot.  See struct gl_backend_handle in libdm/dm-gl_lod.cpp
      * for the GL family's per-shape state (display list index/mode/stale
      * flag) — formerly the BV_DEPRECATED s_dlist / s_dlist_mode /
      * s_dlist_stale / s_dlist_free_callback fields, retired in Phase 13. */
-    struct bv_obj_backend *s_backend;
+    struct bsg_backend *s_backend;
 
     /* 3D geometry metadata */
     fastf_t s_size;		/**< @brief  Distance across solid, in model space */
@@ -332,9 +332,9 @@ struct bv_scene_obj  {
     uint32_t s_color_rev;       /**< @brief  material-revision stamp; set to gd_mater_rev each time this shape's color is recalculated by bsg_view_obj_color_from_soltab (B4 infrastructure, Phase 7 Step 14) */
     /* Phase 9.2 (drawing_stack_modernization): per-shape "drawn this frame"
      * generation counter.  When the renderer paints the object during
-     * dm_draw_objs(), it stamps s_drawn_rev := bview::gv_frame_rev.  Callers
+     * dm_draw_objs(), it stamps s_drawn_rev := bsg_view::gv_frame_rev.  Callers
      * test whether a shape was actually drawn in the most recent frame by
-     * comparing s_drawn_rev to the bview's current gv_frame_rev — replacing
+     * comparing s_drawn_rev to the bsg_view's current gv_frame_rev — replacing
      * the legacy "set every shape's s_flag = DOWN at the start of a frame
      * and UP only after rendering" sweep.  Initial value 0 is correct because
      * gv_frame_rev is bumped before the first draw, so an undrawn shape
@@ -372,18 +372,18 @@ struct bv_scene_obj  {
 
     /* Scene object settings which also (potentially) have global defaults but
      * may be overridden locally */
-    struct bv_obj_settings *s_os;
-    struct bv_obj_settings s_local_os;
+    struct bsg_obj_settings *s_os;
+    struct bsg_obj_settings s_local_os;
     int s_inherit_settings;           /**< @brief  Use current obj settings when drawing children instead of their settings */
 
     /* Settings that may be less necessary... */
-    struct bv_scene_obj_old_settings s_old;
+    struct bsg_node_old_settings s_old;
 
     /* Child objects of this object */
     struct bu_ptbl children;
 
     /* Parent object of this object */
-    struct bv_scene_obj *parent;
+    struct bsg_node *parent;
 
     /* Object level pointers to parent containers.  These are stored so
      * that the object itself knows everything needed for data manipulation
@@ -392,8 +392,8 @@ struct bv_scene_obj  {
     /* Reusable vlists */
     struct bu_list *vlfree;
 
-    /* Container for reusing bv_scene_obj allocations */
-    struct bv_scene_obj *free_scene_obj;
+    /* Container for reusing bsg_node allocations */
+    struct bsg_node *free_scene_obj;
 
     /* View container containing this object */
     struct bu_ptbl *otbl;
@@ -417,7 +417,7 @@ struct bv_scene_obj  {
  *
  * The drawing code will check the proposed group against existing groups,
  * adding and removing accordingly.  It will then walk the hierarchy and create
- * bv_scene_obj instances for all solids below comb/a and comb/b as children
+ * bsg_node instances for all solids below comb/a and comb/b as children
  * of the scene group.  Note that since we specified "comb" as the drawn
  * object, if comb/b is removed from comb and comb/c is added, we would expect
  * comb's displayed view to be updated to reflect its current structure.  If,
@@ -458,9 +458,9 @@ struct bv_scene_obj  {
  *
  * Much like point_t and vect_t, the distinction between a group and an
  * individual object is largely semantic rather than a question of different
- * data storage.  A group just uses the bv_scene_obj container to store
+ * data storage.  A group just uses the bsg_node container to store
  * group-wide default settings, and g.children holds the individual
- * bv_scene_obj entries corresponding to the solids.  A bv_scene_obj
+ * bsg_node entries corresponding to the solids.  A bsg_node
  * should always map to a solid - a group may specify a solid but more
  * typically will reference the root of a CSG tree and have solids below it.
  * We define them to have different types only to help keep straight in the
@@ -469,17 +469,17 @@ struct bv_scene_obj  {
  * TODO - once the latest drawing code update matures, the path management
  * done there should make the idea of a bv_scene_group moot.
  */
-#define bv_scene_group bv_scene_obj
+#define bv_scene_group bsg_node
 
 
 /* The primary "working" data for mesh Level-of-Detail (LoD) drawing is stored
- * in a bv_mesh_lod container.
+ * in a bsg_mesh_lod container.
  *
  * Most LoD information is deliberately hidden in the internal, but the key
  * data needed for drawing routines and view setup are exposed. Although this
  * data structure is primarily managed in libbg, the public data in this struct
  * is needed at many levels of the software stack, including libbv. */
-struct bv_mesh_lod {
+struct bsg_mesh_lod {
 
     // The set of triangle faces to be used when drawing
     int fcnt;
@@ -501,7 +501,7 @@ struct bv_mesh_lod {
     point_t bmax;
 
     // The scene object using this LoD structure
-    struct bv_scene_obj *s;
+    struct bsg_node *s;
 
     // Pointer to the higher level LoD context associated with this LoD data
     void *c;
@@ -521,7 +521,7 @@ struct bv_mesh_lod {
  * easier reuse of the same settings between different views - if a common
  * setting set is maintained between different views, this container allows
  * us to just point to the common set from all views using it. */
-struct bview_settings {
+struct bsg_view_settings {
     int            gv_snap_lines;
     double 	   gv_snap_tol_factor;
     struct bu_ptbl gv_snap_objs;
@@ -543,12 +543,12 @@ struct bview_settings {
     // Faceplate elements fall into two general categories: those which are
     // interactively adjusted (in a geometric sense) and those which are not.
     // The non-interactive are generally just enabled or disabled:
-    struct bv_axes           gv_model_axes;
-    struct bv_axes           gv_view_axes;
-    struct bv_grid_state     gv_grid;
-    struct bv_other_state    gv_center_dot;
-    struct bv_params_state   gv_view_params;
-    struct bv_other_state    gv_view_scale;
+    struct bsg_axes           gv_model_axes;
+    struct bsg_axes           gv_view_axes;
+    struct bsg_grid_state     gv_grid;
+    struct bsg_other_state    gv_center_dot;
+    struct bsg_params_state   gv_view_params;
+    struct bsg_other_state    gv_view_scale;
     double                   gv_frametime;
 
     // Framebuffer visualization is possible if there is an attached dm and
@@ -560,8 +560,8 @@ struct bview_settings {
     // geometry objects but editable by the user.  These aren't managed as
     // gv_view_objs (they are HUD visuals and thus not part of the scene) so
     // they have some unique requirements.
-    struct bv_adc_state              gv_adc;
-    struct bv_interactive_rect_state gv_rect;
+    struct bsg_adc_state              gv_adc;
+    struct bsg_interactive_rect_state gv_rect;
 
 
     // Not yet implemented - mechanism for defining a set of selected view
@@ -576,7 +576,7 @@ struct bview_settings {
  * scene objects cannot also be common - the representations of the objects
  * may be different in each view, even though the object list is shared.
  */
-struct bview_objs {
+struct bsg_view_objs {
 
     // Container for db object groups unique to this view (typical use case is
     // adaptive plotting, where geometry wireframes may differ from view to
@@ -589,8 +589,8 @@ struct bview_objs {
     // other views.
     struct bu_list  gv_vlfree;
 
-    /* Container for reusing bv_scene_obj allocations */
-    struct bv_scene_obj *free_scene_obj;
+    /* Container for reusing bsg_node allocations */
+    struct bsg_node *free_scene_obj;
 };
 
 // Data for managing "knob" manipulation of views.  One historical hardware
@@ -600,7 +600,7 @@ struct bview_objs {
 // years, the mathematics of view manipulation used to support them still
 // underpins interactions driven with inputs from modern peripherals such as
 // the mouse.
-struct bview_knobs {
+struct bsg_view_knobs {
 
     /* Rate data */
     vect_t      rot_m;      // rotation - model coords
@@ -650,9 +650,9 @@ struct bview_knobs {
 
 };
 
-struct bview_set;
+struct bsg_view_set;
 
-struct bview {
+struct bsg_view {
     uint32_t	  magic;             /**< @brief magic number */
     struct bu_vls gv_name;
 
@@ -671,7 +671,7 @@ struct bview {
      * displayed (that's up to the display managers) and it is up to the
      * calling code to set gv_width and gv_height to the current correct values
      * for such a display, if it is associated with this view.  These
-     * definitions are needed in bview to support "view aware" algorithms that
+     * definitions are needed in bsg_view to support "view aware" algorithms that
      * require information defining an active pixel "window" into the view. */
     int		  gv_width;
     int		  gv_height;
@@ -705,18 +705,18 @@ struct bview {
     fastf_t       gv_maxMouseDelta;
 
     /* Settings */
-    struct bview_settings *gv_s;     /**< @brief shared settings supplied by user */
-    struct bview_settings gv_ls;     /**< @brief locally maintained settings specific to view (used if gv_s is null) */
+    struct bsg_view_settings *gv_s;     /**< @brief shared settings supplied by user */
+    struct bsg_view_settings gv_ls;     /**< @brief locally maintained settings specific to view (used if gv_s is null) */
 
     /* Set containing this view.  Also holds pointers to resources shared
      * across multiple views */
-    struct bview_set *vset;
+    struct bsg_view_set *vset;
 
     /* Scene objects active in a view.  Managing these is a relatively complex
      * topic and depends on whether a view is shared, independent or adaptive.
      * Shared objects are common across views to make more efficient use of
      * system memory. */
-    struct bview_objs gv_objs;
+    struct bsg_view_objs gv_objs;
 
     /* We sometimes need to define the volume in space that is "active" for the
      * view.  For an orthogonal camera this is the oriented bounding box
@@ -727,7 +727,7 @@ struct bview {
     vect_t obb_extent1;
     vect_t obb_extent2;
     vect_t obb_extent3;
-    void (*gv_bounds_update)(struct bview *);
+    void (*gv_bounds_update)(struct bsg_view *);
 
     /* "Backed out" point, lookat direction, scene radius. Used for geometric
      * view based interrogation. */
@@ -736,17 +736,17 @@ struct bview {
     double radius;
 
     /* Knob-based view manipulation data */
-    struct bview_knobs k;
+    struct bsg_view_knobs k;
 
     /* Virtual trackball position */
     point_t     orig_pos;
 
     // libtclcad data (optional: NULL for non-Tcl views, allocated and owned by
     // libtclcad tclcad_view_data when a Tcl-backed view is created)
-    struct bv_data_tclcad *gv_tcl;
+    struct bsg_data_tclcad *gv_tcl;
 
     /* Callback, external data */
-    void          (*gv_callback)(struct bview *, void *);  /**< @brief  called in ged_view_update with gvp and gv_clientData */
+    void          (*gv_callback)(struct bsg_view *, void *);  /**< @brief  called in ged_view_update with gvp and gv_clientData */
     void           *gv_clientData;   /**< @brief  passed to gv_callback */
     struct bu_ptbl *callbacks;
     void           *dmp;             /* Display manager pointer, if one is associated with this view */
@@ -754,14 +754,14 @@ struct bview {
 
     /* Phase 4 (drawing_stack_modernization): BSG scene-graph root for this
      * view.  Stored as void * to avoid a circular include dependency between
-     * bv/defines.h and bsg/defines.h.  Cast to struct bv_scene_obj * (which
+     * bv/defines.h and bsg/defines.h.  Cast to struct bsg_node * (which
      * is typedef'd as bsg_node) before use.  NULL until bsg_scene_root_create
      * is called for this view. */
     void           *bsg_root;
 
     /* Phase 7 step 7 A3 (drawing_stack_modernization): GED draw-tree root for
      * this view.  Stored as void * to avoid circular headers.  Cast to
-     * struct bv_scene_obj * (= bsg_node) before use.  Set by
+     * struct bsg_node * (= bsg_node) before use.  Set by
      * bsg_view_obj_ensure_root() when GED initialises the draw tree.  When
      * non-NULL, bsg_scene_root_sync() uses this tree as the authoritative
      * source of drawn objects (gv_objs is then a derived flat index). */
@@ -786,13 +786,13 @@ struct bview {
     uint64_t        gv_frame_rev;
 };
 
-// Because bview instances frequently share objects in applications, they are
+// Because bsg_view instances frequently share objects in applications, they are
 // not always fully independent - we define a container and some basic
 // operations to manage this.
-struct bview_set_internal;
-struct bview_set {
-    struct bview_set_internal   *i;
-    struct bview_settings       settings;
+struct bsg_view_set_internal;
+struct bsg_view_set {
+    struct bsg_view_set_internal   *i;
+    struct bsg_view_settings       settings;
 };
 
 /* Export macro */
@@ -872,18 +872,23 @@ struct bview_set {
 #define BSG_OBJ_LOCAL   BV_LOCAL_OBJS /**< @brief local (per-view) scope */
 #define BSG_OBJ_CHILD   BV_CHILD_OBJS /**< @brief child object (not in flat ptbl) */
 
-/**
- * bsg_node is a layout-compatible alias for struct bv_scene_obj.
- * Using the same struct pointer avoids any ABI mismatch.  Callers can
- * freely cast between bsg_node * and struct bv_scene_obj * without risk.
- */
-typedef struct bv_scene_obj bsg_node;
+typedef struct bsg_node bsg_node;
+typedef struct bsg_node bsg_shape;
 
-/**
- * bsg_shape is the same alias used for leaf drawable shapes.
- */
-typedef struct bv_scene_obj bsg_shape;
-
+/* Compat aliases - old bv_/bview names for transitional callers */
+typedef struct bsg_view       bview;
+typedef struct bsg_view_set   bview_set;
+typedef struct bsg_node       bv_scene_obj;
+typedef struct bsg_axes       bv_axes;
+typedef struct bsg_obj_settings bv_obj_settings;
+typedef struct bsg_view_settings bview_settings;
+typedef struct bsg_view_objs  bview_objs;
+typedef struct bsg_view_knobs bview_knobs;
+typedef struct bsg_label      bv_label;
+typedef struct bsg_backend    bv_obj_backend;
+typedef struct bsg_mesh_lod   bv_mesh_lod;
+typedef struct bsg_view_set_internal bview_set_internal;
+typedef struct bsg_node_internal bv_scene_obj_internal;
 
 __END_DECLS
 

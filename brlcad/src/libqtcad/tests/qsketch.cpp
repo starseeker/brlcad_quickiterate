@@ -180,11 +180,11 @@ sketch_create_empty(struct db_i *dbip, const char *name)
  */
 struct qsketch_draw_ctx {
     struct rt_edit *es;
-    struct bv_grid_state *grid;
+    struct bsg_grid_state *grid;
 };
 
 static void
-sketch_draw_custom(struct bview *v, void *udata)
+sketch_draw_custom(struct bsg_view *v, void *udata)
 {
     struct qsketch_draw_ctx *ctx = (struct qsketch_draw_ctx *)udata;
     if (!ctx || !ctx->es) return;
@@ -419,7 +419,7 @@ private:
     /* ---- data ---- */
     struct db_i          *m_dbip = NULL;
     struct directory     *m_dp   = NULL;
-    struct bview         *m_bv   = NULL;
+    struct bsg_view         *m_bv   = NULL;
     struct rt_edit       *m_es   = NULL;
     struct bn_tol         m_tol;
     qsketch_draw_ctx      m_draw_ctx;
@@ -457,8 +457,8 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
     /* ---- tolerance ---- */
     BN_TOL_INIT(&m_tol);
 
-    /* ---- bview ---- */
-    BU_GET(m_bv, struct bview);
+    /* ---- bsg_view ---- */
+    BU_GET(m_bv, struct bsg_view);
     bv_init(m_bv, NULL);
 
     /* Look along -Z toward +Z (top view, sketch in XY plane face-on).
@@ -672,7 +672,7 @@ QSketchEditWindow::~QSketchEditWindow()
 	rt_edit_destroy(m_es);
     if (m_bv) {
 	bv_free(m_bv);
-	BU_PUT(m_bv, struct bview);
+	BU_PUT(m_bv, struct bsg_view);
     }
 }
 
@@ -1307,7 +1307,7 @@ void QSketchEditWindow::on_grid_settings()
 {
     if (!m_bv) return;
 
-    struct bv_grid_state *gs = &m_bv->gv_s->gv_grid;
+    struct bsg_grid_state *gs = &m_bv->gv_s->gv_grid;
 
     QDialog dlg(this);
     dlg.setWindowTitle("Grid Settings");

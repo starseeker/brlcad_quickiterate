@@ -22,7 +22,7 @@
  * @brief
  * A bsg_scene_set manages per-view scene roots across a set of views
  * that share a GED instance.  Phase 4 stores scene roots directly in
- * bview::bsg_root (void *), so this struct is reserved for future use
+ * bsg_view::bsg_root (void *), so this struct is reserved for future use
  * when a centralised per-GED registry is needed.
  */
 /** @{ */
@@ -58,19 +58,19 @@ bsg_scene_set_destroy(struct bsg_scene_set *ss);
  * previously registered root for @p v.
  */
 BSG_EXPORT extern void
-bsg_scene_set_add(struct bsg_scene_set *ss, struct bview *v, bsg_node *root);
+bsg_scene_set_add(struct bsg_scene_set *ss, struct bsg_view *v, bsg_node *root);
 
 /**
  * Retrieve the scene root registered for @p v, or NULL if none.
  */
 BSG_EXPORT extern bsg_node *
-bsg_scene_set_get(struct bsg_scene_set *ss, struct bview *v);
+bsg_scene_set_get(struct bsg_scene_set *ss, struct bsg_view *v);
 
 /**
  * Remove the entry for @p v from @p ss (does NOT free the root node).
  */
 BSG_EXPORT extern void
-bsg_scene_set_remove(struct bsg_scene_set *ss, struct bview *v);
+bsg_scene_set_remove(struct bsg_scene_set *ss, struct bsg_view *v);
 
 __END_DECLS
 

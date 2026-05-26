@@ -204,7 +204,7 @@ rt_gen_obj_pnts(struct rt_pnts_internal *rpnts, fastf_t *avg_thickness, struct d
 // it should be hidden behind the functab methods - NOT to be considered
 // as public API.
 RT_EXPORT extern int
-rt_sample_pnts(struct bv_scene_obj *s, struct rt_db_internal *ip);
+rt_sample_pnts(struct bsg_node *s, struct rt_db_internal *ip);
 
 #ifdef USE_OPENCL
 struct cl_hit {

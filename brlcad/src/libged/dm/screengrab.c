@@ -106,7 +106,7 @@ ged_screen_grab_core(struct ged *gedp, int argc, const char *argv[])
 	for (size_t j = 0; j < BU_PTBL_LEN(views); j++) {
 	    if (dmp)
 		break;
-	    struct bview *gdvp = (struct bview *)BU_PTBL_GET(views, j);
+	    struct bsg_view *gdvp = (struct bsg_view *)BU_PTBL_GET(views, j);
 	    struct dm *ndmp = (struct dm *)gdvp->dmp;
 	    if (!bu_vls_strcmp(dm_get_pathname(ndmp), &dm_name))
 		dmp = ndmp;

@@ -70,8 +70,8 @@ dm_set_udata(struct dm *dmp, void *udata)
 
 int
 dm_register_dlist_sensor(struct dm *dmp,
-			 struct bv_scene_obj *s,
-			 void (*callback)(struct bv_scene_obj *, void *),
+			 struct bsg_node *s,
+			 void (*callback)(struct bsg_node *, void *),
 			 void *data)
 {
     if (UNLIKELY(!dmp) || !callback) return -1;
@@ -130,7 +130,7 @@ dm_set_backend_ops(struct dm *dmp, const struct dm_backend_ops *ops)
 }
 
 int
-dm_backend_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
+dm_backend_draw_obj(struct dm *dmp, struct bsg_node *s)
 {
     if (UNLIKELY(!dmp)) return -1;
     /* If a backend has registered a draw_obj op, prefer it; otherwise fall
@@ -143,7 +143,7 @@ dm_backend_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
 }
 
 void
-dm_backend_invalidate_obj(struct dm *dmp, struct bv_scene_obj *s)
+dm_backend_invalidate_obj(struct dm *dmp, struct bsg_node *s)
 {
     if (UNLIKELY(!dmp || !s)) return;
     const struct dm_backend_ops *ops = dm_get_backend_ops(dmp);
@@ -152,7 +152,7 @@ dm_backend_invalidate_obj(struct dm *dmp, struct bv_scene_obj *s)
 }
 
 void
-dm_backend_release_obj(struct dm *dmp, struct bv_scene_obj *s)
+dm_backend_release_obj(struct dm *dmp, struct bsg_node *s)
 {
     if (UNLIKELY(!dmp || !s)) return;
     const struct dm_backend_ops *ops = dm_get_backend_ops(dmp);
@@ -744,7 +744,7 @@ dm_draw_vlist_hidden_line(struct dm *dmp, bsg_vlist *vp)
 }
 
 int
-dm_draw_obj(struct dm *dmp, struct bv_scene_obj *s){
+dm_draw_obj(struct dm *dmp, struct bsg_node *s){
     if (UNLIKELY(!dmp)) return -1;
     return dmp->i->dm_draw_obj(dmp, s);
 }

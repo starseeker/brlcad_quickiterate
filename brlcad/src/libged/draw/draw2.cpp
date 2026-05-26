@@ -46,7 +46,7 @@
 static int
 draw_opt_color(struct bu_vls *msg, size_t argc, const char **argv, void *data)
 {
-    struct bv_obj_settings *vs = (struct bv_obj_settings *)data;
+    struct bsg_obj_settings *vs = (struct bsg_obj_settings *)data;
     struct bu_color c;
     int ret = bu_opt_color(msg, argc, argv, (void *)&c);
     if (ret == 1 || ret == 3) {
@@ -81,7 +81,7 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
      * view.  In order to set up the correct default views, we need to know
      * if a specific view has in fact been specified.  We do a preliminary
      * option check to figure this out */
-    struct bview *cv = gedp->ged_gvp;
+    struct bsg_view *cv = gedp->ged_gvp;
     struct bu_vls cvls = BU_VLS_INIT_ZERO;
     struct bu_opt_desc vd[2];
     BU_OPT(vd[0],  "V", "view",    "name",      &bu_opt_vls, &cvls,   "specify view to draw on");
@@ -113,7 +113,7 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     if (!bu_vls_strlen(&cvls) && (!cv || bv_view_is_independent(cv))) {
 	struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
 	for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	    struct bview *bv = (struct bview *)BU_PTBL_GET(views, i);
+	    struct bsg_view *bv = (struct bsg_view *)BU_PTBL_GET(views, i);
 	    if (!bv_view_is_independent(bv)) {
 		cv = bv;
 		break;
@@ -132,7 +132,7 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     /* User settings may override various options - set up to collect them.
      * Option defaults may be overridden for the purposes of the current draw
      * command by command line options. */
-    struct bv_obj_settings vs = BV_OBJ_SETTINGS_INIT;
+    struct bsg_obj_settings vs = BV_OBJ_SETTINGS_INIT;
 
     int drawing_modes[6] = {-1, 0, 0, 0, 0, 0};
     struct bu_opt_desc d[18];
@@ -212,11 +212,11 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
      * returning 0 from the callback. */
     int have_db_obj = 0;
     int have_view_obj = 0;
-    auto _count_one_db = [](struct bv_scene_obj *, void *data) -> int {
+    auto _count_one_db = [](struct bsg_node *, void *data) -> int {
 	*((int *)data) = 1;
 	return 0; /* stop after first hit */
     };
-    auto _count_one_view = [](struct bv_scene_obj *, void *data) -> int {
+    auto _count_one_view = [](struct bsg_node *, void *data) -> int {
 	*((int *)data) = 1;
 	return 0; /* stop after first hit */
     };
@@ -234,7 +234,7 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
 	BViewState *bvs = dbis->get_view_state(cv);
 	for (size_t i = 0; i < (size_t)argc; ++i)
 	    bvs->add_path(argv[i]);
-	std::unordered_set<struct bview *> vset;
+	std::unordered_set<struct bsg_view *> vset;
 	vset.insert(cv);
 	bvs->redraw(&vs, vset, !(blank_slate && !no_autoview));
 	return BRLCAD_OK;
@@ -244,10 +244,10 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     // time the work will be done in the first pass (when objects do not have
     // view specific geometry to generate) but this is not true when adaptive
     // plotting is enabled.
-    std::unordered_map<BViewState *, std::unordered_set<struct bview *>> vmap;
+    std::unordered_map<BViewState *, std::unordered_set<struct bsg_view *>> vmap;
     struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
+	struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, i);
 	if (bv_view_is_independent(v))
 	    continue;
 	DbiState *dbis = (DbiState *)gedp->dbi_state;
@@ -256,7 +256,7 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
 	    continue;
 	vmap[bvs].insert(v);
     }
-    std::unordered_map<BViewState *, std::unordered_set<struct bview *>>::iterator bv_it;
+    std::unordered_map<BViewState *, std::unordered_set<struct bsg_view *>>::iterator bv_it;
     for (bv_it = vmap.begin(); bv_it != vmap.end(); bv_it++) {
 	for (size_t i = 0; i < (size_t)argc; ++i)
 	    bv_it->first->add_path(argv[i]);
@@ -267,11 +267,11 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
 }
 
 static int
-_ged_redraw_view(struct ged *gedp, struct bview *v, int argc, const char **argv)
+_ged_redraw_view(struct ged *gedp, struct bsg_view *v, int argc, const char **argv)
 {
     if (!gedp || !gedp->dbi_state || !v)
 	return BRLCAD_ERROR;
-    std::unordered_set<struct bview *> vset;
+    std::unordered_set<struct bsg_view *> vset;
     DbiState *dbis = (DbiState *)gedp->dbi_state;
     BViewState *bvs = dbis->get_view_state(v);
     if (!bvs)
@@ -294,7 +294,7 @@ ged_redraw2_core(struct ged *gedp, int argc, const char *argv[])
 
     /* redraw may operate on a specific user specified view, or on
      * all views (default) */
-    struct bview *cv = NULL;
+    struct bsg_view *cv = NULL;
     struct bu_vls cvls = BU_VLS_INIT_ZERO;
     struct bu_opt_desc vd[2];
     BU_OPT(vd[0],  "V", "view",    "name",      &bu_opt_vls, &cvls,   "specify view to draw on");
@@ -321,7 +321,7 @@ ged_redraw2_core(struct ged *gedp, int argc, const char *argv[])
 	    return BRLCAD_OK;
 	}
 	for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	    struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
+	    struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, i);
 	    if (!v) {
 		bu_log("WARNING, draw2.cpp:%d - null view stored in ged_views index %zu, skipping\n", __LINE__, i);
 		continue;

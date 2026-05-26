@@ -45,8 +45,8 @@
 
 int
 to_axes(struct ged *gedp,
-	struct bview *gdvp,
-	struct bv_axes *gasp,
+	struct bsg_view *gdvp,
+	struct bsg_axes *gasp,
 	int argc,
 	const char *argv[],
 	const char *usage)
@@ -454,7 +454,7 @@ bad:
 int
 go_data_axes(Tcl_Interp *interp,
 	     struct ged *gedp,
-	     struct bview *gdvp,
+	     struct bsg_view *gdvp,
 	     int argc,
 	     const char *argv[],
 	     const char *usage)
@@ -496,7 +496,7 @@ to_data_axes(struct ged *gedp,
 	     const char *usage,
 	     int UNUSED(maxargs))
 {
-    struct bview *gdvp;
+    struct bsg_view *gdvp;
     int ret;
 
     /* initialize result */
@@ -531,7 +531,7 @@ to_data_axes(struct ged *gedp,
 int
 to_data_axes_func(Tcl_Interp *interp,
 		  struct ged *gedp,
-		  struct bview *gdvp,
+		  struct bsg_view *gdvp,
 		  int argc,
 		  const char *argv[])
 {
@@ -541,7 +541,7 @@ to_data_axes_func(Tcl_Interp *interp,
     if (BU_STR_EQUAL(argv[1], "draw")) {
 	if (argc == 2) {
 	    /* T3: BSG object presence encodes draw>0. Return 1/0. */
-	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bv_view_obj_find(gdvp, bsg_name);
 	    bu_vls_printf(gedp->ged_result_str, "%d", _s ? 1 : 0);
 	    return BRLCAD_OK;
 	}
@@ -553,7 +553,7 @@ to_data_axes_func(Tcl_Interp *interp,
 		goto bad;
 
 	    /* T3: toggle visibility; no gv_tcl write. */
-	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bv_view_obj_find(gdvp, bsg_name);
 	    if (_s)
 		bv_view_obj_set_visible(_s, i ? 1 : 0);
 
@@ -567,7 +567,7 @@ to_data_axes_func(Tcl_Interp *interp,
     if (BU_STR_EQUAL(argv[1], "color")) {
 	if (argc == 2) {
 	    /* T3: read color from BSG object. */
-	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bv_view_obj_find(gdvp, bsg_name);
 	    if (_s)
 		bu_vls_printf(gedp->ged_result_str, "%d %d %d",
 			      (int)_s->s_color[0], (int)_s->s_color[1], (int)_s->s_color[2]);
@@ -592,7 +592,7 @@ to_data_axes_func(Tcl_Interp *interp,
 		goto bad;
 
 	    /* T3: update BSG object in-place; no gv_tcl write. */
-	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bv_view_obj_find(gdvp, bsg_name);
 	    if (_s)
 		bv_view_obj_set_color(_s, r, g, b);
 
@@ -606,7 +606,7 @@ to_data_axes_func(Tcl_Interp *interp,
     if (BU_STR_EQUAL(argv[1], "line_width")) {
 	if (argc == 2) {
 	    /* T3: read line_width from BSG object settings. */
-	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bv_view_obj_find(gdvp, bsg_name);
 	    if (_s && _s->s_os)
 		bu_vls_printf(gedp->ged_result_str, "%d", _s->s_os->s_line_width);
 	    else
@@ -621,7 +621,7 @@ to_data_axes_func(Tcl_Interp *interp,
 		goto bad;
 
 	    /* T3: update BSG object in-place; no gv_tcl write. */
-	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bv_view_obj_find(gdvp, bsg_name);
 	    if (_s)
 		bv_view_obj_set_line_width(_s, line_width);
 
@@ -636,7 +636,7 @@ to_data_axes_func(Tcl_Interp *interp,
 	if (argc == 2) {
 	    /* T3: recover the encoded half-size from BSG X-axis endpoints and
 	     * back-compute size = 2*half / sf.  Returns approximate value. */
-	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bv_view_obj_find(gdvp, bsg_name);
 	    if (_s) {
 		point_t *_all = NULL;
 		int _ntotal = _bsg_extract_pts(_s, &_all);
@@ -667,7 +667,7 @@ to_data_axes_func(Tcl_Interp *interp,
 		goto bad;
 
 	    /* T3: extract current centers, rebuild with new halfAxesSize; no gv_tcl write. */
-	    struct bv_scene_obj *old_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *old_s = bv_view_obj_find(gdvp, bsg_name);
 	    int _color[3]; int _lw, _vis;
 	    _bsg_read_style(old_s, _color, &_lw, NULL, NULL, &_vis);
 
@@ -697,7 +697,7 @@ to_data_axes_func(Tcl_Interp *interp,
 
 	if (argc == 2) {
 	    /* T3: recover center points from BSG vlist. */
-	    struct bv_scene_obj *_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *_s = bv_view_obj_find(gdvp, bsg_name);
 	    if (_s) {
 		point_t *_cpts = NULL;
 		int _ncpts = _bsg_extract_axes_centers(_s, &_cpts);
@@ -718,7 +718,7 @@ to_data_axes_func(Tcl_Interp *interp,
 	    }
 
 	    /* T3: save style and size from existing BSG object before replacing it. */
-	    struct bv_scene_obj *old_s = bv_view_obj_find(gdvp, bsg_name);
+	    struct bsg_node *old_s = bv_view_obj_find(gdvp, bsg_name);
 	    int _color[3]; int _lw, _vis;
 	    _bsg_read_style(old_s, _color, &_lw, NULL, NULL, &_vis);
 
@@ -775,7 +775,7 @@ to_model_axes(struct ged *gedp,
 	      const char *usage,
 	      int UNUSED(maxargs))
 {
-    struct bview *gdvp;
+    struct bsg_view *gdvp;
 
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
@@ -802,7 +802,7 @@ to_model_axes(struct ged *gedp,
 
 int
 go_view_axes(struct ged *gedp,
-	     struct bview *gdvp,
+	     struct bsg_view *gdvp,
 	     int argc,
 	     const char *argv[],
 	     const char *usage)
@@ -833,7 +833,7 @@ to_view_axes(struct ged *gedp,
 	     const char *usage,
 	     int UNUSED(maxargs))
 {
-    struct bview *gdvp;
+    struct bsg_view *gdvp;
 
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);

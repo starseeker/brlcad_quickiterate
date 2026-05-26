@@ -139,7 +139,7 @@ ged_init(struct ged *gedp)
     BU_PTBL_INIT(&gedp->free_solids);
 
     // Establish an initial view
-    BU_ALLOC(gedp->ged_gvp, struct bview);
+    BU_ALLOC(gedp->ged_gvp, struct bsg_view);
     bv_init(gedp->ged_gvp, &gedp->ged_views);
     bu_vls_sprintf(&gedp->ged_gvp->gv_name, "default");
     bv_set_add_view(&gedp->ged_views, gedp->ged_gvp);
@@ -230,7 +230,7 @@ ged_free(struct ged *gedp)
     gedp->ged_gvp = NULL;
 
     for (size_t i = 0; i < BU_PTBL_LEN(&gedp->ged_free_views); i++) {
-	struct bview *gdvp = (struct bview *)BU_PTBL_GET(&gedp->ged_free_views, i);
+	struct bsg_view *gdvp = (struct bsg_view *)BU_PTBL_GET(&gedp->ged_free_views, i);
 	bv_free(gdvp);
 	bu_free((void *)gdvp, "bv");
     }
@@ -246,7 +246,7 @@ ged_free(struct ged *gedp)
 	    // with the struct ged or with the application as a whole?  We're
 	    // BU_PUT-ing gedp->ged_views.free_scene_obj - above why just that one?
 #if 0
-	    struct bv_scene_obj *sp = (struct bv_scene_obj *)BU_PTBL_GET(&gedp->free_solids, i);
+	    struct bsg_node *sp = (struct bsg_node *)BU_PTBL_GET(&gedp->free_solids, i);
 	    BSG_FREE_VLIST(vlfree, &(sp->s_vlist));
 #endif
 	}

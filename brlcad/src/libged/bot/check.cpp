@@ -271,7 +271,7 @@ draw_edges(struct ged *gedp, struct rt_bot_internal *bot, int num_edges, int edg
     point_t a,b;
     unsigned char draw_color[3];
     bu_color_to_rgb_chars(color, draw_color);
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     struct bu_list local_vlist;
 
     BU_LIST_INIT(&local_vlist);
@@ -290,7 +290,7 @@ draw_edges(struct ged *gedp, struct rt_bot_internal *bot, int num_edges, int edg
     if (gedp->dbi_state) {
 	struct bu_vls nroot = BU_VLS_INIT_ZERO;
 	bu_vls_sprintf(&nroot, "bot_check::%s", draw_name);
-	struct bview *view = gedp->ged_gvp;
+	struct bsg_view *view = gedp->ged_gvp;
 	bv_vlblock_obj(vbp, view, bu_vls_cstr(&nroot));
 	bu_vls_free(&nroot);
     } else {

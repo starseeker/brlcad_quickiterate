@@ -145,7 +145,7 @@ QPolySettings::~QPolySettings()
 }
 
 bool
-QPolySettings::uniq_obj_name(struct bu_vls *oname, struct bview *v)
+QPolySettings::uniq_obj_name(struct bu_vls *oname, struct bsg_view *v)
 {
     if (!v || !oname)
 	return false;
@@ -218,13 +218,13 @@ QPolySettings::do_grid_snapping_changed()
 
 
 void
-QPolySettings::settings_sync(struct bv_scene_obj *p)
+QPolySettings::settings_sync(struct bsg_node *p)
 {
     if (!p)
 	return;
 
 
-    struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
+    struct bsg_polygon *ip = (struct bsg_polygon *)p->s_i_data;
 
     edge_color->blockSignals(true);
     edge_color->rgbtext->setText(QString("%1/%2/%3").arg(p->s_color[0]).arg(p->s_color[1]).arg(p->s_color[2]));

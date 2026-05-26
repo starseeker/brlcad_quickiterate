@@ -104,7 +104,7 @@ qray_free(struct ged_drawable *gdp)
 
 void
 qray_data_to_vlist(struct ged *gedp,
-	struct bv_vlblock *vbp,
+	struct bsg_vlblock *vbp,
 	struct qray_dataList *headp,
 	vect_t dir,
 	int do_overlaps)

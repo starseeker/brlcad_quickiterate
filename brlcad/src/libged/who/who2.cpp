@@ -86,7 +86,7 @@ ged_who2_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_OK;
     }
 
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
     if (bu_vls_strlen(&cvls)) {
 	v = bv_set_find_view(&gedp->ged_views, bu_vls_cstr(&cvls));
 	if (!v) {

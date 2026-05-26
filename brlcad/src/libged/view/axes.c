@@ -55,7 +55,7 @@ _axes_cmd_create(void *bs, int argc, const char **argv)
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
 
-    struct bv_scene_obj *s = gd->s;
+    struct bsg_node *s = gd->s;
     if (s) {
         bu_vls_printf(gedp->ged_result_str, "View object named %s already exists\n", gd->vobj);
         return BRLCAD_ERROR;
@@ -83,8 +83,8 @@ _axes_cmd_create(void *bs, int argc, const char **argv)
     BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p, BSG_VLIST_LINE_MOVE);
     VSET(s->s_color, 255, 255, 0);
 
-    struct bv_axes *l;
-    BU_GET(l, struct bv_axes);
+    struct bsg_axes *l;
+    BU_GET(l, struct bsg_axes);
     VMOVE(l->axes_pos, p);
     l->line_width = 1;
     l->axes_size = 10;
@@ -109,7 +109,7 @@ _axes_cmd_pos(void *bs, int argc, const char **argv)
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
 
-    struct bv_scene_obj *s = gd->s;
+    struct bsg_node *s = gd->s;
     if (!s) {
         bu_vls_printf(gedp->ged_result_str, "View object named %s does not exist\n", gd->vobj);
         return BRLCAD_ERROR;
@@ -118,7 +118,7 @@ _axes_cmd_pos(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    struct bv_axes *a = (struct bv_axes *)s->s_i_data;
+    struct bsg_axes *a = (struct bsg_axes *)s->s_i_data;
     if (argc == 0) {
 	bu_vls_printf(gedp->ged_result_str, "%f %f %f\n", V3ARGS(a->axes_pos));
 	return BRLCAD_OK;
@@ -156,7 +156,7 @@ _axes_cmd_size(void *bs, int argc, const char **argv)
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
 
-    struct bv_scene_obj *s = gd->s;
+    struct bsg_node *s = gd->s;
     if (!s) {
         bu_vls_printf(gedp->ged_result_str, "View object named %s does not exist\n", gd->vobj);
         return BRLCAD_ERROR;
@@ -165,7 +165,7 @@ _axes_cmd_size(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    struct bv_axes *a = (struct bv_axes *)s->s_i_data;
+    struct bsg_axes *a = (struct bsg_axes *)s->s_i_data;
      if (argc == 0) {
 	bu_vls_printf(gedp->ged_result_str, "%f\n", a->axes_size);
 	return BRLCAD_OK;
@@ -202,7 +202,7 @@ _axes_cmd_linewidth(void *bs, int argc, const char **argv)
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
 
-    struct bv_scene_obj *s = gd->s;
+    struct bsg_node *s = gd->s;
     if (!s) {
         bu_vls_printf(gedp->ged_result_str, "View object named %s does not exist\n", gd->vobj);
         return BRLCAD_ERROR;
@@ -211,7 +211,7 @@ _axes_cmd_linewidth(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    struct bv_axes *a = (struct bv_axes *)s->s_i_data;
+    struct bsg_axes *a = (struct bsg_axes *)s->s_i_data;
      if (argc == 0) {
 	bu_vls_printf(gedp->ged_result_str, "%d\n", a->line_width);
 	return BRLCAD_OK;
@@ -253,7 +253,7 @@ _axes_cmd_axes_color(void *bs, int argc, const char **argv)
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
 
-    struct bv_scene_obj *s = gd->s;
+    struct bsg_node *s = gd->s;
     if (!s) {
         bu_vls_printf(gedp->ged_result_str, "View object named %s does not exist\n", gd->vobj);
         return BRLCAD_ERROR;
@@ -262,7 +262,7 @@ _axes_cmd_axes_color(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    struct bv_axes *a = (struct bv_axes *)s->s_i_data;
+    struct bsg_axes *a = (struct bsg_axes *)s->s_i_data;
      if (argc == 0) {
 	bu_vls_printf(gedp->ged_result_str, "%d %d %d\n", a->axes_color[0], a->axes_color[1], a->axes_color[2]);
 	return BRLCAD_OK;

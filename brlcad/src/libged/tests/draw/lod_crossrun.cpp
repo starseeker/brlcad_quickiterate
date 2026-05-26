@@ -85,7 +85,7 @@ open_and_attach(const char *gfile)
     const char *s_av[6] = {"dm", "attach", "swrast", "SW", NULL};
     ged_exec_dm(gedp, 4, s_av);
 
-    struct bview *v   = gedp->ged_gvp;
+    struct bsg_view *v   = gedp->ged_gvp;
     struct dm   *dmp  = (struct dm *)v->dmp;
     dm_set_width(dmp, 512);
     dm_set_height(dmp, 512);
@@ -118,11 +118,11 @@ open_and_attach(const char *gfile)
 static int
 render_to_file(struct ged *gedp, const char *outfile)
 {
-    struct bview *v   = gedp->ged_gvp;
+    struct bsg_view *v   = gedp->ged_gvp;
     DbiState     *dbis = (DbiState *)gedp->dbi_state;
     BViewState   *bvs  = dbis->get_view_state(v);
     dbis->update();
-    std::unordered_set<struct bview *> uset;
+    std::unordered_set<struct bsg_view *> uset;
     uset.insert(v);
     bvs->redraw(NULL, uset, 1);
 

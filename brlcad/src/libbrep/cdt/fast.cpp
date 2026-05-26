@@ -1963,7 +1963,7 @@ int
 brep_facecdt_plot(struct bu_vls *vls, const char *solid_name,
                       const struct bg_tess_tol *ttol, const struct bn_tol *tol,
                       const ON_Brep *brep, struct bu_list *p_vhead,
-                      struct bv_vlblock *vbp, struct bu_list *vlfree,
+                      struct bsg_vlblock *vbp, struct bu_list *vlfree,
 		      int index, int plottype, int num_points)
 {
     if (plottype == INT_MAX || num_points == INT_MAX)

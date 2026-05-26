@@ -1216,13 +1216,13 @@ struct _fill_data {
     int               exact;
     int               ri;
     int               nmatch;
-    struct bv_scene_obj *lastfound;
+    struct bsg_node *lastfound;
 };
 
 static int
 _fill_solid_cb(bsg_node *n, void *ud)
 {
-    struct bv_scene_obj *fsp = (struct bv_scene_obj *)n;
+    struct bsg_node *fsp = (struct bsg_node *)n;
     struct _fill_data *d = (struct _fill_data *)ud;
     int a_new_match;
     int fi, fj;
@@ -1261,7 +1261,7 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
     struct directory *dp;
-    struct bv_scene_obj *lastfound = NULL;
+    struct bsg_node *lastfound = NULL;
     int nmatch;
     int c;
     size_t i;
@@ -1531,7 +1531,7 @@ f_sed(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 }
 
 static void
-update_knob_rate_flags(struct bview_knobs *k, int is_edit)
+update_knob_rate_flags(struct bsg_view_knobs *k, int is_edit)
 {
     if (!k) return;
     k->rot_m_flag = (!ZERO(k->rot_m[X]) || !ZERO(k->rot_m[Y]) || !ZERO(k->rot_m[Z]));
@@ -1824,7 +1824,7 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 		    struct rt_edit *re = MEDIT(s);
 		    if (!re)
 			goto usage;
-		    struct bview *v = view_state->vs_gvp;
+		    struct bsg_view *v = view_state->vs_gvp;
 		    char save_coord = v->gv_coord;
 		    v->gv_coord = mged_variables->mv_coords;
 		    if (rt_edit_knob_cmd_process(re,
@@ -1938,14 +1938,14 @@ f_knob(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	/* Absolute translations already refreshed in abs_zoom via set_absolute_* */
     }
 
-    /* Sync view_state->k with current bview knobs before rate flag calc */
+    /* Sync view_state->k with current bsg_view knobs before rate flag calc */
     if (view_state && view_state->vs_gvp)
 	view_state->k = view_state->vs_gvp->k;
 
     /* Update rate flags */
     update_all_rate_flags(s);
 
-    /* Synchronize MGED's authoritative knob state into the active bview so that
+    /* Synchronize MGED's authoritative knob state into the active bsg_view so that
      * subsequent "view knob" (libged) commands see the accumulated rates and
      * absolute values.  Without this, mixing "knob ..." then "view knob ..."
      * would drop the earlier MGED changes because vs_gvp->k lags behind
@@ -2214,7 +2214,7 @@ mged_svbase(struct mged_state *s)
     // mode is involved with viewstate - need to study in more detail. */
     view_state->vs_gvp->gv_a_scale = 0.0;
 
-    /* Sync active bview knob struct */
+    /* Sync active bsg_view knob struct */
     if (view_state->vs_gvp) {
 	view_state->vs_gvp->k = view_state->k;
     }

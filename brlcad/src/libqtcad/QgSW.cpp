@@ -64,7 +64,7 @@ QgSW::QgSW(QWidget *parent, struct fb *fbp)
 
     // Provide a view specific to this widget - set gedp->ged_gvp to v
     // if this is the current view
-    BU_GET(d->local_v, struct bview);
+    BU_GET(d->local_v, struct bsg_view);
     bv_init(d->local_v, nullptr);
     bu_vls_sprintf(&d->local_v->gv_name, "swrast");
     d->v = d->local_v;
@@ -100,7 +100,7 @@ fb_close_existing(d->ifp);
     d = nullptr;
 }
 
-struct bview *
+struct bsg_view *
 QgSW::view() const
 {
     return d->v;
@@ -137,14 +137,14 @@ QgSW::setDisplayManagerSet(struct bu_ptbl *set)
 }
 
 void
-QgSW::set_draw_custom(void (*draw_func)(struct bview *, void *), void *udata)
+QgSW::set_draw_custom(void (*draw_func)(struct bsg_view *, void *), void *udata)
 {
     d->draw_custom = draw_func;
     d->draw_udata  = udata;
 }
 
 void
-QgSW::set_view(struct bview *nv)
+QgSW::set_view(struct bsg_view *nv)
 {
     qgcanvas_set_view(*d, nv);
 }

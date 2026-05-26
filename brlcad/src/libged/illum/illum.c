@@ -35,14 +35,14 @@
 /* Callback data for labelvert */
 struct labelvert_data {
     struct directory *dp;
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     mat_t mat;
     fastf_t scale;
     double base2local;
 };
 
 static int
-labelvert_solid_cb(struct bv_scene_obj *sp, void *userdata)
+labelvert_solid_cb(struct bsg_node *sp, void *userdata)
 {
     struct labelvert_data *lvd = (struct labelvert_data *)userdata;
     if (!sp->s_u_data)
@@ -59,7 +59,7 @@ int
 ged_labelvert_core(struct ged *gedp, int argc, const char *argv[])
 {
     int i;
-    struct bv_vlblock*vbp;
+    struct bsg_vlblock*vbp;
     mat_t mat;
     fastf_t scale;
     static const char *usage = "object(s) - label vertices of wireframes of objects";
@@ -109,7 +109,7 @@ struct illum_data {
 };
 
 static int
-illum_solid_cb(struct bv_scene_obj *sp, void *userdata)
+illum_solid_cb(struct bsg_node *sp, void *userdata)
 {
     struct illum_data *data = (struct illum_data *)userdata;
     if (!sp->s_u_data)

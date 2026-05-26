@@ -50,7 +50,7 @@ ged_zap2_core(struct ged *gedp, int argc, const char *argv[])
     GED_CHECK_DRAWABLE(gedp, BRLCAD_ERROR);
     GED_CHECK_ARGC_GT_0(gedp, argc, BRLCAD_ERROR);
     const char *usage = "zap [options]\n";
-    struct bview *v = NULL;
+    struct bsg_view *v = NULL;
 
     argc-=(argc>0); argv+=(argc>0); /* done with command name argv[0] */
 
@@ -124,7 +124,7 @@ ged_zap2_core(struct ged *gedp, int argc, const char *argv[])
     int ret = BRLCAD_OK;
     struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	v = (struct bview *)BU_PTBL_GET(views, i);
+	v = (struct bsg_view *)BU_PTBL_GET(views, i);
 	if (bv_view_is_independent(v) && !clear_all_views)
 	    continue;
 	int flags = 0;

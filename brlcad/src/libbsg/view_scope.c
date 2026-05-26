@@ -36,7 +36,7 @@
 
 
 bsg_node *
-bsg_view_scope_create(struct bview *v)
+bsg_view_scope_create(struct bsg_view *v)
 {
     if (!v)
 	return NULL;
@@ -55,7 +55,7 @@ bsg_view_scope_create(struct bview *v)
 
 
 int
-bsg_view_scope_visible(bsg_node *node, struct bview *v)
+bsg_view_scope_visible(bsg_node *node, struct bsg_view *v)
 {
     if (!node)
 	return 0;

@@ -60,8 +60,8 @@ struct contour_node {
     struct bu_list head;
 };
 
-struct bv_scene_obj *
-db_sketch_to_scene_obj(const char *sname, struct db_i *dbip, struct directory *dp, struct bview *sv, int flags)
+struct bsg_node *
+db_sketch_to_scene_obj(const char *sname, struct db_i *dbip, struct directory *dp, struct bsg_view *sv, int flags)
 {
     if (!sv)
 	return NULL;
@@ -90,8 +90,8 @@ db_sketch_to_scene_obj(const char *sname, struct db_i *dbip, struct directory *d
     }
 
     // Have a sketch - create an empty polygon
-    struct bv_polygon *p;
-    BU_GET(p, struct bv_polygon);
+    struct bsg_polygon *p;
+    BU_GET(p, struct bsg_polygon);
 
     /* Start translating the sketch info into a polygon */
     all_segment_nodes = (struct segment_node *)bu_calloc(sketch_ip->curve.count, sizeof(struct segment_node), "all_segment_nodes");
@@ -205,10 +205,10 @@ end:
     bu_free((void *)all_segment_nodes, "all_segment_nodes");
 
     /* Create the scene object here so we can read a default color */
-    struct bv_scene_obj *s = bv_create_polygon_obj(sv, flags, p);
+    struct bsg_node *s = bv_create_polygon_obj(sv, flags, p);
     if (!s) {
 	bg_polygon_free(&p->polygon);
-	BU_PUT(p, struct bv_polygon);
+	BU_PUT(p, struct bsg_polygon);
 	return NULL;
     }
     /* Phase A1: s_name is initialized by bv_obj_reset; just overwrite. */
@@ -330,7 +330,7 @@ end:
 }
 
 struct directory *
-db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bv_scene_obj *s)
+db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bsg_node *s)
 {
     // Make sure we have a view polygon
     if (!(s->s_type_flags & BV_VIEWONLY) || !(s->s_type_flags & BV_POLYGONS)) {
@@ -350,7 +350,7 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bv_scene_obj
     struct rt_sketch_internal *sketch_ip;
     struct line_seg *lsg;
 
-    struct bv_polygon *p = (struct bv_polygon *)s->s_i_data;
+    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
     for (size_t j = 0; j < p->polygon.num_contours; ++j)
 	num_verts += p->polygon.contour[j].num_points;
 

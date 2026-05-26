@@ -60,7 +60,7 @@
 
 /* Callback for setting wflag on all solids */
 static int
-set_wflag_cb(struct bv_scene_obj *sp, void *userdata)
+set_wflag_cb(struct bsg_node *sp, void *userdata)
 {
     int wflag = *(int *)userdata;
     sp->s_old.s_wflag = wflag;
@@ -348,7 +348,7 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
     /* Calculate point from xyz point from which to fire the ray, if it was not
      * explicitly supplied by one of the above. */
     if (VNEAR_ZERO(nv.center_model, VUNITIZE_TOL)) {
-	struct bview *bv = gedp->ged_gvp;
+	struct bsg_view *bv = gedp->ged_gvp;
 	VSET(nv.center_model, -bv->gv_center[MDX], -bv->gv_center[MDY], -bv->gv_center[MDZ]);
 	/* Because we are preparing an input for the nirt command line, we need
 	 * to convert to local units - lower level logic will be expecting
@@ -588,8 +588,8 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
     /* Whether or not we're doing graphics, if we took a shot we should clear any
      * old objects from prior shots. */
     if (gedp->dbi_state) {
-	struct bview *view = gedp->ged_gvp;
-	struct bv_scene_obj *nobj = bv_find_obj(view, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
+	struct bsg_view *view = gedp->ged_gvp;
+	struct bsg_node *nobj = bv_find_obj(view, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
 	if (nobj)
 	    bv_obj_put(nobj);
     } else {
@@ -612,7 +612,7 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
     if (DG_QRAY_GRAPHICS(gedp->i->ged_gdp) && bu_vls_strlen(&nv.plotfile)) {
 	FILE *fp = fopen(bu_vls_cstr(&nv.plotfile), "rb");
 	if (fp) {
-	    struct bv_vlblock*vbp = bv_vlblock_init(vlfree, 32);
+	    struct bsg_vlblock*vbp = bv_vlblock_init(vlfree, 32);
 	    fastf_t csize = gedp->ged_gvp->gv_scale * 0.01;
 	    int pret = rt_uplot_to_vlist(vbp, fp, csize, gedp->i->ged_gdp->gd_uplotOutputMode);
 	    fclose(fp);
@@ -620,8 +620,8 @@ ged_nirt_core(struct ged *gedp, int argc, const char *argv[])
 		bu_log("Error loading plot data from %s\n", bu_vls_cstr(&nv.plotfile));
 	    } else {
 		if (gedp->dbi_state) {
-		    struct bview *view = gedp->ged_gvp;
-		    struct bv_scene_obj *nobj = bv_vlblock_obj(vbp, view, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
+		    struct bsg_view *view = gedp->ged_gvp;
+		    struct bsg_node *nobj = bv_vlblock_obj(vbp, view, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
 		    bu_vls_sprintf(&nobj->s_name, "%s", bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename));
 		} else {
 		    _ged_cvt_vlblock_to_solids(gedp, vbp, bu_vls_cstr(&gedp->i->ged_gdp->gd_qray_basename), 0);

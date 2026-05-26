@@ -80,7 +80,7 @@
 
 
 static int
-_bv_adc_state_differ(struct bv_adc_state *v1, struct bv_adc_state *v2)
+_bv_adc_state_differ(struct bsg_adc_state *v1, struct bsg_adc_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -115,7 +115,7 @@ _bv_adc_state_differ(struct bv_adc_state *v1, struct bv_adc_state *v2)
 }
 
 static int
-_bv_axes_differ(struct bv_axes *v1, struct bv_axes *v2)
+_bv_axes_differ(struct bsg_axes *v1, struct bsg_axes *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -153,7 +153,7 @@ _bv_axes_differ(struct bv_axes *v1, struct bv_axes *v2)
  * view diffs without needing the legacy bv_data_* compares. */
 
 static int
-_bv_grid_state_differ(struct bv_grid_state *v1, struct bv_grid_state *v2)
+_bv_grid_state_differ(struct bsg_grid_state *v1, struct bsg_grid_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -175,7 +175,7 @@ _bv_grid_state_differ(struct bv_grid_state *v1, struct bv_grid_state *v2)
 }
 
 static int
-_bv_params_state_differ(struct bv_params_state *v1, struct bv_params_state *v2)
+_bv_params_state_differ(struct bsg_params_state *v1, struct bsg_params_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -196,7 +196,7 @@ _bv_params_state_differ(struct bv_params_state *v1, struct bv_params_state *v2)
 }
 
 static int
-_bv_other_state_differ(struct bv_other_state *v1, struct bv_other_state *v2)
+_bv_other_state_differ(struct bsg_other_state *v1, struct bsg_other_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -213,7 +213,7 @@ _bv_other_state_differ(struct bv_other_state *v1, struct bv_other_state *v2)
 
 
 static int
-_bv_interactive_rect_state_differ(struct bv_interactive_rect_state *v1, struct bv_interactive_rect_state *v2)
+_bv_interactive_rect_state_differ(struct bsg_interactive_rect_state *v1, struct bsg_interactive_rect_state *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)
@@ -243,7 +243,7 @@ _bv_interactive_rect_state_differ(struct bv_interactive_rect_state *v1, struct b
 }
 
 static int
-_bv_settings_differ(struct bview_settings *v1, struct bview_settings *v2)
+_bv_settings_differ(struct bsg_view_settings *v1, struct bsg_view_settings *v2)
 {
     BV_CDIFF(1, _bv_adc_state_differ, gv_adc);
     BV_CDIFF(1, _bv_axes_differ, gv_model_axes);
@@ -271,7 +271,7 @@ _bv_settings_differ(struct bview_settings *v1, struct bview_settings *v2)
 
 
 int
-bv_differ(struct bview *v1, struct bview *v2)
+bv_differ(struct bsg_view *v1, struct bsg_view *v2)
 {
     /* First, do sanity checks */
     if (!v1 && !v2)

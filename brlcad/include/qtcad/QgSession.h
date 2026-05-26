@@ -56,7 +56,7 @@
 
 /* Forward declarations — implementation includes the full BRL-CAD headers. */
 struct bu_vls;
-struct bview;
+struct bsg_view;
 struct db_i;
 struct directory;
 struct ged;
@@ -105,7 +105,7 @@ private:
     friend class QgModel;
 
     struct ged *gedp = nullptr;
-    struct bview *empty_gvp = nullptr;
+    struct bsg_view *empty_gvp = nullptr;
 
     /* Icon cache: maps an encoded (minor_type, subtype) key to the
      * corresponding QImage loaded from embedded resources. */

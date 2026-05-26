@@ -192,7 +192,7 @@ bv_polygon_fill_segments(struct bg_polygon *poly, plane_t *vp, vect2d_t line_slo
 
 
 extern "C"
-int bv_polygon_calc_fdelta(struct bv_polygon *p)
+int bv_polygon_calc_fdelta(struct bsg_polygon *p)
 {
     if (!p)
 	return 0;

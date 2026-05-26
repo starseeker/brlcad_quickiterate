@@ -50,7 +50,7 @@
 #include "./ged_private.h"
 
 static int
-prim_tess(struct bv_scene_obj *s, struct rt_db_internal *ip)
+prim_tess(struct bsg_node *s, struct rt_db_internal *ip)
 {
     struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
     struct db_full_path *fp = (struct db_full_path *)s->s_path;
@@ -83,7 +83,7 @@ prim_tess(struct bv_scene_obj *s, struct rt_db_internal *ip)
 }
 
 static void
-draw_free_data(struct bv_scene_obj *s)
+draw_free_data(struct bsg_node *s)
 {
     /* Validate */
     if (!s)
@@ -104,7 +104,7 @@ draw_free_data(struct bv_scene_obj *s)
 }
 
 static void
-mesh_lod_draw_free(struct bv_scene_obj *s)
+mesh_lod_draw_free(struct bsg_node *s)
 {
     if (!s)
 	return;
@@ -115,7 +115,7 @@ mesh_lod_draw_free(struct bv_scene_obj *s)
 
 /* Non-static: called directly by BViewState::redraw() for Phase 2-B */
 extern "C" int
-csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int flag)
+csg_wireframe_update(struct bsg_node *vo, struct bsg_view *v, int flag)
 {
     /* Validate */
     if (!vo || !v)
@@ -194,7 +194,7 @@ struct ged_full_detail_clbk_data {
 
 /* Set up the data for drawing */
 static int
-bot_mesh_info_clbk(struct bv_mesh_lod *lod, void *cb_data)
+bot_mesh_info_clbk(struct bsg_mesh_lod *lod, void *cb_data)
 {
     if (!lod || !cb_data)
 	return -1;
@@ -225,7 +225,7 @@ bot_mesh_info_clbk(struct bv_mesh_lod *lod, void *cb_data)
 
 /* Free up the drawing data, but not (yet) done with ged_full_detail_clbk_data */
 static int
-bot_mesh_info_clear_clbk(struct bv_mesh_lod *lod, void *cb_data)
+bot_mesh_info_clear_clbk(struct bsg_mesh_lod *lod, void *cb_data)
 {
     struct ged_full_detail_clbk_data *cd = (struct ged_full_detail_clbk_data *)cb_data;
     if (cd->intern) {
@@ -245,7 +245,7 @@ bot_mesh_info_clear_clbk(struct bv_mesh_lod *lod, void *cb_data)
 
 /* Done - free up everything */
 static int
-bot_mesh_info_free_clbk(struct bv_mesh_lod *lod, void *cb_data)
+bot_mesh_info_free_clbk(struct bsg_mesh_lod *lod, void *cb_data)
 {
     bot_mesh_info_clear_clbk(lod, cb_data);
     struct ged_full_detail_clbk_data *cd = (struct ged_full_detail_clbk_data *)cb_data;
@@ -254,7 +254,7 @@ bot_mesh_info_free_clbk(struct bv_mesh_lod *lod, void *cb_data)
 }
 
 static void
-bot_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
+bot_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
 {
     if (!s || !v)
 	return;
@@ -302,7 +302,7 @@ bot_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 
 	// Once we have a valid key, proceed to create the necessary
 	// data structures and objects.
-	struct bv_mesh_lod *lod = bv_mesh_lod_create(d->mesh_c, key);
+	struct bsg_mesh_lod *lod = bv_mesh_lod_create(d->mesh_c, key);
 	if (!lod) {
 	    // Stale key?  Clear it and try a regeneration
 	    unsigned long long old_key = key;
@@ -381,7 +381,7 @@ bot_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 }
 
 static void
-brep_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
+brep_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
 {
     if (!s || !v)
 	return;
@@ -404,7 +404,7 @@ brep_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 
 	const struct bn_tol *tol = d->tol;
 	const struct bg_tess_tol *ttol = d->ttol;
-	struct bv_mesh_lod *lod = NULL;
+	struct bsg_mesh_lod *lod = NULL;
 
 	// We need the key to look up the LoD data from the cache, and if we don't
 	// already have cache data for this brep we need to generate it.
@@ -518,7 +518,7 @@ brep_adaptive_plot(struct bv_scene_obj *s, struct bview *v)
 
 /* Wrapper to handle adaptive vs non-adaptive wireframes */
 static void
-wireframe_plot(struct bv_scene_obj *s, struct bview *v, struct rt_db_internal *ip)
+wireframe_plot(struct bsg_node *s, struct bsg_view *v, struct rt_db_internal *ip)
 {
     bv_log(1, "wireframe_plot %s[%s]", bu_vls_cstr(&s->s_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
     struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
@@ -555,13 +555,13 @@ wireframe_plot(struct bv_scene_obj *s, struct bview *v, struct rt_db_internal *i
 }
 
 
-extern "C" int draw_m3(struct bv_scene_obj *s);
-extern "C" int draw_points(struct bv_scene_obj *s);
+extern "C" int draw_m3(struct bsg_node *s);
+extern "C" int draw_points(struct bsg_node *s);
 
 /* This function is the master controller that decides, based on available settings
  * and data, which specific drawing routines need to be triggered. */
 extern "C" void
-draw_scene(struct bv_scene_obj *s, struct bview *v)
+draw_scene(struct bsg_node *s, struct bsg_view *v)
 {
     // If the scene object indicates we're good, don't repeat.
     if (s->current && !v)
@@ -580,7 +580,7 @@ draw_scene(struct bv_scene_obj *s, struct bview *v)
     struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
     if (!d) {
 	for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	    struct bv_scene_obj *c = (struct bv_scene_obj *)BU_PTBL_GET(&s->children, i);
+	    struct bsg_node *c = (struct bsg_node *)BU_PTBL_GET(&s->children, i);
 	    draw_scene(c, v);
 	}
 	return;
@@ -962,7 +962,7 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 	// will end up getting handled by the object update callbacks, and the
 	// job here will just be to set up the key data for later use...
 
-	struct bv_scene_obj *s = bv_obj_get_child(dd->g);
+	struct bsg_node *s = bv_obj_get_child(dd->g);
 	db_path_to_vls(&s->s_name, path);
 	BU_GET(s->s_path, struct db_full_path);
 	db_full_path_init((struct db_full_path *)s->s_path);

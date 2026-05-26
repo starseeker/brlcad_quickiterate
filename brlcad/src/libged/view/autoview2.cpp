@@ -57,7 +57,7 @@ ged_autoview2_core(struct ged *gedp, int argc, const char *argv[])
 
     int all_view_objs = 0;
     int print_help = 0;
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
 
     struct bu_opt_desc d[4];
     BU_OPT(d[0], "h", "help",      "",        NULL,     &print_help, "Print help and exit");

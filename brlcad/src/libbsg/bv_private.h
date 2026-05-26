@@ -31,15 +31,15 @@
 #include "bu/ptbl.h"
 #include "bsg/defines.h"
 
-struct bview_set_internal {
+struct bsg_view_set_internal {
     struct bu_ptbl views;
     struct bu_ptbl shared_db_objs;
 
-    struct bv_scene_obj  *free_scene_obj;
+    struct bsg_node  *free_scene_obj;
     struct bu_list vlfree;
 };
 
-struct bv_scene_obj_internal {
+struct bsg_node_internal {
 };
 
 #endif /* LIBBV_BV_PRIVATE_H */

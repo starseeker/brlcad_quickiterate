@@ -56,7 +56,7 @@ struct dm_view_data {
     int                 refresh_on;
 };
 
-DM_EXPORT extern void dm_draw_faceplate(struct bview *v);
+DM_EXPORT extern void dm_draw_faceplate(struct bsg_view *v);
 
 /**
  * Phase 5 (drawing_stack_modernization): draw a single scene object through
@@ -70,10 +70,10 @@ DM_EXPORT extern void dm_draw_faceplate(struct bview *v);
  * @param obj_settings  if non-NULL, override per-object colour/style
  */
 DM_EXPORT extern void dm_draw_scene_obj(struct dm *dmp,
-					struct bv_scene_obj *s,
-					struct bview *v,
+					struct bsg_node *s,
+					struct bsg_view *v,
 					int force_draw,
-					struct bv_obj_settings *obj_settings);
+					struct bsg_obj_settings *obj_settings);
 
 /* As a temporary measure, require client codes to specifically ask to enable
  * the bits that require librt in the headers if they're not going to be
@@ -84,7 +84,7 @@ DM_EXPORT extern void dm_draw_scene_obj(struct dm *dmp,
 #endif /* DM_WITH_RT */
 
 /* Stripped down form of dm_draw_viewobjs that does just what's needed for the new setup */
-DM_EXPORT extern void dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), void *u_data);
+DM_EXPORT extern void dm_draw_objs(struct bsg_view *v, void (*dm_draw_custom)(struct bsg_view *, void *), void *u_data);
 
 /**
  * Phase 4 (drawing_stack_modernization): traverse a BSG scene root and
@@ -96,7 +96,7 @@ DM_EXPORT extern void dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struc
  * dm_* rendering symbols — placing it here avoids a libbsg→libdm
  * circular dependency.
  */
-DM_EXPORT extern void bsg_view_traverse(struct bview *v, void *root);
+DM_EXPORT extern void bsg_view_traverse(struct bsg_view *v, void *root);
 
 __END_DECLS
 

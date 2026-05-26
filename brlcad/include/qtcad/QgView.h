@@ -37,7 +37,7 @@ class QImage;
 class QObject;
 class QgViewFilter;
 
-struct bview;
+struct bsg_view;
 struct dm;
 struct fb;
 
@@ -65,11 +65,11 @@ void get_viewport_image(QImage &img);
 
 bool isValid();
 
-struct bview * view();
+struct bsg_view * view();
 struct dm * dmp();
 struct fb * ifp();
 
-void set_view(struct bview *);
+void set_view(struct bsg_view *);
 
 void aet(double a, double e, double t);
 
@@ -77,7 +77,7 @@ QObject *active_event_filter() const
 {
 return curr_event_filter;
 }
-void set_draw_custom(void (*draw_custom)(struct bview *, void *), void *draw_udata);
+void set_draw_custom(void (*draw_custom)(struct bsg_view *, void *), void *draw_udata);
 
 // Wrappers around Qt's facility for adding eventFilter objects to
 // widgets.  This is how custom key binding modes are enabled and

@@ -91,13 +91,13 @@ void
 dm_refresh(struct ged *gedp, int vnum)
 {
     struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
-    struct bview *v = (struct bview *)BU_PTBL_GET(views, vnum);
+    struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, vnum);
     if (!v)
 	return;
     DbiState *dbis = (DbiState *)gedp->dbi_state;
     BViewState *bvs = dbis->get_view_state(v);
     dbis->update();
-    std::unordered_set<struct bview *> uset;
+    std::unordered_set<struct bsg_view *> uset;
     uset.insert(v);
     bvs->redraw(NULL, uset, 1);
 
@@ -168,7 +168,7 @@ img_cmp(int vnum, int id, struct ged *gedp, const char *cdir, bool clear, int so
     dm_refresh(gedp, vnum);
 
     struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
-    struct bview *v = (struct bview *)BU_PTBL_GET(views, vnum);
+    struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, vnum);
     if (!v)
 	bu_exit(EXIT_FAILURE, "Invalid view specifier: %d\n", vnum);
     struct dm *dmp = (struct dm *)v->dmp;
@@ -476,8 +476,8 @@ main(int ac, char *av[]) {
     // to mimic the most common multi-dm/view display - a Quad view widget.
     // Each view will get its own attached swrast DM.
     for (size_t i = 0; i < 4; i++) {
-	struct bview *v;
-	BU_GET(v, struct bview);
+	struct bsg_view *v;
+	BU_GET(v, struct bsg_view);
 	if (!i)
 	    gedp->ged_gvp = v;
 	bv_init(v, &gedp->ged_views);

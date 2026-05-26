@@ -36,7 +36,7 @@ struct set_transparency_data {
 };
 
 static int
-set_transparency_cb(struct bv_scene_obj *sp, void *userdata)
+set_transparency_cb(struct bsg_node *sp, void *userdata)
 {
     struct set_transparency_data *data = (struct set_transparency_data *)userdata;
     size_t i;

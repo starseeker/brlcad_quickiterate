@@ -122,8 +122,8 @@ main(int argc, char *argv[])
     db_full_path_init(&fp);
     db_add_node_to_full_path(&fp, dp);
 
-    struct bview *v;
-    BU_GET(v, struct bview);
+    struct bsg_view *v;
+    BU_GET(v, struct bsg_view);
     bv_init(v, NULL);
     v->gv_size = 10.0; v->gv_isize = 0.1; v->gv_scale = 5.0;
     bu_vls_sprintf(&v->gv_name, "default");

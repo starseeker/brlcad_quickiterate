@@ -240,7 +240,7 @@ static int
 joint_mesh(struct ged *gedp, int argc, const char *argv[])
 {
     const char *name;
-    struct bv_vlblock*vbp;
+    struct bsg_vlblock*vbp;
     struct bu_list *vhead;
     struct artic_joints *jp;
     struct artic_grips *gp, *gpp;
@@ -295,7 +295,7 @@ joint_mesh(struct ged *gedp, int argc, const char *argv[])
     }
 
     if (gedp->dbi_state) {
-	struct bview *view = gedp->ged_gvp;
+	struct bsg_view *view = gedp->ged_gvp;
 	bv_vlblock_obj(vbp, view, "joint");
     } else {
 	_ged_cvt_vlblock_to_solids(gedp, vbp, name, 0);

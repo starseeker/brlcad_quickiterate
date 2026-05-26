@@ -41,7 +41,7 @@
 
 __BEGIN_DECLS
 
-struct bview;          /* forward-declare to avoid circular includes */
+struct bsg_view;          /* forward-declare to avoid circular includes */
 
 
 /**
@@ -65,7 +65,7 @@ bsg_find_overlay_group(bsg_node *draw_root);
  * allocation failure.
  */
 BSG_EXPORT extern bsg_node *
-bsg_ensure_overlay_group(bsg_node *draw_root, struct bview *v);
+bsg_ensure_overlay_group(bsg_node *draw_root, struct bsg_view *v);
 
 
 /**

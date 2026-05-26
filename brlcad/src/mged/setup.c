@@ -563,7 +563,7 @@ mged_setup(struct mged_state *s)
     mged_global_db_ctx.old_dbip = NULL;
     mged_global_db_ctx.post_open_cnt = 0;
 
-    BU_ALLOC(view_state->vs_gvp, struct bview);
+    BU_ALLOC(view_state->vs_gvp, struct bsg_view);
     bv_init(view_state->vs_gvp, NULL);
     /* Phase 5: give MGED's view a BSG scene root so the new draw path can
      * sync the view-object table into it each frame. */

@@ -127,7 +127,7 @@ who_solids_path_state(struct db_i *dbip, const char *path, struct db_tree_state 
 
 
 static void
-who_solids_print_scene_obj(struct bv_scene_obj *sp, struct db_i *dbip, int lvl, struct bu_vls *vls)
+who_solids_print_scene_obj(struct bsg_node *sp, struct db_i *dbip, int lvl, struct bu_vls *vls)
 {
     struct db_tree_state ts = RT_DBTS_INIT_ZERO;
     unsigned char basecolor[3];
@@ -225,10 +225,10 @@ who_solids_print_scene_obj(struct bv_scene_obj *sp, struct db_i *dbip, int lvl, 
 
 
 static void
-who_solids_print_view(struct bview *v, struct db_i *dbip, int mode, int lvl, struct bu_vls *vls)
+who_solids_print_view(struct bsg_view *v, struct db_i *dbip, int mode, int lvl, struct bu_vls *vls)
 {
-    std::set<struct bv_scene_obj *> uniq;
-    std::vector<struct bv_scene_obj *> objs;
+    std::set<struct bsg_node *> uniq;
+    std::vector<struct bsg_node *> objs;
     struct bu_ptbl *tbls[2];
 
     if (!v)
@@ -242,7 +242,7 @@ who_solids_print_view(struct bview *v, struct db_i *dbip, int mode, int lvl, str
 	if (!tbl)
 	    continue;
 	for (size_t i = 0; i < BU_PTBL_LEN(tbl); i++) {
-	    struct bv_scene_obj *sp = (struct bv_scene_obj *)BU_PTBL_GET(tbl, i);
+	    struct bsg_node *sp = (struct bsg_node *)BU_PTBL_GET(tbl, i);
 	    if (!sp || uniq.find(sp) != uniq.end())
 		continue;
 	    if (mode >= 0 && sp->s_os->s_dmode != mode)
@@ -253,7 +253,7 @@ who_solids_print_view(struct bview *v, struct db_i *dbip, int mode, int lvl, str
     }
 
     std::sort(objs.begin(), objs.end(),
-	      [](const struct bv_scene_obj *a, const struct bv_scene_obj *b) {
+	      [](const struct bsg_node *a, const struct bsg_node *b) {
 		  return alphanum_impl(bu_vls_cstr(&a->s_name), bu_vls_cstr(&b->s_name), NULL) < 0;
 	      });
 
@@ -269,7 +269,7 @@ struct who_solids_legacy_data {
 };
 
 static int
-who_solids_legacy_cb(struct bv_scene_obj *sp, void *userdata)
+who_solids_legacy_cb(struct bsg_node *sp, void *userdata)
 {
     struct who_solids_legacy_data *ctx = (struct who_solids_legacy_data *)userdata;
 
@@ -351,7 +351,7 @@ who_solids_impl(struct ged *gedp, int argc, const char *argv[], int subcmd_usage
 	return BRLCAD_OK;
     }
 
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
     if (bu_vls_strlen(&cvls)) {
 	v = bv_set_find_view(&gedp->ged_views, bu_vls_cstr(&cvls));
 	if (!v) {

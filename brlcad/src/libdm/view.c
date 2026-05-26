@@ -84,7 +84,7 @@ dm_draw_arrow(struct dm *dmp, point_t A, point_t B, fastf_t tip_length, fastf_t 
 }
 
 static int
-_independent_root_skip_child(struct bv_scene_obj *s)
+_independent_root_skip_child(struct bsg_node *s)
 {
     if (!s)
 	return 1;
@@ -97,7 +97,7 @@ _independent_root_skip_child(struct bv_scene_obj *s)
 
 // Draw an arrow head for each MOVE+LAST_DRAW paring
 void
-dm_add_arrows(struct dm *dmp, struct bv_scene_obj *s)
+dm_add_arrows(struct dm *dmp, struct bsg_node *s)
 {
     bsg_vlist *vp = (bsg_vlist *)&s->s_vlist;
     bsg_vlist *tvp;
@@ -140,7 +140,7 @@ dm_add_arrows(struct dm *dmp, struct bv_scene_obj *s)
 }
 
 void
-dm_draw_faceplate(struct bview *v)
+dm_draw_faceplate(struct bsg_view *v)
 {
     struct dm *dmp = (struct dm *)v->dmp;
 
@@ -234,7 +234,7 @@ dm_draw_faceplate(struct bview *v)
 	    v->gv_s->gv_frametime = 0.9 * v->gv_s->gv_frametime + 0.1 * elapsed_time / 1000000LL;
 	}
 
-	struct bv_params_state *ps = &v->gv_s->gv_view_params;
+	struct bsg_params_state *ps = &v->gv_s->gv_view_params;
 	if (ps->draw_size) {
 	    if (bu_vls_strlen(&vls) > 0)
 		bu_vls_printf(&vls, " ");
@@ -282,9 +282,9 @@ dm_draw_faceplate(struct bview *v)
 }
 
 void
-dm_draw_label(struct dm *dmp, struct bv_scene_obj *s)
+dm_draw_label(struct dm *dmp, struct bsg_node *s)
 {
-    struct bv_label *l = (struct bv_label *)s->s_i_data;
+    struct bsg_label *l = (struct bsg_label *)s->s_i_data;
 
     /* set color */
     (void)dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2], 1, 1.0);
@@ -400,10 +400,10 @@ dm_draw_label(struct dm *dmp, struct bv_scene_obj *s)
  */
 static void
 _dm_draw_scene_obj_internal(struct dm *dmp,
-			    struct bv_scene_obj *s,
-			    struct bview *v,
+			    struct bsg_node *s,
+			    struct bsg_view *v,
 			    int force_draw,
-			    struct bv_obj_settings *obj_settings,
+			    struct bsg_obj_settings *obj_settings,
 			    int transparency_pass,
 			    const fastf_t *cur_mat)
 {
@@ -436,7 +436,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
     // always be the desired behavior - might need interior and exterior
     // children tables to provide some control
     for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	struct bv_scene_obj *s_c = (struct bv_scene_obj *)BU_PTBL_GET(&s->children, i);
+	struct bsg_node *s_c = (struct bsg_node *)BU_PTBL_GET(&s->children, i);
 	_dm_draw_scene_obj_internal(dmp, s_c, v, do_force_draw, obj_settings,
 				    transparency_pass, cur_mat);
     }
@@ -485,7 +485,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 
     // Primary object drawing.
     if (s->s_type_flags & BV_DB_OBJS) {
-	struct bv_scene_obj *vo = s;
+	struct bsg_node *vo = s;
 	bv_log(1, "dm_draw_scene_obj - drawing %s[%s]", bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
 
 	/* Phase 11 (drawing_stack_modernization): renderer-backend contract.
@@ -533,7 +533,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 }
 
 void
-dm_draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int force_draw, struct bv_obj_settings *obj_settings)
+dm_draw_scene_obj(struct dm *dmp, struct bsg_node *s, struct bsg_view *v, int force_draw, struct bsg_obj_settings *obj_settings)
 {
     /* Public single-pass API — preserves legacy behaviour: draw any
      * object regardless of transparency, restore gv_model2view after
@@ -556,7 +556,7 @@ dm_draw_scene_obj(struct dm *dmp, struct bv_scene_obj *s, struct bview *v, int f
  * accumulated transform-stack matrix.  Public bsg_view_traverse() and
  * dm_draw_objs() both delegate here. */
 static void
-_bsg_view_traverse_impl(struct bview *v, void *root,
+_bsg_view_traverse_impl(struct bsg_view *v, void *root,
 			int transparency_pass,
 			const fastf_t *cur_mat)
 {
@@ -567,13 +567,13 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
     if (!dmp)
 	return;
 
-    struct bv_scene_obj *r = (struct bv_scene_obj *)root;
+    struct bsg_node *r = (struct bsg_node *)root;
     int independent_root = 0;
-    if (bv_view_is_independent(v) && r == (struct bv_scene_obj *)v->bsg_root) {
+    if (bv_view_is_independent(v) && r == (struct bsg_node *)v->bsg_root) {
 	independent_root = 1;
     }
     for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
-	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&r->children, i);
+	struct bsg_node *s = (struct bsg_node *)BU_PTBL_GET(&r->children, i);
 	if (!s)
 	    continue;
 
@@ -615,8 +615,8 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 	    if (nlevels > 0) {
 		if (active < 0 || active >= nlevels)
 		    active = 0;
-		struct bv_scene_obj *child =
-		    (struct bv_scene_obj *)BU_PTBL_GET(&s->children, active);
+		struct bsg_node *child =
+		    (struct bsg_node *)BU_PTBL_GET(&s->children, active);
 		if (child)
 		    _bsg_view_traverse_impl(v, child,
 					    transparency_pass, cur_mat);
@@ -650,7 +650,7 @@ _bsg_view_traverse_impl(struct bview *v, void *root,
 }
 
 void
-bsg_view_traverse(struct bview *v, void *root)
+bsg_view_traverse(struct bsg_view *v, void *root)
 {
     bv_log(3, "libdm:bsg_view_traverse");
     _bsg_view_traverse_impl(v, root, /*transparency_pass=*/0, /*cur_mat=*/NULL);
@@ -668,7 +668,7 @@ bsg_view_traverse(struct bview *v, void *root)
 // doesn't guarantee raw OpenGL drawing is supported, but the dmp should
 // provide enough information for the calling app to know if that is possible.)
 void
-dm_draw_objs(struct bview *v, void (*dm_draw_custom)(struct bview *, void *), void *u_data)
+dm_draw_objs(struct bsg_view *v, void (*dm_draw_custom)(struct bsg_view *, void *), void *u_data)
 {
     bv_log(3, "libdm:dm_draw_objs");
     if (dm_draw_custom) {

@@ -34,12 +34,12 @@
  * in root->s_i_data.  Returns NULL if the root has no context.
  */
 static inline struct bsg_draw_ctx *
-_ctx_of_node(struct bv_scene_obj *n)
+_ctx_of_node(struct bsg_node *n)
 {
     if (!n)
 	return NULL;
     while (n->parent)
-	n = (struct bv_scene_obj *)n->parent;
+	n = (struct bsg_node *)n->parent;
     return (struct bsg_draw_ctx *)n->s_i_data;
 }
 

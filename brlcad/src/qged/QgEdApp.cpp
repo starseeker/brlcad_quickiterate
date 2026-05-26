@@ -213,7 +213,7 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
     m_plugin_context.gedAccessor = [this]() -> struct ged * {
 	return mdl ? mdl->ged() : GED_NULL;
     };
-    m_plugin_context.viewAccessor = [this]() -> struct bview * {
+    m_plugin_context.viewAccessor = [this]() -> struct bsg_view * {
 	/* Prefer the main window's current display when it exists; before window
 	 * construction falls back to the model's current ged view pointer. */
 	if (w)
@@ -426,18 +426,18 @@ QgEdApp::do_view_changed(QgViewUpdateFlags flags)
     if (flags & QG_VIEW_DRAWN) {
 	// For all associated view states, execute any necessary changes to
 	// view objects and lists
-	std::unordered_map<BViewState *, std::unordered_set<struct bview *>> vmap;
+	std::unordered_map<BViewState *, std::unordered_set<struct bsg_view *>> vmap;
 	struct bu_ptbl *views = bv_set_views(&mdl->ged()->ged_views);
 	if (mdl->ged()->dbi_state) {
 	    DbiState *dbis = (DbiState *)mdl->ged()->dbi_state;
 	    for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-		struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
+		struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, i);
 		BViewState *bvs = dbis->get_view_state(v);
 		if (!bvs)
 		    continue;
 		vmap[bvs].insert(v);
 	    }
-	    std::unordered_map<BViewState *, std::unordered_set<struct bview *>>::iterator bv_it;
+	    std::unordered_map<BViewState *, std::unordered_set<struct bsg_view *>>::iterator bv_it;
 	    for (bv_it = vmap.begin(); bv_it != vmap.end(); bv_it++) {
 		bv_it->first->redraw(NULL, bv_it->second, 1);
 	    }
@@ -530,7 +530,7 @@ QgEdApp::run_cmd(struct bu_vls *msg, int argc, const char **argv)
 
     /* Set the local unit conversions */
     if (gedp->dbip) {
-	struct bview *v = w->CurrentView();
+	struct bsg_view *v = w->CurrentView();
 	v->gv_base2local = gedp->dbip->dbi_base2local;
 	v->gv_local2base = gedp->dbip->dbi_local2base;
     }

@@ -41,14 +41,14 @@
  * "view vZ" autodetect path.  Used with both bv_view_obj_visit and
  * bv_view_objs_visit_db; their callback signature matches. */
 struct _view_vZ_ctx {
-    struct bview *cv;
+    struct bsg_view *cv;
     int calc_mode;
     double vZ;
     int have_vz;
 };
 
 static int
-_view_vZ_visit_cb(struct bv_scene_obj *s, void *data)
+_view_vZ_visit_cb(struct bsg_node *s, void *data)
 {
     struct _view_vZ_ctx *c = (struct _view_vZ_ctx *)data;
     fastf_t calc_val = bv_vZ_calc(s, c->cv, c->calc_mode);
@@ -91,7 +91,7 @@ typedef int (*view_core_cmd_func)(struct ged *, int, const char **);
 static int
 _view_call_on_gd_view(struct _ged_view_info *gd, view_core_cmd_func cmd, int argc, const char **argv)
 {
-    struct bview *cv = gd->gedp->ged_gvp;
+    struct bsg_view *cv = gd->gedp->ged_gvp;
     gd->gedp->ged_gvp = gd->cv;
     int ret = cmd(gd->gedp, argc, argv);
     gd->gedp->ged_gvp = cv;
@@ -148,7 +148,7 @@ static int
 _view_independent_collect_paths(struct _view_independent_path **paths,
 				size_t *path_cnt,
 				size_t *path_cap,
-				struct bv_scene_obj *node)
+				struct bsg_node *node)
 {
     if (!node)
 	return BRLCAD_OK;
@@ -175,7 +175,7 @@ _view_independent_collect_paths(struct _view_independent_path **paths,
     }
 
     for (size_t i = 0; i < BU_PTBL_LEN(&node->children); i++) {
-	struct bv_scene_obj *child = (struct bv_scene_obj *)BU_PTBL_GET(&node->children, i);
+	struct bsg_node *child = (struct bsg_node *)BU_PTBL_GET(&node->children, i);
 	int ret = _view_independent_collect_paths(paths, path_cnt, path_cap, child);
 	if (ret != BRLCAD_OK)
 	    return ret;
@@ -273,7 +273,7 @@ _view_cmd_independent(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    struct bview *v = bv_set_find_view(&gedp->ged_views, argv[0]);
+    struct bsg_view *v = bv_set_find_view(&gedp->ged_views, argv[0]);
     if (!v) {
 	bu_vls_printf(gedp->ged_result_str, "view %s not found\n", argv[0]);
 	return BRLCAD_ERROR;
@@ -301,7 +301,7 @@ _view_cmd_independent(void *bs, int argc, const char **argv)
 	    }
 	}
 
-	struct bview *cv = gedp->ged_gvp;
+	struct bsg_view *cv = gedp->ged_gvp;
 	gedp->ged_gvp = v;
 	bsg_view_obj_ensure_root(gedp);
 	gedp->ged_gvp = cv;
@@ -354,7 +354,7 @@ _view_cmd_list(void *bs, int argc, const char **argv)
     struct ged *gedp = gd->gedp;
     struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
     for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
+	struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, i);
 	if (v != gedp->ged_gvp) {
 	    bu_vls_printf(gedp->ged_result_str, "  %s\n", bu_vls_cstr(&v->gv_name));
 	} else {
@@ -390,7 +390,7 @@ _view_cmd_selections(void *bs, int argc, const char **argv)
 
     argc--; argv++;
 
-    struct bview *v = gd->cv;
+    struct bsg_view *v = gd->cv;
     if (!v) {
 	bu_vls_printf(gd->gedp->ged_result_str, "no current view selected\n");
 	return BRLCAD_ERROR;
@@ -504,10 +504,10 @@ _view_cmd_vZ(void *bs, int argc, const char **argv)
     }
 
     if (calc_mode != -1) {
-	struct bview *v = gd->cv;
+	struct bsg_view *v = gd->cv;
 	if (bu_vls_strlen(&calc_target)) {
 	    // User has specified a view object to use - try to find it
-	    struct bv_scene_obj *wobj = bv_find_obj(v, bu_vls_cstr(&calc_target));
+	    struct bsg_node *wobj = bv_find_obj(v, bu_vls_cstr(&calc_target));
 	    if (wobj) {
 		fastf_t vZ = bv_vZ_calc(wobj, gd->cv, calc_mode);
 		bu_vls_sprintf(gedp->ged_result_str, "%0.15f", vZ);
@@ -567,7 +567,7 @@ _view_cmd_width(void *ds, int argc, const char **argv)
     argc--; argv++;
 
     struct _ged_view_info *gd = (struct _ged_view_info *)ds;
-    struct bview *v = gd->cv;
+    struct bsg_view *v = gd->cv;
     bu_vls_printf(gd->gedp->ged_result_str, "%d\n", v->gv_width);
     return BRLCAD_OK;
 }
@@ -584,7 +584,7 @@ _view_cmd_height(void *ds, int argc, const char **argv)
     argc--; argv++;
 
     struct _ged_view_info *gd = (struct _ged_view_info *)ds;
-    struct bview *v = gd->cv;
+    struct bsg_view *v = gd->cv;
     bu_vls_printf(gd->gedp->ged_result_str, "%d\n", v->gv_height);
     return BRLCAD_OK;
 }
@@ -738,7 +738,7 @@ ged_view_core(struct ged *gedp, int argc, const char *argv[])
     if (bu_vls_strlen(&vname)) {
 	struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
 	for (size_t i = 0; i < BU_PTBL_LEN(views); i++) {
-	    struct bview *v = (struct bview *)BU_PTBL_GET(views, i);
+	    struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, i);
 	    if (BU_STR_EQUAL(bu_vls_cstr(&vname), bu_vls_cstr(&v->gv_name))) {
 		gd.cv = v;
 		break;

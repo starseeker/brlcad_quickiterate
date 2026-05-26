@@ -169,7 +169,7 @@ struct cstate {
 
 
 struct ged_gqa_plot {
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     struct bu_list *vhead;
 } ged_gqa_plot;
 
@@ -2723,7 +2723,7 @@ aborted:
 
 	if (analysis_flags & ANALYSIS_PLOT_OVERLAPS) {
 	    if (gedp->dbi_state) {
-		struct bview *view = gedp->ged_gvp;
+		struct bsg_view *view = gedp->ged_gvp;
 		bv_vlblock_obj(ged_gqa_plot.vbp, view, "gqa::overlaps");
 	    } else {
 		_ged_cvt_vlblock_to_solids(gedp, ged_gqa_plot.vbp, "OVERLAPS", 0);

@@ -83,7 +83,7 @@ extern "C" void ged_changed_callback(struct db_i *UNUSED(dbip), struct directory
 static void
 do_refresh(struct ged *gedp)
 {
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
     struct dm *dmp = (struct dm *)v->dmp;
     dm_draw_begin(dmp);
     dm_draw_objs(v, NULL, NULL);
@@ -146,7 +146,7 @@ open_gedp(const char *gfile, int width, int height)
     s_av[0] = "dm"; s_av[1] = "attach"; s_av[2] = "swrast"; s_av[3] = "SW"; s_av[4] = NULL;
     ged_exec_dm(gedp, 4, s_av);
 
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
     struct dm *dmp  = (struct dm *)v->dmp;
     dm_set_width(dmp, width);
     dm_set_height(dmp, height);
@@ -441,16 +441,16 @@ test_sflags_per_frame_reset(const char *datadir)
     long pix_first = count_nonblack("smb_t4_first.png");
     bu_log("First render: %ld non-black pixels\n", pix_first);
 
-    /* Count shapes whose s_drawn_rev matches the bview's current
+    /* Count shapes whose s_drawn_rev matches the bsg_view's current
      * gv_frame_rev after first frame (Phase 9.2). */
     int nup_first = 0;
     {
-	struct bv_scene_obj *root = (struct bv_scene_obj *)gedp->ged_gvp->bsg_root;
+	struct bsg_node *root = (struct bsg_node *)gedp->ged_gvp->bsg_root;
 	uint64_t fr = gedp->ged_gvp->gv_frame_rev;
 	if (root) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-		struct bv_scene_obj *sp =
-		    (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+		struct bsg_node *sp =
+		    (struct bsg_node *)BU_PTBL_GET(&root->children, i);
 		if (sp && sp->s_drawn_rev == fr) nup_first++;
 	    }
 	}
@@ -491,12 +491,12 @@ test_sflags_per_frame_reset(const char *datadir)
      * compare equal. */
     int nup_second = 0;
     {
-	struct bv_scene_obj *root = (struct bv_scene_obj *)gedp->ged_gvp->bsg_root;
+	struct bsg_node *root = (struct bsg_node *)gedp->ged_gvp->bsg_root;
 	uint64_t fr = gedp->ged_gvp->gv_frame_rev;
 	if (root) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-		struct bv_scene_obj *sp =
-		    (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+		struct bsg_node *sp =
+		    (struct bsg_node *)BU_PTBL_GET(&root->children, i);
 		if (sp && sp->s_drawn_rev == fr) nup_second++;
 	    }
 	}

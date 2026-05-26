@@ -53,7 +53,7 @@ extern FILE *fdopen(int fd, const char *mode);
 static int
 _area_check_solid_cb(bsg_node *n, void *ud)
 {
-    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct bsg_node *sp = (struct bsg_node *)n;
     int *error = (int *)ud;
     if (!sp->s_old.s_Eflag && sp->s_soldash != 0) {
 	*error = 1;
@@ -74,7 +74,7 @@ struct _area_write_data {
 static int
 _area_write_solid_cb(bsg_node *n, void *ud)
 {
-    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct bsg_node *sp = (struct bsg_node *)n;
     struct _area_write_data *d = (struct _area_write_data *)ud;
     bsg_vlist *vp;
     for (BU_LIST_FOR(vp, bsg_vlist, &(sp->s_vlist))) {

@@ -81,7 +81,7 @@ bsg_find_overlay_group(bsg_node *draw_root)
 
 
 bsg_node *
-bsg_ensure_overlay_group(bsg_node *draw_root, struct bview *v)
+bsg_ensure_overlay_group(bsg_node *draw_root, struct bsg_view *v)
 {
     bsg_node *existing = bsg_find_overlay_group(draw_root);
     if (existing)

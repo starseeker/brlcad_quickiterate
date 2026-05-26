@@ -154,7 +154,7 @@ QgView::need_update(QgViewUpdateFlags)
 canvas->need_update();
 }
 
-struct bview *
+struct bsg_view *
 QgView::view()
 {
     return canvas ? canvas->view() : nullptr;
@@ -173,7 +173,7 @@ QgView::ifp()
 }
 
 void
-QgView::set_view(struct bview *nv)
+QgView::set_view(struct bsg_view *nv)
 {
     if (canvas)
 canvas->set_view(nv);
@@ -263,7 +263,7 @@ QgView::clearFilter(QgViewFilter *f)
 }
 
 void
-QgView::set_draw_custom(void (*draw_custom)(struct bview *, void *), void *draw_udata)
+QgView::set_draw_custom(void (*draw_custom)(struct bsg_view *, void *), void *draw_udata)
 {
     if (canvas)
 canvas->set_draw_custom(draw_custom, draw_udata);

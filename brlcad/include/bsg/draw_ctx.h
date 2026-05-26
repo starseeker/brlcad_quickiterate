@@ -38,7 +38,7 @@
 
 #include <stdint.h>
 
-struct bv_scene_obj; /* forward-declare to avoid circular includes */
+struct bsg_node; /* forward-declare to avoid circular includes */
 
 /**
  * Per-root draw-tree context.  Stored in the draw root's s_i_data by
@@ -58,7 +58,7 @@ struct bv_scene_obj; /* forward-declare to avoid circular includes */
  */
 struct bsg_draw_ctx {
     uint64_t          *draw_rev;  /**< @brief pointer to the owner's revision counter */
-    struct bv_scene_obj *fso;     /**< @brief free-object pool for this draw tree */
+    struct bsg_node *fso;     /**< @brief free-object pool for this draw tree */
 };
 
 #endif /* BSG_DRAW_CTX_H */

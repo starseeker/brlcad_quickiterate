@@ -41,11 +41,11 @@
 
 /* Collect polygon objects, optionally excluding one. */
 struct _qpolycreate_poly_collect {
-    std::vector<struct bv_scene_obj *> *polys;
-    struct bv_scene_obj *exclude;
+    std::vector<struct bsg_node *> *polys;
+    struct bsg_node *exclude;
 };
 extern "C" int
-_qpolycreate_poly_collect_cb(struct bv_scene_obj *obj, void *data)
+_qpolycreate_poly_collect_cb(struct bsg_node *obj, void *data)
 {
     struct _qpolycreate_poly_collect *s = (struct _qpolycreate_poly_collect *)data;
     if ((obj->s_type_flags & BV_POLYGONS) && obj != s->exclude)
@@ -58,12 +58,12 @@ struct _qpolycreate_clear_pts {
     bool *draw_change;
 };
 extern "C" int
-_qpolycreate_clear_pts_cb(struct bv_scene_obj *obj, void *data)
+_qpolycreate_clear_pts_cb(struct bsg_node *obj, void *data)
 {
     if (!(obj->s_type_flags & BV_POLYGONS))
 	return 1;
     struct _qpolycreate_clear_pts *s = (struct _qpolycreate_clear_pts *)data;
-    struct bv_polygon *ip = (struct bv_polygon *)obj->s_i_data;
+    struct bsg_polygon *ip = (struct bsg_polygon *)obj->s_i_data;
     if (ip && ip->curr_point_i != -1) {
 	*s->draw_change = true;
 	ip->curr_point_i = -1;
@@ -75,11 +75,11 @@ _qpolycreate_clear_pts_cb(struct bv_scene_obj *obj, void *data)
 
 /* Collect polygon objects into a snap-objs ptbl, excluding current wp. */
 struct _qpolycreate_snap_collect {
-    struct bv_scene_obj *exclude;
+    struct bsg_node *exclude;
     struct bu_ptbl *snap_objs;
 };
 extern "C" int
-_qpolycreate_snap_collect_cb(struct bv_scene_obj *obj, void *data)
+_qpolycreate_snap_collect_cb(struct bsg_node *obj, void *data)
 {
     struct _qpolycreate_snap_collect *s = (struct _qpolycreate_snap_collect *)data;
     if (obj == s->exclude)
@@ -219,7 +219,7 @@ QPolyCreate::getGed() const
     return m_ctx ? m_ctx->getGed() : nullptr;
 }
 
-struct bview *
+struct bsg_view *
 QPolyCreate::getView() const
 {
     return m_ctx ? m_ctx->getView() : nullptr;
@@ -262,7 +262,7 @@ QPolyCreate::finalize(bool)
 	    sk_name = bu_strdup(ps->sketch_name->text().toLocal8Bit().data());
 	}
 	if (sk_name && db_lookup(gedp->dbip, sk_name, LOOKUP_QUIET) == RT_DIR_NULL) {
-	    struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
+	    struct bsg_polygon *ip = (struct bsg_polygon *)p->s_i_data;
 	    ip->u_data = (void *)db_scene_obj_to_sketch(gedp->dbip, sk_name, p);
 	    emit view_updated(QG_VIEW_DB);
 	}
@@ -285,7 +285,7 @@ QPolyCreate::do_vpoly_copy()
     if (!gedp)
 	return;
 
-    struct bview *v = getView();
+    struct bsg_view *v = getView();
     if (!v)
 	return;
 
@@ -302,7 +302,7 @@ QPolyCreate::do_vpoly_copy()
 	return;
     }
     char *sname = bu_strdup(vpoly_name->text().toLocal8Bit().data());
-    struct bv_scene_obj *src_obj = bv_find_obj(v, sname);
+    struct bsg_node *src_obj = bv_find_obj(v, sname);
     bu_free(sname, "name cpy");
     if (!src_obj) {
 	bu_vls_free(&vname);
@@ -336,7 +336,7 @@ QPolyCreate::do_import_sketch()
     if (!gedp)
 	return;
 
-    struct bview *v = getView();
+    struct bsg_view *v = getView();
     if (!v)
 	return;
 
@@ -445,8 +445,8 @@ QPolyCreate::sketch_sync()
 void
 QPolyCreate::toggle_line_snapping(bool s)
 {
-    struct bview *v = (cf) ? cf->view() : NULL;
-    struct bv_scene_obj *co = (cf) ? cf->wp : NULL;
+    struct bsg_view *v = (cf) ? cf->view() : NULL;
+    struct bsg_node *co = (cf) ? cf->wp : NULL;
     if (!v || !co)
 	return;
 
@@ -469,7 +469,7 @@ QPolyCreate::toggle_line_snapping(bool s)
 void
 QPolyCreate::toggle_grid_snapping(bool s)
 {
-    struct bview *v = (cf) ? cf->view() : NULL;
+    struct bsg_view *v = (cf) ? cf->view() : NULL;
     if (!v)
 	return;
 
@@ -486,7 +486,7 @@ QPolyCreate::toggle_grid_snapping(bool s)
 void
 QPolyCreate::checkbox_refresh(unsigned long long)
 {
-    struct bview *v = (cf) ? cf->view() : NULL;
+    struct bsg_view *v = (cf) ? cf->view() : NULL;
     if (!v)
 	return;
 
@@ -520,7 +520,7 @@ QPolyCreate::view_sync()
     if (!gedp)
 	return;
 
-    struct bview *v = getView();
+    struct bsg_view *v = getView();
     if (!v)
 	return;
 
@@ -536,7 +536,7 @@ QPolyCreate::toplevel_config(bool)
 {
     // Initialize
     struct ged *gedp = getGed();
-    struct bview *v = getView();
+    struct bsg_view *v = getView();
     if (!gedp || !v)
 	return;
 
@@ -571,7 +571,7 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
     struct ged *gedp = getGed();
     if (!gedp)
 	return false;
-    struct bview *v = getView();
+    struct bsg_view *v = getView();
     if (!v)
 	return false;
 
@@ -596,7 +596,7 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
     //  whatever is already established - otherwise, grab from the widget
     //  settings
     if (p) {
-	struct bv_polygon *ip = (struct bv_polygon *)p->s_i_data;
+	struct bsg_polygon *ip = (struct bsg_polygon *)p->s_i_data;
 	cf->ptype = ip->type;
     } else {
 	if (ellipse_mode->isChecked()) {
@@ -646,7 +646,7 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
     bu_ptbl_reset(&pcf->bool_objs);
     /* Phase A2: use bv_view_obj_visit instead of bv_view_objs ptbl. */
     {
-	std::vector<struct bv_scene_obj *> polyvec;
+	std::vector<struct bsg_node *> polyvec;
 	struct _qpolycreate_poly_collect pc;
 	pc.polys = &polyvec;
 	pc.exclude = p;

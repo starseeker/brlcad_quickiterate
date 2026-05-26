@@ -81,7 +81,7 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 	if (!m_e)
 		return false;
 
-	struct bview *v = view();
+	struct bsg_view *v = view();
 	if (!v)
 		return false;
 
@@ -228,7 +228,7 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 bool
 QMeasure2DFilter::get_point()
 {
-	struct bview *v = view();
+	struct bsg_view *v = view();
 	fastf_t vx, vy;
 	bv_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
 	point_t vpnt;
@@ -287,7 +287,7 @@ QMeasure3DFilter::get_point()
 	if (!dbip)
 		return false;
 
-	struct bview *v = view();
+	struct bsg_view *v = view();
 	fastf_t vx, vy;
 	bv_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
 	point_t vpnt;
@@ -356,7 +356,7 @@ QMeasure3DFilter::get_point()
 
 		const char **objs = (const char **)bu_calloc(BU_PTBL_LEN(&scene_obj_set) + 1, sizeof(char *), "objs");
 		for (size_t i = 0; i < BU_PTBL_LEN(&scene_obj_set); i++) {
-			struct bv_scene_obj *l_s = (struct bv_scene_obj *)BU_PTBL_GET(&scene_obj_set, i);
+			struct bsg_node *l_s = (struct bsg_node *)BU_PTBL_GET(&scene_obj_set, i);
 			objs[i] = bu_vls_cstr(&l_s->s_name);
 		}
 		if (rt_gettrees_and_attrs(rtip, nullptr, scnt, objs, 1)) {

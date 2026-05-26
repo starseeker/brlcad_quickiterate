@@ -35,7 +35,7 @@
 #include "bsg/util.h"
 
 int
-bv_polygon_csg(struct bv_scene_obj *target, struct bv_scene_obj *stencil, bg_clip_t op)
+bv_polygon_csg(struct bsg_node *target, struct bsg_node *stencil, bg_clip_t op)
 {
     // Need data
     if (!target || !stencil)
@@ -49,8 +49,8 @@ bv_polygon_csg(struct bv_scene_obj *target, struct bv_scene_obj *stencil, bg_cli
     if (op == bg_None)
 	return 0;
 
-    struct bv_polygon *polyA = (struct bv_polygon *)target->s_i_data;
-    struct bv_polygon *polyB = (struct bv_polygon *)stencil->s_i_data;
+    struct bsg_polygon *polyA = (struct bsg_polygon *)target->s_i_data;
+    struct bsg_polygon *polyB = (struct bsg_polygon *)stencil->s_i_data;
     if (!polyA || !polyB)
 	return 0;
 

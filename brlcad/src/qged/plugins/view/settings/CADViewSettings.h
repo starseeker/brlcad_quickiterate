@@ -20,8 +20,8 @@
 /** @file CADViewSettings.h
  *
  * Widget for controlling and reflecting the current state of view
- * settings (faceplate elements).  Covers all fields in bview_settings
- * and bv_params_state that have widget-level controls.
+ * settings (faceplate elements).  Covers all fields in bsg_view_settings
+ * and bsg_params_state that have widget-level controls.
  *
  */
 

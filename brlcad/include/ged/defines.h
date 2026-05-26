@@ -57,7 +57,7 @@
 /* GED_DISPLAY_LIST_NULL is deprecated — use NULL directly */
 #define GED_DISPLAY_LIST_NULL ((struct display_list *)0)
 #define GED_DRAWABLE_NULL ((struct ged_drawable *)0)
-#define GED_VIEW_NULL ((struct bview *)0)
+#define GED_VIEW_NULL ((struct bsg_view *)0)
 
 #define GED_RESULT_NULL ((void *)0)
 
@@ -163,9 +163,9 @@ struct ged {
     /* Information pertaining to views and view objects .        */
     /*************************************************************/
     /* The current view */
-    struct bview		*ged_gvp;
+    struct bsg_view		*ged_gvp;
     /* The full set of views associated with this ged object */
-    struct bview_set            ged_views;
+    struct bsg_view_set            ged_views;
     /* Sometimes applications will supply GED views, and sometimes GED commands
      * may create views.  In the latter case, ged_close will also need to free
      * the views.  We define a container to hold those views that libged is
@@ -174,7 +174,7 @@ struct ged {
     struct bu_ptbl              ged_free_views;
 
     /* Drawing data associated with this .g file */
-    struct bv_mesh_lod_context  *ged_lod;
+    struct bsg_mesh_lod_context  *ged_lod;
 
 
     void                        *u_data; /**< @brief User data associated with this ged instance */

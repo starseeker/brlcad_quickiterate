@@ -85,7 +85,7 @@ rt_edit_map_destroy(struct rt_edit_map *o)
 }
 
 struct rt_edit *
-rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, struct bview *v)
+rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, struct bsg_view *v)
 {
     struct rt_edit *s;
     BU_GET(s, struct rt_edit);
@@ -297,7 +297,7 @@ rt_edit_reset(struct rt_edit *s)
 
 int
 rt_edit_reinit(struct rt_edit *s, struct db_full_path *dfp, struct db_i *dbip,
-               struct bn_tol *tol, struct bview *v)
+               struct bn_tol *tol, struct bsg_view *v)
 {
     if (!s)
 	return BRLCAD_ERROR;
@@ -573,7 +573,7 @@ int
 rt_edit_knob_cmd_process(
 	struct rt_edit *s,
 	vect_t *rvec, int *do_rot, vect_t *tvec, int *do_tran, int *do_sca,
-	struct bview *v, const char *cmd, fastf_t f,
+	struct bsg_view *v, const char *cmd, fastf_t f,
 	char origin, int incr_flag, void *u_data)
 {
     char c = (cmd[1] == '\0') ? cmd[0] : cmd[1];

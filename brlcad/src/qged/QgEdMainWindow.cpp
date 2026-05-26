@@ -630,7 +630,7 @@ QgEdMainWindow::CurrentDisplay()
     return c4->get();
 }
 
-struct bview *
+struct bsg_view *
 QgEdMainWindow::CurrentView()
 {
     return c4->view();

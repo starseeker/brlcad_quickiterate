@@ -32,7 +32,7 @@ extern "C" {
 
 class QgViewFilter::QgViewFilterPrivate {
 public:
-	struct bview *v = nullptr;
+	struct bsg_view *v = nullptr;
 };
 
 QgViewFilter::QgViewFilter(QObject *parent)
@@ -46,12 +46,12 @@ QgViewFilter::~QgViewFilter()
 }
 
 void
-QgViewFilter::set_view(struct bview *nv)
+QgViewFilter::set_view(struct bsg_view *nv)
 {
 	m->v = nv;
 }
 
-struct bview *
+struct bsg_view *
 QgViewFilter::view() const
 {
 	return m->v;
@@ -80,7 +80,7 @@ QgViewFilter::view_sync(QEvent *e)
 	e_y = (int)m_e->position().y();
 #endif
 
-	/* Keep bview mouse state synchronized with the event stream. */
+	/* Keep bsg_view mouse state synchronized with the event stream. */
 	m->v->gv_prevMouseX = m->v->gv_mouse_x;
 	m->v->gv_prevMouseY = m->v->gv_mouse_y;
 	m->v->gv_mouse_x = e_x;

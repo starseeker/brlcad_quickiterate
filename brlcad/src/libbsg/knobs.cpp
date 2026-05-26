@@ -32,7 +32,7 @@
 #include "./bv_private.h"
 
 void
-bv_knobs_reset(struct bview_knobs *k, int category)
+bv_knobs_reset(struct bsg_view_knobs *k, int category)
 {
 
     if (!k)
@@ -86,7 +86,7 @@ bv_knobs_reset(struct bview_knobs *k, int category)
 }
 
 unsigned long long
-bv_knobs_hash(struct bview_knobs *k, struct bu_data_hash_state *state)
+bv_knobs_hash(struct bsg_view_knobs *k, struct bu_data_hash_state *state)
 {
     if (!k)
 	return 0ULL;
@@ -147,7 +147,7 @@ bv_knobs_hash(struct bview_knobs *k, struct bu_data_hash_state *state)
 
 
 static void
-set_absolute_view_tran(struct bview *v)
+set_absolute_view_tran(struct bsg_view *v)
 {
     /* calculate absolute_tran */
     MAT4X3PNT(v->k.tra_v_abs, v->gv_model2view, v->orig_pos);
@@ -157,7 +157,7 @@ set_absolute_view_tran(struct bview *v)
 }
 
 static void
-set_absolute_model_tran(struct bview *v)
+set_absolute_model_tran(struct bsg_view *v)
 {
     point_t new_pos;
     point_t diff;
@@ -172,7 +172,7 @@ set_absolute_model_tran(struct bview *v)
 }
 
 static void
-abs_zoom(struct bview *v)
+abs_zoom(struct bsg_view *v)
 {
     /* Use initial Viewscale */
     if (-SMALL_FASTF < v->gv_a_scale && v->gv_a_scale < SMALL_FASTF) {
@@ -206,7 +206,7 @@ abs_zoom(struct bview *v)
 }
 
 static void
-calc_mtran(struct bview *v, const vect_t tvec)
+calc_mtran(struct bsg_view *v, const vect_t tvec)
 {
     point_t delta;
     point_t vc, nvc;
@@ -222,7 +222,7 @@ calc_mtran(struct bview *v, const vect_t tvec)
 }
 
 static void
-calc_vtran(struct bview *v, const vect_t tvec)
+calc_vtran(struct bsg_view *v, const vect_t tvec)
 {
     vect_t tt;
     point_t delta;
@@ -243,7 +243,7 @@ calc_vtran(struct bview *v, const vect_t tvec)
 }
 
 void
-bv_knobs_tran(struct bview *v,
+bv_knobs_tran(struct bsg_view *v,
 	const vect_t tvec,
 	int model_flag)
 {
@@ -260,7 +260,7 @@ bv_knobs_tran(struct bview *v,
 }
 
 void
-bv_knobs_rot(struct bview *v,
+bv_knobs_rot(struct bsg_view *v,
     const vect_t rvec,
     char origin,
     char coords,
@@ -359,7 +359,7 @@ bv_knobs_rot(struct bview *v,
 }
 
 void
-bv_update_rate_flags(struct bview *v)
+bv_update_rate_flags(struct bsg_view *v)
 {
     if (!ZERO(v->k.rot_m[X])
 	|| !ZERO(v->k.rot_m[Y])
@@ -407,7 +407,7 @@ bv_update_rate_flags(struct bview *v)
 int
 bv_knobs_cmd_process(
 	vect_t *rvec, int *do_rot, vect_t *tvec, int *do_tran,
-	struct bview *v, const char *cmd, fastf_t f,
+	struct bsg_view *v, const char *cmd, fastf_t f,
 	char origin, int model_flag, int incr_flag)
 {
     if (!v || !cmd || !rvec || !do_rot || !tvec || !do_tran)

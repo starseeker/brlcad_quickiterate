@@ -46,7 +46,7 @@ show_dangling_edges(struct ged *gedp, const uint32_t *magic_p, const char *name,
     int done;
     point_t pt1, pt2;
     size_t i, cnt;
-    struct bv_vlblock *vbp = NULL;
+    struct bsg_vlblock *vbp = NULL;
     struct bu_list *vhead = NULL;
     struct bu_ptbl faces;
     struct bu_vls plot_file_name = BU_VLS_INIT_ZERO;
@@ -130,7 +130,7 @@ show_dangling_edges(struct ged *gedp, const uint32_t *magic_p, const char *name,
 	if (gedp->dbi_state) {
 	    struct bu_vls nroot = BU_VLS_INIT_ZERO;
 	    bu_vls_sprintf(&nroot, "bot_fuse::%s", name);
-	    struct bview *view = gedp->ged_gvp;
+	    struct bsg_view *view = gedp->ged_gvp;
 	    bv_vlblock_obj(vbp, view, bu_vls_cstr(&nroot));
 	    bu_vls_free(&nroot);
 	} else {

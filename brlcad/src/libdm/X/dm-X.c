@@ -2148,7 +2148,7 @@ X_event_cmp(struct dm *dmp, dm_event_t type, int event)
  * requires OpenGL and is not supported by this backend, but standard vlist
  * wireframes work fine via X_drawVList. */
 static int
-X_draw_obj(struct dm *dmp, struct bv_scene_obj *s)
+X_draw_obj(struct dm *dmp, struct bsg_node *s)
 {
     if (bu_list_len(&s->s_vlist)) {
 	if (s->s_os->s_dmode == 4)

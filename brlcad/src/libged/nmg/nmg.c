@@ -101,7 +101,7 @@ get_face_list( const struct model* m, struct bu_list* f_list )
 struct labelface_data {
     struct directory *dp;
     struct model *m;
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     mat_t mat;
     fastf_t scale;
     struct db_i *dbip;
@@ -109,7 +109,7 @@ struct labelface_data {
 };
 
 static int
-labelface_solid_cb(struct bv_scene_obj *s, void *userdata)
+labelface_solid_cb(struct bsg_node *s, void *userdata)
 {
     struct labelface_data *lfd = (struct labelface_data *)userdata;
 
@@ -129,7 +129,7 @@ ged_labelface_core(struct ged *gedp, int argc, const char *argv[])
     struct rt_db_internal internal;
     struct directory *dp;
     int i;
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     mat_t mat;
     fastf_t scale;
     struct model* m;

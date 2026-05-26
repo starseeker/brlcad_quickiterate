@@ -48,7 +48,7 @@ qged_host_view_name(QgPluginContext *ctx)
 {
     if (!ctx)
 	return QStringLiteral("Unavailable");
-    struct bview *view = ctx->getView();
+    struct bsg_view *view = ctx->getView();
     if (!view)
 	return QStringLiteral("No active view");
     if (!bu_vls_strlen(&view->gv_name))

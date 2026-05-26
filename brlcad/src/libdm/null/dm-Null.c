@@ -193,7 +193,7 @@ null_drawVListHiddenLine(struct dm *UNUSED(dmp), bsg_vlist *UNUSED(vp))
 
 
 int
-null_draw_obj(struct dm *UNUSED(dmp), struct bv_scene_obj *UNUSED(s)) {
+null_draw_obj(struct dm *UNUSED(dmp), struct bsg_node *UNUSED(s)) {
     return 0;
 }
 

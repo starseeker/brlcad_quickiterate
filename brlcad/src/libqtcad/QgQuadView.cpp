@@ -283,7 +283,7 @@ QgQuadView::changeToQuadFrame()
 		QgQuadView *qv;
 	} quad_ctx;
 	quad_ctx.qv = this;
-	auto _quad_draw_cb = [](struct bv_scene_obj *so, void *udata) -> int {
+	auto _quad_draw_cb = [](struct bsg_node *so, void *udata) -> int {
 		QgQuadView *qv = ((decltype(quad_ctx) *)udata)->qv;
 		for (int j = UPPER_RIGHT_QUADRANT + 1; j < LOWER_RIGHT_QUADRANT + 1; j++)
 		{
@@ -358,7 +358,7 @@ QgQuadView::default_views(int all_views)
 	}
 }
 
-struct bview *
+struct bsg_view *
 QgQuadView::view(int quadrantId)
 {
 	if (quadrantId > LOWER_RIGHT_QUADRANT || quadrantId < UPPER_RIGHT_QUADRANT) quadrantId = UPPER_RIGHT_QUADRANT;

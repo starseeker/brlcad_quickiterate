@@ -20,7 +20,7 @@
 /** @file libbsg/util.c
  *
  * BSG lifecycle API bridge for scene objects.  The implementation delegates to
- * the existing libbv storage routines until bview storage ownership is fully
+ * the existing libbv storage routines until bsg_view storage ownership is fully
  * moved into libbsg.
  */
 
@@ -37,28 +37,28 @@ extern void bv_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const st
 
 
 void
-bsg_view_init(struct bview *v, struct bview_set *s)
+bsg_view_init(struct bsg_view *v, struct bsg_view_set *s)
 {
     bv_init(v, s);
 }
 
 
 void
-bsg_view_free(struct bview *v)
+bsg_view_free(struct bsg_view *v)
 {
     bv_free(v);
 }
 
 
 bsg_node *
-bsg_obj_create(struct bview *v, int type)
+bsg_obj_create(struct bsg_view *v, int type)
 {
     return (bsg_node *)bv_obj_create(v, type);
 }
 
 
 bsg_node *
-bsg_obj_get_unregistered(struct bview *v, int type)
+bsg_obj_get_unregistered(struct bsg_view *v, int type)
 {
     return (bsg_node *)bv_obj_get_unregistered(v, type);
 }
@@ -67,21 +67,21 @@ bsg_obj_get_unregistered(struct bview *v, int type)
 void
 bsg_obj_put(bsg_node *obj)
 {
-    bv_obj_put((struct bv_scene_obj *)obj);
+    bv_obj_put((struct bsg_node *)obj);
 }
 
 
 void
 bsg_scene_obj_release_backend(bsg_node *obj)
 {
-    bv_scene_obj_release_backend((struct bv_scene_obj *)obj);
+    bv_scene_obj_release_backend((struct bsg_node *)obj);
 }
 
 
 void
 bsg_scene_obj_invalidate_backend(bsg_node *obj)
 {
-    bv_scene_obj_invalidate_backend((struct bv_scene_obj *)obj);
+    bv_scene_obj_invalidate_backend((struct bsg_node *)obj);
 }
 
 
@@ -93,7 +93,7 @@ bsg_vlist_copy(struct bu_list *vlists, struct bu_list *dest, const struct bu_lis
 
 
 struct bu_ptbl *
-bsg_set_views(struct bview_set *s)
+bsg_set_views(struct bsg_view_set *s)
 {
     return bv_set_views(s);
 }

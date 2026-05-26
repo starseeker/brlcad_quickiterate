@@ -144,12 +144,12 @@ _resolve_geom_spec(ged_edit_geom_spec &spec, const char *token,
  * ================================================================== */
 
 /**
- * Initialise a minimal stack-allocated bview for scripted (CLI) rt_edit
+ * Initialise a minimal stack-allocated bsg_view for scripted (CLI) rt_edit
  * operations.  Only the fields accessed by edit_srot/edit_stra/edit_sscale
  * are set; nothing is heap-allocated so no cleanup is required.
  */
 static void
-_edit_cli_view_init(struct bview *v)
+_edit_cli_view_init(struct bsg_view *v)
 {
     memset(v, 0, sizeof(*v));
     v->magic            = BV_MAGIC;
@@ -198,7 +198,7 @@ _edit_get_obj_keypoint(point_t *kp, const char *name, struct ged *gedp)
  *
  *   1. If dp already has a live buffer entry (from a previous -i operation),
  *      reuse it; otherwise create a fresh rt_edit from the on-disk geometry.
- *   2. Install a minimal CLI bview so edit_srot() resolves its rotate-about
+ *   2. Install a minimal CLI bsg_view so edit_srot() resolves its rotate-about
  *      axis without dereferencing a null vp.
  *   3. Run do_edit(s); return early on error.
  *   4. flag_i == 0 (normal): promote es_int to disk and clear buffer entry.
@@ -243,10 +243,10 @@ _edit_xform_apply(struct ged *gedp,
 	s->tol = &tol;
     }
 
-    /* Temporarily install a minimal CLI bview (stack-allocated) */
-    struct bview cli_v;
+    /* Temporarily install a minimal CLI bsg_view (stack-allocated) */
+    struct bsg_view cli_v;
     _edit_cli_view_init(&cli_v);
-    struct bview *saved_vp = s->vp;
+    struct bsg_view *saved_vp = s->vp;
     s->vp = &cli_v;
 
     int ret = do_edit(s);

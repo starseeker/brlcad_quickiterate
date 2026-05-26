@@ -140,24 +140,24 @@ f_copy_inv(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 
 struct _fswp_data {
     struct db_full_path *pathp;
-    struct bv_scene_obj *ret;
+    struct bsg_node *ret;
     int count;
 };
 
 static int
 _find_solid_with_path_cb(bsg_node *n, void *ud)
 {
-    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct bsg_node *sp = (struct bsg_node *)n;
     struct _fswp_data *d = (struct _fswp_data *)ud;
     if (!sp->s_u_data) return 1;
     struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
     if (!db_identical_full_paths(d->pathp, &bdata->s_fullpath)) return 1;
     /* Walk up to the root child (depth-1 group) */
     {
-	struct bv_scene_obj *_g = (struct bv_scene_obj *)sp->parent;
+	struct bsg_node *_g = (struct bsg_node *)sp->parent;
 	while (_g && _g->parent &&
-	       ((struct bv_scene_obj *)_g->parent)->parent != NULL)
-	    _g = (struct bv_scene_obj *)_g->parent;
+	       ((struct bsg_node *)_g->parent)->parent != NULL)
+	    _g = (struct bsg_node *)_g->parent;
 	illum_gdlp = _g;
     }
     d->ret = sp;
@@ -165,7 +165,7 @@ _find_solid_with_path_cb(bsg_node *n, void *ud)
     return 1; /* keep scanning for duplicates */
 }
 
-struct bv_scene_obj *
+struct bsg_node *
 find_solid_with_path(struct mged_state *s, struct db_full_path *pathp)
 {
     RT_CK_FULL_PATH(pathp);

@@ -53,7 +53,7 @@
  * The closing segment of the active contour is omitted when a contour-mode
  * build is in progress (gdps_cflag != 0). */
 static void
-_sync_tcl_polygons_to_bsg(struct bview *v, bv_data_polygon_state *gdpsp, const char *bsg_name)
+_sync_tcl_polygons_to_bsg(struct bsg_view *v, bsg_data_polygon_state *gdpsp, const char *bsg_name)
 {
     if (!v || !gdpsp || !bsg_name)
 	return;
@@ -63,7 +63,7 @@ _sync_tcl_polygons_to_bsg(struct bview *v, bv_data_polygon_state *gdpsp, const c
     if (!gdpsp->gdps_draw || gdpsp->gdps_polygons.num_polygons < 1)
 	return;
 
-    struct bv_scene_obj *s = bv_view_obj_lines_create(v, bsg_name, 1 /* local */);
+    struct bsg_node *s = bv_view_obj_lines_create(v, bsg_name, 1 /* local */);
     if (!s)
 	return;
 
@@ -96,7 +96,7 @@ _sync_tcl_polygons_to_bsg(struct bview *v, bv_data_polygon_state *gdpsp, const c
 }
 
 static int
-to_extract_contours_av(Tcl_Interp *interp, struct ged *gedp, struct bview *gdvp, struct bg_polygon *gpp, size_t contour_ac, const char **contour_av, int mode, int vflag)
+to_extract_contours_av(Tcl_Interp *interp, struct ged *gedp, struct bsg_view *gdvp, struct bg_polygon *gpp, size_t contour_ac, const char **contour_av, int mode, int vflag)
 {
     register size_t j = 0, k = 0;
 
@@ -167,7 +167,7 @@ to_extract_contours_av(Tcl_Interp *interp, struct ged *gedp, struct bview *gdvp,
 
 
 static int
-to_extract_polygons_av(Tcl_Interp *interp, struct ged *gedp, struct bview *gdvp, bv_data_polygon_state *gdpsp, size_t polygon_ac, const char **polygon_av, int mode, int vflag)
+to_extract_polygons_av(Tcl_Interp *interp, struct ged *gedp, struct bsg_view *gdvp, bsg_data_polygon_state *gdpsp, size_t polygon_ac, const char **polygon_av, int mode, int vflag)
 {
     register size_t i;
     int ac;
@@ -207,11 +207,11 @@ to_extract_polygons_av(Tcl_Interp *interp, struct ged *gedp, struct bview *gdvp,
 int
 to_data_polygons_func(Tcl_Interp *interp,
 		      struct ged *gedp,
-		      struct bview *gdvp,
+		      struct bsg_view *gdvp,
 		      int argc,
 		      const char *argv[])
 {
-    bv_data_polygon_state *gdpsp;
+    bsg_data_polygon_state *gdpsp;
     const char *bsg_name;
 
     if (argv[0][0] == 's') {
@@ -1067,7 +1067,7 @@ bad:
 int
 go_data_polygons(Tcl_Interp *interp,
 		 struct ged *gedp,
-		 struct bview *gdvp,
+		 struct bsg_view *gdvp,
 		 int argc,
 		 const char *argv[],
 		 const char *usage)
@@ -1110,7 +1110,7 @@ to_data_polygons(struct ged *gedp,
 		 const char *usage,
 		 int UNUSED(maxargs))
 {
-    struct bview *gdvp;
+    struct bsg_view *gdvp;
     int ret;
 
     /* initialize result */
@@ -1148,7 +1148,7 @@ to_data_polygons(struct ged *gedp,
 int
 go_poly_circ_mode(Tcl_Interp *interp,
 		  struct ged *gedp,
-		  struct bview *gdvp,
+		  struct bsg_view *gdvp,
 		  int argc,
 		  const char *argv[],
 		  const char *usage)
@@ -1185,7 +1185,7 @@ to_poly_circ_mode(struct ged *gedp,
 		  const char *usage,
 		  int UNUSED(maxargs))
 {
-    struct bview *gdvp;
+    struct bsg_view *gdvp;
     struct bu_vls bindings = BU_VLS_INIT_ZERO;
     int ret;
 
@@ -1232,7 +1232,7 @@ to_poly_circ_mode(struct ged *gedp,
 int
 to_poly_circ_mode_func(Tcl_Interp *interp,
 		       struct ged *gedp,
-		       struct bview *gdvp,
+		       struct bsg_view *gdvp,
 		       int UNUSED(argc),
 		       const char *argv[],
 		       const char *usage)
@@ -1243,7 +1243,7 @@ to_poly_circ_mode_func(Tcl_Interp *interp,
     fastf_t fx, fy;
     point_t v_pt, m_pt;
     struct bu_vls plist = BU_VLS_INIT_ZERO;
-    bv_data_polygon_state *gdpsp;
+    bsg_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
 	gdpsp = &gdvp->gv_tcl->gv_sdata_polygons;
@@ -1307,7 +1307,7 @@ to_poly_circ_mode_func(Tcl_Interp *interp,
 static int
 to_poly_cont_build_func(Tcl_Interp *interp,
 			struct ged *gedp,
-			struct bview *gdvp,
+			struct bsg_view *gdvp,
 			int UNUSED(argc),
 			const char *argv[],
 			const char *usage,
@@ -1318,7 +1318,7 @@ to_poly_cont_build_func(Tcl_Interp *interp,
     int x, y;
     fastf_t fx, fy;
     point_t v_pt, m_pt;
-    bv_data_polygon_state *gdpsp;
+    bsg_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
 	gdpsp = &gdvp->gv_tcl->gv_sdata_polygons;
@@ -1425,7 +1425,7 @@ to_poly_cont_build_func(Tcl_Interp *interp,
 int
 go_poly_cont_build(Tcl_Interp *interp,
 		   struct ged *gedp,
-		   struct bview *gdvp,
+		   struct bsg_view *gdvp,
 		   int argc,
 		   const char *argv[],
 		   const char *usage)
@@ -1462,7 +1462,7 @@ to_poly_cont_build(struct ged *gedp,
 		   const char *usage,
 		   int UNUSED(maxargs))
 {
-    struct bview *gdvp;
+    struct bsg_view *gdvp;
     int ret;
 
     /* initialize result */
@@ -1505,7 +1505,7 @@ to_poly_cont_build(struct ged *gedp,
 int
 go_poly_cont_build_end(Tcl_Interp *UNUSED(interp),
 		       struct ged *gedp,
-		       struct bview *gdvp,
+		       struct bsg_view *gdvp,
 		       int argc,
 		       const char *argv[],
 		       const char *usage)
@@ -1536,7 +1536,7 @@ to_poly_cont_build_end(struct ged *gedp,
 		       const char *usage,
 		       int UNUSED(maxargs))
 {
-    struct bview *gdvp;
+    struct bsg_view *gdvp;
     int ret;
 
     /* initialize result */
@@ -1565,7 +1565,7 @@ to_poly_cont_build_end(struct ged *gedp,
 
     /* Phase T1: sync BSG after cflag reset (closing segment now rendered) */
     {
-	bv_data_polygon_state *gdpsp;
+	bsg_data_polygon_state *gdpsp;
 	const char *bsg_name;
 	if (argv[0][0] == 's') {
 	    gdpsp = &gdvp->gv_tcl->gv_sdata_polygons;
@@ -1582,7 +1582,7 @@ to_poly_cont_build_end(struct ged *gedp,
 
 
 int
-to_poly_cont_build_end_func(struct bview *gdvp,
+to_poly_cont_build_end_func(struct bsg_view *gdvp,
 			    int UNUSED(argc),
 			    const char *argv[])
 {
@@ -1598,7 +1598,7 @@ to_poly_cont_build_end_func(struct bview *gdvp,
 int
 go_poly_ell_mode(Tcl_Interp *interp,
 		 struct ged *gedp,
-		 struct bview *gdvp,
+		 struct bsg_view *gdvp,
 		 int argc,
 		 const char *argv[],
 		 const char *usage)
@@ -1635,7 +1635,7 @@ to_poly_ell_mode(struct ged *gedp,
 		 const char *usage,
 		 int UNUSED(maxargs))
 {
-    struct bview *gdvp;
+    struct bsg_view *gdvp;
     struct bu_vls bindings = BU_VLS_INIT_ZERO;
     int ret;
 
@@ -1682,7 +1682,7 @@ to_poly_ell_mode(struct ged *gedp,
 int
 to_poly_ell_mode_func(Tcl_Interp *interp,
 		      struct ged *gedp,
-		      struct bview *gdvp,
+		      struct bsg_view *gdvp,
 		      int UNUSED(argc),
 		      const char *argv[],
 		      const char *usage)
@@ -1693,7 +1693,7 @@ to_poly_ell_mode_func(Tcl_Interp *interp,
     fastf_t fx, fy;
     point_t v_pt, m_pt;
     struct bu_vls plist = BU_VLS_INIT_ZERO;
-    bv_data_polygon_state *gdpsp;
+    bsg_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
 	gdpsp = &gdvp->gv_tcl->gv_sdata_polygons;
@@ -1757,7 +1757,7 @@ to_poly_ell_mode_func(Tcl_Interp *interp,
 int
 go_poly_rect_mode(Tcl_Interp *interp,
 		  struct ged *gedp,
-		  struct bview *gdvp,
+		  struct bsg_view *gdvp,
 		  int argc,
 		  const char *argv[],
 		  const char *usage)
@@ -1794,7 +1794,7 @@ to_poly_rect_mode(struct ged *gedp,
 		  const char *usage,
 		  int UNUSED(maxargs))
 {
-    struct bview *gdvp;
+    struct bsg_view *gdvp;
     struct bu_vls bindings = BU_VLS_INIT_ZERO;
     int ret;
 
@@ -1841,7 +1841,7 @@ to_poly_rect_mode(struct ged *gedp,
 int
 to_poly_rect_mode_func(Tcl_Interp *interp,
 		       struct ged *gedp,
-		       struct bview *gdvp,
+		       struct bsg_view *gdvp,
 		       int argc,
 		       const char *argv[],
 		       const char *usage)
@@ -1853,7 +1853,7 @@ to_poly_rect_mode_func(Tcl_Interp *interp,
     fastf_t fx, fy;
     point_t v_pt, m_pt;
     struct bu_vls plist = BU_VLS_INIT_ZERO;
-    bv_data_polygon_state *gdpsp;
+    bsg_data_polygon_state *gdpsp;
 
     if (argv[0][0] == 's')
 	gdpsp = &gdvp->gv_tcl->gv_sdata_polygons;

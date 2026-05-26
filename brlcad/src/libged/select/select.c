@@ -123,7 +123,7 @@ struct select_data {
 };
 
 static int
-dl_select_cb(struct bv_scene_obj *sp, void *userdata)
+dl_select_cb(struct bsg_node *sp, void *userdata)
 {
     struct select_data *data = (struct select_data *)userdata;
 
@@ -254,7 +254,7 @@ dl_select(struct ged *gedp, mat_t model2view, struct bu_vls *vls, double vx, dou
 
 /* Callback for partial select - checks each vertex */
 static int
-dl_select_partial_cb(struct bv_scene_obj *sp, void *userdata)
+dl_select_partial_cb(struct bsg_node *sp, void *userdata)
 {
     struct select_data *data = (struct select_data *)userdata;
 

@@ -35,23 +35,23 @@ __BEGIN_DECLS
 
 struct ged_solid_data {
     struct ged *gedp;
-    struct bv_scene_obj *gdlp;
+    struct bsg_node *gdlp;
     int draw_solid_lines_only;
     int wireframe_color_override;
     int wireframe_color[3];
     fastf_t transparency;
     int dmode;
-    struct bview *v;
+    struct bsg_view *v;
 };
 
 struct _ged_client_data {
     uint32_t magic;  /* add this so a pointer to the struct and a pointer to any of its active elements will differ */
     struct ged *gedp;
     struct rt_wdb *wdbp;
-    struct bv_scene_obj *gdlp;
+    struct bsg_node *gdlp;
     int fastpath_count;			/* statistics */
-    struct bv_vlblock *draw_edge_uses_vbp;
-    struct bview *v;
+    struct bsg_vlblock *draw_edge_uses_vbp;
+    struct bsg_view *v;
 
     /* bigE related members */
     struct application *ap;
@@ -76,7 +76,7 @@ struct _ged_client_data {
     int draw_edge_uses;
     int do_not_draw_nmg_solids_during_debugging;
 
-    struct bv_obj_settings vs;
+    struct bsg_obj_settings vs;
 };
 
 struct ged_command_tab {

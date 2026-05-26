@@ -71,7 +71,7 @@ static int nfails  = 0;
 
 /* Count drawn groups via the public API. */
 static int
-_dl_count_cb(struct bv_scene_obj * /*g*/, void *ud)
+_dl_count_cb(struct bsg_node * /*g*/, void *ud)
 {
     int *n = (int *)ud;
     (*n)++;
@@ -235,7 +235,7 @@ main(int ac, char *av[])
     {
 	int all_up = 1;
 	struct iflag_check { int *ok; int target; } cu = { &all_up, UP };
-	auto cb = +[](struct bv_scene_obj *sp, void *ud) -> int {
+	auto cb = +[](struct bsg_node *sp, void *ud) -> int {
 	    struct iflag_check *c = (struct iflag_check *)ud;
 	    if (sp->s_iflag != c->target) *c->ok = 0;
 	    return 1;
@@ -247,7 +247,7 @@ main(int ac, char *av[])
     {
 	int all_down = 1;
 	struct iflag_check { int *ok; int target; } cd = { &all_down, DOWN };
-	auto cb = +[](struct bv_scene_obj *sp, void *ud) -> int {
+	auto cb = +[](struct bsg_node *sp, void *ud) -> int {
 	    struct iflag_check *c = (struct iflag_check *)ud;
 	    if (sp->s_iflag != c->target) *c->ok = 0;
 	    return 1;
@@ -284,11 +284,11 @@ main(int ac, char *av[])
 
 	/* The _overlays group must be present as a root child and be phony. */
 	{
-	    struct bv_scene_obj *root = bsg_view_obj_root(gedp);
-	    struct bv_scene_obj *overlays_grp = NULL;
+	    struct bsg_node *root = bsg_view_obj_root(gedp);
+	    struct bsg_node *overlays_grp = NULL;
 	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-		struct bv_scene_obj *g =
-		    (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+		struct bsg_node *g =
+		    (struct bsg_node *)BU_PTBL_GET(&root->children, i);
 		if (BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name))) {
 		    overlays_grp = g;
 		    break;
@@ -299,8 +299,8 @@ main(int ac, char *av[])
 
 	    /* The overlay shape must have BSG_PAYLOAD_OVERLAY set. */
 	    if (overlays_grp && BU_PTBL_LEN(&overlays_grp->children) > 0) {
-		struct bv_scene_obj *sp =
-		    (struct bv_scene_obj *)BU_PTBL_GET(&overlays_grp->children, 0);
+		struct bsg_node *sp =
+		    (struct bsg_node *)BU_PTBL_GET(&overlays_grp->children, 0);
 		ASSERT(sp->s_type_flags & BSG_PAYLOAD_OVERLAY);
 		/* No phony db entry should exist for this name. */
 		ASSERT(db_lookup(gedp->dbip, "_bsg_test_phony", LOOKUP_QUIET)
@@ -379,8 +379,8 @@ main(int ac, char *av[])
 	ASSERT(count > 0);
 
 	/* solid_at(0) must be non-NULL and equal to first_solid. */
-	struct bv_scene_obj *first = bsg_view_obj_first_solid(gedp);
-	struct bv_scene_obj *at0 = bsg_view_obj_solid_at(gedp, 0);
+	struct bsg_node *first = bsg_view_obj_first_solid(gedp);
+	struct bsg_node *at0 = bsg_view_obj_solid_at(gedp, 0);
 	ASSERT(at0 != NULL);
 	ASSERT(at0 == first);
 
@@ -389,17 +389,17 @@ main(int ac, char *av[])
 	ASSERT(idx_first == 0);
 
 	/* last solid: solid_at(-1) should wrap to count-1. */
-	struct bv_scene_obj *last = bsg_view_obj_solid_at(gedp, -1);
+	struct bsg_node *last = bsg_view_obj_solid_at(gedp, -1);
 	ASSERT(last != NULL);
 	int idx_last = bsg_view_obj_solid_index(gedp, last);
 	ASSERT(idx_last == count - 1);
 
 	/* advance_solid wraps correctly: last+1 == first. */
-	struct bv_scene_obj *wrap_fwd = bsg_view_obj_advance_solid(gedp, last, 1);
+	struct bsg_node *wrap_fwd = bsg_view_obj_advance_solid(gedp, last, 1);
 	ASSERT(wrap_fwd == first);
 
 	/* advance_solid backward: first-1 == last. */
-	struct bv_scene_obj *wrap_bwd = bsg_view_obj_advance_solid(gedp, first, -1);
+	struct bsg_node *wrap_bwd = bsg_view_obj_advance_solid(gedp, first, -1);
 	ASSERT(wrap_bwd == last);
 
 	/* Non-drawn pointer returns -1 from solid_index. */
@@ -500,15 +500,15 @@ main(int ac, char *av[])
 	    ged_exec(gedp, 2, s_av);
 	}
 
-	struct bv_scene_obj *root = bsg_view_obj_root(gedp);
+	struct bsg_node *root = bsg_view_obj_root(gedp);
 	ASSERT(root != NULL);
 
 	/* Root should have exactly one non-_overlays child after drawing "all.g" */
 	int real_groups = 0;
-	struct bv_scene_obj *all_g_group = NULL;
+	struct bsg_node *all_g_group = NULL;
 	for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-	    struct bv_scene_obj *g =
-		(struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+	    struct bsg_node *g =
+		(struct bsg_node *)BU_PTBL_GET(&root->children, i);
 	    if (!BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name))) {
 		real_groups++;
 		if (!all_g_group)
@@ -525,8 +525,8 @@ main(int ac, char *av[])
 	 * multi-level hierarchy in moss.g */
 	int has_subgroup = 0;
 	for (size_t i = 0; i < BU_PTBL_LEN(&all_g_group->children); i++) {
-	    struct bv_scene_obj *c =
-		(struct bv_scene_obj *)BU_PTBL_GET(&all_g_group->children, i);
+	    struct bsg_node *c =
+		(struct bsg_node *)BU_PTBL_GET(&all_g_group->children, i);
 	    if (c->s_type_flags & BSG_NODE_GROUP) {
 		has_subgroup = 1;
 		break;
@@ -536,11 +536,11 @@ main(int ac, char *av[])
 
 	/* group_first_solid and group_last_solid must return SHAPE nodes
 	 * (not GROUP nodes) even when children include sub-groups */
-	struct bv_scene_obj *fs = bsg_view_obj_group_first_solid(all_g_group);
+	struct bsg_node *fs = bsg_view_obj_group_first_solid(all_g_group);
 	ASSERT(fs != NULL);
 	ASSERT((fs->s_type_flags & BSG_NODE_SHAPE) != 0);
 
-	struct bv_scene_obj *ls = bsg_view_obj_group_last_solid(all_g_group);
+	struct bsg_node *ls = bsg_view_obj_group_last_solid(all_g_group);
 	ASSERT(ls != NULL);
 	ASSERT((ls->s_type_flags & BSG_NODE_SHAPE) != 0);
 
@@ -583,7 +583,7 @@ main(int ac, char *av[])
 	ASSERT(bsg_view_obj_get_illum(gedp) == NULL);
 
 	/* Illuminate the first solid. */
-	struct bv_scene_obj *s0 = bsg_view_obj_solid_at(gedp, 0);
+	struct bsg_node *s0 = bsg_view_obj_solid_at(gedp, 0);
 	ASSERT(s0 != NULL);
 	bsg_view_obj_set_illum(gedp, s0);
 
@@ -598,7 +598,7 @@ main(int ac, char *av[])
 
 	/* set_illum(s0) then set_illum(s1) clears s0 and illuminates s1. */
 	if (ns >= 2) {
-	    struct bv_scene_obj *s1 = bsg_view_obj_solid_at(gedp, 1);
+	    struct bsg_node *s1 = bsg_view_obj_solid_at(gedp, 1);
 	    ASSERT(s1 != NULL);
 	    bsg_view_obj_set_illum(gedp, s0);
 	    ASSERT(s0->s_iflag == UP);
@@ -681,7 +681,7 @@ main(int ac, char *av[])
 	    ged_exec(gedp, 2, dav);
 	}
 
-	struct bview *v = gedp->ged_gvp;
+	struct bsg_view *v = gedp->ged_gvp;
 	ASSERT(v != NULL);
 
 	/* gv_draw_root must be set now (registered by _sg_root via ensure_root) */
@@ -697,15 +697,15 @@ main(int ac, char *av[])
 	ASSERT(draw_root != NULL);
 
 	/* The draw root must have at least one child group (from the draw) */
-	struct bv_scene_obj *dr = (struct bv_scene_obj *)draw_root;
+	struct bsg_node *dr = (struct bsg_node *)draw_root;
 	ASSERT(BU_PTBL_LEN(&dr->children) > 0);
 
 	/* bsg_draw_tree_depth of the draw root should be 0 (no parent). */
 	ASSERT(bsg_draw_tree_depth(draw_root) == 0);
 
 	/* A child's depth should be 1. */
-	struct bv_scene_obj *first_child =
-	    (struct bv_scene_obj *)BU_PTBL_GET(&dr->children, 0);
+	struct bsg_node *first_child =
+	    (struct bsg_node *)BU_PTBL_GET(&dr->children, 0);
 	ASSERT(first_child != NULL);
 	if ((first_child->s_type_flags & BSG_NODE_GROUP) ||
 	    (first_child->s_type_flags & BSG_NODE_SHAPE)) {
@@ -715,7 +715,7 @@ main(int ac, char *av[])
 	/* Phase F: bsg_root == gv_draw_root, so bsg_root->children IS
 	 * gv_draw_root->children.  bsg_scene_root_sync is a no-op but the
 	 * children match trivially since they are the same ptbl. */
-	struct bv_scene_obj *bsg_r = (struct bv_scene_obj *)v->bsg_root;
+	struct bsg_node *bsg_r = (struct bsg_node *)v->bsg_root;
 	ASSERT(bsg_r == dr);  /* same pointer — trivially true */
 	ASSERT(BU_PTBL_LEN(&bsg_r->children) ==
 	       BU_PTBL_LEN(&dr->children));
@@ -762,7 +762,7 @@ main(int ac, char *av[])
 	    ged_exec(gedp, 2, dav);
 	}
 
-	struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+	struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
 	ASSERT(root != NULL);
 
 	/* First query: cache is cold, must compute. */
@@ -808,7 +808,7 @@ main(int ac, char *av[])
     /* ---------------------------------------------------------------- *
      * [13] Phase 9.2 (B5): gv_frame_rev / s_drawn_rev generation.       *
      *      Verify that the per-shape drawn-this-frame stamp is wired    *
-     *      and matches the bview's frame-revision counter.              *
+     *      and matches the bsg_view's frame-revision counter.              *
      * ---------------------------------------------------------------- */
     {
 	bu_log("[13] Phase 9.2: gv_frame_rev / s_drawn_rev...\n");
@@ -820,7 +820,7 @@ main(int ac, char *av[])
 	}
 
 	/* Initial gv_frame_rev is 0; nothing has been drawn yet. */
-	struct bview *v = gedp->ged_gvp;
+	struct bsg_view *v = gedp->ged_gvp;
 	ASSERT(v != NULL);
 	ASSERT(v->gv_frame_rev == 0);
 
@@ -834,7 +834,7 @@ main(int ac, char *av[])
 	 * exercise the bookkeeping directly so the test runs without a
 	 * display manager (the off-screen swrast path is exercised by
 	 * ged_test_mged_shaded_mode_bsg). */
-	struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+	struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
 	ASSERT(root != NULL);
 
 	/* Bump frame, stamp every drawn shape's s_drawn_rev to match. */
@@ -845,7 +845,7 @@ main(int ac, char *av[])
 	    struct _stamp_ctx { uint64_t r; } ctx = { this_frame };
 	    auto stamp_cb = [](bsg_node *n, void *ud) -> int {
 		struct _stamp_ctx *c = (struct _stamp_ctx *)ud;
-		struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+		struct bsg_node *sp = (struct bsg_node *)n;
 		if (sp) sp->s_drawn_rev = c->r;
 		return 1;
 	    };
@@ -858,7 +858,7 @@ main(int ac, char *av[])
 	    struct _count_ctx { uint64_t r; int *n; } ctx = { this_frame, &counted };
 	    auto count_cb = [](bsg_node *n, void *ud) -> int {
 		struct _count_ctx *c = (struct _count_ctx *)ud;
-		struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+		struct bsg_node *sp = (struct bsg_node *)n;
 		if (sp && sp->s_drawn_rev == c->r) (*c->n)++;
 		return 1;
 	    };
@@ -876,7 +876,7 @@ main(int ac, char *av[])
 	    struct _count_ctx { uint64_t r; int *n; } ctx = { next_frame, &recounted };
 	    auto count_cb = [](bsg_node *n, void *ud) -> int {
 		struct _count_ctx *c = (struct _count_ctx *)ud;
-		struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+		struct bsg_node *sp = (struct bsg_node *)n;
 		if (sp && sp->s_drawn_rev == c->r) (*c->n)++;
 		return 1;
 	    };
@@ -910,9 +910,9 @@ main(int ac, char *av[])
 	}
 
 	/* Locate a shape under the draw root. */
-	struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+	struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
 	ASSERT(root != NULL);
-	struct bv_scene_obj *target = bsg_view_obj_first_solid(gedp);
+	struct bsg_node *target = bsg_view_obj_first_solid(gedp);
 	ASSERT(target != NULL);
 
 	/* Snapshot the current highlight rev. */
@@ -933,7 +933,7 @@ main(int ac, char *av[])
 	ASSERT(r2 > r1);
 
 	/* Touching a field on a non-illuminated node does NOT bump. */
-	struct bv_scene_obj *other = bsg_view_obj_next_solid(gedp, target);
+	struct bsg_node *other = bsg_view_obj_next_solid(gedp, target);
 	if (other && other != target) {
 	    bsg_node_field_touch((bsg_node *)other, BSG_FIELD_FLAG);
 	    uint64_t r3 = bsg_view_obj_illum_rev(gedp);
@@ -978,7 +978,7 @@ main(int ac, char *av[])
 	ASSERT(db_string_to_path(&dfp, gedp->dbip, "all.g") == 0);
 
 	/* lookup_or_add via dbpath. */
-	struct bv_scene_obj *g = bsg_view_obj_lookup_or_add_dbpath(gedp, &dfp);
+	struct bsg_node *g = bsg_view_obj_lookup_or_add_dbpath(gedp, &dfp);
 	ASSERT(g != NULL);
 	ASSERT(dl_count(gedp) == 1);
 
@@ -1017,7 +1017,7 @@ main(int ac, char *av[])
 	struct phase11_state {
 	    int free_calls;
 	    int invalidate_calls;
-	    struct bv_scene_obj *last_obj;
+	    struct bsg_node *last_obj;
 	} st;
 	memset(&st, 0, sizeof(st));
 
@@ -1030,20 +1030,20 @@ main(int ac, char *av[])
 	    const char *dav[3] = {"draw", "all.g", NULL};
 	    ged_exec(gedp, 2, dav);
 	}
-	struct bv_scene_obj *target = bsg_view_obj_first_solid(gedp);
+	struct bsg_node *target = bsg_view_obj_first_solid(gedp);
 	ASSERT(target != NULL);
 
 	/* Stub backend free / invalidate.  These match the
-	 * struct bv_obj_backend signature in include/bv/defines.h. */
+	 * struct bsg_backend signature in include/bv/defines.h. */
 	struct phase11_helpers {
-	    static void backend_free(struct bv_scene_obj *s) {
+	    static void backend_free(struct bsg_node *s) {
 		struct phase11_state *p = (struct phase11_state *)
 		    s->s_backend->handle;
 		p->free_calls++;
 		p->last_obj = s;
-		BU_PUT(s->s_backend, struct bv_obj_backend);
+		BU_PUT(s->s_backend, struct bsg_backend);
 	    }
-	    static void backend_invalidate(struct bv_scene_obj *s) {
+	    static void backend_invalidate(struct bsg_node *s) {
 		struct phase11_state *p = (struct phase11_state *)
 		    s->s_backend->handle;
 		p->invalidate_calls++;
@@ -1052,8 +1052,8 @@ main(int ac, char *av[])
 	};
 
 	/* Attach a backend descriptor to the target shape. */
-	struct bv_obj_backend *be;
-	BU_GET(be, struct bv_obj_backend);
+	struct bsg_backend *be;
+	BU_GET(be, struct bsg_backend);
 	be->type_tag   = BV_BACKEND_GL;  /* any tag works for the stub */
 	be->handle     = &st;
 	be->free       = phase11_helpers::backend_free;
@@ -1079,7 +1079,7 @@ main(int ac, char *av[])
 
 	/* Sub-test 4: release_backend on an object with no backend slot
 	 * is a safe no-op. */
-	struct bv_scene_obj *bare = bsg_view_obj_next_solid(gedp, target);
+	struct bsg_node *bare = bsg_view_obj_next_solid(gedp, target);
 	if (bare && bare != target) {
 	    bare->s_backend = NULL;
 	    bv_scene_obj_release_backend(bare);
@@ -1107,14 +1107,14 @@ main(int ac, char *av[])
     {
 	bu_log("[17] Phase L0: BSG_NODE_LOD node lifecycle...\n");
 
-	struct bview *lv = gedp->ged_gvp;
+	struct bsg_view *lv = gedp->ged_gvp;
 	ASSERT(lv != NULL);
 
 	/* Create a BSG_NODE_LOD node. */
 	bsg_node *lod = bsg_lod_node_create(lv);
 	ASSERT(lod != NULL);
 	{
-	    struct bv_scene_obj *n = (struct bv_scene_obj *)lod;
+	    struct bsg_node *n = (struct bsg_node *)lod;
 	    ASSERT((n->s_type_flags & BSG_NODE_LOD) != 0);
 	    ASSERT(n->s_i_data != NULL);
 	}
@@ -1149,24 +1149,24 @@ main(int ac, char *av[])
 	st17.stale_val  = 1;
 	st17.select_val = 0;
 
-	auto lod17_select = [](bsg_node *node, struct bview */*v*/) -> int {
+	auto lod17_select = [](bsg_node *node, struct bsg_view */*v*/) -> int {
 	    auto *pl = (struct bsg_lod_payload *)
-		((struct bv_scene_obj *)node)->s_i_data;
+		((struct bsg_node *)node)->s_i_data;
 	    auto *st = (struct _lod17_state *)pl->user_data;
 	    st->select_calls++;
 	    return st->select_val;
 	};
-	auto lod17_activate = [](bsg_node *node, struct bview *v, int level) {
+	auto lod17_activate = [](bsg_node *node, struct bsg_view *v, int level) {
 	    auto *pl = (struct bsg_lod_payload *)
-		((struct bv_scene_obj *)node)->s_i_data;
+		((struct bsg_node *)node)->s_i_data;
 	    auto *st = (struct _lod17_state *)pl->user_data;
 	    st->activate_calls++;
 	    auto *cur = bsg_lod_node_get_cursor(node, v);
 	    if (cur) cur->level = level;
 	};
-	auto lod17_stale = [](bsg_node *node, struct bview */*v*/) -> int {
+	auto lod17_stale = [](bsg_node *node, struct bsg_view */*v*/) -> int {
 	    auto *pl = (struct bsg_lod_payload *)
-		((struct bv_scene_obj *)node)->s_i_data;
+		((struct bsg_node *)node)->s_i_data;
 	    auto *st = (struct _lod17_state *)pl->user_data;
 	    return st->stale_val;
 	};
@@ -1191,7 +1191,7 @@ main(int ac, char *av[])
 	/* Simulate bsg_lod_update round 1: stale → select 0 → activate 0. */
 	{
 	    auto *pl = (struct bsg_lod_payload *)
-		((struct bv_scene_obj *)lod)->s_i_data;
+		((struct bsg_node *)lod)->s_i_data;
 	    if (pl->ops->is_stale(lod, lv)) {
 		int lvl_idx = pl->ops->select_level(lod, lv);
 		pl->ops->activate_level(lod, lv, lvl_idx);
@@ -1205,7 +1205,7 @@ main(int ac, char *av[])
 	st17.select_val = 1;
 	{
 	    auto *pl = (struct bsg_lod_payload *)
-		((struct bv_scene_obj *)lod)->s_i_data;
+		((struct bsg_node *)lod)->s_i_data;
 	    if (pl->ops->is_stale(lod, lv)) {
 		int lvl_idx = pl->ops->select_level(lod, lv);
 		pl->ops->activate_level(lod, lv, lvl_idx);
@@ -1219,7 +1219,7 @@ main(int ac, char *av[])
 	st17.stale_val = 0;
 	{
 	    auto *pl = (struct bsg_lod_payload *)
-		((struct bv_scene_obj *)lod)->s_i_data;
+		((struct bsg_node *)lod)->s_i_data;
 	    if (pl->ops->is_stale(lod, lv)) {
 		int lvl_idx = pl->ops->select_level(lod, lv);
 		pl->ops->activate_level(lod, lv, lvl_idx);
@@ -1232,7 +1232,7 @@ main(int ac, char *av[])
 	/* Cleanup: fire free callback manually (simulates node destruction).
 	 * Do NOT set ops->free since user_data lives on our stack. */
 	ops17.free = NULL;
-	struct bv_scene_obj *lod_raw = (struct bv_scene_obj *)lod;
+	struct bsg_node *lod_raw = (struct bsg_node *)lod;
 	if (lod_raw->s_free_callback)
 	    lod_raw->s_free_callback(lod_raw);
 	ASSERT(lod_raw->s_i_data == NULL);

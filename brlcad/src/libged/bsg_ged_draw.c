@@ -30,7 +30,7 @@
  *          ├─ parent  = draw root (or containing sub-group)
  *          └─ children: sub-groups (BSG_NODE_GROUP) or shapes (BSG_NODE_SHAPE)
  *               │  s_name = path component, parent = containing group
- *               └─ BSG_NODE_SHAPE bv_scene_obj leaves
+ *               └─ BSG_NODE_SHAPE bsg_node leaves
  *                    └─ parent = containing sub-group
  *
  * Group nodes are allocated via bv_obj_create(v, BV_CHILD_OBJS) so
@@ -82,30 +82,30 @@
  * a struct ged * pointer.
  */
 static void
-_sg_bump_rev_node(struct bv_scene_obj *n)
+_sg_bump_rev_node(struct bsg_node *n)
 {
     bsg_bump_rev_node((bsg_node *)n);
 }
 
 /* defined in draw_calc.cpp */
 extern fastf_t brep_est_avg_curve_len(struct rt_brep_internal *bi);
-extern void createDListSolid(struct bv_scene_obj *sp);
-extern int csg_wireframe_update(struct bv_scene_obj *vo, struct bview *v, int flag);
+extern void createDListSolid(struct bsg_node *sp);
+extern int csg_wireframe_update(struct bsg_node *vo, struct bsg_view *v, int flag);
 
 struct ged_lod_vstate {
-    struct bview *v;
+    struct bsg_view *v;
     int adaptive_on;
 };
 
 struct ged_lod_state {
-    struct bv_scene_obj *s;
+    struct bsg_node *s;
     struct ged_lod_vstate *vstates;
     size_t vcnt;
     size_t vcap;
 };
 
 static int
-_lod_state_adaptive_index(struct ged_lod_state *st, struct bview *v, size_t *idx)
+_lod_state_adaptive_index(struct ged_lod_state *st, struct bsg_view *v, size_t *idx)
 {
     if (!st || !v || !idx)
 	return 0;
@@ -122,7 +122,7 @@ _lod_state_adaptive_index(struct ged_lod_state *st, struct bview *v, size_t *idx
 }
 
 static int
-_lod_state_adaptive_get(struct ged_lod_state *st, struct bview *v, int *known)
+_lod_state_adaptive_get(struct ged_lod_state *st, struct bsg_view *v, int *known)
 {
     if (known)
 	*known = 0;
@@ -139,7 +139,7 @@ _lod_state_adaptive_get(struct ged_lod_state *st, struct bview *v, int *known)
 }
 
 static void
-_lod_state_adaptive_set(struct ged_lod_state *st, struct bview *v, int adaptive_on)
+_lod_state_adaptive_set(struct ged_lod_state *st, struct bsg_view *v, int adaptive_on)
 {
     if (!st || !v)
 	return;
@@ -165,9 +165,9 @@ _lod_state_adaptive_set(struct ged_lod_state *st, struct bview *v, int adaptive_
 }
 
 static int
-_mesh_lod_select_level(bsg_node *node, struct bview *v)
+_mesh_lod_select_level(bsg_node *node, struct bsg_view *v)
 {
-    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bv_scene_obj *)node)->s_i_data;
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bsg_node *)node)->s_i_data;
     if (!pl || !pl->user_data || !v)
 	return 0;
     struct ged_lod_state *st = (struct ged_lod_state *)pl->user_data;
@@ -178,7 +178,7 @@ _mesh_lod_select_level(bsg_node *node, struct bview *v)
 }
 
 static void
-_lod_activate_level(bsg_node *node, struct bview *v, int level)
+_lod_activate_level(bsg_node *node, struct bsg_view *v, int level)
 {
     struct bsg_lod_view_cursor *c = bsg_lod_node_get_cursor(node, v);
     if (!c || !v)
@@ -190,7 +190,7 @@ _lod_activate_level(bsg_node *node, struct bview *v, int level)
 }
 
 static int
-_lod_is_stale(bsg_node *node, struct bview *v)
+_lod_is_stale(bsg_node *node, struct bsg_view *v)
 {
     struct bsg_lod_view_cursor *c = bsg_lod_node_get_cursor(node, v);
     if (!c || !v)
@@ -207,7 +207,7 @@ _lod_is_stale(bsg_node *node, struct bview *v)
 static void
 _lod_state_free(bsg_node *node, const char *alloc_label)
 {
-    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bv_scene_obj *)node)->s_i_data;
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bsg_node *)node)->s_i_data;
     if (!pl || !pl->user_data)
 	return;
     struct ged_lod_state *st = (struct ged_lod_state *)pl->user_data;
@@ -230,9 +230,9 @@ static struct bsg_lod_ops _mesh_lod_ops = {
 };
 
 static int
-_csg_lod_select_level(bsg_node *node, struct bview *v)
+_csg_lod_select_level(bsg_node *node, struct bsg_view *v)
 {
-    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bv_scene_obj *)node)->s_i_data;
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bsg_node *)node)->s_i_data;
     if (!pl || !pl->user_data || !v)
 	return 0;
     struct ged_lod_state *st = (struct ged_lod_state *)pl->user_data;
@@ -256,7 +256,7 @@ static struct bsg_lod_ops _csg_lod_ops = {
 };
 
 int
-ged_lod_install_mesh_ops(struct bv_scene_obj *lod, struct bv_scene_obj *s)
+ged_lod_install_mesh_ops(struct bsg_node *lod, struct bsg_node *s)
 {
     if (!lod || !s)
 	return -1;
@@ -271,7 +271,7 @@ ged_lod_install_mesh_ops(struct bv_scene_obj *lod, struct bv_scene_obj *s)
 }
 
 int
-ged_lod_install_csg_ops(struct bv_scene_obj *lod, struct bv_scene_obj *s)
+ged_lod_install_csg_ops(struct bsg_node *lod, struct bsg_node *s)
 {
     if (!lod || !s)
 	return -1;
@@ -286,7 +286,7 @@ ged_lod_install_csg_ops(struct bv_scene_obj *lod, struct bv_scene_obj *s)
 }
 
 int
-ged_lod_adaptive_toggle_sync(struct bv_scene_obj *lod, struct bview *v, int adaptive_on)
+ged_lod_adaptive_toggle_sync(struct bsg_node *lod, struct bsg_view *v, int adaptive_on)
 {
     if (!lod || !v || !(lod->s_type_flags & BSG_NODE_LOD))
 	return 0;
@@ -319,11 +319,11 @@ ged_lod_adaptive_toggle_sync(struct bv_scene_obj *lod, struct bview *v, int adap
  * gedp->ged_gvp->bsg_root (Phase F alias) so that the BSG render
  * path in dm_draw_objs can traverse it directly (Phase 7 step 7 A3).
  */
-static struct bv_scene_obj *
+static struct bsg_node *
 _sg_root(struct ged *gedp)
 {
     if (gedp->i->ged_gdp->gd_draw_root) {
-	struct bview *v = gedp->ged_gvp;
+	struct bsg_view *v = gedp->ged_gvp;
 	if (v) {
 	    /* Phase F aliasing: bsg_root and gv_draw_root intentionally point to
 	     * the same shared draw-tree root for the active GED view. */
@@ -333,11 +333,11 @@ _sg_root(struct ged *gedp)
         return gedp->i->ged_gdp->gd_draw_root;
     }
 
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
     if (!v)
         return NULL;
 
-    struct bv_scene_obj *root = bv_obj_create(v, BV_CHILD_OBJS);
+    struct bsg_node *root = bv_obj_create(v, BV_CHILD_OBJS);
     if (!root)
         return NULL;
 
@@ -378,13 +378,13 @@ _sg_root(struct ged *gedp)
  * These wrappers supply the GED context (draw root pointer, view pointer)
  * without requiring libbsg to know about struct ged.
  */
-static struct bv_scene_obj *
+static struct bsg_node *
 _sg_overlay_root(struct ged *gedp)
 {
-    struct bv_scene_obj *root = _sg_root(gedp);
+    struct bsg_node *root = _sg_root(gedp);
     if (!root)
         return NULL;
-    return (struct bv_scene_obj *)bsg_ensure_overlay_group(
+    return (struct bsg_node *)bsg_ensure_overlay_group(
         (bsg_node *)root, gedp->ged_gvp);
 }
 
@@ -414,7 +414,7 @@ _sg_erase_overlay_by_name(struct ged *gedp, const char *name)
  * gd_illum_rev so observers see the highlight-state transition.
  */
 void
-ged_bv_illum_free_cb(struct bv_scene_obj *sp)
+ged_bv_illum_free_cb(struct bsg_node *sp)
 {
     if (!sp->s_u_data)
         return;
@@ -432,7 +432,7 @@ ged_bv_illum_free_cb(struct bv_scene_obj *sp)
 
 
 static void
-_sg_free_group_contents(struct bv_scene_obj *g)
+_sg_free_group_contents(struct bsg_node *g)
 {
     bsg_free_group_contents((bsg_node *)g);
 }
@@ -445,7 +445,7 @@ _sg_free_group_contents(struct bv_scene_obj *g)
  * Phase 7 Step 11: delegates to bsg_free_group() in libbsg.
  */
 static void
-_sg_free_group(struct bv_scene_obj *g)
+_sg_free_group(struct bsg_node *g)
 {
     bsg_free_group((bsg_node *)g);
 }
@@ -456,7 +456,7 @@ _sg_free_group(struct bv_scene_obj *g)
  * Delegates to bsg_draw_tree_depth() in libbsg (Phase 7 step 7 C1/C3).
  */
 static int
-_sg_tree_depth(const struct bv_scene_obj *g)
+_sg_tree_depth(const struct bsg_node *g)
 {
     return bsg_draw_tree_depth((const bsg_node *)g);
 }
@@ -471,16 +471,16 @@ _sg_tree_depth(const struct bv_scene_obj *g)
  * The revision bump must happen after the child is created so we keep it
  * here where gedp is available.
  */
-static struct bv_scene_obj *
-_sg_find_or_create_child_group(struct ged *gedp, struct bv_scene_obj *parent,
+static struct bsg_node *
+_sg_find_or_create_child_group(struct ged *gedp, struct bsg_node *parent,
                                 const char *comp_name)
 {
     /* Fast path: already exists (no rev bump needed) */
     bsg_node *existing = bsg_group_find_child((bsg_node *)parent, comp_name);
     if (existing)
-        return (struct bv_scene_obj *)existing;
+        return (struct bsg_node *)existing;
 
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
     if (!v)
         return NULL;
 
@@ -494,7 +494,7 @@ _sg_find_or_create_child_group(struct ged *gedp, struct bv_scene_obj *parent,
         return NULL;
 
     _sg_bump_rev_node(parent);
-    return (struct bv_scene_obj *)child;
+    return (struct bsg_node *)child;
 }
 
 
@@ -503,15 +503,15 @@ _sg_find_or_create_child_group(struct ged *gedp, struct bv_scene_obj *parent,
  * Returns the deepest (leaf) group node corresponding to the drawn path,
  * or NULL if any component cannot be resolved.
  */
-static struct bv_scene_obj *
+static struct bsg_node *
 _sg_add_path(struct ged *gedp, const char *name)
 {
-    struct bv_scene_obj *root = _sg_root(gedp);
+    struct bsg_node *root = _sg_root(gedp);
     if (!root)
         return NULL;
-    struct bv_scene_obj *base = root;
+    struct bsg_node *base = root;
     if (gedp->ged_gvp && bv_view_is_independent(gedp->ged_gvp)) {
-	struct bv_scene_obj *scope = bv_view_independent_scope(gedp->ged_gvp, 1);
+	struct bsg_node *scope = bv_view_independent_scope(gedp->ged_gvp, 1);
 	if (scope)
 	    base = scope;
     }
@@ -536,10 +536,10 @@ _sg_add_path(struct ged *gedp, const char *name)
     }
 
     /* Navigate/create one group node per path component starting from root */
-    struct bv_scene_obj *cur = base;
+    struct bsg_node *cur = base;
     for (size_t i = 0; i < pathcomp.fp_len; i++) {
         const char *comp = pathcomp.fp_names[i]->d_namep;
-        struct bv_scene_obj *child =
+        struct bsg_node *child =
             _sg_find_or_create_child_group(gedp, cur, comp);
         if (!child) {
             db_free_full_path(&pathcomp);
@@ -559,7 +559,7 @@ _sg_add_path(struct ged *gedp, const char *name)
 
 /*
  * Path-match callback for bsg_erase_nested_subpath case (b).
- * @p shape_u_data is bv_scene_obj::s_u_data (struct ged_bv_data *).
+ * @p shape_u_data is bsg_node::s_u_data (struct ged_bv_data *).
  * @p match_ctx    is a struct db_full_path * (the subpath being erased).
  *
  * Phase 7 Step 12: the case (b) inner loop now lives in libbsg/draw_set.c
@@ -587,7 +587,7 @@ _sg_path_match_cb(void *shape_u_data, void *match_ctx)
  * in _sg_path_match_cb; gedp is no longer needed here.
  */
 static void
-_sg_erase_nested_subpath(struct bv_scene_obj *parent,
+_sg_erase_nested_subpath(struct bsg_node *parent,
                           struct db_full_path *subpath, size_t depth_start)
 {
     const char **names = (const char **)bu_malloc(
@@ -605,7 +605,7 @@ _sg_erase_nested_subpath(struct bv_scene_obj *parent,
 static void
 _sg_erase_path(struct ged *gedp, const char *path)
 {
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return;
 
@@ -615,15 +615,15 @@ _sg_erase_path(struct ged *gedp, const char *path)
 
     struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
     for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-        struct bv_scene_obj *g =
-            (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+        struct bsg_node *g =
+            (struct bsg_node *)BU_PTBL_GET(&root->children, i);
         if (!BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name)))
             bu_ptbl_ins(&snap, (long *)g);
     }
 
     for (size_t gi = 0; gi < BU_PTBL_LEN(&snap); gi++) {
-        struct bv_scene_obj *g =
-            (struct bv_scene_obj *)BU_PTBL_GET(&snap, gi);
+        struct bsg_node *g =
+            (struct bsg_node *)BU_PTBL_GET(&snap, gi);
 
         if (BU_STR_EQUAL(path, bu_vls_cstr(&g->s_name))) {
             _sg_free_group(g);
@@ -661,27 +661,27 @@ _sg_erase_path(struct ged *gedp, const char *path)
  * Does not erase @p parent itself.
  */
 static void
-_sg_erase_subgroups_by_name(struct ged *gedp, struct bv_scene_obj *parent,
+_sg_erase_subgroups_by_name(struct ged *gedp, struct bsg_node *parent,
                               const char *name)
 {
     struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
     for (size_t i = 0; i < BU_PTBL_LEN(&parent->children); i++) {
-        struct bv_scene_obj *c =
-            (struct bv_scene_obj *)BU_PTBL_GET(&parent->children, i);
+        struct bsg_node *c =
+            (struct bsg_node *)BU_PTBL_GET(&parent->children, i);
         if (c->s_type_flags & BSG_NODE_GROUP)
             bu_ptbl_ins(&snap, (long *)c);
     }
 
     for (size_t i = 0; i < BU_PTBL_LEN(&snap); i++) {
-        struct bv_scene_obj *c =
-            (struct bv_scene_obj *)BU_PTBL_GET(&snap, i);
+        struct bsg_node *c =
+            (struct bsg_node *)BU_PTBL_GET(&snap, i);
         if (BU_STR_EQUAL(bu_vls_cstr(&c->s_name), name)) {
             _sg_free_group_contents(c);
             bu_ptbl_rm(&parent->children, (const long *)c);
             /* parent is in the tree */
             _sg_bump_rev_node(parent);
             c->parent = NULL;
-            struct bv_scene_obj *fso = c->free_scene_obj;
+            struct bsg_node *fso = c->free_scene_obj;
             if (fso)
                 FREE_BV_SCENE_OBJ(c, &fso->l, c->vlfree);
         } else {
@@ -695,7 +695,7 @@ _sg_erase_subgroups_by_name(struct ged *gedp, struct bv_scene_obj *parent,
 static void
 _sg_erase_all_names(struct ged *gedp, const char *name)
 {
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return;
 
@@ -703,15 +703,15 @@ _sg_erase_all_names(struct ged *gedp, const char *name)
 
     struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
     for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-        struct bv_scene_obj *g =
-            (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+        struct bsg_node *g =
+            (struct bsg_node *)BU_PTBL_GET(&root->children, i);
         if (!BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name)))
             bu_ptbl_ins(&snap, (long *)g);
     }
 
     for (size_t gi = 0; gi < BU_PTBL_LEN(&snap); gi++) {
-        struct bv_scene_obj *g =
-            (struct bv_scene_obj *)BU_PTBL_GET(&snap, gi);
+        struct bsg_node *g =
+            (struct bsg_node *)BU_PTBL_GET(&snap, gi);
 
         /* Check path components for a name match */
         char *dup_path = bu_strdup(bu_vls_cstr(&g->s_name));
@@ -741,7 +741,7 @@ _sg_erase_all_names(struct ged *gedp, const char *name)
 static void
 _sg_erase_all_paths(struct ged *gedp, const char *path)
 {
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return;
 
@@ -752,8 +752,8 @@ _sg_erase_all_paths(struct ged *gedp, const char *path)
         return;
 
     for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-        struct bv_scene_obj *g =
-            (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+        struct bsg_node *g =
+            (struct bsg_node *)BU_PTBL_GET(&root->children, i);
         g->s_iflag = DOWN;
     }
 
@@ -761,8 +761,8 @@ _sg_erase_all_paths(struct ged *gedp, const char *path)
     do {
         restart = 0;
         for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-            struct bv_scene_obj *g =
-                (struct bv_scene_obj *)BU_PTBL_GET(&root->children, i);
+            struct bsg_node *g =
+                (struct bsg_node *)BU_PTBL_GET(&root->children, i);
             if (g->s_iflag == UP)
                 continue;
             g->s_iflag = UP;
@@ -807,7 +807,7 @@ _sg_erase_all_paths(struct ged *gedp, const char *path)
 static int
 _sg_bounding_sph(struct ged *gedp, vect_t *min, vect_t *max, int pflag)
 {
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
 
     /* Phase 9.1: delegate to the libbsg cached aggregator.
      * - pflag == 0 (no overlays): uses per-group bbox cache, O(touched).
@@ -821,7 +821,7 @@ _sg_bounding_sph(struct ged *gedp, vect_t *min, vect_t *max, int pflag)
 /* ------------------------------------------------------------------ */
 
 void
-color_soltab(struct db_i *dbip, struct bv_scene_obj *sp)
+color_soltab(struct db_i *dbip, struct bsg_node *sp)
 {
     const struct mater *mp;
 
@@ -860,7 +860,7 @@ color_soltab(struct db_i *dbip, struct bv_scene_obj *sp)
 /* ------------------------------------------------------------------ */
 
 static void
-solid_append_vlist(struct bv_scene_obj *sp, bsg_vlist *vlist)
+solid_append_vlist(struct bsg_node *sp, bsg_vlist *vlist)
 {
     if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
         sp->s_vlen = 0;
@@ -869,7 +869,7 @@ solid_append_vlist(struct bv_scene_obj *sp, bsg_vlist *vlist)
 }
 
 static void
-solid_copy_vlist(struct db_i *UNUSED(dbip), struct bv_scene_obj *sp,
+solid_copy_vlist(struct db_i *UNUSED(dbip), struct bsg_node *sp,
                  bsg_vlist *vlist, struct bu_list *vlfree)
 {
     BU_LIST_INIT(&(sp->s_vlist));
@@ -902,7 +902,7 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     _sg_erase_overlay_by_name(gedp, name);
 
     /* Obtain a fresh solid structure. */
-    struct bv_scene_obj *sp = bv_obj_get(gedp->ged_gvp, BV_DB_OBJS);
+    struct bsg_node *sp = bv_obj_get(gedp->ged_gvp, BV_DB_OBJS);
     sp->s_type_flags |= BSG_NODE_SHAPE | BSG_PAYLOAD_OVERLAY;
     bu_vls_sprintf(&sp->s_name, "%s", name);
 
@@ -930,7 +930,7 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     bv_scene_obj_bound(sp, gedp->ged_gvp);
 
     /* Attach to the _overlays subgroup (no phony db entry needed). */
-    struct bv_scene_obj *ov = _sg_overlay_root(gedp);
+    struct bsg_node *ov = _sg_overlay_root(gedp);
     if (ov) {
         sp->parent = ov;
         bu_ptbl_ins(&ov->children, (long *)sp);
@@ -970,7 +970,7 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
 static int
 _iflag_solid_cb(bsg_node *n, void *ud)
 {
-    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct bsg_node *sp = (struct bsg_node *)n;
     sp->s_iflag = *(char *)ud;
     return 1;
 }
@@ -978,7 +978,7 @@ _iflag_solid_cb(bsg_node *n, void *ud)
 static void
 _sg_set_iflag(struct ged *gedp, int iflag)
 {
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return;
     char flag = (char)iflag;
@@ -1067,12 +1067,12 @@ _sg_illum_sensor_cb(bsg_node *target, void *data)
  * illuminated-solid identity; the file no longer maintains a separate
  * gd_illum_solid cache.
  */
-static struct bv_scene_obj *
+static struct bsg_node *
 _sg_illum_node(const struct ged_drawable *gdp)
 {
     if (!gdp || !gdp->gd_illum_sensor)
         return NULL;
-    return (struct bv_scene_obj *)bsg_sensor_target(
+    return (struct bsg_node *)bsg_sensor_target(
         (bsg_node *)gdp->gd_illum_sensor);
 }
 
@@ -1091,10 +1091,10 @@ _sg_illum_node(const struct ged_drawable *gdp)
  * gd_illum_rev.
  */
 static void
-_sg_set_illum(struct ged *gedp, struct bv_scene_obj *sp)
+_sg_set_illum(struct ged *gedp, struct bsg_node *sp)
 {
     struct ged_drawable *gdp = gedp->i->ged_gdp;
-    struct bv_scene_obj *old = _sg_illum_node(gdp);
+    struct bsg_node *old = _sg_illum_node(gdp);
 
     if (old == sp) {
         /* No-op fast path: same target, no transition. */
@@ -1147,7 +1147,7 @@ struct _color_ctx {
 static int
 _color_solid_cb(bsg_node *n, void *ud)
 {
-    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct bsg_node *sp = (struct bsg_node *)n;
     struct _color_ctx *ctx = (struct _color_ctx *)ud;
 
     /* B4 lazy-color skip: if this shape's color stamp already matches the
@@ -1167,7 +1167,7 @@ _color_solid_cb(bsg_node *n, void *ud)
 static void
 _sg_color_soltab(struct ged *gedp)
 {
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return;
     struct _color_ctx ctx;
@@ -1184,7 +1184,7 @@ _sg_color_soltab(struct ged *gedp)
 /* Public BSG view-object API                                         */
 /* ================================================================== */
 
-struct bv_scene_obj *
+struct bsg_node *
 bsg_view_obj_ensure_root(struct ged *gedp)
 {
     if (!gedp)
@@ -1193,7 +1193,7 @@ bsg_view_obj_ensure_root(struct ged *gedp)
 }
 
 
-struct bv_scene_obj *
+struct bsg_node *
 bsg_view_obj_root(struct ged *gedp)
 {
     if (!gedp)
@@ -1231,7 +1231,7 @@ _dbpath_skip_lead_slash(const char *s)
     return s;
 }
 
-struct bv_scene_obj *
+struct bsg_node *
 bsg_view_obj_lookup_or_add_dbpath(struct ged *gedp,
                                   const struct db_full_path *dfp)
 {
@@ -1242,8 +1242,8 @@ bsg_view_obj_lookup_or_add_dbpath(struct ged *gedp,
         return NULL;
     /* Call the file-private helper directly so this entry point does
      * not depend on the deprecated public path-string wrapper. */
-    struct bv_scene_obj *r =
-        (struct bv_scene_obj *)_sg_add_path(gedp, _dbpath_skip_lead_slash(s));
+    struct bsg_node *r =
+        (struct bsg_node *)_sg_add_path(gedp, _dbpath_skip_lead_slash(s));
     bu_free(s, "bsg_view_obj_lookup_or_add_dbpath: path string");
     return r;
 }
@@ -1295,7 +1295,7 @@ bsg_view_obj_set_iflag(struct ged *gedp, int iflag)
         /* B5 fast path: when exactly one solid is illuminated and tracked,
          * clear only that solid in O(1) rather than sweeping the whole tree. */
         struct ged_drawable *gdp = gedp->i->ged_gdp;
-        struct bv_scene_obj *illum = _sg_illum_node(gdp);
+        struct bsg_node *illum = _sg_illum_node(gdp);
         if (illum) {
             illum->s_iflag = DOWN;
             /* Phase 9.3 / 13: tear down NodeSensor + bump highlight rev. */
@@ -1350,7 +1350,7 @@ bsg_view_obj_draw_rev(struct ged *gedp)
 
 void
 bsg_view_obj_foreach_solid(struct ged *gedp,
-                           int (*cb)(struct bv_scene_obj *, void *),
+                           int (*cb)(struct bsg_node *, void *),
                            void *userdata)
 {
     if (!gedp || !cb)
@@ -1375,7 +1375,7 @@ bsg_view_obj_is_nonempty(struct ged *gedp)
 {
     if (!gedp)
         return 0;
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return 0;
     int found = 0;
@@ -1384,27 +1384,27 @@ bsg_view_obj_is_nonempty(struct ged *gedp)
 }
 
 
-struct _first_solid_data { struct bv_scene_obj *result; };
+struct _first_solid_data { struct bsg_node *result; };
 
 static int
 _first_solid_cb(bsg_node *n, void *ud)
 {
     struct _first_solid_data *d = (struct _first_solid_data *)ud;
-    d->result = (struct bv_scene_obj *)n;
+    d->result = (struct bsg_node *)n;
     return 0;
 }
 
-struct bv_scene_obj *
+struct bsg_node *
 bsg_view_obj_first_solid(struct ged *gedp)
 {
     if (!gedp)
         return NULL;
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return NULL;
     for (size_t gi = 0; gi < BU_PTBL_LEN(&root->children); gi++) {
-        struct bv_scene_obj *g =
-            (struct bv_scene_obj *)BU_PTBL_GET(&root->children, gi);
+        struct bsg_node *g =
+            (struct bsg_node *)BU_PTBL_GET(&root->children, gi);
         if (BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name)))
             continue;
         struct _first_solid_data d = { NULL };
@@ -1433,12 +1433,12 @@ _snap_solid_cb(bsg_node *n, void *ud)
 static void
 _sg_build_solid_snapshot(struct ged *gedp, struct bu_ptbl *out)
 {
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return;
     for (size_t gi = 0; gi < BU_PTBL_LEN(&root->children); gi++) {
-        struct bv_scene_obj *g =
-            (struct bv_scene_obj *)BU_PTBL_GET(&root->children, gi);
+        struct bsg_node *g =
+            (struct bsg_node *)BU_PTBL_GET(&root->children, gi);
         if (BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name)))
             continue;
         bsg_visit((bsg_node *)g, BSG_NODE_SHAPE, _snap_solid_cb, (void *)out);
@@ -1459,19 +1459,19 @@ bsg_view_obj_solid_count(struct ged *gedp)
 }
 
 
-struct bv_scene_obj *
+struct bsg_node *
 bsg_view_obj_solid_at(struct ged *gedp, int idx)
 {
     if (!gedp)
         return NULL;
     struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
     _sg_build_solid_snapshot(gedp, &snap);
-    struct bv_scene_obj *sp = NULL;
+    struct bsg_node *sp = NULL;
     int n = (int)BU_PTBL_LEN(&snap);
     if (n > 0) {
         /* Wrap negative indices as well as overflow */
         idx = ((idx % n) + n) % n;
-        sp = (struct bv_scene_obj *)BU_PTBL_GET(&snap, idx);
+        sp = (struct bsg_node *)BU_PTBL_GET(&snap, idx);
     }
     bu_ptbl_free(&snap);
     return sp;
@@ -1479,7 +1479,7 @@ bsg_view_obj_solid_at(struct ged *gedp, int idx)
 
 
 int
-bsg_view_obj_solid_index(struct ged *gedp, struct bv_scene_obj *target)
+bsg_view_obj_solid_index(struct ged *gedp, struct bsg_node *target)
 {
     if (!gedp || !target)
         return -1;
@@ -1487,7 +1487,7 @@ bsg_view_obj_solid_index(struct ged *gedp, struct bv_scene_obj *target)
     _sg_build_solid_snapshot(gedp, &snap);
     int found = -1;
     for (int i = 0; i < (int)BU_PTBL_LEN(&snap); i++) {
-        if ((struct bv_scene_obj *)BU_PTBL_GET(&snap, i) == target) {
+        if ((struct bsg_node *)BU_PTBL_GET(&snap, i) == target) {
             found = i;
             break;
         }
@@ -1505,27 +1505,27 @@ bsg_view_obj_solid_index(struct ged *gedp, struct bv_scene_obj *target)
  *
  * Builds one DFS snapshot internally.
  */
-struct bv_scene_obj *
-bsg_view_obj_advance_solid(struct ged *gedp, struct bv_scene_obj *sp, int delta)
+struct bsg_node *
+bsg_view_obj_advance_solid(struct ged *gedp, struct bsg_node *sp, int delta)
 {
     if (!gedp)
         return NULL;
     struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
     _sg_build_solid_snapshot(gedp, &snap);
-    struct bv_scene_obj *result = NULL;
+    struct bsg_node *result = NULL;
     int n = (int)BU_PTBL_LEN(&snap);
     if (n > 0) {
         int idx = 0;
         if (sp) {
             for (int i = 0; i < n; i++) {
-                if ((struct bv_scene_obj *)BU_PTBL_GET(&snap, i) == sp) {
+                if ((struct bsg_node *)BU_PTBL_GET(&snap, i) == sp) {
                     idx = i;
                     break;
                 }
             }
         }
         int new_idx = (((idx + delta) % n) + n) % n;
-        result = (struct bv_scene_obj *)BU_PTBL_GET(&snap, new_idx);
+        result = (struct bsg_node *)BU_PTBL_GET(&snap, new_idx);
     }
     bu_ptbl_free(&snap);
     return result;
@@ -1536,59 +1536,59 @@ bsg_view_obj_advance_solid(struct ged *gedp, struct bv_scene_obj *sp, int delta)
  * DFS-order next solid with circular wraparound.
  * Now delegates to the snapshotted index approach.
  */
-struct bv_scene_obj *
-bsg_view_obj_next_solid(struct ged *gedp, struct bv_scene_obj *sp)
+struct bsg_node *
+bsg_view_obj_next_solid(struct ged *gedp, struct bsg_node *sp)
 {
     return bsg_view_obj_advance_solid(gedp, sp, 1);
 }
 
 
-struct bv_scene_obj *
-bsg_view_obj_prev_solid(struct ged *gedp, struct bv_scene_obj *sp)
+struct bsg_node *
+bsg_view_obj_prev_solid(struct ged *gedp, struct bsg_node *sp)
 {
     return bsg_view_obj_advance_solid(gedp, sp, -1);
 }
 
 
-struct bv_scene_obj *
-bsg_view_obj_group_of_solid(struct ged *gedp, struct bv_scene_obj *sp)
+struct bsg_node *
+bsg_view_obj_group_of_solid(struct ged *gedp, struct bsg_node *sp)
 {
     (void)gedp;
     if (!sp)
         return NULL;
     /* Walk up the parent chain to find the root child (depth == 1):
      * that is the group whose parent is the draw root (which has no parent). */
-    struct bv_scene_obj *g = (struct bv_scene_obj *)sp->parent;
+    struct bsg_node *g = (struct bsg_node *)sp->parent;
     while (g && g->parent &&
-           ((struct bv_scene_obj *)g->parent)->parent != NULL)
-        g = (struct bv_scene_obj *)g->parent;
+           ((struct bsg_node *)g->parent)->parent != NULL)
+        g = (struct bsg_node *)g->parent;
     return g;
 }
 
 
 void
 bsg_view_obj_foreach_group(struct ged *gedp,
-                           int (*cb)(struct bv_scene_obj *, void *),
+                           int (*cb)(struct bsg_node *, void *),
                            void *userdata)
 {
     if (!gedp || !cb)
         return;
 
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return;
 
     for (size_t gi = 0; gi < BU_PTBL_LEN(&root->children); gi++) {
-        struct bv_scene_obj *g =
-            (struct bv_scene_obj *)BU_PTBL_GET(&root->children, gi);
+        struct bsg_node *g =
+            (struct bsg_node *)BU_PTBL_GET(&root->children, gi);
         if (!(*cb)(g, userdata))
             return;
     }
 }
 
 
-struct bv_scene_obj *
-bsg_view_obj_group_first_solid(struct bv_scene_obj *group)
+struct bsg_node *
+bsg_view_obj_group_first_solid(struct bsg_node *group)
 {
     if (!group)
         return NULL;
@@ -1601,23 +1601,23 @@ bsg_view_obj_group_first_solid(struct bv_scene_obj *group)
 static int
 _last_solid_cb(bsg_node *n, void *ud)
 {
-    *(struct bv_scene_obj **)ud = (struct bv_scene_obj *)n;
+    *(struct bsg_node **)ud = (struct bsg_node *)n;
     return 1; /* keep going to find the last one */
 }
 
-struct bv_scene_obj *
-bsg_view_obj_group_last_solid(struct bv_scene_obj *group)
+struct bsg_node *
+bsg_view_obj_group_last_solid(struct bsg_node *group)
 {
     if (!group)
         return NULL;
-    struct bv_scene_obj *last = NULL;
+    struct bsg_node *last = NULL;
     bsg_visit((bsg_node *)group, BSG_NODE_SHAPE, _last_solid_cb, &last);
     return last;
 }
 
 
 int
-bsg_view_obj_group_is_nonempty(struct bv_scene_obj *group)
+bsg_view_obj_group_is_nonempty(struct bsg_node *group)
 {
     if (!group)
         return 0;
@@ -1628,7 +1628,7 @@ bsg_view_obj_group_is_nonempty(struct bv_scene_obj *group)
 
 
 const char *
-bsg_view_obj_group_path(struct bv_scene_obj *group)
+bsg_view_obj_group_path(struct bsg_node *group)
 {
     if (!group)
         return NULL;
@@ -1637,17 +1637,17 @@ bsg_view_obj_group_path(struct bv_scene_obj *group)
 
 
 void
-bsg_view_obj_append_to_last_group(struct ged *gedp, struct bv_scene_obj *sp)
+bsg_view_obj_append_to_last_group(struct ged *gedp, struct bsg_node *sp)
 {
     if (!gedp || !sp)
         return;
 
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root || BU_PTBL_LEN(&root->children) == 0)
         return;
 
-    struct bv_scene_obj *g =
-        (struct bv_scene_obj *)BU_PTBL_GET(&root->children,
+    struct bsg_node *g =
+        (struct bsg_node *)BU_PTBL_GET(&root->children,
                                             BU_PTBL_LEN(&root->children) - 1);
     bsg_view_obj_append_solid_to_group(gedp, g, sp);
 }
@@ -1660,7 +1660,7 @@ bsg_view_obj_append_to_last_group(struct ged *gedp, struct bv_scene_obj *sp)
  * bsg_view_obj_group_set_path() was removed in Phase 13.
  */
 void
-bsg_view_obj_group_set_dbpath(struct bv_scene_obj *group,
+bsg_view_obj_group_set_dbpath(struct bsg_node *group,
                               const struct db_full_path *new_dfp)
 {
     if (!group || !new_dfp)
@@ -1684,7 +1684,7 @@ bsg_view_obj_group_set_dbpath(struct bv_scene_obj *group,
  */
 int
 bsg_view_obj_group_dbpath(struct ged *gedp,
-                          struct bv_scene_obj *group,
+                          struct bsg_node *group,
                           struct db_full_path *out)
 {
     if (!gedp || !group || !out || !gedp->dbip)
@@ -1699,7 +1699,7 @@ bsg_view_obj_group_dbpath(struct ged *gedp,
 
 
 int
-bsg_view_obj_group_is_phony(struct bv_scene_obj *group)
+bsg_view_obj_group_is_phony(struct bsg_node *group)
 {
     if (!group)
         return 0;
@@ -1715,7 +1715,7 @@ bsg_view_obj_zap(struct ged *gedp)
     if (!gedp)
         return;
 
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return;
 
@@ -1725,11 +1725,11 @@ bsg_view_obj_zap(struct ged *gedp)
         bu_ptbl_ins(&snap, BU_PTBL_GET(&root->children, i));
 
     for (size_t gi = 0; gi < BU_PTBL_LEN(&snap); gi++) {
-        struct bv_scene_obj *g =
-            (struct bv_scene_obj *)BU_PTBL_GET(&snap, gi);
+        struct bsg_node *g =
+            (struct bsg_node *)BU_PTBL_GET(&snap, gi);
         _sg_free_group_contents(g);
         g->parent = NULL;
-        struct bv_scene_obj *fso = g->free_scene_obj;
+        struct bsg_node *fso = g->free_scene_obj;
         if (fso)
             FREE_BV_SCENE_OBJ(g, &fso->l, g->vlfree);
     }
@@ -1764,7 +1764,7 @@ bsg_view_obj_has_groups(struct ged *gedp)
 {
     if (!gedp || !gedp->i || !gedp->i->ged_gdp)
         return 0;
-    struct bv_scene_obj *root = gedp->i->ged_gdp->gd_draw_root;
+    struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return 0;
     return (BU_PTBL_LEN(&root->children) > 0) ? 1 : 0;
@@ -1787,8 +1787,8 @@ bsg_view_obj_has_groups(struct ged *gedp)
  */
 void
 bsg_view_obj_append_solid_to_group(struct ged *gedp,
-                                    struct bv_scene_obj *group,
-                                    struct bv_scene_obj *sp)
+                                    struct bsg_node *group,
+                                    struct bsg_node *sp)
 {
     if (!group || !sp)
         return;
@@ -1813,10 +1813,10 @@ bsg_view_obj_append_solid_to_group(struct ged *gedp,
      * Components at indices [group_depth .. fp_len - 2] are sub-groups.
      * (fp_len - 2) is the index of the deepest comb above the leaf;
      * if group_depth >= fp_len - 1 there are no intermediate groups needed. */
-    struct bv_scene_obj *cur = group;
+    struct bsg_node *cur = group;
     for (int d = group_depth; d < fp_len - 1; d++) {
         const char *comp = bdata->s_fullpath.fp_names[d]->d_namep;
-        struct bv_scene_obj *child =
+        struct bsg_node *child =
             _sg_find_or_create_child_group(gedp, cur, comp);
         if (!child)
             break;
@@ -1848,7 +1848,7 @@ bsg_view_obj_append_solid_to_group(struct ged *gedp,
  * falls back to the O(N) full sweep.
  */
 void
-bsg_view_obj_set_illum(struct ged *gedp, struct bv_scene_obj *sp)
+bsg_view_obj_set_illum(struct ged *gedp, struct bsg_node *sp)
 {
     if (!gedp)
         return;
@@ -1861,7 +1861,7 @@ bsg_view_obj_set_illum(struct ged *gedp, struct bv_scene_obj *sp)
  * is tracked (either nothing is illuminated or tracking was invalidated
  * because multiple solids may be UP).
  */
-struct bv_scene_obj *
+struct bsg_node *
 bsg_view_obj_get_illum(const struct ged *gedp)
 {
     if (!gedp)
@@ -1882,11 +1882,11 @@ bsg_view_obj_get_illum(const struct ged *gedp)
 struct _illum_by_name_ctx {
     struct ged          *gedp;
     const char          *name;
-    struct bv_scene_obj *result;
+    struct bsg_node *result;
 };
 
 static int
-_illum_by_name_group_cb(struct bv_scene_obj *group, void *udata)
+_illum_by_name_group_cb(struct bsg_node *group, void *udata)
 {
     struct _illum_by_name_ctx *ctx = (struct _illum_by_name_ctx *)udata;
     const char *path = bsg_view_obj_group_path(group);
@@ -1904,7 +1904,7 @@ _illum_by_name_group_cb(struct bv_scene_obj *group, void *udata)
     if (!BU_STR_EQUAL(tail, ctx->name))
         return 1; /* continue */
 
-    struct bv_scene_obj *sp = bsg_view_obj_group_first_solid(group);
+    struct bsg_node *sp = bsg_view_obj_group_first_solid(group);
     if (!sp)
         return 1; /* continue */
 
@@ -1912,7 +1912,7 @@ _illum_by_name_group_cb(struct bv_scene_obj *group, void *udata)
     return 0; /* stop */
 }
 
-struct bv_scene_obj *
+struct bsg_node *
 bsg_view_obj_illum_by_name(struct ged *gedp, const char *name)
 {
     if (!gedp || !name)

@@ -84,11 +84,11 @@ ged_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mode, 
 extern "C" void
 dm_refresh(struct ged *gedp)
 {
-    struct bview *v= gedp->ged_gvp;
+    struct bsg_view *v= gedp->ged_gvp;
     DbiState *dbis = (DbiState *)gedp->dbi_state;
     BViewState *bvs = dbis->get_view_state(v);
     dbis->update();
-    std::unordered_set<struct bview *> uset;
+    std::unordered_set<struct bsg_view *> uset;
     uset.insert(v);
     bvs->redraw(NULL, uset, 1);
 

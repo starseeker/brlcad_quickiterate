@@ -337,17 +337,17 @@ bv_vlist_import(struct bu_list *vlists, struct bu_list *hp, struct bu_vls *namev
     }
 }
 
-struct bv_vlblock *
+struct bsg_vlblock *
 bv_vlblock_init(struct bu_list *free_vlist_hd, /**< where to get/put free vlists */
 		int max_ent /**< maximum number of entities to get/put */)
 {
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     size_t i;
 
     if (!BU_LIST_IS_INITIALIZED(free_vlist_hd))
 	BU_LIST_INIT(free_vlist_hd);
 
-    BU_ALLOC(vbp, struct bv_vlblock);
+    BU_ALLOC(vbp, struct bsg_vlblock);
     vbp->magic = BV_VLBLOCK_MAGIC;
     vbp->free_vlist_hd = free_vlist_hd;
     vbp->max = max_ent;
@@ -369,7 +369,7 @@ bv_vlblock_init(struct bu_list *free_vlist_hd, /**< where to get/put free vlists
 }
 
 void
-bv_vlblock_free(struct bv_vlblock *vbp)
+bv_vlblock_free(struct bsg_vlblock *vbp)
 {
     size_t i;
 
@@ -383,12 +383,12 @@ bv_vlblock_free(struct bv_vlblock *vbp)
 
     bu_free((char *)(vbp->head), "head[]");
     bu_free((char *)(vbp->rgb), "rgb[]");
-    bu_free((char *)vbp, "bv_vlblock");
+    bu_free((char *)vbp, "bsg_vlblock");
 
 }
 
 struct bu_list *
-bv_vlblock_find(struct bv_vlblock *vbp, int r, int g, int b)
+bv_vlblock_find(struct bsg_vlblock *vbp, int r, int g, int b)
 {
     long newrgb;
     size_t n;
@@ -504,7 +504,7 @@ bv_vlist_rpp(struct bu_list *vlists, struct bu_list *hd, const point_t minn, con
 }
 
 void
-bv_plot_vlblock(FILE *fp, const struct bv_vlblock *vbp)
+bv_plot_vlblock(FILE *fp, const struct bsg_vlblock *vbp)
 {
     size_t i;
 
@@ -523,9 +523,9 @@ bv_plot_vlblock(FILE *fp, const struct bv_vlblock *vbp)
 
 #define GET_BV_SCENE_OBJ(p, fp) { \
     if (BU_LIST_IS_EMPTY(fp)) { \
-	BU_ALLOC((p), struct bv_scene_obj); \
+	BU_ALLOC((p), struct bsg_node); \
     } else { \
-	p = BU_LIST_NEXT(bv_scene_obj, fp); \
+	p = BU_LIST_NEXT(bsg_node, fp); \
 	BU_LIST_DEQUEUE(&((p)->l)); \
     } \
     bu_vls_init(&(p)->s_name); \
@@ -537,7 +537,7 @@ bv_plot_vlblock(FILE *fp, const struct bv_vlblock *vbp)
     BSG_FREE_VLIST(vlf, &((p)->s_vlist)); }
 
 void
-bv_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlblock *vbp, struct bview *v, struct bv_scene_obj *f, struct bu_list *vlfree)
+bv_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bsg_vlblock *vbp, struct bsg_view *v, struct bsg_node *f, struct bu_list *vlfree)
 {
     if (!out || !vbp || !f)
 	return;
@@ -550,7 +550,7 @@ bv_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlblock
 	    struct bu_vls cname = BU_VLS_INIT_ZERO;
 	    bu_vls_sprintf(&cname, "%sobj%zd", name_root, i);
 	    for (size_t j = 0; j < BU_PTBL_LEN(out); j++) {
-		struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(out, j);
+		struct bsg_node *s = (struct bsg_node *)BU_PTBL_GET(out, j);
 		if (BU_STR_EQUAL(bu_vls_cstr(&cname), bu_vls_cstr(&s->s_name))) {
 		    bu_ptbl_ins_unique(&oobjs, (long *)s);
 		}
@@ -558,13 +558,13 @@ bv_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlblock
 	}
     }
     for (size_t i = 0; i < BU_PTBL_LEN(&oobjs); i++) {
-	struct bv_scene_obj *s = (struct bv_scene_obj *)BU_PTBL_GET(&oobjs, i);
+	struct bsg_node *s = (struct bsg_node *)BU_PTBL_GET(&oobjs, i);
 	bu_ptbl_rm(out, (long *)s);
 	FREE_BV_SCENE_OBJ(s, &f->l, vlfree);
     }
     for (size_t i = 0; i < vbp->nused; i++) {
 	if (!BU_LIST_IS_EMPTY(&(vbp->head[i]))) {
-	    struct bv_scene_obj *s;
+	    struct bsg_node *s;
 	    GET_BV_SCENE_OBJ(s, &f->l);
 	    s->s_type_flags = BV_VIEWONLY;
 	    s->s_v = v;
@@ -582,15 +582,15 @@ bv_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bv_vlblock
     }
 }
 
-struct bv_scene_obj *
-bv_vlblock_obj(struct bv_vlblock *vbp, struct bview *v, const char *name)
+struct bsg_node *
+bv_vlblock_obj(struct bsg_vlblock *vbp, struct bsg_view *v, const char *name)
 {
     if (!vbp || !v)
 	return NULL;
 
     /* Phase A0 (drawing_stack_modernization): use typed view-object APIs
      * directly rather than the legacy bv_find_obj + bv_obj_get path. */
-    struct bv_scene_obj *s = bv_view_obj_find(v, name);
+    struct bsg_node *s = bv_view_obj_find(v, name);
     if (s) {
 	bv_obj_reset(s);
     } else {
@@ -599,7 +599,7 @@ bv_vlblock_obj(struct bv_vlblock *vbp, struct bview *v, const char *name)
 
     for (size_t i = 0; i < vbp->nused; i++) {
 	if (!BU_LIST_IS_EMPTY(&(vbp->head[i]))) {
-	    struct bv_scene_obj *sc = bv_obj_get_child(s);
+	    struct bsg_node *sc = bv_obj_get_child(s);
 	    struct bsg_vlist *bvl = (struct bsg_vlist *)&vbp->head[i];
 	    long int rgb = vbp->rgb[i];
 	    sc->s_vlen = bv_vlist_cmd_cnt(bvl);

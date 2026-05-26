@@ -60,7 +60,7 @@ __BEGIN_DECLS
  *   - 2  path is partially drawn (at least one child is visible)
  *   - 0  when `gedp->dbi_state` is NULL (no DbiState machinery)
  */
-GED_EXPORT int ged_dbi_is_drawn(struct ged *gedp, struct bview *v, const char *path);
+GED_EXPORT int ged_dbi_is_drawn(struct ged *gedp, struct bsg_view *v, const char *path);
 
 
 /**
@@ -77,7 +77,7 @@ GED_EXPORT int ged_dbi_is_drawn(struct ged *gedp, struct bview *v, const char *p
  *
  * @return  Number of path strings appended, or 0 when `dbi_state` is NULL.
  */
-GED_EXPORT size_t ged_dbi_list_drawn(struct ged *gedp, struct bview *v, int mode, struct bu_vls *result);
+GED_EXPORT size_t ged_dbi_list_drawn(struct ged *gedp, struct bsg_view *v, int mode, struct bu_vls *result);
 
 __END_DECLS
 

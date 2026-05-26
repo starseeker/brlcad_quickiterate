@@ -43,7 +43,7 @@ struct move_rename_data {
 };
 
 static int
-move_rename_group_cb(struct bv_scene_obj *group, void *userdata)
+move_rename_group_cb(struct bsg_node *group, void *userdata)
 {
     struct move_rename_data *data = (struct move_rename_data *)userdata;
     const char *path = bsg_view_obj_group_path(group);

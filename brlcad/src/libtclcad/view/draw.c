@@ -72,7 +72,7 @@ key_matches_paths(struct bu_hash_tbl *t, void *udata)
 }
 
 static void
-go_draw_solid(struct bview *gdvp, struct bv_scene_obj *sp)
+go_draw_solid(struct bsg_view *gdvp, struct bsg_node *sp)
 {
     struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
     struct ged *gedp = tvd->gedp;
@@ -126,7 +126,7 @@ go_draw_solid(struct bview *gdvp, struct bv_scene_obj *sp)
 /* ------------------------------------------------------------------ */
 
 struct _go_draw_data {
-    struct bview *gdvp;
+    struct bsg_view *gdvp;
     int line_style;
     int transparency_pass; /* 0=all, 1=opaque, 2=transparent */
 };
@@ -134,7 +134,7 @@ struct _go_draw_data {
 static int
 _go_draw_solid_cb(bsg_node *n, void *ud)
 {
-    struct bv_scene_obj *sp = (struct bv_scene_obj *)n;
+    struct bsg_node *sp = (struct bsg_node *)n;
     struct _go_draw_data *d = (struct _go_draw_data *)ud;
     struct dm *dmp = (struct dm *)d->gdvp->dmp;
 
@@ -153,7 +153,7 @@ _go_draw_solid_cb(bsg_node *n, void *ud)
 
 /* Draw all display lists */
 static int
-go_draw_dlist(struct bview *gdvp)
+go_draw_dlist(struct bsg_view *gdvp)
 {
     struct dm *dmp = (struct dm *)gdvp->dmp;
     struct tclcad_view_data *tvd = (struct tclcad_view_data *)gdvp->u_data;
@@ -185,7 +185,7 @@ go_draw_dlist(struct bview *gdvp)
 }
 
 void
-go_draw(struct bview *gdvp)
+go_draw(struct bsg_view *gdvp)
 {
     struct dm *dmp = (struct dm *)gdvp->dmp;
 
@@ -224,15 +224,15 @@ to_edit_redraw(struct ged *gedp,
     struct bu_ptbl *views = bv_set_views(&gedp->ged_views);
     size_t vi;
     for (vi = 0; vi < BU_PTBL_LEN(views); vi++) {
-	struct bview *v = (struct bview *)BU_PTBL_GET(views, vi);
+	struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, vi);
 	struct bu_ptbl *db_objs = bv_view_objs(v, BV_DB_OBJS);
 	if (!db_objs)
 	    continue;
 
 	size_t oi;
 	for (oi = 0; oi < BU_PTBL_LEN(db_objs); oi++) {
-	    struct bv_scene_obj *sp =
-		(struct bv_scene_obj *)BU_PTBL_GET(db_objs, oi);
+	    struct bsg_node *sp =
+		(struct bsg_node *)BU_PTBL_GET(db_objs, oi);
 	    if (!sp || !sp->s_u_data)
 		continue;
 

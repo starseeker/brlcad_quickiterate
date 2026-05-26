@@ -40,7 +40,7 @@
 
 /* Callback for setting s_flag on all solids */
 static int
-set_flag_cb(struct bv_scene_obj *sp, void *userdata)
+set_flag_cb(struct bsg_node *sp, void *userdata)
 {
     int flag = *(int *)userdata;
     sp->s_flag = flag;
@@ -56,7 +56,7 @@ dl_set_flag(struct ged *gedp, int flag)
 struct ged_rtcheck {
     struct ged_subprocess *rrtp;
     FILE *fp;
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     struct bu_list *vhead;
     double csize;
     void *chan;

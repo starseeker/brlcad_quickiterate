@@ -50,7 +50,7 @@ _view_cmd_lod(void *bs, int argc, const char **argv)
     }
 
     struct ged *gedp = gd->gedp;
-    struct bview *gvp;
+    struct bsg_view *gvp;
     int print_help = 0;
     static const char *usage = "view lod [csg|mesh] [0|1]\n"
 	"view lod cache [clear [all_files] | exists] \n"

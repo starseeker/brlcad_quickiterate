@@ -816,7 +816,7 @@ ON_Brep_CDT_VList_Face(
 }
 
 int ON_Brep_CDT_VList(
-	struct bv_vlblock *vbp,
+	struct bsg_vlblock *vbp,
 	struct bu_list *vlfree,
 	struct bu_color *c,
 	int mode,

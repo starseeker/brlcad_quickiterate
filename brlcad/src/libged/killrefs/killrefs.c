@@ -78,7 +78,7 @@ struct _killrefs_ctx {
  * subsequent erase pass does not iterate a mutating tree.
  */
 static int
-_killrefs_group_cb(struct bv_scene_obj *group, void *userdata)
+_killrefs_group_cb(struct bsg_node *group, void *userdata)
 {
     struct _killrefs_ctx *ctx = (struct _killrefs_ctx *)userdata;
     if (bsg_view_obj_group_is_phony(group))

@@ -24,7 +24,7 @@
  * bsg_node_field_touch() delegates to bsg_sensor_notify_field() (defined in
  * sensor.c) to fire any registered FieldSensor or NodeSensor callbacks.
  *
- * Typed accessor implementations mutate the underlying bv_scene_obj field and
+ * Typed accessor implementations mutate the underlying bsg_node field and
  * then call bsg_node_field_touch() so that sensors are notified.
  */
 

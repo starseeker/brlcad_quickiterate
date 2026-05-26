@@ -33,11 +33,11 @@
 
 struct gqa_match {
     const char *target;
-    struct bv_scene_obj *result;
+    struct bsg_node *result;
 };
 
 static int
-gqa_find_group(struct bv_scene_obj *group, void *userdata)
+gqa_find_group(struct bsg_node *group, void *userdata)
 {
     struct gqa_match *m = (struct gqa_match *)userdata;
     const char *path = bsg_view_obj_group_path(group);
@@ -77,7 +77,7 @@ main(int ac, char *av[]) {
     m.target = "OVERLAPSffff00";
     m.result = NULL;
     bsg_view_obj_foreach_group(gedp, gqa_find_group, &m);
-    struct bv_scene_obj *vdata = m.result;
+    struct bsg_node *vdata = m.result;
 
     if (vdata) {
 	FILE *fp;

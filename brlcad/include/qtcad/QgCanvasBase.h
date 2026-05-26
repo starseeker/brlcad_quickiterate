@@ -51,7 +51,7 @@ class QString;
 class QWidget;
 
 struct bu_ptbl;
-struct bview;
+struct bsg_view;
 struct dm;
 struct fb;
 
@@ -72,8 +72,8 @@ public:
      */
     virtual bool isValid() const = 0;
 
-    /** bview associated with this canvas (may be nullptr). */
-    virtual struct bview *view() const = 0;
+    /** bsg_view associated with this canvas (may be nullptr). */
+    virtual struct bsg_view *view() const = 0;
 
     /** Underlying libdm display manager (nullptr before first paint). */
     virtual struct dm *displayManager() const = 0;
@@ -81,14 +81,14 @@ public:
     /** Framebuffer handle (may be nullptr). */
     virtual struct fb *frameBuffer() const = 0;
 
-    /** Bind an external bview.  Pass nullptr to revert to the local view. */
-    virtual void set_view(struct bview *) = 0;
+    /** Bind an external bsg_view.  Pass nullptr to revert to the local view. */
+    virtual void set_view(struct bsg_view *) = 0;
 
     /** Register this canvas's DM in a shared display-manager table. */
     virtual void setDisplayManagerSet(struct bu_ptbl *) = 0;
 
     /** Supply a custom per-frame draw callback. */
-    virtual void set_draw_custom(void (*fn)(struct bview *, void *),
+    virtual void set_draw_custom(void (*fn)(struct bsg_view *, void *),
 				 void *udata) = 0;
 
     /** Store current DM and view hash values for later comparison. */

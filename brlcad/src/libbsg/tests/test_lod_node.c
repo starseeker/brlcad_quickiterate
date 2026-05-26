@@ -70,18 +70,18 @@ static int g_fail = 0;
 
 /* ---- helpers -------------------------------------------------------- */
 
-static struct bview *
+static struct bsg_view *
 make_view(const char *name)
 {
-    struct bview *v;
-    BU_ALLOC(v, struct bview);
+    struct bsg_view *v;
+    BU_ALLOC(v, struct bsg_view);
     bsg_view_init(v, NULL);
     bu_vls_sprintf(&v->gv_name, "%s", name);
     return v;
 }
 
 static void
-free_view(struct bview *v)
+free_view(struct bsg_view *v)
 {
     if (!v) return;
     bsg_view_free(v);
@@ -100,7 +100,7 @@ struct synth_state {
 };
 
 static int
-synth_select_level(bsg_node *node, struct bview *v)
+synth_select_level(bsg_node *node, struct bsg_view *v)
 {
     (void)v;
     struct bsg_lod_payload *pl =
@@ -111,7 +111,7 @@ synth_select_level(bsg_node *node, struct bview *v)
 }
 
 static void
-synth_activate_level(bsg_node *node, struct bview *v, int level)
+synth_activate_level(bsg_node *node, struct bsg_view *v, int level)
 {
     struct bsg_lod_payload *pl =
 	(struct bsg_lod_payload *)((bsg_node *)node)->s_i_data;
@@ -125,7 +125,7 @@ synth_activate_level(bsg_node *node, struct bview *v, int level)
 }
 
 static int
-synth_is_stale(bsg_node *node, struct bview *v)
+synth_is_stale(bsg_node *node, struct bsg_view *v)
 {
     (void)v;
     struct bsg_lod_payload *pl =
@@ -161,7 +161,7 @@ static int
 test_create(void)
 {
     printf("=== Test 1: create ===\n");
-    struct bview *v = make_view("t1");
+    struct bsg_view *v = make_view("t1");
 
     bsg_node *lod = bsg_lod_node_create(v);
     CHECK(lod != NULL, "bsg_lod_node_create returned non-NULL");
@@ -184,7 +184,7 @@ static int
 test_set_ops(void)
 {
     printf("=== Test 2: set_ops ===\n");
-    struct bview *v = make_view("t2");
+    struct bsg_view *v = make_view("t2");
 
     bsg_node *lod = bsg_lod_node_create(v);
     CHECK(lod != NULL, "create");
@@ -207,7 +207,7 @@ static int
 test_attach_level(void)
 {
     printf("=== Test 3: attach_level ===\n");
-    struct bview *v = make_view("t3");
+    struct bsg_view *v = make_view("t3");
 
     bsg_node *lod = bsg_lod_node_create(v);
     CHECK(lod != NULL, "create");
@@ -238,7 +238,7 @@ static int
 test_cursor_create_reuse(void)
 {
     printf("=== Test 4+5: cursor create and reuse ===\n");
-    struct bview *v = make_view("t45");
+    struct bsg_view *v = make_view("t45");
 
     bsg_node *lod = bsg_lod_node_create(v);
     CHECK(lod != NULL, "create");
@@ -263,8 +263,8 @@ static int
 test_cursor_multi(void)
 {
     printf("=== Test 6: cursor multi-view ===\n");
-    struct bview *va = make_view("va");
-    struct bview *vb = make_view("vb");
+    struct bsg_view *va = make_view("va");
+    struct bsg_view *vb = make_view("vb");
 
     bsg_node *lod = bsg_lod_node_create(va);
     CHECK(lod != NULL, "create");
@@ -291,7 +291,7 @@ static int
 test_active_level(void)
 {
     printf("=== Test 7: active_level ===\n");
-    struct bview *v = make_view("t7");
+    struct bsg_view *v = make_view("t7");
 
     bsg_node *lod = bsg_lod_node_create(v);
     CHECK(lod != NULL, "create");
@@ -317,7 +317,7 @@ static int
 test_level_count(void)
 {
     printf("=== Test 8: level_count ===\n");
-    struct bview *v = make_view("t8");
+    struct bsg_view *v = make_view("t8");
 
     CHECK(bsg_lod_node_level_count(NULL) == 0, "NULL node → 0");
 
@@ -338,7 +338,7 @@ static int
 test_synthetic_ops(void)
 {
     printf("=== Test 9: synthetic ops toggle ===\n");
-    struct bview *v = make_view("t9");
+    struct bsg_view *v = make_view("t9");
 
     bsg_node *lod = bsg_lod_node_create(v);
     CHECK(lod != NULL, "create");
@@ -400,7 +400,7 @@ static int
 test_null_guards(void)
 {
     printf("=== Test 10: null guards ===\n");
-    struct bview *v = make_view("t10");
+    struct bsg_view *v = make_view("t10");
 
     /* None of these must crash. */
     bsg_lod_node_create(NULL);
@@ -428,7 +428,7 @@ static int
 test_ops_free(void)
 {
     printf("=== Test 11: ops->free fires on destroy ===\n");
-    struct bview *v = make_view("t11");
+    struct bsg_view *v = make_view("t11");
 
     bsg_node *lod = bsg_lod_node_create(v);
     CHECK(lod != NULL, "create");
@@ -455,7 +455,7 @@ static int
 test_insert_above(void)
 {
     printf("=== Test 12: insert_above ===\n");
-    struct bview *v = make_view("t12");
+    struct bsg_view *v = make_view("t12");
 
     bsg_node *parent = (bsg_node *)bsg_group_create(v);
     bsg_node *leaf = (bsg_node *)bsg_shape_create(v);

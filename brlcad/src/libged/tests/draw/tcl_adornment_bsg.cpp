@@ -66,7 +66,7 @@ static int nfails  = 0;
 
 /* Visitor that counts objects reached via bv_view_obj_visit. */
 static int
-_count_visit_cb(struct bv_scene_obj * /*s*/, void *ud)
+_count_visit_cb(struct bsg_node * /*s*/, void *ud)
 {
     int *cnt = (int *)ud;
     (*cnt)++;
@@ -113,7 +113,7 @@ main(int ac, char *av[])
 
     bu_log("=== TCL adornment BSG lifecycle ===\n");
 
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
     ASSERT(v != NULL);
     ASSERT(v->gv_draw_root != NULL);
 
@@ -123,7 +123,7 @@ main(int ac, char *av[])
      * ------------------------------------------------------------------ */
     bu_log("[1] bv_view_obj_lines_create...\n");
     const char *tname = "_tcl_test_adornment";
-    struct bv_scene_obj *obj = bv_view_obj_lines_create(v, tname, 1 /*local*/);
+    struct bsg_node *obj = bv_view_obj_lines_create(v, tname, 1 /*local*/);
     ASSERT(obj != NULL);
     if (!obj) goto done;
 
@@ -132,7 +132,7 @@ main(int ac, char *av[])
      * ------------------------------------------------------------------ */
     bu_log("[2] bv_view_obj_find...\n");
     {
-	struct bv_scene_obj *found = bv_view_obj_find(v, tname);
+	struct bsg_node *found = bv_view_obj_find(v, tname);
 	ASSERT(found != NULL);
 	ASSERT(found == obj);
     }
@@ -191,7 +191,7 @@ main(int ac, char *av[])
     {
 	int r = bv_view_obj_remove(v, tname);
 	ASSERT(r == 1);
-	struct bv_scene_obj *gone = bv_view_obj_find(v, tname);
+	struct bsg_node *gone = bv_view_obj_find(v, tname);
 	ASSERT(gone == NULL);
     }
 
@@ -221,18 +221,18 @@ main(int ac, char *av[])
 	};
 	/* Create all slots */
 	for (int k = 0; slots[k]; k++) {
-	    struct bv_scene_obj *s = bv_view_obj_lines_create(v, slots[k], 1);
+	    struct bsg_node *s = bv_view_obj_lines_create(v, slots[k], 1);
 	    ASSERT(s != NULL);
 	}
 	/* Verify all are findable */
 	for (int k = 0; slots[k]; k++) {
-	    struct bv_scene_obj *s = bv_view_obj_find(v, slots[k]);
+	    struct bsg_node *s = bv_view_obj_find(v, slots[k]);
 	    ASSERT(s != NULL);
 	}
 	/* Remove all slots */
 	for (int k = 0; slots[k]; k++) {
 	    bv_view_obj_remove(v, slots[k]);
-	    struct bv_scene_obj *gone = bv_view_obj_find(v, slots[k]);
+	    struct bsg_node *gone = bv_view_obj_find(v, slots[k]);
 	    ASSERT(gone == NULL);
 	}
     }

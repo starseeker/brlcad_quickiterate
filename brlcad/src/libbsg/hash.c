@@ -35,23 +35,23 @@
 #include "bsg/view_sets.h"
 
 static void
-_bv_adc_state_hash(struct bu_data_hash_state *state, struct bv_adc_state *v)
+_bv_adc_state_hash(struct bu_data_hash_state *state, struct bsg_adc_state *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(struct bv_adc_state));
+    bu_data_hash_update(state, v, sizeof(struct bsg_adc_state));
 }
 
 static void
-_bv_axes_hash(struct bu_data_hash_state *state, struct bv_axes *v)
+_bv_axes_hash(struct bu_data_hash_state *state, struct bsg_axes *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(struct bv_axes));
+    bu_data_hash_update(state, v, sizeof(struct bsg_axes));
 }
 
 /* Phase T-final (drawing_stack_modernization): the legacy gv_tcl per-state
@@ -63,64 +63,64 @@ _bv_axes_hash(struct bu_data_hash_state *state, struct bv_axes *v)
  * hashed by _bv_hash_view_obj_cb). */
 
 static void
-_bv_grid_state_hash(struct bu_data_hash_state *state, struct bv_grid_state *v)
+_bv_grid_state_hash(struct bu_data_hash_state *state, struct bsg_grid_state *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(struct bv_grid_state));
+    bu_data_hash_update(state, v, sizeof(struct bsg_grid_state));
 }
 
 static void
-_bv_params_state_hash(struct bu_data_hash_state *state, struct bv_params_state *v)
+_bv_params_state_hash(struct bu_data_hash_state *state, struct bsg_params_state *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(struct bv_params_state));
+    bu_data_hash_update(state, v, sizeof(struct bsg_params_state));
 }
 
 static void
-_bv_other_state_hash(struct bu_data_hash_state *state, struct bv_other_state *v)
+_bv_other_state_hash(struct bu_data_hash_state *state, struct bsg_other_state *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(struct bv_other_state));
+    bu_data_hash_update(state, v, sizeof(struct bsg_other_state));
 }
 
 
 static void
-_bv_interactive_rect_state_hash(struct bu_data_hash_state *state, struct bv_interactive_rect_state *v)
+_bv_interactive_rect_state_hash(struct bu_data_hash_state *state, struct bsg_interactive_rect_state *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(struct bv_interactive_rect_state));
+    bu_data_hash_update(state, v, sizeof(struct bsg_interactive_rect_state));
 }
 
 static void
-_bv_obj_settings_hash(struct bu_data_hash_state *state, struct bv_obj_settings *v)
+_bv_obj_settings_hash(struct bu_data_hash_state *state, struct bsg_obj_settings *v)
 {
     /* First, do sanity checks */
     if (!v || !state)
 	return;
 
-    bu_data_hash_update(state, v, sizeof(struct bv_obj_settings));
+    bu_data_hash_update(state, v, sizeof(struct bsg_obj_settings));
 }
 
 void
-bv_scene_obj_hash(struct bu_data_hash_state *state, struct bv_scene_obj *s)
+bv_scene_obj_hash(struct bu_data_hash_state *state, struct bsg_node *s)
 {
     /* First, do sanity checks */
     if (!s || !state)
 	return;
 
-    bu_data_hash_update(state, s, sizeof(struct bv_scene_obj));
+    bu_data_hash_update(state, s, sizeof(struct bsg_node));
     struct bsg_vlist *tvp;
     for (BU_LIST_FOR(tvp, bsg_vlist, &((struct bsg_vlist *)&s->s_vlist)->l)) {
 	bu_data_hash_update(state, tvp, sizeof(struct bsg_vlist));
@@ -131,9 +131,9 @@ bv_scene_obj_hash(struct bu_data_hash_state *state, struct bv_scene_obj *s)
 }
 
 void
-bv_settings_hash(struct bu_data_hash_state *state, struct bview_settings *s)
+bv_settings_hash(struct bu_data_hash_state *state, struct bsg_view_settings *s)
 {
-    bu_data_hash_update(state, s, sizeof(struct bview_settings));
+    bu_data_hash_update(state, s, sizeof(struct bsg_view_settings));
 
     _bv_adc_state_hash(state, &s->gv_adc);
     _bv_axes_hash(state, &s->gv_model_axes);
@@ -155,13 +155,13 @@ bv_settings_hash(struct bu_data_hash_state *state, struct bview_settings *s)
 
 /* Phase B: callback for bv_view_objs_visit_db in bv_hash. */
 static int
-_bv_hash_db_obj_cb(struct bv_scene_obj *s, void *data)
+_bv_hash_db_obj_cb(struct bsg_node *s, void *data)
 {
     struct bu_data_hash_state *state = (struct bu_data_hash_state *)data;
     /* Hash children first (view-specific adaptive objects) */
     if (BU_PTBL_IS_INITIALIZED(&s->children)) {
 	for (size_t j = 0; j < BU_PTBL_LEN(&s->children); j++) {
-	    struct bv_scene_obj *s_c = (struct bv_scene_obj *)BU_PTBL_GET(&s->children, j);
+	    struct bsg_node *s_c = (struct bsg_node *)BU_PTBL_GET(&s->children, j);
 	    bv_scene_obj_hash(state, s_c);
 	}
     }
@@ -173,12 +173,12 @@ _bv_hash_db_obj_cb(struct bv_scene_obj *s, void *data)
  * hashing.  Walks each visited object's children (mirroring the legacy
  * BV_VIEW_OBJS scan) and then hashes the object itself. */
 static int
-_bv_hash_view_obj_cb(struct bv_scene_obj *s, void *data)
+_bv_hash_view_obj_cb(struct bsg_node *s, void *data)
 {
     struct bu_data_hash_state *state = (struct bu_data_hash_state *)data;
     if (BU_PTBL_IS_INITIALIZED(&s->children)) {
 	for (size_t j = 0; j < BU_PTBL_LEN(&s->children); j++) {
-	    struct bv_scene_obj *s_c = (struct bv_scene_obj *)BU_PTBL_GET(&s->children, j);
+	    struct bsg_node *s_c = (struct bsg_node *)BU_PTBL_GET(&s->children, j);
 	    bv_scene_obj_hash(state, s_c);
 	}
     }
@@ -187,7 +187,7 @@ _bv_hash_view_obj_cb(struct bv_scene_obj *s, void *data)
 }
 
 unsigned long long
-bv_hash(struct bview *v)
+bv_hash(struct bsg_view *v)
 {
     if (!v)
 	return 0;
@@ -197,7 +197,7 @@ bv_hash(struct bview *v)
 	return 0;
 
     // Deliberately not checking name - a rename doesn't change the view
-    bu_data_hash_update(state, v, sizeof(struct bview));
+    bu_data_hash_update(state, v, sizeof(struct bsg_view));
 
     if (v->gv_s)
 	bv_settings_hash(state, v->gv_s);

@@ -47,7 +47,7 @@
 #include "./ged_view.h"
 
 static void
-gobjs_scene_free(struct bv_scene_obj *s)
+gobjs_scene_free(struct bsg_node *s)
 {
     if (!s)
 	return;
@@ -65,7 +65,7 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
     struct ged *gedp = gd->gedp;
     struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
     struct db_i *dbip = gedp->dbip;
-    struct bview *v = gd->cv;
+    struct bsg_view *v = gd->cv;
     const char *usage_string = "view gobjs name create";
     const char *purpose_string = "create an editing view obj from a database solid/comb";
     if (_view_cmd_msgs(bs, argc, argv, usage_string, purpose_string))
@@ -82,7 +82,7 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
     }
     gd->vobj = argv[0];
 
-    struct bv_scene_obj *s = bv_find_obj(gedp->ged_gvp, argv[1]);
+    struct bsg_node *s = bv_find_obj(gedp->ged_gvp, argv[1]);
     if (s) {
 	bu_vls_printf(gedp->ged_result_str, "View object %s already exists\n", argv[1]);
 	return BRLCAD_ERROR;
@@ -134,7 +134,7 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
 
     // Set up drawing settings
     unsigned char wcolor[3] = {255,255,255};
-    struct bv_obj_settings vs = BV_OBJ_SETTINGS_INIT;
+    struct bsg_obj_settings vs = BV_OBJ_SETTINGS_INIT;
     bv_obj_settings_sync(g->s_os, &vs);
 
     // We have a tree walk ahead to populate the wireframe - set up the client
@@ -179,7 +179,7 @@ _gobjs_cmd_delete(void *bs, int argc, const char **argv)
     /* initialize result */
     bu_vls_trunc(gedp->ged_result_str, 0);
 
-    struct bv_scene_obj *s = gd->s;
+    struct bsg_node *s = gd->s;
     if (!s) {
 	bu_vls_printf(gedp->ged_result_str, "No view object named %s\n", gd->vobj);
 	return BRLCAD_ERROR;

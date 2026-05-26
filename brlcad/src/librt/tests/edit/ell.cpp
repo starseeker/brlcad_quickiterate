@@ -131,8 +131,8 @@ return BRLCAD_ERROR;
     db_add_node_to_full_path(&fp, dp);
 
     /* Set up a view matching the tor test for comparability */
-    struct bview *v;
-    BU_GET(v, struct bview);
+    struct bsg_view *v;
+    BU_GET(v, struct bsg_view);
     bv_init(v, NULL);
     VSET(v->gv_aet, 45, 35, 0);
     bv_mat_aet(v);

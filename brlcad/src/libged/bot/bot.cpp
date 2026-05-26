@@ -657,9 +657,9 @@ _bot_cmd_sync(void *bs, int argc, const char **argv)
 }
 
 static void
-_bot_vlblock_plot(struct ged *gedp, struct bv_vlblock *vbp, const char *sname)
+_bot_vlblock_plot(struct ged *gedp, struct bsg_vlblock *vbp, const char *sname)
 {
-    struct bview *view = gedp->ged_gvp;
+    struct bsg_view *view = gedp->ged_gvp;
     if (gedp->dbi_state) {
 	struct bu_vls nroot = BU_VLS_INIT_ZERO;
 	bu_vls_sprintf(&nroot, "bot::%s", sname);
@@ -683,7 +683,7 @@ _bot_cmd_plot(void *bs, int argc, const char **argv)
 
     struct _ged_bot_info *gb = (struct _ged_bot_info *)bs;
     struct bu_color *color = gb->color;
-    struct bv_vlblock *vbp = gb->vbp;
+    struct bsg_vlblock *vbp = gb->vbp;
     struct bu_list *vlfree = gb->vlfree;
 
     if (_bot_obj_setup(gb, argv[0]) & BRLCAD_ERROR) {
@@ -1415,7 +1415,7 @@ bot_cleanup:
     }
     if (gb.visualize) {
 	bv_vlblock_free(gb.vbp);
-	gb.vbp = (struct bv_vlblock *)NULL;
+	gb.vbp = (struct bsg_vlblock *)NULL;
     }
     if (color) {
 	BU_PUT(color, struct bu_color);

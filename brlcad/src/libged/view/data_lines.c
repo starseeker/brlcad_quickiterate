@@ -61,7 +61,7 @@ struct view_dlines_state {
  *
  * Pass draw=1 to create/replace the object; draw=0 to only remove it. */
 static void
-_rebuild_bsg_dlines(struct bview *v, const char *bsg_name,
+_rebuild_bsg_dlines(struct bsg_view *v, const char *bsg_name,
 		    int draw, point_t *pts, int npts,
 		    int *color, int line_width)
 {
@@ -73,7 +73,7 @@ _rebuild_bsg_dlines(struct bview *v, const char *bsg_name,
     if (!draw || npts < 2 || !pts)
 	return;
 
-    struct bv_scene_obj *s = bv_view_obj_lines_create(v, bsg_name, 1 /* local */);
+    struct bsg_node *s = bv_view_obj_lines_create(v, bsg_name, 1 /* local */);
     if (!s)
 	return;
 
@@ -93,10 +93,10 @@ _view_dlines_cmd_draw(void *bs, int argc, const char **argv)
 {
     struct view_dlines_state *vs = (struct view_dlines_state *)bs;
     struct ged *gedp = vs->gedp;
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
 
     if (argc == 1) {
-	struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
+	struct bsg_node *s = bv_view_obj_find(v, vs->bsg_name);
 	bu_vls_printf(gedp->ged_result_str, "%d", s ? 1 : 0);
 	return BRLCAD_OK;
     }
@@ -147,10 +147,10 @@ _view_dlines_cmd_color(void *bs, int argc, const char **argv)
 {
     struct view_dlines_state *vs = (struct view_dlines_state *)bs;
     struct ged *gedp = vs->gedp;
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
 
     if (argc == 1) {
-	struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
+	struct bsg_node *s = bv_view_obj_find(v, vs->bsg_name);
 	if (s)
 	    bu_vls_printf(gedp->ged_result_str, "%d %d %d",
 			  (int)s->s_color[0], (int)s->s_color[1], (int)s->s_color[2]);
@@ -174,7 +174,7 @@ _view_dlines_cmd_color(void *bs, int argc, const char **argv)
 		b < 0 || 255 < b)
 	    return BRLCAD_ERROR;
 
-	struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
+	struct bsg_node *s = bv_view_obj_find(v, vs->bsg_name);
 	if (s)
 	    bv_view_obj_set_color(s, r, g, b);
 
@@ -191,10 +191,10 @@ _view_dlines_cmd_line_width(void *bs, int argc, const char **argv)
 {
     struct view_dlines_state *vs = (struct view_dlines_state *)bs;
     struct ged *gedp = vs->gedp;
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
 
     if (argc == 1) {
-	struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
+	struct bsg_node *s = bv_view_obj_find(v, vs->bsg_name);
 	if (s && s->s_os)
 	    bu_vls_printf(gedp->ged_result_str, "%d", s->s_os->s_line_width);
 	else
@@ -208,7 +208,7 @@ _view_dlines_cmd_line_width(void *bs, int argc, const char **argv)
 	if (bu_sscanf(argv[1], "%d", &line_width) != 1)
 	    return BRLCAD_ERROR;
 
-	struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
+	struct bsg_node *s = bv_view_obj_find(v, vs->bsg_name);
 	if (s)
 	    bv_view_obj_set_line_width(s, line_width);
 
@@ -225,12 +225,12 @@ _view_dlines_cmd_points(void *bs, int argc, const char **argv)
 {
     struct view_dlines_state *vs = (struct view_dlines_state *)bs;
     struct ged *gedp = vs->gedp;
-    struct bview *v = gedp->ged_gvp;
+    struct bsg_view *v = gedp->ged_gvp;
     int i;
 
     if (argc == 1) {
 	/* Read: walk the BSG vlist. */
-	struct bv_scene_obj *s = bv_view_obj_find(v, vs->bsg_name);
+	struct bsg_node *s = bv_view_obj_find(v, vs->bsg_name);
 	if (s) {
 	    bsg_vlist *vp;
 	    size_t j;
@@ -261,7 +261,7 @@ _view_dlines_cmd_points(void *bs, int argc, const char **argv)
 	/* BSG is the sole persistent store; preserve style from existing object. */
 	int saved_color[3] = {255, 255, 0}; /* default yellow */
 	int saved_lw = 0;
-	struct bv_scene_obj *old_s = bv_view_obj_find(v, vs->bsg_name);
+	struct bsg_node *old_s = bv_view_obj_find(v, vs->bsg_name);
 	if (old_s) {
 	    saved_color[0] = (int)old_s->s_color[0];
 	    saved_color[1] = (int)old_s->s_color[1];

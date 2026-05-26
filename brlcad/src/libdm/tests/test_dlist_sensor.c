@@ -67,7 +67,7 @@ static int g_fail = 0;
 static int g_cnt = 0;
 
 static void
-count_cb(struct bv_scene_obj *UNUSED(s), void *data)
+count_cb(struct bsg_node *UNUSED(s), void *data)
 {
     if (data)
 	(*(int *)data)++;

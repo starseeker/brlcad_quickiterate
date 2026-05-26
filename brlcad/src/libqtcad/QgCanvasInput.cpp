@@ -38,7 +38,7 @@ extern "C" {
 #include "QgCanvasInput.h"
 
 void
-QgCanvasInput::suspendDragBoundsUpdate(struct bview *v)
+QgCanvasInput::suspendDragBoundsUpdate(struct bsg_view *v)
 {
 	if (!v || !v->gv_bounds_update)
 		return;
@@ -49,7 +49,7 @@ QgCanvasInput::suspendDragBoundsUpdate(struct bview *v)
 }
 
 void
-QgCanvasInput::restoreDragBoundsUpdate(struct bview *v, int refresh_bounds)
+QgCanvasInput::restoreDragBoundsUpdate(struct bsg_view *v, int refresh_bounds)
 {
 	if (!v)
 		return;
@@ -66,7 +66,7 @@ QgCanvasInput::restoreDragBoundsUpdate(struct bview *v, int refresh_bounds)
 // TODO - look into QShortcut, see if it might be a better way
 // to manage this
 int
-QgCanvasInput::keyPressEvent(struct bview *v, int UNUSED(x_prev),
+QgCanvasInput::keyPressEvent(struct bsg_view *v, int UNUSED(x_prev),
                              int UNUSED(y_prev), QKeyEvent *k)
 {
 	QTCAD_EVENT("keyPress", 1);
@@ -175,7 +175,7 @@ QgCanvasInput::keyPressEvent(struct bview *v, int UNUSED(x_prev),
 }
 
 int
-QgCanvasInput::mousePressEvent(struct bview *v, int UNUSED(x_prev),
+QgCanvasInput::mousePressEvent(struct bsg_view *v, int UNUSED(x_prev),
                                int UNUSED(y_prev), QMouseEvent *e)
 {
 	QTCAD_EVENT("mousePress", 1);
@@ -208,7 +208,7 @@ QgCanvasInput::mousePressEvent(struct bview *v, int UNUSED(x_prev),
 }
 
 int
-QgCanvasInput::mouseReleaseEvent(struct bview *v, double x_press,
+QgCanvasInput::mouseReleaseEvent(struct bsg_view *v, double x_press,
                                  double y_press, int UNUSED(x_prev),
                                  int UNUSED(y_prev), QMouseEvent *e, int mode)
 {
@@ -282,7 +282,7 @@ QgCanvasInput::mouseReleaseEvent(struct bview *v, double x_press,
 }
 
 int
-QgCanvasInput::mouseMoveEvent(struct bview *v, int x_prev, int y_prev,
+QgCanvasInput::mouseMoveEvent(struct bsg_view *v, int x_prev, int y_prev,
                               QMouseEvent *e, int mode)
 {
 	QTCAD_EVENT("mouseMove", 2);
@@ -379,7 +379,7 @@ QgCanvasInput::mouseMoveEvent(struct bview *v, int x_prev, int y_prev,
 }
 
 int
-QgCanvasInput::wheelEvent(struct bview *v, QWheelEvent *e)
+QgCanvasInput::wheelEvent(struct bsg_view *v, QWheelEvent *e)
 {
 	QTCAD_EVENT("mouseWheel", 1);
 

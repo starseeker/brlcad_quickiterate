@@ -44,7 +44,7 @@
 struct ged_rtcheck {
     struct ged_subprocess *rrtp;
     FILE *fp;
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     struct bu_list *vhead;
     double csize;
     void *chan;
@@ -144,23 +144,23 @@ rtcheck_vector_handler(void *clientData, int type)
 	// instead of the legacy BV_VIEW_OBJS ptbl shim.  Both shared and
 	// local view scopes can hold prior rtcheck output, so visit ALL.
 	const char *sname = "rtcheck::";
-	struct bview *v = gedp->ged_gvp;
-	std::set<struct bv_scene_obj *> robjs;
+	struct bsg_view *v = gedp->ged_gvp;
+	std::set<struct bsg_node *> robjs;
 	struct _rtcheck_collect_ctx {
 	    const char *sname;
 	    size_t sname_len;
-	    std::set<struct bv_scene_obj *> *robjs;
+	    std::set<struct bsg_node *> *robjs;
 	} cctx = {sname, strlen(sname), &robjs};
-	auto _collect_rtcheck = [](struct bv_scene_obj *s, void *data) -> int {
+	auto _collect_rtcheck = [](struct bsg_node *s, void *data) -> int {
 	    struct _rtcheck_collect_ctx *c = (struct _rtcheck_collect_ctx *)data;
 	    if (!bu_strncmp(c->sname, bu_vls_cstr(&s->s_name), c->sname_len))
 		c->robjs->insert(s);
 	    return 1;
 	};
 	bv_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _collect_rtcheck, &cctx);
-	std::set<struct bv_scene_obj *>::iterator r_it;
+	std::set<struct bsg_node *>::iterator r_it;
 	for (r_it = robjs.begin(); r_it != robjs.end(); r_it++) {
-	    struct bv_scene_obj *s = *r_it;
+	    struct bsg_node *s = *r_it;
 	    bv_obj_put(s);
 	}
 

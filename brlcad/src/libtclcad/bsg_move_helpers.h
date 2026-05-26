@@ -61,7 +61,7 @@ __BEGIN_DECLS
  * Returns the number of points extracted (0 if none or s is NULL).
  */
 _BSG_HELPER_STATIC int
-_bsg_extract_pts(struct bv_scene_obj *s, point_t **pts_out)
+_bsg_extract_pts(struct bsg_node *s, point_t **pts_out)
 {
     if (!s || !pts_out) return 0;
 
@@ -95,7 +95,7 @@ _bsg_extract_pts(struct bv_scene_obj *s, point_t **pts_out)
  * Returns the number of center points extracted.
  */
 _BSG_HELPER_STATIC int
-_bsg_extract_axes_centers(struct bv_scene_obj *s, point_t **pts_out)
+_bsg_extract_axes_centers(struct bsg_node *s, point_t **pts_out)
 {
     if (!pts_out) return 0;
     *pts_out = NULL;
@@ -132,7 +132,7 @@ _bsg_extract_axes_centers(struct bv_scene_obj *s, point_t **pts_out)
  * Existing object (if any) is removed first.
  */
 _BSG_HELPER_STATIC void
-_bsg_rebuild_arrows(struct bview *v,
+_bsg_rebuild_arrows(struct bsg_view *v,
 		    const char *bsg_name,
 		    point_t *pts, int npts,
 		    int color[3], int lw,
@@ -143,7 +143,7 @@ _bsg_rebuild_arrows(struct bview *v,
     bv_view_obj_remove(v, bsg_name);
     if (!pts || npts < 2) return;
 
-    struct bv_scene_obj *ns = bv_view_obj_arrow_create(v, bsg_name, 1 /* local */);
+    struct bsg_node *ns = bv_view_obj_arrow_create(v, bsg_name, 1 /* local */);
     if (!ns) return;
 
     for (int i = 0; i + 1 < npts; i += 2) {
@@ -165,7 +165,7 @@ _bsg_rebuild_arrows(struct bview *v,
  * Consecutive pairs of points define line segments.
  */
 _BSG_HELPER_STATIC void
-_bsg_rebuild_lines(struct bview *v,
+_bsg_rebuild_lines(struct bsg_view *v,
 		   const char *bsg_name,
 		   point_t *pts, int npts,
 		   int color[3], int lw,
@@ -175,7 +175,7 @@ _bsg_rebuild_lines(struct bview *v,
     bv_view_obj_remove(v, bsg_name);
     if (!pts || npts < 2) return;
 
-    struct bv_scene_obj *ns = bv_view_obj_lines_create(v, bsg_name, 1 /* local */);
+    struct bsg_node *ns = bv_view_obj_lines_create(v, bsg_name, 1 /* local */);
     if (!ns) return;
 
     for (int i = 0; i + 1 < npts; i += 2) {
@@ -193,7 +193,7 @@ _bsg_rebuild_lines(struct bview *v,
  * half-axes-size.  Generates 6 vlist entries per center (X/Y/Z axis pairs).
  */
 _BSG_HELPER_STATIC void
-_bsg_rebuild_axes(struct bview *v,
+_bsg_rebuild_axes(struct bsg_view *v,
 		  const char *bsg_name,
 		  point_t *centers, int ncenters,
 		  fastf_t halfAxesSize,
@@ -204,7 +204,7 @@ _bsg_rebuild_axes(struct bview *v,
     bv_view_obj_remove(v, bsg_name);
     if (!centers || ncenters < 1) return;
 
-    struct bv_scene_obj *ns = bv_view_obj_lines_create(v, bsg_name, 1 /* local */);
+    struct bsg_node *ns = bv_view_obj_lines_create(v, bsg_name, 1 /* local */);
     if (!ns) return;
 
     for (int i = 0; i < ncenters; i++) {
@@ -241,7 +241,7 @@ _bsg_rebuild_axes(struct bview *v,
  * supplied output variables.  Safe to call with a NULL @p s (fills defaults).
  */
 _BSG_HELPER_STATIC void
-_bsg_read_style(struct bv_scene_obj *s,
+_bsg_read_style(struct bsg_node *s,
 		int color_out[3],
 		int *lw_out,
 		int *tip_len_out,

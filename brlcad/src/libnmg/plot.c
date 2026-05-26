@@ -709,7 +709,7 @@ nmg_pl_eu(FILE *fp, const struct edgeuse *eu, long *b, int red, int green, int b
 void
 nmg_pl_lu(FILE *fp, const struct loopuse *lu, long *b, int red, int green, int blue, struct bu_list *vlfree)
 {
-    struct bv_vlblock *vbp = bv_vlblock_init(vlfree, 32);
+    struct bsg_vlblock *vbp = bv_vlblock_init(vlfree, 32);
 
     nmg_vlblock_lu(vbp, lu, b, red, green, blue, 0, vlfree);
     bv_plot_vlblock(fp, vbp);
@@ -721,7 +721,7 @@ void
 nmg_pl_fu(FILE *fp, const struct faceuse *fu, long *b, int red, int green, int blue, struct bu_list *vlfree)
 {
     struct loopuse *lu;
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
 
     NMG_CK_FACEUSE(fu);
     NMG_INDEX_RETURN_IF_SET_ELSE_SET(b, fu->index);
@@ -744,7 +744,7 @@ nmg_pl_fu(FILE *fp, const struct faceuse *fu, long *b, int red, int green, int b
 void
 nmg_pl_s(FILE *fp, const struct shell *s, struct bu_list *vlfree)
 {
-    struct bv_vlblock *vbp = bv_vlblock_init(vlfree, 32);
+    struct bsg_vlblock *vbp = bv_vlblock_init(vlfree, 32);
 
     nmg_vlblock_s(vbp, s, 0, vlfree);
     bv_plot_vlblock(fp, vbp);
@@ -755,7 +755,7 @@ nmg_pl_s(FILE *fp, const struct shell *s, struct bu_list *vlfree)
 void
 nmg_pl_shell(FILE *fp, const struct shell *s, int fancy, struct bu_list *vlfree)
 {
-    struct bv_vlblock *vbp = bv_vlblock_init(vlfree, 32);
+    struct bsg_vlblock *vbp = bv_vlblock_init(vlfree, 32);
 
     nmg_vlblock_s(vbp, s, fancy, vlfree);
     bv_plot_vlblock(fp, vbp);
@@ -766,7 +766,7 @@ nmg_pl_shell(FILE *fp, const struct shell *s, int fancy, struct bu_list *vlfree)
 void
 nmg_pl_r(FILE *fp, const struct nmgregion *r, struct bu_list *vlfree)
 {
-    struct bv_vlblock *vbp = bv_vlblock_init(vlfree, 32);
+    struct bsg_vlblock *vbp = bv_vlblock_init(vlfree, 32);
 
     nmg_vlblock_r(vbp, r, 0, vlfree);
     bv_plot_vlblock(fp, vbp);
@@ -777,7 +777,7 @@ nmg_pl_r(FILE *fp, const struct nmgregion *r, struct bu_list *vlfree)
 void
 nmg_pl_m(FILE *fp, const struct model *m, struct bu_list *vlfree)
 {
-    struct bv_vlblock *vbp = bv_vlblock_init(vlfree, 32);
+    struct bsg_vlblock *vbp = bv_vlblock_init(vlfree, 32);
 
     nmg_vlblock_m(vbp, m, 0, vlfree);
     bv_plot_vlblock(fp, vbp);
@@ -794,7 +794,7 @@ nmg_pl_m(FILE *fp, const struct model *m, struct bu_list *vlfree)
  ************************************************************************/
 
 void
-nmg_vlblock_v(struct bv_vlblock *vbp, const struct vertex *v, long *tab, struct bu_list *vlfree)
+nmg_vlblock_v(struct bsg_vlblock *vbp, const struct vertex *v, long *tab, struct bu_list *vlfree)
 {
     pointp_t p;
     struct bu_list *vh;
@@ -813,7 +813,7 @@ nmg_vlblock_v(struct bv_vlblock *vbp, const struct vertex *v, long *tab, struct 
 
 
 void
-nmg_vlblock_e(struct bv_vlblock *vbp, const struct edge *e, long *tab, int red, int green, int blue, struct bu_list *vlfree)
+nmg_vlblock_e(struct bsg_vlblock *vbp, const struct edge *e, long *tab, int red, int green, int blue, struct bu_list *vlfree)
 {
     pointp_t p0, p1;
     point_t end0, end1;
@@ -853,7 +853,7 @@ nmg_vlblock_e(struct bv_vlblock *vbp, const struct edge *e, long *tab, int red, 
 
 
 void
-nmg_vlblock_eu(struct bv_vlblock *vbp, const struct edgeuse *eu, long *tab, int red, int green, int blue, int fancy, struct bu_list *vlfree)
+nmg_vlblock_eu(struct bsg_vlblock *vbp, const struct edgeuse *eu, long *tab, int red, int green, int blue, int fancy, struct bu_list *vlfree)
 {
     point_t base = VINIT_ZERO;
     point_t next_base = VINIT_ZERO;
@@ -1014,7 +1014,7 @@ nmg_vlblock_euleft(struct bu_list *vh, const struct edgeuse *eu, const point_t c
  * cross-referenced to this display.
  */
 void
-nmg_vlblock_around_eu(struct bv_vlblock *vbp, const struct edgeuse *arg_eu, long *tab, int fancy, struct bu_list *vlfree, const struct bn_tol *tol)
+nmg_vlblock_around_eu(struct bsg_vlblock *vbp, const struct edgeuse *arg_eu, long *tab, int fancy, struct bu_list *vlfree, const struct bn_tol *tol)
 {
     const struct edgeuse *orig_eu;
     register const struct edgeuse *eu;
@@ -1080,7 +1080,7 @@ nmg_vlblock_around_eu(struct bv_vlblock *vbp, const struct edgeuse *arg_eu, long
 
 
 void
-nmg_vlblock_lu(struct bv_vlblock *vbp, const struct loopuse *lu, long *tab, int red, int green, int blue, int fancy, struct bu_list *vlfree)
+nmg_vlblock_lu(struct bsg_vlblock *vbp, const struct loopuse *lu, long *tab, int red, int green, int blue, int fancy, struct bu_list *vlfree)
 {
     struct edgeuse *eu;
     uint32_t magic1;
@@ -1105,7 +1105,7 @@ nmg_vlblock_lu(struct bv_vlblock *vbp, const struct loopuse *lu, long *tab, int 
 
 
 void
-nmg_vlblock_fu(struct bv_vlblock *vbp, const struct faceuse *fu, long *tab, int fancy, struct bu_list *vlfree)
+nmg_vlblock_fu(struct bsg_vlblock *vbp, const struct faceuse *fu, long *tab, int fancy, struct bu_list *vlfree)
 {
     struct loopuse *lu;
 
@@ -1126,7 +1126,7 @@ nmg_vlblock_fu(struct bv_vlblock *vbp, const struct faceuse *fu, long *tab, int 
 
 
 void
-nmg_vlblock_s(struct bv_vlblock *vbp, const struct shell *s, int fancy, struct bu_list *vlfree)
+nmg_vlblock_s(struct bsg_vlblock *vbp, const struct shell *s, int fancy, struct bu_list *vlfree)
 {
     struct faceuse *fu;
     struct loopuse *lu;
@@ -1178,7 +1178,7 @@ nmg_vlblock_s(struct bv_vlblock *vbp, const struct shell *s, int fancy, struct b
 
 
 void
-nmg_vlblock_r(struct bv_vlblock *vbp, const struct nmgregion *r, int fancy, struct bu_list *vlfree)
+nmg_vlblock_r(struct bsg_vlblock *vbp, const struct nmgregion *r, int fancy, struct bu_list *vlfree)
 {
     struct shell *s;
 
@@ -1192,7 +1192,7 @@ nmg_vlblock_r(struct bv_vlblock *vbp, const struct nmgregion *r, int fancy, stru
 
 
 void
-nmg_vlblock_m(struct bv_vlblock *vbp, const struct model *m, int fancy, struct bu_list *vlfree)
+nmg_vlblock_m(struct bsg_vlblock *vbp, const struct model *m, int fancy, struct bu_list *vlfree)
 {
     struct nmgregion *r;
 
@@ -1216,7 +1216,7 @@ nmg_vlblock_m(struct bv_vlblock *vbp, const struct model *m, int fancy, struct b
  * around this edge.
  */
 void
-nmg_pl_edges_in_2_shells(struct bv_vlblock *vbp, long *b, const struct edgeuse *eu, int fancy, struct bu_list *vlfree, const struct bn_tol *tol)
+nmg_pl_edges_in_2_shells(struct bsg_vlblock *vbp, long *b, const struct edgeuse *eu, int fancy, struct bu_list *vlfree, const struct bn_tol *tol)
 {
     const struct edgeuse *eur;
     const struct shell *s;
@@ -1256,7 +1256,7 @@ nmg_pl_isect(const char *filename, const struct shell *s, struct bu_list *vlfree
     long *b;
     FILE *fp;
     uint32_t magic1;
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
 
     NMG_CK_SHELL(s);
     BN_CK_TOL(tol);
@@ -1316,7 +1316,7 @@ nmg_pl_comb_fu(int num1, int num2, const struct faceuse *fu1, struct bu_list *vl
     int do_anim = 0;
     struct model *m;
     long *tab;
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
 
     if (nmg_debug & NMG_DEBUG_PLOTEM &&
 	nmg_debug & NMG_DEBUG_FCUT) do_plot = 1;
@@ -1351,8 +1351,8 @@ nmg_pl_comb_fu(int num1, int num2, const struct faceuse *fu1, struct bu_list *vl
     if (do_anim) {
 	if (nmg_vlblock_anim_upcall) {
 	    /* need to cast nmg_vlblock_anim_upcall pointer for actual use as a function */
-	    void (*cfp)(struct bv_vlblock *, int, int);
-	    cfp = (void (*)(struct bv_vlblock *, int, int))nmg_vlblock_anim_upcall;
+	    void (*cfp)(struct bsg_vlblock *, int, int);
+	    cfp = (void (*)(struct bsg_vlblock *, int, int))nmg_vlblock_anim_upcall;
 	    cfp(vbp,
 		(nmg_debug&NMG_DEBUG_PL_SLOW) ? US_DELAY : 0,
 		0);
@@ -1379,7 +1379,7 @@ nmg_pl_2fu(const char *str, const struct faceuse *fu1, const struct faceuse *fu2
     struct model *m;
     long *tab;
     static int num = 1;
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
 
     if ((nmg_debug & (NMG_DEBUG_PLOTEM|NMG_DEBUG_PL_ANIM)) == 0) return;
 
@@ -1416,8 +1416,8 @@ nmg_pl_2fu(const char *str, const struct faceuse *fu1, const struct faceuse *fu2
 	/* Cause animation of boolean operation as it proceeds! */
 	if (nmg_vlblock_anim_upcall) {
 	    /* need to cast nmg_vlblock_anim_upcall pointer for actual use as a function */
-	    void (*cfp)(struct bv_vlblock *, int, int);
-	    cfp = (void (*)(struct bv_vlblock *, int, int))nmg_vlblock_anim_upcall;
+	    void (*cfp)(struct bsg_vlblock *, int, int);
+	    cfp = (void (*)(struct bsg_vlblock *, int, int))nmg_vlblock_anim_upcall;
 	    cfp(vbp,
 		(nmg_debug&NMG_DEBUG_PL_SLOW) ? US_DELAY : 0,
 		0);
@@ -1463,7 +1463,7 @@ static unsigned char broken_colors[][3] = {
 	    broken_color = 4;}
 
 static void
-show_broken_vu(struct bv_vlblock *vbp, const struct vertexuse *vu, struct bu_list *vlfree)
+show_broken_vu(struct bsg_vlblock *vbp, const struct vertexuse *vu, struct bu_list *vlfree)
 {
     pointp_t p;
     struct bu_list *vh;
@@ -1517,7 +1517,7 @@ show_broken_vu(struct bv_vlblock *vbp, const struct vertexuse *vu, struct bu_lis
 
 
 static void
-show_broken_e(struct bv_vlblock *vbp, const struct edgeuse *eu, struct bu_list *vlfree)
+show_broken_e(struct bsg_vlblock *vbp, const struct edgeuse *eu, struct bu_list *vlfree)
 {
     pointp_t p0, p1;
     point_t end0, end1;
@@ -1563,7 +1563,7 @@ show_broken_e(struct bv_vlblock *vbp, const struct edgeuse *eu, struct bu_list *
 
 
 static void
-show_broken_eu(struct bv_vlblock *vbp, const struct edgeuse *eu, int fancy, struct bu_list *vlfree)
+show_broken_eu(struct bsg_vlblock *vbp, const struct edgeuse *eu, int fancy, struct bu_list *vlfree)
 {
     struct bu_list *vh;
     int red, green, blue;
@@ -1614,7 +1614,7 @@ show_broken_eu(struct bv_vlblock *vbp, const struct edgeuse *eu, int fancy, stru
 
 
 static void
-show_broken_lu(struct bv_vlblock *vbp, const struct loopuse *lu, int fancy, struct bu_list *vlfree)
+show_broken_lu(struct bsg_vlblock *vbp, const struct loopuse *lu, int fancy, struct bu_list *vlfree)
 {
     register struct edgeuse *eu;
     struct bu_list *vh;
@@ -1661,7 +1661,7 @@ show_broken_lu(struct bv_vlblock *vbp, const struct loopuse *lu, int fancy, stru
 
 
 static void
-show_broken_fu(struct bv_vlblock *vbp, const struct faceuse *fu, int fancy, struct bu_list *vlfree)
+show_broken_fu(struct bsg_vlblock *vbp, const struct faceuse *fu, int fancy, struct bu_list *vlfree)
 {
     register struct loopuse *lu;
 
@@ -1673,7 +1673,7 @@ show_broken_fu(struct bv_vlblock *vbp, const struct faceuse *fu, int fancy, stru
 
 
 static void
-show_broken_s(struct bv_vlblock *vbp, const struct shell *s, int fancy, struct bu_list *vlfree)
+show_broken_s(struct bsg_vlblock *vbp, const struct shell *s, int fancy, struct bu_list *vlfree)
 {
     struct faceuse *fu;
     struct loopuse *lu;
@@ -1690,7 +1690,7 @@ show_broken_s(struct bv_vlblock *vbp, const struct shell *s, int fancy, struct b
 	show_broken_vu(vbp, s->vu_p, vlfree);
 }
 static void
-show_broken_r(struct bv_vlblock *vbp, const struct nmgregion *r, int fancy, struct bu_list *vlfree)
+show_broken_r(struct bsg_vlblock *vbp, const struct nmgregion *r, int fancy, struct bu_list *vlfree)
 {
     register struct shell *s;
 
@@ -1701,7 +1701,7 @@ show_broken_r(struct bv_vlblock *vbp, const struct nmgregion *r, int fancy, stru
 
 
 static void
-show_broken_m(struct bv_vlblock *vbp, const struct model *m, int fancy, struct bu_list *vlfree)
+show_broken_m(struct bsg_vlblock *vbp, const struct model *m, int fancy, struct bu_list *vlfree)
 {
     register struct nmgregion *r;
 
@@ -1727,7 +1727,7 @@ nmg_plot_sigstepalong(int UNUSED(i))
 void
 nmg_show_broken_classifier_stuff(uint32_t *p, char **classlist, int all_new, int fancy, const char *a_string, struct bu_list *vlfree)
 {
-    static struct bv_vlblock *vbp = (struct bv_vlblock *)NULL;
+    static struct bsg_vlblock *vbp = (struct bsg_vlblock *)NULL;
     struct model *m;
 
 /* printf("showing broken stuff\n"); */
@@ -1740,7 +1740,7 @@ nmg_show_broken_classifier_stuff(uint32_t *p, char **classlist, int all_new, int
 	vbp = bv_vlblock_init(vlfree, 32);
     else if (all_new) {
 	bv_vlblock_free(vbp);
-	vbp = (struct bv_vlblock *)NULL;
+	vbp = (struct bsg_vlblock *)NULL;
 	vbp = bv_vlblock_init(vlfree, 32);
     }
 
@@ -1808,8 +1808,8 @@ nmg_show_broken_classifier_stuff(uint32_t *p, char **classlist, int all_new, int
 	void (*cur_sigint)(int);
 
 	/* need to cast nmg_vlblock_anim_upcall pointer for actual use as a function */
-	void (*cfp)(struct bv_vlblock *, int, int);
-	cfp = (void (*)(struct bv_vlblock *, int, int))nmg_vlblock_anim_upcall;
+	void (*cfp)(struct bsg_vlblock *, int, int);
+	cfp = (void (*)(struct bsg_vlblock *, int, int))nmg_vlblock_anim_upcall;
 
 	if (!a_string) {
 	    cfp(vbp,
@@ -1845,7 +1845,7 @@ nmg_show_broken_classifier_stuff(uint32_t *p, char **classlist, int all_new, int
 	}
 
 	bv_vlblock_free(vbp);
-	vbp = (struct bv_vlblock *)NULL;
+	vbp = (struct bsg_vlblock *)NULL;
 	bu_free((char *)broken_tab, "broken_tab");
 	broken_tab = (long *)NULL;
 	broken_tab_len = 0;
@@ -1859,7 +1859,7 @@ nmg_face_plot(const struct faceuse *fu, struct bu_list *vlfree)
     FILE *fp;
     char name[32];
     struct model *m;
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     long *tab;
     int fancy;
     static int num = 1;
@@ -1897,8 +1897,8 @@ nmg_face_plot(const struct faceuse *fu, struct bu_list *vlfree)
 	if (nmg_vlblock_anim_upcall) {
 	    /* if requested, delay 3/4 second */
 	    /* need to cast nmg_vlblock_anim_upcall pointer for actual use as a function */
-	    void (*cfp)(struct bv_vlblock *, int, int);
-	    cfp = (void (*)(struct bv_vlblock *, int, int))nmg_vlblock_anim_upcall;
+	    void (*cfp)(struct bsg_vlblock *, int, int);
+	    cfp = (void (*)(struct bsg_vlblock *, int, int))nmg_vlblock_anim_upcall;
 	    cfp(vbp,
 		(nmg_debug&NMG_DEBUG_PL_SLOW) ? 750000 : 0,
 		0);
@@ -1919,7 +1919,7 @@ void
 nmg_2face_plot(const struct faceuse *fu1, const struct faceuse *fu2, struct bu_list *vlfree)
 {
     struct model *m;
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     long *tab;
     int fancy;
 
@@ -1945,8 +1945,8 @@ nmg_2face_plot(const struct faceuse *fu1, const struct faceuse *fu2, struct bu_l
     if (nmg_vlblock_anim_upcall) {
 	/* if requested, delay 3/4 second */
 	/* need to cast nmg_vlblock_anim_upcall pointer for actual use as a function */
-	void (*cfp)(struct bv_vlblock *, int, int);
-	cfp = (void (*)(struct bv_vlblock *, int, int))nmg_vlblock_anim_upcall;
+	void (*cfp)(struct bsg_vlblock *, int, int);
+	cfp = (void (*)(struct bsg_vlblock *, int, int))nmg_vlblock_anim_upcall;
 	cfp(vbp,
 	    (nmg_debug&NMG_DEBUG_PL_SLOW) ? 750000 : 0,
 	    0);
@@ -2108,7 +2108,7 @@ nmg_plot_lu_around_eu(const char *prefix, const struct edgeuse *eu, struct bu_li
     char file[256];
     static int num = 0;
     struct model *m;
-    struct bv_vlblock *vbp;
+    struct bsg_vlblock *vbp;
     long *tab;
     const struct edgeuse *eur;
     FILE *fp;

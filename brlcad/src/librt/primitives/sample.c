@@ -40,7 +40,7 @@
 #include "../librt_private.h"
 
 int
-rt_sample_pnts(struct bv_scene_obj *s, struct rt_db_internal *ip)
+rt_sample_pnts(struct bsg_node *s, struct rt_db_internal *ip)
 {
     if (!s || !ip)
 	return BRLCAD_OK; /* nothing to do is fine */

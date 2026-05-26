@@ -177,7 +177,7 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     if (!write_fb) {
-	struct bv_vlblock*vbp;
+	struct bsg_vlblock*vbp;
 
 	struct bu_vls nroot = BU_VLS_INIT_ZERO;
 	if (!BU_STR_EQUAL(bu_vls_cstr(&vname), "_PLOT_OVERLAY_")) {
@@ -235,7 +235,7 @@ ged_overlay_core(struct ged *gedp, int argc, const char *argv[])
 	}
 
 	if (gedp->dbi_state) {
-	    struct bview *v = gedp->ged_gvp;
+	    struct bsg_view *v = gedp->ged_gvp;
 	    bv_vlblock_obj(vbp, v, bu_vls_cstr(&nroot));
 	} else {
 	    _ged_cvt_vlblock_to_solids(gedp, vbp, bu_vls_cstr(&vname), 0);

@@ -102,7 +102,7 @@ QEll::getGed() const
     return m_ctx ? m_ctx->getGed() : nullptr;
 }
 
-struct bview *
+struct bsg_view *
 QEll::getView() const
 {
     return m_ctx ? m_ctx->getView() : nullptr;
@@ -181,7 +181,7 @@ QEll::update_obj_wireframe()
     struct ged *gedp = getGed();
     if (!gedp)
 	return;
-    struct bview *v = getView();
+    struct bsg_view *v = getView();
     if (!v)
 	return;
 
@@ -226,9 +226,9 @@ QEll::update_obj_wireframe()
 	lcnt = intern.idb_meth->ft_labels(pl, 8, idn_mat, &intern, tol);
 
     for (int i = 0; i < lcnt; i++) {
-	struct bv_scene_obj *s = bv_obj_get_child(p);
-	struct bv_label *la;
-	BU_GET(la, struct bv_label);
+	struct bsg_node *s = bv_obj_get_child(p);
+	struct bsg_label *la;
+	BU_GET(la, struct bsg_label);
 	s->s_i_data = (void *)la;
 
 	BU_LIST_INIT(&(s->s_vlist));
@@ -254,7 +254,7 @@ QEll::update_viewobj_name(const QString &)
     struct ged *gedp = getGed();
     if (!gedp)
 	return;
-    struct bview *v = getView();
+    struct bsg_view *v = getView();
     if (!v)
 	return;
 

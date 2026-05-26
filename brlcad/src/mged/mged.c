@@ -113,7 +113,7 @@ extern struct _mged_variables default_mged_variables;
 extern struct _color_scheme default_color_scheme;
 
 /* defined in grid.c */
-extern struct bv_grid_state default_grid_state;
+extern struct bsg_grid_state default_grid_state;
 
 /* defined in axes.c */
 extern struct _axes_state default_axes_state;
@@ -322,7 +322,7 @@ new_edit_mats(struct mged_state *s)
 
 
 void
-mged_view_callback(struct bview *gvp,
+mged_view_callback(struct bsg_view *gvp,
 		   void *clientData)
 {
     struct mged_state *s = MGED_STATE;
@@ -2709,7 +2709,7 @@ main(int argc, char *argv[])
     BU_ALLOC(color_scheme, struct _color_scheme);
     *color_scheme = default_color_scheme;	/* struct copy */
 
-    BU_ALLOC(grid_state, struct bv_grid_state);
+    BU_ALLOC(grid_state, struct bsg_grid_state);
     *grid_state = default_grid_state;		/* struct copy */
 
     BU_ALLOC(axes_state, struct _axes_state);

@@ -170,7 +170,7 @@ GED_EXPORT extern int ged_inside_internal(struct ged *gedp,
 					  char *o_name);
 
 
-GED_EXPORT void draw_scene(struct bv_scene_obj *s, struct bview *v);
+GED_EXPORT void draw_scene(struct bsg_node *s, struct bsg_view *v);
 
 
 /** @} */

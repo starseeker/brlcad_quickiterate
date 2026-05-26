@@ -36,12 +36,12 @@
 #include "./include/private.h"
 
 void
-dm_draw_scene_axes(struct dm *dmp,  struct bv_scene_obj *s)
+dm_draw_scene_axes(struct dm *dmp,  struct bsg_node *s)
 {
     if (!(s->s_type_flags & BV_AXES))
 	return;
 
-    struct bv_axes *bndasp = (struct bv_axes *)s->s_i_data;
+    struct bsg_axes *bndasp = (struct bsg_axes *)s->s_i_data;
     fastf_t halfAxesSize;		/* half the length of an axis */
     point_t ptA, ptB;
     /* Save the line attributes */
@@ -80,7 +80,7 @@ void
 dm_draw_hud_axes(struct dm		        *dmp,
 	     fastf_t			viewSize, /* in mm */
 	     const mat_t		rmat,       /* view rotation matrix */
-	     struct bv_axes	 	*bnasp)
+	     struct bsg_axes	 	*bnasp)
 {
     fastf_t halfAxesSize;		/* half the length of an axis */
     fastf_t xlx, xly;			/* X axis label position */
