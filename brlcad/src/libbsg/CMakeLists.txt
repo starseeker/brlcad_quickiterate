@@ -21,6 +21,7 @@ set(
   overlay.c
   payload.c
   payload_typed.c
+  pick.c
   render.c
   scene_graph.cpp
   selection.c

@@ -25,6 +25,7 @@ set(
   overlay.h
   payload.h
   payload_typed.h
+  pick.h
   plot3.h
   polygon.h
   render.h

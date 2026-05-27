@@ -90,6 +90,12 @@ brlcad_add_test(NAME libbsg_light COMMAND test_bsg_light)
 brlcad_addexec(test_bsg_render test_render.c "libbsg;libbu" TEST)
 brlcad_add_test(NAME libbsg_render COMMAND test_bsg_render)
 
+#
+# Phase D3: typed pick records and pick actions
+#
+brlcad_addexec(test_bsg_pick test_pick.c "libbsg;libbu" TEST)
+brlcad_add_test(NAME libbsg_pick COMMAND test_bsg_pick)
+
 cmakefiles(
   CMakeLists.txt
   test_action.c
@@ -101,6 +107,7 @@ cmakefiles(
   test_material_appearance.c
   test_node.c
   test_phase6.c
+  test_pick.c
   test_render.c
   test_scene_graph.c
   test_selection.c
