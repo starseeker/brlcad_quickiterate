@@ -60,7 +60,7 @@ gl_swrast_database_wireframe(struct dm *dmp, struct bsg_node *s)
     if (!mvars || !mvars->fast_wireframe_active)
 	return 0;
 
-    if (!(s->s_type_flags & BV_DB_OBJS))
+    if (!(s->s_type_flags & BSG_OBJ_DB))
 	return 0;
 
     return (s->s_os->s_dmode == 0 || s->s_os->s_dmode == 3);
@@ -71,7 +71,7 @@ gl_swrast_wireframe_obj(struct dm *dmp, struct bsg_node *s)
 {
     if (!dmp || !s || !dm_get_dm_name(dmp) || !BU_STR_EQUAL(dm_get_dm_name(dmp), "swrast"))
 	return 0;
-    if (!(s->s_type_flags & BV_DB_OBJS))
+    if (!(s->s_type_flags & BSG_OBJ_DB))
 	return 0;
     return (s->s_os->s_dmode == 0 || s->s_os->s_dmode == 3);
 }

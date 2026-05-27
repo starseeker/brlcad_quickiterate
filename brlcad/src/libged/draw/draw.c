@@ -91,7 +91,7 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
     if (!dgcdp || !dgcdp->v)
 	return;
 
-    struct bsg_node *sp = bsg_obj_get(dgcdp->v, BV_DB_OBJS);
+    struct bsg_node *sp = bsg_obj_get(dgcdp->v, BSG_OBJ_DB);
     if (!sp)
 	return;
     sp->s_type_flags |= BSG_NODE_SHAPE;
@@ -301,7 +301,7 @@ append_solid_to_display_list(
     }
 
     /* create solid */
-    struct bsg_node *sp = bsg_obj_get(bsg_data->v, BV_DB_OBJS);
+    struct bsg_node *sp = bsg_obj_get(bsg_data->v, BSG_OBJ_DB);
     sp->s_type_flags |= BSG_NODE_SHAPE;
     struct ged_bv_data *bdata = (bsg_node_user_data(sp)) ? (struct ged_bv_data *)bsg_node_user_data(sp) : NULL;
     if (!bdata) {
@@ -1849,4 +1849,3 @@ GED_DECLARE_PLUGIN_MANIFEST("libged_draw", 1, GED_DRAW_COMMANDS)
  * End:
  * ex: shiftwidth=4 tabstop=8
  */
-

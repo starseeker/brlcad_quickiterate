@@ -33,10 +33,10 @@
  *               └─ BSG_NODE_SHAPE bsg_node leaves
  *                    └─ parent = containing sub-group
  *
- * Group nodes are allocated via bsg_obj_create(v, BV_CHILD_OBJS) so
+ * Group nodes are allocated via bsg_obj_create(v, BSG_OBJ_CHILD) so
  * they are NOT inserted into any view object table.  Shape nodes are
- * allocated via bsg_obj_get_unregistered(v, BV_DB_OBJS) — they have
- * s_type_flags = BV_DB_OBJS but are NOT inserted into any gv_objs ptbl.
+ * allocated via bsg_obj_get_unregistered(v, BSG_OBJ_DB) — they have
+ * s_type_flags = BSG_OBJ_DB but are NOT inserted into any gv_objs ptbl.
  * The BSG tree (gd_draw_root) is the sole index for rendering and
  * iteration (bsg_view_objs_visit_db).
  */
@@ -344,7 +344,7 @@ _sg_root(struct ged *gedp)
     if (!v)
         return NULL;
 
-    struct bsg_node *root = bsg_obj_create(v, BV_CHILD_OBJS);
+    struct bsg_node *root = bsg_obj_create(v, BSG_OBJ_CHILD);
     if (!root)
         return NULL;
 
@@ -921,7 +921,7 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     _sg_erase_overlay_by_name(gedp, name);
 
     /* Obtain a fresh solid structure. */
-    struct bsg_node *sp = bsg_obj_get(gedp->ged_gvp, BV_DB_OBJS);
+    struct bsg_node *sp = bsg_obj_get(gedp->ged_gvp, BSG_OBJ_DB);
     sp->s_type_flags |= BSG_NODE_SHAPE | BSG_PAYLOAD_OVERLAY;
     bsg_node_set_name(sp, name);
 

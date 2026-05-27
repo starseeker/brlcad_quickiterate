@@ -156,7 +156,7 @@ _view_independent_collect_paths(struct _view_independent_path **paths,
     if (node->s_type_flags & BSG_NODE_VIEW_SCOPE)
 	return BRLCAD_OK;
 
-    if (node->s_type_flags & BV_DB_OBJS) {
+    if (node->s_type_flags & BSG_OBJ_DB) {
 	struct ged_bv_data *bdata = node->s_u_data ? (struct ged_bv_data *)node->s_u_data : NULL;
 	if (bdata && bdata->s_fullpath.fp_len > 0) {
 	    char *fpath = db_path_to_string(&bdata->s_fullpath);
