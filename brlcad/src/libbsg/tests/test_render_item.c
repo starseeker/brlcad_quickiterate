@@ -505,6 +505,8 @@ test_sorted_alpha(void)
     MAT_IDN(m1);
     MAT_IDN(m2);
     MAT_IDN(m3);
+    /* Use three distinct negative view-space Z depths so the expected
+     * back-to-front order is unambiguous: far (-5), middle (-3), near (-1). */
     MAT_DELTAS(m1, 0.0, 0.0, -1.0);
     MAT_DELTAS(m2, 0.0, 0.0, -5.0);
     MAT_DELTAS(m3, 0.0, 0.0, -3.0);
