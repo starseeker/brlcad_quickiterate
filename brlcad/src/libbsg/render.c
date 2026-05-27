@@ -153,9 +153,9 @@ _sort_key(const struct bsg_render_request *req,
 	 * a back-to-front transparent draw sequence. */
 	depth_key = -view_origin[Z] * depth_key_scale_factor;
 
-	if (depth_key > (fastf_t)INT_MAX)
+	if (depth_key >= (fastf_t)INT_MAX)
 	    return INT_MAX;
-	if (depth_key < (fastf_t)INT_MIN)
+	if (depth_key <= (fastf_t)INT_MIN)
 	    return INT_MIN;
 	return (int)depth_key;
     }
@@ -188,7 +188,7 @@ _sort_transparent_bucket(struct bu_ptbl *bucket)
 
     bu_sort(BU_PTBL_BASEADDR(bucket),
 	    BU_PTBL_LEN(bucket),
-	    sizeof(long *),
+	    sizeof(void *),
 	    _transparent_item_cmp,
 	    NULL);
 }
