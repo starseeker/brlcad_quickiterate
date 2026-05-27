@@ -28,6 +28,8 @@
 #include "rt/geom.h"		/* for ID_POLY special support */
 #include "raytrace.h"
 #include "rt/db4.h"
+#include "bsg/appearance.h"
+#include "ged/view.h"
 
 #include "./mged.h"
 #include "./mged_dm.h"
@@ -36,16 +38,16 @@
 #define GET_BV_SCENE_OBJ(p, fp) { \
           if (BU_LIST_IS_EMPTY(fp)) { \
               BU_ALLOC((p), struct bsg_node); \
-              struct ged_bv_data *bdata; \
-              BU_GET(bdata, struct ged_bv_data); \
+              ged_draw_shape_data *bdata; \
+              BU_GET(bdata, ged_draw_shape_data); \
               db_full_path_init(&bdata->s_fullpath); \
-              (p)->s_u_data = (void *)bdata; \
+              bsg_node_set_user_data((p), bdata); \
           } else { \
               p = BU_LIST_NEXT(bsg_node, fp); \
               BU_LIST_DEQUEUE(&((p)->l)); \
-              if ((p)->s_u_data) { \
-                  struct ged_bv_data *bdata = (struct ged_bv_data *)(p)->s_u_data; \
-                  bdata->s_fullpath.fp_len = 0; \
+              ged_draw_shape_data *bdata_reuse = ged_draw_shape_data_get(p); \
+              if (bdata_reuse) { \
+                  bdata_reuse->s_fullpath.fp_len = 0; \
               } \
           } \
           BU_LIST_INIT( &((p)->s_vlist) ); }
@@ -133,12 +135,13 @@ drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const str
 	    sp->s_old.s_basecolor[2] = tsp->ts_mater.ma_color[2] * 255.0;
 	}
 	sp->s_old.s_cflag = 0;
-	sp->s_iflag = DOWN;
+	bsg_appearance_set_highlighted(sp, 0);
 	sp->s_soldash = dashflag;
 	sp->s_old.s_Eflag = 0;	/* This is a solid */
-	if (sp->s_u_data) {
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-	    db_dup_full_path(&bdata->s_fullpath, pathp);
+	{
+	    ged_draw_shape_data *bdata = ged_draw_shape_data_get(sp);
+	    if (bdata)
+	        db_dup_full_path(&bdata->s_fullpath, pathp);
 	}
 	if (tsp)
 	    sp->s_old.s_regionid = tsp->ts_regionid;
@@ -154,7 +157,7 @@ drawH_part2(struct mged_state *s, int dashflag, struct bu_list *vhead, const str
 	bu_semaphore_release(RT_SEM_MODEL);
     } else {
 	/* replacing existing solid -- struct already linked in */
-	sp->s_iflag = UP;
+	bsg_appearance_set_highlighted(sp, 1);
     }
 }
 
@@ -177,9 +180,11 @@ replot_original_solid(struct mged_state *s, struct bsg_node *sp)
     if (s->dbip == DBI_NULL)
 	return 0;
 
-    if (!sp->s_u_data)
+    if (!sp)
 	return 0;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    ged_draw_shape_data *bdata = ged_draw_shape_data_get(sp);
+    if (!bdata)
+	return 0;
     dp = LAST_SOLID(bdata);
     if (sp->s_old.s_Eflag) {
 	Tcl_AppendResult(s->interp, "replot_original_solid(", dp->d_namep,
@@ -246,11 +251,9 @@ replot_modified_solid(
     transform_editing_solid(s, &intern, mat, ip, 0);
 
     if (OBJ[ip->idb_type].ft_plot(&vhead, &intern, &s->tol.ttol, &s->tol.tol, NULL) < 0) {
-	if (!sp->s_u_data)
-	    return -1;
-	struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
-	if (bdata->s_fullpath.fp_len > 0)
-	    Tcl_AppendResult(s->interp, LAST_SOLID(bdata)->d_namep,
+	ged_draw_shape_data *bdata2 = ged_draw_shape_data_get(sp);
+	if (bdata2 && bdata2->s_fullpath.fp_len > 0)
+	    Tcl_AppendResult(s->interp, LAST_SOLID(bdata2)->d_namep,
 		    ": re-plot failure\n", (char *)NULL);
 	return -1;
     }
@@ -271,9 +274,11 @@ add_solid_path_to_result(
     struct bsg_node *sp)
 {
     struct bu_vls str = BU_VLS_INIT_ZERO;
-    if (!sp || !sp->s_u_data)
+    if (!sp)
 	return;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    ged_draw_shape_data *bdata = ged_draw_shape_data_get(sp);
+    if (!bdata)
+	return;
     db_path_to_vls(&str, &bdata->s_fullpath);
     Tcl_AppendResult(interp, bu_vls_addr(&str), " ", NULL);
     bu_vls_free(&str);

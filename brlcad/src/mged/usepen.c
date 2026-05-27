@@ -29,6 +29,8 @@
 
 #include "vmath.h"
 #include "bn.h"
+#include "bsg/appearance.h"
+#include "ged/view.h"
 
 #include "./mged.h"
 #include "./mged_dm.h"
@@ -54,7 +56,7 @@ _illuminate_cb(bsg_node *n, void *ud)
     struct _illuminate_data *d = (struct _illuminate_data *)ud;
     if (sp->s_flag == UP) {
 	if (d->count-- == 0) {
-	    sp->s_iflag = UP;
+	    bsg_appearance_set_highlighted(sp, 1);
 	    illump = sp;
 	    /* Walk up to the root child (depth-1 group) */
 	    {
@@ -65,7 +67,7 @@ _illuminate_cb(bsg_node *n, void *ud)
 		illum_gdlp = _g;
 	    }
 	} else {
-	    sp->s_iflag = DOWN;
+	    bsg_appearance_set_highlighted(sp, 0);
 	}
     }
     return 1;
@@ -74,7 +76,7 @@ _illuminate_cb(bsg_node *n, void *ud)
 
 /* Callback: accept solids whose top 'ipathpos' path elements match bdata. */
 struct _matpick_data {
-    struct ged_bv_data *bdata;
+    ged_draw_shape_data *bdata;
     size_t ipathpos;
 };
 
@@ -84,14 +86,14 @@ _matpick_topmat_cb(bsg_node *n, void *ud)
     struct bsg_node *sp = (struct bsg_node *)n;
     struct _matpick_data *d = (struct _matpick_data *)ud;
     size_t j;
-    if (!sp->s_u_data) return 1;
-    struct ged_bv_data *bdatas = (struct ged_bv_data *)sp->s_u_data;
+    ged_draw_shape_data *bdatas = ged_draw_shape_data_get(sp);
+    if (!bdatas) return 1;
     for (j = 0; j <= d->ipathpos; j++) {
 	if (DB_FULL_PATH_GET(&bdatas->s_fullpath, j) !=
 	    DB_FULL_PATH_GET(&d->bdata->s_fullpath, j))
 	    break;
     }
-    sp->s_iflag = (j == d->ipathpos + 1) ? UP : DOWN;
+    bsg_appearance_set_highlighted(sp, (j == d->ipathpos + 1) ? 1 : 0);
     return 1;
 }
 
@@ -135,7 +137,7 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     struct mged_state *s = ctp->s;
 
     struct bsg_node *sp;
-    struct ged_bv_data *bdata = NULL;
+    ged_draw_shape_data *bdata = NULL;
 
     if (argc < 1 || 2 < argc) {
 	struct bu_vls vls = BU_VLS_INIT_ZERO;
@@ -152,8 +154,8 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	return TCL_OK;
     }
 
-    if (illump != NULL && illump->s_u_data != NULL)
-	bdata = (struct ged_bv_data *)illump->s_u_data;
+    if (illump != NULL)
+	bdata = ged_draw_shape_data_get(illump);
 
     if (s->global_editing_state == ST_O_PATH && bdata) {
 	if (argc == 1 || *argv[1] == 'f') {
@@ -172,7 +174,7 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	if (illump == NULL)
 	    return TCL_ERROR;
 	sp = illump;
-	sp->s_iflag = DOWN;
+	bsg_appearance_set_highlighted(sp, 0);
 
 	/* Advance using snapshotted DFS integer index — single snapshot
 	 * build, O(N) total.  bsg_view_obj_advance_solid wraps circularly. */
@@ -259,7 +261,7 @@ f_matpick(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
     size_t j;
     int illum_only = 0;
     struct bu_vls vls = BU_VLS_INIT_ZERO;
-    struct ged_bv_data *bdata = NULL;
+    ged_draw_shape_data *bdata = NULL;
 
     CHECK_DBI_NULL;
 
@@ -286,10 +288,9 @@ f_matpick(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[
     if (not_state(s, ST_O_PATH, "Object Edit matrix pick"))
 	return TCL_ERROR;
 
-    if (!illump->s_u_data)
+    bdata = ged_draw_shape_data_get(illump);
+    if (!bdata)
 	return TCL_ERROR;
-
-    bdata = (struct ged_bv_data *)illump->s_u_data;
 
     if ((cp = strchr(argv[1], '/')) != NULL) {
 	struct directory *d0, *d1;
@@ -382,7 +383,7 @@ f_mouse(
     MGED_CK_CMD(ctp);
     struct mged_state *s = ctp->s;
 
-    struct ged_bv_data *bdata = NULL;
+    ged_draw_shape_data *bdata = NULL;
     vect_t mousevec;		/* float pt -1..+1 mouse pos vect */
     int isave;
     int up;
@@ -399,8 +400,8 @@ f_mouse(
 	return TCL_ERROR;
     }
 
-    if (illump && illump->s_u_data)
-	bdata = (struct ged_bv_data *)illump->s_u_data;
+    if (illump)
+	bdata = ged_draw_shape_data_get(illump);
 
     up = atoi(argv[1]);
     xpos = atoi(argv[2]);

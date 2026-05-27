@@ -31,6 +31,8 @@
 #include "bu/getopt.h"
 #include "bn.h"
 #include "bsg/util.h"
+#include "bsg/appearance.h"
+#include "ged/view.h"
 #include "raytrace.h"
 #include "rt/edit.h"
 #include "nmg.h"
@@ -1228,9 +1230,9 @@ _fill_solid_cb(bsg_node *n, void *ud)
     int fi, fj;
     const char *fsname;
 
-    fsp->s_iflag = DOWN;
-    if (!fsp->s_u_data) return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)fsp->s_u_data;
+    bsg_appearance_set_highlighted(fsp, 0);
+    ged_draw_shape_data *bdata = ged_draw_shape_data_get(fsp);
+    if (!bdata) return 1;
     if (d->exact && d->nm_pieces != bdata->s_fullpath.fp_len) return 1;
     /* XXX Could this make use of db_full_path_subset()? */
     if (d->nmatch == 0 || d->nmatch != d->ri) {
@@ -1423,7 +1425,7 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 
     /* Make the specified solid the illuminated solid */
     illump = lastfound;
-    illump->s_iflag = UP;
+    bsg_appearance_set_highlighted(illump, 1);
 
     if (!illum_only) {
 	if (s->global_editing_state == ST_O_PICK) {
