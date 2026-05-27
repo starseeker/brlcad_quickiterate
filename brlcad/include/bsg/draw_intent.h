@@ -195,6 +195,14 @@ BSG_EXPORT extern const char *
 bsg_draw_intent_path(const struct bsg_draw_intent *di);
 
 /**
+ * Update the source path stored in @p di.
+ *
+ * No-op if @p di is NULL.
+ */
+BSG_EXPORT extern void
+bsg_draw_intent_set_path(struct bsg_draw_intent *di, const char *path);
+
+/**
  * Return the draw mode recorded in @p di.
  *
  * Returns BSG_DRAW_MODE_WIRE (0) if @p di is NULL.

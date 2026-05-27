@@ -438,6 +438,14 @@ GED_EXPORT extern const char *
 bsg_view_obj_group_path(struct bsg_node *group);
 
 /**
+ * Return the draw mode recorded for @p group.
+ *
+ * This is the command-level draw mode captured in the group's draw intent.
+ */
+GED_EXPORT extern int
+bsg_view_obj_group_dmode(struct bsg_node *group);
+
+/**
  * Phase 10: structured counterpart to @ref bsg_view_obj_group_path.  Parses
  * @p group's stored path into @p out, which must be caller-initialised
  * (e.g. via @c db_full_path_init).  The caller is responsible for

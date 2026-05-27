@@ -119,6 +119,17 @@ bsg_draw_intent_path(const struct bsg_draw_intent *di)
 }
 
 
+void
+bsg_draw_intent_set_path(struct bsg_draw_intent *di, const char *path)
+{
+    if (!di)
+	return;
+    bu_vls_trunc(&di->di_path, 0);
+    if (path)
+	bu_vls_sprintf(&di->di_path, "%s", path);
+}
+
+
 bsg_draw_mode
 bsg_draw_intent_mode(const struct bsg_draw_intent *di)
 {

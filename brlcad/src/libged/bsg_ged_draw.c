@@ -647,22 +647,25 @@ _sg_erase_path(struct ged *gedp, const char *path)
             bu_ptbl_ins(&snap, (long *)g);
     }
 
-    for (size_t gi = 0; gi < BU_PTBL_LEN(&snap); gi++) {
-        struct bsg_node *g =
-            (struct bsg_node *)BU_PTBL_GET(&snap, gi);
+	for (size_t gi = 0; gi < BU_PTBL_LEN(&snap); gi++) {
+	    struct bsg_node *g =
+		(struct bsg_node *)BU_PTBL_GET(&snap, gi);
+	    const char *gpath = bsg_view_obj_group_path(g);
+	    if (!gpath)
+		continue;
 
-        if (BU_STR_EQUAL(path, bu_vls_cstr(&g->s_name))) {
-            _sg_free_group(g);
-            break;
-        }
+	    if (BU_STR_EQUAL(path, gpath)) {
+		_sg_free_group(g);
+		break;
+	    }
 
         if (!found_subpath)
             continue;
 
-        /* Check if root child is an ancestor of the erase path */
-        struct db_full_path gdlpath;
-        if (db_string_to_path(&gdlpath, dbip, bu_vls_cstr(&g->s_name)) != 0)
-            continue;
+	    /* Check if root child is an ancestor of the erase path */
+	    struct db_full_path gdlpath;
+	    if (db_string_to_path(&gdlpath, dbip, gpath) != 0)
+		continue;
 
         int is_ancestor = db_full_path_match_top(&gdlpath, &subpath);
         size_t ancestor_depth = gdlpath.fp_len;
@@ -734,12 +737,15 @@ _sg_erase_all_names(struct ged *gedp, const char *name)
             bu_ptbl_ins(&snap, (long *)g);
     }
 
-    for (size_t gi = 0; gi < BU_PTBL_LEN(&snap); gi++) {
-        struct bsg_node *g =
-            (struct bsg_node *)BU_PTBL_GET(&snap, gi);
+	for (size_t gi = 0; gi < BU_PTBL_LEN(&snap); gi++) {
+	    struct bsg_node *g =
+		(struct bsg_node *)BU_PTBL_GET(&snap, gi);
+	    const char *gpath = bsg_view_obj_group_path(g);
+	    if (!gpath)
+		continue;
 
-        /* Check path components for a name match */
-        char *dup_path = bu_strdup(bu_vls_cstr(&g->s_name));
+	    /* Check path components for a name match */
+	    char *dup_path = bu_strdup(gpath);
         char *tok;
         int found = 0;
         tok = strtok(dup_path, "/");
@@ -785,17 +791,19 @@ _sg_erase_all_paths(struct ged *gedp, const char *path)
     int restart;
     do {
         restart = 0;
-        for (size_t i = 0; i < bsg_node_child_count(root); i++) {
-            struct bsg_node *g =
-                (struct bsg_node *)bsg_node_child_at(root, i);
-            if (bsg_appearance_is_highlighted(g))
-                continue;
-            bsg_appearance_set_highlighted(g, 1);
+	    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
+		struct bsg_node *g =
+		    (struct bsg_node *)bsg_node_child_at(root, i);
+		if (bsg_appearance_is_highlighted(g))
+		    continue;
+		const char *gpath = bsg_view_obj_group_path(g);
+		if (!gpath)
+		    continue;
+		bsg_appearance_set_highlighted(g, 1);
 
-            struct db_full_path fullpath;
-            if (db_string_to_path(&fullpath, dbip,
-                                   bu_vls_cstr(&g->s_name)) != 0)
-                continue;
+		struct db_full_path fullpath;
+		if (db_string_to_path(&fullpath, dbip, gpath) != 0)
+		    continue;
 
             /* Case A: root child is fully contained by (or equal to) subpath */
             if (db_full_path_subset(&fullpath, &subpath, 0)) {
@@ -1692,12 +1700,23 @@ bsg_view_obj_group_path(struct bsg_node *group)
 {
     if (!group)
         return NULL;
-    /* Phase D2: prefer the explicit draw-intent path. */
+    const struct bsg_draw_intent *di = bsg_node_get_draw_intent(group);
+    return bsg_draw_intent_path(di);
+}
+
+
+int
+bsg_view_obj_group_dmode(struct bsg_node *group)
+{
+    if (!group)
+	return BSG_DRAW_MODE_WIRE;
     const struct bsg_draw_intent *di = bsg_node_get_draw_intent(group);
     if (di)
-        return bsg_draw_intent_path(di);
-    /* Fallback: return the raw s_name set during group creation. */
-    return bu_vls_cstr(&group->s_name);
+	return (int)bsg_draw_intent_mode(di);
+    struct bsg_node *sp = bsg_view_obj_group_first_solid(group);
+    if (sp && sp->s_os)
+	return sp->s_os->s_dmode;
+    return BSG_DRAW_MODE_WIRE;
 }
 
 
@@ -1732,7 +1751,14 @@ bsg_view_obj_group_set_dbpath(struct bsg_node *group,
     char *s = db_path_to_string(new_dfp);
     if (!s)
         return;
-    bsg_node_set_name(group, _dbpath_skip_lead_slash(s));
+    const char *path = _dbpath_skip_lead_slash(s);
+    bsg_node_set_name(group, path);
+    struct bsg_draw_intent *di = bsg_node_get_draw_intent(group);
+    if (di) {
+	bsg_draw_intent_set_path(di, path);
+    } else {
+	bsg_node_set_draw_intent(group, bsg_draw_intent_create(path, BSG_DRAW_MODE_WIRE));
+    }
     bu_free(s, "bsg_view_obj_group_set_dbpath: path string");
 }
 
@@ -1755,7 +1781,6 @@ bsg_view_obj_group_dbpath(struct ged *gedp,
         return -1;
     if (bsg_view_obj_group_is_phony(group))
         return -1;
-    /* Phase D2: use the explicit intent path; fall back to s_name. */
     const char *s = bsg_view_obj_group_path(group);
     if (!s || !*s)
         return -1;
@@ -1768,12 +1793,8 @@ bsg_view_obj_group_is_phony(struct bsg_node *group)
 {
     if (!group)
         return 0;
-    /* Phase D2: use the explicit overlay flag from the draw intent. */
     const struct bsg_draw_intent *di = bsg_node_get_draw_intent(group);
-    if (di)
-        return bsg_draw_intent_is_overlay(di);
-    /* Fallback: the _overlays group is the only pseudo-group. */
-    return BU_STR_EQUAL("_overlays", bu_vls_cstr(&group->s_name)) ? 1 : 0;
+    return bsg_draw_intent_is_overlay(di);
 }
 
 
