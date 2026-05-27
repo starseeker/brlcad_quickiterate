@@ -40,6 +40,7 @@
 #include "raytrace.h"
 #include "rt/func.h"
 
+#include "bsg/draw_intent.h"
 #include "../ged_private.h"
 #include "./ged_draw.h"
 
@@ -2065,6 +2066,11 @@ ged_E_core(struct ged *gedp, int argc, const char *argv[])
 	    }
 	    db_free_full_path(&dfp);
 	}
+
+	/* Phase D2: bigE always uses evaluated shading. */
+	if (dgcdp->gdlp)
+	    bsg_draw_intent_set_mode(bsg_node_get_draw_intent(dgcdp->gdlp),
+				    BSG_DRAW_MODE_SHADED_EVAL);
 
 	BU_ALLOC(dgcdp->ap, struct application);
 	RT_APPLICATION_INIT(dgcdp->ap);

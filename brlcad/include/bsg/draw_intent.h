@@ -203,6 +203,14 @@ BSG_EXPORT extern bsg_draw_mode
 bsg_draw_intent_mode(const struct bsg_draw_intent *di);
 
 /**
+ * Update the draw mode stored in @p di.
+ *
+ * No-op if @p di is NULL.
+ */
+BSG_EXPORT extern void
+bsg_draw_intent_set_mode(struct bsg_draw_intent *di, bsg_draw_mode mode);
+
+/**
  * Return the LoD policy recorded in @p di.
  *
  * Returns BSG_LOD_AUTO (0) if @p di is NULL.

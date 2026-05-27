@@ -643,7 +643,7 @@ _sg_erase_path(struct ged *gedp, const char *path)
     for (size_t i = 0; i < bsg_node_child_count(root); i++) {
         struct bsg_node *g =
             (struct bsg_node *)bsg_node_child_at(root, i);
-        if (!BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name)))
+        if (!bsg_view_obj_group_is_phony(g))
             bu_ptbl_ins(&snap, (long *)g);
     }
 
@@ -730,7 +730,7 @@ _sg_erase_all_names(struct ged *gedp, const char *name)
     for (size_t i = 0; i < bsg_node_child_count(root); i++) {
         struct bsg_node *g =
             (struct bsg_node *)bsg_node_child_at(root, i);
-        if (!BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name)))
+        if (!bsg_view_obj_group_is_phony(g))
             bu_ptbl_ins(&snap, (long *)g);
     }
 
@@ -1264,6 +1264,14 @@ bsg_view_obj_lookup_or_add_dbpath(struct ged *gedp,
      * not depend on the deprecated public path-string wrapper. */
     struct bsg_node *r =
         (struct bsg_node *)_sg_add_path(gedp, _dbpath_skip_lead_slash(s));
+    if (r && !r->di) {
+        /* Phase D2: attach a draw-intent so the path is explicit metadata.
+         * Mode defaults to WIRE; callers that know the actual draw mode
+         * should update it via bsg_draw_intent_set_mode(). */
+        bsg_node_set_draw_intent(r,
+            bsg_draw_intent_create(_dbpath_skip_lead_slash(s),
+                                   BSG_DRAW_MODE_WIRE));
+    }
     bu_free(s, "bsg_view_obj_lookup_or_add_dbpath: path string");
     return r;
 }
@@ -1425,7 +1433,7 @@ bsg_view_obj_first_solid(struct ged *gedp)
     for (size_t gi = 0; gi < bsg_node_child_count(root); gi++) {
         struct bsg_node *g =
             (struct bsg_node *)bsg_node_child_at(root, gi);
-        if (BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name)))
+        if (bsg_view_obj_group_is_phony(g))
             continue;
         struct _first_solid_data d = { NULL };
         bsg_visit((bsg_node *)g, BSG_NODE_SHAPE, _first_solid_cb, &d);
@@ -1459,7 +1467,7 @@ _sg_build_solid_snapshot(struct ged *gedp, struct bu_ptbl *out)
     for (size_t gi = 0; gi < bsg_node_child_count(root); gi++) {
         struct bsg_node *g =
             (struct bsg_node *)bsg_node_child_at(root, gi);
-        if (BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name)))
+        if (bsg_view_obj_group_is_phony(g))
             continue;
         bsg_visit((bsg_node *)g, BSG_NODE_SHAPE, _snap_solid_cb, (void *)out);
     }
@@ -1586,6 +1594,38 @@ bsg_view_obj_group_of_solid(struct ged *gedp, struct bsg_node *sp)
 }
 
 
+/*
+ * Phase D2: DFS helper for bsg_view_obj_foreach_group.
+ * Recursively finds intent-bearing groups, calling @p cb for each.
+ * Groups WITHOUT an intent are intermediate path-component nodes —
+ * recurse into them but do not invoke the callback.
+ * Returns 0 (stop) if the callback returns 0, 1 (continue) otherwise.
+ */
+static int
+_foreach_group_dfs(struct bsg_node *node,
+                   int (*cb)(struct bsg_node *, void *),
+                   void *userdata)
+{
+    if (!node)
+        return 1;
+
+    if (node->di) {
+        /* Intent-bearing node: this is a drawn item.  Call the callback
+         * and do NOT recurse into its children. */
+        return (*cb)(node, userdata);
+    }
+
+    /* No intent — intermediate path component.  Search children. */
+    for (size_t i = 0; i < bsg_node_child_count(node); i++) {
+        struct bsg_node *child =
+            (struct bsg_node *)bsg_node_child_at(node, i);
+        if (!_foreach_group_dfs(child, cb, userdata))
+            return 0;
+    }
+    return 1;
+}
+
+
 void
 bsg_view_obj_foreach_group(struct ged *gedp,
                            int (*cb)(struct bsg_node *, void *),
@@ -1601,7 +1641,7 @@ bsg_view_obj_foreach_group(struct ged *gedp,
     for (size_t gi = 0; gi < bsg_node_child_count(root); gi++) {
         struct bsg_node *g =
             (struct bsg_node *)bsg_node_child_at(root, gi);
-        if (!(*cb)(g, userdata))
+        if (!_foreach_group_dfs(g, cb, userdata))
             return;
     }
 }
@@ -1652,6 +1692,11 @@ bsg_view_obj_group_path(struct bsg_node *group)
 {
     if (!group)
         return NULL;
+    /* Phase D2: prefer the explicit draw-intent path. */
+    const struct bsg_draw_intent *di = bsg_node_get_draw_intent(group);
+    if (di)
+        return bsg_draw_intent_path(di);
+    /* Fallback: return the raw s_name set during group creation. */
     return bu_vls_cstr(&group->s_name);
 }
 
@@ -1710,7 +1755,8 @@ bsg_view_obj_group_dbpath(struct ged *gedp,
         return -1;
     if (bsg_view_obj_group_is_phony(group))
         return -1;
-    const char *s = bu_vls_cstr(&group->s_name);
+    /* Phase D2: use the explicit intent path; fall back to s_name. */
+    const char *s = bsg_view_obj_group_path(group);
     if (!s || !*s)
         return -1;
     return db_string_to_path(out, gedp->dbip, s);
@@ -1722,8 +1768,11 @@ bsg_view_obj_group_is_phony(struct bsg_node *group)
 {
     if (!group)
         return 0;
-    /* The _overlays group is the only pseudo-group; real drawn-path
-     * groups always have a valid dp and are not phony. */
+    /* Phase D2: use the explicit overlay flag from the draw intent. */
+    const struct bsg_draw_intent *di = bsg_node_get_draw_intent(group);
+    if (di)
+        return bsg_draw_intent_is_overlay(di);
+    /* Fallback: the _overlays group is the only pseudo-group. */
     return BU_STR_EQUAL("_overlays", bu_vls_cstr(&group->s_name)) ? 1 : 0;
 }
 

@@ -36,6 +36,7 @@
 
 #include "ged/bsg_ged_draw.h"
 #include "bsg/appearance.h"
+#include "bsg/draw_intent.h"
 #include "bsg/draw_source.h"
 #include "bsg/material.h"
 #include "bsg/node.h"
@@ -1251,6 +1252,10 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 		    if (dgcdp.gdlp == NULL)
 			continue;
 
+		    /* Phase D2: record the actual draw mode in the group intent. */
+		    bsg_draw_intent_set_mode(bsg_node_get_draw_intent(dgcdp.gdlp),
+					    (bsg_draw_mode)dgcdp.vs.s_dmode);
+
 		    dgcdp_save = dgcdp;
 
 		    if (dgcdp.vs.s_dmode == _GED_SHADED_MODE_EVAL) {
@@ -1324,6 +1329,10 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 			continue;
 		    }
 
+		    /* Phase D2: record the actual draw mode in the group intent. */
+		    bsg_draw_intent_set_mode(bsg_node_get_draw_intent(dgcdp.gdlp),
+					    (bsg_draw_mode)dgcdp.vs.s_dmode);
+
 		    av[0] = (char *)argv[i];
 		    ret = db_walk_tree(gedp->dbip,
 				       ac,
@@ -1396,6 +1405,10 @@ _ged_drawtrees(struct ged *gedp, int argc, const char *argv[], int kind, struct 
 
 		    if (dgcdp.gdlp == NULL)
 			continue;
+
+		    /* Phase D2: record the actual draw mode in the group intent. */
+		    bsg_draw_intent_set_mode(bsg_node_get_draw_intent(dgcdp.gdlp),
+					    (bsg_draw_mode)dgcdp.vs.s_dmode);
 
 		    av[0] = (char *)argv[i];
 		    ret = db_walk_tree(gedp->dbip,

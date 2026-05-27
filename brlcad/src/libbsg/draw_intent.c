@@ -128,6 +128,15 @@ bsg_draw_intent_mode(const struct bsg_draw_intent *di)
 }
 
 
+void
+bsg_draw_intent_set_mode(struct bsg_draw_intent *di, bsg_draw_mode mode)
+{
+    if (!di)
+	return;
+    di->di_mode = mode;
+}
+
+
 bsg_lod_policy
 bsg_draw_intent_lod(const struct bsg_draw_intent *di)
 {
@@ -163,6 +172,38 @@ _strip_lead_slash(const char *s)
 }
 
 
+/*
+ * DFS helper for bsg_draw_intent_find.  Returns the first intent-bearing
+ * node under @p node (including @p node itself) whose di_path equals
+ * @p norm_path, or NULL.
+ */
+static bsg_node *
+_find_intent_dfs(bsg_node *node, const char *norm_path)
+{
+    if (!node)
+	return NULL;
+
+    const struct bsg_draw_intent *di = bsg_node_get_draw_intent(node);
+    if (di) {
+	const char *gpath = _strip_lead_slash(bu_vls_cstr(&di->di_path));
+	if (BU_STR_EQUAL(gpath, norm_path))
+	    return node;
+	/* Intent-bearing node with a non-matching path: do NOT recurse. */
+	return NULL;
+    }
+
+    /* No intent yet — this is an intermediate path-component group.
+     * Search its children. */
+    for (size_t i = 0; i < BU_PTBL_LEN(&node->children); i++) {
+	bsg_node *child = (bsg_node *)BU_PTBL_GET(&node->children, i);
+	bsg_node *found = _find_intent_dfs(child, norm_path);
+	if (found)
+	    return found;
+    }
+    return NULL;
+}
+
+
 bsg_node *
 bsg_draw_intent_find(bsg_node *root, const char *path)
 {
@@ -171,16 +212,42 @@ bsg_draw_intent_find(bsg_node *root, const char *path)
 
     const char *norm = _strip_lead_slash(path);
 
+    /* Search each direct child of root. */
     for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
 	bsg_node *g = (bsg_node *)BU_PTBL_GET(&root->children, i);
-	const struct bsg_draw_intent *di = bsg_node_get_draw_intent(g);
-	if (!di)
-	    continue;
-	const char *gpath = _strip_lead_slash(bu_vls_cstr(&di->di_path));
-	if (BU_STR_EQUAL(gpath, norm))
-	    return g;
+	bsg_node *found = _find_intent_dfs(g, norm);
+	if (found)
+	    return found;
     }
     return NULL;
+}
+
+
+/*
+ * DFS helper for bsg_collect_draw_groups.  Collects all intent-bearing
+ * leaf groups under @p node (including @p node itself).  When
+ * @p include_overlays is zero, overlay intents are skipped.
+ */
+static void
+_collect_intent_dfs(bsg_node *node, struct bu_ptbl *groups,
+		    int include_overlays)
+{
+    if (!node)
+	return;
+
+    const struct bsg_draw_intent *di = bsg_node_get_draw_intent(node);
+    if (di) {
+	if (include_overlays || !di->di_overlay)
+	    bu_ptbl_ins(groups, (long *)node);
+	/* Intent-bearing node: do not recurse into its children. */
+	return;
+    }
+
+    /* No intent — intermediate path component; recurse. */
+    for (size_t i = 0; i < BU_PTBL_LEN(&node->children); i++) {
+	bsg_node *child = (bsg_node *)BU_PTBL_GET(&node->children, i);
+	_collect_intent_dfs(child, groups, include_overlays);
+    }
 }
 
 
@@ -193,13 +260,7 @@ bsg_collect_draw_groups(bsg_node *root, struct bu_ptbl *groups,
 
     for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
 	bsg_node *g = (bsg_node *)BU_PTBL_GET(&root->children, i);
-	const struct bsg_draw_intent *di = bsg_node_get_draw_intent(g);
-	if (!include_overlays) {
-	    /* Skip overlay containers and nodes without any intent */
-	    if (!di || di->di_overlay)
-		continue;
-	}
-	bu_ptbl_ins(groups, (long *)g);
+	_collect_intent_dfs(g, groups, include_overlays);
     }
 }
 
