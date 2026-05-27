@@ -46,7 +46,9 @@ QgPolyFilter::close_polygon()
 		if (ip->polygon.contour[0].num_points < 3) {
 			// If we're trying to finalize and we have less than
 			// three points, just remove - we didn't get enough
-			// to make a closed polygon.
+			// to make a closed polygon.  The typed polygon payload
+			// owns the interactive polygon storage, so bsg_obj_put
+			// performs the necessary cleanup here.
 			bsg_obj_put(wp);
 			wp = nullptr;
 			return false;

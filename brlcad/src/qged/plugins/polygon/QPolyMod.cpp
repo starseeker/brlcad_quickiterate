@@ -653,7 +653,6 @@ QPolyMod::delete_poly()
     if (!gedp)
 	return;
 
-    struct bsg_polygon *ip = bsg_node_polygon(p);
     bsg_obj_put(p);
     mod_names->setCurrentIndex(0);
     if (mod_names->currentText().length()) {
