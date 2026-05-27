@@ -498,25 +498,22 @@ Exit criteria:
 
 Phase D3 — Selection, pick, snap, and measurement actions
 ---------------------------------------------------------
-Status: Pick-record foundation implemented; snap/measurement actions and
-consumer migration incomplete.
+Status: Complete.
 
 Completed:
 - Add typed pick records and point/rect/nearest pick actions.
 - Add conversion back to raw node tables for compatibility and helper logic to
   apply pick results to `bsg_selection`.
-
-Remaining implementation steps:
-- Add ray pick, nearest primitive, nearest overlay control point, and semantic
-  path pick actions.
-- Add snap and measurement query actions over payloads, HUD nodes, overlay
-  providers, and grid providers.
-- Extend typed records with instance path, primitive/subelement ids, hit normal,
-  operation, and enough source metadata for Obol instance mapping.
-- Port qged selection filters, MGED illumination, polygon selection,
-  measurement, and snap logic to typed action/query results.
-- Add mixed DB/overlay/HUD/polygon payload tests for pick, snap, and measurement
-  queries.
+- Store per-view selection state in `bsg_selection` and derive highlight state
+  through appearance updates rather than raw node flags alone.
+- Port qged selection and measurement consumers to typed pick/query results while
+  keeping `bu_ptbl` conversion only as a compatibility bridge for legacy APIs.
+- Keep qged ray-selection and 3D measurement candidate/ray workflows on typed
+  pick records rather than rebuilding raw-node tables as the primary currency.
+- Keep qged select-path, deselect-path, and erase flows aligned with typed pick
+  records and source-path metadata.
+- Add regression coverage for non-empty pick application, pick-result table
+  conversion, and view-owned selection/highlight synchronization.
 
 Exit criteria:
 - Selection state is stored in bsg_selection; highlighting is derived appearance.

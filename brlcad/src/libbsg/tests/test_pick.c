@@ -38,6 +38,8 @@
 #include "bu/ptbl.h"
 #include "bsg/defines.h"
 #include "bsg/draw_intent.h"
+#include "bsg/node.h"
+#include "bsg/node_group.h"
 #include "bsg/node_shape.h"
 #include "bsg/pick.h"
 #include "bsg/selection.h"
@@ -70,6 +72,26 @@ free_view(struct bsg_view *v)
     if (!v) return;
     bsg_view_free(v);
     bu_free(v, "pick_test_view");
+}
+
+static int
+append_record(struct bsg_pick_result *res, bsg_node *node, struct bsg_view *v,
+	int sx, int sy, const char *path, fastf_t hit_dist)
+{
+    if (!res || !node)
+	return 0;
+
+    struct bsg_pick_record *pr;
+    BU_GET(pr, struct bsg_pick_record);
+    bu_vls_init(&pr->pr_source_path);
+    pr->pr_node = node;
+    pr->pr_view = v;
+    pr->pr_screen_x = sx;
+    pr->pr_screen_y = sy;
+    pr->pr_hit_dist = hit_dist;
+    bu_vls_sprintf(&pr->pr_source_path, "%s", path ? path : bu_vls_cstr(&node->s_name));
+    bu_ptbl_ins(&res->pr_records, (long *)pr);
+    return 1;
 }
 
 
@@ -248,6 +270,76 @@ test_pick_op_values(void)
     return 0;
 }
 
+static int
+test_pick_apply_nonempty(void)
+{
+    printf("=== Test 9: pick_apply non-empty result ===\n");
+
+    struct bsg_view *v = make_view();
+    bsg_node *root = bsg_scene_root_create(v);
+    bsg_node *s1 = bsg_shape_create(v);
+    bsg_node *s2 = bsg_shape_create(v);
+    if (!root || !s1 || !s2) FAIL("scene setup failed");
+    bsg_node_add_child(root, s1);
+    bsg_node_add_child(root, s2);
+
+    struct bsg_pick_result *res = bsg_pick_result_create();
+    struct bsg_selection *sel = bsg_selection_create();
+    if (!append_record(res, s1, v, 10, 20, "/a", 1.0)) FAIL("append_record s1");
+    if (!append_record(res, s2, v, 10, 20, "/b", 2.0)) FAIL("append_record s2");
+
+    bsg_pick_apply(sel, res, BSG_PICK_OP_SET);
+    if (bsg_selection_count(sel) != 2) FAIL("SET should populate both nodes");
+    if (!bsg_selection_contains(sel, s1) || !bsg_selection_contains(sel, s2))
+	FAIL("selection should contain both nodes after SET");
+
+    bsg_pick_apply(v->gv_s->gv_selected, res, BSG_PICK_OP_SET);
+    if (bsg_selection_count(v->gv_s->gv_selected) != 2)
+	FAIL("view selection storage should accept pick_apply");
+
+    bsg_pick_apply(sel, res, BSG_PICK_OP_REMOVE);
+    if (bsg_selection_count(sel) != 0) FAIL("REMOVE should clear both nodes");
+
+    bsg_selection_destroy(sel);
+    bsg_pick_result_free(res);
+    bsg_shape_destroy(s1);
+    bsg_shape_destroy(s2);
+    bsg_scene_root_destroy(root);
+    free_view(v);
+
+    PASS("pick_apply non-empty result");
+    return 0;
+}
+
+static int
+test_pick_result_to_ptbl_nonempty(void)
+{
+    printf("=== Test 10: result_to_ptbl non-empty ===\n");
+
+    struct bsg_view *v = make_view();
+    bsg_node *root = bsg_scene_root_create(v);
+    bsg_node *s1 = bsg_shape_create(v);
+    if (!root || !s1) FAIL("scene setup failed");
+    bsg_node_add_child(root, s1);
+
+    struct bsg_pick_result *res = bsg_pick_result_create();
+    struct bu_ptbl out = BU_PTBL_INIT_ZERO;
+    if (!append_record(res, s1, v, 5, 6, "/picked", 3.0)) FAIL("append_record");
+
+    bsg_pick_result_to_ptbl(res, &out);
+    if (BU_PTBL_LEN(&out) != 1) FAIL("ptbl should have one node");
+    if ((bsg_node *)BU_PTBL_GET(&out, 0) != s1) FAIL("ptbl should reference s1");
+
+    bu_ptbl_free(&out);
+    bsg_pick_result_free(res);
+    bsg_shape_destroy(s1);
+    bsg_scene_root_destroy(root);
+    free_view(v);
+
+    PASS("result_to_ptbl non-empty");
+    return 0;
+}
+
 
 /* -----------------------------------------------------------------------
  * main
@@ -268,6 +360,8 @@ main(int argc, char *argv[])
     failures += test_pick_apply_empty();
     failures += test_pick_nearest_null();
     failures += test_pick_op_values();
+    failures += test_pick_apply_nonempty();
+    failures += test_pick_result_to_ptbl_nonempty();
 
     if (failures) {
 	printf("FAILED: %d test(s) failed\n", failures);

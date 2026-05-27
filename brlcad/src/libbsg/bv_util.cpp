@@ -40,6 +40,7 @@
 #include "bsg/draw_intent.h"
 #include "bsg/material.h"
 #include "bsg/payload_typed.h"
+#include "bsg/selection.h"
 #include "bsg/snap.h"
 #include "bsg/util.h"
 #include "bsg/view_sets.h"
@@ -400,8 +401,7 @@ bsg_init(struct bsg_view *gvp, struct bsg_view_set *s)
     /* Initialize local settings */
     bsg_settings_init(&gvp->gv_ls);
 
-    // TODO - unimplemented
-    gvp->gv_ls.gv_selected = NULL;
+    gvp->gv_ls.gv_selected = bsg_selection_create();
 
     /* Out of the gate we don't have any shared settings */
     gvp->gv_s = &gvp->gv_ls;
@@ -496,8 +496,7 @@ bsg_free(struct bsg_view *gvp)
 	bu_ptbl_free(&gvp->gv_ls.gv_snap_objs);
 
     if (gvp->gv_ls.gv_selected) {
-	bu_ptbl_free(gvp->gv_ls.gv_selected);
-	BU_PUT(gvp->gv_ls.gv_selected, struct bu_ptbl);
+	bsg_selection_destroy(gvp->gv_ls.gv_selected);
 	gvp->gv_ls.gv_selected = NULL;
     }
 

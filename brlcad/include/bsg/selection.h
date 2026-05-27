@@ -27,9 +27,8 @@
  * selection-state tracking.
  *
  * bsg_selection_highlight() / bsg_selection_unhighlight() provide a
- * compatibility bridge that mirrors the selection state into `s_iflag` so
- * existing renderers that inspect `s_iflag` continue to work during the
- * transition period.
+ * compatibility bridge that mirrors the selection state into both the modern
+ * appearance highlight state and the legacy `s_iflag` bits.
  */
 /** @{ */
 /* @file bsg/selection.h */
@@ -106,16 +105,16 @@ BSG_EXPORT extern const struct bu_ptbl *
 bsg_selection_nodes(const struct bsg_selection *sel);
 
 /**
- * Set `s_iflag = UP` on every node currently in @p sel.
- * This is a compatibility bridge for renderers that inspect s_iflag for
- * selection highlighting.
+ * Mark every node currently in @p sel as highlighted in both appearance state
+ * and the legacy `s_iflag` compatibility bit.
  * No-op if @p sel is NULL.
  */
 BSG_EXPORT extern void
 bsg_selection_highlight(struct bsg_selection *sel);
 
 /**
- * Set `s_iflag = DOWN` on every node currently in @p sel.
+ * Clear highlight state on every node currently in @p sel in both appearance
+ * state and the legacy `s_iflag` compatibility bit.
  * No-op if @p sel is NULL.
  */
 BSG_EXPORT extern void

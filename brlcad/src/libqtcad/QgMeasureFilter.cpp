@@ -31,6 +31,7 @@ extern "C" {
 #include "raytrace.h"
 }
 
+#include <vector>
 #include "qtcad/QgMeasureFilter.h"
 #include "qtcad/QgSignalFlags.h"
 
@@ -281,6 +282,19 @@ _cpnt_ovlp(struct application *ap, struct partition *pp, struct region *UNUSED(r
 	return 1;
 }
 
+static const char *
+_measure_pick_target(const struct bsg_pick_record *pr)
+{
+	if (!pr)
+		return NULL;
+
+	const char *spath = bu_vls_cstr(&pr->pr_source_path);
+	if (spath && spath[0])
+		return spath;
+
+	return (pr->pr_node) ? bu_vls_cstr(&pr->pr_node->s_name) : NULL;
+}
+
 bool
 QMeasure3DFilter::get_point()
 {
@@ -301,13 +315,27 @@ QMeasure3DFilter::get_point()
 	// only those objects whose bounding boxes are currently under the mouse.
 	// Under most circumstances that should substantially cut down the
 	// interrogation time for large models.
+	struct bsg_pick_result *candidates = bsg_pick_point(v, v->gv_mouse_x, v->gv_mouse_y, 0);
 	struct bu_ptbl sset = BU_PTBL_INIT_ZERO;
-	int scnt = bsg_view_objs_select(&sset, v, v->gv_mouse_x, v->gv_mouse_y);
+	std::vector<const char *> candidate_names;
+	if (candidates) {
+		candidate_names.reserve(bsg_pick_result_count(candidates));
+		for (size_t i = 0; i < bsg_pick_result_count(candidates); i++) {
+			struct bsg_pick_record *pr = bsg_pick_result_get(candidates, i);
+			if (!pr || !pr->pr_node)
+				continue;
+			bu_ptbl_ins(&sset, (long *)pr->pr_node);
+			candidate_names.push_back(_measure_pick_target(pr));
+		}
+	}
+	int scnt = (int)BU_PTBL_LEN(&sset);
 
 	// If we didn't see anything, we have a no-op
 	if (!scnt) {
 		prev_cnt = scnt;
 		bu_ptbl_free(&sset);
+		if (candidates)
+			bsg_pick_result_free(candidates);
 		return false;
 	}
 
@@ -356,8 +384,7 @@ QMeasure3DFilter::get_point()
 
 		const char **objs = (const char **)bu_calloc(BU_PTBL_LEN(&scene_obj_set) + 1, sizeof(char *), "objs");
 		for (size_t i = 0; i < BU_PTBL_LEN(&scene_obj_set); i++) {
-			struct bsg_node *l_s = (struct bsg_node *)BU_PTBL_GET(&scene_obj_set, i);
-			objs[i] = bu_vls_cstr(&l_s->s_name);
+			objs[i] = (i < candidate_names.size()) ? candidate_names[i] : NULL;
 		}
 		if (rt_gettrees_and_attrs(rtip, nullptr, scnt, objs, 1)) {
 			bu_free(objs, "objs");
@@ -365,6 +392,8 @@ QMeasure3DFilter::get_point()
 			rtip = nullptr;
 			BU_PUT(resp, struct resource);
 			bu_ptbl_free(&sset);
+			if (candidates)
+				bsg_pick_result_free(candidates);
 			return false;
 		}
 		size_t ncpus = bu_avail_cpus();
@@ -373,6 +402,8 @@ QMeasure3DFilter::get_point()
 	}
 
 	bu_ptbl_free(&sset);
+	if (candidates)
+		bsg_pick_result_free(candidates);
 
 	// Set up data container for result
 	struct measure_rec_state rc;

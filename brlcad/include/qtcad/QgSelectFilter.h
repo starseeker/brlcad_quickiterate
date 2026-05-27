@@ -50,6 +50,7 @@ class QTCAD_EXPORT QgSelectFilter : public QgViewFilter {
 
     public:
 	QgSelectFilter() = default;
+	~QgSelectFilter() override;
 	// Primary mouse interaction.  This differs a bit for the
 	// various selection types, hence the virtual definition
 	// in the base class.
@@ -59,12 +60,22 @@ class QTCAD_EXPORT QgSelectFilter : public QgViewFilter {
 	}
 
 	struct bu_ptbl selected_set = BU_PTBL_INIT_ZERO;
+	const struct bsg_pick_result *pick_result() const
+	{
+		return selected_result;
+	}
 
 	// Whenever we're doing selections, we may want either all the objects
 	// that match the selection criteria, or just the "closest" object.
 	// Default behavior is to return everything, but this flag allows the
 	// caller to request the more limited result as well.
 	bool first_only = false;
+
+    protected:
+	void clear_selected_result();
+	void set_selected_result(struct bsg_view *v, struct bsg_pick_result *res);
+
+	struct bsg_pick_result *selected_result = nullptr;
 
 };
 
