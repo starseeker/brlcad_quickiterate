@@ -301,13 +301,18 @@ QMeasure3DFilter::get_point()
 	// only those objects whose bounding boxes are currently under the mouse.
 	// Under most circumstances that should substantially cut down the
 	// interrogation time for large models.
+	struct bsg_pick_result *candidates = bsg_pick_point(v, v->gv_mouse_x, v->gv_mouse_y, 0);
 	struct bu_ptbl sset = BU_PTBL_INIT_ZERO;
-	int scnt = bsg_view_objs_select(&sset, v, v->gv_mouse_x, v->gv_mouse_y);
+	if (candidates)
+		bsg_pick_result_to_ptbl(candidates, &sset);
+	int scnt = (int)BU_PTBL_LEN(&sset);
 
 	// If we didn't see anything, we have a no-op
 	if (!scnt) {
 		prev_cnt = scnt;
 		bu_ptbl_free(&sset);
+		if (candidates)
+			bsg_pick_result_free(candidates);
 		return false;
 	}
 
@@ -365,6 +370,8 @@ QMeasure3DFilter::get_point()
 			rtip = nullptr;
 			BU_PUT(resp, struct resource);
 			bu_ptbl_free(&sset);
+			if (candidates)
+				bsg_pick_result_free(candidates);
 			return false;
 		}
 		size_t ncpus = bu_avail_cpus();
@@ -373,6 +380,8 @@ QMeasure3DFilter::get_point()
 	}
 
 	bu_ptbl_free(&sset);
+	if (candidates)
+		bsg_pick_result_free(candidates);
 
 	// Set up data container for result
 	struct measure_rec_state rc;

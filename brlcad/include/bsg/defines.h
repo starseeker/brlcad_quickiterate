@@ -599,9 +599,10 @@ struct bsg_view_settings {
     struct bsg_interactive_rect_state gv_rect;
 
 
-    // Not yet implemented - mechanism for defining a set of selected view
-    // objects
-    struct bu_ptbl                      *gv_selected;
+    /* Current view selection set.  Legacy raw-node-table consumers should
+     * migrate to bsg_selection_* APIs; the pointer remains here as the
+     * canonical per-view selection model storage. */
+    struct bsg_selection               *gv_selected;
 };
 
 /* A view needs to know what objects are active within it, but this is a

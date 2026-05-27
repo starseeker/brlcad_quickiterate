@@ -27,6 +27,7 @@
 #include "bu/malloc.h"
 #include "bu/ptbl.h"
 
+#include "bsg/appearance.h"
 #include "bsg/defines.h"
 #include "bsg/selection.h"
 
@@ -119,8 +120,10 @@ bsg_selection_highlight(struct bsg_selection *sel)
 	return;
     for (size_t i = 0; i < BU_PTBL_LEN(&sel->nodes); i++) {
 	bsg_node *n = (bsg_node *)BU_PTBL_GET(&sel->nodes, i);
-	if (n)
+	if (n) {
+	    bsg_appearance_set_highlighted(n, 1);
 	    n->s_iflag = UP;
+	}
     }
 }
 
@@ -132,8 +135,10 @@ bsg_selection_unhighlight(struct bsg_selection *sel)
 	return;
     for (size_t i = 0; i < BU_PTBL_LEN(&sel->nodes); i++) {
 	bsg_node *n = (bsg_node *)BU_PTBL_GET(&sel->nodes, i);
-	if (n)
+	if (n) {
+	    bsg_appearance_set_highlighted(n, 0);
 	    n->s_iflag = DOWN;
+	}
     }
 }
 

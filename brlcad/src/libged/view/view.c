@@ -396,7 +396,8 @@ _view_cmd_selections(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    bu_vls_printf(gd->gedp->ged_result_str, "%zd", BU_PTBL_LEN(v->gv_s->gv_selected));
+    bu_vls_printf(gd->gedp->ged_result_str, "%zu",
+		  bsg_selection_count(v->gv_s->gv_selected));
 
     return BRLCAD_OK;
 }

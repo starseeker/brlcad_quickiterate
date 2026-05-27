@@ -28,6 +28,7 @@
 
 #include "bu/app.h"
 #include "bu/malloc.h"
+#include "bsg/appearance.h"
 #include "bsg/defines.h"
 #include "bsg/util.h"
 #include "bsg/node_shape.h"
@@ -78,6 +79,20 @@ test_create_destroy(void)
     bsg_selection_destroy(NULL);   /* must not crash */
 
     PASS("create_destroy");
+    return 0;
+}
+
+static int
+test_view_selection_storage(void)
+{
+    printf("=== Test 1b: view_selection_storage ===\n");
+
+    struct bsg_view *v = make_view();
+    if (!v->gv_s || !v->gv_s->gv_selected) FAIL("view selection storage should be initialized");
+    if (bsg_selection_count(v->gv_s->gv_selected) != 0) FAIL("view selection storage should start empty");
+
+    free_view(v);
+    PASS("view_selection_storage");
     return 0;
 }
 
@@ -206,11 +221,14 @@ test_highlight(void)
     bsg_selection_add(sel, s1);
 
     s1->s_iflag = DOWN;
+    bsg_appearance_set_highlighted(s1, 0);
     bsg_selection_highlight(sel);
     if (s1->s_iflag != UP) FAIL("s_iflag should be UP after highlight");
+    if (!bsg_appearance_is_highlighted(s1)) FAIL("appearance highlight should be enabled after highlight");
 
     bsg_selection_unhighlight(sel);
     if (s1->s_iflag != DOWN) FAIL("s_iflag should be DOWN after unhighlight");
+    if (bsg_appearance_is_highlighted(s1)) FAIL("appearance highlight should be disabled after unhighlight");
 
     bsg_selection_destroy(sel);
     bsg_shape_destroy(s1);
@@ -256,6 +274,7 @@ main(int UNUSED(argc), const char **argv)
     int failures = 0;
 
     failures += test_create_destroy();
+    failures += test_view_selection_storage();
     failures += test_add_contains_count();
     failures += test_remove();
     failures += test_clear();

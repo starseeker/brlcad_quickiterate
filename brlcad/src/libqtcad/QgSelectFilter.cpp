@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2021-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
- *
+6.  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
  * version 2.1 as published by the Free Software Foundation.
@@ -27,7 +27,6 @@
 
 extern "C" {
 #include "bu/malloc.h"
-#include "bg/aabb_ray.h"
 #include "bsg.h"
 #include "raytrace.h"
 }
@@ -36,326 +35,356 @@ extern "C" {
 #include "qtcad/QgSelectFilter.h"
 #include "qtcad/QgSignalFlags.h"
 
-// Find the first bbox intersection under the XY view point.
-static struct bsg_node *
-closest_obj_bbox(struct bu_ptbl *sset, struct bsg_view *v)
+static struct bsg_pick_record *
+_qg_pick_record_create(struct bsg_node *node, struct bsg_view *v, int sx, int sy,
+	const char *source_path, fastf_t hit_dist = -1.0)
 {
-	fastf_t vx = -FLT_MAX;
-	fastf_t vy = -FLT_MAX;
-	struct bsg_node *s_closest = nullptr;
-	double dist = DBL_MAX;
-	bsg_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
-	point_t vpnt, mpnt;
-	VSET(vpnt, vx, vy, 0);
-	MAT4X3PNT(mpnt, v->gv_view2model, vpnt);
-	point_t rmin, rmax;
-	vect_t dir;
-	VMOVEN(dir, v->gv_rotation + 8, 3);
-	VUNITIZE(dir);
-	VSCALE(dir, dir, v->radius);
-	VADD2(mpnt, mpnt, dir);
-	VUNITIZE(dir);
-	bg_ray_invdir(&dir, dir);
-	for (size_t i = 0; i < BU_PTBL_LEN(sset); i++) {
-		struct bsg_node *s = (struct bsg_node *)BU_PTBL_GET(sset, i);
-		if (bg_isect_aabb_ray(rmin, rmax, mpnt, dir, s->bmin, s->bmax)) {
-			double ndist = DIST_PNT_PNT(rmin, v->gv_vc_backout);
-			if (ndist < dist) {
-				dist = ndist;
-				s_closest = s;
-			}
-		}
-	}
+    if (!node)
+	return nullptr;
 
-	return s_closest;
+    struct bsg_pick_record *pr;
+    BU_GET(pr, struct bsg_pick_record);
+    bu_vls_init(&pr->pr_source_path);
+    pr->pr_node = node;
+    pr->pr_view = v;
+    pr->pr_screen_x = sx;
+    pr->pr_screen_y = sy;
+    if (hit_dist >= 0.0) {
+	pr->pr_hit_dist = hit_dist;
+    } else if (v) {
+	point_t center;
+	VADD2SCALE(center, node->bmin, node->bmax, 0.5);
+	pr->pr_hit_dist = DIST_PNT_PNT(center, v->gv_vc_backout);
+    } else {
+	pr->pr_hit_dist = -1.0;
+    }
+    bu_vls_sprintf(&pr->pr_source_path, "%s",
+	(source_path && source_path[0]) ? source_path : bu_vls_cstr(&node->s_name));
+    return pr;
 }
 
+static struct bsg_pick_result *
+_qg_pick_result_from_ptbl(struct bsg_view *v, const struct bu_ptbl *nodes,
+	int sx, int sy)
+{
+    struct bsg_pick_result *res = bsg_pick_result_create();
+    if (!res || !nodes)
+	return res;
+
+    for (size_t i = 0; i < BU_PTBL_LEN(nodes); i++) {
+	struct bsg_node *node = (struct bsg_node *)BU_PTBL_GET(nodes, i);
+	struct bsg_pick_record *pr = _qg_pick_record_create(node, v, sx, sy, NULL);
+	if (pr)
+	    bu_ptbl_ins(&res->pr_records, (long *)pr);
+    }
+
+    return res;
+}
+
+static struct bsg_pick_result *
+_qg_pick_result_single(struct bsg_pick_record *src)
+{
+    struct bsg_pick_result *res = bsg_pick_result_create();
+    if (!res || !src)
+	return res;
+
+    struct bsg_pick_record *pr = _qg_pick_record_create(src->pr_node, src->pr_view,
+	src->pr_screen_x, src->pr_screen_y, bu_vls_cstr(&src->pr_source_path),
+	src->pr_hit_dist);
+    if (pr)
+	bu_ptbl_ins(&res->pr_records, (long *)pr);
+    return res;
+}
+
+QgSelectFilter::~QgSelectFilter()
+{
+    clear_selected_result();
+    if (BU_PTBL_IS_INITIALIZED(&selected_set))
+	bu_ptbl_free(&selected_set);
+}
+
+void
+QgSelectFilter::clear_selected_result()
+{
+    if (selected_result) {
+	bsg_pick_result_free(selected_result);
+	selected_result = nullptr;
+    }
+    if (BU_PTBL_IS_INITIALIZED(&selected_set))
+	bu_ptbl_reset(&selected_set);
+}
+
+void
+QgSelectFilter::set_selected_result(struct bsg_view *v, struct bsg_pick_result *res)
+{
+    if (!BU_PTBL_IS_INITIALIZED(&selected_set))
+	bu_ptbl_init(&selected_set, 8, "QgSelectFilter selected_set");
+
+    if (v && v->gv_s && v->gv_s->gv_selected)
+	bsg_selection_unhighlight(v->gv_s->gv_selected);
+
+    clear_selected_result();
+    selected_result = res;
+    if (selected_result)
+	bsg_pick_result_to_ptbl(selected_result, &selected_set);
+
+    if (v && v->gv_s && v->gv_s->gv_selected) {
+	if (selected_result) {
+	    bsg_pick_apply(v->gv_s->gv_selected, selected_result, BSG_PICK_OP_SET);
+	    bsg_selection_highlight(v->gv_s->gv_selected);
+	} else {
+	    bsg_selection_clear(v->gv_s->gv_selected);
+	}
+    }
+}
 
 bool
 QgSelectPntFilter::eventFilter(QObject *, QEvent *e)
 {
-	QMouseEvent *m_e = view_sync(e);
-	if (!m_e)
-		return false;
+    QMouseEvent *m_e = view_sync(e);
+    if (!m_e)
+	return false;
 
-	struct bsg_view *v = view();
+    struct bsg_view *v = view();
 
-	// Eat everything except the mouse release
-	if (e->type() != QEvent::MouseButtonRelease)
-		return true;
-
-	// Left mouse button only
-	if (m_e->button() != Qt::LeftButton)
-		return true;
-
-	// If we don't have a view there's nothing we can do...
-	if (!v)
-		return true;
-
-	// Do the actual selection, using a one pixel sized box projected into the
-	// scene.  This is faster than the raytrace-based test in some situations,
-	// but trades off that speed by only producing an approximate answer based
-	// on bounding boxes.
-	int scnt = bsg_view_objs_select(&selected_set, v, v->gv_mouse_x, v->gv_mouse_y);
-
-	// If the caller wants everything, or we got less than 2 objs, we're done
-	if (scnt < 2 || !first_only)
-		return true;
-
-	// If we want only the closest object (or more precisely, in this mode, the
-	// object with the closest bounding box) there's more work to do.
-	struct bsg_node *s_closest = closest_obj_bbox(&selected_set, v);
-	bu_ptbl_reset(&selected_set);
-	bu_ptbl_ins(&selected_set, (long *)s_closest);
-
+    if (e->type() != QEvent::MouseButtonRelease)
 	return true;
+    if (m_e->button() != Qt::LeftButton)
+	return true;
+    if (!v)
+	return true;
+
+    struct bsg_pick_result *res = first_only ?
+	bsg_pick_nearest(v, v->gv_mouse_x, v->gv_mouse_y) :
+	bsg_pick_point(v, v->gv_mouse_x, v->gv_mouse_y, 0);
+    set_selected_result(v, res);
+
+    return true;
 }
 
 bool
 QgSelectBoxFilter::eventFilter(QObject *, QEvent *e)
 {
-	QMouseEvent *m_e = view_sync(e);
-	if (!m_e)
-		return false;
-
-	struct bsg_view *v = view();
-
-	if (!v)
-		return false;
-
-	// Eat double clicks
-	if (e->type() == QEvent::MouseButtonDblClick)
-		return true;
-
-	// Left mouse button and move events are the ones of interest
-	if (m_e->button() != Qt::LeftButton && e->type() != QEvent::MouseMove)
-		return true;
-
-	if (e->type() == QEvent::MouseButtonPress) {
-		px = v->gv_mouse_x;
-		py = v->gv_mouse_y;
-		struct bsg_interactive_rect_state *grsp = &v->gv_s->gv_rect;
-		grsp->line_width = 1;
-		grsp->dim[0] = 0;
-		grsp->dim[1] = 0;
-		grsp->x = px;
-		grsp->y = v->gv_height - py;
-		grsp->pos[0] = grsp->x;
-		grsp->pos[1] = grsp->y;
-		grsp->cdim[0] = v->gv_width;
-		grsp->cdim[1] = v->gv_height;
-		grsp->aspect = (fastf_t)v->gv_s->gv_rect.cdim[X] / v->gv_s->gv_rect.cdim[Y];
-		emit view_updated(QG_VIEW_DRAWN);
-		return true;
-	}
-
-	if (e->type() == QEvent::MouseMove) {
-		struct bsg_interactive_rect_state *grsp = &v->gv_s->gv_rect;
-		grsp->draw = 1;
-		grsp->dim[0] = v->gv_mouse_x - px;
-		grsp->dim[1] = (v->gv_height - v->gv_mouse_y) - v->gv_s->gv_rect.pos[1];
-		grsp->x = (grsp->pos[X] / (fastf_t)grsp->cdim[X] - 0.5) * 2.0;
-		grsp->y = ((0.5 - (grsp->cdim[Y] - grsp->pos[Y]) / (fastf_t)grsp->cdim[Y]) / grsp->aspect * 2.0);
-		grsp->width = grsp->dim[X] * 2.0 / (fastf_t)grsp->cdim[X];
-		grsp->height = grsp->dim[Y] * 2.0 / (fastf_t)grsp->cdim[X];
-		emit view_updated(QG_VIEW_DRAWN);
-		return true;
-	}
-
-	if (e->type() == QEvent::MouseButtonRelease) {
-		// Mouse release - time to use the rectangle to assemble the selected set
-		int ipx = (int)px;
-		int ipy = (int)py;
-		bsg_view_objs_rect_select(&selected_set, v, ipx, ipy, v->gv_mouse_x, v->gv_mouse_y);
-
-#if 0
-		// If we want only the closest object (or more precisely, in this mode,
-		// the object with the closest bounding box) there's more work to do.
-		// TODO - this is the wrong test for the selection rectangle - should
-		// be the distance between an aabb and a view plane.  Looks like we
-		// need to add that one to libbg... there's DIST_PNT_PLANE and
-		// MAT4X3VEC(view_pl, v->gv_view2model, dir) as starting points...
-		struct bsg_node *s_closest = closest_obj_bbox(&selected_set, v);
-		bu_ptbl_reset(&selected_set);
-		bu_ptbl_ins(&selected_set, (long *)s_closest);
-#endif
-
-		// reset rectangle
-		struct bsg_interactive_rect_state *grsp = &v->gv_s->gv_rect;
-		grsp->draw = 0;
-		grsp->line_width = 0;
-		grsp->pos[0] = 0;
-		grsp->pos[1] = 0;
-		grsp->dim[0] = 0;
-		grsp->dim[1] = 0;
-		emit view_updated(QG_VIEW_DRAWN);
-		return true;
-	}
-
-	// Shouldn't get here
+    QMouseEvent *m_e = view_sync(e);
+    if (!m_e)
 	return false;
+
+    struct bsg_view *v = view();
+    if (!v)
+	return false;
+
+    if (e->type() == QEvent::MouseButtonDblClick)
+	return true;
+    if (m_e->button() != Qt::LeftButton && e->type() != QEvent::MouseMove)
+	return true;
+
+    if (e->type() == QEvent::MouseButtonPress) {
+	px = v->gv_mouse_x;
+	py = v->gv_mouse_y;
+	struct bsg_interactive_rect_state *grsp = &v->gv_s->gv_rect;
+	grsp->line_width = 1;
+	grsp->dim[0] = 0;
+	grsp->dim[1] = 0;
+	grsp->x = px;
+	grsp->y = v->gv_height - py;
+	grsp->pos[0] = grsp->x;
+	grsp->pos[1] = grsp->y;
+	grsp->cdim[0] = v->gv_width;
+	grsp->cdim[1] = v->gv_height;
+	grsp->aspect = (fastf_t)v->gv_s->gv_rect.cdim[X] / v->gv_s->gv_rect.cdim[Y];
+	emit view_updated(QG_VIEW_DRAWN);
+	return true;
+    }
+
+    if (e->type() == QEvent::MouseMove) {
+	struct bsg_interactive_rect_state *grsp = &v->gv_s->gv_rect;
+	grsp->draw = 1;
+	grsp->dim[0] = v->gv_mouse_x - px;
+	grsp->dim[1] = (v->gv_height - v->gv_mouse_y) - v->gv_s->gv_rect.pos[1];
+	grsp->x = (grsp->pos[X] / (fastf_t)grsp->cdim[X] - 0.5) * 2.0;
+	grsp->y = ((0.5 - (grsp->cdim[Y] - grsp->pos[Y]) / (fastf_t)grsp->cdim[Y]) / grsp->aspect * 2.0);
+	grsp->width = grsp->dim[X] * 2.0 / (fastf_t)grsp->cdim[X];
+	grsp->height = grsp->dim[Y] * 2.0 / (fastf_t)grsp->cdim[X];
+	emit view_updated(QG_VIEW_DRAWN);
+	return true;
+    }
+
+    if (e->type() == QEvent::MouseButtonRelease) {
+	int ipx = (int)px;
+	int ipy = (int)py;
+	struct bsg_pick_result *res =
+	    bsg_pick_rect(v, ipx, ipy, v->gv_mouse_x, v->gv_mouse_y);
+	if (first_only && res && bsg_pick_result_count(res) > 1) {
+	    struct bsg_pick_result *nearest =
+		_qg_pick_result_single(bsg_pick_result_get(res, 0));
+	    bsg_pick_result_free(res);
+	    res = nearest;
+	}
+	set_selected_result(v, res);
+
+	struct bsg_interactive_rect_state *grsp = &v->gv_s->gv_rect;
+	grsp->draw = 0;
+	grsp->line_width = 0;
+	grsp->pos[0] = 0;
+	grsp->pos[1] = 0;
+	grsp->dim[0] = 0;
+	grsp->dim[1] = 0;
+	emit view_updated(QG_VIEW_DRAWN);
+	return true;
+    }
+
+    return false;
 }
 
-
 struct select_rec_state {
-	std::unordered_set<std::string> active;
-	int rec_all;
-	double cdist;
-	std::string closest;
+    std::unordered_set<std::string> active;
+    int rec_all;
+    double cdist;
+    std::string closest;
 };
 
 static int
 _obj_record(struct application *ap, struct partition *p_hp, struct seg *UNUSED(segs))
 {
-	struct select_rec_state *rc = (struct select_rec_state *)ap->a_uptr;
-	for (struct partition *pp = p_hp->pt_forw; pp != p_hp; pp = pp->pt_forw) {
-		if (rc->rec_all) {
-			rc->active.insert(std::string(pp->pt_regionp->reg_name));
-		}
-		else {
-			struct hit *hitp = pp->pt_inhit;
-			if (hitp->hit_dist < rc->cdist) {
-				rc->closest = std::string(pp->pt_regionp->reg_name);
-				rc->cdist = hitp->hit_dist;
-			}
-		}
+    struct select_rec_state *rc = (struct select_rec_state *)ap->a_uptr;
+    for (struct partition *pp = p_hp->pt_forw; pp != p_hp; pp = pp->pt_forw) {
+	if (rc->rec_all) {
+	    rc->active.insert(std::string(pp->pt_regionp->reg_name));
+	} else {
+	    struct hit *hitp = pp->pt_inhit;
+	    if (hitp->hit_dist < rc->cdist) {
+		rc->closest = std::string(pp->pt_regionp->reg_name);
+		rc->cdist = hitp->hit_dist;
+	    }
 	}
-	bu_log("hit\n");
-	return 1;
+    }
+    return 1;
 }
 
 static int
 _ovlp_record(struct application *ap, struct partition *pp, struct region *reg1, struct region *reg2, struct partition *UNUSED(ihp))
 {
-	struct select_rec_state *rc = (struct select_rec_state *)ap->a_uptr;
-	if (rc->rec_all) {
-		rc->active.insert(std::string(reg1->reg_name));
-		rc->active.insert(std::string(reg2->reg_name));
-	}
-	else {
-		rc->closest = std::string(reg1->reg_name);
-		rc->cdist = pp->pt_inhit->hit_dist;
-	}
-	bu_log("ovlp\n");
-	return 1;
+    struct select_rec_state *rc = (struct select_rec_state *)ap->a_uptr;
+    if (rc->rec_all) {
+	rc->active.insert(std::string(reg1->reg_name));
+	rc->active.insert(std::string(reg2->reg_name));
+    } else {
+	rc->closest = std::string(reg1->reg_name);
+	rc->cdist = pp->pt_inhit->hit_dist;
+    }
+    return 1;
 }
 
 bool
 QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
 {
-	QMouseEvent *m_e = view_sync(e);
-	if (!m_e)
-		return false;
+    QMouseEvent *m_e = view_sync(e);
+    if (!m_e)
+	return false;
 
-	struct bsg_view *v = view();
+    struct bsg_view *v = view();
+    if (!v || !dbip)
+	return false;
+    if (e->type() != QEvent::MouseButtonRelease)
+	return true;
+    if (m_e->button() != Qt::LeftButton)
+	return true;
 
-	// If we're raytracing, the view itself isn't enough - we have
-	// to have the dbip as well.
-	if (!v || !dbip)
-		return false;
+    struct bsg_pick_result *candidates =
+	bsg_pick_point(v, v->gv_mouse_x, v->gv_mouse_y, 0);
+    if (!candidates || !bsg_pick_result_count(candidates)) {
+	set_selected_result(v, candidates);
+	return true;
+    }
 
-	// Eat everything except the mouse release
-	if (e->type() != QEvent::MouseButtonRelease)
-		return true;
+    struct application *ap;
+    BU_GET(ap, struct application);
+    RT_APPLICATION_INIT(ap);
+    ap->a_onehit = 0;
+    ap->a_hit = _obj_record;
+    ap->a_miss = nullptr;
+    ap->a_overlap = _ovlp_record;
+    ap->a_logoverlap = nullptr;
 
-	// Left mouse button only
-	if (m_e->button() != Qt::LeftButton)
-		return true;
-
-	// Pre-filter what we're going to be shooting using the bounding box tests.
-	// If we have no intersections, there's no point in doing the raytrace.
-	int scnt = bsg_view_objs_select(&selected_set, v, v->gv_mouse_x, v->gv_mouse_y);
-	if (!scnt)
-		return true;
-
-	// librt intersection test.
-	struct application *ap;
-	BU_GET(ap, struct application);
-	RT_APPLICATION_INIT(ap);
-	ap->a_onehit = 0;
-	ap->a_hit = _obj_record;
-	ap->a_miss = nullptr;
-	ap->a_overlap = _ovlp_record;
-	ap->a_logoverlap = nullptr;
-
-	struct rt_i *rtip = rt_new_rti(dbip);
-	struct resource *resp = nullptr;
-	BU_GET(resp, struct resource);
-	rt_init_resource(resp, 0, rtip);
-	ap->a_resource = resp;
-	ap->a_rt_i = rtip;
-	const char **objs = (const char **)bu_calloc(BU_PTBL_LEN(&selected_set) + 1, sizeof(char *), "objs");
-	for (size_t i = 0; i < BU_PTBL_LEN(&selected_set); i++) {
-		struct bsg_node *s = (struct bsg_node *)BU_PTBL_GET(&selected_set, i);
-		objs[i] = bu_vls_cstr(&s->s_name);
-	}
-	if (rt_gettrees_and_attrs(rtip, nullptr, scnt, objs, 1)) {
-		bu_free(objs, "objs");
-		rt_free_rti(rtip);
-		BU_PUT(resp, struct resource);
-		BU_PUT(ap, struct application);
-		return false;
-	}
-	size_t ncpus = bu_avail_cpus();
-	rt_prep_parallel(rtip, (int)ncpus);
-	fastf_t vx = -FLT_MAX;
-	fastf_t vy = -FLT_MAX;
-	bsg_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
-	point_t vpnt, mpnt;
-	VSET(vpnt, vx, vy, 0);
-	MAT4X3PNT(mpnt, v->gv_view2model, vpnt);
-	vect_t dir;
-	VMOVEN(dir, v->gv_rotation + 8, 3);
-	VUNITIZE(dir);
-	VSCALE(dir, dir, v->radius);
-	VADD2(ap->a_ray.r_pt, mpnt, dir);
-	VUNITIZE(dir);
-	VSCALE(ap->a_ray.r_dir, dir, -1);
-
-	struct select_rec_state rc;
-
-	// Decide what we record in the hit function based on whether we want the
-	// closest or all hits.
-	if (!first_only) {
-		rc.rec_all = 1;
-	}
-	else {
-		rc.rec_all = 0;
-		rc.cdist = INFINITY;
-	}
-	ap->a_uptr = (void *)&rc;
-
-	(void)rt_shootray(ap);
+    struct rt_i *rtip = rt_new_rti(dbip);
+    struct resource *resp = nullptr;
+    BU_GET(resp, struct resource);
+    rt_init_resource(resp, 0, rtip);
+    ap->a_resource = resp;
+    ap->a_rt_i = rtip;
+    const char **objs = (const char **)bu_calloc(bsg_pick_result_count(candidates) + 1, sizeof(char *), "objs");
+    for (size_t i = 0; i < bsg_pick_result_count(candidates); i++) {
+	struct bsg_pick_record *pr = bsg_pick_result_get(candidates, i);
+	objs[i] = (pr && pr->pr_node) ? bu_vls_cstr(&pr->pr_node->s_name) : NULL;
+    }
+    if (rt_gettrees_and_attrs(rtip, nullptr, (int)bsg_pick_result_count(candidates), objs, 1)) {
 	bu_free(objs, "objs");
 	rt_free_rti(rtip);
 	BU_PUT(resp, struct resource);
 	BU_PUT(ap, struct application);
+	bsg_pick_result_free(candidates);
+	return false;
+    }
+    size_t ncpus = bu_avail_cpus();
+    rt_prep_parallel(rtip, (int)ncpus);
+    fastf_t vx = -FLT_MAX;
+    fastf_t vy = -FLT_MAX;
+    bsg_screen_to_view(v, &vx, &vy, v->gv_mouse_x, v->gv_mouse_y);
+    point_t vpnt, mpnt;
+    VSET(vpnt, vx, vy, 0);
+    MAT4X3PNT(mpnt, v->gv_view2model, vpnt);
+    vect_t dir;
+    VMOVEN(dir, v->gv_rotation + 8, 3);
+    VUNITIZE(dir);
+    VSCALE(dir, dir, v->radius);
+    VADD2(ap->a_ray.r_pt, mpnt, dir);
+    VUNITIZE(dir);
+    VSCALE(ap->a_ray.r_dir, dir, -1);
 
-	// We only have reg_names from the raytrace - translate into scene objects.
-	bu_ptbl_reset(&selected_set);
-	struct bu_vls dpath = BU_VLS_INIT_ZERO;
-	if (first_only) {
-		bu_vls_sprintf(&dpath, "%s",  rc.closest.c_str());
-		if (bu_vls_cstr(&dpath)[0] == '/')
-			bu_vls_nibble(&dpath, 1);
-		struct bsg_node *so = bsg_find_obj(v, bu_vls_cstr(&dpath));
-		if (so)
-			bu_ptbl_ins(&selected_set, (long *)so);
-	}
-	else {
-		std::unordered_set<std::string>::iterator a_it;
-		for (a_it = rc.active.begin(); a_it != rc.active.end(); a_it++) {
-			bu_vls_sprintf(&dpath, "%s",  a_it->c_str());
-			if (bu_vls_cstr(&dpath)[0] == '/')
-				bu_vls_nibble(&dpath, 1);
-			struct bsg_node *so = bsg_find_obj(v, bu_vls_cstr(&dpath));
-			if (so)
-				bu_ptbl_ins(&selected_set, (long *)so);
-		}
-	}
-	bu_vls_free(&dpath);
+    struct select_rec_state rc;
+    if (!first_only) {
+	rc.rec_all = 1;
+    } else {
+	rc.rec_all = 0;
+	rc.cdist = INFINITY;
+    }
+    ap->a_uptr = (void *)&rc;
 
-	return true;
+    (void)rt_shootray(ap);
+    bu_free(objs, "objs");
+    rt_free_rti(rtip);
+    BU_PUT(resp, struct resource);
+    BU_PUT(ap, struct application);
+
+    struct bu_ptbl ray_nodes = BU_PTBL_INIT_ZERO;
+    struct bu_vls dpath = BU_VLS_INIT_ZERO;
+    if (first_only) {
+	bu_vls_sprintf(&dpath, "%s",  rc.closest.c_str());
+	if (bu_vls_cstr(&dpath)[0] == '/')
+	    bu_vls_nibble(&dpath, 1);
+	struct bsg_node *so = bsg_find_obj(v, bu_vls_cstr(&dpath));
+	if (so)
+	    bu_ptbl_ins(&ray_nodes, (long *)so);
+    } else {
+	std::unordered_set<std::string>::iterator a_it;
+	for (a_it = rc.active.begin(); a_it != rc.active.end(); a_it++) {
+	    bu_vls_sprintf(&dpath, "%s",  a_it->c_str());
+	    if (bu_vls_cstr(&dpath)[0] == '/')
+		bu_vls_nibble(&dpath, 1);
+	    struct bsg_node *so = bsg_find_obj(v, bu_vls_cstr(&dpath));
+	    if (so)
+		bu_ptbl_ins(&ray_nodes, (long *)so);
+	}
+    }
+    bu_vls_free(&dpath);
+    bsg_pick_result_free(candidates);
+
+    struct bsg_pick_result *res =
+	_qg_pick_result_from_ptbl(v, &ray_nodes, v->gv_mouse_x, v->gv_mouse_y);
+    bu_ptbl_free(&ray_nodes);
+    set_selected_result(v, res);
+
+    return true;
 }
 
 // Local Variables:
