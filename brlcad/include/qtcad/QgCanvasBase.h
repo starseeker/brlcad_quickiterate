@@ -87,10 +87,6 @@ public:
     /** Register this canvas's DM in a shared display-manager table. */
     virtual void setDisplayManagerSet(struct bu_ptbl *) = 0;
 
-    /** Supply a custom per-frame draw callback. */
-    virtual void set_draw_custom(void (*fn)(struct bsg_view *, void *),
-				 void *udata) = 0;
-
     /** Store current DM and view hash values for later comparison. */
     virtual void stash_hashes() = 0;
 

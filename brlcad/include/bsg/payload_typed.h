@@ -286,6 +286,44 @@ bsg_payload_axes_create(struct bsg_axes *axes);
 BSG_EXPORT extern struct bsg_axes *
 bsg_payload_axes_get(struct bsg_payload *payload);
 
+/* -----------------------------------------------------------------------
+ * SKETCH payload — Phase D6 (drawing_modernization)
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Opaque live-source data for a BSG_PL_SKETCH node.
+ *
+ * Stores opaque pointers to the editor's rt_edit state and the view's
+ * grid state so that type queries and future tooling can reach the live
+ * source without a raw void* cast.  libbsg never dereferences these
+ * pointers; all geometry generation is done by the caller via
+ * bsg_shape_set_vlist().
+ */
+struct bsg_sketch_live_data {
+    void *rt_edit_ptr;   /**< @brief opaque rt_edit * — owned by the editor */
+    void *grid_ptr;      /**< @brief opaque bsg_grid_state * — owned by the view */
+};
+
+/**
+ * Create a BSG_PL_SKETCH payload carrying @p rt_edit_ptr and @p grid_ptr.
+ *
+ * Neither pointer is dereferenced by libbsg; they are stored for external
+ * tooling (e.g. type-safe cast via bsg_payload_sketch_get_data()).
+ * The caller retains ownership of the pointed-to objects; the payload does
+ * NOT free them.
+ *
+ * @returns newly allocated payload, or NULL on failure.
+ */
+BSG_EXPORT extern struct bsg_payload *
+bsg_payload_sketch_create(void *rt_edit_ptr, void *grid_ptr);
+
+/**
+ * Return the @c bsg_sketch_live_data from a BSG_PL_SKETCH @p payload,
+ * or NULL if @p payload is not of that type.
+ */
+BSG_EXPORT extern struct bsg_sketch_live_data *
+bsg_payload_sketch_get_data(struct bsg_payload *payload);
+
 __END_DECLS
 
 #endif /* BSG_PAYLOAD_TYPED_H */

@@ -84,7 +84,7 @@ DM_EXPORT extern void dm_draw_scene_obj(struct dm *dmp,
 #endif /* DM_WITH_RT */
 
 /* Stripped down form of dm_draw_viewobjs that does just what's needed for the new setup */
-DM_EXPORT extern void dm_draw_objs(struct bsg_view *v, void (*dm_draw_custom)(struct bsg_view *, void *), void *u_data);
+DM_EXPORT extern void dm_draw_objs(struct bsg_view *v);
 
 /**
  * Phase 4 (drawing_stack_modernization): traverse a BSG scene root and

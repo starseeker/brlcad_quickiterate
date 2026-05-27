@@ -677,20 +677,12 @@ bsg_view_traverse(struct bsg_view *v, void *root)
 // passed in to this function.  If non-NULL, that function will be called in
 // lieu of the standard logic below.
 //
-// Current thought is that this will allow the definition of a sketch editor
-// (or, for that matter, any custom visual) in libdm terms rather than in Tk or
-// even in OpenGL (although the latter may be what the custom function does
-// under the hood, if it doesn't want to define itself in libdm terms - libdm
-// doesn't guarantee raw OpenGL drawing is supported, but the dmp should
-// provide enough information for the calling app to know if that is possible.)
+// Phase D6 (drawing_modernization): all drawing now goes through the scene
+// graph.  The custom callback path has been retired.
 void
-dm_draw_objs(struct bsg_view *v, void (*dm_draw_custom)(struct bsg_view *, void *), void *u_data)
+dm_draw_objs(struct bsg_view *v)
 {
     bsg_log(3, "libdm:dm_draw_objs");
-    if (dm_draw_custom) {
-	(*dm_draw_custom)(v, u_data);
-	return;
-    }
 
     struct dm *dmp = (struct dm *)v->dmp;
     if (!dmp) {

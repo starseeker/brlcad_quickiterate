@@ -66,8 +66,6 @@ struct fb    *frameBuffer()    const override;
 
 void set_view(struct bsg_view *)               override;
 void setDisplayManagerSet(struct bu_ptbl *) override;
-void set_draw_custom(void (*fn)(struct bsg_view *, void *),
-     void *udata)           override;
 
 void stash_hashes() override;
 bool diff_hashes()  override;

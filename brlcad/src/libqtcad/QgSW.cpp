@@ -137,13 +137,6 @@ QgSW::setDisplayManagerSet(struct bu_ptbl *set)
 }
 
 void
-QgSW::set_draw_custom(void (*draw_func)(struct bsg_view *, void *), void *udata)
-{
-    d->draw_custom = draw_func;
-    d->draw_udata  = udata;
-}
-
-void
 QgSW::set_view(struct bsg_view *nv)
 {
     qgcanvas_set_view(*d, nv);
@@ -253,7 +246,7 @@ if (d->ifp)
     dm_set_bg(d->dmp, dm_bg1[0], dm_bg1[1], dm_bg1[2], dm_bg2[0], dm_bg2[1], dm_bg2[2]);
 
     dm_draw_begin(d->dmp);
-    dm_draw_objs(d->v, d->draw_custom, d->draw_udata);
+    dm_draw_objs(d->v);
     dm_draw_end(d->dmp);
 
     // Set up a QImage with the rendered output..
@@ -520,7 +513,7 @@ bg2r = bg2g = bg2b = QTSW_SCREENSHOT_BG_GREY;
     dm_set_bg(d->dmp, bg1r, bg1g, bg1b, bg2r, bg2g, bg2b);
     dm_loadmatrix(d->dmp, d->v->gv_model2view, 0);
     dm_draw_begin(d->dmp);
-    dm_draw_objs(d->v, d->draw_custom, d->draw_udata);
+    dm_draw_objs(d->v);
     dm_draw_end(d->dmp);
 
     unsigned char *vp_image = nullptr;

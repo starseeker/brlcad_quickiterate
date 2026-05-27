@@ -201,7 +201,7 @@ dozoom(struct mged_state *s, int which_eye)
      *     (bsg_root is an alias for gv_draw_root; no per-frame sync needed)
      *   - per-object edit matrix swap for s_iflag == UP objects
      */
-    dm_draw_objs(v, NULL, NULL);
+    dm_draw_objs(v);
 
     /* draw predictor vlist */
     if (mged_variables->mv_predictor) {
