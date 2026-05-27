@@ -7,6 +7,7 @@ set(
   defines.h
   draw_ctx.h
   draw_set.h
+  draw_source.h
   events.h
   faceplate.h
   field.h

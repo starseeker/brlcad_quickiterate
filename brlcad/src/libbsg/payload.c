@@ -89,6 +89,41 @@ bsg_payload_dispatch(void *dmp, bsg_node *node, struct bsg_view *v)
     }
 }
 
+void
+bsg_node_set_internal_data(bsg_node *node, void *data)
+{
+    if (!node)
+	return;
+    node->s_i_data = data;
+}
+
+
+void *
+bsg_node_get_internal_data(const bsg_node *node)
+{
+    if (!node)
+	return NULL;
+    return node->s_i_data;
+}
+
+
+void
+bsg_node_set_draw_data(bsg_node *node, void *data)
+{
+    if (!node)
+	return;
+    node->draw_data = data;
+}
+
+
+void *
+bsg_node_get_draw_data(const bsg_node *node)
+{
+    if (!node)
+	return NULL;
+    return node->draw_data;
+}
+
 /*
  * Local Variables:
  * tab-width: 8

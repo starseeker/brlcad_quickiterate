@@ -102,6 +102,60 @@ bsg_appearance_line_width(const bsg_node *node)
     return os->s_line_width;
 }
 
+
+void
+bsg_appearance_set_highlighted(bsg_node *node, int highlighted)
+{
+    if (!node)
+	return;
+    node->s_iflag = highlighted ? UP : DOWN;
+}
+
+
+int
+bsg_appearance_is_highlighted(const bsg_node *node)
+{
+    if (!node)
+	return 0;
+    return (node->s_iflag == UP) ? 1 : 0;
+}
+
+
+void
+bsg_appearance_set_changed(bsg_node *node, int changed)
+{
+    if (!node)
+	return;
+    node->s_changed = changed ? 1 : 0;
+}
+
+
+int
+bsg_appearance_get_changed(const bsg_node *node)
+{
+    if (!node)
+	return 0;
+    return node->s_changed ? 1 : 0;
+}
+
+
+void
+bsg_appearance_set_drawn_rev(bsg_node *node, uint64_t rev)
+{
+    if (!node)
+	return;
+    node->s_drawn_rev = rev;
+}
+
+
+uint64_t
+bsg_appearance_drawn_rev(const bsg_node *node)
+{
+    if (!node)
+	return 0;
+    return node->s_drawn_rev;
+}
+
 /*
  * Local Variables:
  * tab-width: 8

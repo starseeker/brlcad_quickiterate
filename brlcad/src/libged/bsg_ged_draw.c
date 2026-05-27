@@ -431,6 +431,25 @@ ged_bv_illum_free_cb(struct bsg_node *sp)
 }
 
 
+ged_draw_shape_data *
+ged_draw_shape_data_get(const struct bsg_node *node)
+{
+    if (!node)
+        return NULL;
+    return (ged_draw_shape_data *)node->s_u_data;
+}
+
+
+const struct db_full_path *
+ged_draw_shape_fullpath(const struct bsg_node *node)
+{
+    ged_draw_shape_data *bd = ged_draw_shape_data_get(node);
+    if (!bd)
+        return NULL;
+    return &bd->s_fullpath;
+}
+
+
 static void
 _sg_free_group_contents(struct bsg_node *g)
 {

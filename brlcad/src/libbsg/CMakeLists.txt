@@ -5,6 +5,7 @@ set(
   appearance.c
   camera.c
   draw_set.c
+  draw_source.c
   field.c
   identity.c
   light.c
