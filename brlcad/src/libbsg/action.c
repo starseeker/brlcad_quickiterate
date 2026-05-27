@@ -111,7 +111,7 @@ export_cb(bsg_node *node, void *userdata)
 	return 1;
 
     /* Copy all vlist entries from node->s_vlist into *vhead.
-     * bsg_vlist_copy(vlists, dest, src) — first arg is the free-list pool */
+     * bsg_vlist_copy(vlfree, dest, src) — first arg is the free-list pool */
     bsg_vlist_copy(st->vlfree, st->vhead, &node->s_vlist);
 
     return 1;

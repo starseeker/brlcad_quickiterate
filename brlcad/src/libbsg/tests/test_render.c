@@ -139,9 +139,9 @@ test_visible_only(void)
     req->flags = BSG_RENDER_FLAG_VISIBLE_ONLY;
 
     int n = bsg_render_request_execute(req);
-    /* s2 is DOWN, s1 is UP but no PAYLOAD_DISPATCH so none dispatched via
-     * payload.  However the count still increments for visible shapes even
-     * without payload dispatch — so n should be 1 (s1 visible, s2 skipped). */
+    /* bsg_render_request_execute returns the count of shapes that passed all
+     * active filters, regardless of whether PAYLOAD_DISPATCH is set.  With
+     * VISIBLE_ONLY: s1 (UP) passes, s2 (DOWN) is skipped — expect count = 1. */
     if (n != 1) FAIL("only 1 visible shape should be counted");
 
     bsg_render_request_destroy(req);
