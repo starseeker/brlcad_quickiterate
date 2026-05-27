@@ -39,6 +39,7 @@
 
 #include "common.h"
 #include "bu/list.h"
+#include "vmath.h"
 #include "bsg/defines.h"
 
 __BEGIN_DECLS
@@ -150,6 +151,61 @@ bsg_node_set_vlen(bsg_node *node, size_t vlen);
  */
 BSG_EXPORT extern struct bu_list *
 bsg_node_get_vlfree(const bsg_node *node);
+
+/* -----------------------------------------------------------------------
+ * Draw matrix (s_mat)
+ *
+ * s_mat is the 4x4 matrix used for internal lookup and mesh LoD drawing.
+ * It is distinct from the transform node matrix (see bsg/node_transform.h).
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Copy @p mat into the draw matrix of @p node.
+ * No-op if either argument is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_set_draw_mat(bsg_node *node, const mat_t mat);
+
+/**
+ * Copy the draw matrix of @p node into @p mat.
+ * No-op if either argument is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_get_draw_mat(const bsg_node *node, mat_t mat);
+
+/* -----------------------------------------------------------------------
+ * Bounding sphere (s_size / s_center)
+ *
+ * s_size is the distance across the solid in model space; s_center is its
+ * center in model space.  Updated by bsg_scene_obj_bound().
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Return the bounding sphere radius of @p node (s_size), or 0.0.
+ */
+BSG_EXPORT extern fastf_t
+bsg_node_draw_size(const bsg_node *node);
+
+/**
+ * Set the bounding sphere radius of @p node to @p size.
+ * No-op if @p node is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_set_draw_size(bsg_node *node, fastf_t size);
+
+/**
+ * Copy the bounding sphere center of @p node into @p center.
+ * No-op if either argument is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_get_draw_center(const bsg_node *node, vect_t center);
+
+/**
+ * Copy @p center into the bounding sphere center of @p node.
+ * No-op if either argument is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_set_draw_center(bsg_node *node, const vect_t center);
 
 /* -----------------------------------------------------------------------
  * Update and free callbacks (s_update_callback / s_free_callback)

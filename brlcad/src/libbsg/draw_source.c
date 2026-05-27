@@ -25,6 +25,7 @@
 
 #include "common.h"
 
+#include "vmath.h"
 #include "bsg/draw_source.h"
 
 
@@ -152,6 +153,60 @@ bsg_node_invoke_free_cb(bsg_node *node)
 	return;
     node->s_free_callback(node);
     node->s_free_callback = NULL;
+}
+
+
+void
+bsg_node_set_draw_mat(bsg_node *node, const mat_t mat)
+{
+    if (!node || !mat)
+	return;
+    MAT_COPY(node->s_mat, mat);
+}
+
+
+void
+bsg_node_get_draw_mat(const bsg_node *node, mat_t mat)
+{
+    if (!node || !mat)
+	return;
+    MAT_COPY(mat, node->s_mat);
+}
+
+
+fastf_t
+bsg_node_draw_size(const bsg_node *node)
+{
+    if (!node)
+	return 0.0;
+    return node->s_size;
+}
+
+
+void
+bsg_node_set_draw_size(bsg_node *node, fastf_t size)
+{
+    if (!node)
+	return;
+    node->s_size = size;
+}
+
+
+void
+bsg_node_get_draw_center(const bsg_node *node, vect_t center)
+{
+    if (!node || !center)
+	return;
+    VMOVE(center, node->s_center);
+}
+
+
+void
+bsg_node_set_draw_center(bsg_node *node, const vect_t center)
+{
+    if (!node || !center)
+	return;
+    VMOVE(node->s_center, center);
 }
 
 /*
