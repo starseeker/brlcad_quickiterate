@@ -129,6 +129,8 @@ static int
 _sort_key(const struct bsg_render_request *req,
 	  const struct bsg_render_item *item)
 {
+    /* Preserve six decimal places of view-space depth when projecting the
+     * floating-point Z value into the integer sort_key field. */
     const fastf_t depth_key_scale = 1000000.0;
 
     if (item->phase == BSG_RENDER_PHASE_HUD) {
