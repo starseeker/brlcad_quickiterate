@@ -19,6 +19,7 @@ set(
   node_transform.c
   overlay.c
   payload.c
+  payload_typed.c
   render.c
   scene_graph.cpp
   selection.c
@@ -94,11 +95,9 @@ cmakefiles(
   node_transform.c
   overlay.c
   payload.c
+  payload_typed.c
   render.c
   selection.c
-  sensor.c
-  util.c
-  view_scope.c
   visit.c
   adc.c
   diff.c

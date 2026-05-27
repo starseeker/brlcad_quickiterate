@@ -30,6 +30,7 @@
 #include "bsg/material.h"
 #include "bsg/node.h"
 #include "bsg/lod.h"
+#include "bsg/payload_typed.h"
 #include "bsg/util.h"
 #include "bsg/lod_ops.h"
 #include "bsg/visit.h"
@@ -287,7 +288,9 @@ dm_draw_faceplate(struct bsg_view *v)
 void
 dm_draw_label(struct dm *dmp, struct bsg_node *s)
 {
-    struct bsg_label *l = (struct bsg_label *)s->s_i_data;
+    struct bsg_label *l = bsg_payload_text_get(bsg_node_get_payload(s));
+    if (!l)
+	return;
 
     /* set color */
     unsigned char r, g, b;

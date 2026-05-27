@@ -232,6 +232,7 @@ struct bsg_view;
 
 struct bsg_node_internal;
 struct bsg_node;
+struct bsg_payload;  /* Phase D1 (drawing_modernization): typed payload handle — see bsg/payload_typed.h */
 
 /* Phase 11 (drawing_stack_modernization): renderer-backend contract.
  *
@@ -304,8 +305,11 @@ struct bsg_node  {
     struct bsg_view *s_v;
 
     /* Knowledge of how to create/update s_vlist and the other 3D geometry data, as well as
-     * manage any custom data specific to this object */
-    void *s_i_data;  /**< @brief custom view data (bsg_line_seg, bsg_label, bsg_polyon, etc) */
+     * manage any custom data specific to this object.
+     *
+     * Phase D1 (drawing_modernization): prefer the typed @c pl payload field
+     * below over raw s_i_data for new overlay/annotation shape nodes. */
+    void *s_i_data;  /**< @brief custom view data (bsg_label, bsg_axes, bsg_data_polygon_state, etc) */
 
     /* BV_DEPRECATED: LoD and CSG adaptive-wireframe update callbacks are now
      * driven by the BSG LoD node (bsg_lod_update via dm_draw_objs); this field
@@ -317,6 +321,19 @@ struct bsg_node  {
     /* 3D vector list geometry data */
     struct bu_list s_vlist;	/**< @brief  Pointer to unclipped vector list */
     size_t s_vlen;			/**< @brief  Number of actual cmd[] entries in vlist */
+
+    /* Phase D1 (drawing_modernization): typed payload handle.
+     *
+     * Replaces the untyped s_i_data convention for overlay/annotation shapes.
+     * bsg_node_set_payload() attaches a bsg_payload; the node owns it and
+     * frees it on destruction.  Use bsg_payload_text_create(),
+     * bsg_payload_axes_create(), etc. from bsg/payload_typed.h to build
+     * typed payloads.  NULL for nodes that use the legacy s_i_data path.
+     *
+     * The revision counter (pl->pl_revision) should be bumped via
+     * bsg_payload_bump_revision() whenever the payload data changes, so that
+     * renderers and backend caches can detect stale state. */
+    struct bsg_payload *pl;
 
     /* Phase 11 (drawing_stack_modernization): generic renderer-backend slot.
      *

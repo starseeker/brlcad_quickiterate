@@ -34,6 +34,7 @@
 #include "bu/opt.h"
 #include "bu/vls.h"
 #include "bsg.h"
+#include "bsg/payload_typed.h"
 
 #include "../ged_private.h"
 #include "./ged_view.h"
@@ -139,7 +140,7 @@ _label_cmd_create(void *bs, int argc, const char **argv)
 	VMOVE(l->target, target);
 	l->line_flag = 1;
     }
-    s->s_i_data = (void *)l;
+    bsg_node_set_payload(s, bsg_payload_text_create(l));
 
     return BRLCAD_OK;
 }

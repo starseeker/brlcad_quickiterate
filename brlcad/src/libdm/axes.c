@@ -33,6 +33,7 @@
 #include "raytrace.h"
 #include "dm.h"
 #include "bsg/defines.h"
+#include "bsg/payload_typed.h"
 #include "./include/private.h"
 
 void
@@ -41,7 +42,9 @@ dm_draw_scene_axes(struct dm *dmp,  struct bsg_node *s)
     if (!(s->s_type_flags & BV_AXES))
 	return;
 
-    struct bsg_axes *bndasp = (struct bsg_axes *)s->s_i_data;
+    struct bsg_axes *bndasp = bsg_payload_axes_get(bsg_node_get_payload(s));
+    if (!bndasp)
+	return;
     fastf_t halfAxesSize;		/* half the length of an axis */
     point_t ptA, ptB;
     /* Save the line attributes */

@@ -26,6 +26,7 @@
 
 #include "common.h"
 #include "bu/units.h"
+#include "bsg/payload_typed.h"
 #include "bsg/util.h"
 #include "bsg/vlist.h"
 #include "ged.h"
@@ -225,9 +226,9 @@ to_data_labels_func(Tcl_Interp *interp,
 		for (size_t _k = 0; _k < BU_PTBL_LEN(&_parent->children); _k++) {
 		    struct bsg_node *_c =
 			(struct bsg_node *)BU_PTBL_GET(&_parent->children, _k);
-		    if (!_c->s_i_data)
+		    if (!_c->pl)
 			continue;
-		    struct bsg_label *_l = (struct bsg_label *)_c->s_i_data;
+		    struct bsg_label *_l = bsg_payload_text_get(_c->pl);
 		    bu_vls_printf(gedp->ged_result_str, "{{%s}", bu_vls_cstr(&_l->label));
 		    bu_vls_printf(gedp->ged_result_str, " {%lf %lf %lf}} ", V3ARGS(_l->p));
 		}

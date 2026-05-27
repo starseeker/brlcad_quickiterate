@@ -23,6 +23,7 @@ set(
   obol_node.h
   overlay.h
   payload.h
+  payload_typed.h
   plot3.h
   polygon.h
   render.h

@@ -36,6 +36,7 @@
 #include "bu/opt.h"
 #include "bu/vls.h"
 #include "bsg.h"
+#include "bsg/payload_typed.h"
 
 #include "../ged_private.h"
 #include "./ged_view.h"
@@ -89,7 +90,7 @@ _axes_cmd_create(void *bs, int argc, const char **argv)
     l->line_width = 1;
     l->axes_size = 10;
     VSET(l->axes_color, 255, 255, 0);
-    s->s_i_data = (void *)l;
+    bsg_node_set_payload(s, bsg_payload_axes_create(l));
 
     return BRLCAD_OK;
 }
@@ -118,7 +119,11 @@ _axes_cmd_pos(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    struct bsg_axes *a = (struct bsg_axes *)s->s_i_data;
+    struct bsg_axes *a = bsg_payload_axes_get(bsg_node_get_payload(s));
+    if (!a) {
+        bu_vls_printf(gedp->ged_result_str, "View object %s has no axes payload\n", gd->vobj);
+        return BRLCAD_ERROR;
+    }
     if (argc == 0) {
 	bu_vls_printf(gedp->ged_result_str, "%f %f %f\n", V3ARGS(a->axes_pos));
 	return BRLCAD_OK;
@@ -165,7 +170,11 @@ _axes_cmd_size(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    struct bsg_axes *a = (struct bsg_axes *)s->s_i_data;
+    struct bsg_axes *a = bsg_payload_axes_get(bsg_node_get_payload(s));
+    if (!a) {
+        bu_vls_printf(gedp->ged_result_str, "View object %s has no axes payload\n", gd->vobj);
+        return BRLCAD_ERROR;
+    }
      if (argc == 0) {
 	bu_vls_printf(gedp->ged_result_str, "%f\n", a->axes_size);
 	return BRLCAD_OK;
@@ -211,7 +220,11 @@ _axes_cmd_linewidth(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    struct bsg_axes *a = (struct bsg_axes *)s->s_i_data;
+    struct bsg_axes *a = bsg_payload_axes_get(bsg_node_get_payload(s));
+    if (!a) {
+        bu_vls_printf(gedp->ged_result_str, "View object %s has no axes payload\n", gd->vobj);
+        return BRLCAD_ERROR;
+    }
      if (argc == 0) {
 	bu_vls_printf(gedp->ged_result_str, "%d\n", a->line_width);
 	return BRLCAD_OK;
@@ -262,7 +275,11 @@ _axes_cmd_axes_color(void *bs, int argc, const char **argv)
         bu_vls_printf(gedp->ged_result_str, "View object %s is not an axes object\n", gd->vobj);
         return BRLCAD_ERROR;
     }
-    struct bsg_axes *a = (struct bsg_axes *)s->s_i_data;
+    struct bsg_axes *a = bsg_payload_axes_get(bsg_node_get_payload(s));
+    if (!a) {
+        bu_vls_printf(gedp->ged_result_str, "View object %s has no axes payload\n", gd->vobj);
+        return BRLCAD_ERROR;
+    }
      if (argc == 0) {
 	bu_vls_printf(gedp->ged_result_str, "%d %d %d\n", a->axes_color[0], a->axes_color[1], a->axes_color[2]);
 	return BRLCAD_OK;
