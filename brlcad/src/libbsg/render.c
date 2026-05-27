@@ -129,6 +129,8 @@ static int
 _sort_key(const struct bsg_render_request *req,
 	  const struct bsg_render_item *item)
 {
+    const fastf_t depth_key_scale = 1000000.0;
+
     if (item->phase == BSG_RENDER_PHASE_HUD) {
 	const struct bsg_hud_node_meta *meta =
 	    bsg_hud_node_get_meta(item->node);
@@ -144,7 +146,9 @@ _sort_key(const struct bsg_render_request *req,
 
 	bn_mat_mul(view_mat, req->view->gv_model2view, item->model_mat);
 	MAT4X3PNT(view_origin, view_mat, model_origin);
-	depth_key = -view_origin[Z] * 1000000.0;
+	/* Scale view-space depth before converting to int so nearby items with
+	 * fractional Z separation still get distinct sort keys. */
+	depth_key = -view_origin[Z] * depth_key_scale;
 
 	if (depth_key > (fastf_t)INT_MAX)
 	    return INT_MAX;
@@ -179,7 +183,7 @@ _sort_transparent_bucket(struct bu_ptbl *bucket)
     if (!bucket || BU_PTBL_LEN(bucket) < 2)
 	return;
 
-    bu_sort((void *)BU_PTBL_BASEADDR(bucket),
+    bu_sort(BU_PTBL_BASEADDR(bucket),
 	    BU_PTBL_LEN(bucket),
 	    sizeof(long *),
 	    _transparent_item_cmp,
