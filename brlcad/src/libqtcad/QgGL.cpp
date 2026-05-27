@@ -127,7 +127,6 @@ QgGL::set_current(int active)
 }
 
 void
-void
 QgGL::setDisplayManagerSet(struct bu_ptbl *set)
 {
     d->dm_set = set;
