@@ -22,6 +22,7 @@
 
 #include "bu/path.h"
 #include "bsg.h"
+#include "bsg/payload_typed.h"
 #include "tclcad.h"
 
 /* Private headers */
@@ -3153,8 +3154,9 @@ to_data_scale(struct ged *gedp,
 	    for (size_t _k = 0; _k < BU_PTBL_LEN(&_lp->children); _k++) {
 		struct bsg_node *_c =
 		    (struct bsg_node *)BU_PTBL_GET(&_lp->children, _k);
-		if (!_c || !_c->s_i_data) continue;
-		struct bsg_label *_l = (struct bsg_label *)_c->s_i_data;
+		if (!_c || !_c->pl) continue;
+		struct bsg_label *_l = bsg_payload_text_get(_c->pl);
+		if (!_l) continue;
 		vect_t diff;
 
 		MAT4X3PNT(vpoint, gedp->ged_gvp->gv_model2view, _l->p);

@@ -61,6 +61,7 @@
 #include "tclcad.h"
 
 #include "bsg/defines.h"
+#include "bsg/payload_typed.h"
 #include "dm.h"
 #include "bsg/util.h"
 #include "bsg/util.h"
@@ -2080,8 +2081,9 @@ to_data_move_func(struct ged *gedp,
 	if ((size_t)dindex >= BU_PTBL_LEN(&_lp->children)) return BRLCAD_OK;
 
 	struct bsg_node *_c = (struct bsg_node *)BU_PTBL_GET(&_lp->children, dindex);
-	if (!_c || !_c->s_i_data) return BRLCAD_OK;
-	struct bsg_label *_l = (struct bsg_label *)_c->s_i_data;
+	if (!_c || !_c->pl) return BRLCAD_OK;
+	struct bsg_label *_l = bsg_payload_text_get(_c->pl);
+	if (!_l) return BRLCAD_OK;
 
 	MAT4X3PNT(vpoint, gdvp->gv_model2view, _l->p);
 	vpoint[X] = vx; vpoint[Y] = vy;
@@ -2101,14 +2103,15 @@ to_data_move_func(struct ged *gedp,
 
 	if ((size_t)dindex >= BU_PTBL_LEN(&_lp->children)) return BRLCAD_OK;
 
-	struct bsg_node *_c = (struct bsg_node *)BU_PTBL_GET(&_lp->children, dindex);
-	if (!_c || !_c->s_i_data) return BRLCAD_OK;
-	struct bsg_label *_l = (struct bsg_label *)_c->s_i_data;
+	struct bsg_node *_c2 = (struct bsg_node *)BU_PTBL_GET(&_lp->children, dindex);
+	if (!_c2 || !_c2->pl) return BRLCAD_OK;
+	struct bsg_label *_l2 = bsg_payload_text_get(_c2->pl);
+	if (!_l2) return BRLCAD_OK;
 
-	MAT4X3PNT(vpoint, gdvp->gv_model2view, _l->p);
+	MAT4X3PNT(vpoint, gdvp->gv_model2view, _l2->p);
 	vpoint[X] = vx; vpoint[Y] = vy;
 	MAT4X3PNT(mpoint, gdvp->gv_view2model, vpoint);
-	VMOVE(_l->p, mpoint);
+	VMOVE(_l2->p, mpoint);
 	bsg_obj_stale(_lp);
 
 	to_refresh_view(gdvp);
@@ -2551,8 +2554,9 @@ to_data_pick_func(struct ged *gedp,
 		fastf_t minY, maxY;
 
 		struct bsg_node *_c = (struct bsg_node *)BU_PTBL_GET(&_lp->children, _k);
-		if (!_c || !_c->s_i_data) continue;
-		struct bsg_label *_l = (struct bsg_label *)_c->s_i_data;
+		if (!_c || !_c->pl) continue;
+		struct bsg_label *_l = bsg_payload_text_get(_c->pl);
+		if (!_l) continue;
 
 		VMOVE(dpoint, _l->p);
 		MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);
@@ -2585,11 +2589,12 @@ to_data_pick_func(struct ged *gedp,
 		fastf_t minX, maxX;
 		fastf_t minY, maxY;
 
-		struct bsg_node *_c = (struct bsg_node *)BU_PTBL_GET(&_lp->children, _k);
-		if (!_c || !_c->s_i_data) continue;
-		struct bsg_label *_l = (struct bsg_label *)_c->s_i_data;
+		struct bsg_node *_c2 = (struct bsg_node *)BU_PTBL_GET(&_lp->children, _k);
+		if (!_c2 || !_c2->pl) continue;
+		struct bsg_label *_l2 = bsg_payload_text_get(_c2->pl);
+		if (!_l2) continue;
 
-		VMOVE(dpoint, _l->p);
+		VMOVE(dpoint, _l2->p);
 		MAT4X3PNT(vpoint, gdvp->gv_model2view, dpoint);
 
 		minX = vpoint[X];
@@ -2603,7 +2608,7 @@ to_data_pick_func(struct ged *gedp,
 			top_z = vpoint[Z];
 			top_data_str = sdata_labels_str;
 			top_i = _k;
-			top_data_label = bu_vls_cstr(&_l->label);
+			top_data_label = bu_vls_cstr(&_l2->label);
 			VMOVE(top_point, dpoint);
 			found_top = 1;
 		    }

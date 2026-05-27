@@ -1,0 +1,302 @@
+/*               P A Y L O A D _ T Y P E D . H
+ * BRL-CAD
+ *
+ * Copyright (c) 2026 United States Government as represented by
+ * the U.S. Army Research Laboratory.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * version 2.1 as published by the Free Software Foundation.
+ *
+ * This library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this file; see the file named COPYING for more
+ * information.
+ */
+/** @addtogroup libbsg
+ *
+ * @brief
+ * Phase D1 (drawing_modernization): typed payload object model.
+ *
+ * A *payload* is the typed geometry or annotation data carried by a
+ * BSG_NODE_SHAPE.  Before Phase D1, payload data was stored in the untyped
+ * @c s_i_data and @c draw_data node fields with caller-managed lifecycle.
+ * Phase D1 replaces that with a first-class @c bsg_payload handle that:
+ *
+ *  - carries an explicit type discriminant (@c bsg_payload_type enum);
+ *  - tracks a monotonic revision stamp so renderers can detect stale state
+ *    without inspecting type-private data;
+ *  - provides a common lifecycle/query interface: @c pl_free, @c pl_update,
+ *    @c pl_bounds, @c pl_export, and @c pl_backend_prepare;
+ *  - stores the type-private data in a typed @c pl_data union so tools can
+ *    reach concrete data through a documented field rather than a raw cast.
+ *
+ * The existing @c BSG_PAYLOAD_* bit flags in @c bsg/defines.h remain valid
+ * for coarse type queries in performance-critical traversal (e.g.
+ * @c bsg_payload_dispatch).  @c bsg_payload_type gives the full fine-grained
+ * discriminant and is the preferred way to branch on payload kind in new code.
+ *
+ * To attach a payload to a node, call @c bsg_node_set_payload().  The node
+ * then owns the payload and will free it through @c bsg_payload_free() when
+ * the node is destroyed (via @c bsg_node_free_payload_hook installed by
+ * @c bsg_payload_attach()).
+ */
+/** @{ */
+/* @file bsg/payload_typed.h */
+
+#ifndef BSG_PAYLOAD_TYPED_H
+#define BSG_PAYLOAD_TYPED_H
+
+#include "common.h"
+#include <stdint.h>
+#include "vmath.h"
+#include "bu/vls.h"
+#include "bsg/defines.h"
+
+__BEGIN_DECLS
+
+/* Forward declarations */
+struct bsg_view;
+struct bsg_payload;
+
+/* -----------------------------------------------------------------------
+ * Payload type discriminant
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Fine-grained payload type for BSG_NODE_SHAPE nodes.
+ *
+ * Each value corresponds to a concrete payload data layout and a set of
+ * builder/accessor functions defined in this header.  The coarser
+ * BSG_PAYLOAD_* bit flags in bsg/defines.h remain valid for fast path
+ * filtering; these enum values give the full type when switching on
+ * payload kind.
+ */
+typedef enum {
+    BSG_PL_NONE       = 0,   /**< @brief no typed payload attached */
+    BSG_PL_VLIST,            /**< @brief raw bsg_vlist segments (BSG_PAYLOAD_VLIST) */
+    BSG_PL_TEXT,             /**< @brief 3D-anchored text label (bsg_label) */
+    BSG_PL_HUD_TEXT,         /**< @brief screen-space HUD text */
+    BSG_PL_LINE_SET,         /**< @brief ordered line-segment set */
+    BSG_PL_POLYGON,          /**< @brief filled/stroked polygon (bsg_data_polygon_state) */
+    BSG_PL_MESH,             /**< @brief BoT / LoD mesh (bsg_mesh_lod) (BSG_PAYLOAD_MESH) */
+    BSG_PL_CSG,              /**< @brief adaptive CSG wireframe (BSG_PAYLOAD_CSG) */
+    BSG_PL_BREP,             /**< @brief BRep surface (BSG_PAYLOAD_BREP) */
+    BSG_PL_IMAGE,            /**< @brief raster image underlay/overlay */
+    BSG_PL_FRAMEBUFFER,      /**< @brief framebuffer display */
+    BSG_PL_AXES,             /**< @brief axes widget (bsg_axes) */
+    BSG_PL_GRID,             /**< @brief grid overlay */
+    BSG_PL_SKETCH,           /**< @brief live sketch edit source */
+    BSG_PL_ANNOTATION        /**< @brief measurement annotation */
+} bsg_payload_type;
+
+/* -----------------------------------------------------------------------
+ * Typed payload data union
+ *
+ * The union lets typed-payload accessors reach the concrete data through a
+ * documented field rather than a raw void* cast.  The untyped pl_opaque
+ * member handles payload types whose concrete structs are defined in other
+ * headers (e.g. bsg_mesh_lod from bsg/lod.h).
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Union of typed payload data pointers.
+ * One member is valid depending on the @c bsg_payload::pl_type field.
+ */
+union bsg_payload_data {
+    struct bsg_label           *text;        /**< @brief BSG_PL_TEXT — 3D text label */
+    struct bsg_axes            *axes;        /**< @brief BSG_PL_AXES — axes widget */
+    void                       *opaque;      /**< @brief catch-all for other types */
+};
+
+/* -----------------------------------------------------------------------
+ * Core payload handle
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Typed payload handle — Phase D1 (drawing_modernization).
+ *
+ * Attach to a @c bsg_node with @c bsg_node_set_payload().  The node takes
+ * ownership and will call @c bsg_payload_free() when the node is freed.
+ *
+ * Lifecycle summary:
+ *  - Allocate with @c bsg_payload_create() (or a type-specific builder).
+ *  - Attach to a node with @c bsg_node_set_payload(); after this the node
+ *    owns the payload.
+ *  - Bump @c pl_revision with @c bsg_payload_bump_revision() whenever the
+ *    payload data changes so renderers can detect stale cached state.
+ *  - The node frees the payload via @c pl_free() during its normal teardown.
+ */
+struct bsg_payload {
+    bsg_payload_type          pl_type;      /**< @brief type discriminant */
+    uint64_t                  pl_revision;  /**< @brief monotonic revision stamp; bump on data change */
+    union bsg_payload_data    pl;           /**< @brief typed data pointer */
+
+    /** Free this payload and its private data.  Must not be NULL. */
+    void  (*pl_free)(struct bsg_payload *pl);
+
+    /**
+     * Optionally refresh @c pl.opaque / generate @c s_vlist geometry before
+     * drawing.  Called by @c bsg_payload_dispatch() for payload types that
+     * require an update pass.  May be NULL for static payloads.
+     */
+    void  (*pl_update)(struct bsg_payload *pl, struct bsg_view *v);
+
+    /**
+     * Compute the axis-aligned bounding box of this payload in model
+     * coordinates.  Returns 1 on success, 0 if the payload has no
+     * meaningful spatial extent.  May be NULL.
+     */
+    int   (*pl_bounds)(struct bsg_payload *pl, point_t *bmin, point_t *bmax);
+
+    /**
+     * Serialize payload geometry to @p out (e.g. as a vlist or JSON blob).
+     * Returns 0 on success.  May be NULL.
+     */
+    int   (*pl_export)(struct bsg_payload *pl, struct bu_vls *out);
+
+    /**
+     * Prepare backend-specific cached data for @p backend_ctx.  Called
+     * by the backend adapter before the first draw after creation or after
+     * revision changes.  Returns 0 on success.  May be NULL.
+     *
+     * Phase D5 (drawing_modernization) will extend this into a full
+     * backend adapter interface.
+     */
+    int   (*pl_backend_prepare)(struct bsg_payload *pl, void *backend_ctx);
+};
+
+/* -----------------------------------------------------------------------
+ * Core payload lifecycle
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Allocate a new @c bsg_payload of the given @p type.
+ *
+ * All function pointers are initialised to NULL; set them as needed after
+ * calling this function or use a type-specific builder (e.g.
+ * @c bsg_payload_text_create()).
+ *
+ * @p pl.opaque is set to NULL; set @p pl.text / @p pl.axes / etc. after
+ * allocation.
+ *
+ * @returns newly allocated payload, or NULL on allocation failure.
+ */
+BSG_EXPORT extern struct bsg_payload *
+bsg_payload_create(bsg_payload_type type);
+
+/**
+ * Free @p pl and its private data by calling @c pl->pl_free(pl).
+ * No-op if @p pl is NULL.
+ */
+BSG_EXPORT extern void
+bsg_payload_free(struct bsg_payload *pl);
+
+/**
+ * Increment @p pl->pl_revision by one.
+ * Used to signal that payload data has changed so that renderers can
+ * detect and re-upload cached GPU resources.
+ * No-op if @p pl is NULL.
+ */
+BSG_EXPORT extern void
+bsg_payload_bump_revision(struct bsg_payload *pl);
+
+/* -----------------------------------------------------------------------
+ * Node ↔ payload binding
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Attach @p pl to @p node, transferring ownership to the node.
+ *
+ * Any previously attached payload is freed first (via @c bsg_payload_free).
+ * The node's existing @c s_free_callback is wrapped so the payload is
+ * released when the node is destroyed.
+ *
+ * No-op if @p node is NULL.  If @p pl is NULL the existing payload (if any)
+ * is removed and freed.
+ */
+BSG_EXPORT extern void
+bsg_node_set_payload(bsg_node *node, struct bsg_payload *pl);
+
+/**
+ * Return the typed payload attached to @p node, or NULL if none.
+ */
+BSG_EXPORT extern struct bsg_payload *
+bsg_node_get_payload(const bsg_node *node);
+
+/* -----------------------------------------------------------------------
+ * Typed payload dispatch (augments bsg_payload_dispatch in payload.h)
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Call @c pl_update on the payload attached to @p node (if any) when the
+ * payload type requires a pre-render update.
+ *
+ * This is the Phase D1 typed analogue of the existing
+ * @c bsg_payload_dispatch() in bsg/payload.h which operates on the coarse
+ * BSG_PAYLOAD_* bits.  Both may be called; there is no conflict.
+ */
+BSG_EXPORT extern void
+bsg_payload_update(bsg_node *node, struct bsg_view *v);
+
+/* -----------------------------------------------------------------------
+ * TEXT payload (bsg_label) — Phase D1 pilot
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Create a BSG_PL_TEXT payload wrapping @p label.
+ * Ownership of @p label is transferred to the payload.
+ *
+ * The payload's @c pl_free will call @c BU_VLS_VLSFREE on the label's
+ * @c bu_vls field and then release the @c bsg_label allocation.
+ *
+ * @returns newly allocated payload, or NULL on failure.
+ */
+BSG_EXPORT extern struct bsg_payload *
+bsg_payload_text_create(struct bsg_label *label);
+
+/**
+ * Return the @c bsg_label from a BSG_PL_TEXT @p payload, or NULL if @p
+ * payload is not of that type.
+ */
+BSG_EXPORT extern struct bsg_label *
+bsg_payload_text_get(struct bsg_payload *payload);
+
+/* -----------------------------------------------------------------------
+ * AXES payload (bsg_axes) — Phase D1 pilot
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Create a BSG_PL_AXES payload wrapping @p axes.
+ * Ownership of @p axes is transferred to the payload.
+ *
+ * @returns newly allocated payload, or NULL on failure.
+ */
+BSG_EXPORT extern struct bsg_payload *
+bsg_payload_axes_create(struct bsg_axes *axes);
+
+/**
+ * Return the @c bsg_axes from a BSG_PL_AXES @p payload, or NULL if @p
+ * payload is not of that type.
+ */
+BSG_EXPORT extern struct bsg_axes *
+bsg_payload_axes_get(struct bsg_payload *payload);
+
+__END_DECLS
+
+#endif /* BSG_PAYLOAD_TYPED_H */
+
+/** @} */
+/*
+ * Local Variables:
+ * mode: C
+ * tab-width: 8
+ * indent-tabs-mode: t
+ * c-file-style: "stroustrup"
+ * End:
+ * ex: shiftwidth=4 tabstop=8
+ */

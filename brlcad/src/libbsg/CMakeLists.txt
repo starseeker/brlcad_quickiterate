@@ -4,6 +4,7 @@ set(
   action.c
   appearance.c
   camera.c
+  draw_intent.c
   draw_set.c
   draw_source.c
   field.c
@@ -19,6 +20,7 @@ set(
   node_transform.c
   overlay.c
   payload.c
+  payload_typed.c
   render.c
   scene_graph.cpp
   selection.c
@@ -81,6 +83,7 @@ cmakefiles(
   action.c
   appearance.c
   camera.c
+  draw_intent.c
   draw_set.c
   field.c
   identity.c
@@ -94,11 +97,9 @@ cmakefiles(
   node_transform.c
   overlay.c
   payload.c
+  payload_typed.c
   render.c
   selection.c
-  sensor.c
-  util.c
-  view_scope.c
   visit.c
   adc.c
   diff.c

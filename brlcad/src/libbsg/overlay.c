@@ -38,6 +38,7 @@
 #include "bu/str.h"
 #include "bu/vls.h"
 #include "bsg/defines.h"
+#include "bsg/draw_intent.h"
 #include "bsg/util.h"
 #include "bsg/vlist.h"
 
@@ -102,6 +103,10 @@ bsg_ensure_overlay_group(bsg_node *draw_root, struct bsg_view *v)
     ov->parent       = draw_root;
     bu_vls_sprintf(&ov->s_name, "_overlays");
     bu_ptbl_ins(&root->children, (long *)ov);
+
+    /* Phase D2: attach overlay intent so callers can use bsg_draw_intent_is_overlay()
+     * instead of comparing s_name to "_overlays". */
+    bsg_node_set_draw_intent(ov, bsg_draw_intent_create_overlay("_overlays"));
 
     return (bsg_node *)ov;
 }

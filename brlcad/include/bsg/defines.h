@@ -100,6 +100,19 @@ __BEGIN_DECLS
 #define BV_ANCHOR_TOP_LEFT      7
 #define BV_ANCHOR_TOP_CENTER    8
 #define BV_ANCHOR_TOP_RIGHT     9
+
+/* Phase D0 (drawing_modernization): BSG_ANCHOR_* — clean aliases for
+ * label/text anchor positions.  Prefer these over BV_ANCHOR_* in new code. */
+#define BSG_ANCHOR_AUTO          BV_ANCHOR_AUTO
+#define BSG_ANCHOR_BOTTOM_LEFT   BV_ANCHOR_BOTTOM_LEFT
+#define BSG_ANCHOR_BOTTOM_CENTER BV_ANCHOR_BOTTOM_CENTER
+#define BSG_ANCHOR_BOTTOM_RIGHT  BV_ANCHOR_BOTTOM_RIGHT
+#define BSG_ANCHOR_MIDDLE_LEFT   BV_ANCHOR_MIDDLE_LEFT
+#define BSG_ANCHOR_MIDDLE_CENTER BV_ANCHOR_MIDDLE_CENTER
+#define BSG_ANCHOR_MIDDLE_RIGHT  BV_ANCHOR_MIDDLE_RIGHT
+#define BSG_ANCHOR_TOP_LEFT      BV_ANCHOR_TOP_LEFT
+#define BSG_ANCHOR_TOP_CENTER    BV_ANCHOR_TOP_CENTER
+#define BSG_ANCHOR_TOP_RIGHT     BV_ANCHOR_TOP_RIGHT
 struct bsg_label {
     int           size;
     struct bu_vls label;
@@ -138,11 +151,13 @@ struct bsg_axes {
     int       tick_major_color[3];
 };
 
-// Many settings have application level defaults that can be overridden for
-// individual scene objects.
-//
-// TODO - once this settles down, it will probably warrant a bu_structparse
-// for value setting
+/* Many settings have application level defaults that can be overridden for
+ * individual shape nodes.
+ *
+ * Phase D5 (drawing_modernization) will replace the ad-hoc per-shape
+ * s_dmode / color_override / transparency fields with a resolved BSG
+ * appearance action computed from source material, command overrides, and
+ * selection/edit state during render traversal. */
 struct bsg_obj_settings {
 
     int s_dmode;         	/**< @brief  draw modes (TODO - are these accurate?):
@@ -173,20 +188,23 @@ struct bsg_obj_settings {
  * would NIRT solid shotline visualizations or overlap visualizations.  The
  * categorizations for the various types of bsg_node objects would be:
  *
- * solid wireframe/triangles (obj.s):  BV_DBOBJ_BASED
- * rtcheck overlap visual:             BV_DBOBJ_BASED & BV_VIEWONLY
- * polygon/line/label:                 BV_VIEWONLY
+ * solid wireframe/triangles (obj.s):  BSG_SHAPE_DBOBJ
+ * rtcheck overlap visual:             BSG_SHAPE_DBOBJ | BSG_SHAPE_VIEWONLY
+ * polygon/line/label:                 BSG_SHAPE_VIEWONLY
  *
- * TODO - the distinction between view and db objs at this level probably needs
- * to go away - the application (or at least higher level libraries like
- * libged) should be the one managing the semantic meanings of objects.
+ * Phase D2 (drawing_modernization): The distinction between database-backed
+ * and view-only objects will be superseded by explicit draw-intent metadata on
+ * BSG scene groups.  Application-level semantic meaning should not be encoded
+ * as per-shape flags; see bsg/draw_intent.h (Phase D2).
  *
  * The distinction between objects (lines, labels, etc.) defined as
- * bsg_node VIEW ONLY objects and the faceplate elements is objects defined
- * as bsg_node objects DO exist in the 3D scene, and will move as 3D
- * elements when the view is manipulated (although label text is drawn parallel
- * to the view plane.)  Faceplate elements exist ONLY in the HUD and are not
- * managed as bsg_node objects - they will not move with view manipulation.
+ * bsg_node VIEW ONLY objects and the faceplate elements is that objects defined
+ * as bsg_node objects DO exist in the 3D scene and will move as 3D elements
+ * when the view is manipulated (although label text is drawn parallel to the
+ * view plane).  Faceplate elements exist ONLY in the HUD and are not managed
+ * as bsg_node objects — they will not move with view manipulation.
+ * Phase D4 (drawing_modernization) will migrate faceplate elements to explicit
+ * HUD payload nodes.
  */
 #define BV_DBOBJ_BASED    0x01
 #define BV_VIEWONLY       0x02
@@ -194,6 +212,16 @@ struct bsg_obj_settings {
 #define BV_LABELS         0x08
 #define BV_AXES           0x10
 #define BV_POLYGONS       0x20
+
+/* Phase D0 (drawing_modernization): BSG_SHAPE_* — clean BSG-vocabulary aliases
+ * for the legacy BV_* shape-role flags stored in s_type_flags.  Prefer these
+ * over BV_* names in new BSG-facing code. */
+#define BSG_SHAPE_DBOBJ    BV_DBOBJ_BASED  /**< @brief shape drawn from a database path */
+#define BSG_SHAPE_VIEWONLY BV_VIEWONLY     /**< @brief view-only / overlay shape */
+#define BSG_SHAPE_LINES    BV_LINES        /**< @brief line-segment set shape */
+#define BSG_SHAPE_LABELS   BV_LABELS       /**< @brief text-label shape */
+#define BSG_SHAPE_AXES     BV_AXES         /**< @brief axes-widget shape */
+#define BSG_SHAPE_POLYGONS BV_POLYGONS     /**< @brief polygon region shape */
 
 struct bsg_view;
 
@@ -204,6 +232,8 @@ struct bsg_view;
 
 struct bsg_node_internal;
 struct bsg_node;
+struct bsg_payload;  /* Phase D1 (drawing_modernization): typed payload handle — see bsg/payload_typed.h */
+struct bsg_draw_intent;  /* Phase D2 (drawing_modernization): draw-intent metadata — see bsg/draw_intent.h */
 
 /* Phase 11 (drawing_stack_modernization): renderer-backend contract.
  *
@@ -213,6 +243,13 @@ struct bsg_node;
  * additional backends adopt the contract (e.g. dm-obol). */
 #define BV_BACKEND_NONE  0u   /* no backend state attached */
 #define BV_BACKEND_GL    1u   /* OpenGL/GL-via-software-rasterizer (dm-gl, dm-swrast, dm-qtgl, dm-glx, dm-wgl) */
+
+/* Phase D0 (drawing_modernization): BSG_BACKEND_* — clean BSG-vocabulary
+ * aliases for backend type tags.  Prefer these over BV_BACKEND_* in new code.
+ * Phase D5 will add a formal backend adapter interface; tags defined here will
+ * be reused. */
+#define BSG_BACKEND_NONE BV_BACKEND_NONE  /**< @brief no backend state attached */
+#define BSG_BACKEND_GL   BV_BACKEND_GL    /**< @brief GL family (dm-gl, dm-swrast, dm-qtgl) */
 
 /**
  * Phase 11 (drawing_stack_modernization): per-shape backend state.
@@ -237,7 +274,7 @@ struct bsg_node;
  * and may be NULL for backends that have no separately-cacheable resource.
  */
 struct bsg_backend {
-    uint32_t type_tag;                          /**< @brief BV_BACKEND_* identifying the owner */
+    uint32_t type_tag;                          /**< @brief BSG_BACKEND_* identifying the owner */
     void *handle;                               /**< @brief backend-private per-shape state */
     void (*free)(struct bsg_node *);        /**< @brief release backend resources and free this descriptor */
     void (*invalidate)(struct bsg_node *);  /**< @brief mark cached resource stale; may be NULL */
@@ -269,8 +306,11 @@ struct bsg_node  {
     struct bsg_view *s_v;
 
     /* Knowledge of how to create/update s_vlist and the other 3D geometry data, as well as
-     * manage any custom data specific to this object */
-    void *s_i_data;  /**< @brief custom view data (bsg_line_seg, bsg_label, bsg_polyon, etc) */
+     * manage any custom data specific to this object.
+     *
+     * Phase D1 (drawing_modernization): prefer the typed @c pl payload field
+     * below over raw s_i_data for new overlay/annotation shape nodes. */
+    void *s_i_data;  /**< @brief custom view data (bsg_label, bsg_axes, bsg_data_polygon_state, etc) */
 
     /* BV_DEPRECATED: LoD and CSG adaptive-wireframe update callbacks are now
      * driven by the BSG LoD node (bsg_lod_update via dm_draw_objs); this field
@@ -283,13 +323,39 @@ struct bsg_node  {
     struct bu_list s_vlist;	/**< @brief  Pointer to unclipped vector list */
     size_t s_vlen;			/**< @brief  Number of actual cmd[] entries in vlist */
 
+    /* Phase D1 (drawing_modernization): typed payload handle.
+     *
+     * Replaces the untyped s_i_data convention for overlay/annotation shapes.
+     * bsg_node_set_payload() attaches a bsg_payload; the node owns it and
+     * frees it on destruction.  Use bsg_payload_text_create(),
+     * bsg_payload_axes_create(), etc. from bsg/payload_typed.h to build
+     * typed payloads.  NULL for nodes that use the legacy s_i_data path.
+     *
+     * The revision counter (pl->pl_revision) should be bumped via
+     * bsg_payload_bump_revision() whenever the payload data changes, so that
+     * renderers and backend caches can detect stale state. */
+    struct bsg_payload *pl;
+
+    /* Phase D2 (drawing_modernization): explicit draw-intent metadata.
+     *
+     * Attached to scene groups by the draw command when a database path
+     * is drawn, and to synthetic overlay containers by
+     * bsg_ensure_overlay_group().  Records the source path, draw mode,
+     * LoD policy, and whether the group is an overlay container.
+     *
+     * NULL on shape nodes, unintentioned sub-groups, and nodes created
+     * before Phase D2 infrastructure was present.  Use
+     * bsg_node_get_draw_intent() / bsg_node_set_draw_intent() from
+     * bsg/draw_intent.h; do not access this field directly. */
+    struct bsg_draw_intent *di;
+
     /* Phase 11 (drawing_stack_modernization): generic renderer-backend slot.
      *
      * One backend-owned pointer per scene object replaces the previous pattern
      * of adding backend-specific fields directly on bsg_node.  The
      * descriptor records:
-     *   - type_tag: identifies the owning backend (e.g. BV_BACKEND_GL, future
-     *     BV_BACKEND_OBOL) so cross-backend mistakes can be caught;
+     *   - type_tag: identifies the owning backend (e.g. BSG_BACKEND_GL, future
+     *     BSG_BACKEND_OBOL) so cross-backend mistakes can be caught;
      *   - handle:   backend-private per-shape state (compiled GL display list,
      *     vertex buffer object, GPU resource handle, ...);
      *   - free:     cleanup callback fired by bsg_scene_obj_release_backend()
@@ -304,7 +370,11 @@ struct bsg_node  {
      * and clear the slot.  See struct gl_backend_handle in libdm/dm-gl_lod.cpp
      * for the GL family's per-shape state (display list index/mode/stale
      * flag) — formerly the BV_DEPRECATED s_dlist / s_dlist_mode /
-     * s_dlist_stale / s_dlist_free_callback fields, retired in Phase 13. */
+     * s_dlist_stale / s_dlist_free_callback fields, retired in Phase 13.
+     *
+     * Phase D5 (drawing_modernization) will formalize a full backend adapter
+     * interface (prepare/draw/invalidate/free/capabilities) over BSG payloads
+     * and render items. */
     struct bsg_backend *s_backend;
 
     /* 3D geometry metadata */
@@ -408,66 +478,31 @@ struct bsg_node  {
 
 
 
-/* bsg_scene_groups (one level above scene objects, conceptually equivalent
- * to display_list) are used to capture the intent of drawing commands.  For
- * example, in the scenario where a draw command is used to visualize a comb
- * with sub-combs a and b:
+/* bsg_scene_groups are BSG_NODE_GROUP nodes that record the user's draw-command
+ * intent — which database path was drawn and how.  They sit one level above
+ * the shape leaves that hold the realized geometry.  For example:
  *
  * ged> draw comb
  *
- * The drawing code will check the proposed group against existing groups,
- * adding and removing accordingly.  It will then walk the hierarchy and create
- * bsg_node instances for all solids below comb/a and comb/b as children
- * of the scene group.  Note that since we specified "comb" as the drawn
- * object, if comb/b is removed from comb and comb/c is added, we would expect
- * comb's displayed view to be updated to reflect its current structure.  If,
- * however, we instead did the original visualization with the commands:
+ * creates a scene group whose s_name is "comb" and whose BSG_NODE_SHAPE
+ * children hold the wireframe vlists for all solids under comb/a and comb/b.
+ * If comb/b is removed and comb/c added, the group's children are updated to
+ * reflect the current state of comb, because the user drew "comb" (not
+ * individual instances).
+ *
+ * By contrast:
  *
  * ged> draw comb/a
  * ged> draw comb/b
  *
- * The same solids would be drawn, but conceptually the comb itself is not
- * drawn - the two instances are.  If comb/b is removed and comb/c added, we
- * would not expect comb/c to be drawn since we never drew either that instance
- * or its parent comb.
+ * produces two separate scene groups with s_names "comb/a" and "comb/b".
+ * Adding comb/c to comb does NOT auto-draw it; only the explicitly drawn
+ * paths are tracked.
  *
- * However, if comb/a and comb/b are drawn and then comb is drawn, the new comb
- * scene group will replace both the comb/a and comb/b groups since they are now
- * part of a higher level object being drawn.  If comb is drawn and comb/a is
- * subsequently drawn, it will be a no-op since "comb" is already covering that
- * case.
- *
- * The rule with bsg_scene_group instances is their children must specify a
- * fully realized entity - if the s_name is "/comb/a" then everything below
- * /comb/a is drawn.  If /comb/a/obj1.s is erased, new bsg_scene_group
- * entities will be needed to reflect the partial nature of /comb/a in the
- * visualization.  That requirement also propagates back up the tree. If a has
- * obj1.s and obj2.s below it, and /comb/a/obj1.s is erased, an original
- * "/comb" scene group will be replaced by new scene groups: /comb/a/obj2.s and
- * /comb/b.  Note that if /comb/a/obj1.s is subsequently drawn in isolation,
- * the scene groups will not collapse back to a single comb group - the user
- * will not at that point have explicitly issued instructions to draw comb as a
- * whole, even though all the individual elements have been drawn.  A "view
- * simplify" command should probably be added to support collapsing to the
- * simplest available option automatically in that situation.
- *
- * Note that the above rule is for explicit erasure from the drawn scene group
- * - if the structure of /comb/a is changed the drawn object is still "comb"
- * and the solid children of the existing group are updated to reflect the
- * current state of comb, rather than introducing new scene groups.
- *
- * Much like point_t and vect_t, the distinction between a group and an
- * individual object is largely semantic rather than a question of different
- * data storage.  A group just uses the bsg_node container to store
- * group-wide default settings, and g.children holds the individual
- * bsg_node entries corresponding to the solids.  A bsg_node
- * should always map to a solid - a group may specify a solid but more
- * typically will reference the root of a CSG tree and have solids below it.
- * We define them to have different types only to help keep straight in the
- * code what is a conceptually a group and what is an individual scene object.
- *
- * TODO - once the latest drawing code update matures, the path management
- * done there should make the idea of a bsg_scene_group moot.
+ * Phase D2 (drawing_modernization) will replace this ad-hoc group naming
+ * convention with explicit bsg_draw_intent metadata so that draw-command
+ * semantics are queryable through a stable API rather than inferred from
+ * group names and child structure.
  */
 #define bsg_scene_group bsg_node
 

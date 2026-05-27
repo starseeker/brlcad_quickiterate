@@ -6,6 +6,7 @@ set(
   camera.h
   defines.h
   draw_ctx.h
+  draw_intent.h
   draw_set.h
   draw_source.h
   events.h
@@ -23,6 +24,7 @@ set(
   obol_node.h
   overlay.h
   payload.h
+  payload_typed.h
   plot3.h
   polygon.h
   render.h

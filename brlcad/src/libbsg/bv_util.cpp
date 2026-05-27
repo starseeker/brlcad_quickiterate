@@ -37,7 +37,9 @@
 #include "bg/plane.h"
 #include "bsg/appearance.h"
 #include "bsg/defines.h"
+#include "bsg/draw_intent.h"
 #include "bsg/material.h"
+#include "bsg/payload_typed.h"
 #include "bsg/snap.h"
 #include "bsg/util.h"
 #include "bsg/view_sets.h"
@@ -1733,7 +1735,7 @@ bsg_view_obj_labels_sync(struct bsg_view *v,
 	l->line_flag = 0;
 	l->anchor    = BV_ANCHOR_AUTO;
 	l->arrow     = 0;
-	child->s_i_data = (void *)l;
+	bsg_node_set_payload(child, bsg_payload_text_create(l));
     }
 }
 
@@ -2006,18 +2008,21 @@ bsg_obj_reset(struct bsg_node *s)
 	(*s->s_free_callback)(s);
     s->s_free_callback = NULL;
 
+    // Phase D1 (drawing_modernization): free typed payload
+    if (s->pl) {
+	bsg_payload_free(s->pl);
+	s->pl = NULL;
+    }
+
+    // Phase D2 (drawing_modernization): free draw-intent metadata
+    if (s->di) {
+	bsg_draw_intent_free(s->di);
+	s->di = NULL;
+    }
+
     // Phase 11: release any backend-owned per-shape state via the generic
     // contract.
     bsg_scene_obj_release_backend(s);
-
-    // If we have a label, do the label freeing steps
-    // TODO - this should be using the free callback rather
-    // than special casing...
-    if ((s->s_type_flags & BV_LABELS) && s->s_i_data) {
-	struct bsg_label *la = (struct bsg_label *)s->s_i_data;
-	bu_vls_free(&la->label);
-	BU_PUT(la, struct bsg_label);
-    }
 
     // free vlist
     if (BU_LIST_IS_INITIALIZED(&s->s_vlist)) {
