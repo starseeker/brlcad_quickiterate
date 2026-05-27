@@ -54,6 +54,7 @@
 #include "bsg/lod_ops.h"
 #include "bsg/node_group.h"
 #include "bsg/node.h"
+#include "bsg/appearance.h"
 #include "bsg/util.h"
 #include "bsg/visit.h"
 #include "../../ged_private.h"
@@ -235,25 +236,23 @@ main(int ac, char *av[])
     bsg_view_obj_set_iflag(gedp, UP);
     {
 	int all_up = 1;
-	struct iflag_check { int *ok; int target; } cu = { &all_up, UP };
 	auto cb = +[](struct bsg_node *sp, void *ud) -> int {
-	    struct iflag_check *c = (struct iflag_check *)ud;
-	    if (sp->s_iflag != c->target) *c->ok = 0;
+	    int *ok = (int *)ud;
+	    if (!bsg_appearance_is_highlighted(sp)) *ok = 0;
 	    return 1;
 	};
-	bsg_view_obj_foreach_solid(gedp, cb, &cu);
+	bsg_view_obj_foreach_solid(gedp, cb, &all_up);
 	ASSERT(all_up);
     }
     bsg_view_obj_set_iflag(gedp, DOWN);
     {
 	int all_down = 1;
-	struct iflag_check { int *ok; int target; } cd = { &all_down, DOWN };
 	auto cb = +[](struct bsg_node *sp, void *ud) -> int {
-	    struct iflag_check *c = (struct iflag_check *)ud;
-	    if (sp->s_iflag != c->target) *c->ok = 0;
+	    int *ok = (int *)ud;
+	    if (bsg_appearance_is_highlighted(sp)) *ok = 0;
 	    return 1;
 	};
-	bsg_view_obj_foreach_solid(gedp, cb, &cd);
+	bsg_view_obj_foreach_solid(gedp, cb, &all_down);
 	ASSERT(all_down);
     }
 
@@ -584,13 +583,13 @@ main(int ac, char *av[])
 	ASSERT(s0 != NULL);
 	bsg_view_obj_set_illum(gedp, s0);
 
-	/* get_illum returns s0 and s0->s_iflag is UP. */
+	/* get_illum returns s0 and s0 is highlighted. */
 	ASSERT(bsg_view_obj_get_illum(gedp) == s0);
-	ASSERT(s0->s_iflag == UP);
+	ASSERT(bsg_appearance_is_highlighted(s0));
 
 	/* set_iflag(DOWN) should run in O(1) — s0 is the tracked solid. */
 	bsg_view_obj_set_iflag(gedp, DOWN);
-	ASSERT(s0->s_iflag == DOWN);
+	ASSERT(!bsg_appearance_is_highlighted(s0));
 	ASSERT(bsg_view_obj_get_illum(gedp) == NULL);
 
 	/* set_illum(s0) then set_illum(s1) clears s0 and illuminates s1. */
@@ -598,25 +597,25 @@ main(int ac, char *av[])
 	    struct bsg_node *s1 = bsg_view_obj_solid_at(gedp, 1);
 	    ASSERT(s1 != NULL);
 	    bsg_view_obj_set_illum(gedp, s0);
-	    ASSERT(s0->s_iflag == UP);
+	    ASSERT(bsg_appearance_is_highlighted(s0));
 	    bsg_view_obj_set_illum(gedp, s1);
-	    ASSERT(s0->s_iflag == DOWN);
-	    ASSERT(s1->s_iflag == UP);
+	    ASSERT(!bsg_appearance_is_highlighted(s0));
+	    ASSERT(bsg_appearance_is_highlighted(s1));
 	    ASSERT(bsg_view_obj_get_illum(gedp) == s1);
 	    /* Clean up */
 	    bsg_view_obj_set_iflag(gedp, DOWN);
-	    ASSERT(s1->s_iflag == DOWN);
+	    ASSERT(!bsg_appearance_is_highlighted(s1));
 	}
 
 	/* set_illum(NULL) invalidates tracking — subsequent set_iflag(DOWN)
 	 * falls back to O(N) sweep (both paths yield correct result). */
 	bsg_view_obj_set_illum(gedp, s0);
-	s0->s_iflag = UP;
+	bsg_appearance_set_highlighted(s0, 1);
 	bsg_view_obj_set_illum(gedp, NULL);  /* invalidate */
 	ASSERT(bsg_view_obj_get_illum(gedp) == NULL);
 	bsg_view_obj_set_iflag(gedp, DOWN);  /* O(N) fallback */
-	/* After O(N) sweep, s0 must be DOWN. */
-	ASSERT(s0->s_iflag == DOWN);
+	/* After O(N) sweep, s0 must not be highlighted. */
+	ASSERT(!bsg_appearance_is_highlighted(s0));
 
 	/* B4 activated: color_from_soltab does NOT bump mater_rev by itself.
 	 * The counter is event-driven: only bsg_view_obj_bump_mater_rev() moves it.

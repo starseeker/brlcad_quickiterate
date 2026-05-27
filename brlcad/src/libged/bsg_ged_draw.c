@@ -989,7 +989,8 @@ static int
 _iflag_solid_cb(bsg_node *n, void *ud)
 {
     struct bsg_node *sp = (struct bsg_node *)n;
-    bsg_appearance_set_highlighted(sp, *(char *)ud);
+    /* UP=0 means highlighted; bsg_appearance_set_highlighted takes 1=true,0=false */
+    bsg_appearance_set_highlighted(sp, (*(char *)ud == UP) ? 1 : 0);
     return 1;
 }
 
