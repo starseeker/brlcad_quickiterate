@@ -30,6 +30,7 @@
 #include "bu/units.h"
 #include "bn.h"
 #include "ged.h"
+#include "ged/view.h"
 
 #include "./mged.h"
 #include "./sedit.h"
@@ -74,46 +75,47 @@ create_text_overlay(struct mged_state *s, struct bu_vls *vp)
      * Check if the illuminated solid still exists or it has been killed
      * before Accept was clicked.
      */
-    if (MEDIT(s)->edit_flag >= 0 && illump != NULL && illump->s_u_data != NULL) {
-	struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
+    if (MEDIT(s)->edit_flag >= 0 && illump != NULL) {
+	ged_draw_shape_data *bdata = ged_draw_shape_data_get(illump);
+	if (bdata) {
+	    dp = LAST_SOLID(bdata);
 
-	dp = LAST_SOLID(bdata);
-
-	bu_vls_strcat(vp, "** SOLID -- ");
-	bu_vls_strcat(vp, dp->d_namep);
-	bu_vls_strcat(vp, ": ");
-
-	vls_solid(s, vp, &MEDIT(s)->es_int, bn_mat_identity);
-
-	if (bdata->s_fullpath.fp_len > 1) {
-	    bu_vls_strcat(vp, "\n** PATH --  ");
-	    db_path_to_vls(vp, &bdata->s_fullpath);
+	    bu_vls_strcat(vp, "** SOLID -- ");
+	    bu_vls_strcat(vp, dp->d_namep);
 	    bu_vls_strcat(vp, ": ");
 
-	    /* print the evaluated (path) solid parameters */
-	    vls_solid(s, vp, &MEDIT(s)->es_int, MEDIT(s)->e_mat);
+	    vls_solid(s, vp, &MEDIT(s)->es_int, bn_mat_identity);
+
+	    if (bdata->s_fullpath.fp_len > 1) {
+		bu_vls_strcat(vp, "\n** PATH --  ");
+		db_path_to_vls(vp, &bdata->s_fullpath);
+		bu_vls_strcat(vp, ": ");
+
+		/* print the evaluated (path) solid parameters */
+		vls_solid(s, vp, &MEDIT(s)->es_int, MEDIT(s)->e_mat);
+	    }
 	}
     }
 
     /* display path info for object editing also */
-    if (s->global_editing_state == ST_O_EDIT && illump != NULL && illump->s_u_data != NULL) {
-	struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
+    if (s->global_editing_state == ST_O_EDIT && illump != NULL) {
+	ged_draw_shape_data *bdata = ged_draw_shape_data_get(illump);
+	if (bdata) {
+	    bu_vls_strcat(vp, "** PATH --  ");
+	    db_path_to_vls(vp, &bdata->s_fullpath);
+	    bu_vls_strcat(vp, ": ");
 
-	bu_vls_strcat(vp, "** PATH --  ");
-	db_path_to_vls(vp, &bdata->s_fullpath);
-	bu_vls_strcat(vp, ": ");
+	    /* print the evaluated (path) solid parameters */
+	    if (illump->s_old.s_Eflag == 0) {
+		mat_t new_mat;
+		/* NOT an evaluated region */
+		/* object edit option selected */
+		bn_mat_mul(new_mat, MEDIT(s)->model_changes, MEDIT(s)->e_mat);
 
-	/* print the evaluated (path) solid parameters */
-	if (illump->s_old.s_Eflag == 0) {
-	    mat_t new_mat;
-	    /* NOT an evaluated region */
-	    /* object edit option selected */
-	    bn_mat_mul(new_mat, MEDIT(s)->model_changes, MEDIT(s)->e_mat);
-
-	    vls_solid(s, vp, &MEDIT(s)->es_int, new_mat);
+		vls_solid(s, vp, &MEDIT(s)->es_int, new_mat);
+	    }
 	}
     }
-
     {
 	char *start;
 	char *p;
@@ -240,8 +242,12 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 
     /* Set the Tcl variables to the appropriate values. */
 
-    if (illump != NULL && illump->s_u_data != NULL) {
-	struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
+    if (illump != NULL) {
+	ged_draw_shape_data *bdata = ged_draw_shape_data_get(illump);
+	if (!bdata) {
+	    bu_vls_free(&vls);
+	    return;
+	}
 
 	struct bu_vls path_lhs = BU_VLS_INIT_ZERO;
 	struct bu_vls path_rhs = BU_VLS_INIT_ZERO;
@@ -420,12 +426,12 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 	/*
 	 * Print information about object illuminated
 	 */
-	if (illump != NULL && illump->s_u_data != NULL &&
+	if (illump != NULL &&
 	    (s->global_editing_state == ST_O_PATH || s->global_editing_state==ST_O_PICK || s->global_editing_state==ST_S_PICK)) {
 
-	    struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
+	    ged_draw_shape_data *bdata = ged_draw_shape_data_get(illump);
 
-	    for (i=0; i < bdata->s_fullpath.fp_len; i++) {
+	    if (bdata) for (i=0; i < bdata->s_fullpath.fp_len; i++) {
 		if (i == (size_t)ipathpos  &&  s->global_editing_state == ST_O_PATH) {
 		    dm_set_fg(DMP,
 				   color_scheme->cs_state_text1[0],
@@ -587,11 +593,11 @@ dotitles(struct mged_state *s, struct bu_vls *overlay_vls)
 	Tcl_SetVar(s->interp, bu_vls_addr(&vls), "", TCL_GLOBAL_ONLY);
     }
 
-    if (illump != NULL && illump->s_u_data != NULL) {
+    if (illump != NULL) {
 
-	struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
+	ged_draw_shape_data *bdata = ged_draw_shape_data_get(illump);
 
-	if (mged_variables->mv_faceplate && ss_line_not_drawn) {
+	if (bdata && mged_variables->mv_faceplate && ss_line_not_drawn) {
 	    bu_vls_trunc(&vls, 0);
 
 	    /* Illuminated path */

@@ -27,6 +27,8 @@
 #include <string.h>
 
 #include "vmath.h"
+#include "bsg/appearance.h"
+#include "ged/view.h"
 
 #include "./mged.h"
 #include "./sedit.h"
@@ -559,7 +561,7 @@ ill_common(struct mged_state *s) {
 
     illump = bsg_view_obj_first_solid(s->gedp);
     illum_gdlp = bsg_view_obj_group_of_solid(s->gedp, illump);
-    illump->s_iflag = UP;
+    bsg_appearance_set_highlighted(illump, 1);
     edobj = 0;		/* sanity */
     edsol = 0;		/* sanity */
     movedir = 0;		/* No edit modes set */

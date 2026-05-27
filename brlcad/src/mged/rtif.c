@@ -41,6 +41,7 @@
 
 #include "vmath.h"
 #include "raytrace.h"
+#include "ged/view.h"
 
 #include "./sedit.h"
 #include "./mged.h"
@@ -63,8 +64,8 @@ _rtif_eye_solid_cb(bsg_node *n, void *ud)
 {
     struct bsg_node *fsp = (struct bsg_node *)n;
     struct _rtif_eye_data *d = (struct _rtif_eye_data *)ud;
-    if (!fsp->s_u_data) return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)fsp->s_u_data;
+    ged_draw_shape_data *bdata = ged_draw_shape_data_get(fsp);
+    if (!bdata) return 1;
     if (LAST_SOLID(bdata) != d->dp) return 1;
     if (BU_LIST_IS_EMPTY(&(fsp->s_vlist))) return 1;
     bsg_vlist *vp = BU_LIST_LAST(bsg_vlist, &(fsp->s_vlist));

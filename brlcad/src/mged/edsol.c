@@ -39,6 +39,7 @@
 #include "wdb.h"
 #include "rt/db4.h"
 #include "ged/view.h"
+#include "bsg/appearance.h"
 
 #include "./mged.h"
 #include "./sedit.h"
@@ -69,8 +70,8 @@ _replot_modified_solid_cb(bsg_node *n, void *ud)
 {
     struct bsg_node *sp = (struct bsg_node *)n;
     struct _replot_modified_data *d = (struct _replot_modified_data *)ud;
-    if (!sp->s_u_data) return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    ged_draw_shape_data *bdata = ged_draw_shape_data_get(sp);
+    if (!bdata) return 1;
     if (LAST_SOLID(bdata) == d->illdp) {
 	mat_t mat;
 	(void)db_path_to_mat(d->s->dbip, &bdata->s_fullpath, mat,
@@ -80,10 +81,10 @@ _replot_modified_solid_cb(bsg_node *n, void *ud)
     return 1;
 }
 
-/* Callback: replot active (s_iflag==UP) solids; optionally set flag DOWN. */
+/* Callback: replot active (highlighted) solids; optionally clear highlight. */
 struct _replot_active_data {
     struct mged_state *s;
-    int continue_editing; /* if DOWN, set s_iflag=DOWN after replot */
+    int continue_editing; /* if DOWN, clear highlight after replot */
 };
 
 static int
@@ -91,10 +92,10 @@ _replot_active_solid_cb(bsg_node *n, void *ud)
 {
     struct bsg_node *sp = (struct bsg_node *)n;
     struct _replot_active_data *d = (struct _replot_active_data *)ud;
-    if (sp->s_iflag == DOWN) return 1;
+    if (!bsg_appearance_is_highlighted(sp)) return 1;
     (void)replot_original_solid(d->s, sp);
     if (d->continue_editing == DOWN)
-	sp->s_iflag = DOWN;
+	bsg_appearance_set_highlighted(sp, 0);
     return 1;
 }
 
@@ -109,8 +110,8 @@ _replot_lastsol_cb(bsg_node *n, void *ud)
 {
     struct bsg_node *sp = (struct bsg_node *)n;
     struct _replot_lastsol_data *d = (struct _replot_lastsol_data *)ud;
-    if (!sp->s_u_data) return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    ged_draw_shape_data *bdata = ged_draw_shape_data_get(sp);
+    if (!bdata) return 1;
     if (LAST_SOLID(bdata) == d->target_dp)
 	(void)replot_original_solid(d->s, sp);
     return 1;
@@ -1029,9 +1030,9 @@ init_sedit(struct mged_state *s)
     }
 
     /* Read solid description into MEDIT(s)->es_int */
-    if (!illump->s_u_data)
+    ged_draw_shape_data *bdata = ged_draw_shape_data_get(illump);
+    if (!bdata)
 	return;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
     if (rt_db_get_internal(&MEDIT(s)->es_int, LAST_SOLID(bdata),
 			   s->dbip, NULL) < 0) {
 	if (bdata->s_fullpath.fp_len > 0) {
@@ -1155,15 +1156,13 @@ init_sedit_vars(struct mged_state *s)
 void
 replot_editing_solid(struct mged_state *s)
 {
-    struct directory *illdp;
-
     if (!illump) {
 	return;
     }
-    if (!illump->s_u_data)
+    ged_draw_shape_data *bdata = ged_draw_shape_data_get(illump);
+    if (!bdata)
 	return;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
-    illdp = LAST_SOLID(bdata);
+    struct directory *illdp = LAST_SOLID(bdata);
 
     struct _replot_modified_data d;
     d.s = s;
@@ -5891,9 +5890,9 @@ init_oedit_guts(struct mged_state *s)
     }
 
     /* Not an evaluated region - just a regular path ending in a solid */
-    if (!illump->s_u_data)
+    ged_draw_shape_data *bdata = ged_draw_shape_data_get(illump);
+    if (!bdata)
 	return;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
     if (rt_db_get_internal(&MEDIT(s)->es_int, LAST_SOLID(bdata),
 			   s->dbip, NULL) < 0) {
 	if (bdata->s_fullpath.fp_len > 0) {
@@ -5991,9 +5990,9 @@ oedit_apply(struct mged_state *s, int continue_editing)
     mat_t deltam;	/* final "changes":  deltam = (inv_topm)(MEDIT(s)->model_changes)(topm) */
     mat_t tempm;
 
-    if (!illump || !illump->s_u_data)
+    ged_draw_shape_data *bdata = ged_draw_shape_data_get(illump);
+    if (!illump || !bdata)
 	return;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
 
     switch (ipathpos) {
 	case 0:
@@ -6177,9 +6176,9 @@ sedit_apply(struct mged_state *s, int accept_flag)
     }
 
     /* write editing changes out to disc */
-    if (!illump->s_u_data)
+    ged_draw_shape_data *bdata = ged_draw_shape_data_get(illump);
+    if (!bdata)
 	return TCL_ERROR;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
     dp = LAST_SOLID(bdata);
     if (!dp) {
 	/* sanity check, unexpected error */
@@ -6297,9 +6296,9 @@ sedit_reject(struct mged_state *s)
 
     /* Restore the original solid everywhere */
     {
-	if (!illump->s_u_data)
+	ged_draw_shape_data *bdata = ged_draw_shape_data_get(illump);
+	if (!bdata)
 	    return;
-	struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
 
 	struct _replot_lastsol_data d;
 	d.s = s;
@@ -7410,9 +7409,9 @@ f_get_sedit(ClientData clientData, Tcl_Interp *interp, int argc, const char *arg
 	return TCL_ERROR;
     }
 
-    if (illump || !illump->s_u_data)
+    ged_draw_shape_data *bdata = ged_draw_shape_data_get(illump);
+    if (!illump || !bdata)
 	return TCL_ERROR;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
 
     if (argc == 1) {
 	struct bu_vls logstr = BU_VLS_INIT_ZERO;
@@ -7595,9 +7594,9 @@ f_sedit_reset(ClientData clientData, Tcl_Interp *interp, int argc, const char *U
     es_eu = (struct edgeuse *)NULL;
 
     /* read in a fresh copy */
-    if (!illump || !illump->s_u_data)
+    ged_draw_shape_data *bdata = ged_draw_shape_data_get(illump);
+    if (!illump || !bdata)
 	return TCL_ERROR;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
     if (rt_db_get_internal(&MEDIT(s)->es_int, LAST_SOLID(bdata),
 			   s->dbip, NULL) < 0) {
 	if (bdata->s_fullpath.fp_len > 0) {
@@ -7728,9 +7727,9 @@ f_oedit_apply(ClientData clientData, Tcl_Interp *interp, int UNUSED(argc), const
     CHECK_DBI_NULL;
     oedit_apply(s, UP); /* apply changes, but continue editing */
 
-    if (!illump->s_u_data)
+    ged_draw_shape_data *bdata = ged_draw_shape_data_get(illump);
+    if (!bdata)
 	return TCL_ERROR;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)illump->s_u_data;
 
     /* Save aggregate path matrix */
     MAT_IDN(MEDIT(s)->e_mat);
