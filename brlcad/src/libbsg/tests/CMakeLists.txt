@@ -96,6 +96,11 @@ brlcad_add_test(NAME libbsg_render COMMAND test_bsg_render)
 brlcad_addexec(test_bsg_pick test_pick.c "libbsg;libbu" TEST)
 brlcad_add_test(NAME libbsg_pick COMMAND test_bsg_pick)
 
+# Phase D4: HUD root and overlay metadata
+#
+brlcad_addexec(test_bsg_hud test_hud.c "libbsg;libbu" TEST)
+brlcad_add_test(NAME libbsg_hud COMMAND test_bsg_hud)
+
 cmakefiles(
   CMakeLists.txt
   test_action.c
@@ -108,6 +113,7 @@ cmakefiles(
   test_node.c
   test_phase6.c
   test_pick.c
+  test_hud.c
   test_render.c
   test_scene_graph.c
   test_selection.c

@@ -29,6 +29,7 @@ set(
   plot3.h
   polygon.h
   render.h
+  hud.h
   scene_set.h
   selection.h
   sensor.h

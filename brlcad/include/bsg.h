@@ -34,6 +34,7 @@
 #include "bsg/adc.h"
 #include "bsg/defines.h"
 #include "bsg/draw_intent.h"
+#include "bsg/hud.h"
 #include "bsg/lod.h"
 #include "bsg/obol_node.h"
 #include "bsg/payload_typed.h"

@@ -22,6 +22,7 @@ set(
   payload.c
   payload_typed.c
   pick.c
+  hud.c
   render.c
   scene_graph.cpp
   selection.c
@@ -99,6 +100,7 @@ cmakefiles(
   overlay.c
   payload.c
   payload_typed.c
+  hud.c
   render.c
   selection.c
   visit.c

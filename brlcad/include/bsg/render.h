@@ -58,6 +58,14 @@ __BEGIN_DECLS
 #define BSG_RENDER_FLAG_SORTED_ALPHA      0x08
 
 /**
+ * Execute the HUD pass: after the main scene, traverse gv_hud_root and
+ * dispatch BSG_PAYLOAD_OVERLAY nodes ordered by bsg_hud_node_meta::sort_order.
+ * Ignored by bsg_render_request_execute() when req->root is not the HUD root;
+ * use bsg_hud_sync() + a separate request against gv_hud_root for HUD draws.
+ */
+#define BSG_RENDER_FLAG_HUD_PASS          0x10
+
+/**
  * Render request descriptor.
  *
  * Allocate with bsg_render_request_create(); release with
