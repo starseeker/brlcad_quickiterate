@@ -263,13 +263,6 @@ QgView::clearFilter(QgViewFilter *f)
 }
 
 void
-QgView::set_draw_custom(void (*draw_custom)(struct bsg_view *, void *), void *draw_udata)
-{
-    if (canvas)
-canvas->set_draw_custom(draw_custom, draw_udata);
-}
-
-void
 QgView::enableDefaultKeyBindings()
 {
     if (canvas)

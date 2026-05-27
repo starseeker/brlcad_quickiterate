@@ -77,7 +77,6 @@ QObject *active_event_filter() const
 {
 return curr_event_filter;
 }
-void set_draw_custom(void (*draw_custom)(struct bsg_view *, void *), void *draw_udata);
 
 // Wrappers around Qt's facility for adding eventFilter objects to
 // widgets.  This is how custom key binding modes are enabled and

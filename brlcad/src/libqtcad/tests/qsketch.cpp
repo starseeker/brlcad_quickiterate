@@ -86,6 +86,9 @@
 #include "bu/str.h"
 #include "bn/tol.h"
 #include "bsg.h"
+#include "bsg/node.h"
+#include "bsg/node_shape.h"
+#include "bsg/scene_graph.h"
 #include "bsg/util.h"
 #include "dm.h"
 #include "raytrace.h"
@@ -175,53 +178,8 @@ sketch_create_empty(struct db_i *dbip, const char *name)
 /*
  * Draw the sketch wireframe directly via ft_plot into the swrast dm.
  * This is the custom draw callback registered with QgView_SW: it bypasses
- * the scene-object machinery and renders the sketch vlist directly,
- * which is both simpler and faster for a single-primitive editor.
+ * the scene-object machinery.  Phase D6 ports this to a BSG shape node.
  */
-struct qsketch_draw_ctx {
-    struct rt_edit *es;
-    struct bsg_grid_state *grid;
-};
-
-static void
-sketch_draw_custom(struct bsg_view *v, void *udata)
-{
-    struct qsketch_draw_ctx *ctx = (struct qsketch_draw_ctx *)udata;
-    if (!ctx || !ctx->es) return;
-
-    struct dm *dmp = (struct dm *)v->dmp;
-    if (!dmp) return;
-
-    /* The caller (QgSW::paintEvent) already called dm_draw_begin before
-     * invoking us via dm_draw_objs; we just issue draw commands here. */
-
-    /* ---- grid (optional) ---- */
-    if (ctx->grid && ctx->grid->draw) {
-	dm_draw_grid(dmp, ctx->grid, v->gv_scale, v->gv_model2view, 1.0);
-    }
-
-    /* ---- sketch wireframe ---- */
-    const struct rt_sketch_internal *skt =
-	(const struct rt_sketch_internal *)ctx->es->es_int.idb_ptr;
-    if (skt && skt->vert_count > 0 && skt->curve.count > 0) {
-	struct bu_list vlist;
-	BU_LIST_INIT(&vlist);
-
-	struct bg_tess_tol ttol;
-	ttol.magic = BG_TESS_TOL_MAGIC;
-	ttol.abs   = 0.0;
-	ttol.rel   = 0.01;
-	ttol.norm  = 0.0;
-
-	struct bn_tol tol = BN_TOL_INIT_TOL;
-	OBJ[ctx->es->es_int.idb_type].ft_plot(
-	    &vlist, &ctx->es->es_int, &ttol, &tol, v);
-
-	dm_set_fg(dmp, 255, 255, 0, 1, 1.0);  /* yellow wireframe */
-	dm_draw_vlist(dmp, (bsg_vlist *)&vlist);
-	bsg_vlist_cleanup(&vlist);
-    }
-}
 
 /*
  * Write the current edit state back to the database and redisplay.
@@ -401,6 +359,7 @@ private:
     void clear_filter();
     void refresh_tables();
     void refresh_view();
+    void update_sketch_vlist();
     void set_status(const QString &msg);
 
     /* Edit-state helpers */
@@ -422,7 +381,7 @@ private:
     struct bsg_view         *m_bv   = NULL;
     struct rt_edit       *m_es   = NULL;
     struct bn_tol         m_tol;
-    qsketch_draw_ctx      m_draw_ctx;
+    struct bsg_node      *m_sketch_node = NULL;
 
     /* ---- Qt UI ---- */
     QgView          *m_view   = NULL;
@@ -496,10 +455,18 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
     m_view = new QgView(this, QgView_SW);
     m_view->set_view(m_bv);
 
-    /* Register our custom draw callback so ft_plot renders the sketch */
-    m_draw_ctx.es   = m_es;
-    m_draw_ctx.grid = &m_bv->gv_s->gv_grid;
-    m_view->set_draw_custom(sketch_draw_custom, &m_draw_ctx);
+    /* Phase D6: create a BSG shape node for the sketch wireframe under the
+     * view's standalone draw root so it renders through the normal scene graph. */
+    bsg_scene_root_create(m_bv);
+    m_sketch_node = bsg_shape_create(m_bv);
+    if (m_sketch_node) {
+	VSET(m_sketch_node->s_color, 255, 255, 0); /* yellow wireframe */
+	bu_vls_sprintf(&m_sketch_node->s_name, "sketch_wireframe");
+	struct bsg_payload *sketch_pl =
+	    bsg_payload_sketch_create(m_es, &m_bv->gv_s->gv_grid);
+	bsg_node_set_payload(m_sketch_node, sketch_pl);
+	bsg_node_add_child((bsg_node *)m_bv->bsg_root, m_sketch_node);
+    }
 
     /* ---- vertex table — allow multi-row selection ---- */
     m_vtable = new QTableWidget(this);
@@ -654,6 +621,7 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
 
     /* ---- initial display ---- */
     refresh_tables();
+    update_sketch_vlist();
     /* Fit view and draw the sketch on first show */
     QTimer::singleShot(0, this, [this]() {
 	on_fit_view();
@@ -671,6 +639,14 @@ QSketchEditWindow::~QSketchEditWindow()
     if (m_es)
 	rt_edit_destroy(m_es);
     if (m_bv) {
+	/* Phase D6: destroy standalone draw root (and children including the
+	 * sketch shape node) before releasing the view. */
+	if (m_bv->gv_draw_root) {
+	    bsg_obj_put((bsg_node *)m_bv->gv_draw_root);
+	    m_bv->gv_draw_root = NULL;
+	    m_bv->bsg_root = NULL;
+	    m_sketch_node = NULL;
+	}
 	bsg_free(m_bv);
 	BU_PUT(m_bv, struct bsg_view);
     }
@@ -731,7 +707,32 @@ QSketchEditWindow::refresh_view()
 {
     /* Write edited sketch back to the DB so the view can re-read it */
     sketch_write_to_db(m_es, m_dbip, m_dp);
+    update_sketch_vlist();
     m_view->need_update(QG_VIEW_REFRESH);
+}
+
+void
+QSketchEditWindow::update_sketch_vlist()
+{
+    if (!m_es || !m_sketch_node) return;
+
+    struct bu_list vlist;
+    BU_LIST_INIT(&vlist);
+
+    const struct rt_sketch_internal *skt =
+	(const struct rt_sketch_internal *)m_es->es_int.idb_ptr;
+    if (skt && skt->vert_count > 0 && skt->curve.count > 0) {
+	struct bg_tess_tol ttol;
+	ttol.magic = BG_TESS_TOL_MAGIC;
+	ttol.abs   = 0.0;
+	ttol.rel   = 0.01;
+	ttol.norm  = 0.0;
+	struct bn_tol tol = BN_TOL_INIT_TOL;
+	OBJ[m_es->es_int.idb_type].ft_plot(
+	    &vlist, &m_es->es_int, &ttol, &tol, m_bv);
+    }
+    bsg_shape_set_vlist(m_sketch_node, &vlist);
+    bsg_vlist_cleanup(&vlist);
 }
 
 void

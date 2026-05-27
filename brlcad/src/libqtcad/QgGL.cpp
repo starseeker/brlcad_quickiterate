@@ -127,16 +127,10 @@ QgGL::set_current(int active)
 }
 
 void
+void
 QgGL::setDisplayManagerSet(struct bu_ptbl *set)
 {
     d->dm_set = set;
-}
-
-void
-QgGL::set_draw_custom(void (*draw_func)(struct bsg_view *, void *), void *udata)
-{
-    d->draw_custom = draw_func;
-    d->draw_udata  = udata;
 }
 
 void
@@ -230,7 +224,7 @@ if (d->ifp)
     // implementation) we need to do the draw routine every time in paintGL, or
     // we end up with unrendered frames.
     dm_set_dirty(d->dmp, 0);
-    dm_draw_objs(d->v, d->draw_custom, d->draw_udata);
+    dm_draw_objs(d->v);
     dm_draw_end(d->dmp);
 }
 

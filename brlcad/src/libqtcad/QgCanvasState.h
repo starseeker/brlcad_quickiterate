@@ -87,10 +87,6 @@ struct QgCanvasState {
 	struct bu_ptbl  *dm_set = nullptr;  /* shared DM table (caller owns)     */
 	struct bsg_view    *local_v = nullptr; /* widget-owned view (canvas owns)   */
 
-	/* ---- custom draw callback ---- */
-	void (*draw_custom)(struct bsg_view *, void *) = nullptr;
-	void *draw_udata = nullptr;
-
 	/* ---- hash tracking for incremental updates ---- */
 	unsigned long long prev_dhash = 0;
 	unsigned long long prev_vhash = 0;

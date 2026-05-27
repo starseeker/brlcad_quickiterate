@@ -48,7 +48,7 @@ go_refresh_draw(struct ged *gedp, struct bsg_view *gdvp, int restore_zbuffer)
 	    double b2l = gdvp->gv_base2local;
 	    gdvp->gv_local2base = gedp->dbip->dbi_local2base;
 	    gdvp->gv_base2local = gedp->dbip->dbi_base2local;
-	    dm_draw_objs(gdvp, NULL, NULL);
+	    dm_draw_objs(gdvp);
 	    gdvp->gv_local2base = l2b;
 	    gdvp->gv_base2local = b2l;
 
@@ -132,7 +132,7 @@ go_refresh_draw(struct ged *gedp, struct bsg_view *gdvp, int restore_zbuffer)
     double b2l = gdvp->gv_base2local;
     gdvp->gv_local2base = gedp->dbip->dbi_local2base;
     gdvp->gv_base2local = gedp->dbip->dbi_base2local;
-    dm_draw_objs(gdvp, NULL, NULL);
+    dm_draw_objs(gdvp);
     gdvp->gv_local2base = l2b;
     gdvp->gv_base2local = b2l;
 }

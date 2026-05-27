@@ -190,6 +190,50 @@ bsg_payload_axes_get(struct bsg_payload *payload)
 }
 
 
+/* -----------------------------------------------------------------------
+ * SKETCH payload — Phase D6 (drawing_modernization)
+ * ----------------------------------------------------------------------- */
+
+static void
+_sketch_payload_free(struct bsg_payload *pl)
+{
+    if (!pl)
+	return;
+    struct bsg_sketch_live_data *d =
+	(struct bsg_sketch_live_data *)pl->pl.opaque;
+    if (d)
+	BU_PUT(d, struct bsg_sketch_live_data);
+    BU_PUT(pl, struct bsg_payload);
+}
+
+
+struct bsg_payload *
+bsg_payload_sketch_create(void *rt_edit_ptr, void *grid_ptr)
+{
+    struct bsg_payload *pl = bsg_payload_create(BSG_PL_SKETCH);
+    if (!pl)
+	return NULL;
+
+    struct bsg_sketch_live_data *d;
+    BU_GET(d, struct bsg_sketch_live_data);
+    d->rt_edit_ptr = rt_edit_ptr;
+    d->grid_ptr    = grid_ptr;
+
+    pl->pl.opaque = (void *)d;
+    pl->pl_free   = _sketch_payload_free;
+    return pl;
+}
+
+
+struct bsg_sketch_live_data *
+bsg_payload_sketch_get_data(struct bsg_payload *payload)
+{
+    if (!payload || payload->pl_type != BSG_PL_SKETCH)
+	return NULL;
+    return (struct bsg_sketch_live_data *)payload->pl.opaque;
+}
+
+
 /*
  * Local Variables:
  * tab-width: 8
