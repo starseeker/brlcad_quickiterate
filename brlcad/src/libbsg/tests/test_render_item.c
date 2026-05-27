@@ -505,9 +505,9 @@ test_sorted_alpha(void)
     MAT_IDN(m1);
     MAT_IDN(m2);
     MAT_IDN(m3);
-    MAT_DELTAS(m1, 0.0, 0.0, 1.0);
-    MAT_DELTAS(m2, 0.0, 0.0, 5.0);
-    MAT_DELTAS(m3, 0.0, 0.0, 3.0);
+    MAT_DELTAS(m1, 0.0, 0.0, -1.0);
+    MAT_DELTAS(m2, 0.0, 0.0, -5.0);
+    MAT_DELTAS(m3, 0.0, 0.0, -3.0);
     bsg_transform_set_matrix(xf1, m1);
     bsg_transform_set_matrix(xf2, m2);
     bsg_transform_set_matrix(xf3, m3);
@@ -531,10 +531,10 @@ test_sorted_alpha(void)
     struct bsg_render_item *i2 =
 	(struct bsg_render_item *)BU_PTBL_GET(&items, 2);
 
-    /* With the identity gv_model2view, larger model-space Z is farther from
-     * the camera.  Back-to-front sorting therefore expects Z=1 first, then
-     * Z=3, then Z=5. */
-    if (i0->node != s1 || i1->node != s3 || i2->node != s2)
+    /* With the identity gv_model2view, points in front of the camera have
+     * negative Z.  Back-to-front sorting therefore expects the items table
+     * to contain Z=-5 at index 0, Z=-3 at index 1, and Z=-1 at index 2. */
+    if (i0->node != s2 || i1->node != s3 || i2->node != s1)
 	FAIL("transparent items should sort back-to-front by transformed depth");
     if (!(i0->sort_key > i1->sort_key && i1->sort_key > i2->sort_key))
 	FAIL("sort keys should be in descending order");

@@ -82,6 +82,10 @@ struct collect_state {
     struct bu_ptbl phase_items[BSG_RENDER_PHASE_COUNT];
 };
 
+/* Preserve six decimal places of view-space depth when projecting the
+ * floating-point Z value into the integer sort_key field. */
+static const fastf_t depth_key_scale_factor = 1000000.0;
+
 
 /**
  * Resolve the render phase for a shape node.
@@ -129,10 +133,6 @@ static int
 _sort_key(const struct bsg_render_request *req,
 	  const struct bsg_render_item *item)
 {
-    /* Preserve six decimal places of view-space depth when projecting the
-     * floating-point Z value into the integer sort_key field. */
-    const fastf_t depth_key_scale = 1000000.0;
-
     if (item->phase == BSG_RENDER_PHASE_HUD) {
 	const struct bsg_hud_node_meta *meta =
 	    bsg_hud_node_get_meta(item->node);
@@ -148,9 +148,10 @@ _sort_key(const struct bsg_render_request *req,
 
 	bn_mat_mul(view_mat, req->view->gv_model2view, item->model_mat);
 	MAT4X3PNT(view_origin, view_mat, model_origin);
-	/* Scale view-space depth before converting to int so nearby items with
-	 * fractional Z separation still get distinct sort keys. */
-	depth_key = -view_origin[Z] * depth_key_scale;
+	/* In BRL-CAD view space, geometry in front of the camera has negative Z.
+	 * Negating Z makes farther items larger so descending sort order yields
+	 * a back-to-front transparent draw sequence. */
+	depth_key = -view_origin[Z] * depth_key_scale_factor;
 
 	if (depth_key > (fastf_t)INT_MAX)
 	    return INT_MAX;
