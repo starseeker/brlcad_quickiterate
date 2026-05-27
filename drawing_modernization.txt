@@ -1,0 +1,525 @@
+Drawing Modernization Design Pass Before Obol
+============================================
+
+Purpose
+-------
+This plan is a higher-level design pass over the BRL-CAD drawing consumers of
+libbsg after the first eight bsg_modernize phases.  The previous passes focused
+on eliminating raw bsg_node field access in favor of APIs.  This pass asks what
+user-facing drawing features BRL-CAD is implementing, why those features exist,
+and whether the implementations should be reshaped into more idiomatic
+OpenInventor-style scene-graph concepts before an Obol backend is added.
+
+The goal is not to invent Obol-specific code yet.  The goal is to line up
+BRL-CAD's drawing model so Obol can be an adapter/backend over a clean BSG
+scene, action, selection, camera, light, material, appearance, and payload API.
+
+Current baseline
+----------------
+Per bsg_modernize.txt, Phases 1-8 and the libbsg consumer modernization phases
+8A-8G are complete.  The repository now has:
+
+- generic BSG nodes, groups, transforms, shapes, LoD nodes, and view scopes;
+- identity/revision accessors;
+- material and appearance APIs;
+- typed payload flags and pre-render payload dispatch;
+- visitor actions for bbox, collect, and export;
+- first-class selection sets with compatibility highlighting;
+- camera and light snapshots;
+- a render-request pre-render traversal contract;
+- BSG draw-tree ownership for GED/MGED/qged-style database drawing;
+- view-scope objects for local/shared overlays and most former view-only objects;
+- a backend cache slot used by current GL/swrast/qtgl renderers.
+
+However, the drawing consumers still expose several user-feature concepts in
+legacy terms: display lists, per-frame draw callbacks, faceplate structs outside
+the scene tree, point-table selection results, vlist mutation by UI tools,
+visibility/highlight compatibility bits, and libdm-owned traversal/render policy.
+Those seams are the main targets for this design pass.
+
+User-facing drawing features and design proposals
+=================================================
+
+1. Drawn database model: replace display-list intent with explicit scene intent
+-----------------------------------------------------------------------------
+User feature:
+- Users draw and erase database paths, expect drawn combinations to update when
+  their source database structure changes, and expect commands such as who/how,
+  rt, nirt, gqa, saveview, plot, ps, png, and bot_dump to operate on the current
+  visible/drawn set.
+
+Current shape:
+- The draw tree is BSG-backed, but historical display-list and scene-group
+  vocabulary remains in comments, helper names, and some command concepts.
+- The tree encodes two concepts at once: user draw intent ("draw comb") and
+  renderable realized shapes (leaf wireframes/meshes/overlays).
+
+Proposal:
+- Introduce an explicit BSG "draw intent" layer: a small, typed object or group
+  annotation recording the user command intent, source full path, draw mode,
+  material policy, LoD policy, and replacement/erasure semantics.
+- Keep renderable shapes as ordinary BSG shape descendants of intent groups, but
+  make the command-level intent visible through a stable API rather than inferred
+  from group names and child structure.
+- Add BSG actions for draw-intent operations: find intent by source path,
+  re-evaluate intent after database changes, simplify/collapse equivalent
+  intents, collect visible shapes for raytrace/export, and erase by intent.
+
+Why this is more OpenInventor-style:
+- It separates semantic scene nodes from generated geometry leaves.  Obol can map
+  the semantic nodes to assembly/instance concepts and the leaves to drawable
+  backend payloads without reverse-engineering BRL-CAD command history.
+
+2. Shape payloads: move from vlist mutation to typed geometry payload nodes
+--------------------------------------------------------------------------
+User feature:
+- Users need wireframe, shaded mesh, hidden-line, polygon, label, line, axes,
+  arrow, rtcheck, nirt, sketch/edit, and measurement visuals.
+
+Current shape:
+- Many features still materialize as bsg_node shapes whose s_vlist, s_i_data,
+  draw_data, or update callback is manipulated directly or through thin accessors.
+- Payload type flags exist, but they are not yet a full typed payload object
+  model with ownership, revision, renderer contract, and backend translation.
+
+Proposal:
+- Promote payloads from flags plus node-private data to typed BSG payload
+  objects: VLIST, TEXT, HUD_TEXT, LINE_SET, POLYGON, MESH, CSG_SOURCE, IMAGE,
+  FRAMEBUFFER, AXES, GRID, SKETCH, and ANNOTATION.
+- Give every payload type a common interface: bounds, revision, update/realize,
+  free, export, pick, snap, and backend-prepare hooks.
+- Replace direct BSG_ADD_VLIST/BSG_FREE_VLIST usage in UI tools with payload
+  builder APIs such as "replace line set", "append segment", "set polygon",
+  "set text label", and "set sketch source".
+- Keep vlist as one payload implementation, not as the universal public drawing
+  primitive.
+
+Why this is more OpenInventor-style:
+- Scene nodes carry typed geometry or annotation payloads.  Renderers consume
+  payload interfaces rather than knowing how BRL-CAD stored temporary vlists.
+  Obol can then translate payloads into its native primitives where possible and
+  fall back to vlist geometry only when necessary.
+
+3. Materials and appearance: separate source material, overrides, and render mode
+--------------------------------------------------------------------------------
+User feature:
+- Users expect object color/material commands, transparency, line width, dashed
+  subtraction visualization, hidden-line mode, force-draw, and selection/edit
+  highlight to combine predictably.
+
+Current shape:
+- Material and appearance accessors exist, but libdm rendering still applies a
+  mixture of node color, object settings, default geometry color, transparency,
+  line style, and highlight logic during traversal.
+
+Proposal:
+- Define a resolved BSG appearance action that computes final per-node render
+  state from source material, command overrides, inherited group settings,
+  selection/edit state, and display mode.
+- Store the resolved state as an action result or transient render item, not as
+  ad hoc renderer decisions in libdm traversal.
+- Model highlight, edit preview, ghosting, hidden-line, and transparency as
+  appearance layers or effects rather than special-case node flags.
+
+Why this is more OpenInventor-style:
+- OpenInventor-style traversal accumulates state along the path.  BRL-CAD should
+  likewise resolve material/appearance from the scene path before backend drawing,
+  making GL, swrast, qtgl, and Obol see the same render state.
+
+4. Selection, picking, and highlighting: make selection an action result
+-----------------------------------------------------------------------
+User feature:
+- Users select by click, rectangle, raytrace, nearest polygon point, edit command,
+  MGED illuminate, and qged selection views.  They expect highlighted and edited
+  objects to stay synchronized across views and tools.
+
+Current shape:
+- bsg_selection exists, but some selection APIs still return bu_ptbls of nodes or
+  manipulate compatibility highlighting.  Picking mixes bbox tests, raytrace
+  results, and specialized polygon logic.
+
+Proposal:
+- Add BSG pick actions: point pick, rectangle pick, ray pick, nearest primitive,
+  nearest overlay control point, and semantic path pick.
+- Return typed pick records containing node, source path, instance path,
+  primitive/subelement id, hit distance, view, and selection operation.
+- Make bsg_selection the stored selection model and make highlighting a render
+  appearance layer derived from selection/edit state.
+- Normalize MGED illumination and qged selection plugins onto these pick actions
+  and selection records.
+
+Why this is more OpenInventor-style:
+- Picking is a traversal/action over scene state.  A typed pick result maps cleanly
+  to Obol instance picking and avoids exposing raw node pointers as the only
+  selection currency.
+
+5. View scopes and overlays: define overlay classes and lifecycle explicitly
+---------------------------------------------------------------------------
+User feature:
+- Users see local edit handles, shared measurement lines, selection boxes,
+  polygon editing geometry, rtcheck/nirt visualizations, Tcl adornments, labels,
+  arrows, and temporary tool previews.
+
+Current shape:
+- View-scope nodes handle local/shared visibility, but overlay semantics are
+  still mostly encoded by names, flags, and creator conventions.
+
+Proposal:
+- Add typed overlay roles: EDIT_HANDLE, MEASURE, SELECTION_RUBBER_BAND,
+  SNAP_GUIDE, COMMAND_RESULT, DIAGNOSTIC, TCL_ADORNMENT, POLYGON_EDIT,
+  SKETCH_EDIT, and USER_ANNOTATION.
+- Add overlay lifecycle policy: persistent/session, per-command, per-tool,
+  per-view, shared-view-set, and auto-remove-on-source-change.
+- Add overlay ordering policy: model overlay, screen/HUD overlay, xray/always-on
+  overlay, and post-transparent overlay.
+- Make overlay role and lifecycle metadata queryable so tools can replace or
+  clear their own overlays without relying on magic names.
+
+Why this is more OpenInventor-style:
+- Overlays become scene nodes with metadata and traversal policy, not a special
+  collection of convenience objects.  Obol can receive overlay nodes as ordinary
+  adapter inputs with defined ordering and lifetime.
+
+6. Faceplate and HUD: represent HUD visuals as a 2D scene graph
+---------------------------------------------------------------
+User feature:
+- Users toggle the center dot, model/view axes, grid, view scale, ADC, selection
+  rectangle, framebuffer underlay/overlay, and view-parameter text.  These are
+  screen-space or view-dependent visuals, not database geometry.
+
+Current shape:
+- Faceplate state lives in bsg_view_settings structs and dm_draw_faceplate draws
+  it directly after the 3D scene.  The state is not represented as BSG nodes.
+
+Proposal:
+- Introduce a BSG HUD root per view with 2D/HUD payload nodes for center dot,
+  axes widgets, grid, ADC, scale bar, view params text, rubber-band rectangle,
+  and framebuffer image.
+- Keep view settings as user preferences/configuration, but synchronize enabled
+  HUD features into HUD nodes before rendering.
+- Add HUD coordinate-space metadata: screen pixels, normalized device coords,
+  view-plane coords, and model-anchored/HUD-facing labels.
+- Move faceplate drawing into the same render request pipeline with an explicit
+  post-scene HUD pass.
+
+Why this is more OpenInventor-style:
+- HUD and scene rendering become two roots/layers in the same scene graph rather
+  than a hard-coded libdm epilogue.  Obol can implement HUD layers natively or
+  delegate them while preserving ordering and coordinate-space semantics.
+
+7. Render pipeline: return render items from BSG, not recursive libdm policy
+----------------------------------------------------------------------------
+User feature:
+- Users need consistent rendering in qged, MGED, offscreen tests, swrast, GL,
+  and eventually Obol, including transparency, LoD, overlays, faceplate, edit
+  transforms, framebuffer display, and hidden-line choices.
+
+Current shape:
+- bsg_render_request performs pre-render payload dispatch, but libdm still owns
+  much of traversal, transparency passes, LoD update timing, transform stack,
+  faceplate pass, and backend draw calls.
+
+Proposal:
+- Extend bsg_render_request so execution produces a typed render list or invokes
+  backend-neutral render callbacks with resolved render items.
+- Model render phases explicitly: framebuffer underlay, opaque 3D, transparent
+  3D, model overlays, screen/HUD overlays, framebuffer overlay, diagnostics.
+- Move LoD update, visibility filtering, view-scope filtering, transform path
+  accumulation, overlay ordering, selection appearance, and transparency sorting
+  into the BSG render action.
+- Keep libdm responsible for display-manager operations and backend-specific
+  drawing only.
+
+Why this is more OpenInventor-style:
+- Traversal produces render state; backends draw render items.  This is the key
+  boundary Obol needs so it is an adapter rather than another traversal owner.
+
+8. Custom drawing and editors: replace callbacks with scene/payload producers
+----------------------------------------------------------------------------
+User feature:
+- Specialized editors such as sketch editing need fast, interactive temporary
+  drawing without committing every visual to the database.
+
+Current shape:
+- QgCanvasBase/QgGL/QgSW support set_draw_custom, and dm_draw_objs bypasses the
+  normal scene draw when a callback is present.  The qsketch demo uses this to
+  draw a sketch wireframe directly from edit state.
+
+Proposal:
+- Replace per-frame custom draw callbacks with editor-owned BSG scopes and typed
+  live payloads.  For qsketch, the edit state should produce a SKETCH payload or
+  a generated VLIST/LINE_SET payload under a local edit scope.
+- Add a general "live source payload" contract for payloads backed by in-memory
+  editor state: revision query, update/realize callback, bounds, pick, snap, and
+  free.
+- Keep set_draw_custom only as a temporary compatibility shim that internally
+  creates a diagnostic/custom payload or is limited to tests until removal.
+
+Why this is more OpenInventor-style:
+- Editors contribute nodes to the scene rather than taking over the whole frame.
+  Obol can then render live editor geometry alongside normal database geometry.
+
+9. Snapping, measuring, and tool feedback: make them scene queries/actions
+-------------------------------------------------------------------------
+User feature:
+- Users expect snap-to-grid, snap-to-lines, 2D/3D measurement, polygon point
+  selection, and cursor feedback to work across database geometry, overlays,
+  and tool-specific visuals.
+
+Current shape:
+- Snap and measurement logic often walks view objects or operates on selected
+  bsg_node/vlist data.  Some tool feedback is drawn through faceplate structs or
+  view-scope vlists.
+
+Proposal:
+- Add BSG query actions for snap candidates and measurement candidates.  Payloads
+  expose their snap points, segments, normals, and control handles through a
+  common query interface.
+- Make measurement and polygon tools write overlay payloads through builders and
+  obtain candidate geometry from BSG query actions, not from direct vlist loops.
+- Treat grid snapping as a HUD/view-scope query provider with the same action
+  interface as scene geometry.
+
+Why this is more OpenInventor-style:
+- Tools ask the scene for interactive affordances.  Backends are not involved,
+  and tools do not need to know each payload's storage layout.
+
+10. Camera, lights, and view state: make scene state explicit and shareable
+---------------------------------------------------------------------------
+User feature:
+- Users rely on saved views, multi-view qged layouts, MGED/qged camera controls,
+  framebuffer display, and future shaded lighting behavior.
+
+Current shape:
+- Camera snapshots and lights exist in libbsg, but live view state and many
+  settings remain in bsg_view and bsg_view_settings fields.  Lights are not yet
+  integrated as renderable scene state.
+
+Proposal:
+- Add explicit camera nodes or view attachments that can be bound to a view and
+  captured/restored by commands.
+- Add light nodes or scene light sets consumed by render requests.
+- Move non-camera rendering settings that affect traversal into a BSG render
+  settings object: draw mode, hidden-line, zclip, transparency policy, LoD policy,
+  framebuffer mode, and HUD enablement.
+- For multi-view qged, model shared scene roots plus per-view camera/HUD/overlay
+  scopes instead of having tools infer sharing from bsg_view fields.
+
+Why this is more OpenInventor-style:
+- Camera and lights are first-class scene/render state.  Obol can map them to its
+  own camera/light concepts directly.
+
+11. Backend cache lifecycle: generalize beyond GL-era assumptions
+-----------------------------------------------------------------
+User feature:
+- Users need redraws to be correct after geometry, color, visibility, LoD, edit,
+  and mode changes, with backend-specific acceleration where available.
+
+Current shape:
+- A generic bsg_backend slot exists, with GL as the first backend tag.  Some GL
+  LoD and vlist drawing assumptions remain in libdm.
+
+Proposal:
+- Formalize a backend adapter interface around BSG payloads and render items:
+  prepare, draw, invalidate, free, capability query, and fallback conversion.
+- Make cache invalidation react to payload revision, material/appearance revision,
+  transform path revision, and render-mode revision.
+- Assign backend tags for GL, swrast/OSMesa, qtgl, plot/ps/text where useful,
+  and future Obol.  Avoid embedding backend-specific handles or assumptions in
+  user-facing node APIs.
+
+Why this is more OpenInventor-style:
+- Backends cache realizations of scene payloads.  They do not own semantic scene
+  state, traversal policy, or BRL-CAD command behavior.
+
+12. Compatibility cleanup: shrink public raw storage only after semantics settle
+-------------------------------------------------------------------------------
+User feature:
+- Users are unaffected directly, but developers need a stable API that does not
+  encourage new code to depend on libbv/display-list details.
+
+Current shape:
+- bsg_node is still public and contains many legacy fields, even when accessors
+  exist.  BV_* names remain in public APIs, comments, and flags.
+
+Proposal:
+- After the design changes above, move fields that are payload-, backend-, or
+  traversal-internal into opaque storage.
+- Replace public BV_* aliases in new BSG-facing APIs with BSG_* names.  Keep
+  compatibility bridges only where old public headers require them.
+- Add documentation describing the stable API vocabulary: scene root, intent,
+  group, transform, shape, payload, material, appearance, selection, pick,
+  camera, light, HUD root, overlay role, render request, render item, and backend
+  adapter.
+
+Why this is more OpenInventor-style:
+- Scene graph users work through stable graph concepts rather than struct fields.
+  The Obol backend then depends on the same API that other consumers use.
+
+Recommended implementation order before Obol
+============================================
+
+Phase D0 — Design inventory and naming freeze
+---------------------------------------------
+- Document the final user-facing BSG vocabulary and retire new use of display
+  list, scene object, solid list, and BV_* terminology in modernized code.
+- Decide exact names for draw intent, payload, render item, HUD root, overlay
+  role, pick record, and backend adapter APIs.
+- Add TODO markers only where they point to one of the phases below.
+
+Exit criteria:
+- A concise BSG vocabulary document exists.
+- New drawing work can describe features without relying on raw bsg_node fields
+  or libbv/display-list terms.
+
+Phase D1 — Typed payload object model
+-------------------------------------
+- Add typed payload handles and payload lifecycle/query/update interfaces.
+- Port vlist, labels/text, polygons, line sets, axes, grid, framebuffer image,
+  sketch/edit source, and mesh/LoD data onto payload handles incrementally.
+- Provide payload builder APIs for tools that currently mutate vlists directly.
+
+Exit criteria:
+- qged/libqtcad measurement, polygon, selection rectangle, Tcl adornments, labels,
+  and qsketch-style live geometry can be represented as payloads.
+- Renderers can query payload type/revision without inspecting node internals.
+
+Phase D2 — Draw intent and source-path actions
+----------------------------------------------
+- Add draw-intent metadata for database drawing commands.
+- Add actions for re-evaluate, erase, simplify, collect-visible, export, and
+  source-path lookup.
+- Port libged/MGED report/export/raytrace helper code to these actions.
+
+Exit criteria:
+- Database draw/erase semantics are explicit scene metadata.
+- Export/raytrace/report commands do not reconstruct command intent from child
+  tables or raw node fields.
+
+Phase D3 — Selection, pick, snap, and measurement actions
+---------------------------------------------------------
+- Add typed pick records and point/rect/ray/nearest pick actions.
+- Add snap/measure query actions over payloads and HUD/query providers.
+- Port qged selection filters, MGED illumination, polygon selection, measurement,
+  and snap logic to action results.
+
+Exit criteria:
+- Selection state is stored in bsg_selection; highlighting is derived appearance.
+- Tools receive typed records rather than raw node tables where practical.
+
+Phase D4 — HUD and overlay scene roots
+--------------------------------------
+- Add per-view HUD roots and overlay role/lifecycle/order metadata.
+- Synchronize existing faceplate settings into HUD payload nodes.
+- Move dm_draw_faceplate behavior behind the render request's HUD pass.
+- Port selection rectangle, ADC, grid, axes, params, scale, and framebuffer mode
+  into explicit HUD/render phases.
+
+Exit criteria:
+- Faceplate/HUD output is represented in BSG and ordered by render phases.
+- libdm no longer owns special faceplate drawing policy outside the render
+  request.
+
+Phase D5 — Render items and backend adapter contract
+----------------------------------------------------
+- Extend bsg_render_request to produce render items or call backend-neutral item
+  visitors.
+- Move visibility, view-scope filtering, transform accumulation, LoD update,
+  transparency/overlay/HUD ordering, appearance resolution, and payload dispatch
+  into BSG render execution.
+- Define backend adapter callbacks for prepare/draw/invalidate/free/capabilities.
+- Port GL/swrast/qtgl consumption to the adapter interface first.
+
+Exit criteria:
+- libdm consumes render items and backend payloads; it does not define scene
+  traversal policy.
+- A future Obol backend can implement the same adapter callbacks.
+
+Phase D6 — Custom callback retirement and editor live sources
+-------------------------------------------------------------
+- Replace set_draw_custom users with local edit scopes and live source payloads.
+- Port qsketch/test-only custom drawing to SKETCH or LINE_SET payloads.
+- Keep a compatibility shim only while tests and examples are being migrated.
+
+Exit criteria:
+- No production drawing feature bypasses the scene graph by replacing the entire
+  frame draw.
+- Editors contribute live scene nodes and payloads.
+
+Phase D7 — Compatibility isolation and public API cleanup
+---------------------------------------------------------
+- Move newly internal node fields behind opaque storage.
+- Rename or isolate remaining BV_* compatibility names in BSG-facing APIs.
+- Split or rename old implementation files whose public purpose no longer
+  matches their libbv-era names.
+- Update tests and documentation around the final OpenInventor-style model.
+
+Exit criteria:
+- New code can be written entirely against BSG scene/action/payload/render APIs.
+- Obsolete compatibility paths are either gone or scheduled for explicit Phase 10
+  removal after Obol integration proves parity.
+
+Validation matrix
+=================
+
+For each implementation phase above, keep the bsg_modernize validation matrix in
+scope and add feature-specific tests as APIs become concrete:
+
+Build targets:
+- libbsg
+- libdm
+- dm-qtgl
+- dm-swrast
+- libged
+- libqtcad
+- qged
+- mged
+- archer
+
+Core libbsg tests:
+- libbsg_node
+- libbsg_identity
+- libbsg_material_appearance
+- libbsg_action
+- libbsg_selection
+- libbsg_camera
+- libbsg_light
+- libbsg_render
+- libbsg_lod_node
+- libbsg_scene_graph
+
+Drawing/application regressions:
+- ged_test_bsg_view_obj
+- ged_test_drawing_basic
+- ged_test_drawing_faceplate
+- ged_test_drawing_lod
+- ged_test_lod_crossrun
+- ged_test_bsg_parity
+- ged_test_bsg_quad_parity
+- ged_test_tcl_adornment_bsg
+- ged_test_view_independent
+- ged_test_view_command
+- ged_test_qged_swrast
+- ged_test_mged_bsg
+- ged_test_mged_shaded_mode_bsg
+- ged_test_rtwizard_bsg
+
+New tests to add as phases land:
+- payload lifecycle/revision/query tests for each payload type;
+- draw-intent update/erase/simplify tests;
+- pick record tests for point, rectangle, ray, overlay handle, and path picks;
+- snap/measurement action tests over mixed DB, overlay, HUD, and polygon payloads;
+- HUD render-phase structural tests;
+- render-item ordering tests for opaque/transparent/overlay/HUD phases;
+- backend adapter lifecycle tests for prepare/invalidate/free;
+- qsketch/live-source replacement test once custom callbacks are retired.
+
+Bottom line
+===========
+Before creating the Obol backend, BRL-CAD should make its drawing consumers stop
+thinking in terms of display lists, raw vlists, custom frame callbacks, and
+renderer-owned traversal.  The clean target is: user commands create semantic BSG
+scene intent and typed payloads; tools query the scene through BSG actions;
+selection/highlight/material/appearance resolve during render traversal; HUD and
+overlays are scene layers; and display managers, including future Obol, consume
+backend-neutral render items.
