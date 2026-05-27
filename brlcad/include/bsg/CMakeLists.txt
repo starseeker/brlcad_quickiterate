@@ -1,7 +1,9 @@
 set(
   bsg_headers
   adc.h
+  action.h
   appearance.h
+  camera.h
   defines.h
   draw_ctx.h
   draw_set.h
@@ -9,6 +11,7 @@ set(
   faceplate.h
   field.h
   identity.h
+  light.h
   lod.h
   lod_ops.h
   material.h
@@ -21,7 +24,9 @@ set(
   payload.h
   plot3.h
   polygon.h
+  render.h
   scene_set.h
+  selection.h
   sensor.h
   snap.h
   tcl_data.h

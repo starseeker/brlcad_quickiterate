@@ -60,15 +60,50 @@ brlcad_add_test(NAME libbsg_view_scope COMMAND test_bsg_view_scope)
 brlcad_addexec(test_bsg_node test_node.c "libbsg;libbu" TEST)
 brlcad_add_test(NAME libbsg_node COMMAND test_bsg_node)
 
+#
+# Phase 5: action framework (BBOX/COLLECT/EXPORT)
+#
+brlcad_addexec(test_bsg_action test_action.c "libbsg;libbu" TEST)
+brlcad_add_test(NAME libbsg_action COMMAND test_bsg_action)
+
+#
+# Phase 6: first-class selection model
+#
+brlcad_addexec(test_bsg_selection test_selection.c "libbsg;libbu" TEST)
+brlcad_add_test(NAME libbsg_selection COMMAND test_bsg_selection)
+
+#
+# Phase 7: camera snapshot / apply
+#
+brlcad_addexec(test_bsg_camera test_camera.c "libbsg;libbu" TEST)
+brlcad_add_test(NAME libbsg_camera COMMAND test_bsg_camera)
+
+#
+# Phase 7: renderer-neutral light model
+#
+brlcad_addexec(test_bsg_light test_light.c "libbsg;libbu" TEST)
+brlcad_add_test(NAME libbsg_light COMMAND test_bsg_light)
+
+#
+# Phase 8: render-request pre-render traversal
+#
+brlcad_addexec(test_bsg_render test_render.c "libbsg;libbu" TEST)
+brlcad_add_test(NAME libbsg_render COMMAND test_bsg_render)
+
 cmakefiles(
   CMakeLists.txt
+  test_action.c
   test_arb8.c
+  test_camera.c
   test_identity.c
+  test_light.c
   test_lod_node.c
   test_material_appearance.c
   test_node.c
   test_phase6.c
+  test_render.c
   test_scene_graph.c
+  test_selection.c
   test_view_scope.c
   test_vlist.c
 )

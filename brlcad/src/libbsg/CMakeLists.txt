@@ -1,10 +1,13 @@
 set(
   LIBBSG_SRCS
   # BSG scene-graph sources (native)
+  action.c
   appearance.c
+  camera.c
   draw_set.c
   field.c
   identity.c
+  light.c
   lod.cpp
   lod_node.c
   material.c
@@ -15,7 +18,9 @@ set(
   node_transform.c
   overlay.c
   payload.c
+  render.c
   scene_graph.cpp
+  selection.c
   sensor.c
   util.c
   view_scope.c
@@ -72,10 +77,13 @@ add_subdirectory(tests)
 cmakefiles(
   CMakeLists.txt
   bsg_private.h
+  action.c
   appearance.c
+  camera.c
   draw_set.c
   field.c
   identity.c
+  light.c
   lod_node.c
   material.c
   node.c
@@ -85,6 +93,8 @@ cmakefiles(
   node_transform.c
   overlay.c
   payload.c
+  render.c
+  selection.c
   sensor.c
   util.c
   view_scope.c
