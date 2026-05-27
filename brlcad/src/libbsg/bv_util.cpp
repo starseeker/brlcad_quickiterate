@@ -152,11 +152,11 @@ bsg_view_independent_scope(struct bsg_view *v, int create)
     if (scope || !create)
 	return scope;
 
-    scope = bsg_obj_get_unregistered(v, BV_CHILD_OBJS | BV_LOCAL_OBJS);
+    scope = bsg_obj_get_unregistered(v, BSG_OBJ_CHILD | BSG_OBJ_LOCAL);
     if (!scope)
 	return NULL;
 
-    scope->s_type_flags = BSG_NODE_VIEW_SCOPE | BV_LOCAL_OBJS;
+    scope->s_type_flags = BSG_NODE_VIEW_SCOPE | BSG_OBJ_LOCAL;
     scope->s_flag = UP;
     scope->s_v = v;
     scope->parent = root;
@@ -538,9 +538,9 @@ _find_view_geom(int *have_geom_objs, struct bu_ptbl *so)
     for (size_t i = 0; i < BU_PTBL_LEN(so); i++) {
 	struct bsg_node *s = (struct bsg_node *)BU_PTBL_GET(so, i);
 	_find_view_geom(have_geom_objs, &s->children);
-	if ((s->s_type_flags & BV_DBOBJ_BASED) ||
-		(s->s_type_flags & BV_POLYGONS) ||
-		(s->s_type_flags & BV_LABELS)) {
+	if ((s->s_type_flags & BSG_SHAPE_DBOBJ) ||
+		(s->s_type_flags & BSG_SHAPE_POLYGONS) ||
+		(s->s_type_flags & BSG_SHAPE_LABELS)) {
 	    (*have_geom_objs) = 1;
 	    break;
 	}
@@ -555,9 +555,9 @@ _bound_objs_view(int *is_empty, vect_t min, vect_t max, struct bu_ptbl *so, stru
 	struct bsg_node *s = (struct bsg_node *)BU_PTBL_GET(so, i);
 	_bound_objs_view(is_empty, min, max, &s->children, v, have_geom_objs, all_view_objs);
 	if (have_geom_objs && !all_view_objs) {
-	    if (!(s->s_type_flags & BV_DBOBJ_BASED) &&
-		!(s->s_type_flags & BV_POLYGONS) &&
-		!(s->s_type_flags & BV_LABELS))
+	    if (!(s->s_type_flags & BSG_SHAPE_DBOBJ) &&
+		!(s->s_type_flags & BSG_SHAPE_POLYGONS) &&
+		!(s->s_type_flags & BSG_SHAPE_LABELS))
 		continue;
 	}
 	if (bsg_scene_obj_bound(s, v)) {
@@ -628,9 +628,9 @@ _bv_find_view_geom_visit_cb(struct bsg_node *s, void *data)
     int *have_geom_objs = (int *)data;
     _find_view_geom(have_geom_objs, &s->children);
     if (!(*have_geom_objs)) {
-	if ((s->s_type_flags & BV_DBOBJ_BASED) ||
-	    (s->s_type_flags & BV_POLYGONS) ||
-	    (s->s_type_flags & BV_LABELS))
+	if ((s->s_type_flags & BSG_SHAPE_DBOBJ) ||
+	    (s->s_type_flags & BSG_SHAPE_POLYGONS) ||
+	    (s->s_type_flags & BSG_SHAPE_LABELS))
 	    (*have_geom_objs) = 1;
     }
     return 1;
@@ -645,9 +645,9 @@ _bv_bound_view_obj_cb(struct bsg_node *s, void *data)
     _bound_objs_view(ctx->is_empty, ctx->min, ctx->max, &s->children,
 		     ctx->v, ctx->have_geom_objs, ctx->all_view_objs);
     if (ctx->have_geom_objs && !ctx->all_view_objs) {
-	if (!(s->s_type_flags & BV_DBOBJ_BASED) &&
-	    !(s->s_type_flags & BV_POLYGONS) &&
-	    !(s->s_type_flags & BV_LABELS))
+	if (!(s->s_type_flags & BSG_SHAPE_DBOBJ) &&
+	    !(s->s_type_flags & BSG_SHAPE_POLYGONS) &&
+	    !(s->s_type_flags & BSG_SHAPE_LABELS))
 	    return 1;
     }
     if (bsg_scene_obj_bound(s, ctx->v)) {
@@ -1509,7 +1509,7 @@ bsg_obj_get(struct bsg_view *v, int type)
 
    int ltype = type;
    if (bsg_view_is_independent(v))
-	ltype |= BV_LOCAL_OBJS;
+	ltype |= BSG_OBJ_LOCAL;
 
     struct bsg_node *s = bsg_obj_create(v, ltype);
     if (!s)
@@ -1524,7 +1524,7 @@ bsg_obj_get(struct bsg_view *v, int type)
 struct bsg_node *
 bsg_obj_get_unregistered(struct bsg_view *v, int type)
 {
-    /* Allocates a scene object with s_type_flags set but does NOT insert it
+    /* Allocates a shape node with s_type_flags set but does NOT insert it
      * into any gv_objs ptbl.  Used by BViewState for leaves that are owned
      * exclusively by the BSG draw tree (gd_draw_root) rather than the legacy
      * flat ptbl.  The caller is responsible for freeing via bsg_obj_put. */
@@ -1535,7 +1535,7 @@ bsg_obj_get_unregistered(struct bsg_view *v, int type)
 
     int ltype = type;
     if (bsg_view_is_independent(v))
-	ltype |= BV_LOCAL_OBJS;
+	ltype |= BSG_OBJ_LOCAL;
 
     struct bsg_node *s = bsg_obj_create(v, ltype);
     if (!s)
@@ -1583,11 +1583,11 @@ _bv_view_scope_ensure(struct bsg_view *v, int local)
     if (scope)
 	return scope;
 
-    scope = bsg_obj_get_unregistered(v, BV_CHILD_OBJS | (local ? BV_LOCAL_OBJS : 0));
+    scope = bsg_obj_get_unregistered(v, BSG_OBJ_CHILD | (local ? BSG_OBJ_LOCAL : 0));
     if (!scope)
 	return NULL;
 
-    scope->s_type_flags = BSG_NODE_VIEW_SCOPE | (local ? BV_LOCAL_OBJS : 0);
+    scope->s_type_flags = BSG_NODE_VIEW_SCOPE | (local ? BSG_OBJ_LOCAL : 0);
     scope->s_v = owner;
     bu_vls_sprintf(&scope->s_name, local ? "_view_obj_scope_local" : "_view_obj_scope_shared");
     scope->parent = root;
@@ -1609,13 +1609,13 @@ _bv_view_obj_create(struct bsg_view *v, const char *name, int local, unsigned lo
     if (!scope)
 	return NULL;
 
-    struct bsg_node *s = bsg_obj_get_unregistered(v, BV_VIEW_OBJS | (local ? BV_LOCAL_OBJS : 0));
+    struct bsg_node *s = bsg_obj_get_unregistered(v, BSG_OBJ_VIEW | (local ? BSG_OBJ_LOCAL : 0));
     if (!s)
 	return NULL;
     s->parent = scope;
     bu_ptbl_ins(&scope->children, (long *)s);
 
-    s->s_type_flags |= BV_VIEWONLY;
+    s->s_type_flags |= BSG_SHAPE_VIEWONLY;
     s->s_v = v;
     if (name && strlen(name)) {
 	bu_vls_sprintf(&s->s_name, "%s", name);
@@ -1651,7 +1651,7 @@ bsg_view_obj_axes_create(struct bsg_view *v, const char *name, int local)
 {
     struct bsg_view_obj_opts opts = BV_VIEW_OBJ_OPTS_INIT;
     opts.local = local;
-    return bsg_view_obj_create(v, name, BV_AXES, &opts);
+    return bsg_view_obj_create(v, name, BSG_SHAPE_AXES, &opts);
 }
 
 struct bsg_node *
@@ -1667,7 +1667,7 @@ bsg_view_obj_label_create(struct bsg_view *v, const char *name, int local)
 {
     struct bsg_view_obj_opts opts = BV_VIEW_OBJ_OPTS_INIT;
     opts.local = local;
-    return bsg_view_obj_create(v, name, BV_LABELS, &opts);
+    return bsg_view_obj_create(v, name, BSG_SHAPE_LABELS, &opts);
 }
 
 struct bsg_node *
@@ -1692,7 +1692,7 @@ bsg_view_obj_polygon_create(struct bsg_view *v, const char *name, int local)
 {
     struct bsg_view_obj_opts opts = BV_VIEW_OBJ_OPTS_INIT;
     opts.local = local;
-    return bsg_view_obj_create(v, name, BV_VIEWONLY, &opts);
+    return bsg_view_obj_create(v, name, BSG_SHAPE_VIEWONLY, &opts);
 }
 
 void
@@ -1713,7 +1713,7 @@ bsg_view_obj_labels_sync(struct bsg_view *v,
 	return;
 
     /* Create a container object (no geometry of its own) to hold per-label
-     * BV_LABELS child objects, so the whole group is removed as one unit. */
+     * BSG_SHAPE_LABELS child nodes, so the whole group is removed as one unit. */
     struct bsg_node *parent = bsg_view_obj_lines_create(v, bsg_name, 1 /* local */);
     if (!parent)
 	return;
@@ -1723,7 +1723,7 @@ bsg_view_obj_labels_sync(struct bsg_view *v,
 	if (!child)
 	    continue;
 
-	child->s_type_flags |= BV_LABELS;
+	child->s_type_flags |= BSG_SHAPE_LABELS;
 	VSET(child->s_color, gdlsp->gdls_color[0], gdlsp->gdls_color[1], gdlsp->gdls_color[2]);
 	child->s_flag = UP;
 

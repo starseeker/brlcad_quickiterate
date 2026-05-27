@@ -171,7 +171,7 @@ _bv_hash_db_obj_cb(struct bsg_node *s, void *data)
 
 /* Phase A0 (drawing_stack_modernization): callback for view-only object
  * hashing.  Walks each visited object's children (mirroring the legacy
- * BV_VIEW_OBJS scan) and then hashes the object itself. */
+ * BSG_OBJ_VIEW scan) and then hashes the object itself. */
 static int
 _bv_hash_view_obj_cb(struct bsg_node *s, void *data)
 {
@@ -214,7 +214,7 @@ bsg_hash(struct bsg_view *v)
 
     /* Phase A0 (drawing_stack_modernization): use bsg_view_obj_visit so we
      * walk the BSG view-scope subtree directly rather than the legacy
-     * BV_VIEW_OBJS ptbl.  Both shared and local scopes are covered by
+     * BSG_OBJ_VIEW traversal.  Both shared and local scopes are covered by
      * BV_VIEW_OBJ_SCOPE_ALL. */
     bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _bv_hash_view_obj_cb, state);
 

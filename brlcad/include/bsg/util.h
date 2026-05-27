@@ -81,7 +81,7 @@ BSG_EXPORT extern void
 bsg_sensor_fire(bsg_node *root, struct bsg_view *v);
 
 /**
- * Allocate and initialize a scene-graph object using the BSG lifecycle API.
+ * Allocate and initialize a scene-graph node using the BSG lifecycle API.
  *
  * The @p type flags currently use the existing BV_* storage flags while the
  * bsg_view storage model is being migrated into libbsg.
@@ -97,7 +97,7 @@ BSG_EXPORT extern bsg_node *
 bsg_obj_get_unregistered(struct bsg_view *v, int type);
 
 /**
- * Recycle a scene-graph object allocated by bsg_obj_create() or
+ * Recycle a scene-graph node allocated by bsg_obj_create() or
  * bsg_obj_get_unregistered().
  */
 BSG_EXPORT extern void
@@ -196,7 +196,7 @@ BV_EXPORT extern void bsg_view_set_rotation(struct bsg_view *v, const mat_t rot)
 BV_EXPORT extern void bsg_view_get_center_vec(const struct bsg_view *v, point_t center);
 BV_EXPORT extern void bsg_view_set_center_vec(struct bsg_view *v, const point_t center);
 
-/* Copy settings common to view and scene objects */
+/* Copy settings common to views and shape nodes */
 BV_EXPORT extern int bsg_obj_settings_sync(struct bsg_obj_settings *dest, struct bsg_obj_settings *src);
 
 /* Sync values within the bv, perform callbacks if any are defined */
@@ -240,7 +240,7 @@ BV_EXPORT extern int bsg_adjust(struct bsg_view *v, int dx, int dy, point_t keyp
 BV_EXPORT extern int bsg_screen_to_view(struct bsg_view *v, fastf_t *fx, fastf_t *fy, fastf_t x, fastf_t y);
 BV_EXPORT extern int bsg_screen_pt(point_t *p, fastf_t x, fastf_t y, struct bsg_view *v);
 
-/* Scene object bounds and utilities */
+/* Shape-node bounds and utilities */
 BV_EXPORT extern int bsg_scene_obj_bound(struct bsg_node *s, struct bsg_view *v);
 BV_EXPORT extern fastf_t bsg_vZ_calc(struct bsg_node *s, struct bsg_view *v, int mode);
 BV_EXPORT extern void bsg_obj_sync(struct bsg_node *dest, struct bsg_node *src);
@@ -250,7 +250,7 @@ BV_EXPORT void bsg_obj_stale(struct bsg_node *s);
 BV_EXPORT void bsg_scene_obj_release_backend(struct bsg_node *s);
 BV_EXPORT void bsg_scene_obj_invalidate_backend(struct bsg_node *s);
 
-/* Scene object lifecycle */
+/* Scene-graph node lifecycle */
 BV_EXPORT struct bsg_node *bsg_obj_create(struct bsg_view *v, int type);
 BV_EXPORT struct bsg_node *bsg_obj_get(struct bsg_view *v, int type);
 BV_EXPORT struct bsg_node *bsg_obj_get_unregistered(struct bsg_view *v, int type);
