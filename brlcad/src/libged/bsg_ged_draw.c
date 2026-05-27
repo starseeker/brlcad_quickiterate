@@ -1757,7 +1757,7 @@ bsg_view_obj_group_set_dbpath(struct bsg_node *group,
     if (di) {
 	bsg_draw_intent_set_path(di, path);
     } else {
-	bsg_node_set_draw_intent(group, bsg_draw_intent_create(path, BSG_DRAW_MODE_WIRE));
+	bsg_node_set_draw_intent(group, bsg_draw_intent_create(path, bsg_view_obj_group_dmode(group)));
     }
     bu_free(s, "bsg_view_obj_group_set_dbpath: path string");
 }
