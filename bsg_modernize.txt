@@ -252,17 +252,148 @@ Phase 3 exit criteria:
 - [x] focused material/appearance tests added/registered
 
 
+Phase 4 — Typed Payload Accessors (COMPLETE, 2026-05-26)
+---------------------------------------------------------
+Delivered:
+- Added `brlcad/include/bsg/payload.h` with:
+  - `bsg_node_set_payload_type` / `bsg_node_get_payload_type` over
+    `s_type_flags` bits 40-44 (BSG_PAYLOAD_VLIST/CSG/MESH/BREP/OVERLAY).
+  - `bsg_payload_dispatch`: pre-render hook that invokes `s_update_callback`
+    for payload types requiring a geometry-update pass before drawing
+    (BSG_PAYLOAD_CSG, BSG_PAYLOAD_MESH, BSG_PAYLOAD_BREP,
+    BSG_PAYLOAD_OVERLAY); skips callback for BSG_PAYLOAD_VLIST.
+- Added `brlcad/src/libbsg/payload.c` implementing the above.
+- Wired payload.h into `include/bsg/CMakeLists.txt` and payload.c into
+  `src/libbsg/CMakeLists.txt`.
+- Payload type set/get/dispatch tested in Phase 6 test suite
+  (`test_phase6.c` Test 6).
+
+Phase 4 exit criteria:
+- [x] `include/bsg/payload.h` added with typed payload flags and accessors
+- [x] `src/libbsg/payload.c` implementing the accessors and dispatch hook
+- [x] Wired into CMake build
+- [x] Payload tests exercised in `test_phase6` / `libbsg_phase6` ctest
+
+
+Phase 5 — BSG Action Framework (COMPLETE, 2026-05-27)
+------------------------------------------------------
+Delivered:
+- Added `brlcad/include/bsg/action.h` with:
+  - `BSG_ACTION_*` kind constants (BBOX, COLLECT, EXPORT).
+  - `bsg_action` struct: kind + kind-specific result union (bbox min/max,
+    ptbl node list, vlist head).
+  - `bsg_action_create` / `bsg_action_destroy`
+  - `bsg_action_execute`: dispatches to the appropriate visitor-based
+    implementation via `bsg_visit`.
+- Added `brlcad/src/libbsg/action.c` implementing the three built-in
+  actions:
+  - BBOX: accumulates bmin/bmax over all shape nodes in the subtree.
+  - COLLECT: harvests all nodes matching a type-mask into a bu_ptbl.
+  - EXPORT: walks all BSG_NODE_SHAPE leaves and copies their s_vlist
+    content into a caller-supplied vlist via bsg_vlist_copy.
+- Wired action.h and action.c into the CMake build.
+- Added focused tests:
+  - `brlcad/src/libbsg/tests/test_action.c`
+  - `libbsg_action` CTest registration.
+
+Phase 5 exit criteria:
+- [x] `include/bsg/action.h` added
+- [x] `src/libbsg/action.c` added with BBOX/COLLECT/EXPORT implementations
+- [x] Wired into CMake build
+- [x] Focused action tests added/registered
+
+
+Phase 6 — First-Class Selection (COMPLETE, 2026-05-27)
+-------------------------------------------------------
+Delivered:
+- Added `brlcad/include/bsg/selection.h` with:
+  - `bsg_selection` opaque handle.
+  - `bsg_selection_create` / `bsg_selection_destroy`
+  - `bsg_selection_add` / `bsg_selection_remove` / `bsg_selection_clear`
+  - `bsg_selection_contains` / `bsg_selection_count` / `bsg_selection_nodes`
+  - `bsg_selection_highlight` / `bsg_selection_unhighlight`: set/clear
+    `s_iflag` on contained nodes as a compatibility bridge.
+- Added `brlcad/src/libbsg/selection.c` implementing the above using a
+  `bu_ptbl` as the backing store.
+- Wired selection.h and selection.c into the CMake build.
+- Added focused tests:
+  - `brlcad/src/libbsg/tests/test_selection.c`
+  - `libbsg_selection` CTest registration.
+
+Phase 6 exit criteria:
+- [x] `include/bsg/selection.h` added
+- [x] `src/libbsg/selection.c` implementing selection set
+- [x] Wired into CMake build
+- [x] Focused selection tests added/registered
+
+
+Phase 7 — Camera and Light Snapshots (COMPLETE, 2026-05-27)
+------------------------------------------------------------
+Delivered:
+- Added `brlcad/include/bsg/camera.h` with:
+  - `bsg_camera` struct: scale, perspective, aet, eye_pos, rotation and
+    center matrices captured from a `bsg_view`.
+  - `bsg_camera_snapshot`: capture camera state from a live view.
+  - `bsg_camera_apply`: restore a previously captured snapshot to a view.
+  - `bsg_camera_create` / `bsg_camera_destroy`
+- Added `brlcad/src/libbsg/camera.c` implementing the above.
+- Added `brlcad/include/bsg/light.h` with:
+  - `BSG_LIGHT_*` type constants (AMBIENT, DIRECTIONAL, POINT, SPOT).
+  - `bsg_light` struct: type, position, direction, diffuse/specular colors,
+    intensity, attenuation, spot cone angle.
+  - `bsg_light_create` / `bsg_light_destroy`
+  - Accessor / setter functions for all light properties.
+- Added `brlcad/src/libbsg/light.c` implementing the above.
+- Wired camera.h/camera.c and light.h/light.c into the CMake build.
+- Added focused tests:
+  - `brlcad/src/libbsg/tests/test_camera.c`
+  - `brlcad/src/libbsg/tests/test_light.c`
+  - `libbsg_camera` and `libbsg_light` CTest registrations.
+
+Phase 7 exit criteria:
+- [x] `include/bsg/camera.h` added
+- [x] `include/bsg/light.h` added
+- [x] camera snapshot/apply and light lifecycle implemented in libbsg
+- [x] Wired into CMake build
+- [x] Focused camera and light tests added/registered
+
+
+Phase 8 — BSG Render Action (COMPLETE, 2026-05-27)
+---------------------------------------------------
+Delivered:
+- Added `brlcad/include/bsg/render.h` with:
+  - `BSG_RENDER_FLAG_*` constants (VISIBLE_ONLY, PAYLOAD_DISPATCH,
+    OVERLAY_LAST, SORTED_ALPHA).
+  - `bsg_render_request` struct: target view, root node, flags.
+  - `bsg_render_request_create` / `bsg_render_request_destroy`
+  - `bsg_render_request_execute`: walks the subtree, fires
+    `bsg_payload_dispatch` for each shape node that passes the visibility
+    and flag filters.  Rendering itself remains in libdm; this action
+    provides the renderer-neutral pre-render traversal contract.
+- Added `brlcad/src/libbsg/render.c` implementing the above.
+- Wired render.h and render.c into the CMake build.
+- Added focused tests:
+  - `brlcad/src/libbsg/tests/test_render.c`
+  - `libbsg_render` CTest registration.
+
+Phase 8 exit criteria:
+- [x] `include/bsg/render.h` added
+- [x] `src/libbsg/render.c` implementing render request execute
+- [x] Wired into CMake build
+- [x] Focused render tests added/registered
+
+
 Modernization Phases
 --------------------
 - [x] Phase 0: Baseline audit
 - [x] Phase 1: Introduce generic node API (`include/bsg/node.h`, `src/libbsg/node.c`)
 - [x] Phase 2: Add identity and revision model (`include/bsg/identity.h`)
 - [x] Phase 3: Split material and appearance (`include/bsg/material.h`, `include/bsg/appearance.h`)
-- [ ] Phase 4: Replace implicit geometry with typed payloads (`include/bsg/payload.h`)
-- [ ] Phase 5: Add BSG action framework (`include/bsg/action.h`)
-- [ ] Phase 6: Add first-class selection (`include/bsg/selection.h`)
-- [ ] Phase 7: Add camera and light snapshots (`include/bsg/camera.h`, `include/bsg/light.h`)
-- [ ] Phase 8: Move rendering behind BSG render action (`include/bsg/render.h`)
+- [x] Phase 4: Replace implicit geometry with typed payloads (`include/bsg/payload.h`)
+- [x] Phase 5: Add BSG action framework (`include/bsg/action.h`)
+- [x] Phase 6: Add first-class selection (`include/bsg/selection.h`)
+- [x] Phase 7: Add camera and light snapshots (`include/bsg/camera.h`, `include/bsg/light.h`)
+- [x] Phase 8: Move rendering behind BSG render action (`include/bsg/render.h`)
 - [ ] Phase 9: Add Obol as adapter/backend only
 - [ ] Phase 10: Final cleanup and deprecation removal
 
