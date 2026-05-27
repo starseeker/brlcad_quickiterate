@@ -233,6 +233,7 @@ struct bsg_view;
 struct bsg_node_internal;
 struct bsg_node;
 struct bsg_payload;  /* Phase D1 (drawing_modernization): typed payload handle — see bsg/payload_typed.h */
+struct bsg_draw_intent;  /* Phase D2 (drawing_modernization): draw-intent metadata — see bsg/draw_intent.h */
 
 /* Phase 11 (drawing_stack_modernization): renderer-backend contract.
  *
@@ -334,6 +335,19 @@ struct bsg_node  {
      * bsg_payload_bump_revision() whenever the payload data changes, so that
      * renderers and backend caches can detect stale state. */
     struct bsg_payload *pl;
+
+    /* Phase D2 (drawing_modernization): explicit draw-intent metadata.
+     *
+     * Attached to scene groups by the draw command when a database path
+     * is drawn, and to synthetic overlay containers by
+     * bsg_ensure_overlay_group().  Records the source path, draw mode,
+     * LoD policy, and whether the group is an overlay container.
+     *
+     * NULL on shape nodes, unintentioned sub-groups, and nodes created
+     * before Phase D2 infrastructure was present.  Use
+     * bsg_node_get_draw_intent() / bsg_node_set_draw_intent() from
+     * bsg/draw_intent.h; do not access this field directly. */
+    struct bsg_draw_intent *di;
 
     /* Phase 11 (drawing_stack_modernization): generic renderer-backend slot.
      *

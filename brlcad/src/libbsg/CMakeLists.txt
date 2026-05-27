@@ -4,6 +4,7 @@ set(
   action.c
   appearance.c
   camera.c
+  draw_intent.c
   draw_set.c
   draw_source.c
   field.c
@@ -82,6 +83,7 @@ cmakefiles(
   action.c
   appearance.c
   camera.c
+  draw_intent.c
   draw_set.c
   field.c
   identity.c

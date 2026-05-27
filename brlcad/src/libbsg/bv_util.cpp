@@ -37,6 +37,7 @@
 #include "bg/plane.h"
 #include "bsg/appearance.h"
 #include "bsg/defines.h"
+#include "bsg/draw_intent.h"
 #include "bsg/material.h"
 #include "bsg/payload_typed.h"
 #include "bsg/snap.h"
@@ -2011,6 +2012,12 @@ bsg_obj_reset(struct bsg_node *s)
     if (s->pl) {
 	bsg_payload_free(s->pl);
 	s->pl = NULL;
+    }
+
+    // Phase D2 (drawing_modernization): free draw-intent metadata
+    if (s->di) {
+	bsg_draw_intent_free(s->di);
+	s->di = NULL;
     }
 
     // Phase 11: release any backend-owned per-shape state via the generic

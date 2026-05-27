@@ -6,6 +6,7 @@ set(
   camera.h
   defines.h
   draw_ctx.h
+  draw_intent.h
   draw_set.h
   draw_source.h
   events.h

@@ -54,6 +54,7 @@
 #include "bg/clip.h"
 #include "bsg/defines.h"
 #include "bsg/draw_ctx.h"
+#include "bsg/draw_intent.h"
 #include "bsg/draw_set.h"
 #include "bsg/field.h"
 #include "bsg/lod_ops.h"
