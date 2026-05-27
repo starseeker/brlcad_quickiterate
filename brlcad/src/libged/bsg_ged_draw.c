@@ -63,6 +63,12 @@
 
 #include "bsg/view_sets.h"
 
+#include "bsg/appearance.h"
+#include "bsg/draw_source.h"
+#include "bsg/material.h"
+#include "bsg/node.h"
+#include "bsg/payload.h"
+
 #include "ged.h"
 #include "ged/bsg_ged_draw.h"
 #include "./ged_private.h"

@@ -91,6 +91,15 @@ bsg_node_set_user_data(bsg_node *node, void *user_data);
 BSG_EXPORT extern void *
 bsg_node_user_data(const bsg_node *node);
 
+/**
+ * Return a pointer to the display settings (bsg_obj_settings) for @p node.
+ * Returns NULL if @p node is NULL.
+ * Prefer individual appearance accessors; use this only for bulk operations
+ * such as bsg_obj_settings_sync().
+ */
+BSG_EXPORT extern struct bsg_obj_settings *
+bsg_node_settings(bsg_node *node);
+
 BSG_EXPORT extern uint64_t
 bsg_node_revision(const bsg_node *node);
 

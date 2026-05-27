@@ -126,6 +126,47 @@ bsg_appearance_set_drawn_rev(bsg_node *node, uint64_t rev);
 BSG_EXPORT extern uint64_t
 bsg_appearance_drawn_rev(const bsg_node *node);
 
+/* -----------------------------------------------------------------------
+ * Display mode (s_dmode)
+ *
+ * s_dmode is stored in bsg_obj_settings and controls how the node is
+ * rendered (wireframe, shaded, etc.).
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Return the display mode for @p node.
+ * Returns 0 if @p node or its settings are NULL.
+ */
+BSG_EXPORT extern int
+bsg_appearance_dmode(const bsg_node *node);
+
+/**
+ * Set the display mode for @p node.
+ * No-op if @p node or its settings are NULL.
+ */
+BSG_EXPORT extern void
+bsg_appearance_set_dmode(bsg_node *node, int dmode);
+
+/* -----------------------------------------------------------------------
+ * Transparency (transparency)
+ *
+ * transparency is stored in bsg_obj_settings as a fastf_t in [0.0, 1.0].
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Return the transparency value for @p node.
+ * Returns 1.0 (fully opaque) if @p node or its settings are NULL.
+ */
+BSG_EXPORT extern fastf_t
+bsg_appearance_transparency(const bsg_node *node);
+
+/**
+ * Set the transparency value for @p node (range [0.0, 1.0]).
+ * No-op if @p node or its settings are NULL.
+ */
+BSG_EXPORT extern void
+bsg_appearance_set_transparency(bsg_node *node, fastf_t t);
+
 __END_DECLS
 
 #endif /* BSG_APPEARANCE_H */
