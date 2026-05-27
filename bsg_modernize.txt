@@ -383,6 +383,264 @@ Phase 8 exit criteria:
 - [x] Focused render tests added/registered
 
 
+User Modernization Gate — libbsg Consumers Before Obol
+-------------------------------------------------------
+Before adding Obol as a backend or removing compatibility APIs, modernize the
+BRL-CAD drawing-code users of libbsg so they express their intent in BSG /
+OpenInventor-style terms instead of renamed libbv/display-list terms.  The goal
+is to make libged, MGED, qged/libqtcad, libtclcad, and libdm consume a clean
+scene-graph API; this should expose which libbsg compatibility fields and helper
+paths are genuinely obsolete.
+
+Current user audit highlights:
+- High raw-field-access users remain in `src/libged/draw.cpp`,
+  `src/libged/bsg_ged_draw.c`, `src/libged/dbi_state.cpp`,
+  `src/libged/draw/draw.c`, `src/libdm/view.c`, `src/libqtcad/QgMeasureFilter.cpp`,
+  `src/mged/edsol.c`, and `src/mged/dodraw.c`.
+- Common direct fields still encode scene concepts imperatively:
+  `children`, `parent`, `s_u_data`, `s_i_data`, `s_vlist`, `s_color`, `s_os`,
+  `s_v`, `dp`, `vlfree`, and `s_iflag`.
+- Remaining user-facing compatibility seams include `ged_bv_data`,
+  `bsg_view_obj_foreach_*`, `bsg_view_obj_set_illum`, `bsg_set_fsos`,
+  `BV_*` object-kind names, `_bv_*` internals in libbsg, and the qtcad
+  `set_draw_custom` callback path.
+- MGED has already moved away from the old `display_list` store, but its edit,
+  illuminate, replot, and raytrace helper code still talks in solid-list and
+  raw-node terms (`ged_bv_data`, `LAST_SOLID`, `s_iflag`, `s_u_data`).
+- qged/libqtcad view filters and plugins create useful BSG overlay objects, but
+  refresh, selection highlighting, measurement/polygon overlays, and custom
+  draw callbacks are not yet expressed as BSG render/selection/payload actions.
+
+
+Phase 8A — Stabilize User-Facing BSG Accessors (PLANNED)
+---------------------------------------------------------
+Purpose:
+- Give libged/MGED/qged/libqtcad users complete vocabulary for node payload,
+  identity, metadata, traversal, selection, and appearance operations before
+  migrating the users.
+
+Work items:
+1) Fill accessor gaps needed by drawing-code users:
+   - typed user/application data accessors replacing raw `s_u_data`;
+   - typed internal payload-data accessors replacing raw `s_i_data`;
+   - child traversal helpers replacing direct `children` / `parent` ptbl access;
+   - vlist payload accessors replacing direct `s_vlist` / `vlfree` edits;
+   - draw-source accessors for `dp`, `s_path`, `s_mat`, and full-path identity;
+   - compatibility accessors for frame/drawn state until render actions own it.
+2) Promote `ged_bv_data` into an explicitly named GED draw-shape data contract
+   (for example `ged_draw_data` / `ged_shape_data`) with documented ownership,
+   destructor, full-path, directory, and selection/edit responsibilities.
+3) Add BSG draw-tree traversal/action helpers that expose semantic operations:
+   find drawn groups by full path, visit drawn shapes, collect visible shapes,
+   export vlists, replot/update a source path, and remove stale source nodes.
+4) Add a public illumination/highlight facade over `bsg_selection` and node
+   sensors so callers do not read or write `s_iflag` directly.
+5) Add render-request extension points needed by users before Obol: overlay-last
+   traversal, pre-render payload dispatch, view-filter hooks, and backend-neutral
+   custom annotation rendering.
+
+Exit criteria:
+- [ ] libbsg exposes the accessors/actions needed to remove raw `bsg_node` field
+      access from consumers.
+- [ ] GED draw-shape data ownership is named and documented independently of
+      the old libbv naming.
+- [ ] Selection/illumination callers can use BSG selection APIs instead of
+      `s_iflag`.
+- [ ] qged/libqtcad filters have a render-action replacement for ad hoc custom
+      draw callbacks.
+
+
+Phase 8B — Modernize libged Draw Producers and Consumers (PLANNED)
+-------------------------------------------------------------------
+Purpose:
+- Make libged's drawing commands describe database drawing, overlays, selection,
+  material, and export/report operations in BSG scene/action terms.
+
+Work items:
+1) Migrate `src/libged/bsg_ged_draw.c`, `src/libged/draw.cpp`, and
+   `src/libged/draw/draw.c` from raw node mutation to Phase 8A accessors.
+   Preserve behavior while eliminating direct writes to `s_name`, `s_path`,
+   `dp`, `s_u_data`, `s_i_data`, `children`, `parent`, `s_color`, `s_os`,
+   `s_vlist`, `s_flag`, and `s_iflag` outside libbsg-owned code.
+2) Replace legacy display-list vocabulary in function names, comments, and
+   callback names with draw-tree / scene-group / shape terminology.  Keep
+   command output compatibility where user-visible strings are established API.
+3) Convert `append_solid_to_display_list`-style paths into explicit
+   BSG shape creation/update actions keyed by `struct db_full_path`, source
+   directory entry, material state, payload type, and draw mode.
+4) Move material/color propagation to material/appearance accessors and revision
+   checks.  Keep `gd_mater_rev` as GED policy state, but make BSG nodes consume
+   it through typed material updates rather than direct `s_color` writes.
+5) Convert reporting/export commands (`who`, `how`, `plot`, `ps`, `png`,
+   `saveview`, `nirt`, `select`, `rtcheck`, `set_transparency`, `bot_dump`,
+   `gqa`) to BSG actions/traversals instead of callback wrappers that expose
+   raw node internals.
+6) Make LoD and payload update paths use `bsg_payload_dispatch`,
+   `bsg_render_request`, and typed LoD accessors rather than direct `s_i_data`,
+   callback, and view-snapshot fields.
+
+Exit criteria:
+- [ ] libged drawing code uses BSG node/material/appearance/payload/action APIs
+      for new or changed logic.
+- [ ] No libged command relies on direct `bsg_node` child table, color, vlist,
+      user-data, or highlight fields.
+- [ ] Draw-tree terminology replaces legacy display-list terminology in
+      implementation internals.
+- [ ] Existing drawing regression tests continue to pass.
+
+
+Phase 8C — Modernize MGED Drawing/Edit Users (PLANNED)
+------------------------------------------------------
+Purpose:
+- Keep MGED behavior stable while moving its edit, illuminate, replot, and
+  raytrace integration onto BSG draw-tree concepts.
+
+Work items:
+1) Replace direct `ged_bv_data` / `s_u_data` / `LAST_SOLID` reads in
+   `src/mged/edsol.c`, `src/mged/dodraw.c`, `src/mged/usepen.c`,
+   `src/mged/chgview.c`, `src/mged/cmd.cpp`, `src/mged/titles.c`,
+   `src/mged/rtif.c`, and `src/mged/chgtree.c` with GED draw-shape accessors.
+2) Convert edit replot helpers (`_replot_modified_solid_cb`,
+   `_replot_active_solid_cb`, `_replot_lastsol_cb`, `replot_original_solid`,
+   `replot_modified_solid`) into BSG update/replot actions keyed by source
+   full path and edit state.
+3) Normalize illumination and selected-solid handling around BSG selection and
+   illumination APIs; remove direct `s_iflag` state changes from MGED.
+4) Replace remaining solid-list callback vocabulary in MGED/Tcl glue with
+   draw-tree or shape-selection terminology while preserving Tcl command names
+   where needed for compatibility.
+5) Audit MGED globals that influence drawing/edit state and move durable state
+   into `mged_state`, GED draw context, or view/session structures as appropriate.
+6) Verify MGED raytrace helpers obtain visible/drawn shape lists through BSG
+   collect actions rather than raw traversal callbacks.
+
+Exit criteria:
+- [ ] MGED edit and illumination code does not directly inspect raw BSG node
+      storage.
+- [ ] MGED uses BSG draw-tree traversal/actions for replot, raytrace, and edit
+      refresh decisions.
+- [ ] MGED no longer reintroduces display-list or solid-list architecture in
+      new code.
+- [ ] `ged_test_mged_bsg` and `ged_test_mged_shaded_mode_bsg` cover the
+      migrated behavior.
+
+
+Phase 8D — Modernize qged/libqtcad Plugins and View Filters (PLANNED)
+----------------------------------------------------------------------
+Purpose:
+- Make qged/libqtcad overlays, selection, measurement, and refresh flows use
+  the same BSG render/selection/action contract that Obol will consume.
+
+Work items:
+1) Replace direct selection highlight writes in `src/libged/dbi_state.cpp` and
+   `src/qged/plugins/view/select/CADViewSelector.cpp` with `bsg_selection` and
+   the Phase 8A illumination facade.
+2) Convert qged edit, polygon, measure, and select plugins from raw node/vlist
+   loops to typed view-object and payload APIs.  Priority files include
+   `src/qged/plugins/edit/ell/QEll.cpp`, polygon plugin sources,
+   `src/libqtcad/QgMeasureFilter.cpp`, `src/libqtcad/QgPolyFilter.cpp`, and
+   `src/libqtcad/QgSelectFilter.cpp`.
+3) Replace `QgCanvasBase::set_draw_custom` / `QgGL::set_draw_custom` /
+   `QgSW::set_draw_custom` with a BSG render-action or view-filter render hook.
+   Keep the old callback only as a temporary compatibility shim until Phase 10.
+4) Integrate `QgView` refresh with BSG scene/node revisions so dirty flags and
+   hash-diff checks become implementation details, not the application-level
+   drawing contract.
+5) Ensure local overlays, shared overlays, measurement geometry, polygon editing,
+   and edit handles are all expressed as BSG view-scope nodes with typed payloads
+   and appearance/material settings.
+
+Exit criteria:
+- [ ] qged/libqtcad filters and plugins use BSG render/selection/payload APIs.
+- [ ] Custom draw callbacks are deprecated and have a tested render-action
+      replacement.
+- [ ] Selection and edit overlays are represented as BSG scene/view-scope data,
+      not renderer-specific callbacks.
+- [ ] `ged_test_qged_swrast` and qtcad drawing tests cover the migrated paths.
+
+
+Phase 8E — Modernize libdm Rendering Consumption (PLANNED)
+----------------------------------------------------------
+Purpose:
+- Make display managers consumers of BSG render requests rather than owners of
+  scene traversal policy, preparing for Obol as a backend adapter.
+
+Work items:
+1) Move `dm_draw_objs` toward consuming `bsg_render_request` results: BSG owns
+   traversal, visibility, overlay ordering, payload dispatch, and revision
+   checks; libdm owns backend drawing of prepared payloads.
+2) Replace direct libdm reads of mutable node fields (`s_color`, `s_os`,
+   `s_vlist`, `s_backend`, `s_drawn_rev`, LoD snapshot fields) with material,
+   appearance, payload, backend, and render-state accessors.
+3) Formalize the backend cache contract currently represented by `s_backend` and
+   ensure GL, swrast, qtgl, and future Obol backends use the same lifecycle
+   hooks for create/invalidate/free.
+4) Keep renderer-specific vlist/string primitives behind backend interfaces so
+   qged, MGED, offscreen tests, and Obol do not depend on GL-era assumptions.
+5) Add parity checks for native BSG rendering before any Obol adapter is enabled.
+
+Exit criteria:
+- [ ] libdm does not own scene traversal policy; it consumes BSG render requests
+      and backend payloads.
+- [ ] Backend cache lifecycle is explicit and tested.
+- [ ] Native dm-qtgl/dm-swrast behavior remains unchanged before Obol is added.
+
+
+Phase 8F — Remove or Isolate Compatibility Seams Exposed by User Migration (PLANNED)
+------------------------------------------------------------------------------------
+Purpose:
+- After users have migrated, identify libbsg pieces that were only preserved for
+  old libbv/display-list users and either remove them or isolate them behind
+  compatibility headers.
+
+Work items:
+1) Rename or split libbsg implementation files whose names encode the old layer
+   (`bv_util.cpp`, `bv_lod.cpp`, `bv_vlist.c`) once user-facing includes and
+   CMake dependencies are clean.
+2) Replace public `BV_*` object-kind names in new code with `BSG_*` aliases;
+   keep old names only in compatibility headers until Phase 10 removal.
+3) Retire `bsg_set_fsos` from user code; free-node reuse should be internal to
+   scene/view-set management.
+4) Decide whether `bsg_scene_group` remains a meaningful concept or can collapse
+   into named group nodes plus draw-intent metadata.
+5) Audit `struct bsg_node` after caller migration and move fields that no longer
+   need public exposure into `bsg_node_internal`.
+6) Update documentation and tests to describe the stable OpenInventor-style API:
+   nodes, groups, shapes, transforms, view scopes, payloads, material,
+   appearance, actions, selection, camera, light, render request, and backend
+   adapter.
+
+Exit criteria:
+- [ ] New drawing-code users no longer include libbv-style compatibility names.
+- [ ] Public raw-node storage is reduced to what is intentionally stable.
+- [ ] Obsolete compatibility paths are either removed or explicitly scheduled for
+      Phase 10 removal.
+
+
+Phase 8G — User Modernization Validation Matrix (PLANNED)
+---------------------------------------------------------
+Validation targets for Phases 8A-8F:
+- Build: `libbsg`, `libdm`, `dm-qtgl`, `dm-swrast`, `libged`, `libqtcad`,
+  `qged`, `mged`, `archer`.
+- Core libbsg tests: `libbsg_node`, `libbsg_identity`,
+  `libbsg_material_appearance`, `libbsg_action`, `libbsg_selection`,
+  `libbsg_camera`, `libbsg_light`, `libbsg_render`, `libbsg_lod_node`,
+  `libbsg_scene_graph`.
+- Drawing regressions: `ged_test_bsg_view_obj`, `ged_test_drawing_basic`,
+  `ged_test_drawing_faceplate`, `ged_test_drawing_lod`,
+  `ged_test_lod_crossrun`, `ged_test_bsg_parity`,
+  `ged_test_bsg_quad_parity`, `ged_test_tcl_adornment_bsg`,
+  `ged_test_view_independent`, `ged_test_view_command`.
+- Application regressions: `ged_test_qged_swrast`, `ged_test_mged_bsg`,
+  `ged_test_mged_shaded_mode_bsg`, `ged_test_rtwizard_bsg`.
+
+Exit criteria:
+- [ ] Native BRL-CAD drawing users pass the validation matrix before Obol is
+      introduced.
+- [ ] Any failing tests are categorized as pre-existing, migration regressions,
+      or intentionally updated behavior.
+
+
 Modernization Phases
 --------------------
 - [x] Phase 0: Baseline audit
@@ -394,6 +652,13 @@ Modernization Phases
 - [x] Phase 6: Add first-class selection (`include/bsg/selection.h`)
 - [x] Phase 7: Add camera and light snapshots (`include/bsg/camera.h`, `include/bsg/light.h`)
 - [x] Phase 8: Move rendering behind BSG render action (`include/bsg/render.h`)
+- [ ] Phase 8A: Stabilize user-facing BSG accessors
+- [ ] Phase 8B: Modernize libged draw producers and consumers
+- [ ] Phase 8C: Modernize MGED drawing/edit users
+- [ ] Phase 8D: Modernize qged/libqtcad plugins and view filters
+- [ ] Phase 8E: Modernize libdm rendering consumption
+- [ ] Phase 8F: Remove or isolate compatibility seams exposed by user migration
+- [ ] Phase 8G: Complete user modernization validation matrix
 - [ ] Phase 9: Add Obol as adapter/backend only
 - [ ] Phase 10: Final cleanup and deprecation removal
 
