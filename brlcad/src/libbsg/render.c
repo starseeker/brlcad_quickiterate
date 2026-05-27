@@ -62,7 +62,8 @@ render_visit_cb(bsg_node *node, void *userdata)
 
     /* Defer overlay nodes if requested */
     if ((req->flags & BSG_RENDER_FLAG_OVERLAY_LAST) &&
-	(node->s_type_flags & BSG_NODE_OVERLAY)) {
+	(node->s_type_flags & BSG_PAYLOAD_MASK) &&
+	(bsg_node_get_payload_type(node) & BSG_PAYLOAD_OVERLAY)) {
 	bu_ptbl_ins_unique(&st->overlays, (long *)node);
 	return 1;
     }

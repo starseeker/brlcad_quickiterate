@@ -30,6 +30,7 @@
 #include "bu/malloc.h"
 #include "bsg/defines.h"
 #include "bsg/util.h"
+#include "bsg/node.h"
 #include "bsg/node_shape.h"
 #include "bsg/render.h"
 
@@ -125,6 +126,10 @@ test_visible_only(void)
     bsg_node *root = bsg_scene_root_create(v);
     bsg_node *s1 = bsg_shape_create(v);
     bsg_node *s2 = bsg_shape_create(v);
+
+    /* Attach shapes to root so bsg_visit can reach them */
+    bsg_node_add_child(root, s1);
+    bsg_node_add_child(root, s2);
 
     s1->s_flag = UP;    /* visible */
     s2->s_flag = DOWN;  /* hidden */
