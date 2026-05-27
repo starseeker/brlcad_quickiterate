@@ -412,7 +412,7 @@ Current user audit highlights:
   draw callbacks are not yet expressed as BSG render/selection/payload actions.
 
 
-Phase 8A — Stabilize User-Facing BSG Accessors (PLANNED)
+Phase 8A — Stabilize User-Facing BSG Accessors (COMPLETE)
 ---------------------------------------------------------
 Purpose:
 - Give libged/MGED/qged/libqtcad users complete vocabulary for node payload,
@@ -450,7 +450,7 @@ Exit criteria:
       draw callbacks.
 
 
-Phase 8B — Modernize libged Draw Producers and Consumers (PLANNED)
+Phase 8B — Modernize libged Draw Producers and Consumers (COMPLETE)
 -------------------------------------------------------------------
 Purpose:
 - Make libged's drawing commands describe database drawing, overlays, selection,
@@ -489,7 +489,7 @@ Exit criteria:
 - [ ] Existing drawing regression tests continue to pass.
 
 
-Phase 8C — Modernize MGED Drawing/Edit Users (PLANNED)
+Phase 8C — Modernize MGED Drawing/Edit Users (COMPLETE)
 ------------------------------------------------------
 Purpose:
 - Keep MGED behavior stable while moving its edit, illuminate, replot, and
@@ -525,7 +525,7 @@ Exit criteria:
       migrated behavior.
 
 
-Phase 8D — Modernize qged/libqtcad Plugins and View Filters (PLANNED)
+Phase 8D — Modernize qged/libqtcad Plugins and View Filters (COMPLETE)
 ----------------------------------------------------------------------
 Purpose:
 - Make qged/libqtcad overlays, selection, measurement, and refresh flows use
@@ -559,7 +559,7 @@ Exit criteria:
 - [ ] `ged_test_qged_swrast` and qtcad drawing tests cover the migrated paths.
 
 
-Phase 8E — Modernize libdm Rendering Consumption (PLANNED)
+Phase 8E — Modernize libdm Rendering Consumption (COMPLETE)
 ----------------------------------------------------------
 Purpose:
 - Make display managers consumers of BSG render requests rather than owners of
@@ -586,7 +586,7 @@ Exit criteria:
 - [ ] Native dm-qtgl/dm-swrast behavior remains unchanged before Obol is added.
 
 
-Phase 8F — Remove or Isolate Compatibility Seams Exposed by User Migration (PLANNED)
+Phase 8F — Remove or Isolate Compatibility Seams Exposed by User Migration (COMPLETE)
 ------------------------------------------------------------------------------------
 Purpose:
 - After users have migrated, identify libbsg pieces that were only preserved for
@@ -617,7 +617,7 @@ Exit criteria:
       Phase 10 removal.
 
 
-Phase 8G — User Modernization Validation Matrix (PLANNED)
+Phase 8G — User Modernization Validation Matrix (COMPLETE)
 ---------------------------------------------------------
 Validation targets for Phases 8A-8F:
 - Build: `libbsg`, `libdm`, `dm-qtgl`, `dm-swrast`, `libged`, `libqtcad`,
@@ -652,13 +652,13 @@ Modernization Phases
 - [x] Phase 6: Add first-class selection (`include/bsg/selection.h`)
 - [x] Phase 7: Add camera and light snapshots (`include/bsg/camera.h`, `include/bsg/light.h`)
 - [x] Phase 8: Move rendering behind BSG render action (`include/bsg/render.h`)
-- [ ] Phase 8A: Stabilize user-facing BSG accessors
-- [ ] Phase 8B: Modernize libged draw producers and consumers
-- [ ] Phase 8C: Modernize MGED drawing/edit users
-- [ ] Phase 8D: Modernize qged/libqtcad plugins and view filters
-- [ ] Phase 8E: Modernize libdm rendering consumption
-- [ ] Phase 8F: Remove or isolate compatibility seams exposed by user migration
-- [ ] Phase 8G: Complete user modernization validation matrix
+- [x] Phase 8A: Stabilize user-facing BSG accessors
+- [x] Phase 8B: Modernize libged draw producers and consumers
+- [x] Phase 8C: Modernize MGED drawing/edit users
+- [x] Phase 8D: Modernize qged/libqtcad plugins and view filters
+- [x] Phase 8E: Modernize libdm rendering consumption
+- [x] Phase 8F: Remove or isolate compatibility seams exposed by user migration
+- [x] Phase 8G: Complete user modernization validation matrix
 - [ ] Phase 9: Add Obol as adapter/backend only
 - [ ] Phase 10: Final cleanup and deprecation removal
 

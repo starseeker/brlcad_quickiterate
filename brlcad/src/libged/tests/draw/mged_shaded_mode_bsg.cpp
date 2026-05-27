@@ -71,6 +71,7 @@
 #include <ged.h>
 #include "bsg/util.h"
 #include "bsg/defines.h"
+#include "bsg/node.h"
 #include "bsg/util.h"
 
 /* Private header for DbiState */
@@ -448,9 +449,8 @@ test_sflags_per_frame_reset(const char *datadir)
 	struct bsg_node *root = (struct bsg_node *)gedp->ged_gvp->bsg_root;
 	uint64_t fr = gedp->ged_gvp->gv_frame_rev;
 	if (root) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-		struct bsg_node *sp =
-		    (struct bsg_node *)BU_PTBL_GET(&root->children, i);
+	    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
+		struct bsg_node *sp = bsg_node_child_at(root, i);
 		if (sp && sp->s_drawn_rev == fr) nup_first++;
 	    }
 	}
@@ -494,9 +494,8 @@ test_sflags_per_frame_reset(const char *datadir)
 	struct bsg_node *root = (struct bsg_node *)gedp->ged_gvp->bsg_root;
 	uint64_t fr = gedp->ged_gvp->gv_frame_rev;
 	if (root) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-		struct bsg_node *sp =
-		    (struct bsg_node *)BU_PTBL_GET(&root->children, i);
+	    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
+		struct bsg_node *sp = bsg_node_child_at(root, i);
 		if (sp && sp->s_drawn_rev == fr) nup_second++;
 	    }
 	}

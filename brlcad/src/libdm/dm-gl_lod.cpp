@@ -34,6 +34,7 @@
 #include "bn.h"
 extern "C" {
 #include "bsg/defines.h"
+#include "bsg/appearance.h"
 #include "bsg/lod.h"
 #include "dm.h"
 #include "./dm-gl.h"
@@ -490,7 +491,7 @@ gl_draw_tri(struct dm *dmp, struct bsg_mesh_lod *lod)
     // to change it without regeneration - hence, we need to do it
     // up front
     if (mode == 0) {
-	if (s->s_iflag == UP) {
+	if (bsg_appearance_is_highlighted(s)) {
 	    dm_set_fg(dmp, 255, 255, 255, 0, s->s_os->transparency);
 	}
 	if (mvars->lighting_on) {
@@ -502,7 +503,7 @@ gl_draw_tri(struct dm *dmp, struct bsg_mesh_lod *lod)
 		glDisable(GL_BLEND);
 	}
     } else {
-	if (s->s_iflag == UP) {
+	if (bsg_appearance_is_highlighted(s)) {
 	    dm_set_fg(dmp, 255, 255, 255, 0, s->s_os->transparency);
 	}
 	if (mvars->lighting_on) {

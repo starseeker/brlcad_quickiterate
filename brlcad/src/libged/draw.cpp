@@ -585,8 +585,8 @@ draw_scene(struct bsg_node *s, struct bsg_view *v)
     // any children and trigger their drawing operations.
     struct draw_update_data_t *d = (struct draw_update_data_t *)bsg_node_get_internal_data(s);
     if (!d) {
-	for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	    struct bsg_node *c = (struct bsg_node *)BU_PTBL_GET(&s->children, i);
+	for (size_t i = 0; i < bsg_node_child_count(s); i++) {
+	    struct bsg_node *c = bsg_node_child_at(s, i);
 	    draw_scene(c, v);
 	}
 	return;

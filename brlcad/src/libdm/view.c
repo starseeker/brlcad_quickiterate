@@ -26,6 +26,9 @@
 #include "bu/vls.h"
 #include "bn.h"
 #include "bsg/defines.h"
+#include "bsg/appearance.h"
+#include "bsg/material.h"
+#include "bsg/node.h"
 #include "bsg/lod.h"
 #include "bsg/util.h"
 #include "bsg/lod_ops.h"
@@ -287,7 +290,9 @@ dm_draw_label(struct dm *dmp, struct bsg_node *s)
     struct bsg_label *l = (struct bsg_label *)s->s_i_data;
 
     /* set color */
-    (void)dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2], 1, 1.0);
+    unsigned char r, g, b;
+    bsg_material_get_rgb(s, &r, &g, &b);
+    (void)dm_set_fg(dmp, r, g, b, 1, 1.0);
 
     point_t vpoint;
     MAT4X3PNT(vpoint, s->s_v->gv_model2view, l->p);
@@ -434,8 +439,8 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
     // Draw children. TODO - drawing children first may not
     // always be the desired behavior - might need interior and exterior
     // children tables to provide some control
-    for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
-	struct bsg_node *s_c = (struct bsg_node *)BU_PTBL_GET(&s->children, i);
+    for (size_t i = 0; i < bsg_node_child_count(s); i++) {
+	struct bsg_node *s_c = bsg_node_child_at(s, i);
 	_dm_draw_scene_obj_internal(dmp, s_c, v, do_force_draw, obj_settings,
 				    transparency_pass, cur_mat);
     }
@@ -447,7 +452,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
     if (obj_settings) {
 	dm_set_fg(dmp, obj_settings->color[0], obj_settings->color[1], obj_settings->color[2], 0, obj_settings->transparency);
     } else {
-	if (s->s_iflag == UP) {
+	if (bsg_appearance_is_highlighted(s)) {
 	    dm_set_fg(dmp, 255, 255, 255, 0, s->s_os->transparency);
 	} else if (s->s_os->color_override) {
 	    dm_set_fg(dmp, s->s_os->color[0], s->s_os->color[1], s->s_os->color[2], 0, s->s_os->transparency);
@@ -458,7 +463,9 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 	    unsigned char *gdc = dm_get_geometry_default_color(dmp);
 	    dm_set_fg(dmp, gdc[0], gdc[1], gdc[2], 0, s->s_os->transparency);
 	} else {
-	    dm_set_fg(dmp, s->s_color[0], s->s_color[1], s->s_color[2], 0, s->s_os->transparency);
+	    unsigned char sr, sg, sb;
+	    bsg_material_get_rgb(s, &sr, &sg, &sb);
+	    dm_set_fg(dmp, sr, sg, sb, 0, s->s_os->transparency);
 	}
     }
 
@@ -477,7 +484,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
      * matrix afterwards (cur_mat) — falling back to gv_model2view when
      * we are not under a transform node. */
     int edit_mat_swapped = 0;
-    if (s->s_iflag == UP && v->gv_edit_mat) {
+    if (bsg_appearance_is_highlighted(s) && v->gv_edit_mat) {
 	dm_loadmatrix(dmp, v->gv_edit_mat, 0);
 	edit_mat_swapped = 1;
     }
@@ -571,8 +578,8 @@ _bsg_view_traverse_impl(struct bsg_view *v, void *root,
     if (bsg_view_is_independent(v) && r == (struct bsg_node *)v->bsg_root) {
 	independent_root = 1;
     }
-    for (size_t i = 0; i < BU_PTBL_LEN(&r->children); i++) {
-	struct bsg_node *s = (struct bsg_node *)BU_PTBL_GET(&r->children, i);
+    for (size_t i = 0; i < bsg_node_child_count(r); i++) {
+	struct bsg_node *s = bsg_node_child_at(r, i);
 	if (!s)
 	    continue;
 
@@ -614,8 +621,7 @@ _bsg_view_traverse_impl(struct bsg_view *v, void *root,
 	    if (nlevels > 0) {
 		if (active < 0 || active >= nlevels)
 		    active = 0;
-		struct bsg_node *child =
-		    (struct bsg_node *)BU_PTBL_GET(&s->children, active);
+		struct bsg_node *child = bsg_node_child_at(s, active);
 		if (child)
 		    _bsg_view_traverse_impl(v, child,
 					    transparency_pass, cur_mat);

@@ -28,8 +28,12 @@
 
 #include "dm.h" // For labelvert - see if we really need the dm_set_dirty call there...
 
+#include "bsg/appearance.h"
+#include "bsg/draw_source.h"
+
 #include "ged.h"
 #include "ged/bsg_ged_draw.h"
+#include "ged/view.h"
 #include "../ged_private.h"
 
 /* Callback data for labelvert */
@@ -47,9 +51,9 @@ labelvert_solid_cb(struct bsg_node *sp, void *userdata)
     struct labelvert_data *lvd = (struct labelvert_data *)userdata;
     if (!sp->s_u_data)
 	return 1; /* continue */
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)ged_draw_shape_data_get(sp);
     if (db_full_path_search(&bdata->s_fullpath, lvd->dp)) {
-	rt_label_vlist_verts(lvd->vbp, &sp->s_vlist, lvd->mat, lvd->scale, lvd->base2local);
+	rt_label_vlist_verts(lvd->vbp, bsg_node_vlist_head(sp), lvd->mat, lvd->scale, lvd->base2local);
     }
     return 1; /* continue */
 }
@@ -114,16 +118,16 @@ illum_solid_cb(struct bsg_node *sp, void *userdata)
     struct illum_data *data = (struct illum_data *)userdata;
     if (!sp->s_u_data)
 	return 1; /* continue */
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)ged_draw_shape_data_get(sp);
 
     for (size_t i = 0; i < bdata->s_fullpath.fp_len; ++i) {
 	if (*data->obj == *DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_namep &&
 	    BU_STR_EQUAL(data->obj, DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_namep)) {
 	    data->found = 1;
 	    if (data->illum)
-		sp->s_iflag = UP;
+		bsg_appearance_set_highlighted(sp, 1);
 	    else
-		sp->s_iflag = DOWN;
+		bsg_appearance_set_highlighted(sp, 0);
 	}
     }
     return 1; /* continue */
