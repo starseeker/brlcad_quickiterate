@@ -258,6 +258,15 @@ bsg_node_user_data(const bsg_node *node)
 }
 
 
+struct bsg_obj_settings *
+bsg_node_settings(bsg_node *node)
+{
+    if (!node)
+	return NULL;
+    return node->s_os;
+}
+
+
 uint64_t
 bsg_node_revision(const bsg_node *node)
 {

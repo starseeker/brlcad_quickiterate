@@ -72,6 +72,43 @@ bsg_node_get_payload_type(const bsg_node *node);
 BSG_EXPORT extern void
 bsg_payload_dispatch(void *dmp, bsg_node *node, struct bsg_view *v);
 
+/* -----------------------------------------------------------------------
+ * Internal payload-data accessors (s_i_data / draw_data)
+ *
+ * s_i_data holds node-private payload data owned by the node kind
+ * (bsg_label, bsg_line_seg, bsg_data_polygon_state, LoD state, etc.).
+ * draw_data holds additional backend rendering data.  Callers outside
+ * libbsg must use these accessors instead of touching the fields directly.
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Set the internal payload data pointer for @p node.
+ * Ownership of @p data is transferred to the node; the node's free callback
+ * is responsible for releasing it.
+ * No-op if @p node is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_set_internal_data(bsg_node *node, void *data);
+
+/**
+ * Return the internal payload data pointer stored in @p node, or NULL.
+ */
+BSG_EXPORT extern void *
+bsg_node_get_internal_data(const bsg_node *node);
+
+/**
+ * Set the supplemental draw data pointer for @p node.
+ * No-op if @p node is NULL.
+ */
+BSG_EXPORT extern void
+bsg_node_set_draw_data(bsg_node *node, void *data);
+
+/**
+ * Return the supplemental draw data pointer stored in @p node, or NULL.
+ */
+BSG_EXPORT extern void *
+bsg_node_get_draw_data(const bsg_node *node);
+
 __END_DECLS
 
 #endif /* BSG_PAYLOAD_H */

@@ -63,6 +63,12 @@
 
 #include "bsg/view_sets.h"
 
+#include "bsg/appearance.h"
+#include "bsg/draw_source.h"
+#include "bsg/material.h"
+#include "bsg/node.h"
+#include "bsg/payload.h"
+
 #include "ged.h"
 #include "ged/bsg_ged_draw.h"
 #include "./ged_private.h"
@@ -74,7 +80,7 @@
 #define FIRST_SOLID(_bdata)  ((_bdata)->s_fullpath.fp_names[0])
 #define FREE_BV_SCENE_OBJ(p, fp, vlf) { \
         BU_LIST_APPEND(fp, &((p)->l)); \
-        BSG_FREE_VLIST(vlf, &((p)->s_vlist)); }
+        { struct bu_list *_vl_ = bsg_node_vlist_head(p); BSG_FREE_VLIST(vlf, _vl_); } }
 
 /* Thin wrapper: delegates to bsg_bump_rev_node() in libbsg/draw_set.c.
  * Phase 7 Step 11: the implementation moved to libbsg so that the free-group
@@ -167,7 +173,7 @@ _lod_state_adaptive_set(struct ged_lod_state *st, struct bsg_view *v, int adapti
 static int
 _mesh_lod_select_level(bsg_node *node, struct bsg_view *v)
 {
-    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bsg_node *)node)->s_i_data;
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)bsg_node_get_internal_data((bsg_node *)node);
     if (!pl || !pl->user_data || !v)
 	return 0;
     struct ged_lod_state *st = (struct ged_lod_state *)pl->user_data;
@@ -207,7 +213,7 @@ _lod_is_stale(bsg_node *node, struct bsg_view *v)
 static void
 _lod_state_free(bsg_node *node, const char *alloc_label)
 {
-    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bsg_node *)node)->s_i_data;
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)bsg_node_get_internal_data((bsg_node *)node);
     if (!pl || !pl->user_data)
 	return;
     struct ged_lod_state *st = (struct ged_lod_state *)pl->user_data;
@@ -232,11 +238,11 @@ static struct bsg_lod_ops _mesh_lod_ops = {
 static int
 _csg_lod_select_level(bsg_node *node, struct bsg_view *v)
 {
-    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)((struct bsg_node *)node)->s_i_data;
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)bsg_node_get_internal_data((bsg_node *)node);
     if (!pl || !pl->user_data || !v)
 	return 0;
     struct ged_lod_state *st = (struct ged_lod_state *)pl->user_data;
-    if (!st->s || !st->s->s_i_data)
+    if (!st->s || !bsg_node_get_internal_data(st->s))
 	return 0;
     csg_wireframe_update(st->s, v, 0);
     return 0;
@@ -291,7 +297,7 @@ ged_lod_adaptive_toggle_sync(struct bsg_node *lod, struct bsg_view *v, int adapt
     if (!lod || !v || !(lod->s_type_flags & BSG_NODE_LOD))
 	return 0;
 
-    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)lod->s_i_data;
+    struct bsg_lod_payload *pl = (struct bsg_lod_payload *)bsg_node_get_internal_data(lod);
     if (!pl || !pl->user_data)
 	return 0;
 
@@ -342,9 +348,9 @@ _sg_root(struct ged *gedp)
         return NULL;
 
     root->s_type_flags = BSG_NODE_GROUP;
-    root->s_flag = UP;
+    bsg_node_set_visible_state(root, 1);
     root->parent = NULL;
-    bu_vls_sprintf(&root->s_name, "_draw_root");
+    bsg_node_set_name(root, "_draw_root");
 
     gedp->i->ged_gdp->gd_draw_root = root;
 
@@ -355,7 +361,7 @@ _sg_root(struct ged *gedp)
      * recycle nodes without calling bsg_set_fsos (which needs gedp). */
     gedp->i->ged_gdp->bsg_ctx.draw_rev = &gedp->i->ged_gdp->gd_draw_rev;
     gedp->i->ged_gdp->bsg_ctx.fso      = bsg_set_fsos(&gedp->ged_views);
-    root->s_i_data = &gedp->i->ged_gdp->bsg_ctx;
+    bsg_node_set_internal_data(root, &gedp->i->ged_gdp->bsg_ctx);
 
     /* A3: register in the view so that the BSG render loop can traverse the
      * draw tree directly without reading gv_objs (Phase 7 step 7 A3).
@@ -416,9 +422,9 @@ _sg_erase_overlay_by_name(struct ged *gedp, const char *name)
 void
 ged_bv_illum_free_cb(struct bsg_node *sp)
 {
-    if (!sp->s_u_data)
+    if (!bsg_node_user_data(sp))
         return;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_user_data(sp);
     if (!bdata->gedp)
         return;
     struct ged_drawable *gdp = bdata->gedp->i->ged_gdp;
@@ -428,6 +434,25 @@ ged_bv_illum_free_cb(struct bsg_node *sp)
         gdp->gd_illum_sensor = NULL;
         gdp->gd_illum_rev++;
     }
+}
+
+
+ged_draw_shape_data *
+ged_draw_shape_data_get(const struct bsg_node *node)
+{
+    if (!node)
+        return NULL;
+    return (ged_draw_shape_data *)bsg_node_user_data(node);
+}
+
+
+const struct db_full_path *
+ged_draw_shape_fullpath(const struct bsg_node *node)
+{
+    ged_draw_shape_data *bd = ged_draw_shape_data_get(node);
+    if (!bd)
+        return NULL;
+    return &bd->s_fullpath;
 }
 
 
@@ -614,9 +639,9 @@ _sg_erase_path(struct ged *gedp, const char *path)
     int found_subpath = (db_string_to_path(&subpath, dbip, path) == 0);
 
     struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
-    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
         struct bsg_node *g =
-            (struct bsg_node *)BU_PTBL_GET(&root->children, i);
+            (struct bsg_node *)bsg_node_child_at(root, i);
         if (!BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name)))
             bu_ptbl_ins(&snap, (long *)g);
     }
@@ -644,7 +669,7 @@ _sg_erase_path(struct ged *gedp, const char *path)
 
         if (is_ancestor && ancestor_depth < subpath.fp_len) {
             _sg_erase_nested_subpath(g, &subpath, ancestor_depth);
-            if (BU_PTBL_LEN(&g->children) == 0)
+            if (bsg_node_child_count(g) == 0)
                 _sg_free_group(g);
             break;
         }
@@ -665,9 +690,9 @@ _sg_erase_subgroups_by_name(struct ged *gedp, struct bsg_node *parent,
                               const char *name)
 {
     struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
-    for (size_t i = 0; i < BU_PTBL_LEN(&parent->children); i++) {
+    for (size_t i = 0; i < bsg_node_child_count(parent); i++) {
         struct bsg_node *c =
-            (struct bsg_node *)BU_PTBL_GET(&parent->children, i);
+            (struct bsg_node *)bsg_node_child_at(parent, i);
         if (c->s_type_flags & BSG_NODE_GROUP)
             bu_ptbl_ins(&snap, (long *)c);
     }
@@ -702,9 +727,9 @@ _sg_erase_all_names(struct ged *gedp, const char *name)
     _sg_erase_overlay_by_name(gedp, name);
 
     struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
-    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
         struct bsg_node *g =
-            (struct bsg_node *)BU_PTBL_GET(&root->children, i);
+            (struct bsg_node *)bsg_node_child_at(root, i);
         if (!BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name)))
             bu_ptbl_ins(&snap, (long *)g);
     }
@@ -751,21 +776,21 @@ _sg_erase_all_paths(struct ged *gedp, const char *path)
     if (db_string_to_path(&subpath, dbip, path) != 0)
         return;
 
-    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
         struct bsg_node *g =
-            (struct bsg_node *)BU_PTBL_GET(&root->children, i);
-        g->s_iflag = DOWN;
+            (struct bsg_node *)bsg_node_child_at(root, i);
+        bsg_appearance_set_highlighted(g, 0);
     }
 
     int restart;
     do {
         restart = 0;
-        for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+        for (size_t i = 0; i < bsg_node_child_count(root); i++) {
             struct bsg_node *g =
-                (struct bsg_node *)BU_PTBL_GET(&root->children, i);
-            if (g->s_iflag == UP)
+                (struct bsg_node *)bsg_node_child_at(root, i);
+            if (bsg_appearance_is_highlighted(g))
                 continue;
-            g->s_iflag = UP;
+            bsg_appearance_set_highlighted(g, 1);
 
             struct db_full_path fullpath;
             if (db_string_to_path(&fullpath, dbip,
@@ -786,7 +811,7 @@ _sg_erase_all_paths(struct ged *gedp, const char *path)
                 size_t depth = fullpath.fp_len;
                 db_free_full_path(&fullpath);
                 _sg_erase_nested_subpath(g, &subpath, depth);
-                if (BU_PTBL_LEN(&g->children) == 0)
+                if (bsg_node_child_count(g) == 0)
                     _sg_free_group(g);
                 restart = 1;
                 break;
@@ -828,9 +853,7 @@ color_soltab(struct db_i *dbip, struct bsg_node *sp)
     sp->s_old.s_cflag = 0;
 
     if (sp->s_old.s_uflag) {
-        sp->s_color[0] = sp->s_old.s_basecolor[0];
-        sp->s_color[1] = sp->s_old.s_basecolor[1];
-        sp->s_color[2] = sp->s_old.s_basecolor[2];
+        bsg_material_set_rgb(sp, sp->s_old.s_basecolor[0], sp->s_old.s_basecolor[1], sp->s_old.s_basecolor[2]);
         return;
     }
 
@@ -838,9 +861,7 @@ color_soltab(struct db_i *dbip, struct bsg_node *sp)
         for (mp = db_mater_head(dbip); mp != MATER_NULL; mp = mp->mt_forw) {
             if (sp->s_old.s_regionid <= mp->mt_high &&
                 sp->s_old.s_regionid >= mp->mt_low) {
-                sp->s_color[0] = mp->mt_r;
-                sp->s_color[1] = mp->mt_g;
-                sp->s_color[2] = mp->mt_b;
+                bsg_material_set_rgb(sp, mp->mt_r, mp->mt_g, mp->mt_b);
                 return;
             }
         }
@@ -849,9 +870,7 @@ color_soltab(struct db_i *dbip, struct bsg_node *sp)
     if (sp->s_old.s_dflag)
         sp->s_old.s_cflag = 1;
 
-    sp->s_color[0] = sp->s_old.s_basecolor[0];
-    sp->s_color[1] = sp->s_old.s_basecolor[1];
-    sp->s_color[2] = sp->s_old.s_basecolor[2];
+    bsg_material_set_rgb(sp, sp->s_old.s_basecolor[0], sp->s_old.s_basecolor[1], sp->s_old.s_basecolor[2]);
 }
 
 
@@ -862,19 +881,19 @@ color_soltab(struct db_i *dbip, struct bsg_node *sp)
 static void
 solid_append_vlist(struct bsg_node *sp, bsg_vlist *vlist)
 {
-    if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
-        sp->s_vlen = 0;
-    sp->s_vlen += bsg_vlist_cmd_cnt(vlist);
-    BU_LIST_APPEND_LIST(&(sp->s_vlist), &(vlist->l));
+    if (BU_LIST_IS_EMPTY(bsg_node_vlist_head(sp)))
+        bsg_node_set_vlen(sp, 0);
+    bsg_node_set_vlen(sp, bsg_node_vlen(sp) + bsg_vlist_cmd_cnt(vlist));
+    BU_LIST_APPEND_LIST(bsg_node_vlist_head(sp), &(vlist->l));
 }
 
 static void
 solid_copy_vlist(struct db_i *UNUSED(dbip), struct bsg_node *sp,
                  bsg_vlist *vlist, struct bu_list *vlfree)
 {
-    BU_LIST_INIT(&(sp->s_vlist));
-    bsg_vlist_copy(vlfree, &(sp->s_vlist), (struct bu_list *)vlist);
-    sp->s_vlen = bsg_vlist_cmd_cnt((bsg_vlist *)(&(sp->s_vlist)));
+    BU_LIST_INIT(bsg_node_vlist_head(sp));
+    bsg_vlist_copy(vlfree, bsg_node_vlist_head(sp), (struct bu_list *)vlist);
+    bsg_node_set_vlen(sp, bsg_vlist_cmd_cnt((bsg_vlist *)bsg_node_vlist_head(sp)));
 }
 
 
@@ -904,22 +923,22 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     /* Obtain a fresh solid structure. */
     struct bsg_node *sp = bsg_obj_get(gedp->ged_gvp, BV_DB_OBJS);
     sp->s_type_flags |= BSG_NODE_SHAPE | BSG_PAYLOAD_OVERLAY;
-    bu_vls_sprintf(&sp->s_name, "%s", name);
+    bsg_node_set_name(sp, name);
 
     struct ged_bv_data *bdata =
-        (sp->s_u_data) ? (struct ged_bv_data *)sp->s_u_data : NULL;
+        bsg_node_user_data(sp) ? (struct ged_bv_data *)bsg_node_user_data(sp) : NULL;
     if (!bdata) {
         BU_GET(bdata, struct ged_bv_data);
         db_full_path_init(&bdata->s_fullpath);
-        sp->s_u_data = (void *)bdata;
+        bsg_node_set_user_data(sp, (void *)bdata);
     } else {
         bdata->s_fullpath.fp_len = 0;
     }
-    if (!sp->s_u_data)
+    if (!bsg_node_user_data(sp))
         return -1;
     /* Phase 7 Step 9: register back-pointer + illum-clear callback. */
     bdata->gedp = gedp;
-    sp->s_free_callback = ged_bv_illum_free_cb;
+    bsg_node_set_free_cb(sp, ged_bv_illum_free_cb);
 
     if (copy)
         solid_copy_vlist(dbip, sp, (bsg_vlist *)vhead, vlfree);
@@ -932,8 +951,7 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
     /* Attach to the _overlays subgroup (no phony db entry needed). */
     struct bsg_node *ov = _sg_overlay_root(gedp);
     if (ov) {
-        sp->parent = ov;
-        bu_ptbl_ins(&ov->children, (long *)sp);
+        bsg_node_add_child(ov, sp);
         /* ov->parent is set (ov is under the draw root) */
         _sg_bump_rev_node(ov);
         /* Phase 9.1: a new shape under ov invalidates ancestors' bbox cache.
@@ -942,19 +960,20 @@ _sg_invent(struct ged *gedp, char *name, struct bu_list *vhead, long int rgb,
         bsg_node_bbox_invalidate((bsg_node *)ov);
     }
 
-    sp->s_iflag              = DOWN;
+    bsg_appearance_set_highlighted(sp, 0);
     sp->s_soldash            = 0;
     sp->s_old.s_Eflag        = 1;
-    sp->s_color[0]           = sp->s_old.s_basecolor[0] = (rgb >> 16) & 0xFF;
-    sp->s_color[1]           = sp->s_old.s_basecolor[1] = (rgb >>  8) & 0xFF;
-    sp->s_color[2]           = sp->s_old.s_basecolor[2] = (rgb      ) & 0xFF;
+    sp->s_old.s_basecolor[0] = (rgb >> 16) & 0xFF;
+    sp->s_old.s_basecolor[1] = (rgb >>  8) & 0xFF;
+    sp->s_old.s_basecolor[2] = (rgb      ) & 0xFF;
+    bsg_material_set_rgb(sp, sp->s_old.s_basecolor[0], sp->s_old.s_basecolor[1], sp->s_old.s_basecolor[2]);
     sp->s_old.s_regionid     = 0;
     sp->s_old.s_uflag        = 0;
     sp->s_old.s_dflag        = 0;
     sp->s_old.s_cflag        = 0;
     sp->s_old.s_wflag        = 0;
-    sp->s_os->transparency   = transparency;
-    sp->s_os->s_dmode        = dmode;
+    bsg_appearance_set_transparency(sp, transparency);
+    bsg_appearance_set_dmode(sp, dmode);
 
     if (csoltab)
         color_soltab(gedp->dbip, sp);
@@ -971,7 +990,7 @@ static int
 _iflag_solid_cb(bsg_node *n, void *ud)
 {
     struct bsg_node *sp = (struct bsg_node *)n;
-    sp->s_iflag = *(char *)ud;
+    bsg_appearance_set_highlighted(sp, *(char *)ud);
     return 1;
 }
 
@@ -1102,9 +1121,9 @@ _sg_set_illum(struct ged *gedp, struct bsg_node *sp)
     }
 
     if (old)
-        old->s_iflag = DOWN;
+        bsg_appearance_set_highlighted(old, 0);
     if (sp)
-        sp->s_iflag = UP;
+        bsg_appearance_set_highlighted(sp, 1);
 
     /* Tear down any previously-registered NodeSensor. */
     if (gdp->gd_illum_sensor) {
@@ -1297,7 +1316,7 @@ bsg_view_obj_set_iflag(struct ged *gedp, int iflag)
         struct ged_drawable *gdp = gedp->i->ged_gdp;
         struct bsg_node *illum = _sg_illum_node(gdp);
         if (illum) {
-            illum->s_iflag = DOWN;
+            bsg_appearance_set_highlighted(illum, 0);
             /* Phase 9.3 / 13: tear down NodeSensor + bump highlight rev. */
             bsg_sensor_destroy((bsg_node *)gdp->gd_illum_sensor);
             gdp->gd_illum_sensor = NULL;
@@ -1402,9 +1421,9 @@ bsg_view_obj_first_solid(struct ged *gedp)
     struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return NULL;
-    for (size_t gi = 0; gi < BU_PTBL_LEN(&root->children); gi++) {
+    for (size_t gi = 0; gi < bsg_node_child_count(root); gi++) {
         struct bsg_node *g =
-            (struct bsg_node *)BU_PTBL_GET(&root->children, gi);
+            (struct bsg_node *)bsg_node_child_at(root, gi);
         if (BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name)))
             continue;
         struct _first_solid_data d = { NULL };
@@ -1436,9 +1455,9 @@ _sg_build_solid_snapshot(struct ged *gedp, struct bu_ptbl *out)
     struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return;
-    for (size_t gi = 0; gi < BU_PTBL_LEN(&root->children); gi++) {
+    for (size_t gi = 0; gi < bsg_node_child_count(root); gi++) {
         struct bsg_node *g =
-            (struct bsg_node *)BU_PTBL_GET(&root->children, gi);
+            (struct bsg_node *)bsg_node_child_at(root, gi);
         if (BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name)))
             continue;
         bsg_visit((bsg_node *)g, BSG_NODE_SHAPE, _snap_solid_cb, (void *)out);
@@ -1578,9 +1597,9 @@ bsg_view_obj_foreach_group(struct ged *gedp,
     if (!root)
         return;
 
-    for (size_t gi = 0; gi < BU_PTBL_LEN(&root->children); gi++) {
+    for (size_t gi = 0; gi < bsg_node_child_count(root); gi++) {
         struct bsg_node *g =
-            (struct bsg_node *)BU_PTBL_GET(&root->children, gi);
+            (struct bsg_node *)bsg_node_child_at(root, gi);
         if (!(*cb)(g, userdata))
             return;
     }
@@ -1643,12 +1662,11 @@ bsg_view_obj_append_to_last_group(struct ged *gedp, struct bsg_node *sp)
         return;
 
     struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
-    if (!root || BU_PTBL_LEN(&root->children) == 0)
+    if (!root || bsg_node_child_count(root) == 0)
         return;
 
     struct bsg_node *g =
-        (struct bsg_node *)BU_PTBL_GET(&root->children,
-                                            BU_PTBL_LEN(&root->children) - 1);
+        (struct bsg_node *)bsg_node_child_at(root, bsg_node_child_count(root) - 1);
     bsg_view_obj_append_solid_to_group(gedp, g, sp);
 }
 
@@ -1668,7 +1686,7 @@ bsg_view_obj_group_set_dbpath(struct bsg_node *group,
     char *s = db_path_to_string(new_dfp);
     if (!s)
         return;
-    bu_vls_sprintf(&group->s_name, "%s", _dbpath_skip_lead_slash(s));
+    bsg_node_set_name(group, _dbpath_skip_lead_slash(s));
     bu_free(s, "bsg_view_obj_group_set_dbpath: path string");
 }
 
@@ -1721,8 +1739,8 @@ bsg_view_obj_zap(struct ged *gedp)
 
     /* Snapshot so we can safely modify children during iteration */
     struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
-    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++)
-        bu_ptbl_ins(&snap, BU_PTBL_GET(&root->children, i));
+    for (size_t i = 0; i < bsg_node_child_count(root); i++)
+        bu_ptbl_ins(&snap, (long *)bsg_node_child_at(root, i));
 
     for (size_t gi = 0; gi < BU_PTBL_LEN(&snap); gi++) {
         struct bsg_node *g =
@@ -1767,7 +1785,7 @@ bsg_view_obj_has_groups(struct ged *gedp)
     struct bsg_node *root = gedp->i->ged_gdp->gd_draw_root;
     if (!root)
         return 0;
-    return (BU_PTBL_LEN(&root->children) > 0) ? 1 : 0;
+    return (bsg_node_child_count(root) > 0) ? 1 : 0;
 }
 
 
@@ -1795,13 +1813,12 @@ bsg_view_obj_append_solid_to_group(struct ged *gedp,
 
     /* Determine which sub-groups to create/navigate */
     struct ged_bv_data *bdata =
-        (sp->s_u_data) ? (struct ged_bv_data *)sp->s_u_data : NULL;
+        bsg_node_user_data(sp) ? (struct ged_bv_data *)bsg_node_user_data(sp) : NULL;
     int fp_len = bdata ? (int)bdata->s_fullpath.fp_len : 0;
 
     if (!gedp || fp_len == 0) {
         /* No path info — append directly */
-        sp->parent = group;
-        bu_ptbl_ins(&group->children, (long *)sp);
+        bsg_node_add_child(group, sp);
         /* Phase 9.1: shape added under group invalidates aggregate bbox cache. */
         bsg_node_bbox_invalidate((bsg_node *)group);
         return;
@@ -1823,8 +1840,7 @@ bsg_view_obj_append_solid_to_group(struct ged *gedp,
         cur = child;
     }
 
-    sp->parent = cur;
-    bu_ptbl_ins(&cur->children, (long *)sp);
+    bsg_node_add_child(cur, sp);
     /* Phase 9.1: shape added under cur invalidates aggregate bbox cache. */
     bsg_node_bbox_invalidate((bsg_node *)cur);
 }

@@ -35,6 +35,11 @@
 #include "raytrace.h"
 
 #include "ged/bsg_ged_draw.h"
+#include "bsg/appearance.h"
+#include "bsg/draw_source.h"
+#include "bsg/material.h"
+#include "bsg/node.h"
+#include "bsg/payload.h"
 #include "../ged_private.h"
 #include "./ged_draw.h"
 
@@ -90,33 +95,33 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
 	return;
     sp->s_type_flags |= BSG_NODE_SHAPE;
 
-    struct ged_bv_data *bdata = (sp->s_u_data) ? (struct ged_bv_data *)sp->s_u_data : NULL;
+    struct ged_bv_data *bdata = (bsg_node_user_data(sp)) ? (struct ged_bv_data *)bsg_node_user_data(sp) : NULL;
     if (!bdata) {
 	BU_GET(bdata, struct ged_bv_data);
 	db_full_path_init(&bdata->s_fullpath);
-	sp->s_u_data = (void *)bdata;
+	bsg_node_set_user_data(sp, (void *)bdata);
     } else {
 	bdata->s_fullpath.fp_len = 0;
     }
-    if (!sp->s_u_data)
+    if (!bsg_node_user_data(sp))
 	return;
     /* Phase 7 Step 9: register back-pointer + illum-clear callback. */
     bdata->gedp = dgcdp->gedp;
-    sp->s_free_callback = ged_bv_illum_free_cb;
+    bsg_node_set_free_cb(sp, ged_bv_illum_free_cb);
 
 
-    if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
-	sp->s_vlen = 0;
+    if (BU_LIST_IS_EMPTY(bsg_node_vlist_head(sp)))
+	bsg_node_set_vlen(sp, 0);
 
     bsg_vlist *bvv = (bsg_vlist *)vhead;
-    sp->s_vlen += bsg_vlist_cmd_cnt(bvv);
-    BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
+    bsg_node_set_vlen(sp, bsg_node_vlen(sp) + bsg_vlist_cmd_cnt(bvv));
+    BU_LIST_APPEND_LIST(bsg_node_vlist_head(sp), &(bvv->l));
 
     bsg_scene_obj_bound(sp, dgcdp->v);
 
     db_dup_full_path(&bdata->s_fullpath, pathp);
 
-    sp->s_iflag = DOWN;
+    bsg_appearance_set_highlighted(sp, 0);
     sp->s_soldash = dashflag;
     sp->s_old.s_Eflag = 0;
 
@@ -126,8 +131,8 @@ dl_add_path(int dashflag, struct bu_list *vhead, const struct db_full_path *path
 
     solid_set_color_info(sp, wireframe_color_override, tsp);
 
-    sp->s_os->transparency = dgcdp->vs.transparency;
-    sp->s_os->s_dmode = dgcdp->vs.s_dmode;
+    bsg_appearance_set_transparency(sp, dgcdp->vs.transparency);
+    bsg_appearance_set_dmode(sp, dgcdp->vs.s_dmode);
 
     /* append solid to display list */
     bu_semaphore_acquire(RT_SEM_MODEL);
@@ -168,19 +173,21 @@ draw_solid_wireframe(struct bsg_node *sp, struct bsg_view *gvp, struct db_i *dbi
     struct rt_db_internal *ip = &dbintern;
 
     BU_LIST_INIT(&vhead);
-    if (!sp->s_u_data)
+    if (!bsg_node_user_data(sp))
 	return -1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)bsg_node_user_data(sp);
 
+    mat_t _s_mat;
+    bsg_node_get_draw_mat(sp, _s_mat);
     ret = rt_db_get_internal(ip, DB_FULL_PATH_CUR_DIR(&bdata->s_fullpath),
-			     dbip, sp->s_mat);
+			     dbip, _s_mat);
 
     if (ret < 0) {
 	return -1;
     }
 
     if (gvp && gvp->gv_s->adaptive_plot_csg && ip->idb_meth->ft_adaptive_plot) {
-	ret = ip->idb_meth->ft_adaptive_plot(&vhead, ip, tol, gvp, sp->s_size);
+	ret = ip->idb_meth->ft_adaptive_plot(&vhead, ip, tol, gvp, bsg_node_draw_size(sp));
     } else if (ip->idb_meth->ft_plot) {
 	ret = ip->idb_meth->ft_plot(&vhead, ip, ttol, tol, gvp);
     }
@@ -195,12 +202,12 @@ draw_solid_wireframe(struct bsg_node *sp, struct bsg_view *gvp, struct db_i *dbi
     }
 
     /* add plot to solid */
-    if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
-	sp->s_vlen = 0;
+    if (BU_LIST_IS_EMPTY(bsg_node_vlist_head(sp)))
+	bsg_node_set_vlen(sp, 0);
 
     bsg_vlist *bvv = (bsg_vlist *)&vhead;
-    sp->s_vlen += bsg_vlist_cmd_cnt(bvv);
-    BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
+    bsg_node_set_vlen(sp, bsg_node_vlen(sp) + bsg_vlist_cmd_cnt(bvv));
+    BU_LIST_APPEND_LIST(bsg_node_vlist_head(sp), &(bvv->l));
 
     return 0;
 }
@@ -208,10 +215,11 @@ draw_solid_wireframe(struct bsg_node *sp, struct bsg_view *gvp, struct db_i *dbi
 static int
 redraw_solid(struct bsg_node *sp, struct db_i *dbip, struct db_tree_state *tsp, struct bsg_view *gvp, struct bu_list *vlfree)
 {
-    if (sp->s_os->s_dmode == _GED_WIREFRAME) {
+    if (bsg_appearance_dmode(sp) == _GED_WIREFRAME) {
 	/* replot wireframe */
-	if (BU_LIST_NON_EMPTY(&sp->s_vlist)) {
-	    BSG_FREE_VLIST(vlfree, &sp->s_vlist);
+	if (BU_LIST_NON_EMPTY(bsg_node_vlist_head(sp))) {
+	    struct bu_list *_vl = bsg_node_vlist_head(sp);
+	    BSG_FREE_VLIST(vlfree, _vl);
 	}
 	return draw_solid_wireframe(sp, gvp, dbip, tsp->ts_tol, tsp->ts_ttol);
     }
@@ -294,22 +302,22 @@ append_solid_to_display_list(
     /* create solid */
     struct bsg_node *sp = bsg_obj_get(bsg_data->v, BV_DB_OBJS);
     sp->s_type_flags |= BSG_NODE_SHAPE;
-    struct ged_bv_data *bdata = (sp->s_u_data) ? (struct ged_bv_data *)sp->s_u_data : NULL;
+    struct ged_bv_data *bdata = (bsg_node_user_data(sp)) ? (struct ged_bv_data *)bsg_node_user_data(sp) : NULL;
     if (!bdata) {
 	BU_GET(bdata, struct ged_bv_data);
 	db_full_path_init(&bdata->s_fullpath);
-	sp->s_u_data = (void *)bdata;
+	bsg_node_set_user_data(sp, (void *)bdata);
     } else {
 	bdata->s_fullpath.fp_len = 0;
     }
-    if (!sp->s_u_data)
+    if (!bsg_node_user_data(sp))
 	return TREE_NULL;
     /* Phase 7 Step 9: register back-pointer + illum-clear callback. */
     bdata->gedp = bsg_data->gedp;
-    sp->s_free_callback = ged_bv_illum_free_cb;
+    bsg_node_set_free_cb(sp, ged_bv_illum_free_cb);
 
-    sp->s_size = 0;
-    VSETALL(sp->s_center, 0.0);
+    bsg_node_set_draw_size(sp, 0);
+    { vect_t _zero = VINIT_ZERO; bsg_node_set_draw_center(sp, _zero); }
 
     if (ip->idb_meth->ft_bbox) {
         if (ip->idb_meth->ft_bbox(ip, &min, &max, tsp->ts_tol) < 0) {
@@ -322,13 +330,16 @@ append_solid_to_display_list(
             return TREE_NULL;
         }
 
-        sp->s_center[X] = (min[X] + max[X]) * 0.5;
-        sp->s_center[Y] = (min[Y] + max[Y]) * 0.5;
-        sp->s_center[Z] = (min[Z] + max[Z]) * 0.5;
+        vect_t _c;
+        _c[X] = (min[X] + max[X]) * 0.5;
+        _c[Y] = (min[Y] + max[Y]) * 0.5;
+        _c[Z] = (min[Z] + max[Z]) * 0.5;
+        bsg_node_set_draw_center(sp, _c);
 
-        sp->s_size = max[X] - min[X];
-        V_MAX(sp->s_size, max[Y] - min[Y]);
-        V_MAX(sp->s_size, max[Z] - min[Z]);
+        fastf_t _sz = max[X] - min[X];
+        V_MAX(_sz, max[Y] - min[Y]);
+        V_MAX(_sz, max[Z] - min[Z]);
+        bsg_node_set_draw_size(sp, _sz);
     } else if (ip->idb_meth->ft_plot) {
         /* As a fallback for primitives that don't have a bbox function, use
          * the old bounding method of calculating a plot for the primitive and
@@ -353,24 +364,24 @@ append_solid_to_display_list(
             return TREE_NULL;
         }
 
-	if (BU_LIST_IS_EMPTY(&(sp->s_vlist)))
-	    sp->s_vlen = 0;
+	if (BU_LIST_IS_EMPTY(bsg_node_vlist_head(sp)))
+	    bsg_node_set_vlen(sp, 0);
 
 	bsg_vlist *bvv = (bsg_vlist *)&vhead;
-	sp->s_vlen += bsg_vlist_cmd_cnt(bvv);
-	BU_LIST_APPEND_LIST(&(sp->s_vlist), &(bvv->l));
+	bsg_node_set_vlen(sp, bsg_node_vlen(sp) + bsg_vlist_cmd_cnt(bvv));
+	BU_LIST_APPEND_LIST(bsg_node_vlist_head(sp), &(bvv->l));
 
 	bsg_scene_obj_bound(sp, bsg_data->v);
 
-        while (BU_LIST_WHILE(vp, bsg_vlist, &(sp->s_vlist))) {
+        while (BU_LIST_WHILE(vp, bsg_vlist, bsg_node_vlist_head(sp))) {
             BU_LIST_DEQUEUE(&vp->l);
             bu_free(vp, "solid vp");
         }
     }
 
-    sp->s_vlen = 0;
+    bsg_node_set_vlen(sp, 0);
     db_dup_full_path(&bdata->s_fullpath, pathp);
-    sp->s_iflag = DOWN;
+    bsg_appearance_set_highlighted(sp, 0);
 
     if (bsg_data->draw_solid_lines_only) {
         sp->s_soldash = 0;
@@ -436,9 +447,9 @@ append_solid_to_display_list(
 	}
     }
 
-    sp->s_os->transparency = bsg_data->transparency;
-    sp->s_os->s_dmode = bsg_data->dmode;
-    MAT_COPY(sp->s_mat, tsp->ts_mat);
+    bsg_appearance_set_transparency(sp, bsg_data->transparency);
+    bsg_appearance_set_dmode(sp, bsg_data->dmode);
+    bsg_node_set_draw_mat(sp, tsp->ts_mat);
 
     /* append solid to display list */
     bu_semaphore_acquire(RT_SEM_MODEL);

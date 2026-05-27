@@ -67,6 +67,41 @@ struct ged_bv_data {
     void *u_data;
 };
 
+/**
+ * Phase 8A (bsg_modernize): canonical name for the GED draw-shape data
+ * contract.  Each BSG_NODE_SHAPE drawn by a GED session stores one of these
+ * in its s_u_data field (accessible via bsg_node_user_data()).
+ *
+ * Ownership:
+ *  - Allocated by bsg_ged_draw.c when a new shape node is created for a
+ *    database path.
+ *  - Released by ged_bv_illum_free_cb (s_free_callback) which is registered
+ *    on every shape node at creation time.
+ *  - s_fullpath: fully-resolved db_full_path to the drawn solid.
+ *  - gedp: back-pointer used by the free callback to deregister the
+ *    illumination sensor without passing gedp through libbsg freeing paths.
+ *  - u_data: optional application-level annotation; managed by caller.
+ *
+ * Use bsg_node_user_data() / bsg_node_set_user_data() to get/set the
+ * ged_draw_shape_data pointer on a bsg_node, then cast the result.
+ */
+typedef struct ged_bv_data ged_draw_shape_data;
+
+/**
+ * Return the ged_draw_shape_data stored in @p node's s_u_data field,
+ * or NULL if @p node is NULL or carries no draw-shape data.
+ * Equivalent to (ged_draw_shape_data *)bsg_node_user_data(node).
+ */
+GED_EXPORT extern ged_draw_shape_data *
+ged_draw_shape_data_get(const struct bsg_node *node);
+
+/**
+ * Return the fully-resolved db_full_path for the draw-shape data in @p node,
+ * or NULL if @p node carries no draw-shape data.
+ */
+GED_EXPORT extern const struct db_full_path *
+ged_draw_shape_fullpath(const struct bsg_node *node);
+
 GED_EXPORT extern int ged_export_polygon(struct ged *gedp, bsg_data_polygon_state *gdpsp, size_t polygon_i, const char *sname);
 GED_EXPORT extern struct bg_polygon *ged_import_polygon(struct ged *gedp, const char *sname);
 GED_EXPORT extern int ged_polygons_overlap(struct ged *gedp, struct bg_polygon *polyA, struct bg_polygon *polyB);
