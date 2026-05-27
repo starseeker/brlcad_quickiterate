@@ -659,8 +659,8 @@ _sg_erase_path(struct ged *gedp, const char *path)
 		break;
 	    }
 
-        if (!found_subpath)
-            continue;
+	    if (!found_subpath)
+		continue;
 
 	    /* Check if root child is an ancestor of the erase path */
 	    struct db_full_path gdlpath;
@@ -1712,7 +1712,7 @@ bsg_view_obj_group_dmode(struct bsg_node *group)
 	return BSG_DRAW_MODE_WIRE;
     const struct bsg_draw_intent *di = bsg_node_get_draw_intent(group);
     if (di)
-	return (int)bsg_draw_intent_mode(di);
+	return bsg_draw_intent_mode(di);
     struct bsg_node *sp = bsg_view_obj_group_first_solid(group);
     if (sp && sp->s_os)
 	return sp->s_os->s_dmode;
