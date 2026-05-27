@@ -31,6 +31,8 @@ extern "C" {
 #include "raytrace.h"
 }
 
+#include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include "qtcad/QgSelectFilter.h"
 #include "qtcad/QgSignalFlags.h"
@@ -64,36 +66,53 @@ _qg_pick_record_create(struct bsg_node *node, struct bsg_view *v, int sx, int sy
 }
 
 static struct bsg_pick_result *
-_qg_pick_result_from_ptbl(struct bsg_view *v, const struct bu_ptbl *nodes,
-	int sx, int sy)
+_qg_pick_result_filter_first(const struct bsg_pick_result *src)
 {
     struct bsg_pick_result *res = bsg_pick_result_create();
-    if (!res || !nodes)
+    if (!res || !src || !bsg_pick_result_count(src))
 	return res;
 
-    for (size_t i = 0; i < BU_PTBL_LEN(nodes); i++) {
-	struct bsg_node *node = (struct bsg_node *)BU_PTBL_GET(nodes, i);
-	struct bsg_pick_record *pr = _qg_pick_record_create(node, v, sx, sy, NULL);
-	if (pr)
-	    bu_ptbl_ins(&res->pr_records, (long *)pr);
-    }
-
-    return res;
-}
-
-static struct bsg_pick_result *
-_qg_pick_result_single(struct bsg_pick_record *src)
-{
-    struct bsg_pick_result *res = bsg_pick_result_create();
-    if (!res || !src)
-	return res;
-
-    struct bsg_pick_record *pr = _qg_pick_record_create(src->pr_node, src->pr_view,
-	src->pr_screen_x, src->pr_screen_y, bu_vls_cstr(&src->pr_source_path),
-	src->pr_hit_dist);
+    struct bsg_pick_record *src_pr = bsg_pick_result_get(src, 0);
+    struct bsg_pick_record *pr = _qg_pick_record_create(src_pr->pr_node, src_pr->pr_view,
+	src_pr->pr_screen_x, src_pr->pr_screen_y, bu_vls_cstr(&src_pr->pr_source_path),
+	src_pr->pr_hit_dist);
     if (pr)
 	bu_ptbl_ins(&res->pr_records, (long *)pr);
     return res;
+}
+
+static const char *
+_qg_pick_record_target(const struct bsg_pick_record *pr)
+{
+    if (!pr)
+	return NULL;
+
+    const char *spath = bu_vls_cstr(&pr->pr_source_path);
+    if (spath && spath[0])
+	return spath;
+
+    return (pr->pr_node) ? bu_vls_cstr(&pr->pr_node->s_name) : NULL;
+}
+
+static std::string
+_qg_normalize_path(const char *path)
+{
+    if (!path)
+	return std::string();
+    return (path[0] == '/') ? std::string(path + 1) : std::string(path);
+}
+
+static void
+_qg_pick_result_to_selected_set(const struct bsg_pick_result *res, struct bu_ptbl *out)
+{
+    if (!res || !out)
+	return;
+
+    for (size_t i = 0; i < bsg_pick_result_count(res); i++) {
+	struct bsg_pick_record *pr = bsg_pick_result_get(res, i);
+	if (pr && pr->pr_node)
+	    bu_ptbl_ins(out, (long *)pr->pr_node);
+    }
 }
 
 QgSelectFilter::~QgSelectFilter()
@@ -126,7 +145,7 @@ QgSelectFilter::set_selected_result(struct bsg_view *v, struct bsg_pick_result *
     clear_selected_result();
     selected_result = res;
     if (selected_result)
-	bsg_pick_result_to_ptbl(selected_result, &selected_set);
+	_qg_pick_result_to_selected_set(selected_result, &selected_set);
 
     if (v && v->gv_s && v->gv_s->gv_selected) {
 	if (selected_result) {
@@ -215,8 +234,7 @@ QgSelectBoxFilter::eventFilter(QObject *, QEvent *e)
 	struct bsg_pick_result *res =
 	    bsg_pick_rect(v, ipx, ipy, v->gv_mouse_x, v->gv_mouse_y);
 	if (first_only && res && bsg_pick_result_count(res) > 1) {
-	    struct bsg_pick_result *nearest =
-		_qg_pick_result_single(bsg_pick_result_get(res, 0));
+	    struct bsg_pick_result *nearest = _qg_pick_result_filter_first(res);
 	    bsg_pick_result_free(res);
 	    res = nearest;
 	}
@@ -237,11 +255,31 @@ QgSelectBoxFilter::eventFilter(QObject *, QEvent *e)
 }
 
 struct select_rec_state {
-    std::unordered_set<std::string> active;
+    std::unordered_map<std::string, fastf_t> hits;
     int rec_all;
     double cdist;
     std::string closest;
 };
+
+static void
+_select_record_hit(struct select_rec_state *rc, const char *name, fastf_t hit_dist)
+{
+    if (!rc || !name || !name[0])
+	return;
+
+    std::string key = _qg_normalize_path(name);
+    if (key.empty())
+	return;
+
+    std::unordered_map<std::string, fastf_t>::iterator h_it = rc->hits.find(key);
+    if (h_it == rc->hits.end() || hit_dist < h_it->second)
+	rc->hits[key] = hit_dist;
+
+    if (hit_dist < rc->cdist) {
+	rc->closest = key;
+	rc->cdist = hit_dist;
+    }
+}
 
 static int
 _obj_record(struct application *ap, struct partition *p_hp, struct seg *UNUSED(segs))
@@ -249,13 +287,9 @@ _obj_record(struct application *ap, struct partition *p_hp, struct seg *UNUSED(s
     struct select_rec_state *rc = (struct select_rec_state *)ap->a_uptr;
     for (struct partition *pp = p_hp->pt_forw; pp != p_hp; pp = pp->pt_forw) {
 	if (rc->rec_all) {
-	    rc->active.insert(std::string(pp->pt_regionp->reg_name));
+	    _select_record_hit(rc, pp->pt_regionp->reg_name, pp->pt_inhit->hit_dist);
 	} else {
-	    struct hit *hitp = pp->pt_inhit;
-	    if (hitp->hit_dist < rc->cdist) {
-		rc->closest = std::string(pp->pt_regionp->reg_name);
-		rc->cdist = hitp->hit_dist;
-	    }
+	    _select_record_hit(rc, pp->pt_regionp->reg_name, pp->pt_inhit->hit_dist);
 	}
     }
     return 1;
@@ -266,13 +300,57 @@ _ovlp_record(struct application *ap, struct partition *pp, struct region *reg1, 
 {
     struct select_rec_state *rc = (struct select_rec_state *)ap->a_uptr;
     if (rc->rec_all) {
-	rc->active.insert(std::string(reg1->reg_name));
-	rc->active.insert(std::string(reg2->reg_name));
+	_select_record_hit(rc, reg1->reg_name, pp->pt_inhit->hit_dist);
+	_select_record_hit(rc, reg2->reg_name, pp->pt_inhit->hit_dist);
     } else {
-	rc->closest = std::string(reg1->reg_name);
-	rc->cdist = pp->pt_inhit->hit_dist;
+	_select_record_hit(rc, reg1->reg_name, pp->pt_inhit->hit_dist);
     }
     return 1;
+}
+
+static struct bsg_pick_result *
+_qg_pick_result_from_ray_hits(const struct bsg_pick_result *candidates,
+			      const struct select_rec_state *rc,
+			      int first_only)
+{
+    struct bsg_pick_result *res = bsg_pick_result_create();
+    if (!res || !candidates || !rc)
+	return res;
+
+    std::unordered_set<std::string> seen_paths;
+    for (size_t i = 0; i < bsg_pick_result_count(candidates); i++) {
+	struct bsg_pick_record *src = bsg_pick_result_get(candidates, i);
+	std::string key = _qg_normalize_path(_qg_pick_record_target(src));
+	if (key.empty())
+	    continue;
+
+	if (first_only) {
+	    if (key != rc->closest)
+		continue;
+	} else {
+	    if (rc->hits.find(key) == rc->hits.end())
+		continue;
+	}
+
+	if (!seen_paths.insert(key).second)
+	    continue;
+
+	fastf_t hit_dist = src->pr_hit_dist;
+	std::unordered_map<std::string, fastf_t>::const_iterator h_it = rc->hits.find(key);
+	if (h_it != rc->hits.end())
+	    hit_dist = h_it->second;
+
+	struct bsg_pick_record *pr = _qg_pick_record_create(src->pr_node, src->pr_view,
+		src->pr_screen_x, src->pr_screen_y, bu_vls_cstr(&src->pr_source_path),
+		hit_dist);
+	if (pr)
+	    bu_ptbl_ins(&res->pr_records, (long *)pr);
+
+	if (first_only)
+	    break;
+    }
+
+    return res;
 }
 
 bool
@@ -315,7 +393,7 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
     const char **objs = (const char **)bu_calloc(bsg_pick_result_count(candidates) + 1, sizeof(char *), "objs");
     for (size_t i = 0; i < bsg_pick_result_count(candidates); i++) {
 	struct bsg_pick_record *pr = bsg_pick_result_get(candidates, i);
-	objs[i] = (pr && pr->pr_node) ? bu_vls_cstr(&pr->pr_node->s_name) : NULL;
+	objs[i] = _qg_pick_record_target(pr);
     }
     if (rt_gettrees_and_attrs(rtip, nullptr, (int)bsg_pick_result_count(candidates), objs, 1)) {
 	bu_free(objs, "objs");
@@ -342,11 +420,11 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
     VSCALE(ap->a_ray.r_dir, dir, -1);
 
     struct select_rec_state rc;
+    rc.cdist = INFINITY;
     if (!first_only) {
 	rc.rec_all = 1;
     } else {
 	rc.rec_all = 0;
-	rc.cdist = INFINITY;
     }
     ap->a_uptr = (void *)&rc;
 
@@ -356,32 +434,9 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
     BU_PUT(resp, struct resource);
     BU_PUT(ap, struct application);
 
-    struct bu_ptbl ray_nodes = BU_PTBL_INIT_ZERO;
-    struct bu_vls dpath = BU_VLS_INIT_ZERO;
-    if (first_only) {
-	bu_vls_sprintf(&dpath, "%s",  rc.closest.c_str());
-	if (bu_vls_cstr(&dpath)[0] == '/')
-	    bu_vls_nibble(&dpath, 1);
-	struct bsg_node *so = bsg_find_obj(v, bu_vls_cstr(&dpath));
-	if (so)
-	    bu_ptbl_ins(&ray_nodes, (long *)so);
-    } else {
-	std::unordered_set<std::string>::iterator a_it;
-	for (a_it = rc.active.begin(); a_it != rc.active.end(); a_it++) {
-	    bu_vls_sprintf(&dpath, "%s",  a_it->c_str());
-	    if (bu_vls_cstr(&dpath)[0] == '/')
-		bu_vls_nibble(&dpath, 1);
-	    struct bsg_node *so = bsg_find_obj(v, bu_vls_cstr(&dpath));
-	    if (so)
-		bu_ptbl_ins(&ray_nodes, (long *)so);
-	}
-    }
-    bu_vls_free(&dpath);
-    bsg_pick_result_free(candidates);
-
     struct bsg_pick_result *res =
-	_qg_pick_result_from_ptbl(v, &ray_nodes, v->gv_mouse_x, v->gv_mouse_y);
-    bu_ptbl_free(&ray_nodes);
+	_qg_pick_result_from_ray_hits(candidates, &rc, first_only);
+    bsg_pick_result_free(candidates);
     set_selected_result(v, res);
 
     return true;

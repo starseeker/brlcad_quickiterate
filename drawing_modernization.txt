@@ -507,7 +507,9 @@ Completed:
 - Store per-view selection state in `bsg_selection` and derive highlight state
   through appearance updates rather than raw node flags alone.
 - Port qged selection and measurement consumers to typed pick/query results while
-  keeping `bu_ptbl` conversion only as a compatibility bridge.
+  keeping `bu_ptbl` conversion only as a compatibility bridge for legacy APIs.
+- Keep qged ray-selection and 3D measurement candidate/ray workflows on typed
+  pick records rather than rebuilding raw-node tables as the primary currency.
 - Keep qged select-path, deselect-path, and erase flows aligned with typed pick
   records and source-path metadata.
 - Add regression coverage for non-empty pick application, pick-result table
