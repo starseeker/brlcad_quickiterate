@@ -37,6 +37,72 @@ the scene tree, point-table selection results, vlist mutation by UI tools,
 visibility/highlight compatibility bits, and libdm-owned traversal/render policy.
 Those seams are the main targets for this design pass.
 
+Current implementation review (2026-05-27)
+------------------------------------------
+
+The first pass over this design has implemented much of the BSG API surface, but
+not all consumers have moved to the new concepts and several APIs are still pilot
+implementations.
+
+Implemented or substantially implemented:
+
+- Phase D0 vocabulary: `brlcad/doc/bsg_vocabulary.md` exists and names the
+  modern BSG concepts.  Public headers now provide BSG-facing names for many
+  former BV roles, although legacy terms still appear in compatibility storage
+  and older comments.
+- Phase D1 typed payload foundation: `include/bsg/payload_typed.h` and
+  `src/libbsg/payload_typed.c` define `bsg_payload`, payload revision/lifecycle
+  hooks, node ownership, payload type discriminants, and pilot TEXT, AXES, and
+  SKETCH builders.  Some consumers use the typed payload APIs, notably labels,
+  axes, and the qsketch live-source node.
+- Phase D2 draw-intent foundation: `include/bsg/draw_intent.h` and
+  `src/libbsg/draw_intent.c` provide draw-intent records, source-path lookup,
+  collection helpers, and overlay intent tagging.  GED draw creation attaches
+  intents to database draw groups.
+- Phase D3 pick-record foundation: `include/bsg/pick.h` and `src/libbsg/pick.c`
+  define typed pick results for point/rectangle/nearest picks, conversion back
+  to node tables, and selection-set application.
+- Phase D4 HUD foundation: `include/bsg/hud.h` and `src/libbsg/hud.c` create a
+  per-view HUD root, feature metadata, overlay role/lifecycle/order metadata,
+  and `bsg_hud_sync`.  `dm_draw_faceplate` synchronizes the HUD tree each frame.
+- Phase D5 render-item foundation: `include/bsg/render_item.h`,
+  `include/bsg/backend_adapter.h`, and `src/libbsg/render.c` now produce
+  phase-ordered render items, can collect those items, and can dispatch through
+  backend adapter callbacks or the legacy payload fallback.
+- Phase D6 custom callback removal: the former QgCanvas/QgView custom draw
+  callback path is gone from the public drawing code, and qsketch now installs a
+  BSG sketch payload node under the scene root.
+- Tests exist for the D3-D5 foundations (`libbsg_pick`, `libbsg_hud`,
+  `libbsg_render_item`) in addition to the earlier BSG modernization tests.
+
+Not yet fully implemented:
+
+- D1 has only pilot typed payload builders.  VLIST, LINE_SET, POLYGON, MESH,
+  CSG/BREP, IMAGE, FRAMEBUFFER, GRID, HUD_TEXT, and ANNOTATION payloads still
+  need concrete typed data, builders, query hooks, and consumer migration.
+- D2 does not yet provide the full draw-intent action set originally proposed:
+  re-evaluate-on-database-change, erase-by-intent, simplify/collapse equivalent
+  intents, collect-visible for raytrace/export, and complete report/export
+  migration.
+- D3 lacks ray, nearest-primitive, nearest-overlay-control, semantic-path pick
+  actions, and the proposed snap/measurement query action framework.  qged,
+  MGED illumination, polygon selection, and measurement tools still need to
+  consume typed pick/query results.
+- D4 represents HUD structure but still rasterizes faceplate features in libdm.
+  HUD payload geometry, framebuffer HUD phases, richer overlay role/lifecycle
+  classifications, and tool-owned overlay replacement/cleanup APIs remain.
+- D5 render items are in libbsg, but libdm still performs the production scene
+  traversal in `_bsg_view_traverse_impl`, owns transparency pass control, and
+  calls `dm_draw_faceplate` as a post-scene epilogue.  GL/swrast/qtgl have not
+  yet been ported to backend adapters.
+- D6 qsketch uses a SKETCH payload, but its comment and refresh flow still
+  reflect the earlier custom-callback prototype and the live-source contract
+  does not yet cover bounds, pick, snap, and update hooks for production editors.
+- D7 compatibility cleanup is only partial.  `struct bsg_node` remains public and
+  still contains legacy fields, BV_* aliases, compatibility backend slots, and
+  legacy comments.  Opaque storage and final public API cleanup remain after the
+  semantics above settle.
+
 User-facing drawing features and design proposals
 =================================================
 
@@ -356,16 +422,24 @@ Why this is more OpenInventor-style:
 - Scene graph users work through stable graph concepts rather than struct fields.
   The Obol backend then depends on the same API that other consumers use.
 
-Recommended implementation order before Obol
-============================================
+Updated implementation order before Obol
+========================================
 
 Phase D0 — Design inventory and naming freeze
 ---------------------------------------------
+Status: Mostly complete.
+
+Completed:
 - Document the final user-facing BSG vocabulary and retire new use of display
   list, scene object, solid list, and BV_* terminology in modernized code.
 - Decide exact names for draw intent, payload, render item, HUD root, overlay
   role, pick record, and backend adapter APIs.
-- Add TODO markers only where they point to one of the phases below.
+
+Remaining implementation steps:
+- Sweep new D1-D6 code and update stale comments that still describe removed
+  custom drawing or display-list behavior.
+- Keep adding TODO markers only where they point to one of the remaining phases
+  below.
 
 Exit criteria:
 - A concise BSG vocabulary document exists.
@@ -374,10 +448,23 @@ Exit criteria:
 
 Phase D1 — Typed payload object model
 -------------------------------------
+Status: Foundation implemented; consumer migration incomplete.
+
+Completed:
 - Add typed payload handles and payload lifecycle/query/update interfaces.
-- Port vlist, labels/text, polygons, line sets, axes, grid, framebuffer image,
-  sketch/edit source, and mesh/LoD data onto payload handles incrementally.
-- Provide payload builder APIs for tools that currently mutate vlists directly.
+- Port labels/text, axes, and qsketch live sketch source onto typed payload
+  handles.
+
+Remaining implementation steps:
+- Add concrete typed payload structs and builders for VLIST, LINE_SET, POLYGON,
+  MESH, CSG_SOURCE/BREP, IMAGE, FRAMEBUFFER, GRID, HUD_TEXT, and ANNOTATION.
+- Add common bounds, revision, update/realize, export, pick, snap, free, and
+  backend-prepare hooks for each concrete payload type.
+- Port measurement, polygon, selection rectangle, Tcl adornment, labels, axes,
+  grid, framebuffer, LoD mesh, and database draw producers away from direct
+  `s_vlist`, `draw_data`, `s_i_data`, `BSG_ADD_VLIST`, and `BSG_FREE_VLIST`
+  manipulation.
+- Add payload lifecycle/revision/query tests for each migrated payload type.
 
 Exit criteria:
 - qged/libqtcad measurement, polygon, selection rectangle, Tcl adornments, labels,
@@ -386,10 +473,23 @@ Exit criteria:
 
 Phase D2 — Draw intent and source-path actions
 ----------------------------------------------
+Status: Metadata and lookup foundation implemented; full action coverage
+incomplete.
+
+Completed:
 - Add draw-intent metadata for database drawing commands.
-- Add actions for re-evaluate, erase, simplify, collect-visible, export, and
-  source-path lookup.
-- Port libged/MGED report/export/raytrace helper code to these actions.
+- Attach intents to GED draw groups and overlay groups.
+- Add source-path lookup and draw-group collection helpers.
+
+Remaining implementation steps:
+- Add draw-intent actions for database-change re-evaluation, erase-by-intent,
+  simplify/collapse equivalent intents, collect-visible, and export/raytrace
+  collection.
+- Port who/how, rt, nirt, gqa, saveview, plot, ps, png, bot_dump, erase, and
+  MGED report/export helpers to draw-intent actions rather than reconstructing
+  intent from child tables, names, or raw nodes.
+- Add regression tests for intent update, erase, simplify, collect-visible, and
+  report/export/raytrace parity.
 
 Exit criteria:
 - Database draw/erase semantics are explicit scene metadata.
@@ -398,10 +498,25 @@ Exit criteria:
 
 Phase D3 — Selection, pick, snap, and measurement actions
 ---------------------------------------------------------
-- Add typed pick records and point/rect/ray/nearest pick actions.
-- Add snap/measure query actions over payloads and HUD/query providers.
-- Port qged selection filters, MGED illumination, polygon selection, measurement,
-  and snap logic to action results.
+Status: Pick-record foundation implemented; snap/measurement actions and
+consumer migration incomplete.
+
+Completed:
+- Add typed pick records and point/rect/nearest pick actions.
+- Add conversion back to raw node tables for compatibility and helper logic to
+  apply pick results to `bsg_selection`.
+
+Remaining implementation steps:
+- Add ray pick, nearest primitive, nearest overlay control point, and semantic
+  path pick actions.
+- Add snap and measurement query actions over payloads, HUD nodes, overlay
+  providers, and grid providers.
+- Extend typed records with instance path, primitive/subelement ids, hit normal,
+  operation, and enough source metadata for Obol instance mapping.
+- Port qged selection filters, MGED illumination, polygon selection,
+  measurement, and snap logic to typed action/query results.
+- Add mixed DB/overlay/HUD/polygon payload tests for pick, snap, and measurement
+  queries.
 
 Exit criteria:
 - Selection state is stored in bsg_selection; highlighting is derived appearance.
@@ -409,11 +524,23 @@ Exit criteria:
 
 Phase D4 — HUD and overlay scene roots
 --------------------------------------
-- Add per-view HUD roots and overlay role/lifecycle/order metadata.
-- Synchronize existing faceplate settings into HUD payload nodes.
-- Move dm_draw_faceplate behavior behind the render request's HUD pass.
-- Port selection rectangle, ADC, grid, axes, params, scale, and framebuffer mode
-  into explicit HUD/render phases.
+Status: HUD structure implemented; HUD rendering and overlay policy incomplete.
+
+Completed:
+- Add per-view HUD roots and basic overlay role/lifecycle/order metadata.
+- Synchronize existing faceplate settings into HUD feature nodes before drawing.
+
+Remaining implementation steps:
+- Add HUD payload nodes/builders for center dot, axes, grid, ADC, scale bar,
+  selection rectangle, framebuffer image, and view-parameter text.
+- Expand overlay roles and lifecycle policies to cover edit handles, measure
+  graphics, selection rubber bands, snap guides, command results, diagnostics,
+  Tcl adornments, polygon/sketch edit visuals, and user annotations.
+- Move faceplate drawing behind the render request HUD pass so libdm consumes
+  HUD render items instead of owning a separate faceplate epilogue.
+- Port selection rectangle, ADC, grid, axes, params, scale, and framebuffer
+  underlay/overlay mode to explicit HUD/render phases.
+- Add HUD structural and render-phase ordering tests.
 
 Exit criteria:
 - Faceplate/HUD output is represented in BSG and ordered by render phases.
@@ -422,13 +549,30 @@ Exit criteria:
 
 Phase D5 — Render items and backend adapter contract
 ----------------------------------------------------
-- Extend bsg_render_request to produce render items or call backend-neutral item
-  visitors.
-- Move visibility, view-scope filtering, transform accumulation, LoD update,
-  transparency/overlay/HUD ordering, appearance resolution, and payload dispatch
-  into BSG render execution.
-- Define backend adapter callbacks for prepare/draw/invalidate/free/capabilities.
-- Port GL/swrast/qtgl consumption to the adapter interface first.
+Status: Render-item and adapter foundation implemented; production libdm backend
+migration incomplete.
+
+Completed:
+- Extend `bsg_render_request` to produce phase-ordered render items or dispatch
+  through backend-neutral adapter callbacks.
+- Add adapter callbacks for prepare/draw/invalidate/free/capabilities.
+- Resolve basic transform, color, transparency, line style, highlight, payload
+  flags, and render phase into `bsg_render_item`.
+
+Remaining implementation steps:
+- Move production libdm traversal from `_bsg_view_traverse_impl` to
+  `bsg_render_request_execute`, including visibility, view-scope filtering,
+  transform accumulation, LoD update timing, transparency sorting, overlay/HUD
+  ordering, appearance resolution, and payload dispatch.
+- Implement GL, swrast, and qtgl backend adapters that consume render items.
+- Add adapter invalidation/free paths driven by payload, material/appearance,
+  transform-path, and render-mode revisions.
+- Add framebuffer underlay/overlay and diagnostics render phases, or document
+  their mapping onto the existing render phase enum.
+- Keep legacy payload fallback only as a transition path until all active display
+  managers use adapters.
+- Add render-item ordering and backend adapter lifecycle tests that cover
+  prepare, draw, invalidate, free, and capabilities.
 
 Exit criteria:
 - libdm consumes render items and backend payloads; it does not define scene
@@ -437,9 +581,20 @@ Exit criteria:
 
 Phase D6 — Custom callback retirement and editor live sources
 -------------------------------------------------------------
-- Replace set_draw_custom users with local edit scopes and live source payloads.
-- Port qsketch/test-only custom drawing to SKETCH or LINE_SET payloads.
-- Keep a compatibility shim only while tests and examples are being migrated.
+Status: Custom callback path removed; live-source payload contract incomplete.
+
+Completed:
+- Remove the public custom draw callback path from QgCanvas/QgView drawing.
+- Port qsketch/test-only custom drawing to a BSG shape with a SKETCH payload.
+
+Remaining implementation steps:
+- Update stale qsketch comments and refresh logic to describe the live payload
+  path rather than the removed custom draw callback path.
+- Define the full live-source payload contract: revision query, update/realize,
+  bounds, pick, snap, free, and ownership rules.
+- Port production editors to local edit scopes and live payloads rather than
+  transient vlist mutation or tool-specific draw paths.
+- Add tests for live-source update, bounds, pick, snap, and teardown behavior.
 
 Exit criteria:
 - No production drawing feature bypasses the scene graph by replacing the entire
@@ -448,11 +603,19 @@ Exit criteria:
 
 Phase D7 — Compatibility isolation and public API cleanup
 ---------------------------------------------------------
+Status: Not complete.
+
+Remaining implementation steps:
 - Move newly internal node fields behind opaque storage.
 - Rename or isolate remaining BV_* compatibility names in BSG-facing APIs.
 - Split or rename old implementation files whose public purpose no longer
   matches their libbv-era names.
 - Update tests and documentation around the final OpenInventor-style model.
+- Remove or quarantine legacy comments and helper names that still describe
+  display lists, solid lists, view objects, scene objects, or direct backend
+  cache assumptions.
+- Schedule any compatibility bridge that cannot be removed before Obol for an
+  explicit Phase 10 cleanup item.
 
 Exit criteria:
 - New code can be written entirely against BSG scene/action/payload/render APIs.
