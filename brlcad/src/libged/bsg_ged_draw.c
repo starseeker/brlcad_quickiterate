@@ -1705,7 +1705,7 @@ bsg_view_obj_group_path(struct bsg_node *group)
 }
 
 
-int
+bsg_draw_mode
 bsg_view_obj_group_dmode(struct bsg_node *group)
 {
     if (!group)
@@ -1714,8 +1714,24 @@ bsg_view_obj_group_dmode(struct bsg_node *group)
     if (di)
 	return bsg_draw_intent_mode(di);
     struct bsg_node *sp = bsg_view_obj_group_first_solid(group);
-    if (sp && sp->s_os)
-	return sp->s_os->s_dmode;
+    if (sp && sp->s_os) {
+	switch (sp->s_os->s_dmode) {
+	    case BSG_DRAW_MODE_WIRE:
+		return BSG_DRAW_MODE_WIRE;
+	    case BSG_DRAW_MODE_SHADED_BOTS:
+		return BSG_DRAW_MODE_SHADED_BOTS;
+	    case BSG_DRAW_MODE_SHADED:
+		return BSG_DRAW_MODE_SHADED;
+	    case BSG_DRAW_MODE_SHADED_EVAL:
+		return BSG_DRAW_MODE_SHADED_EVAL;
+	    case BSG_DRAW_MODE_HIDDEN_LINE:
+		return BSG_DRAW_MODE_HIDDEN_LINE;
+	    case BSG_DRAW_MODE_WIRE_EVAL:
+		return BSG_DRAW_MODE_WIRE_EVAL;
+	    default:
+		break;
+	}
+    }
     return BSG_DRAW_MODE_WIRE;
 }
 
@@ -1757,7 +1773,8 @@ bsg_view_obj_group_set_dbpath(struct bsg_node *group,
     if (di) {
 	bsg_draw_intent_set_path(di, path);
     } else {
-	bsg_node_set_draw_intent(group, bsg_draw_intent_create(path, bsg_view_obj_group_dmode(group)));
+	bsg_draw_mode mode = bsg_view_obj_group_dmode(group);
+	bsg_node_set_draw_intent(group, bsg_draw_intent_create(path, mode));
     }
     bu_free(s, "bsg_view_obj_group_set_dbpath: path string");
 }
