@@ -41,7 +41,10 @@
 #define BSG_RENDER_H
 
 #include "common.h"
+#include "bu/ptbl.h"
 #include "bsg/defines.h"
+#include "bsg/render_item.h"
+#include "bsg/backend_adapter.h"
 
 __BEGIN_DECLS
 
@@ -58,16 +61,60 @@ __BEGIN_DECLS
 #define BSG_RENDER_FLAG_SORTED_ALPHA      0x08
 
 /**
+ * Execute the HUD pass: after the main scene, traverse gv_hud_root and
+ * dispatch BSG_PAYLOAD_OVERLAY nodes ordered by bsg_hud_node_meta::sort_order.
+ * Ignored by bsg_render_request_execute() when req->root is not the HUD root;
+ * use bsg_hud_sync() + a separate request against gv_hud_root for HUD draws.
+ */
+#define BSG_RENDER_FLAG_HUD_PASS          0x10
+
+/**
+ * Collect render items into req->items instead of dispatching them.
+ *
+ * When this flag is set the executor populates req->items (which must be
+ * an initialised bu_ptbl allocated and owned by the caller) with pointers
+ * to heap-allocated bsg_render_item objects — one per qualifying shape.
+ * Items are appended in phase order (OPAQUE → TRANSPARENT → OVERLAY → HUD)
+ * rather than tree-traversal order.  The caller is responsible for calling
+ * bsg_render_item_free() on each item and bu_ptbl_free() on the table.
+ *
+ * When this flag is clear (the default) items are allocated internally,
+ * dispatched to the adapter (or bsg_payload_dispatch), and then freed
+ * before bsg_render_request_execute() returns.
+ */
+#define BSG_RENDER_FLAG_COLLECT_ITEMS     0x20
+
+/**
  * Render request descriptor.
  *
  * Allocate with bsg_render_request_create(); release with
  * bsg_render_request_destroy().
  */
 struct bsg_render_request {
-    struct bsg_view *view;   /**< @brief target view (borrowed, not owned) */
-    bsg_node        *root;   /**< @brief root of subtree to render (borrowed) */
-    void            *dmp;    /**< @brief display-manager handle (may be NULL) */
-    unsigned int     flags;  /**< @brief BSG_RENDER_FLAG_* bitmask */
+    struct bsg_view            *view;    /**< @brief target view (borrowed, not owned) */
+    bsg_node                   *root;    /**< @brief root of subtree to render (borrowed) */
+    void                       *dmp;     /**< @brief display-manager handle (may be NULL) */
+    unsigned int                flags;   /**< @brief BSG_RENDER_FLAG_* bitmask */
+
+    /**
+     * Optional backend adapter.
+     *
+     * When non-NULL, `bsg_render_request_execute` calls adapter->prepare()
+     * and adapter->draw() for each render item instead of calling
+     * `bsg_payload_dispatch`.  The adapter is borrowed; the request does
+     * not own it.
+     */
+    struct bsg_backend_adapter *adapter;
+
+    /**
+     * Optional output item list (used only with BSG_RENDER_FLAG_COLLECT_ITEMS).
+     *
+     * When BSG_RENDER_FLAG_COLLECT_ITEMS is set the caller must set this to
+     * a pointer to a caller-owned, initialised bu_ptbl.  The executor
+     * appends one bsg_render_item* per qualifying shape (in phase order).
+     * Ignored when BSG_RENDER_FLAG_COLLECT_ITEMS is clear.
+     */
+    struct bu_ptbl             *items;
 };
 
 /**

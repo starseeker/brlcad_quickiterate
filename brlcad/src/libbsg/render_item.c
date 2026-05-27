@@ -1,4 +1,4 @@
-/*                          B S G . H
+/*                  R E N D E R _ I T E M . C
  * BRL-CAD
  *
  * Copyright (c) 2026 United States Government as represented by
@@ -17,45 +17,48 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @addtogroup libbsg
+/** @file libbsg/render_item.c
  *
- * @brief
- * Umbrella header for the BSG scene-graph library.
- *
- * NOTE!!!!!! THIS API IS HIGHLY EXPERIMENTAL, and UNTIL THIS NOTICE IS REMOVED
- * IT SHOULD *NOT* BE CONSIDERED STABLE.
+ * Phase D5: render-item lifecycle.
  */
-/** @{ */
-/* @file bsg.h */
 
-#ifndef BSG_H
-#define BSG_H
+#include "common.h"
 
-#include "bsg/adc.h"
-#include "bsg/backend_adapter.h"
-#include "bsg/defines.h"
-#include "bsg/draw_intent.h"
-#include "bsg/hud.h"
-#include "bsg/lod.h"
-#include "bsg/obol_node.h"
-#include "bsg/payload_typed.h"
-#include "bsg/pick.h"
-#include "bsg/polygon.h"
+#include <string.h>
+
+#include "bu/malloc.h"
+#include "vmath.h"
+
 #include "bsg/render_item.h"
-#include "bsg/scene_set.h"
-#include "bsg/selection.h"
-#include "bsg/snap.h"
-#include "bsg/util.h"
-#include "bsg/view_sets.h"
-#include "bsg/vlist.h"
 
-#endif /* BSG_H */
 
-/** @} */
+struct bsg_render_item *
+bsg_render_item_create(void)
+{
+    struct bsg_render_item *item;
+    BU_ALLOC(item, struct bsg_render_item);
+    memset(item, 0, sizeof(struct bsg_render_item));
+    /* Default: identity transform, fully opaque, phase opaque */
+    MAT_IDN(item->model_mat);
+    item->transparency = 1.0;
+    item->phase        = BSG_RENDER_PHASE_OPAQUE;
+    return item;
+}
+
+
+void
+bsg_render_item_free(struct bsg_render_item *item)
+{
+    if (!item)
+	return;
+    bu_free(item, "bsg_render_item");
+}
+
+
 /*
  * Local Variables:
- * mode: C
  * tab-width: 8
+ * mode: C
  * indent-tabs-mode: t
  * c-file-style: "stroustrup"
  * End:

@@ -1,0 +1,339 @@
+/*                  T E S T _ H U D . C
+ * BRL-CAD
+ *
+ * Copyright (c) 2026 United States Government as represented by
+ * the U.S. Army Research Laboratory.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * version 2.1 as published by the Free Software Foundation.
+ *
+ * This library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this file; see the file named COPYING for more
+ * information.
+ */
+/** @file libbsg/tests/test_hud.c
+ *
+ * Phase D4 unit tests for the BSG HUD root and overlay metadata API.
+ */
+
+#include "common.h"
+
+#include <stdio.h>
+#include <string.h>
+
+#include "bu/malloc.h"
+#include "bu/ptbl.h"
+#include "bu/vls.h"
+#include "bsg/defines.h"
+#include "bsg/node.h"
+#include "bsg/payload.h"
+#include "bsg/util.h"
+#include "bsg/hud.h"
+
+
+/* -----------------------------------------------------------------------
+ * Minimal view factory using the proper bsg_view_init / bsg_view_free API.
+ * ----------------------------------------------------------------------- */
+
+static struct bsg_view *
+_make_view(void)
+{
+    struct bsg_view *v;
+    BU_ALLOC(v, struct bsg_view);
+    bsg_view_init(v, NULL);
+    bu_vls_sprintf(&v->gv_name, "test_hud_view");
+    return v;
+}
+
+static void
+_free_view(struct bsg_view *v)
+{
+    if (!v)
+	return;
+    bsg_hud_root_destroy(v);
+    bsg_view_free(v);
+    bu_free(v, "test_hud view");
+}
+
+#define PASS(msg) do { printf("  PASS: %s\n", (msg)); } while(0)
+#define FAIL(msg) do { printf("  FAIL: %s\n", (msg)); return 1; } while(0)
+#define TEST(name) do { printf("=== Test %d: %s ===\n", ++_tc, (name)); } while(0)
+
+static int _tc = 0;
+
+
+/* -----------------------------------------------------------------------
+ * Test 1: bsg_hud_root_create NULL guard
+ * ----------------------------------------------------------------------- */
+static int
+test_null_guard(void)
+{
+    TEST("bsg_hud_root_create NULL view");
+    bsg_node *r = bsg_hud_root_create(NULL);
+    if (r != NULL)
+	FAIL("Expected NULL for NULL view");
+    PASS("bsg_hud_root_create NULL view");
+    return 0;
+}
+
+
+/* -----------------------------------------------------------------------
+ * Test 2: bsg_hud_root_create creates a valid root
+ * ----------------------------------------------------------------------- */
+static int
+test_create(void)
+{
+    TEST("bsg_hud_root_create creates root");
+    struct bsg_view *v = _make_view();
+    bsg_node *root = bsg_hud_root_create(v);
+    if (!root)
+	FAIL("bsg_hud_root_create returned NULL");
+    if (v->gv_hud_root != root)
+	FAIL("gv_hud_root not set");
+    if (!(root->s_type_flags & BSG_NODE_GROUP))
+	FAIL("root is not a BSG_NODE_GROUP");
+    _free_view(v);
+    PASS("bsg_hud_root_create creates root");
+    return 0;
+}
+
+
+/* -----------------------------------------------------------------------
+ * Test 3: root has exactly BSG_HUD_FEATURE_COUNT children
+ * ----------------------------------------------------------------------- */
+static int
+test_child_count(void)
+{
+    TEST("HUD root has correct child count");
+    struct bsg_view *v = _make_view();
+    bsg_node *root = bsg_hud_root_create(v);
+    if (!root)
+	FAIL("bsg_hud_root_create returned NULL");
+    size_t n = BU_PTBL_LEN(&root->children);
+    if ((int)n != BSG_HUD_FEATURE_COUNT)
+	FAIL("Wrong number of HUD children");
+    _free_view(v);
+    PASS("HUD root has correct child count");
+    return 0;
+}
+
+
+/* -----------------------------------------------------------------------
+ * Test 4: all children start with s_flag == DOWN (disabled)
+ * ----------------------------------------------------------------------- */
+static int
+test_children_initially_down(void)
+{
+    TEST("HUD children initially DOWN");
+    struct bsg_view *v = _make_view();
+    bsg_node *root = bsg_hud_root_create(v);
+    if (!root)
+	FAIL("bsg_hud_root_create returned NULL");
+    for (int i = 0; i < BSG_HUD_FEATURE_COUNT; i++) {
+	bsg_node *c = (bsg_node *)BU_PTBL_GET(&root->children, (size_t)i);
+	if (!c)
+	    FAIL("NULL child node");
+	if (c->s_flag != DOWN)
+	    FAIL("Child not initially DOWN");
+    }
+    _free_view(v);
+    PASS("HUD children initially DOWN");
+    return 0;
+}
+
+
+/* -----------------------------------------------------------------------
+ * Test 5: each child carries BSG_PAYLOAD_OVERLAY and valid meta
+ * ----------------------------------------------------------------------- */
+static int
+test_children_have_meta(void)
+{
+    TEST("HUD children have OVERLAY payload and meta");
+    struct bsg_view *v = _make_view();
+    bsg_node *root = bsg_hud_root_create(v);
+    if (!root)
+	FAIL("bsg_hud_root_create returned NULL");
+    for (int i = 0; i < BSG_HUD_FEATURE_COUNT; i++) {
+	bsg_node *c = (bsg_node *)BU_PTBL_GET(&root->children, (size_t)i);
+	if (!c)
+	    FAIL("NULL child node");
+	if (!(bsg_node_get_payload_type(c) & BSG_PAYLOAD_OVERLAY))
+	    FAIL("Child missing BSG_PAYLOAD_OVERLAY");
+	struct bsg_hud_node_meta *m = bsg_hud_node_get_meta(c);
+	if (!m)
+	    FAIL("bsg_hud_node_get_meta returned NULL");
+	if ((int)m->feature_type != i)
+	    FAIL("feature_type does not match sort order index");
+	if (m->sort_order != i)
+	    FAIL("sort_order does not match index");
+    }
+    _free_view(v);
+    PASS("HUD children have OVERLAY payload and meta");
+    return 0;
+}
+
+
+/* -----------------------------------------------------------------------
+ * Test 6: bsg_hud_sync with center_dot enabled → child UP
+ * ----------------------------------------------------------------------- */
+static int
+test_sync_center_dot(void)
+{
+    TEST("bsg_hud_sync enables center_dot child");
+    struct bsg_view *v = _make_view();
+    v->gv_ls.gv_center_dot.gos_draw = 1;
+
+    int rc = bsg_hud_sync(v);
+    if (rc != 0)
+	FAIL("bsg_hud_sync returned error");
+
+    bsg_node *root = bsg_hud_root_get(v);
+    if (!root)
+	FAIL("HUD root not created by sync");
+
+    /* feature index 0 = CENTER_DOT */
+    bsg_node *c = (bsg_node *)BU_PTBL_GET(&root->children, 0);
+    if (!c)
+	FAIL("NULL center_dot child");
+    if (c->s_flag != UP)
+	FAIL("center_dot child not UP after sync");
+
+    /* All other features should still be DOWN */
+    for (int i = 1; i < BSG_HUD_FEATURE_COUNT; i++) {
+	bsg_node *other = (bsg_node *)BU_PTBL_GET(&root->children, (size_t)i);
+	if (other && other->s_flag != DOWN)
+	    FAIL("Unexpected UP child after sync");
+    }
+
+    _free_view(v);
+    PASS("bsg_hud_sync enables center_dot child");
+    return 0;
+}
+
+
+/* -----------------------------------------------------------------------
+ * Test 7: bsg_hud_sync called twice keeps correct state
+ * ----------------------------------------------------------------------- */
+static int
+test_sync_idempotent(void)
+{
+    TEST("bsg_hud_sync idempotent on repeated calls");
+    struct bsg_view *v = _make_view();
+    v->gv_ls.gv_center_dot.gos_draw = 1;
+    v->gv_ls.gv_model_axes.draw     = 1;
+
+    bsg_hud_sync(v);
+    v->gv_ls.gv_center_dot.gos_draw = 0; /* disable center dot */
+    bsg_hud_sync(v);
+
+    bsg_node *root = bsg_hud_root_get(v);
+    bsg_node *cdot = (bsg_node *)BU_PTBL_GET(&root->children, 0); /* CENTER_DOT */
+    bsg_node *maxes = (bsg_node *)BU_PTBL_GET(&root->children, 1); /* MODEL_AXES */
+
+    if (cdot->s_flag != DOWN)
+	FAIL("center_dot should be DOWN after second sync");
+    if (maxes->s_flag != UP)
+	FAIL("model_axes should remain UP after second sync");
+
+    _free_view(v);
+    PASS("bsg_hud_sync idempotent on repeated calls");
+    return 0;
+}
+
+
+/* -----------------------------------------------------------------------
+ * Test 8: bsg_hud_root_create returns existing root on second call
+ * ----------------------------------------------------------------------- */
+static int
+test_create_idempotent(void)
+{
+    TEST("bsg_hud_root_create idempotent");
+    struct bsg_view *v = _make_view();
+    bsg_node *r1 = bsg_hud_root_create(v);
+    bsg_node *r2 = bsg_hud_root_create(v);
+    if (r1 != r2)
+	FAIL("Second create returned different pointer");
+    _free_view(v);
+    PASS("bsg_hud_root_create idempotent");
+    return 0;
+}
+
+
+/* -----------------------------------------------------------------------
+ * Test 9: overlay_role enum values are distinct and in range
+ * ----------------------------------------------------------------------- */
+static int
+test_enum_values(void)
+{
+    TEST("overlay/hud enum values are distinct");
+    if (BSG_OVERLAY_ROLE_MODEL == BSG_OVERLAY_ROLE_SCREEN ||
+	BSG_OVERLAY_ROLE_SCREEN == BSG_OVERLAY_ROLE_XRAY)
+	FAIL("overlay role enum values collide");
+    if (BSG_HUD_COORD_SCREEN_PX == BSG_HUD_COORD_NDC ||
+	BSG_HUD_COORD_NDC == BSG_HUD_COORD_VIEW_PLANE)
+	FAIL("hud coord enum values collide");
+    if (BSG_OVERLAY_LC_PERSISTENT == BSG_OVERLAY_LC_PER_FRAME)
+	FAIL("lifecycle enum values collide");
+    PASS("overlay/hud enum values are distinct");
+    return 0;
+}
+
+
+/* -----------------------------------------------------------------------
+ * Test 10: bsg_hud_sync NULL guard
+ * ----------------------------------------------------------------------- */
+static int
+test_sync_null(void)
+{
+    TEST("bsg_hud_sync NULL view");
+    int rc = bsg_hud_sync(NULL);
+    if (rc != -1)
+	FAIL("Expected -1 for NULL view");
+    PASS("bsg_hud_sync NULL view");
+    return 0;
+}
+
+
+/* -----------------------------------------------------------------------
+ * Main
+ * ----------------------------------------------------------------------- */
+
+int
+main(int UNUSED(argc), char **UNUSED(argv))
+{
+    int fail = 0;
+
+    fail += test_null_guard();
+    fail += test_create();
+    fail += test_child_count();
+    fail += test_children_initially_down();
+    fail += test_children_have_meta();
+    fail += test_sync_center_dot();
+    fail += test_sync_idempotent();
+    fail += test_create_idempotent();
+    fail += test_enum_values();
+    fail += test_sync_null();
+
+    if (fail)
+	printf("\n%d TEST(S) FAILED\n", fail);
+    else
+	printf("\nALL TESTS PASSED\n");
+
+    return fail;
+}
+
+/*
+ * Local Variables:
+ * mode: C
+ * tab-width: 8
+ * indent-tabs-mode: t
+ * c-file-style: "stroustrup"
+ * End:
+ * ex: shiftwidth=4 tabstop=8
+ */

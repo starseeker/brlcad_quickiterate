@@ -21,7 +21,10 @@ set(
   overlay.c
   payload.c
   payload_typed.c
+  pick.c
+  hud.c
   render.c
+  render_item.c
   scene_graph.cpp
   selection.c
   sensor.c
@@ -98,7 +101,9 @@ cmakefiles(
   overlay.c
   payload.c
   payload_typed.c
+  hud.c
   render.c
+  render_item.c
   selection.c
   visit.c
   adc.c

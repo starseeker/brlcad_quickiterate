@@ -819,6 +819,14 @@ struct bsg_view {
      * billions of years at 60 fps, but the comparison still produces
      * the right answer for any pair of consecutive frames). */
     uint64_t        gv_frame_rev;
+
+    /* Phase D4 (drawing_modernization): per-view HUD scene-graph root.
+     * Stored as void * to avoid a circular include dependency.  Cast to
+     * struct bsg_node * (= bsg_node) before use.  NULL until
+     * bsg_hud_root_create() is called.  Contains one child node per
+     * faceplate feature; bsg_hud_sync() updates s_flag on each child to
+     * reflect the current bsg_view_settings before each render pass. */
+    void           *gv_hud_root;
 };
 
 // Because bsg_view instances frequently share objects in applications, they are

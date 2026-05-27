@@ -25,9 +25,13 @@ set(
   overlay.h
   payload.h
   payload_typed.h
+  pick.h
   plot3.h
   polygon.h
   render.h
+  render_item.h
+  backend_adapter.h
+  hud.h
   scene_set.h
   selection.h
   sensor.h

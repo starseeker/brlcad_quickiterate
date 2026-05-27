@@ -27,6 +27,7 @@
 #include "bn.h"
 #include "bsg/defines.h"
 #include "bsg/appearance.h"
+#include "bsg/hud.h"
 #include "bsg/material.h"
 #include "bsg/node.h"
 #include "bsg/lod.h"
@@ -147,6 +148,13 @@ void
 dm_draw_faceplate(struct bsg_view *v)
 {
     struct dm *dmp = (struct dm *)v->dmp;
+
+    /* Phase D4 (drawing_modernization): synchronize faceplate settings into
+     * the BSG HUD scene tree before drawing.  This populates gv_hud_root with
+     * one child node per enabled feature, ordered by render phase.  Actual
+     * rasterisation still happens via the dm_* calls below; the HUD tree
+     * records the *what* and *order* while libdm owns the *how*. */
+    bsg_hud_sync(v);
 
     /* Center dot */
     if (v->gv_s->gv_center_dot.gos_draw) {
