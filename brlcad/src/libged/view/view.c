@@ -522,7 +522,7 @@ _view_cmd_vZ(void *bs, int argc, const char **argv)
 	    // view objects.
 	    //
 	    // Phase A1 (drawing_stack_modernization): replaced the legacy
-	    // fourfold BV_VIEW_OBJS / BV_DB_OBJS ptbl scan with typed-API
+	    // fourfold BSG_OBJ_VIEW / BSG_OBJ_DB ptbl scan with typed-API
 	    // visits (bsg_view_obj_visit + bsg_view_objs_visit_db).  The
 	    // BSG-aware helpers cover both shared and local scopes for
 	    // view-only objects, and the DB visit walks every leaf of the

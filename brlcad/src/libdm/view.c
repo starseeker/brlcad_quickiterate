@@ -540,11 +540,11 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 
     dm_add_arrows(dmp, s);
 
-    if (s->s_type_flags & BV_AXES) {
+    if (s->s_type_flags & BSG_SHAPE_AXES) {
 	dm_draw_scene_axes(dmp, s);
     }
 
-    if (s->s_type_flags & BV_LABELS) {
+    if (s->s_type_flags & BSG_SHAPE_LABELS) {
 	dm_draw_label(dmp, s);
     }
 }
