@@ -40,8 +40,8 @@ points_within_tolerance(point_t a, point_t b)
 static void
 compare_scene_polygons(struct bsg_node *orig, struct bsg_node *rt, const char *msg)
 {
-    struct bsg_polygon *op = (struct bsg_polygon *)orig->s_i_data;
-    struct bsg_polygon *rp = (struct bsg_polygon *)rt->s_i_data;
+    struct bsg_polygon *op = bsg_node_polygon(orig);
+    struct bsg_polygon *rp = bsg_node_polygon(rt);
 
     if (op->polygon.num_contours != rp->polygon.num_contours)
 	bu_exit(EXIT_FAILURE, "%s: contour count changed\n", msg);

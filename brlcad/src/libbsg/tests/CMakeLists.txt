@@ -106,6 +106,11 @@ brlcad_add_test(NAME libbsg_hud COMMAND test_bsg_hud)
 brlcad_addexec(test_bsg_render_item test_render_item.c "libbsg;libbu" TEST)
 brlcad_add_test(NAME libbsg_render_item COMMAND test_bsg_render_item)
 
+# Phase D1: typed payload coverage
+#
+brlcad_addexec(test_bsg_payload_typed test_payload_typed.c "libbsg;libbu" TEST)
+brlcad_add_test(NAME libbsg_payload_typed COMMAND test_bsg_payload_typed)
+
 cmakefiles(
   CMakeLists.txt
   test_action.c
@@ -116,6 +121,7 @@ cmakefiles(
   test_lod_node.c
   test_material_appearance.c
   test_node.c
+  test_payload_typed.c
   test_phase6.c
   test_pick.c
   test_hud.c

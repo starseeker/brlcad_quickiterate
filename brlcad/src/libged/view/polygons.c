@@ -134,7 +134,7 @@ _poly_cmd_select(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
 
     if (p->type != BV_POLYGON_GENERAL) {
 	bu_vls_printf(gedp->ged_result_str, "Point selection is only supported for general polygons - specified object defines a constrained shape\n");
@@ -203,7 +203,7 @@ _poly_cmd_append(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
     if (p->type != BV_POLYGON_GENERAL) {
 	bu_vls_printf(gedp->ged_result_str, "Point appending is only supported for general polygons - specified object defines a constrained shape\n");
 	return BRLCAD_ERROR;
@@ -268,7 +268,7 @@ _poly_cmd_move(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
     if (p->type != BV_POLYGON_GENERAL) {
 	bu_vls_printf(gedp->ged_result_str, "Individual point movement is only supported for general polygons - specified object defines a constrained shape.  Use \"update\" to adjust constrained shapes.\n");
 	return BRLCAD_ERROR;
@@ -321,7 +321,7 @@ _poly_cmd_clear(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
     p->curr_contour_i = 0;
     p->curr_point_i = -1;
     bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
@@ -354,7 +354,7 @@ _poly_cmd_close(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
     if (p->type != BV_POLYGON_GENERAL) {
 	return BRLCAD_OK;
     }
@@ -410,7 +410,7 @@ _poly_cmd_open(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
     if (p->type != BV_POLYGON_GENERAL) {
 	bu_vls_printf(gedp->ged_result_str, "Constrained polygon shapes are always closed.\n");
 	return BRLCAD_ERROR;
@@ -467,7 +467,7 @@ _poly_cmd_area(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
 
     double area = bg_find_polygon_area(&p->polygon, CLIPPER_MAX, &p->vp, s->s_v->gv_scale);
 
@@ -528,8 +528,8 @@ _poly_cmd_overlap(void *bs, int argc, const char **argv)
 
     // Have two polygons.  Check for overlaps, using the origin plane of the
     // obj1 polygon.
-    struct bsg_polygon *polyA = (struct bsg_polygon *)s->s_i_data;
-    struct bsg_polygon *polyB = (struct bsg_polygon *)s2->s_i_data;
+    struct bsg_polygon *polyA = bsg_node_polygon(s);
+    struct bsg_polygon *polyB = bsg_node_polygon(s2);
 
     int ovlp = bg_polygons_overlap(&polyA->polygon, &polyB->polygon, &polyA->vp, &wdbp->wdb_tol, v->gv_scale);
 
@@ -670,7 +670,7 @@ _poly_cmd_fill(void *bs, int argc, const char **argv)
     }
 
     if (argc == 1 && BU_STR_EQUAL(argv[0], "0")) {
-	struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+	struct bsg_polygon *p = bsg_node_polygon(s);
 	p->fill_flag = 0;
 	bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
 	return BRLCAD_OK;
@@ -695,7 +695,7 @@ _poly_cmd_fill(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
     p->fill_flag = 1;
     V2MOVE(p->fill_dir, vdir);
     p->fill_delta = vdelta;
@@ -729,7 +729,7 @@ _poly_cmd_fill_color(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
 
     if (!argc) {
 	unsigned char frgb[3];
@@ -817,8 +817,8 @@ _poly_cmd_csg(void *bs, int argc, const char **argv)
 
     // Have two polygons.  Check for overlaps, using the origin view of the
     // obj1 polygon.
-    struct bsg_polygon *polyA = (struct bsg_polygon *)s->s_i_data;
-    struct bsg_polygon *polyB = (struct bsg_polygon *)s2->s_i_data;
+    struct bsg_polygon *polyA = bsg_node_polygon(s);
+    struct bsg_polygon *polyB = bsg_node_polygon(s2);
 
     struct bg_polygon *cp = bg_clip_polygon(op, &polyA->polygon, &polyB->polygon, CLIPPER_MAX, &polyA->vp);
 

@@ -350,7 +350,7 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bsg_node *s)
     struct rt_sketch_internal *sketch_ip;
     struct line_seg *lsg;
 
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
     for (size_t j = 0; j < p->polygon.num_contours; ++j)
 	num_verts += p->polygon.contour[j].num_points;
 

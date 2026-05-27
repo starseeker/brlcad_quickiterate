@@ -225,7 +225,7 @@ QPolySettings::settings_sync(struct bsg_node *p)
 	return;
 
 
-    struct bsg_polygon *ip = (struct bsg_polygon *)p->s_i_data;
+    struct bsg_polygon *ip = bsg_node_polygon(p);
 
     edge_color->blockSignals(true);
     unsigned char er, eg, eb;

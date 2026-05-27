@@ -53,6 +53,7 @@
 
 #include "common.h"
 #include <stdint.h>
+#include "bu/list.h"
 #include "vmath.h"
 #include "bu/vls.h"
 #include "bsg/defines.h"
@@ -62,6 +63,40 @@ __BEGIN_DECLS
 /* Forward declarations */
 struct bsg_view;
 struct bsg_payload;
+struct bsg_polygon;
+struct bsg_grid_state;
+struct bsg_mesh_lod;
+struct bsg_sketch_live_data;
+struct fb;
+
+struct bsg_payload_vlist {
+    struct bu_list *vlist;
+    struct bu_list *vlfree;
+};
+
+struct bsg_payload_line_set {
+    size_t point_cnt;
+    point_t *points;
+    int *cmds;
+};
+
+struct bsg_payload_image {
+    size_t width;
+    size_t height;
+    size_t channels;
+    unsigned char *pixels;
+};
+
+struct bsg_payload_framebuffer {
+    struct fb *fbp;
+    int mode;
+};
+
+struct bsg_payload_annotation {
+    struct bu_vls text;
+    size_t point_cnt;
+    point_t *points;
+};
 
 /* -----------------------------------------------------------------------
  * Payload type discriminant
@@ -108,8 +143,20 @@ typedef enum {
  * One member is valid depending on the @c bsg_payload::pl_type field.
  */
 union bsg_payload_data {
+    struct bsg_payload_vlist   *vlist;       /**< @brief BSG_PL_VLIST — node-owned vlist payload */
     struct bsg_label           *text;        /**< @brief BSG_PL_TEXT — 3D text label */
+    struct bsg_label           *hud_text;    /**< @brief BSG_PL_HUD_TEXT — HUD label/text */
+    struct bsg_payload_line_set *line_set;   /**< @brief BSG_PL_LINE_SET — point/cmd line set */
+    struct bsg_polygon         *polygon;     /**< @brief BSG_PL_POLYGON — interactive polygon */
+    struct bsg_mesh_lod        *mesh;        /**< @brief BSG_PL_MESH — LoD mesh payload */
+    void                       *csg;         /**< @brief BSG_PL_CSG — adaptive CSG source */
+    void                       *brep;        /**< @brief BSG_PL_BREP — BRep source */
+    struct bsg_payload_image   *image;       /**< @brief BSG_PL_IMAGE — raster image */
+    struct bsg_payload_framebuffer *framebuffer; /**< @brief BSG_PL_FRAMEBUFFER — framebuffer payload */
     struct bsg_axes            *axes;        /**< @brief BSG_PL_AXES — axes widget */
+    struct bsg_grid_state      *grid;        /**< @brief BSG_PL_GRID — grid state */
+    struct bsg_sketch_live_data *sketch;     /**< @brief BSG_PL_SKETCH — live sketch edit source */
+    struct bsg_payload_annotation *annotation; /**< @brief BSG_PL_ANNOTATION — annotation payload */
     void                       *opaque;      /**< @brief catch-all for other types */
 };
 
@@ -244,6 +291,28 @@ BSG_EXPORT extern void
 bsg_payload_update(bsg_node *node, struct bsg_view *v);
 
 /* -----------------------------------------------------------------------
+ * VLIST payload (node-owned geometry) — Phase D1
+ * ----------------------------------------------------------------------- */
+
+BSG_EXPORT extern struct bsg_payload *
+bsg_payload_vlist_create(struct bu_list *vlist_head, struct bu_list *vlfree);
+
+BSG_EXPORT extern struct bsg_payload_vlist *
+bsg_payload_vlist_get(struct bsg_payload *payload);
+
+BSG_EXPORT extern int
+bsg_node_ensure_vlist_payload(bsg_node *node);
+
+BSG_EXPORT extern int
+bsg_node_clear_vlist_payload(bsg_node *node);
+
+BSG_EXPORT extern int
+bsg_node_copy_vlist_payload(bsg_node *node, const struct bu_list *src);
+
+BSG_EXPORT extern int
+bsg_node_append_vlist_payload(bsg_node *node, const point_t pt, int cmd);
+
+/* -----------------------------------------------------------------------
  * TEXT payload (bsg_label) — Phase D1 pilot
  * ----------------------------------------------------------------------- */
 
@@ -267,6 +336,74 @@ BSG_EXPORT extern struct bsg_label *
 bsg_payload_text_get(struct bsg_payload *payload);
 
 /* -----------------------------------------------------------------------
+ * HUD_TEXT payload — Phase D1
+ * ----------------------------------------------------------------------- */
+
+BSG_EXPORT extern struct bsg_payload *
+bsg_payload_hud_text_create(struct bsg_label *label);
+
+BSG_EXPORT extern struct bsg_label *
+bsg_payload_hud_text_get(struct bsg_payload *payload);
+
+/* -----------------------------------------------------------------------
+ * LINE_SET payload — Phase D1
+ * ----------------------------------------------------------------------- */
+
+BSG_EXPORT extern struct bsg_payload *
+bsg_payload_line_set_create(point_t *points, const int *cmds, size_t point_cnt);
+
+BSG_EXPORT extern struct bsg_payload_line_set *
+bsg_payload_line_set_get(struct bsg_payload *payload);
+
+/* -----------------------------------------------------------------------
+ * POLYGON payload — Phase D1
+ * ----------------------------------------------------------------------- */
+
+BSG_EXPORT extern struct bsg_payload *
+bsg_payload_polygon_create(struct bsg_polygon *polygon);
+
+BSG_EXPORT extern struct bsg_polygon *
+bsg_payload_polygon_get(struct bsg_payload *payload);
+
+/* -----------------------------------------------------------------------
+ * MESH / CSG / BREP payloads — Phase D1
+ * ----------------------------------------------------------------------- */
+
+BSG_EXPORT extern struct bsg_payload *
+bsg_payload_mesh_create(struct bsg_mesh_lod *mesh);
+
+BSG_EXPORT extern struct bsg_mesh_lod *
+bsg_payload_mesh_get(struct bsg_payload *payload);
+
+BSG_EXPORT extern struct bsg_payload *
+bsg_payload_csg_create(void *opaque);
+
+BSG_EXPORT extern void *
+bsg_payload_csg_get(struct bsg_payload *payload);
+
+BSG_EXPORT extern struct bsg_payload *
+bsg_payload_brep_create(void *opaque);
+
+BSG_EXPORT extern void *
+bsg_payload_brep_get(struct bsg_payload *payload);
+
+/* -----------------------------------------------------------------------
+ * IMAGE / FRAMEBUFFER payloads — Phase D1
+ * ----------------------------------------------------------------------- */
+
+BSG_EXPORT extern struct bsg_payload *
+bsg_payload_image_create(size_t width, size_t height, size_t channels, const unsigned char *pixels);
+
+BSG_EXPORT extern struct bsg_payload_image *
+bsg_payload_image_get(struct bsg_payload *payload);
+
+BSG_EXPORT extern struct bsg_payload *
+bsg_payload_framebuffer_create(struct fb *fbp, int mode);
+
+BSG_EXPORT extern struct bsg_payload_framebuffer *
+bsg_payload_framebuffer_get(struct bsg_payload *payload);
+
+/* -----------------------------------------------------------------------
  * AXES payload (bsg_axes) — Phase D1 pilot
  * ----------------------------------------------------------------------- */
 
@@ -287,6 +424,16 @@ BSG_EXPORT extern struct bsg_axes *
 bsg_payload_axes_get(struct bsg_payload *payload);
 
 /* -----------------------------------------------------------------------
+ * GRID payload — Phase D1
+ * ----------------------------------------------------------------------- */
+
+BSG_EXPORT extern struct bsg_payload *
+bsg_payload_grid_create(const struct bsg_grid_state *grid);
+
+BSG_EXPORT extern struct bsg_grid_state *
+bsg_payload_grid_get(struct bsg_payload *payload);
+
+/* -----------------------------------------------------------------------
  * SKETCH payload — Phase D6 (drawing_modernization)
  * ----------------------------------------------------------------------- */
 
@@ -296,8 +443,7 @@ bsg_payload_axes_get(struct bsg_payload *payload);
  * Stores opaque pointers to the editor's rt_edit state and the view's
  * grid state so that type queries and future tooling can reach the live
  * source without a raw void* cast.  libbsg never dereferences these
- * pointers; all geometry generation is done by the caller via
- * bsg_shape_set_vlist().
+ * pointers; geometry refresh stays with the editor/live-source owner.
  */
 struct bsg_sketch_live_data {
     void *rt_edit_ptr;   /**< @brief opaque rt_edit * — owned by the editor */
@@ -323,6 +469,16 @@ bsg_payload_sketch_create(void *rt_edit_ptr, void *grid_ptr);
  */
 BSG_EXPORT extern struct bsg_sketch_live_data *
 bsg_payload_sketch_get_data(struct bsg_payload *payload);
+
+/* -----------------------------------------------------------------------
+ * ANNOTATION payload — Phase D1
+ * ----------------------------------------------------------------------- */
+
+BSG_EXPORT extern struct bsg_payload *
+bsg_payload_annotation_create(const char *text, point_t *points, size_t point_cnt);
+
+BSG_EXPORT extern struct bsg_payload_annotation *
+bsg_payload_annotation_get(struct bsg_payload *payload);
 
 __END_DECLS
 

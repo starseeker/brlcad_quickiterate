@@ -63,7 +63,7 @@ _qpolycreate_clear_pts_cb(struct bsg_node *obj, void *data)
     if (!(obj->s_type_flags & BV_POLYGONS))
 	return 1;
     struct _qpolycreate_clear_pts *s = (struct _qpolycreate_clear_pts *)data;
-    struct bsg_polygon *ip = (struct bsg_polygon *)obj->s_i_data;
+    struct bsg_polygon *ip = bsg_node_polygon(obj);
     if (ip && ip->curr_point_i != -1) {
 	*s->draw_change = true;
 	ip->curr_point_i = -1;
@@ -262,7 +262,7 @@ QPolyCreate::finalize(bool)
 	    sk_name = bu_strdup(ps->sketch_name->text().toLocal8Bit().data());
 	}
 	if (sk_name && db_lookup(gedp->dbip, sk_name, LOOKUP_QUIET) == RT_DIR_NULL) {
-	    struct bsg_polygon *ip = (struct bsg_polygon *)p->s_i_data;
+	    struct bsg_polygon *ip = bsg_node_polygon(p);
 	    ip->u_data = (void *)db_scene_obj_to_sketch(gedp->dbip, sk_name, p);
 	    emit view_updated(QG_VIEW_DB);
 	}
@@ -596,7 +596,7 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
     //  whatever is already established - otherwise, grab from the widget
     //  settings
     if (p) {
-	struct bsg_polygon *ip = (struct bsg_polygon *)p->s_i_data;
+	struct bsg_polygon *ip = bsg_node_polygon(p);
 	cf->ptype = ip->type;
     } else {
 	if (ellipse_mode->isChecked()) {

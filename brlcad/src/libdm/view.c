@@ -672,13 +672,8 @@ bsg_view_traverse(struct bsg_view *v, void *root)
     _bsg_view_traverse_impl(v, root, /*transparency_pass=*/0, /*cur_mat=*/NULL);
 }
 
-// To allow completely custom modes like the sketch editor to be defined by
-// applications in terms of libdm, we allow an optional callback that can be
-// passed in to this function.  If non-NULL, that function will be called in
-// lieu of the standard logic below.
-//
-// Phase D6 (drawing_modernization): all drawing now goes through the scene
-// graph.  The custom callback path has been retired.
+// Phase D6 (drawing_modernization): all interactive visuals are expected to
+// arrive as scene-graph payloads and overlay nodes before libdm traversal.
 void
 dm_draw_objs(struct bsg_view *v)
 {

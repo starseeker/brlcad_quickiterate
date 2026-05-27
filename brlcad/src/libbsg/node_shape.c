@@ -59,6 +59,11 @@ bsg_shape_set_vlist(bsg_node *shape, struct bu_list *vhead)
 
     /* Copy in the new vlist */
     bsg_vlist_copy(s->vlfree, &s->s_vlist, vhead);
+    if (BU_LIST_IS_EMPTY(&s->s_vlist)) {
+	s->s_vlen = 0;
+    } else {
+	s->s_vlen = bsg_vlist_cmd_cnt((bsg_vlist *)BU_LIST_FIRST(bsg_vlist, &s->s_vlist));
+    }
 }
 
 
