@@ -177,18 +177,18 @@ struct bsg_node *
 bsg_create_polygon_obj(struct bsg_view *v, int flags, struct bsg_polygon *p)
 {
     struct bsg_node *s = NULL;
-    if (flags & BV_VIEW_OBJS) {
+    if (flags & BSG_OBJ_VIEW) {
 	/* Phase V3: view-only polygon producers now attach directly under
 	 * BSG view-scope nodes rather than relying on ptbl registration +
 	 * bridge proxy nodes. */
-	s = bsg_view_obj_overlay_create(v, NULL, (flags & BV_LOCAL_OBJS) ? 1 : 0);
+	s = bsg_view_obj_overlay_create(v, NULL, (flags & BSG_OBJ_LOCAL) ? 1 : 0);
     } else {
 	s = bsg_obj_get(v, flags);
     }
     if (!s)
 	return NULL;
-    s->s_type_flags |= BV_POLYGONS;
-    s->s_type_flags |= BV_VIEWONLY;
+    s->s_type_flags |= BSG_SHAPE_POLYGONS;
+    s->s_type_flags |= BSG_SHAPE_VIEWONLY;
 
     // Construct the plane
     bsg_view_plane(&p->vp, v);
@@ -331,7 +331,7 @@ bsg_select_polygon(struct bu_ptbl *objs, point_t *cp)
 
     for (size_t i = 0; i < BU_PTBL_LEN(objs); i++) {
 	struct bsg_node *s = (struct bsg_node *)BU_PTBL_GET(objs, i);
-	if (s->s_type_flags & BV_POLYGONS) {
+	if (s->s_type_flags & BSG_SHAPE_POLYGONS) {
 	    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
 	    // Because we're working in 2D orthogonal when processing polygons,
 	    // the specific value of Z for each individual polygon isn't
@@ -379,7 +379,7 @@ static int
 _bv_poly_collect_cb(struct bsg_node *obj, void *data)
 {
     struct _bv_poly_select_ptbl *s = (struct _bv_poly_select_ptbl *)data;
-    if (obj->s_type_flags & BV_POLYGONS)
+    if (obj->s_type_flags & BSG_SHAPE_POLYGONS)
 	bu_ptbl_ins(&s->objs, (long *)obj);
     return 1;
 }
@@ -461,7 +461,7 @@ bsg_select_clear_polygon_pt(struct bsg_node *s)
     if (!s)
 	return;
 
-    if (s->s_type_flags & BV_POLYGONS) {
+    if (s->s_type_flags & BSG_SHAPE_POLYGONS) {
 	struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
 	p->curr_point_i = -1;
 	p->curr_contour_i = -1;

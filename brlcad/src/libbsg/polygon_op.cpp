@@ -42,7 +42,7 @@ bsg_polygon_csg(struct bsg_node *target, struct bsg_node *stencil, bg_clip_t op)
 	return 0;
 
     // Need polygons
-    if (!(target->s_type_flags & BV_POLYGONS) || !(stencil->s_type_flags & BV_POLYGONS))
+    if (!(target->s_type_flags & BSG_SHAPE_POLYGONS) || !(stencil->s_type_flags & BSG_SHAPE_POLYGONS))
 	return 0;
 
     // None op == no change

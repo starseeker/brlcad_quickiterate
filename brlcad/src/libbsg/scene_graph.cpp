@@ -24,7 +24,7 @@
  *
  * bsg_node is a typedef for struct bsg_node; this file implements:
  *   bsg_scene_root_create  — wire v->bsg_root to v->gv_draw_root (Phase F)
- *   bsg_scene_root_sync    — no-op shim kept for binary compatibility
+ *   bsg_scene_root_sync    — no-op shim kept for compatibility
  *   bsg_scene_root_destroy — clear v->bsg_root pointer
  *   bsg_view_find_by_type  — locate first child matching type flags
  *   bsg_sensor_fire        — invoke callbacks on BSG_NODE_SENSOR nodes
@@ -35,7 +35,7 @@
  * IS gv_draw_root->children; it is maintained live by draw/erase mutations
  * (bsg_group_ensure_child / bsg_free_group in libbsg/draw_set.c) and by
  * bsg_view_obj_zap.  No per-frame rebuild is needed; bsg_scene_root_sync is
- * now a no-op.  View-only objects (BV_VIEW_OBJS ptbls) are iterated directly
+ * now a no-op.  View-only nodes are iterated directly
  * in the render loops (dm_draw_objs in libdm/view.c) after the main BSG
  * traversal.
  *

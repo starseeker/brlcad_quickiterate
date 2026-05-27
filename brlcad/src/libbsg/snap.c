@@ -138,7 +138,7 @@ line_tol_sq(struct bsg_view *v, int lwidth)
     return lrsize*lrsize;
 }
 
-/* Phase B: context for snap BV_DB_OBJS bsg_view_objs_visit_db callback. */
+/* Phase B: context for snap BSG_OBJ_DB bsg_view_objs_visit_db callback. */
 struct _bv_snap_db_ctx {
     struct bsg_cp_info *s;
     point_t *p;
@@ -181,9 +181,9 @@ bsg_snap_lines_3d(point_t *out_pt, struct bsg_view *v, point_t *p)
 	    for (size_t i = 0; i < BU_PTBL_LEN(&gv_s->gv_snap_objs); i++) {
 		struct bsg_node *so = (struct bsg_node *)BU_PTBL_GET(&gv_s->gv_snap_objs, i);
 		if (gv_s->gv_snap_flags) {
-		    if (gv_s->gv_snap_flags == BV_SNAP_DB && (!(so->s_type_flags & BV_DB_OBJS)))
+		    if (gv_s->gv_snap_flags == BV_SNAP_DB && (!(so->s_type_flags & BSG_OBJ_DB)))
 			continue;
-		    if (gv_s->gv_snap_flags == BV_SNAP_VIEW && (!(so->s_type_flags & BV_VIEW_OBJS)))
+		    if (gv_s->gv_snap_flags == BV_SNAP_VIEW && (!(so->s_type_flags & BSG_OBJ_VIEW)))
 			continue;
 		}
 		struct bsg_obj_settings *s_os = (so->s_os) ? so->s_os : &so->s_local_os;
