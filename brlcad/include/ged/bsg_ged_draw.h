@@ -50,6 +50,7 @@
 #include "vmath.h"
 #include "bu/list.h"
 #include "bu/ptbl.h"
+#include "bsg/draw_intent.h"
 #include "bsg/visit.h"
 #include "ged/defines.h"
 
@@ -436,6 +437,14 @@ bsg_view_obj_group_is_nonempty(struct bsg_node *group);
  */
 GED_EXPORT extern const char *
 bsg_view_obj_group_path(struct bsg_node *group);
+
+/**
+ * Return the draw mode recorded for @p group.
+ *
+ * This is the command-level draw mode captured in the group's draw intent.
+ */
+GED_EXPORT extern bsg_draw_mode
+bsg_view_obj_group_dmode(struct bsg_node *group);
 
 /**
  * Phase 10: structured counterpart to @ref bsg_view_obj_group_path.  Parses

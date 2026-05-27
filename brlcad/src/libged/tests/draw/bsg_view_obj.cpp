@@ -55,6 +55,7 @@
 #include "bsg/node_group.h"
 #include "bsg/node.h"
 #include "bsg/appearance.h"
+#include "bsg/draw_intent.h"
 #include "bsg/util.h"
 #include "bsg/visit.h"
 #include "../../ged_private.h"
@@ -976,6 +977,14 @@ main(int ac, char *av[])
 	struct bsg_node *g = bsg_view_obj_lookup_or_add_dbpath(gedp, &dfp);
 	ASSERT(g != NULL);
 	ASSERT(dl_count(gedp) == 1);
+	ASSERT(BU_STR_EQUAL(bsg_view_obj_group_path(g), "all.g"));
+	ASSERT(bsg_view_obj_group_dmode(g) == BSG_DRAW_MODE_WIRE);
+
+	/* Draw-intent metadata, not s_name, is the canonical path/mode source. */
+	bsg_draw_intent_set_mode(bsg_node_get_draw_intent(g), BSG_DRAW_MODE_HIDDEN_LINE);
+	ASSERT(bsg_view_obj_group_dmode(g) == BSG_DRAW_MODE_HIDDEN_LINE);
+	bsg_node_set_name(g, "intentionally-wrong");
+	ASSERT(BU_STR_EQUAL(bsg_view_obj_group_path(g), "all.g"));
 
 	/* group_dbpath round-trips. */
 	struct db_full_path got;
@@ -986,6 +995,10 @@ main(int ac, char *av[])
 	    ASSERT(BU_STR_EQUAL(got.fp_names[0]->d_namep,
 				dfp.fp_names[0]->d_namep));
 	db_free_full_path(&got);
+
+	/* group_set_dbpath keeps the draw-intent path synchronized. */
+	bsg_view_obj_group_set_dbpath(g, &dfp);
+	ASSERT(BU_STR_EQUAL(bsg_view_obj_group_path(g), "all.g"));
 
 	/* erase_by_dbpath removes it. */
 	bsg_view_obj_erase_by_dbpath(gedp, &dfp);

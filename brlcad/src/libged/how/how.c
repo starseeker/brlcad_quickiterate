@@ -36,47 +36,45 @@
 
 /* Callback data for how command */
 struct how_data {
+    struct ged *gedp;
     struct bu_vls *vls;
-    struct directory **dpp;
+    struct db_full_path *dfp;
     int both;
     int found;
 };
 
 static int
-how_solid_cb(struct bsg_node *sp, void *userdata)
+how_group_cb(struct bsg_node *group, void *userdata)
 {
     struct how_data *data = (struct how_data *)userdata;
     if (data->found)
 	return 0; /* stop - already found */
 
-    if (!sp->s_u_data)
+    struct db_full_path gpath;
+    db_full_path_init(&gpath);
+    if (bsg_view_obj_group_dbpath(data->gedp, group, &gpath) != 0)
 	return 1; /* continue */
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
 
-    size_t i;
-    struct directory **tmp_dpp;
-    for (i = 0, tmp_dpp = data->dpp;
-	 i < bdata->s_fullpath.fp_len && *tmp_dpp != RT_DIR_NULL;
-	 ++i, ++tmp_dpp) {
-	if (bdata->s_fullpath.fp_names[i] != *tmp_dpp)
-	    break;
-    }
-
-    if (*tmp_dpp != RT_DIR_NULL)
+    int match = db_full_path_match_top(&gpath, data->dfp);
+    db_free_full_path(&gpath);
+    if (!match)
 	return 1; /* continue */
 
     /* found a match */
     data->found = 1;
-    if (sp->s_os->s_dmode == 4) {
+    int dmode = bsg_view_obj_group_dmode(group);
+    struct bsg_node *sp = bsg_view_obj_group_first_solid(group);
+    fastf_t transparency = (sp && sp->s_os) ? sp->s_os->transparency : 0.0;
+    if (dmode == _GED_HIDDEN_LINE) {
 	if (data->both)
 	    bu_vls_printf(data->vls, "%d 1", _GED_HIDDEN_LINE);
 	else
 	    bu_vls_printf(data->vls, "%d", _GED_HIDDEN_LINE);
     } else {
 	if (data->both)
-	    bu_vls_printf(data->vls, "%d %g", sp->s_os->s_dmode, sp->s_os->transparency);
+	    bu_vls_printf(data->vls, "%d %g", dmode, transparency);
 	else
-	    bu_vls_printf(data->vls, "%d", sp->s_os->s_dmode);
+	    bu_vls_printf(data->vls, "%d", dmode);
     }
 
     return 0; /* stop iteration */
@@ -93,9 +91,10 @@ how_solid_cb(struct bsg_node *sp, void *userdata)
 int
 ged_how_core(struct ged *gedp, int argc, const char *argv[])
 {
-    struct directory **dpp;
     int both = 0;
     static const char *usage = "[-b] object";
+    struct db_full_path dfp;
+    int have_path = 0;
 
     GED_CHECK_DATABASE_OPEN(gedp, BRLCAD_ERROR);
     GED_CHECK_DRAWABLE(gedp, BRLCAD_ERROR);
@@ -119,27 +118,32 @@ ged_how_core(struct ged *gedp, int argc, const char *argv[])
 	argv[1][0] == '-' &&
 	argv[1][1] == 'b') {
 	both = 1;
-
-	if ((dpp = _ged_build_dpp(gedp, argv[2])) == NULL)
-	    goto good_label;
     } else {
-	if ((dpp = _ged_build_dpp(gedp, argv[1])) == NULL)
-	    goto good_label;
+	if (argc != 2) {
+	    bu_vls_printf(gedp->ged_result_str, "Usage: %s %s", argv[0], usage);
+	    return BRLCAD_ERROR;
+	}
     }
 
+    db_full_path_init(&dfp);
+    if (db_string_to_path(&dfp, gedp->dbip, both ? argv[2] : argv[1]) != 0)
+	goto good_label;
+    have_path = 1;
+
     struct how_data data;
+    data.gedp = gedp;
     data.vls = gedp->ged_result_str;
-    data.dpp = dpp;
+    data.dfp = &dfp;
     data.both = both;
     data.found = 0;
-    bsg_view_obj_foreach_solid(gedp, how_solid_cb, &data);
+    bsg_view_obj_foreach_group(gedp, how_group_cb, &data);
 
     /* match NOT found */
     if (!data.found) bu_vls_printf(gedp->ged_result_str, "-1");
 
 good_label:
-    if (dpp != (struct directory **)NULL)
-	bu_free((void *)dpp, "ged_how_core: directory pointers");
+    if (have_path)
+	db_free_full_path(&dfp);
 
     return BRLCAD_OK;
 }
