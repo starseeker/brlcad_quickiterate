@@ -77,9 +77,10 @@ _rebuild_bsg_dlines(struct bsg_view *v, const char *bsg_name,
     if (!s)
 	return;
 
+    bsg_node_clear_vlist_payload(s);
     for (int i = 0; i + 1 < npts; i += 2) {
-	BSG_ADD_VLIST(s->vlfree, &s->s_vlist, pts[i],   BSG_VLIST_LINE_MOVE);
-	BSG_ADD_VLIST(s->vlfree, &s->s_vlist, pts[i+1], BSG_VLIST_LINE_DRAW);
+	bsg_node_append_vlist_payload(s, pts[i], BSG_VLIST_LINE_MOVE);
+	bsg_node_append_vlist_payload(s, pts[i+1], BSG_VLIST_LINE_DRAW);
     }
 
     if (color)
@@ -234,7 +235,7 @@ _view_dlines_cmd_points(void *bs, int argc, const char **argv)
 	if (s) {
 	    bsg_vlist *vp;
 	    size_t j;
-	    for (BU_LIST_FOR(vp, bsg_vlist, &s->s_vlist)) {
+	    for (BU_LIST_FOR(vp, bsg_vlist, bsg_node_vlist_head(s))) {
 		for (j = 0; j < (size_t)vp->nused; j++) {
 		    bu_vls_printf(gedp->ged_result_str, " {%lf %lf %lf} ", V3ARGS(vp->pt[j]));
 		}

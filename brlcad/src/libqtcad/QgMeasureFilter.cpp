@@ -119,7 +119,7 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 			mode = 1;
 			VMOVE(p1, mpnt);
 			VMOVE(p2, mpnt);
-			BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BSG_VLIST_LINE_MOVE);
+			bsg_node_append_vlist_payload(s, p1, BSG_VLIST_LINE_MOVE);
 			emit view_updated(QG_VIEW_REFRESH);
 			return true;
 		}
@@ -134,11 +134,11 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 			if (!get_point())
 				return true;
 			mode = 3;
-			BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
-			BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BSG_VLIST_LINE_MOVE);
-			BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BSG_VLIST_LINE_DRAW);
+			bsg_node_clear_vlist_payload(s);
+			bsg_node_append_vlist_payload(s, p1, BSG_VLIST_LINE_MOVE);
+			bsg_node_append_vlist_payload(s, p2, BSG_VLIST_LINE_DRAW);
 			VMOVE(p3, mpnt);
-			BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p3, BSG_VLIST_LINE_DRAW);
+			bsg_node_append_vlist_payload(s, p3, BSG_VLIST_LINE_DRAW);
 			emit view_updated(QG_VIEW_REFRESH);
 		}
 		return true;
@@ -151,21 +151,21 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 			if (!get_point())
 				return true;
 
-			BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
-			BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BSG_VLIST_LINE_MOVE);
+			bsg_node_clear_vlist_payload(s);
+			bsg_node_append_vlist_payload(s, p1, BSG_VLIST_LINE_MOVE);
 			VMOVE(p2, mpnt);
-			BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BSG_VLIST_LINE_DRAW);
+			bsg_node_append_vlist_payload(s, p2, BSG_VLIST_LINE_DRAW);
 			emit view_updated(QG_VIEW_REFRESH);
 		}
 		if (mode == 3) {
 			if (!get_point())
 				return true;
 
-			BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
-			BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BSG_VLIST_LINE_MOVE);
-			BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BSG_VLIST_LINE_DRAW);
+			bsg_node_clear_vlist_payload(s);
+			bsg_node_append_vlist_payload(s, p1, BSG_VLIST_LINE_MOVE);
+			bsg_node_append_vlist_payload(s, p2, BSG_VLIST_LINE_DRAW);
 			VMOVE(p3, mpnt);
-			BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p3, BSG_VLIST_LINE_DRAW);
+			bsg_node_append_vlist_payload(s, p3, BSG_VLIST_LINE_DRAW);
 			emit view_updated(QG_VIEW_REFRESH);
 		}
 		return true;
@@ -198,10 +198,10 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 			}
 
 			mode = 2;
-			BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
-			BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BSG_VLIST_LINE_MOVE);
+			bsg_node_clear_vlist_payload(s);
+			bsg_node_append_vlist_payload(s, p1, BSG_VLIST_LINE_MOVE);
 			VMOVE(p2, mpnt);
-			BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BSG_VLIST_LINE_DRAW);
+			bsg_node_append_vlist_payload(s, p2, BSG_VLIST_LINE_DRAW);
 			emit view_updated(QG_VIEW_REFRESH);
 			return true;
 		}
@@ -209,11 +209,11 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 			if (!get_point())
 				return true;
 			mode = 4;
-			BSG_FREE_VLIST(s->vlfree, &s->s_vlist);
-			BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p1, BSG_VLIST_LINE_MOVE);
-			BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p2, BSG_VLIST_LINE_DRAW);
+			bsg_node_clear_vlist_payload(s);
+			bsg_node_append_vlist_payload(s, p1, BSG_VLIST_LINE_MOVE);
+			bsg_node_append_vlist_payload(s, p2, BSG_VLIST_LINE_DRAW);
 			VMOVE(p3, mpnt);
-			BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p3, BSG_VLIST_LINE_DRAW);
+			bsg_node_append_vlist_payload(s, p3, BSG_VLIST_LINE_DRAW);
 			emit view_updated(QG_VIEW_REFRESH);
 			return true;
 		}

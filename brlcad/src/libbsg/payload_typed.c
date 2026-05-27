@@ -21,18 +21,78 @@
  *
  * Phase D1 (drawing_modernization): typed payload object model.
  *
- * Implements bsg_payload lifecycle helpers and the first two concrete
- * payload types (BSG_PL_TEXT, BSG_PL_AXES) as Phase D1 pilots.
+ * Implements the typed payload lifecycle helpers plus the concrete payload
+ * builders currently used by the drawing modernization work.
  */
 
 #include "common.h"
 
 #include <string.h>
 
+#include "bg/polygon.h"
+#include "bu/list.h"
 #include "bu/malloc.h"
 #include "bu/vls.h"
 #include "bsg/defines.h"
+#include "bsg/faceplate.h"
+#include "bsg/lod.h"
+#include "bsg/polygon.h"
 #include "bsg/payload_typed.h"
+#include "bsg/vlist.h"
+
+static unsigned long long
+_typed_payload_flags(bsg_payload_type type)
+{
+    switch (type) {
+	case BSG_PL_VLIST:
+	case BSG_PL_LINE_SET:
+	case BSG_PL_TEXT:
+	case BSG_PL_HUD_TEXT:
+	case BSG_PL_POLYGON:
+	case BSG_PL_IMAGE:
+	case BSG_PL_FRAMEBUFFER:
+	case BSG_PL_AXES:
+	case BSG_PL_GRID:
+	case BSG_PL_ANNOTATION:
+	    return BSG_PAYLOAD_VLIST;
+	case BSG_PL_MESH:
+	    return BSG_PAYLOAD_MESH;
+	case BSG_PL_CSG:
+	    return BSG_PAYLOAD_CSG;
+	case BSG_PL_BREP:
+	    return BSG_PAYLOAD_BREP;
+	default:
+	    return 0;
+    }
+}
+
+static int
+_no_bounds(struct bsg_payload *UNUSED(pl), point_t *UNUSED(bmin), point_t *UNUSED(bmax))
+{
+    return 0;
+}
+
+static int
+_no_export(struct bsg_payload *UNUSED(pl), struct bu_vls *UNUSED(out))
+{
+    return 0;
+}
+
+static int
+_no_backend_prepare(struct bsg_payload *UNUSED(pl), void *UNUSED(backend_ctx))
+{
+    return 0;
+}
+
+static void
+_payload_defaults(struct bsg_payload *pl)
+{
+    if (!pl)
+	return;
+    pl->pl_bounds = _no_bounds;
+    pl->pl_export = _no_export;
+    pl->pl_backend_prepare = _no_backend_prepare;
+}
 
 
 /* -----------------------------------------------------------------------
@@ -47,6 +107,7 @@ bsg_payload_create(bsg_payload_type type)
     memset(pl, 0, sizeof(*pl));
     pl->pl_type     = type;
     pl->pl_revision = 0;
+    _payload_defaults(pl);
     return pl;
 }
 
@@ -87,6 +148,9 @@ bsg_node_set_payload(bsg_node *node, struct bsg_payload *pl)
 	bsg_payload_free(node->pl);
 
     node->pl = pl;
+    node->s_type_flags &= ~BSG_PAYLOAD_MASK;
+    if (pl)
+	node->s_type_flags |= _typed_payload_flags(pl->pl_type);
 }
 
 
@@ -111,6 +175,132 @@ bsg_payload_update(bsg_node *node, struct bsg_view *v)
     struct bsg_payload *pl = node->pl;
     if (pl->pl_update)
 	pl->pl_update(pl, v);
+}
+
+
+/* -----------------------------------------------------------------------
+ * VLIST payload (node-owned geometry) — Phase D1
+ * ----------------------------------------------------------------------- */
+
+static void
+_vlist_payload_free(struct bsg_payload *pl)
+{
+    if (!pl)
+	return;
+    if (pl->pl.vlist)
+	BU_PUT(pl->pl.vlist, struct bsg_payload_vlist);
+    BU_PUT(pl, struct bsg_payload);
+}
+
+static int
+_vlist_payload_bounds(struct bsg_payload *pl, point_t *bmin, point_t *bmax)
+{
+    if (!pl || !pl->pl.vlist || !pl->pl.vlist->vlist)
+	return 0;
+
+    size_t length = 0;
+    int dispmode = 0;
+    return bsg_vlist_bbox(pl->pl.vlist->vlist, bmin, bmax, &length, &dispmode);
+}
+
+static int
+_vlist_payload_export(struct bsg_payload *pl, struct bu_vls *out)
+{
+    if (!pl || !pl->pl.vlist || !pl->pl.vlist->vlist || !out)
+	return -1;
+    bsg_vlist_export(out, pl->pl.vlist->vlist, "payload_vlist");
+    return 0;
+}
+
+struct bsg_payload *
+bsg_payload_vlist_create(struct bu_list *vlist_head, struct bu_list *vlfree)
+{
+    struct bsg_payload *pl = bsg_payload_create(BSG_PL_VLIST);
+    if (!pl)
+	return NULL;
+
+    struct bsg_payload_vlist *vl;
+    BU_GET(vl, struct bsg_payload_vlist);
+    vl->vlist = vlist_head;
+    vl->vlfree = vlfree;
+
+    pl->pl.vlist = vl;
+    pl->pl_free = _vlist_payload_free;
+    pl->pl_bounds = _vlist_payload_bounds;
+    pl->pl_export = _vlist_payload_export;
+    return pl;
+}
+
+struct bsg_payload_vlist *
+bsg_payload_vlist_get(struct bsg_payload *payload)
+{
+    if (!payload || payload->pl_type != BSG_PL_VLIST)
+	return NULL;
+    return payload->pl.vlist;
+}
+
+int
+bsg_node_ensure_vlist_payload(bsg_node *node)
+{
+    if (!node)
+	return 0;
+    if (node->pl && node->pl->pl_type == BSG_PL_VLIST) {
+	if (node->pl->pl.vlist) {
+	    node->pl->pl.vlist->vlist = &node->s_vlist;
+	    node->pl->pl.vlist->vlfree = node->vlfree;
+	}
+	return 1;
+    }
+
+    struct bsg_payload *pl = bsg_payload_vlist_create(&node->s_vlist, node->vlfree);
+    if (!pl)
+	return 0;
+    bsg_node_set_payload(node, pl);
+    return 1;
+}
+
+int
+bsg_node_clear_vlist_payload(bsg_node *node)
+{
+    if (!node || !bsg_node_ensure_vlist_payload(node))
+	return 0;
+
+    if (BU_LIST_IS_INITIALIZED(&node->s_vlist))
+	BSG_FREE_VLIST(node->vlfree, &node->s_vlist);
+    BU_LIST_INIT(&node->s_vlist);
+    node->s_vlen = 0;
+    bsg_payload_bump_revision(node->pl);
+    return 1;
+}
+
+int
+bsg_node_copy_vlist_payload(bsg_node *node, const struct bu_list *src)
+{
+    if (!node || !src || !bsg_node_ensure_vlist_payload(node))
+	return 0;
+
+    if (BU_LIST_IS_INITIALIZED(&node->s_vlist))
+	BSG_FREE_VLIST(node->vlfree, &node->s_vlist);
+    BU_LIST_INIT(&node->s_vlist);
+    bsg_vlist_copy(node->vlfree, &node->s_vlist, src);
+    node->s_vlen = 0;
+    bsg_vlist *vp;
+    for (BU_LIST_FOR(vp, bsg_vlist, &node->s_vlist))
+	node->s_vlen += vp->nused;
+    bsg_payload_bump_revision(node->pl);
+    return 1;
+}
+
+int
+bsg_node_append_vlist_payload(bsg_node *node, const point_t pt, int cmd)
+{
+    if (!node || !pt || !bsg_node_ensure_vlist_payload(node))
+	return 0;
+
+    BSG_ADD_VLIST(node->vlfree, &node->s_vlist, pt, cmd);
+    node->s_vlen++;
+    bsg_payload_bump_revision(node->pl);
+    return 1;
 }
 
 
@@ -154,6 +344,308 @@ bsg_payload_text_get(struct bsg_payload *payload)
 
 
 /* -----------------------------------------------------------------------
+ * HUD_TEXT payload — Phase D1
+ * ----------------------------------------------------------------------- */
+
+struct bsg_payload *
+bsg_payload_hud_text_create(struct bsg_label *label)
+{
+    struct bsg_payload *pl = bsg_payload_text_create(label);
+    if (!pl)
+	return NULL;
+    pl->pl_type = BSG_PL_HUD_TEXT;
+    pl->pl.hud_text = label;
+    return pl;
+}
+
+struct bsg_label *
+bsg_payload_hud_text_get(struct bsg_payload *payload)
+{
+    if (!payload || payload->pl_type != BSG_PL_HUD_TEXT)
+	return NULL;
+    return payload->pl.hud_text;
+}
+
+
+/* -----------------------------------------------------------------------
+ * LINE_SET payload — Phase D1
+ * ----------------------------------------------------------------------- */
+
+static void
+_line_set_payload_free(struct bsg_payload *pl)
+{
+    if (!pl)
+	return;
+    struct bsg_payload_line_set *ls = pl->pl.line_set;
+    if (ls) {
+	if (ls->points)
+	    bu_free(ls->points, "payload line-set points");
+	if (ls->cmds)
+	    bu_free(ls->cmds, "payload line-set cmds");
+	BU_PUT(ls, struct bsg_payload_line_set);
+    }
+    BU_PUT(pl, struct bsg_payload);
+}
+
+static int
+_line_set_payload_bounds(struct bsg_payload *pl, point_t *bmin, point_t *bmax)
+{
+    if (!pl || !pl->pl.line_set || !pl->pl.line_set->point_cnt)
+	return 0;
+    VSETALL((*bmin), INFINITY);
+    VSETALL((*bmax), -INFINITY);
+    for (size_t i = 0; i < pl->pl.line_set->point_cnt; i++) {
+	VMINMAX((*bmin), (*bmax), pl->pl.line_set->points[i]);
+    }
+    return 1;
+}
+
+struct bsg_payload *
+bsg_payload_line_set_create(point_t *points, const int *cmds, size_t point_cnt)
+{
+    struct bsg_payload *pl = bsg_payload_create(BSG_PL_LINE_SET);
+    if (!pl)
+	return NULL;
+
+    struct bsg_payload_line_set *ls;
+    BU_GET(ls, struct bsg_payload_line_set);
+    memset(ls, 0, sizeof(*ls));
+    ls->point_cnt = point_cnt;
+    if (point_cnt) {
+	ls->points = (point_t *)bu_calloc(point_cnt, sizeof(point_t), "payload line-set points");
+	ls->cmds = (int *)bu_calloc(point_cnt, sizeof(int), "payload line-set cmds");
+	for (size_t i = 0; i < point_cnt; i++) {
+	    if (points)
+		VMOVE(ls->points[i], points[i]);
+	    ls->cmds[i] = cmds ? cmds[i] : ((i % 2) ? BSG_VLIST_LINE_DRAW : BSG_VLIST_LINE_MOVE);
+	}
+    }
+
+    pl->pl.line_set = ls;
+    pl->pl_free = _line_set_payload_free;
+    pl->pl_bounds = _line_set_payload_bounds;
+    return pl;
+}
+
+struct bsg_payload_line_set *
+bsg_payload_line_set_get(struct bsg_payload *payload)
+{
+    if (!payload || payload->pl_type != BSG_PL_LINE_SET)
+	return NULL;
+    return payload->pl.line_set;
+}
+
+
+/* -----------------------------------------------------------------------
+ * POLYGON payload — Phase D1
+ * ----------------------------------------------------------------------- */
+
+static void
+_polygon_payload_free(struct bsg_payload *pl)
+{
+    if (!pl)
+	return;
+    struct bsg_polygon *poly = pl->pl.polygon;
+    if (poly) {
+	bg_polygon_free(&poly->polygon);
+	BU_PUT(poly, struct bsg_polygon);
+    }
+    BU_PUT(pl, struct bsg_payload);
+}
+
+static int
+_polygon_payload_bounds(struct bsg_payload *pl, point_t *bmin, point_t *bmax)
+{
+    if (!pl || !pl->pl.polygon || !pl->pl.polygon->polygon.num_contours)
+	return 0;
+    VSETALL((*bmin), INFINITY);
+    VSETALL((*bmax), -INFINITY);
+    struct bsg_polygon *poly = pl->pl.polygon;
+    for (size_t i = 0; i < poly->polygon.num_contours; i++) {
+	struct bg_poly_contour *c = &poly->polygon.contour[i];
+	for (size_t j = 0; j < c->num_points; j++) {
+	    VMINMAX((*bmin), (*bmax), c->point[j]);
+	}
+    }
+    return 1;
+}
+
+struct bsg_payload *
+bsg_payload_polygon_create(struct bsg_polygon *polygon)
+{
+    struct bsg_payload *pl = bsg_payload_create(BSG_PL_POLYGON);
+    if (!pl)
+	return NULL;
+    pl->pl.polygon = polygon;
+    pl->pl_free = _polygon_payload_free;
+    pl->pl_bounds = _polygon_payload_bounds;
+    return pl;
+}
+
+struct bsg_polygon *
+bsg_payload_polygon_get(struct bsg_payload *payload)
+{
+    if (!payload || payload->pl_type != BSG_PL_POLYGON)
+	return NULL;
+    return payload->pl.polygon;
+}
+
+
+/* -----------------------------------------------------------------------
+ * MESH / CSG / BREP payloads — Phase D1
+ * ----------------------------------------------------------------------- */
+
+static void
+_mesh_payload_free(struct bsg_payload *pl)
+{
+    if (!pl)
+	return;
+    if (pl->pl.mesh)
+	bsg_mesh_lod_destroy(pl->pl.mesh);
+    BU_PUT(pl, struct bsg_payload);
+}
+
+struct bsg_payload *
+bsg_payload_mesh_create(struct bsg_mesh_lod *mesh)
+{
+    struct bsg_payload *pl = bsg_payload_create(BSG_PL_MESH);
+    if (!pl)
+	return NULL;
+    pl->pl.mesh = mesh;
+    pl->pl_free = _mesh_payload_free;
+    return pl;
+}
+
+struct bsg_mesh_lod *
+bsg_payload_mesh_get(struct bsg_payload *payload)
+{
+    if (!payload || payload->pl_type != BSG_PL_MESH)
+	return NULL;
+    return payload->pl.mesh;
+}
+
+struct bsg_payload *
+bsg_payload_csg_create(void *opaque)
+{
+    struct bsg_payload *pl = bsg_payload_create(BSG_PL_CSG);
+    if (!pl)
+	return NULL;
+    pl->pl.csg = opaque;
+    return pl;
+}
+
+void *
+bsg_payload_csg_get(struct bsg_payload *payload)
+{
+    if (!payload || payload->pl_type != BSG_PL_CSG)
+	return NULL;
+    return payload->pl.csg;
+}
+
+struct bsg_payload *
+bsg_payload_brep_create(void *opaque)
+{
+    struct bsg_payload *pl = bsg_payload_create(BSG_PL_BREP);
+    if (!pl)
+	return NULL;
+    pl->pl.brep = opaque;
+    return pl;
+}
+
+void *
+bsg_payload_brep_get(struct bsg_payload *payload)
+{
+    if (!payload || payload->pl_type != BSG_PL_BREP)
+	return NULL;
+    return payload->pl.brep;
+}
+
+
+/* -----------------------------------------------------------------------
+ * IMAGE / FRAMEBUFFER payloads — Phase D1
+ * ----------------------------------------------------------------------- */
+
+static void
+_image_payload_free(struct bsg_payload *pl)
+{
+    if (!pl)
+	return;
+    struct bsg_payload_image *img = pl->pl.image;
+    if (img) {
+	if (img->pixels)
+	    bu_free(img->pixels, "payload image pixels");
+	BU_PUT(img, struct bsg_payload_image);
+    }
+    BU_PUT(pl, struct bsg_payload);
+}
+
+struct bsg_payload *
+bsg_payload_image_create(size_t width, size_t height, size_t channels, const unsigned char *pixels)
+{
+    struct bsg_payload *pl = bsg_payload_create(BSG_PL_IMAGE);
+    if (!pl)
+	return NULL;
+
+    struct bsg_payload_image *img;
+    BU_GET(img, struct bsg_payload_image);
+    memset(img, 0, sizeof(*img));
+    img->width = width;
+    img->height = height;
+    img->channels = channels;
+    if (width && height && channels && pixels) {
+	size_t psize = width * height * channels;
+	img->pixels = (unsigned char *)bu_malloc(psize, "payload image pixels");
+	memcpy(img->pixels, pixels, psize);
+    }
+
+    pl->pl.image = img;
+    pl->pl_free = _image_payload_free;
+    return pl;
+}
+
+struct bsg_payload_image *
+bsg_payload_image_get(struct bsg_payload *payload)
+{
+    if (!payload || payload->pl_type != BSG_PL_IMAGE)
+	return NULL;
+    return payload->pl.image;
+}
+
+static void
+_framebuffer_payload_free(struct bsg_payload *pl)
+{
+    if (!pl)
+	return;
+    if (pl->pl.framebuffer)
+	BU_PUT(pl->pl.framebuffer, struct bsg_payload_framebuffer);
+    BU_PUT(pl, struct bsg_payload);
+}
+
+struct bsg_payload *
+bsg_payload_framebuffer_create(struct fb *fbp, int mode)
+{
+    struct bsg_payload *pl = bsg_payload_create(BSG_PL_FRAMEBUFFER);
+    if (!pl)
+	return NULL;
+    struct bsg_payload_framebuffer *fbpl;
+    BU_GET(fbpl, struct bsg_payload_framebuffer);
+    fbpl->fbp = fbp;
+    fbpl->mode = mode;
+    pl->pl.framebuffer = fbpl;
+    pl->pl_free = _framebuffer_payload_free;
+    return pl;
+}
+
+struct bsg_payload_framebuffer *
+bsg_payload_framebuffer_get(struct bsg_payload *payload)
+{
+    if (!payload || payload->pl_type != BSG_PL_FRAMEBUFFER)
+	return NULL;
+    return payload->pl.framebuffer;
+}
+
+
+/* -----------------------------------------------------------------------
  * AXES payload (bsg_axes) — Phase D1 pilot
  * ----------------------------------------------------------------------- */
 
@@ -191,6 +683,45 @@ bsg_payload_axes_get(struct bsg_payload *payload)
 
 
 /* -----------------------------------------------------------------------
+ * GRID payload — Phase D1
+ * ----------------------------------------------------------------------- */
+
+static void
+_grid_payload_free(struct bsg_payload *pl)
+{
+    if (!pl)
+	return;
+    if (pl->pl.grid)
+	BU_PUT(pl->pl.grid, struct bsg_grid_state);
+    BU_PUT(pl, struct bsg_payload);
+}
+
+struct bsg_payload *
+bsg_payload_grid_create(const struct bsg_grid_state *grid)
+{
+    struct bsg_payload *pl = bsg_payload_create(BSG_PL_GRID);
+    if (!pl)
+	return NULL;
+    struct bsg_grid_state *g;
+    BU_GET(g, struct bsg_grid_state);
+    memset(g, 0, sizeof(*g));
+    if (grid)
+	memcpy(g, grid, sizeof(*g));
+    pl->pl.grid = g;
+    pl->pl_free = _grid_payload_free;
+    return pl;
+}
+
+struct bsg_grid_state *
+bsg_payload_grid_get(struct bsg_payload *payload)
+{
+    if (!payload || payload->pl_type != BSG_PL_GRID)
+	return NULL;
+    return payload->pl.grid;
+}
+
+
+/* -----------------------------------------------------------------------
  * SKETCH payload — Phase D6 (drawing_modernization)
  * ----------------------------------------------------------------------- */
 
@@ -219,7 +750,7 @@ bsg_payload_sketch_create(void *rt_edit_ptr, void *grid_ptr)
     d->rt_edit_ptr = rt_edit_ptr;
     d->grid_ptr    = grid_ptr;
 
-    pl->pl.opaque = (void *)d;
+    pl->pl.sketch = d;
     pl->pl_free   = _sketch_payload_free;
     return pl;
 }
@@ -230,7 +761,74 @@ bsg_payload_sketch_get_data(struct bsg_payload *payload)
 {
     if (!payload || payload->pl_type != BSG_PL_SKETCH)
 	return NULL;
-    return (struct bsg_sketch_live_data *)payload->pl.opaque;
+    return payload->pl.sketch;
+}
+
+
+/* -----------------------------------------------------------------------
+ * ANNOTATION payload — Phase D1
+ * ----------------------------------------------------------------------- */
+
+static void
+_annotation_payload_free(struct bsg_payload *pl)
+{
+    if (!pl)
+	return;
+    struct bsg_payload_annotation *ann = pl->pl.annotation;
+    if (ann) {
+	bu_vls_free(&ann->text);
+	if (ann->points)
+	    bu_free(ann->points, "payload annotation points");
+	BU_PUT(ann, struct bsg_payload_annotation);
+    }
+    BU_PUT(pl, struct bsg_payload);
+}
+
+static int
+_annotation_payload_bounds(struct bsg_payload *pl, point_t *bmin, point_t *bmax)
+{
+    if (!pl || !pl->pl.annotation || !pl->pl.annotation->point_cnt)
+	return 0;
+    VSETALL((*bmin), INFINITY);
+    VSETALL((*bmax), -INFINITY);
+    for (size_t i = 0; i < pl->pl.annotation->point_cnt; i++) {
+	VMINMAX((*bmin), (*bmax), pl->pl.annotation->points[i]);
+    }
+    return 1;
+}
+
+struct bsg_payload *
+bsg_payload_annotation_create(const char *text, point_t *points, size_t point_cnt)
+{
+    struct bsg_payload *pl = bsg_payload_create(BSG_PL_ANNOTATION);
+    if (!pl)
+	return NULL;
+
+    struct bsg_payload_annotation *ann;
+    BU_GET(ann, struct bsg_payload_annotation);
+    memset(ann, 0, sizeof(*ann));
+    BU_VLS_INIT(&ann->text);
+    if (text)
+	bu_vls_sprintf(&ann->text, "%s", text);
+    ann->point_cnt = point_cnt;
+    if (point_cnt && points) {
+	ann->points = (point_t *)bu_calloc(point_cnt, sizeof(point_t), "payload annotation points");
+	for (size_t i = 0; i < point_cnt; i++)
+	    VMOVE(ann->points[i], points[i]);
+    }
+
+    pl->pl.annotation = ann;
+    pl->pl_free = _annotation_payload_free;
+    pl->pl_bounds = _annotation_payload_bounds;
+    return pl;
+}
+
+struct bsg_payload_annotation *
+bsg_payload_annotation_get(struct bsg_payload *payload)
+{
+    if (!payload || payload->pl_type != BSG_PL_ANNOTATION)
+	return NULL;
+    return payload->pl.annotation;
 }
 
 

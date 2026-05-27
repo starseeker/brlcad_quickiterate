@@ -80,8 +80,8 @@ _axes_cmd_create(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    BU_LIST_INIT(&(s->s_vlist));
-    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, p, BSG_VLIST_LINE_MOVE);
+    bsg_node_clear_vlist_payload(s);
+    bsg_node_append_vlist_payload(s, p, BSG_VLIST_LINE_MOVE);
     VSET(s->s_color, 255, 255, 0);
 
     struct bsg_axes *l;

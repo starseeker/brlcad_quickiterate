@@ -49,8 +49,8 @@ bsg_polygon_csg(struct bsg_node *target, struct bsg_node *stencil, bg_clip_t op)
     if (op == bg_None)
 	return 0;
 
-    struct bsg_polygon *polyA = (struct bsg_polygon *)target->s_i_data;
-    struct bsg_polygon *polyB = (struct bsg_polygon *)stencil->s_i_data;
+    struct bsg_polygon *polyA = bsg_node_polygon(target);
+    struct bsg_polygon *polyB = bsg_node_polygon(stencil);
     if (!polyA || !polyB)
 	return 0;
 

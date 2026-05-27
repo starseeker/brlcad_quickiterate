@@ -67,6 +67,7 @@ _sync_tcl_polygons_to_bsg(struct bsg_view *v, bsg_data_polygon_state *gdpsp, con
     if (!s)
 	return;
 
+    bsg_node_clear_vlist_payload(s);
     for (size_t i = 0; i < gdpsp->gdps_polygons.num_polygons; i++) {
 	struct bg_polygon *pg = &gdpsp->gdps_polygons.polygon[i];
 	for (size_t j = 0; j < pg->num_contours; j++) {
@@ -74,15 +75,15 @@ _sync_tcl_polygons_to_bsg(struct bsg_view *v, bsg_data_polygon_state *gdpsp, con
 	    if (npts < 1)
 		continue;
 	    point_t *pts = pg->contour[j].point;
-	    BSG_ADD_VLIST(s->vlfree, &s->s_vlist, pts[0], BSG_VLIST_LINE_MOVE);
+	    bsg_node_append_vlist_payload(s, pts[0], BSG_VLIST_LINE_MOVE);
 	    for (size_t k = 1; k < npts; k++)
-		BSG_ADD_VLIST(s->vlfree, &s->s_vlist, pts[k], BSG_VLIST_LINE_DRAW);
+		bsg_node_append_vlist_payload(s, pts[k], BSG_VLIST_LINE_DRAW);
 	    /* Skip closing segment when actively building this contour */
 	    int building = (gdpsp->gdps_cflag
 			    && i == gdpsp->gdps_curr_polygon_i
 			    && j == pg->num_contours - 1);
 	    if (!building && npts >= 2)
-		BSG_ADD_VLIST(s->vlfree, &s->s_vlist, pts[0], BSG_VLIST_LINE_DRAW);
+		bsg_node_append_vlist_payload(s, pts[0], BSG_VLIST_LINE_DRAW);
 	}
     }
 

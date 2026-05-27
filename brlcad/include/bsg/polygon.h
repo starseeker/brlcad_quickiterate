@@ -76,6 +76,10 @@ struct bsg_polygon {
 /* Given a polygon, create a scene object */
 BV_EXPORT extern struct bsg_node *bsg_create_polygon_obj(struct bsg_view *v, int flags, struct bsg_polygon *p);
 
+/* Return the polygon payload attached to a node, or the legacy internal
+ * polygon pointer when called on pre-D1 nodes. */
+BV_EXPORT extern struct bsg_polygon *bsg_node_polygon(const struct bsg_node *node);
+
 /* Creates a scene object with a default polygon */
 BV_EXPORT extern struct bsg_node *bsg_create_polygon(struct bsg_view *v, int flags, int type, point_t *fp);
 

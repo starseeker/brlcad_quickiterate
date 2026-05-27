@@ -49,8 +49,8 @@ bsg_scene_root_create(struct bsg_view *v);
  * actual scene objects are owned by the view) and refilled from all
  * BSG_OBJ_DB and BSG_OBJ_VIEW tables accessible through @p v.
  *
- * This is the "shim" that mirrors the existing display-list contents
- * into the BSG tree (Phase 4-D).
+ * This is the compatibility shim that mirrors the current drawn-object
+ * state into the BSG tree (Phase 4-D).
  */
 BSG_EXPORT extern void
 bsg_scene_root_sync(bsg_node *root, struct bsg_view *v);

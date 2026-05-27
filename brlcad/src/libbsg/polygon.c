@@ -39,7 +39,18 @@
 #include "bg/polygon.h"
 #include "bsg/defines.h"
 #include "bsg/polygon.h"
+#include "bsg/payload_typed.h"
 #include "bsg/snap.h"
+
+struct bsg_polygon *
+bsg_node_polygon(const struct bsg_node *node)
+{
+    if (!node)
+	return NULL;
+    if (node->pl && node->pl->pl_type == BSG_PL_POLYGON)
+	return bsg_payload_polygon_get(node->pl);
+    return (struct bsg_polygon *)node->s_i_data;
+}
 
 void
 bsg_polygon_contour(struct bsg_node *s, struct bg_poly_contour *c, int curr_c, int curr_i, int do_pnt)
@@ -79,7 +90,7 @@ bsg_fill_polygon(struct bsg_node *s)
     if (fobj)
 	bsg_obj_put(fobj);
 
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
 
     if (!p || !p->polygon.num_contours)
 	return;
@@ -117,7 +128,7 @@ bsg_polygon_vlist(struct bsg_node *s)
     }
     BU_LIST_INIT(&(s->s_vlist));
 
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
     int type = p->type;
 
     // Clear any old holes
@@ -198,6 +209,7 @@ bsg_create_polygon_obj(struct bsg_view *v, int flags, struct bsg_polygon *p)
     s->s_color[1] = 255;
     s->s_color[2] = 0;
     s->s_i_data = (void *)p;
+    bsg_node_set_payload(s, bsg_payload_polygon_create(p));
     s->s_update_callback = &bsg_update_polygon;
 
     /* Have new polygon, now update view object vlist */
@@ -290,7 +302,7 @@ bsg_polygon_cpy(struct bsg_polygon *dest, struct bsg_polygon *src)
 int
 bsg_append_polygon_pt(struct bsg_node *s, point_t *np)
 {
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
     if (p->type != BV_POLYGON_GENERAL)
 	return -1;
 
@@ -332,7 +344,7 @@ bsg_select_polygon(struct bu_ptbl *objs, point_t *cp)
     for (size_t i = 0; i < BU_PTBL_LEN(objs); i++) {
 	struct bsg_node *s = (struct bsg_node *)BU_PTBL_GET(objs, i);
 	if (s->s_type_flags & BSG_SHAPE_POLYGONS) {
-	    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+	    struct bsg_polygon *p = bsg_node_polygon(s);
 	    // Because we're working in 2D orthogonal when processing polygons,
 	    // the specific value of Z for each individual polygon isn't
 	    // relevant - we want to find the closest edge in the projected
@@ -401,7 +413,7 @@ bsg_view_select_polygon(struct bsg_view *v, point_t *cp)
 int
 bsg_select_polygon_pt(struct bsg_node *s, point_t *cp)
 {
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
     if (p->type != BV_POLYGON_GENERAL)
 	return -1;
 
@@ -462,7 +474,7 @@ bsg_select_clear_polygon_pt(struct bsg_node *s)
 	return;
 
     if (s->s_type_flags & BSG_SHAPE_POLYGONS) {
-	struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+	struct bsg_polygon *p = bsg_node_polygon(s);
 	p->curr_point_i = -1;
 	p->curr_contour_i = -1;
 	bsg_polygon_vlist(s);
@@ -476,7 +488,7 @@ int
 bsg_move_polygon(struct bsg_node *s, point_t *cp, point_t *prev_point)
 {
     fastf_t pfx, pfy, fx, fy;
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
 
     plane_t zpln;
     HMOVE(zpln, p->vp);
@@ -511,7 +523,7 @@ bsg_move_polygon(struct bsg_node *s, point_t *cp, point_t *prev_point)
 int
 bsg_move_polygon_pt(struct bsg_node *s, point_t *mp)
 {
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
     if (p->type != BV_POLYGON_GENERAL)
 	return -1;
 
@@ -542,7 +554,7 @@ bsg_move_polygon_pt(struct bsg_node *s, point_t *mp)
 int
 bsg_update_polygon_circle(struct bsg_node *s, point_t *cp, fastf_t pixel_size)
 {
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
 
     fastf_t curr_fx, curr_fy;
     fastf_t r, arc;
@@ -607,7 +619,7 @@ bsg_update_polygon_circle(struct bsg_node *s, point_t *cp, fastf_t pixel_size)
 int
 bsg_update_polygon_ellipse(struct bsg_node *s, point_t *cp, fastf_t pixel_size)
 {
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
 
     /* use a variable number of segments based on the size of the
      * circle being created so small circles have few segments and
@@ -694,7 +706,7 @@ bsg_update_polygon_ellipse(struct bsg_node *s, point_t *cp, fastf_t pixel_size)
 int
 bsg_update_polygon_rectangle(struct bsg_node *s, point_t *cp)
 {
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
 
     fastf_t pfx, pfy, fx, fy;
     plane_t zpln;
@@ -723,7 +735,7 @@ bsg_update_polygon_rectangle(struct bsg_node *s, point_t *cp)
 int
 bsg_update_polygon_square(struct bsg_node *s, point_t *cp)
 {
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
 
     fastf_t pfx, pfy, fx, fy;
     plane_t zpln;
@@ -766,7 +778,7 @@ bsg_update_polygon_square(struct bsg_node *s, point_t *cp)
 int
 bsg_update_general_polygon(struct bsg_node *s, int utype, point_t *cp)
 {
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
     if (p->type != BV_POLYGON_GENERAL)
 	return 0;
 
@@ -802,7 +814,7 @@ bsg_update_polygon(struct bsg_node *s, struct bsg_view *v, int utype)
     if (!s)
 	return 0;
 
-    struct bsg_polygon *p = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *p = bsg_node_polygon(s);
 
     // Regardless of type, sync fill color
     struct bsg_node *fobj = bsg_find_child(s, "*fill*");
@@ -866,7 +878,7 @@ bsg_dup_view_polygon(const char *nname, struct bsg_node *s)
     if (!nname || !s)
 	return NULL;
 
-    struct bsg_polygon *ip = (struct bsg_polygon *)s->s_i_data;
+    struct bsg_polygon *ip = bsg_node_polygon(s);
 
     struct bsg_polygon *p;
     BU_GET(p, struct bsg_polygon);

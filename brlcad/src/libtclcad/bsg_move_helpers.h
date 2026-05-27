@@ -178,9 +178,10 @@ _bsg_rebuild_lines(struct bsg_view *v,
     struct bsg_node *ns = bsg_view_obj_lines_create(v, bsg_name, 1 /* local */);
     if (!ns) return;
 
+    bsg_node_clear_vlist_payload(ns);
     for (int i = 0; i + 1 < npts; i += 2) {
-	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, pts[i],   BSG_VLIST_LINE_MOVE);
-	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, pts[i+1], BSG_VLIST_LINE_DRAW);
+	bsg_node_append_vlist_payload(ns, pts[i], BSG_VLIST_LINE_MOVE);
+	bsg_node_append_vlist_payload(ns, pts[i+1], BSG_VLIST_LINE_DRAW);
     }
     if (color)
 	bsg_view_obj_set_color(ns, color[0], color[1], color[2]);
@@ -207,23 +208,24 @@ _bsg_rebuild_axes(struct bsg_view *v,
     struct bsg_node *ns = bsg_view_obj_lines_create(v, bsg_name, 1 /* local */);
     if (!ns) return;
 
+    bsg_node_clear_vlist_payload(ns);
     for (int i = 0; i < ncenters; i++) {
 	point_t ptA, ptB;
 
 	VSET(ptA, centers[i][X] - halfAxesSize, centers[i][Y], centers[i][Z]);
 	VSET(ptB, centers[i][X] + halfAxesSize, centers[i][Y], centers[i][Z]);
-	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptA, BSG_VLIST_LINE_MOVE);
-	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptB, BSG_VLIST_LINE_DRAW);
+	bsg_node_append_vlist_payload(ns, ptA, BSG_VLIST_LINE_MOVE);
+	bsg_node_append_vlist_payload(ns, ptB, BSG_VLIST_LINE_DRAW);
 
 	VSET(ptA, centers[i][X], centers[i][Y] - halfAxesSize, centers[i][Z]);
 	VSET(ptB, centers[i][X], centers[i][Y] + halfAxesSize, centers[i][Z]);
-	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptA, BSG_VLIST_LINE_MOVE);
-	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptB, BSG_VLIST_LINE_DRAW);
+	bsg_node_append_vlist_payload(ns, ptA, BSG_VLIST_LINE_MOVE);
+	bsg_node_append_vlist_payload(ns, ptB, BSG_VLIST_LINE_DRAW);
 
 	VSET(ptA, centers[i][X], centers[i][Y], centers[i][Z] - halfAxesSize);
 	VSET(ptB, centers[i][X], centers[i][Y], centers[i][Z] + halfAxesSize);
-	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptA, BSG_VLIST_LINE_MOVE);
-	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, ptB, BSG_VLIST_LINE_DRAW);
+	bsg_node_append_vlist_payload(ns, ptA, BSG_VLIST_LINE_MOVE);
+	bsg_node_append_vlist_payload(ns, ptB, BSG_VLIST_LINE_DRAW);
     }
 
     if (color)
