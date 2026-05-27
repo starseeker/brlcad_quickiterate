@@ -42,10 +42,10 @@ set_transparency_cb(struct bsg_node *sp, void *userdata)
     size_t i;
     struct directory **tmp_dpp;
 
-    if (!sp->s_u_data)
+    if (!ged_draw_shape_data_get(sp))
 	return 1; /* continue */
 
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)ged_draw_shape_data_get(sp);
 
     for (i = 0, tmp_dpp = data->dpp;
 	 i < bdata->s_fullpath.fp_len && *tmp_dpp != RT_DIR_NULL;

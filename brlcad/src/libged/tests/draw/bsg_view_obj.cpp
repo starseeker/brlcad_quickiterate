@@ -53,6 +53,7 @@
 #include "bsg/field.h"
 #include "bsg/lod_ops.h"
 #include "bsg/node_group.h"
+#include "bsg/node.h"
 #include "bsg/util.h"
 #include "bsg/visit.h"
 #include "../../ged_private.h"
@@ -286,9 +287,8 @@ main(int ac, char *av[])
 	{
 	    struct bsg_node *root = bsg_view_obj_root(gedp);
 	    struct bsg_node *overlays_grp = NULL;
-	    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-		struct bsg_node *g =
-		    (struct bsg_node *)BU_PTBL_GET(&root->children, i);
+	    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
+		struct bsg_node *g = bsg_node_child_at(root, i);
 		if (BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name))) {
 		    overlays_grp = g;
 		    break;
@@ -298,9 +298,8 @@ main(int ac, char *av[])
 	    ASSERT(bsg_view_obj_group_is_phony(overlays_grp));
 
 	    /* The overlay shape must have BSG_PAYLOAD_OVERLAY set. */
-	    if (overlays_grp && BU_PTBL_LEN(&overlays_grp->children) > 0) {
-		struct bsg_node *sp =
-		    (struct bsg_node *)BU_PTBL_GET(&overlays_grp->children, 0);
+	    if (overlays_grp && bsg_node_child_count(overlays_grp) > 0) {
+		struct bsg_node *sp = bsg_node_child_at(overlays_grp, 0);
 		ASSERT(sp->s_type_flags & BSG_PAYLOAD_OVERLAY);
 		/* No phony db entry should exist for this name. */
 		ASSERT(db_lookup(gedp->dbip, "_bsg_test_phony", LOOKUP_QUIET)
@@ -506,9 +505,8 @@ main(int ac, char *av[])
 	/* Root should have exactly one non-_overlays child after drawing "all.g" */
 	int real_groups = 0;
 	struct bsg_node *all_g_group = NULL;
-	for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-	    struct bsg_node *g =
-		(struct bsg_node *)BU_PTBL_GET(&root->children, i);
+	for (size_t i = 0; i < bsg_node_child_count(root); i++) {
+	    struct bsg_node *g = bsg_node_child_at(root, i);
 	    if (!BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name))) {
 		real_groups++;
 		if (!all_g_group)
@@ -524,9 +522,8 @@ main(int ac, char *av[])
 	/* Root child must contain sub-groups (not just flat shapes) for any
 	 * multi-level hierarchy in moss.g */
 	int has_subgroup = 0;
-	for (size_t i = 0; i < BU_PTBL_LEN(&all_g_group->children); i++) {
-	    struct bsg_node *c =
-		(struct bsg_node *)BU_PTBL_GET(&all_g_group->children, i);
+	for (size_t i = 0; i < bsg_node_child_count(all_g_group); i++) {
+	    struct bsg_node *c = bsg_node_child_at(all_g_group, i);
 	    if (c->s_type_flags & BSG_NODE_GROUP) {
 		has_subgroup = 1;
 		break;
@@ -698,14 +695,13 @@ main(int ac, char *av[])
 
 	/* The draw root must have at least one child group (from the draw) */
 	struct bsg_node *dr = (struct bsg_node *)draw_root;
-	ASSERT(BU_PTBL_LEN(&dr->children) > 0);
+	ASSERT(bsg_node_child_count(dr) > 0);
 
 	/* bsg_draw_tree_depth of the draw root should be 0 (no parent). */
 	ASSERT(bsg_draw_tree_depth(draw_root) == 0);
 
 	/* A child's depth should be 1. */
-	struct bsg_node *first_child =
-	    (struct bsg_node *)BU_PTBL_GET(&dr->children, 0);
+	struct bsg_node *first_child = bsg_node_child_at(dr, 0);
 	ASSERT(first_child != NULL);
 	if ((first_child->s_type_flags & BSG_NODE_GROUP) ||
 	    (first_child->s_type_flags & BSG_NODE_SHAPE)) {
@@ -717,18 +713,18 @@ main(int ac, char *av[])
 	 * children match trivially since they are the same ptbl. */
 	struct bsg_node *bsg_r = (struct bsg_node *)v->bsg_root;
 	ASSERT(bsg_r == dr);  /* same pointer — trivially true */
-	ASSERT(BU_PTBL_LEN(&bsg_r->children) ==
-	       BU_PTBL_LEN(&dr->children));
+	ASSERT(bsg_node_child_count(bsg_r) ==
+	       bsg_node_child_count(dr));
 
 	/* The children pointers must match exactly (same ptbl). */
-	for (size_t i = 0; i < BU_PTBL_LEN(&dr->children); i++) {
-	    ASSERT(BU_PTBL_GET(&bsg_r->children, i) ==
-		   BU_PTBL_GET(&dr->children, i));
+	for (size_t i = 0; i < bsg_node_child_count(dr); i++) {
+	    ASSERT(bsg_node_child_at(bsg_r, i) ==
+		   bsg_node_child_at(dr, i));
 	}
 
 	/* After zap the draw root has no children. */
 	bsg_view_obj_zap(gedp);
-	ASSERT(BU_PTBL_LEN(&bsg_r->children) == 0);
+	ASSERT(bsg_node_child_count(bsg_r) == 0);
 
 	/* gv_draw_root itself remains valid after zap (root node not freed). */
 	ASSERT(v->gv_draw_root != NULL);

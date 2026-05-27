@@ -30,6 +30,7 @@
 #include "vmath.h"
 #include "bn.h"
 #include "bsg/appearance.h"
+#include "bsg/node.h"
 #include "ged/view.h"
 
 #include "./mged.h"
@@ -60,10 +61,10 @@ _illuminate_cb(bsg_node *n, void *ud)
 	    illump = sp;
 	    /* Walk up to the root child (depth-1 group) */
 	    {
-		struct bsg_node *_g = (struct bsg_node *)sp->parent;
-		while (_g && _g->parent &&
-		       ((struct bsg_node *)_g->parent)->parent != NULL)
-		    _g = (struct bsg_node *)_g->parent;
+		struct bsg_node *_g = bsg_node_parent(sp);
+		while (_g && bsg_node_parent(_g) &&
+		       bsg_node_parent(bsg_node_parent(_g)) != NULL)
+		    _g = bsg_node_parent(_g);
 		illum_gdlp = _g;
 	    }
 	} else {

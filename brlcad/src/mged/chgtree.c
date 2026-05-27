@@ -36,6 +36,7 @@
 #include "bn.h"
 #include "wdb.h"
 #include "rt/geom.h"
+#include "bsg/node.h"
 #include "ged/view.h"
 
 #include "./sedit.h"
@@ -155,10 +156,10 @@ _find_solid_with_path_cb(bsg_node *n, void *ud)
     if (!db_identical_full_paths(d->pathp, &bdata->s_fullpath)) return 1;
     /* Walk up to the root child (depth-1 group) */
     {
-	struct bsg_node *_g = (struct bsg_node *)sp->parent;
-	while (_g && _g->parent &&
-	       ((struct bsg_node *)_g->parent)->parent != NULL)
-	    _g = (struct bsg_node *)_g->parent;
+	struct bsg_node *_g = bsg_node_parent(sp);
+	while (_g && bsg_node_parent(_g) &&
+	       bsg_node_parent(bsg_node_parent(_g)) != NULL)
+	    _g = bsg_node_parent(_g);
 	illum_gdlp = _g;
     }
     d->ret = sp;

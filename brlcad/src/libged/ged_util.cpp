@@ -54,7 +54,7 @@
 #include "bu/units.h"
 #include "bu/vls.h"
 #include "bsg.h"
-
+#include "bsg/node.h"
 #include "ged.h"
 #include "ged/bsg_ged_draw.h"
 #include "./ged_private.h"
@@ -262,10 +262,9 @@ _scene_bsph_cb(struct bsg_node *s, void *data)
     vect_t minus, plus;
     /* For BSG leaf nodes s_center/s_size are authoritative.
      * For non-BSG top-level groups, recurse into children first. */
-    if (BU_PTBL_LEN(&s->children)) {
-	for (size_t j = 0; j < BU_PTBL_LEN(&s->children); j++) {
-	    struct bsg_node *sp =
-		(struct bsg_node *)BU_PTBL_GET(&s->children, j);
+    if (bsg_node_child_count(s)) {
+	for (size_t j = 0; j < bsg_node_child_count(s); j++) {
+	    struct bsg_node *sp = bsg_node_child_at(s, j);
 	    minus[X] = sp->s_center[X] - sp->s_size;
 	    minus[Y] = sp->s_center[Y] - sp->s_size;
 	    minus[Z] = sp->s_center[Z] - sp->s_size;
@@ -1978,9 +1977,9 @@ bitwise_and_fullpath_cb(struct bsg_node *sp, void *userdata)
 {
     struct bitwise_and_data *data = (struct bitwise_and_data *)userdata;
 
-    if (!sp->s_u_data)
+    if (!ged_draw_shape_data_get(sp))
 	return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)ged_draw_shape_data_get(sp);
 
     for (size_t i = 0; i < bdata->s_fullpath.fp_len; i++) {
 	DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_flags &= data->flag_val;
@@ -2008,9 +2007,9 @@ write_animate_cb(struct bsg_node *sp, void *userdata)
 {
     struct write_animate_data *data = (struct write_animate_data *)userdata;
 
-    if (!sp->s_u_data)
+    if (!ged_draw_shape_data_get(sp))
 	return 1;
-    struct ged_bv_data *bdata = (struct ged_bv_data *)sp->s_u_data;
+    struct ged_bv_data *bdata = (struct ged_bv_data *)ged_draw_shape_data_get(sp);
 
     for (size_t i = 0; i < bdata->s_fullpath.fp_len; i++) {
 	if (!(DB_FULL_PATH_GET(&bdata->s_fullpath, i)->d_flags & RT_DIR_USED)) {

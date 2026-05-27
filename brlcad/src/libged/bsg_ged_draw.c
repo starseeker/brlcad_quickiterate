@@ -702,10 +702,9 @@ _sg_erase_subgroups_by_name(struct ged *gedp, struct bsg_node *parent,
             (struct bsg_node *)BU_PTBL_GET(&snap, i);
         if (BU_STR_EQUAL(bu_vls_cstr(&c->s_name), name)) {
             _sg_free_group_contents(c);
-            bu_ptbl_rm(&parent->children, (const long *)c);
+            bsg_node_remove_child(parent, c);
             /* parent is in the tree */
             _sg_bump_rev_node(parent);
-            c->parent = NULL;
             struct bsg_node *fso = c->free_scene_obj;
             if (fso)
                 FREE_BV_SCENE_OBJ(c, &fso->l, c->vlfree);
@@ -1577,10 +1576,10 @@ bsg_view_obj_group_of_solid(struct ged *gedp, struct bsg_node *sp)
         return NULL;
     /* Walk up the parent chain to find the root child (depth == 1):
      * that is the group whose parent is the draw root (which has no parent). */
-    struct bsg_node *g = (struct bsg_node *)sp->parent;
-    while (g && g->parent &&
-           ((struct bsg_node *)g->parent)->parent != NULL)
-        g = (struct bsg_node *)g->parent;
+    struct bsg_node *g = bsg_node_parent(sp);
+    while (g && bsg_node_parent(g) &&
+           bsg_node_parent(bsg_node_parent(g)) != NULL)
+        g = bsg_node_parent(g);
     return g;
 }
 

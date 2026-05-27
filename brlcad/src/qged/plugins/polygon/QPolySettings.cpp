@@ -26,6 +26,7 @@
 #include <QMessageBox>
 #include "bu/malloc.h"
 #include "bg/polygon.h"
+#include "bsg/material.h"
 #include "QPolySettings.h"
 
 QPolySettings::QPolySettings()
@@ -227,7 +228,9 @@ QPolySettings::settings_sync(struct bsg_node *p)
     struct bsg_polygon *ip = (struct bsg_polygon *)p->s_i_data;
 
     edge_color->blockSignals(true);
-    edge_color->rgbtext->setText(QString("%1/%2/%3").arg(p->s_color[0]).arg(p->s_color[1]).arg(p->s_color[2]));
+    unsigned char er, eg, eb;
+    bsg_material_get_rgb(p, &er, &eg, &eb);
+    edge_color->rgbtext->setText(QString("%1/%2/%3").arg(er).arg(eg).arg(eb));
     edge_color->blockSignals(false);
 
     unsigned char frgb[3];
