@@ -101,6 +101,11 @@ brlcad_add_test(NAME libbsg_pick COMMAND test_bsg_pick)
 brlcad_addexec(test_bsg_hud test_hud.c "libbsg;libbu" TEST)
 brlcad_add_test(NAME libbsg_hud COMMAND test_bsg_hud)
 
+# Phase D5: render items and backend adapter
+#
+brlcad_addexec(test_bsg_render_item test_render_item.c "libbsg;libbu" TEST)
+brlcad_add_test(NAME libbsg_render_item COMMAND test_bsg_render_item)
+
 cmakefiles(
   CMakeLists.txt
   test_action.c
@@ -115,6 +120,7 @@ cmakefiles(
   test_pick.c
   test_hud.c
   test_render.c
+  test_render_item.c
   test_scene_graph.c
   test_selection.c
   test_view_scope.c

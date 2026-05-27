@@ -24,6 +24,7 @@ set(
   pick.c
   hud.c
   render.c
+  render_item.c
   scene_graph.cpp
   selection.c
   sensor.c
@@ -102,6 +103,7 @@ cmakefiles(
   payload_typed.c
   hud.c
   render.c
+  render_item.c
   selection.c
   visit.c
   adc.c

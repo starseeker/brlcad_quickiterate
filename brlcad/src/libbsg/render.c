@@ -19,7 +19,34 @@
  */
 /** @file libbsg/render.c
  *
- * Phase 8: BSG render-request — pre-render traversal and payload dispatch.
+ * Phase D5: BSG render-request — pre-render traversal, render-item
+ * production, phase-ordered dispatch via backend adapter or legacy
+ * bsg_payload_dispatch fallback.
+ *
+ * Traversal overview
+ * ------------------
+ * _render_collect() walks the subtree recursively (not via bsg_visit)
+ * so it can maintain a matrix stack for BSG_NODE_TRANSFORM nodes.  For
+ * each BSG_NODE_SHAPE it:
+ *   1. Checks visibility (BSG_RENDER_FLAG_VISIBLE_ONLY).
+ *   2. Calls bsg_payload_dispatch for update-only types (CSG/MESH/BREP).
+ *   3. Resolves appearance from s_os / s_color / s_iflag.
+ *   4. Classifies the item into one of the four bsg_render_phase buckets.
+ *   5. Allocates a bsg_render_item and appends it to the appropriate
+ *      phase bucket (bu_ptbl).
+ *
+ * After collection, transparent items are sorted back-to-front when
+ * BSG_RENDER_FLAG_SORTED_ALPHA is set (sort_key is currently 0 for all
+ * items; proper depth sort requires view-space Z and can be added later).
+ *
+ * Phase-ordered dispatch
+ * ----------------------
+ * Items are dispatched in phase order: OPAQUE → TRANSPARENT → OVERLAY →
+ * HUD.  Per item:
+ *   - If req->adapter is set: adapter->prepare() + adapter->draw().
+ *   - Otherwise: bsg_payload_dispatch (legacy fallback).
+ * If BSG_RENDER_FLAG_COLLECT_ITEMS is set items are appended to req->items
+ * instead of being dispatched (and are NOT freed — caller owns them).
  */
 
 #include "common.h"
@@ -29,49 +56,234 @@
 #include "bu/malloc.h"
 #include "bu/ptbl.h"
 
+#include "vmath.h"
+#include "bn/mat.h"
+
 #include "bsg/defines.h"
 #include "bsg/visit.h"
 #include "bsg/payload.h"
 #include "bsg/render.h"
+#include "bsg/render_item.h"
+#include "bsg/backend_adapter.h"
+#include "bsg/hud.h"
+#include "bsg/appearance.h"
 
 
 /* ------------------------------------------------------------------ */
-/* Internal visitor state                                               */
+/* Internal collection state                                            */
 /* ------------------------------------------------------------------ */
 
-struct render_state {
-    struct bsg_render_request *req;
-    struct bu_ptbl             overlays;  /* deferred overlay nodes */
-    int                        dispatched;
+struct collect_state {
+    const struct bsg_render_request *req;
+    /* Per-phase item buckets (indexed by bsg_render_phase) */
+    struct bu_ptbl phase_items[BSG_RENDER_PHASE_COUNT];
 };
 
-static int
-render_visit_cb(bsg_node *node, void *userdata)
+
+/**
+ * Resolve the render phase for a shape node.
+ *
+ * Priority (highest to lowest):
+ *   1. BSG_PAYLOAD_OVERLAY → OVERLAY or HUD (HUD if node is a HUD child)
+ *   2. BSG_RENDER_FLAG_HUD_PASS request → HUD
+ *   3. transparency < 1.0 → TRANSPARENT
+ *   4. default → OPAQUE
+ */
+static bsg_render_phase
+_classify_phase(const struct bsg_render_request *req,
+		const bsg_node *node,
+		fastf_t transparency)
 {
-    struct render_state *st = (struct render_state *)userdata;
+    unsigned long long ptype = bsg_node_get_payload_type((bsg_node *)node);
+
+    if (ptype & BSG_PAYLOAD_OVERLAY) {
+	/* HUD pass flag promotes overlays into the HUD phase */
+	if (req->flags & BSG_RENDER_FLAG_HUD_PASS) {
+	    const struct bsg_hud_node_meta *meta =
+		bsg_hud_node_get_meta((bsg_node *)node);
+	    if (meta)
+		return BSG_RENDER_PHASE_HUD;
+	}
+	return BSG_RENDER_PHASE_OVERLAY;
+    }
+
+    if (transparency < 1.0)
+	return BSG_RENDER_PHASE_TRANSPARENT;
+
+    return BSG_RENDER_PHASE_OPAQUE;
+}
+
+
+/**
+ * Resolve the sort_key for @p item.
+ *
+ * For HUD items: use bsg_hud_node_meta::sort_order.
+ * For transparent items: use 0 (proper depth sort requires view-space Z
+ *                         which is added in a later slice).
+ * For all others: 0.
+ */
+static int
+_sort_key(const struct bsg_render_item *item)
+{
+    if (item->phase == BSG_RENDER_PHASE_HUD) {
+	const struct bsg_hud_node_meta *meta =
+	    bsg_hud_node_get_meta(item->node);
+	if (meta)
+	    return meta->sort_order;
+    }
+    return 0;
+}
+
+
+/**
+ * Recursive traversal: collect render items from the subtree rooted at
+ * @p node, accumulating the model matrix from ancestor transforms.
+ */
+static void
+_render_collect(const bsg_node *node,
+		const mat_t parent_mat,
+		struct collect_state *st)
+{
+    if (!node)
+	return;
+
     const struct bsg_render_request *req = st->req;
 
-    /* Only dispatch shape nodes */
-    if (!(node->s_type_flags & BSG_NODE_SHAPE))
-	return 1;
+    /* --------------------------------------------------------------- */
+    /* Transform node: push matrix and recurse into children            */
+    /* --------------------------------------------------------------- */
+    if (node->s_type_flags & BSG_NODE_TRANSFORM) {
+	mat_t new_mat;
+	bn_mat_mul(new_mat, parent_mat, ((const bsg_node *)node)->s_mat);
+	for (size_t i = 0; i < BU_PTBL_LEN(&((bsg_node *)node)->children); i++) {
+	    bsg_node *child =
+		(bsg_node *)BU_PTBL_GET(&((bsg_node *)node)->children, i);
+	    _render_collect(child, new_mat, st);
+	}
+	return;
+    }
+
+    /* --------------------------------------------------------------- */
+    /* Non-shape (group/root/…): recurse with same matrix               */
+    /* --------------------------------------------------------------- */
+    if (!(node->s_type_flags & BSG_NODE_SHAPE)) {
+	for (size_t i = 0; i < BU_PTBL_LEN(&((bsg_node *)node)->children); i++) {
+	    bsg_node *child =
+		(bsg_node *)BU_PTBL_GET(&((bsg_node *)node)->children, i);
+	    _render_collect(child, parent_mat, st);
+	}
+	return;
+    }
+
+    /* --------------------------------------------------------------- */
+    /* Shape node: visibility check, LoD update, item creation          */
+    /* --------------------------------------------------------------- */
 
     /* Visibility filter */
     if ((req->flags & BSG_RENDER_FLAG_VISIBLE_ONLY) &&
-	node->s_flag == DOWN)
-	return 1;
+	((const bsg_node *)node)->s_flag == DOWN) {
+	/* shape is hidden — recurse into children only if any exist */
+	for (size_t i = 0; i < BU_PTBL_LEN(&((bsg_node *)node)->children); i++) {
+	    bsg_node *child =
+		(bsg_node *)BU_PTBL_GET(&((bsg_node *)node)->children, i);
+	    _render_collect(child, parent_mat, st);
+	}
+	return;
+    }
 
-    /* Defer overlay nodes if requested */
-    if ((req->flags & BSG_RENDER_FLAG_OVERLAY_LAST) &&
-	(bsg_node_get_payload_type(node) & BSG_PAYLOAD_OVERLAY)) {
-	bu_ptbl_ins_unique(&st->overlays, (long *)node);
+    /* Pre-render update pass for geometry types that need it (CSG / MESH /
+     * BREP) — bsg_payload_dispatch calls s_update_callback when set. */
+    bsg_payload_dispatch(req->dmp, (bsg_node *)node, req->view);
+
+    /* Resolve appearance from s_os (when set) or direct node fields */
+    fastf_t transparency = 1.0;
+    int     dmode        = 0;
+    int     line_width   = 1;
+    unsigned char color[3] = {255, 0, 0};
+
+    const struct bsg_obj_settings *os =
+	((const bsg_node *)node)->s_os;
+    if (os) {
+	transparency = os->transparency;
+	dmode        = os->s_dmode;
+	line_width   = os->s_line_width;
+	if (os->color_override) {
+	    color[0] = os->color[0];
+	    color[1] = os->color[1];
+	    color[2] = os->color[2];
+	} else {
+	    color[0] = ((const bsg_node *)node)->s_color[0];
+	    color[1] = ((const bsg_node *)node)->s_color[1];
+	    color[2] = ((const bsg_node *)node)->s_color[2];
+	}
+    } else {
+	color[0] = ((const bsg_node *)node)->s_color[0];
+	color[1] = ((const bsg_node *)node)->s_color[1];
+	color[2] = ((const bsg_node *)node)->s_color[2];
+    }
+
+    bsg_render_phase phase =
+	_classify_phase(req, node, transparency);
+
+    /* Build the render item */
+    struct bsg_render_item *item = bsg_render_item_create();
+    item->node         = (bsg_node *)node;
+    MAT_COPY(item->model_mat, parent_mat);
+    item->color[0]     = color[0];
+    item->color[1]     = color[1];
+    item->color[2]     = color[2];
+    item->transparency = transparency;
+    item->dmode        = dmode;
+    item->line_width   = line_width;
+    item->line_style   = 0;  /* solid; extended in future slice */
+    item->highlighted  = (((const bsg_node *)node)->s_iflag == UP) ? 1 : 0;
+    item->payload_flags =
+	bsg_node_get_payload_type((bsg_node *)node);
+    item->phase        = phase;
+    item->sort_key     = _sort_key(item);
+
+    bu_ptbl_ins(&st->phase_items[(int)phase], (long *)item);
+
+    /* Recurse into shape children if any */
+    for (size_t i = 0; i < BU_PTBL_LEN(&((bsg_node *)node)->children); i++) {
+	bsg_node *child =
+	    (bsg_node *)BU_PTBL_GET(&((bsg_node *)node)->children, i);
+	_render_collect(child, parent_mat, st);
+    }
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Dispatch helpers                                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Dispatch a single item: adapter callbacks, collect, or legacy fallback.
+ * Returns 1 if the item was dispatched (or collected), 0 if skipped.
+ */
+static int
+_dispatch_item(struct bsg_render_request *req,
+	       struct bsg_render_item *item)
+{
+    if (req->flags & BSG_RENDER_FLAG_COLLECT_ITEMS) {
+	if (req->items)
+	    bu_ptbl_ins(req->items, (long *)item);
 	return 1;
     }
 
-    /* Payload dispatch */
-    if (req->flags & BSG_RENDER_FLAG_PAYLOAD_DISPATCH)
-	bsg_payload_dispatch(req->dmp, node, req->view);
+    if (req->adapter) {
+	if (req->adapter->prepare)
+	    req->adapter->prepare(req->dmp, item);
+	if (req->adapter->draw)
+	    req->adapter->draw(req->dmp, item);
+    } else {
+	/* Legacy fallback: dispatch via bsg_payload_dispatch.
+	 * The update-pass call was already made during collection; this
+	 * second call is intentionally a no-op for update-only types. */
+	bsg_payload_dispatch(req->dmp, item->node, req->view);
+    }
 
-    st->dispatched++;
+    bsg_render_item_free(item);
     return 1;
 }
 
@@ -88,10 +300,12 @@ bsg_render_request_create(struct bsg_view *view,
     struct bsg_render_request *req;
     BU_ALLOC(req, struct bsg_render_request);
     memset(req, 0, sizeof(struct bsg_render_request));
-    req->view  = view;
-    req->root  = root;
-    req->dmp   = dmp;
-    req->flags = BSG_RENDER_FLAG_VISIBLE_ONLY | BSG_RENDER_FLAG_PAYLOAD_DISPATCH;
+    req->view    = view;
+    req->root    = root;
+    req->dmp     = dmp;
+    req->flags   = BSG_RENDER_FLAG_VISIBLE_ONLY | BSG_RENDER_FLAG_PAYLOAD_DISPATCH;
+    req->adapter = NULL;
+    req->items   = NULL;
     return req;
 }
 
@@ -111,32 +325,37 @@ bsg_render_request_execute(struct bsg_render_request *req)
     if (!req)
 	return -1;
 
-    struct render_state st;
-    st.req        = req;
-    st.dispatched = 0;
-    bu_ptbl_init(&st.overlays, 4, "render overlays");
+    /* Identity matrix as the initial accumulated transform */
+    mat_t identity;
+    MAT_IDN(identity);
 
-    bsg_visit(req->root, 0, render_visit_cb, &st);
+    /* Set up per-phase collection buckets */
+    struct collect_state st;
+    st.req = req;
+    for (int p = 0; p < BSG_RENDER_PHASE_COUNT; p++)
+	bu_ptbl_init(&st.phase_items[p], 8, "render phase items");
 
-    /* Dispatch deferred overlay nodes */
-    if (BU_PTBL_LEN(&st.overlays) > 0) {
-	size_t i;
-	for (i = 0; i < BU_PTBL_LEN(&st.overlays); i++) {
-	    bsg_node *node = (bsg_node *)BU_PTBL_GET(&st.overlays, i);
+    /* Collect items from the subtree */
+    _render_collect(req->root, identity, &st);
 
-	    if ((req->flags & BSG_RENDER_FLAG_VISIBLE_ONLY) &&
-		node->s_flag == DOWN)
-		continue;
+    /* TODO: when BSG_RENDER_FLAG_SORTED_ALPHA is set, sort the transparent
+     * bucket back-to-front by sort_key (proper depth sort needs view-space
+     * Z accumulated during collection — implemented in a later slice). */
 
-	    if (req->flags & BSG_RENDER_FLAG_PAYLOAD_DISPATCH)
-		bsg_payload_dispatch(req->dmp, node, req->view);
-
-	    st.dispatched++;
+    /* Dispatch in phase order */
+    int dispatched = 0;
+    for (int p = 0; p < BSG_RENDER_PHASE_COUNT; p++) {
+	struct bu_ptbl *bucket = &st.phase_items[p];
+	for (size_t i = 0; i < BU_PTBL_LEN(bucket); i++) {
+	    struct bsg_render_item *item =
+		(struct bsg_render_item *)BU_PTBL_GET(bucket, i);
+	    dispatched += _dispatch_item(req, item);
+	    /* item is freed inside _dispatch_item unless COLLECT_ITEMS */
 	}
+	bu_ptbl_free(bucket);
     }
 
-    bu_ptbl_free(&st.overlays);
-    return st.dispatched;
+    return dispatched;
 }
 
 /*
@@ -148,3 +367,4 @@ bsg_render_request_execute(struct bsg_render_request *req)
  * End:
  * ex: shiftwidth=4 tabstop=8
  */
+

@@ -29,6 +29,8 @@ set(
   plot3.h
   polygon.h
   render.h
+  render_item.h
+  backend_adapter.h
   hud.h
   scene_set.h
   selection.h
