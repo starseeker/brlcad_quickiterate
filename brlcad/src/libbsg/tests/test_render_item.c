@@ -40,6 +40,7 @@
 #include "bsg/util.h"
 #include "bsg/node.h"
 #include "bsg/node_shape.h"
+#include "bsg/node_transform.h"
 #include "bsg/render.h"
 #include "bsg/render_item.h"
 #include "bsg/backend_adapter.h"
@@ -461,6 +462,104 @@ test_null_request(void)
 
 
 /* ------------------------------------------------------------------ */
+/* Test 11: sorted alpha orders transparent items back-to-front        */
+/* ------------------------------------------------------------------ */
+
+static int
+test_sorted_alpha(void)
+{
+    printf("=== Test 11: sorted_alpha ===\n");
+
+    struct bsg_view *v = _make_view();
+    MAT_IDN(v->gv_model2view);
+
+    bsg_node *root = bsg_scene_root_create(v);
+    bsg_node *xf1 = bsg_transform_create(v);
+    bsg_node *xf2 = bsg_transform_create(v);
+    bsg_node *xf3 = bsg_transform_create(v);
+    bsg_node *s1 = bsg_shape_create(v);
+    bsg_node *s2 = bsg_shape_create(v);
+    bsg_node *s3 = bsg_shape_create(v);
+    bsg_node_add_child(root, xf1);
+    bsg_node_add_child(root, xf2);
+    bsg_node_add_child(root, xf3);
+    bsg_node_add_child(xf1, s1);
+    bsg_node_add_child(xf2, s2);
+    bsg_node_add_child(xf3, s3);
+
+    s1->s_flag = UP;
+    s2->s_flag = UP;
+    s3->s_flag = UP;
+
+    struct bsg_obj_settings os1 = BV_OBJ_SETTINGS_INIT;
+    struct bsg_obj_settings os2 = BV_OBJ_SETTINGS_INIT;
+    struct bsg_obj_settings os3 = BV_OBJ_SETTINGS_INIT;
+    os1.transparency = 0.5;
+    os2.transparency = 0.5;
+    os3.transparency = 0.5;
+    s1->s_os = &os1;
+    s2->s_os = &os2;
+    s3->s_os = &os3;
+
+    mat_t m1, m2, m3;
+    MAT_IDN(m1);
+    MAT_IDN(m2);
+    MAT_IDN(m3);
+    MAT_DELTAS(m1, 0.0, 0.0, 1.0);
+    MAT_DELTAS(m2, 0.0, 0.0, 5.0);
+    MAT_DELTAS(m3, 0.0, 0.0, 3.0);
+    bsg_transform_set_matrix(xf1, m1);
+    bsg_transform_set_matrix(xf2, m2);
+    bsg_transform_set_matrix(xf3, m3);
+
+    struct bu_ptbl items;
+    bu_ptbl_init(&items, 4, "sorted alpha items");
+
+    struct bsg_render_request *req =
+	bsg_render_request_create(v, root, NULL);
+    req->flags = BSG_RENDER_FLAG_COLLECT_ITEMS | BSG_RENDER_FLAG_SORTED_ALPHA;
+    req->items = &items;
+
+    int n = bsg_render_request_execute(req);
+    if (n != 3) FAIL("should collect 3 transparent items");
+    if (BU_PTBL_LEN(&items) != 3) FAIL("items table should have 3 entries");
+
+    struct bsg_render_item *i0 =
+	(struct bsg_render_item *)BU_PTBL_GET(&items, 0);
+    struct bsg_render_item *i1 =
+	(struct bsg_render_item *)BU_PTBL_GET(&items, 1);
+    struct bsg_render_item *i2 =
+	(struct bsg_render_item *)BU_PTBL_GET(&items, 2);
+
+    if (i0->node != s1 || i1->node != s3 || i2->node != s2)
+	FAIL("transparent items should sort back-to-front by transformed depth");
+    if (!(i0->sort_key > i1->sort_key && i1->sort_key > i2->sort_key))
+	FAIL("sort keys should be in descending order");
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&items); i++) {
+	struct bsg_render_item *item =
+	    (struct bsg_render_item *)BU_PTBL_GET(&items, i);
+	bsg_render_item_free(item);
+    }
+    bu_ptbl_free(&items);
+    bsg_render_request_destroy(req);
+    s1->s_os = NULL;
+    s2->s_os = NULL;
+    s3->s_os = NULL;
+    bsg_shape_destroy(s1);
+    bsg_shape_destroy(s2);
+    bsg_shape_destroy(s3);
+    bsg_transform_destroy(xf1);
+    bsg_transform_destroy(xf2);
+    bsg_transform_destroy(xf3);
+    bsg_scene_root_destroy(root);
+    _free_view(v);
+    PASS("sorted_alpha");
+    return 0;
+}
+
+
+/* ------------------------------------------------------------------ */
 /* main                                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -480,6 +579,7 @@ main(int UNUSED(argc), const char **argv)
     failures += test_adapter_prepare_draw();
     failures += test_item_model_mat_identity();
     failures += test_null_request();
+    failures += test_sorted_alpha();
 
     if (failures == 0)
 	printf("RESULT: all Phase D5 render-item tests PASSED\n");

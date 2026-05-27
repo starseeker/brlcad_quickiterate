@@ -36,8 +36,9 @@
  *      phase bucket (bu_ptbl).
  *
  * After collection, transparent items are sorted back-to-front when
- * BSG_RENDER_FLAG_SORTED_ALPHA is set (sort_key is currently 0 for all
- * items; proper depth sort requires view-space Z and can be added later).
+ * BSG_RENDER_FLAG_SORTED_ALPHA is set.  The current sort key uses the
+ * transformed node origin as an approximate depth proxy; payload-specific
+ * depth sorting can refine this in a later slice.
  *
  * Phase-ordered dispatch
  * ----------------------
@@ -51,10 +52,12 @@
 
 #include "common.h"
 
+#include <limits.h>
 #include <string.h>
 
 #include "bu/malloc.h"
 #include "bu/ptbl.h"
+#include "bu/sort.h"
 
 #include "vmath.h"
 #include "bn/mat.h"
@@ -118,12 +121,13 @@ _classify_phase(const struct bsg_render_request *req,
  * Resolve the sort_key for @p item.
  *
  * For HUD items: use bsg_hud_node_meta::sort_order.
- * For transparent items: use 0 (proper depth sort requires view-space Z
- *                         which is added in a later slice).
+ * For transparent items: use the negated view-space Z of the transformed
+ * node origin so larger values sort farther items first (back-to-front).
  * For all others: 0.
  */
 static int
-_sort_key(const struct bsg_render_item *item)
+_sort_key(const struct bsg_render_request *req,
+	  const struct bsg_render_item *item)
 {
     if (item->phase == BSG_RENDER_PHASE_HUD) {
 	const struct bsg_hud_node_meta *meta =
@@ -131,7 +135,55 @@ _sort_key(const struct bsg_render_item *item)
 	if (meta)
 	    return meta->sort_order;
     }
+
+    if (item->phase == BSG_RENDER_PHASE_TRANSPARENT && req && req->view) {
+	mat_t view_mat;
+	point_t model_origin = VINIT_ZERO;
+	point_t view_origin;
+	fastf_t depth_key;
+
+	bn_mat_mul(view_mat, req->view->gv_model2view, item->model_mat);
+	MAT4X3PNT(view_origin, view_mat, model_origin);
+	depth_key = -view_origin[Z] * 1000000.0;
+
+	if (depth_key > (fastf_t)INT_MAX)
+	    return INT_MAX;
+	if (depth_key < (fastf_t)INT_MIN)
+	    return INT_MIN;
+	return (int)depth_key;
+    }
+
     return 0;
+}
+
+
+static int
+_transparent_item_cmp(const void *a, const void *b, void *UNUSED(context))
+{
+    const struct bsg_render_item *ia =
+	*(const struct bsg_render_item * const *)a;
+    const struct bsg_render_item *ib =
+	*(const struct bsg_render_item * const *)b;
+
+    if (ia->sort_key > ib->sort_key)
+	return -1;
+    if (ia->sort_key < ib->sort_key)
+	return 1;
+    return 0;
+}
+
+
+static void
+_sort_transparent_bucket(struct bu_ptbl *bucket)
+{
+    if (!bucket || BU_PTBL_LEN(bucket) < 2)
+	return;
+
+    bu_sort((void *)BU_PTBL_BASEADDR(bucket),
+	    BU_PTBL_LEN(bucket),
+	    sizeof(long *),
+	    _transparent_item_cmp,
+	    NULL);
 }
 
 
@@ -240,7 +292,7 @@ _render_collect(const bsg_node *node,
     item->payload_flags =
 	bsg_node_get_payload_type((bsg_node *)node);
     item->phase        = phase;
-    item->sort_key     = _sort_key(item);
+    item->sort_key     = _sort_key(req, item);
 
     bu_ptbl_ins(&st->phase_items[(int)phase], (long *)item);
 
@@ -338,9 +390,8 @@ bsg_render_request_execute(struct bsg_render_request *req)
     /* Collect items from the subtree */
     _render_collect(req->root, identity, &st);
 
-    /* TODO: when BSG_RENDER_FLAG_SORTED_ALPHA is set, sort the transparent
-     * bucket back-to-front by sort_key (proper depth sort needs view-space
-     * Z accumulated during collection — implemented in a later slice). */
+    if (req->flags & BSG_RENDER_FLAG_SORTED_ALPHA)
+	_sort_transparent_bucket(&st.phase_items[BSG_RENDER_PHASE_TRANSPARENT]);
 
     /* Dispatch in phase order */
     int dispatched = 0;
@@ -367,4 +418,3 @@ bsg_render_request_execute(struct bsg_render_request *req)
  * End:
  * ex: shiftwidth=4 tabstop=8
  */
-
