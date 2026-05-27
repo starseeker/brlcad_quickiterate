@@ -234,8 +234,8 @@ who_solids_print_view(struct bsg_view *v, struct db_i *dbip, int mode, int lvl, 
     if (!v)
 	return;
 
-    tbls[0] = bsg_view_objs(v, BV_DB_OBJS);
-    tbls[1] = bsg_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+    tbls[0] = bsg_view_objs(v, BSG_OBJ_DB);
+    tbls[1] = bsg_view_objs(v, BSG_OBJ_DB | BSG_OBJ_LOCAL);
 
     for (size_t t = 0; t < 2; t++) {
 	struct bu_ptbl *tbl = tbls[t];

@@ -156,7 +156,7 @@ _view_independent_collect_paths(struct _view_independent_path **paths,
     if (node->s_type_flags & BSG_NODE_VIEW_SCOPE)
 	return BRLCAD_OK;
 
-    if (node->s_type_flags & BV_DB_OBJS) {
+    if (node->s_type_flags & BSG_OBJ_DB) {
 	struct ged_bv_data *bdata = node->s_u_data ? (struct ged_bv_data *)node->s_u_data : NULL;
 	if (bdata && bdata->s_fullpath.fp_len > 0) {
 	    char *fpath = db_path_to_string(&bdata->s_fullpath);
@@ -522,7 +522,7 @@ _view_cmd_vZ(void *bs, int argc, const char **argv)
 	    // view objects.
 	    //
 	    // Phase A1 (drawing_stack_modernization): replaced the legacy
-	    // fourfold BV_VIEW_OBJS / BV_DB_OBJS ptbl scan with typed-API
+	    // fourfold BSG_OBJ_VIEW / BSG_OBJ_DB ptbl scan with typed-API
 	    // visits (bsg_view_obj_visit + bsg_view_objs_visit_db).  The
 	    // BSG-aware helpers cover both shared and local scopes for
 	    // view-only objects, and the DB visit walks every leaf of the

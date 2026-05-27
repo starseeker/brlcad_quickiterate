@@ -501,7 +501,7 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
     }
 
     // Primary object drawing.
-    if (s->s_type_flags & BV_DB_OBJS) {
+    if (s->s_type_flags & BSG_OBJ_DB) {
 	struct bsg_node *vo = s;
 	bsg_log(1, "dm_draw_scene_obj - drawing %s[%s]", bu_vls_cstr(&vo->s_name), bu_vls_cstr(&v->gv_name));
 
@@ -540,11 +540,11 @@ _dm_draw_scene_obj_internal(struct dm *dmp,
 
     dm_add_arrows(dmp, s);
 
-    if (s->s_type_flags & BV_AXES) {
+    if (s->s_type_flags & BSG_SHAPE_AXES) {
 	dm_draw_scene_axes(dmp, s);
     }
 
-    if (s->s_type_flags & BV_LABELS) {
+    if (s->s_type_flags & BSG_SHAPE_LABELS) {
 	dm_draw_label(dmp, s);
     }
 }
@@ -752,7 +752,7 @@ dm_draw_objs(struct bsg_view *v)
     // bsg_root->children IS gv_draw_root->children, maintained live by
     // draw/erase mutations.
     //
-    // Phase V4 (drawing_stack_modernization): BV_VIEW_OBJS producers now place
+    // Phase V4 (drawing_stack_modernization): BSG_OBJ_VIEW producers now place
     // objects natively under BSG_NODE_VIEW_SCOPE nodes.  The legacy bridge and
     // VIEW_REF proxy mechanism (Phase V2) has been removed; the BSG traversal
     // below is the sole render path for both DB and view-only objects.

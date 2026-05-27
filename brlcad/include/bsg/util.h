@@ -47,7 +47,7 @@ bsg_scene_root_create(struct bsg_view *v);
  * Synchronize the children list of @p root from the current draw state
  * of @p v.  The root's children table is cleared (pointers only, the
  * actual scene objects are owned by the view) and refilled from all
- * BV_DB_OBJS and BV_VIEW_OBJS tables accessible through @p v.
+ * BSG_OBJ_DB and BSG_OBJ_VIEW tables accessible through @p v.
  *
  * This is the "shim" that mirrors the existing display-list contents
  * into the BSG tree (Phase 4-D).
@@ -83,8 +83,8 @@ bsg_sensor_fire(bsg_node *root, struct bsg_view *v);
 /**
  * Allocate and initialize a scene-graph node using the BSG lifecycle API.
  *
- * The @p type flags currently use the existing BV_* storage flags while the
- * bsg_view storage model is being migrated into libbsg.
+ * The @p type flags use the BSG_OBJ_* storage aliases while the bsg_view
+ * storage model is being migrated into libbsg.
  */
 BSG_EXPORT extern bsg_node *
 bsg_obj_create(struct bsg_view *v, int type);
