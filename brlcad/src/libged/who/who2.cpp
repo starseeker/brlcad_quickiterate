@@ -40,9 +40,11 @@ extern "C" int ged_who_solids_core(struct ged *gedp, int argc, const char *argv[
 static bool
 _path_subsumes(const std::string &prefix, const std::string &path)
 {
-    if (prefix.size() >= path.size())
+    if (prefix.size() > path.size())
 	return false;
     if (path.compare(0, prefix.size(), prefix) != 0)
+	return false;
+    if (prefix.size() == path.size())
 	return false;
     return path[prefix.size()] == '/';
 }

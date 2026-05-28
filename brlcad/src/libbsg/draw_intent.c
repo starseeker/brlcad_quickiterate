@@ -382,6 +382,8 @@ bsg_draw_intent_erase_by_path(bsg_node *root, const char *path)
 
     bsg_node *g = bsg_draw_intent_find(root, path);
     if (g) {
+	/* draw-intent actions operate on draw-tree-owned groups; callers pass
+	 * roots from that tree, so destroy is the expected erase operation. */
 	bsg_node_destroy(g);
 	return 1;
     }
