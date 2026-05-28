@@ -29,6 +29,7 @@
 
 
 #include "bu/getopt.h"
+#include "bsg/draw_source.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
 
@@ -137,7 +138,7 @@ dl_select_cb(struct bsg_node *sp, void *userdata)
     vmax[X] = vmax[Y] = vmax[Z] = -INFINITY;
     vmin[X] = vmin[Y] = vmin[Z] =  INFINITY;
 
-    for (BU_LIST_FOR(vp, bsg_vlist, &(sp->s_vlist))) {
+    for (BU_LIST_FOR(vp, bsg_vlist, bsg_node_vlist_head(sp))) {
 	size_t j;
 	size_t nused = vp->nused;
 	int *cmd = vp->cmd;
@@ -264,7 +265,7 @@ dl_select_partial_cb(struct bsg_node *sp, void *userdata)
 
     bsg_vlist *vp;
 
-    for (BU_LIST_FOR(vp, bsg_vlist, &(sp->s_vlist))) {
+    for (BU_LIST_FOR(vp, bsg_vlist, bsg_node_vlist_head(sp))) {
 	size_t j;
 	size_t nused = vp->nused;
 	int *cmd = vp->cmd;

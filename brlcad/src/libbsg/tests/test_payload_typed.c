@@ -418,14 +418,14 @@ test_line_set_builders(void)
     point_t extra[1] = {{2.0, 0.0, 0.0}};
     int ecmd[1] = {BSG_VLIST_LINE_DRAW};
     uint64_t rev_before = pl->pl_revision;
-    if (!bsg_payload_line_set_append_segments(pl, extra, ecmd, 1)) FAIL("append_segments");
+    if (!bsg_payload_line_set_append_segments(pl, (const point_t *)extra, ecmd, 1)) FAIL("append_segments");
     if (bsg_payload_line_set_point_count(pl) != 3) FAIL("point count after append");
     if (pl->pl_revision <= rev_before) FAIL("revision not bumped after append");
 
     /* replace with a single segment */
     point_t r_pts[2] = {{10.0, 0.0, 0.0}, {20.0, 0.0, 0.0}};
     int r_cmds[2] = {BSG_VLIST_LINE_MOVE, BSG_VLIST_LINE_DRAW};
-    if (!bsg_payload_line_set_replace(pl, r_pts, r_cmds, 2)) FAIL("replace");
+    if (!bsg_payload_line_set_replace(pl, (const point_t *)r_pts, r_cmds, 2)) FAIL("replace");
     if (bsg_payload_line_set_point_count(pl) != 2) FAIL("point count after replace");
 
     /* verify bounds are updated */
@@ -557,6 +557,17 @@ test_remaining_lifecycle_hooks(void)
         gs.draw = 1;
         struct bsg_payload *pl = bsg_payload_grid_create(&gs);
         CHECK_SENTINEL_HOOKS(pl, "GRID");
+    }
+
+    /* HUD_TEXT */
+    {
+        struct bsg_label *lbl;
+        BU_GET(lbl, struct bsg_label);
+        memset(lbl, 0, sizeof(*lbl));
+        BU_VLS_INIT(&lbl->label);
+        bu_vls_sprintf(&lbl->label, "hud test");
+        struct bsg_payload *pl = bsg_payload_hud_text_create(lbl);
+        CHECK_SENTINEL_HOOKS(pl, "HUD_TEXT");
     }
 
     /* ANNOTATION */

@@ -45,6 +45,7 @@
 #include <bsg.h>
 #include "bsg/tcl_data.h"
 #include "bsg/util.h"
+#include "bsg/payload.h"
 #include "dm.h"
 #include <ged.h>
 #include "ged/bsg_ged_draw.h"
@@ -1199,7 +1200,7 @@ main(int ac, char *av[])
 	/* Simulate bsg_lod_update round 1: stale → select 0 → activate 0. */
 	{
 	    auto *pl = (struct bsg_lod_payload *)
-		((struct bsg_node *)lod)->s_i_data;
+		bsg_node_get_internal_data((struct bsg_node *)lod);
 	    if (pl->ops->is_stale(lod, lv)) {
 		int lvl_idx = pl->ops->select_level(lod, lv);
 		pl->ops->activate_level(lod, lv, lvl_idx);
@@ -1213,7 +1214,7 @@ main(int ac, char *av[])
 	st17.select_val = 1;
 	{
 	    auto *pl = (struct bsg_lod_payload *)
-		((struct bsg_node *)lod)->s_i_data;
+		bsg_node_get_internal_data((struct bsg_node *)lod);
 	    if (pl->ops->is_stale(lod, lv)) {
 		int lvl_idx = pl->ops->select_level(lod, lv);
 		pl->ops->activate_level(lod, lv, lvl_idx);
@@ -1227,7 +1228,7 @@ main(int ac, char *av[])
 	st17.stale_val = 0;
 	{
 	    auto *pl = (struct bsg_lod_payload *)
-		((struct bsg_node *)lod)->s_i_data;
+		bsg_node_get_internal_data((struct bsg_node *)lod);
 	    if (pl->ops->is_stale(lod, lv)) {
 		int lvl_idx = pl->ops->select_level(lod, lv);
 		pl->ops->activate_level(lod, lv, lvl_idx);
@@ -1243,7 +1244,7 @@ main(int ac, char *av[])
 	struct bsg_node *lod_raw = (struct bsg_node *)lod;
 	if (lod_raw->s_free_callback)
 	    lod_raw->s_free_callback(lod_raw);
-	ASSERT(lod_raw->s_i_data == NULL);
+	ASSERT(bsg_node_get_internal_data(lod_raw) == NULL);
     }
 
 

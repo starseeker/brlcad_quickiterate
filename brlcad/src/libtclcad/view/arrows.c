@@ -27,6 +27,7 @@
 #include "common.h"
 #include "bu/units.h"
 #include "bsg/vlist.h"
+#include "bsg/draw_source.h"
 #include "ged.h"
 #include "tclcad.h"
 
@@ -238,7 +239,7 @@ to_data_arrows_func(Tcl_Interp *interp,
 	    if (_s) {
 		bsg_vlist *_vp;
 		size_t _j;
-		for (BU_LIST_FOR(_vp, bsg_vlist, &_s->s_vlist)) {
+		for (BU_LIST_FOR(_vp, bsg_vlist, bsg_node_vlist_head(_s))) {
 		    for (_j = 0; _j < (size_t)_vp->nused; _j++) {
 			bu_vls_printf(gedp->ged_result_str, " {%lf %lf %lf} ",
 				      V3ARGS(_vp->pt[_j]));

@@ -43,6 +43,8 @@
 #include "raytrace.h"
 #include "rt/func.h"
 
+#include "bsg/draw_source.h"
+#include "bsg/payload.h"
 #include "./ged_private.h"
 
 struct bigE_data {

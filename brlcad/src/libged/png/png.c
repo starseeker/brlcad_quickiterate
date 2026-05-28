@@ -36,6 +36,7 @@
 #include "bn.h"
 #include "bg/clip.h"
 
+#include "bsg/draw_source.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
 
@@ -152,7 +153,7 @@ draw_png_solid(fastf_t perspective, unsigned char **image, struct bsg_node *sp, 
     point_t *pt_prev=NULL;
     fastf_t dist_prev=1.0;
     fastf_t dist;
-    bsg_vlist *vp = (bsg_vlist *)&sp->s_vlist;
+    bsg_vlist *vp = (bsg_vlist *)bsg_node_vlist_head(sp);
     fastf_t delta;
     struct coord coord1;
     struct coord coord2;

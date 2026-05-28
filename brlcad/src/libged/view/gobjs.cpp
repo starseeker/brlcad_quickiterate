@@ -42,6 +42,7 @@
 #include "bu/vls.h"
 #include "bsg.h"
 #include "bsg/defines.h"
+#include "bsg/payload.h"
 
 #include "../ged_private.h"
 #include "./ged_view.h"
@@ -129,7 +130,7 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
     BU_GET(g->s_path, struct db_full_path);
     db_full_path_init((struct db_full_path *)g->s_path);
     db_dup_full_path((struct db_full_path *)g->s_path, fp);
-    g->s_i_data = (void *)ip;
+    bsg_node_set_internal_data(g, (void *)ip);
     g->s_free_callback = &gobjs_scene_free;
 
     // Set up drawing settings

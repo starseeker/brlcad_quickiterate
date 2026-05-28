@@ -78,7 +78,7 @@ struct vd_curve {
 struct ged_drawable {
     struct bsg_node         *gd_draw_root;          /**< @brief  BSG_NODE_GROUP root of drawn-set tree */
     uint64_t                     gd_draw_rev;           /**< @brief  monotonic revision counter; bumped on every structural mutation of the draw tree; reset to 0 by bsg_view_obj_zap */
-    struct bsg_draw_ctx          bsg_ctx;               /**< @brief  draw-tree context stored in gd_draw_root->s_i_data; draw_rev points at gd_draw_rev so freeing helpers can bump without gedp (Phase 7 Step 10) */
+    struct bsg_draw_ctx          bsg_ctx;               /**< @brief  draw-tree context accessed via bsg_node_get_internal_data(gd_draw_root); draw_rev points at gd_draw_rev so freeing helpers can bump without gedp (Phase 7 Step 10) */
     /* Phase 9.3 / 13 (drawing_stack_modernization B5 residual): NodeSensor
      * handle registered on the currently-illuminated solid, or NULL when
      * nothing is illuminated.  This handle is the single source of truth
