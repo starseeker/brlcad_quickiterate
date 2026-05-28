@@ -355,6 +355,49 @@ bsg_payload_line_set_create(point_t *points, const int *cmds, size_t point_cnt);
 BSG_EXPORT extern struct bsg_payload_line_set *
 bsg_payload_line_set_get(struct bsg_payload *payload);
 
+/**
+ * Append @p add_cnt additional (point, cmd) pairs to @p payload.
+ * The existing point/cmd arrays are reallocated to accommodate the new data.
+ * Bumps the payload revision on success.
+ * @returns 1 on success, 0 on failure.
+ */
+BSG_EXPORT extern int
+bsg_payload_line_set_append_segments(struct bsg_payload *payload,
+	const point_t *points, const int *cmds, size_t add_cnt);
+
+/**
+ * Replace the entire content of @p payload with @p point_cnt new (point, cmd)
+ * pairs.  The previous arrays are freed and new ones allocated.
+ * Bumps the payload revision on success.
+ * @returns 1 on success, 0 on failure.
+ */
+BSG_EXPORT extern int
+bsg_payload_line_set_replace(struct bsg_payload *payload,
+	const point_t *points, const int *cmds, size_t point_cnt);
+
+/**
+ * Remove all points and commands from @p payload (sets point_cnt to 0 and
+ * frees the point/cmd arrays).
+ * Bumps the payload revision on success.
+ * @returns 1 on success, 0 on failure.
+ */
+BSG_EXPORT extern int
+bsg_payload_line_set_clear(struct bsg_payload *payload);
+
+/**
+ * Return the number of points in @p payload, or 0 if @p payload is not a
+ * BSG_PL_LINE_SET payload.
+ */
+BSG_EXPORT extern size_t
+bsg_payload_line_set_point_count(const struct bsg_payload *payload);
+
+/**
+ * Return the command code at index @p idx in @p payload, or -1 if @p payload
+ * is not a BSG_PL_LINE_SET payload or @p idx is out of range.
+ */
+BSG_EXPORT extern int
+bsg_payload_line_set_cmd_at(const struct bsg_payload *payload, size_t idx);
+
 /* -----------------------------------------------------------------------
  * POLYGON payload — Phase D1
  * ----------------------------------------------------------------------- */

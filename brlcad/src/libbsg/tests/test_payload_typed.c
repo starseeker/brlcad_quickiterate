@@ -328,6 +328,9 @@ test_lifecycle_hooks(void)
 }
 
 
+static int
+test_sketch_live_contract(void)
+{
     printf("=== Test 4: sketch live-source contract ===\n");
 
     int rt_edit_placeholder = 0;
@@ -397,6 +400,179 @@ test_lifecycle_hooks(void)
     return 0;
 }
 
+static int
+test_line_set_builders(void)
+{
+    printf("=== Test 6: LINE_SET builder helpers ===\n");
+
+    point_t pts2[2] = {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0}};
+    int cmds2[2] = {BSG_VLIST_LINE_MOVE, BSG_VLIST_LINE_DRAW};
+    struct bsg_payload *pl = bsg_payload_line_set_create(pts2, cmds2, 2);
+    if (!pl) FAIL("line_set_create returned NULL");
+    if (bsg_payload_line_set_point_count(pl) != 2) FAIL("initial point count");
+    if (bsg_payload_line_set_cmd_at(pl, 0) != BSG_VLIST_LINE_MOVE) FAIL("cmd_at(0)");
+    if (bsg_payload_line_set_cmd_at(pl, 1) != BSG_VLIST_LINE_DRAW) FAIL("cmd_at(1)");
+    if (bsg_payload_line_set_cmd_at(pl, 99) != -1) FAIL("cmd_at out-of-range");
+
+    /* append one more segment */
+    point_t extra[1] = {{2.0, 0.0, 0.0}};
+    int ecmd[1] = {BSG_VLIST_LINE_DRAW};
+    uint64_t rev_before = pl->pl_revision;
+    if (!bsg_payload_line_set_append_segments(pl, extra, ecmd, 1)) FAIL("append_segments");
+    if (bsg_payload_line_set_point_count(pl) != 3) FAIL("point count after append");
+    if (pl->pl_revision <= rev_before) FAIL("revision not bumped after append");
+
+    /* replace with a single segment */
+    point_t r_pts[2] = {{10.0, 0.0, 0.0}, {20.0, 0.0, 0.0}};
+    int r_cmds[2] = {BSG_VLIST_LINE_MOVE, BSG_VLIST_LINE_DRAW};
+    if (!bsg_payload_line_set_replace(pl, r_pts, r_cmds, 2)) FAIL("replace");
+    if (bsg_payload_line_set_point_count(pl) != 2) FAIL("point count after replace");
+
+    /* verify bounds are updated */
+    point_t bmin = VINIT_ZERO, bmax = VINIT_ZERO;
+    if (!pl->pl_bounds || pl->pl_bounds(pl, &bmin, &bmax) != 1) FAIL("line_set pl_bounds after replace");
+    if (bmin[0] > 10.0 || bmax[0] < 20.0) FAIL("line_set bounds X after replace");
+
+    /* clear */
+    if (!bsg_payload_line_set_clear(pl)) FAIL("clear");
+    if (bsg_payload_line_set_point_count(pl) != 0) FAIL("point count after clear");
+    if (bsg_payload_line_set_cmd_at(pl, 0) != -1) FAIL("cmd_at on empty");
+    /* bounds of empty line set should return 0 */
+    if (pl->pl_bounds(pl, &bmin, &bmax) != 0) FAIL("bounds of empty line set");
+
+    bsg_payload_free(pl);
+    PASS("LINE_SET builder helpers");
+    return 0;
+}
+
+static int
+test_remaining_lifecycle_hooks(void)
+{
+    printf("=== Test 7: lifecycle hooks for remaining payload types ===\n");
+
+    /* Verify every payload type has non-NULL pl_bounds/pl_export/pl_backend_prepare
+     * (either a real implementation or the _no_* sentinel).  Also exercise the
+     * return values so we confirm the sentinels actually run. */
+
+#define CHECK_HOOKS(pl_, label_) do { \
+    if (!(pl_)) FAIL(label_ " payload create"); \
+    if (!(pl_)->pl_bounds) FAIL(label_ " pl_bounds NULL"); \
+    if (!(pl_)->pl_export) FAIL(label_ " pl_export NULL"); \
+    if (!(pl_)->pl_backend_prepare) FAIL(label_ " pl_backend_prepare NULL"); \
+} while (0)
+
+#define CHECK_SENTINEL_HOOKS(pl_, label_) do { \
+    CHECK_HOOKS(pl_, label_); \
+    point_t _bmin = VINIT_ZERO, _bmax = VINIT_ZERO; \
+    if ((pl_)->pl_bounds((pl_), &_bmin, &_bmax) != 0) FAIL(label_ " pl_bounds sentinel"); \
+    struct bu_vls _exp = BU_VLS_INIT_ZERO; \
+    if ((pl_)->pl_export((pl_), &_exp) != 0) FAIL(label_ " pl_export sentinel"); \
+    bu_vls_free(&_exp); \
+    if ((pl_)->pl_backend_prepare((pl_), NULL) != 0) FAIL(label_ " pl_backend_prepare sentinel"); \
+    bsg_payload_free(pl_); \
+} while (0)
+
+    /* TEXT */
+    {
+        struct bsg_label *lbl;
+        BU_GET(lbl, struct bsg_label);
+        memset(lbl, 0, sizeof(*lbl));
+        BU_VLS_INIT(&lbl->label);
+        bu_vls_sprintf(&lbl->label, "test");
+        struct bsg_payload *pl = bsg_payload_text_create(lbl);
+        CHECK_SENTINEL_HOOKS(pl, "TEXT");
+    }
+
+    /* LINE_SET (real bounds when non-empty, sentinel pl_export) */
+    {
+        point_t pts[2] = {{0,0,0}, {1,0,0}};
+        int cmds[2] = {BSG_VLIST_LINE_MOVE, BSG_VLIST_LINE_DRAW};
+        struct bsg_payload *pl = bsg_payload_line_set_create(pts, cmds, 2);
+        CHECK_HOOKS(pl, "LINE_SET");
+        point_t bmin = VINIT_ZERO, bmax = VINIT_ZERO;
+        if (pl->pl_bounds(pl, &bmin, &bmax) != 1) FAIL("LINE_SET real pl_bounds");
+        if (bmax[0] < 1.0) FAIL("LINE_SET bounds value");
+        struct bu_vls exp = BU_VLS_INIT_ZERO;
+        if (pl->pl_export(pl, &exp) != 0) FAIL("LINE_SET pl_export sentinel");
+        bu_vls_free(&exp);
+        if (pl->pl_backend_prepare(pl, NULL) != 0) FAIL("LINE_SET pl_backend_prepare sentinel");
+        bsg_payload_free(pl);
+    }
+
+    /* POLYGON (real bounds when contours present, sentinel export) */
+    {
+        struct bsg_view *v = make_view();
+        bsg_node *root = bsg_scene_root_create(v);
+        point_t origin = VINIT_ZERO;
+        bsg_node *poly_node = bsg_create_polygon(v, BSG_OBJ_VIEW, BSG_POLYGON_RECTANGLE, &origin);
+        struct bsg_payload *pl = bsg_node_get_payload(poly_node);
+        CHECK_HOOKS(pl, "POLYGON");
+        /* empty polygon: bounds may return 0 */
+        struct bu_vls exp = BU_VLS_INIT_ZERO;
+        if (pl->pl_export(pl, &exp) != 0) FAIL("POLYGON pl_export sentinel");
+        bu_vls_free(&exp);
+        if (pl->pl_backend_prepare(pl, NULL) != 0) FAIL("POLYGON pl_backend_prepare sentinel");
+        bsg_obj_put(poly_node);
+        bsg_scene_root_destroy(root);
+        free_view(v);
+    }
+
+    /* MESH */
+    {
+        struct bsg_payload *pl = bsg_payload_mesh_create(NULL);
+        CHECK_SENTINEL_HOOKS(pl, "MESH");
+    }
+
+    /* CSG */
+    {
+        struct bsg_payload *pl = bsg_payload_csg_create(NULL);
+        CHECK_SENTINEL_HOOKS(pl, "CSG");
+    }
+
+    /* BREP */
+    {
+        struct bsg_payload *pl = bsg_payload_brep_create(NULL);
+        CHECK_SENTINEL_HOOKS(pl, "BREP");
+    }
+
+    /* FRAMEBUFFER */
+    {
+        struct bsg_payload *pl = bsg_payload_framebuffer_create(NULL, 0);
+        CHECK_SENTINEL_HOOKS(pl, "FRAMEBUFFER");
+    }
+
+    /* AXES */
+    {
+        struct bsg_axes *axes;
+        BU_GET(axes, struct bsg_axes);
+        memset(axes, 0, sizeof(*axes));
+        struct bsg_payload *pl = bsg_payload_axes_create(axes);
+        CHECK_SENTINEL_HOOKS(pl, "AXES");
+    }
+
+    /* GRID */
+    {
+        struct bsg_grid_state gs;
+        memset(&gs, 0, sizeof(gs));
+        gs.draw = 1;
+        struct bsg_payload *pl = bsg_payload_grid_create(&gs);
+        CHECK_SENTINEL_HOOKS(pl, "GRID");
+    }
+
+    /* ANNOTATION */
+    {
+        point_t ann_pts[2] = {{0,0,0}, {1,1,0}};
+        struct bsg_payload *pl = bsg_payload_annotation_create("check", ann_pts, 2);
+        CHECK_SENTINEL_HOOKS(pl, "ANNOTATION");
+    }
+
+#undef CHECK_HOOKS
+#undef CHECK_SENTINEL_HOOKS
+
+    PASS("lifecycle hooks for remaining payload types");
+    return 0;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -410,6 +586,8 @@ main(int argc, char **argv)
     ret |= test_remaining_payload_builders();
     ret |= test_lifecycle_hooks();
     ret |= test_sketch_live_contract();
+    ret |= test_line_set_builders();
+    ret |= test_remaining_lifecycle_hooks();
 
     return ret;
 }

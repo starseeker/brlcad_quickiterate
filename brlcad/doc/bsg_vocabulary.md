@@ -40,6 +40,31 @@ the untyped `s_i_data`/`draw_data` convention.
 | Sketch | — | `BSG_PL_SKETCH` | Live sketch edit source. |
 | Annotation | — | `BSG_PL_ANNOTATION` | Measurement annotation. |
 
+### Payload builder and accessor functions (Phase D1)
+
+All builder functions are declared in `include/bsg/payload_typed.h` and
+implemented in `src/libbsg/payload_typed.c`.  Each builder allocates and
+returns a `struct bsg_payload *`; the caller owns the payload and must pass it
+to `bsg_payload_free()` when done, or hand ownership to a BSG node (which frees
+it on node destroy).
+
+| Payload type | Builder function(s) | Accessor function | Notes |
+|---|---|---|---|
+| Raw vlist | `bsg_node_append_vlist_payload`, `bsg_node_clear_vlist_payload` | `bsg_payload_vlist_get` | Real `pl_bounds` and `pl_export`. Mutate via node helpers only. |
+| Text label | `bsg_payload_text_create(bsg_label*)` | `bsg_payload_text_get` | Sentinel lifecycle hooks (no spatial extent). |
+| HUD text | `bsg_payload_hud_text_create(bsg_label*)` | `bsg_payload_hud_text_get` | Sentinel lifecycle hooks. |
+| Line set | `bsg_payload_line_set_create(pts, cmds, n)` | `bsg_payload_line_set_get` | Real `pl_bounds`. Mutation helpers: `bsg_payload_line_set_append_segments`, `bsg_payload_line_set_replace`, `bsg_payload_line_set_clear`, `bsg_payload_line_set_point_count`, `bsg_payload_line_set_cmd_at`. |
+| Polygon | `bsg_create_polygon(v, obj_type, shape, origin)` | `bsg_node_polygon`, `bsg_payload_polygon_get` | Real `pl_bounds`. Created as a scene-node; use `bsg_node_get_payload` for the payload. |
+| Mesh | `bsg_payload_mesh_create(bsg_mesh_lod*)` | `bsg_payload_mesh_get` | Sentinel lifecycle hooks. |
+| CSG source | `bsg_payload_csg_create(opaque)` | `bsg_payload_csg_get` | Sentinel lifecycle hooks; opaque pointer is caller-owned. |
+| BRep | `bsg_payload_brep_create(opaque)` | `bsg_payload_brep_get` | Sentinel lifecycle hooks; opaque pointer is caller-owned. |
+| Image | `bsg_payload_image_create(w, h, bpp, px)` | `bsg_payload_image_get` | Pixel data is copied into the payload. |
+| Framebuffer | `bsg_payload_framebuffer_create(fb*, mode)` | `bsg_payload_framebuffer_get` | Sentinel lifecycle hooks. |
+| Axes | `bsg_payload_axes_create(bsg_axes*)` | `bsg_payload_axes_get` | Sentinel lifecycle hooks. |
+| Grid | `bsg_payload_grid_create(bsg_grid_state*)` | `bsg_payload_grid_get` | Grid state is deep-copied. Sentinel lifecycle hooks. |
+| Sketch | `bsg_payload_sketch_create(live_ctx, ops)` | — | Full live-source contract: revision, update, bounds, pick, snap, free callbacks. |
+| Annotation | `bsg_payload_annotation_create(text, pts, n)` | `bsg_payload_annotation_get` | Sentinel lifecycle hooks. |
+
 ## Draw-intent concepts (Phase D2)
 
 A *draw intent* (`bsg_draw_intent`) is metadata attached to a scene group that
