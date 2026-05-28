@@ -407,6 +407,104 @@ _dm_hud_render_request(struct bsg_view *v, struct bsg_backend_adapter *adapter)
     return ret;
 }
 
+static int
+_dm_scene_prepare_item(void *dmp_ptr, const struct bsg_render_item *item)
+{
+    struct dm *dmp = (struct dm *)dmp_ptr;
+    if (!dmp || !item || !item->node)
+	return 0;
+
+    if (item->node->s_changed) {
+	dm_backend_invalidate_obj(dmp, item->node);
+	item->node->s_changed = 0;
+    }
+
+    return 1;
+}
+
+static void
+_dm_scene_draw_item(void *dmp_ptr, const struct bsg_render_item *item)
+{
+    struct dm *dmp = (struct dm *)dmp_ptr;
+    if (!dmp || !item || !item->node || !item->node->s_v)
+	return;
+
+    struct bsg_node *s = item->node;
+    struct bsg_view *v = s->s_v;
+
+    if (dm_get_transparency(dmp))
+	(void)dm_set_depth_mask(dmp, (item->phase == BSG_RENDER_PHASE_TRANSPARENT) ? 0 : 1);
+
+    if (dm_get_bound_flag(dmp)
+	&& !s->s_displayobj
+	&& (s->s_type_flags & BSG_NODE_SHAPE)
+	&& v->gv_isize > 0
+	&& (s->s_size * v->gv_isize) < 0.001) {
+	return;
+    }
+
+    mat_t model2view;
+    bn_mat_mul(model2view, v->gv_model2view, item->model_mat);
+    dm_loadmatrix(dmp, model2view, 0);
+    if (item->highlighted && v->gv_edit_mat)
+	dm_loadmatrix(dmp, v->gv_edit_mat, 0);
+
+    if (item->highlighted) {
+	(void)dm_set_fg(dmp, 255, 255, 255, 0, item->transparency);
+    } else if (s->s_os && s->s_os->color_override) {
+	(void)dm_set_fg(dmp, item->color[0], item->color[1], item->color[2], 0, item->transparency);
+    } else if (s->s_old.s_cflag) {
+	unsigned char *gdc = dm_get_geometry_default_color(dmp);
+	(void)dm_set_fg(dmp, gdc[0], gdc[1], gdc[2], 0, item->transparency);
+    } else {
+	unsigned char sr, sg, sb;
+	bsg_material_get_rgb(s, &sr, &sg, &sb);
+	(void)dm_set_fg(dmp, sr, sg, sb, 0, item->transparency);
+    }
+
+    int lw = item->line_width;
+    if (lw <= 0)
+	lw = dm_get_linewidth(dmp);
+    (void)dm_set_line_attr(dmp, lw, item->line_style);
+
+    (void)dm_backend_draw_obj(dmp, s);
+    s->s_drawn_rev = v->gv_frame_rev;
+
+    dm_add_arrows(dmp, s);
+    if (s->s_type_flags & BSG_SHAPE_AXES)
+	dm_draw_scene_axes(dmp, s);
+    if (s->s_type_flags & BSG_SHAPE_LABELS)
+	dm_draw_label(dmp, s);
+}
+
+static void
+_dm_scene_invalidate_item(void *dmp_ptr, const struct bsg_render_item *item)
+{
+    struct dm *dmp = (struct dm *)dmp_ptr;
+    if (!dmp || !item || !item->node)
+	return;
+    dm_backend_invalidate_obj(dmp, item->node);
+}
+
+static void
+_dm_scene_free_item(void *dmp_ptr, const struct bsg_render_item *item)
+{
+    struct dm *dmp = (struct dm *)dmp_ptr;
+    if (!dmp || !item || !item->node)
+	return;
+    dm_backend_release_obj(dmp, item->node);
+}
+
+static unsigned int
+_dm_scene_capabilities(void *UNUSED(dmp_ptr))
+{
+    return BSG_ADAPTER_CAP_TRANSPARENCY |
+	   BSG_ADAPTER_CAP_WIREFRAME |
+	   BSG_ADAPTER_CAP_SHADED |
+	   BSG_ADAPTER_CAP_HUD |
+	   BSG_ADAPTER_CAP_SORTED_ALPHA;
+}
+
 
 void
 dm_draw_faceplate(struct bsg_view *v)
@@ -859,28 +957,22 @@ dm_draw_objs(struct bsg_view *v)
     // e.g. before the first draw command) there is no renderable content and
     // the block is skipped.
     if (v->bsg_root) {
-	/* Phase L2 (LoD redesign): run the LoD update pass once per frame
-	 * before the render traversal.  Visits every BSG_NODE_LOD node in
-	 * the tree and, for any that are stale for this view, calls
-	 * select_level then activate_level.  This is a no-op on trees that
-	 * contain no BSG_NODE_LOD nodes (i.e. all existing production trees
-	 * until Phase L3 migrates producers). */
-	bsg_lod_update((bsg_node *)v->bsg_root, v);
-
-	/* Phase 1 (BSG render contract): two-pass transparency render.
-	 * Opaque first with depth writes on, then transparent with depth
-	 * writes off.  When the dm doesn't support / want transparency
-	 * sorting, fall back to a single all-objects pass. */
-	if (dm_get_transparency(dmp)) {
-	    /* Opaque pass */
-	    _bsg_view_traverse_impl(v, v->bsg_root, /*transparency_pass=*/1, NULL);
-	    /* disable depth writes for the transparent pass so back-to-front
-	     * blending doesn't stomp the opaque depth buffer */
-	    (void)dm_set_depth_mask(dmp, 0);
-	    _bsg_view_traverse_impl(v, v->bsg_root, /*transparency_pass=*/2, NULL);
+	static struct bsg_backend_adapter scene_adapter = {
+	    _dm_scene_prepare_item,
+	    _dm_scene_draw_item,
+	    _dm_scene_invalidate_item,
+	    _dm_scene_free_item,
+	    _dm_scene_capabilities
+	};
+	struct bsg_render_request *req = bsg_render_request_create(v, (bsg_node *)v->bsg_root, dmp);
+	if (req) {
+	    req->flags = BSG_RENDER_FLAG_VISIBLE_ONLY | BSG_RENDER_FLAG_PAYLOAD_DISPATCH;
+	    if (dm_get_transparency(dmp))
+		req->flags |= BSG_RENDER_FLAG_SORTED_ALPHA;
+	    req->adapter = &scene_adapter;
+	    (void)bsg_render_request_execute(req);
+	    bsg_render_request_destroy(req);
 	    (void)dm_set_depth_mask(dmp, 1);
-	} else {
-	    _bsg_view_traverse_impl(v, v->bsg_root, /*transparency_pass=*/0, NULL);
 	}
 
     }

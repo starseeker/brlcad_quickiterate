@@ -629,6 +629,117 @@ test_hud_phase_sort(void)
     return 0;
 }
 
+/* ------------------------------------------------------------------ */
+/* Test 13: capabilities callback is queried during execute            */
+/* ------------------------------------------------------------------ */
+
+static int g_caps_count = 0;
+
+static unsigned int
+_test_caps_cb(void *UNUSED(dmp))
+{
+    g_caps_count++;
+    return BSG_ADAPTER_CAP_SORTED_ALPHA | BSG_ADAPTER_CAP_TRANSPARENCY;
+}
+
+static int
+test_adapter_capabilities(void)
+{
+    printf("=== Test 13: adapter_capabilities ===\n");
+    g_caps_count = 0;
+
+    struct bsg_view *v = _make_view();
+    bsg_node *root = bsg_scene_root_create(v);
+    bsg_node *s = bsg_shape_create(v);
+    bsg_node_add_child(root, s);
+    s->s_flag = UP;
+
+    struct bsg_backend_adapter adapter;
+    memset(&adapter, 0, sizeof(adapter));
+    adapter.capabilities = _test_caps_cb;
+
+    struct bsg_render_request *req =
+	bsg_render_request_create(v, root, NULL);
+    req->flags = BSG_RENDER_FLAG_VISIBLE_ONLY | BSG_RENDER_FLAG_SORTED_ALPHA;
+    req->adapter = &adapter;
+
+    int n = bsg_render_request_execute(req);
+    if (n != 1) FAIL("should dispatch one shape");
+    if (g_caps_count != 1) FAIL("capabilities should be called once per execute");
+
+    bsg_render_request_destroy(req);
+    bsg_shape_destroy(s);
+    bsg_scene_root_destroy(root);
+    _free_view(v);
+    PASS("adapter_capabilities");
+    return 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Test 14: invalidate/free lifecycle callbacks are callable           */
+/* ------------------------------------------------------------------ */
+
+static int g_invalidate_count = 0;
+static int g_free_count = 0;
+
+static void
+_test_invalidate_cb(void *UNUSED(dmp), const struct bsg_render_item *UNUSED(item))
+{
+    g_invalidate_count++;
+}
+
+static void
+_test_free_cb(void *UNUSED(dmp), const struct bsg_render_item *UNUSED(item))
+{
+    g_free_count++;
+}
+
+static int
+test_adapter_invalidate_free(void)
+{
+    printf("=== Test 14: adapter_invalidate_free ===\n");
+    g_invalidate_count = 0;
+    g_free_count = 0;
+
+    struct bsg_view *v = _make_view();
+    bsg_node *root = bsg_scene_root_create(v);
+    bsg_node *s = bsg_shape_create(v);
+    bsg_node_add_child(root, s);
+    s->s_flag = UP;
+
+    struct bu_ptbl items;
+    bu_ptbl_init(&items, 4, "invalidate_free items");
+    struct bsg_render_request *req =
+	bsg_render_request_create(v, root, NULL);
+    req->flags = BSG_RENDER_FLAG_COLLECT_ITEMS | BSG_RENDER_FLAG_VISIBLE_ONLY;
+    req->items = &items;
+    int n = bsg_render_request_execute(req);
+    if (n != 1) FAIL("should collect one shape item");
+
+    struct bsg_backend_adapter adapter;
+    memset(&adapter, 0, sizeof(adapter));
+    adapter.invalidate = _test_invalidate_cb;
+    adapter.free = _test_free_cb;
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&items); i++) {
+	struct bsg_render_item *item =
+	    (struct bsg_render_item *)BU_PTBL_GET(&items, i);
+	adapter.invalidate(NULL, item);
+	adapter.free(NULL, item);
+	bsg_render_item_free(item);
+    }
+    if (g_invalidate_count != 1) FAIL("invalidate callback should be called once");
+    if (g_free_count != 1) FAIL("free callback should be called once");
+
+    bu_ptbl_free(&items);
+    bsg_render_request_destroy(req);
+    bsg_shape_destroy(s);
+    bsg_scene_root_destroy(root);
+    _free_view(v);
+    PASS("adapter_invalidate_free");
+    return 0;
+}
+
 
 /* ------------------------------------------------------------------ */
 /* main                                                                 */
@@ -652,6 +763,8 @@ main(int UNUSED(argc), const char **argv)
     failures += test_null_request();
     failures += test_sorted_alpha();
     failures += test_hud_phase_sort();
+    failures += test_adapter_capabilities();
+    failures += test_adapter_invalidate_free();
 
     if (failures == 0)
 	printf("RESULT: all Phase D5 render-item tests PASSED\n");
