@@ -153,6 +153,9 @@ if(TARGET Qt6::Widgets)
       qged_host_status_dialog
     )
   endif()
+  if(TARGET qged_ell)
+    add_dependencies(test_qtcad_plugin_reuse qged_ell)
+  endif()
   brlcad_add_test(NAME test_qtcad_plugin_reuse
     COMMAND test_qtcad_plugin_reuse "${CMAKE_BINARY_DIR}/libexec/qged")
   set_property(TEST test_qtcad_plugin_reuse

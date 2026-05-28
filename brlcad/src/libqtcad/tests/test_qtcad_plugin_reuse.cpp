@@ -54,6 +54,7 @@
 #include "qtcad/QgPluginContext.h"
 #include "qtcad/QgPluginInterfaces.h"
 #include "qtcad/QgPluginManager.h"
+#include "qtcad/QgToolBase.h"
 
 /* ------------------------------------------------------------------ */
 static int g_fail = 0;
@@ -249,7 +250,37 @@ main(int argc, char *argv[])
     }
 
     /* ================================================================
-     * 10. Enable/disable round-trip.
+     * 10. IQgToolFactory: instantiate ell edit tool without ged/view and
+     *     exercise the startup refresh path that previously segfaulted.
+     * ================================================================ */
+    QList<IQgToolFactory *> tools = mgr.factories<IQgToolFactory>(QStringLiteral("qged.object"));
+    TCHECK(!tools.isEmpty(), "IQgToolFactory factories found for qged.object category");
+
+    IQgToolFactory *ell_tool_factory = nullptr;
+    for (IQgToolFactory *fac : tools) {
+        if (fac && fac->descriptor().id == QStringLiteral("org.brlcad.qged.edit.ell")) {
+            ell_tool_factory = fac;
+            break;
+        }
+    }
+    TCHECK(ell_tool_factory != nullptr, "ell edit IQgToolFactory found by id");
+
+    if (ell_tool_factory) {
+        QgToolBase *tool = ell_tool_factory->create(&ctx, nullptr);
+        TCHECK(tool != nullptr, "ell edit factory creates a tool");
+        if (tool) {
+            QgToolPaletteElement *el = tool->paletteElement();
+            TCHECK(el != nullptr, "ell edit tool creates a palette element");
+            tool->refresh();
+            tool->onDbChanged();
+            tool->onViewChanged();
+            TCHECK(true, "ell edit tool refresh path is safe without ged/view");
+            delete tool;
+        }
+    }
+
+    /* ================================================================
+     * 11. Enable/disable round-trip.
      * ================================================================ */
     {
         const QString test_id = QStringLiteral("org.brlcad.qged.command.host_status");
@@ -269,7 +300,7 @@ main(int argc, char *argv[])
     }
 
     /* ================================================================
-     * 11. diagnosticInfo for a known id.
+     * 12. diagnosticInfo for a known id.
      * ================================================================ */
     {
         QString info = mgr.diagnosticInfo(QStringLiteral("org.brlcad.qged.command.host_status"));
@@ -281,7 +312,7 @@ main(int argc, char *argv[])
     }
 
     /* ================================================================
-     * 12. unloadAll: no crash, descriptor list becomes accessible again
+     * 13. unloadAll: no crash, descriptor list becomes accessible again
      *     after a rescan.
      * ================================================================ */
     {
