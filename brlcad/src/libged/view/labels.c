@@ -127,10 +127,6 @@ _label_cmd_create(void *bs, int argc, const char **argv)
 	bu_vls_printf(gedp->ged_result_str, "Failed to create %s\n", gd->vobj);
 	return BRLCAD_ERROR;
     }
-    bsg_node_clear_vlist_payload(s);
-    bsg_node_append_vlist_payload(s, p, BSG_VLIST_LINE_MOVE);
-    VSET(s->s_color, 255, 255, 0);
-
     struct bsg_label *l;
     BU_GET(l, struct bsg_label);
     BU_VLS_INIT(&l->label);
