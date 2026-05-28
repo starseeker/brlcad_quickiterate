@@ -436,7 +436,7 @@ bsg_init(struct bsg_view *gvp, struct bsg_view_set *s)
     gvp->gv_local2base = 1.0;
 
     // Initialize knob vars
-    bsg_knobs_reset(&gvp->k, BV_KNOBS_ALL);
+    bsg_knobs_reset(&gvp->k, BSG_KNOBS_ALL);
     gvp->k.origin_m = '\0';
     gvp->k.origin_o = '\0';
     gvp->k.origin_v = '\0';
@@ -608,7 +608,7 @@ _bv_autoview_db_cb(struct bsg_node *s, void *data)
 }
 
 /* Phase D (drawing_stack_modernization): context for bsg_autoview's
- * bsg_view_obj_visit pass, replacing the bsg_view_objs(BV_VIEW_OBJS) calls.
+ * bsg_view_obj_visit pass, replacing the bsg_view_objs(BSG_OBJ_VIEW) calls.
  * All output fields are pointers so the callback updates the caller's storage
  * in-place (consistent with is_empty and v, both of which are also pointers). */
 struct _bv_autoview_view_ctx {
@@ -685,7 +685,7 @@ bsg_autoview(struct bsg_view *v, double factor, int all_view_objs)
     VSETALL(max, -INFINITY);
 
     /* Phase B: use bsg_view_objs_visit_db so that GED consumers with the BSG
-     * draw tree are handled correctly even after BV_DB_OBJS ptbls are empty. */
+     * draw tree are handled correctly even after BSG_OBJ_DB ptbls are empty. */
     struct _bv_autoview_db_ctx bav_ctx;
     bav_ctx.is_empty = &is_empty;
     bav_ctx.have_geom_objs = &have_geom_objs;
@@ -706,10 +706,10 @@ bsg_autoview(struct bsg_view *v, double factor, int all_view_objs)
     // then basing autoview on the view-only objs is more intuitive than just
     // using the default view settings.
 
-    /* Phase D: use bsg_view_obj_visit instead of bsg_view_objs(BV_VIEW_OBJS).
+    /* Phase D: use bsg_view_obj_visit instead of bsg_view_objs(BSG_OBJ_VIEW).
      * Two passes: collect have_geom_objs across all view objects first, then
      * bound them so the geom-filter logic has complete information. */
-    bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _bv_find_view_geom_visit_cb, &have_geom_objs);
+    bsg_view_obj_visit(v, BSG_VIEW_OBJ_SCOPE_ALL, _bv_find_view_geom_visit_cb, &have_geom_objs);
     {
 	struct _bv_autoview_view_ctx vctx;
 	vctx.is_empty = &is_empty;
@@ -718,7 +718,7 @@ bsg_autoview(struct bsg_view *v, double factor, int all_view_objs)
 	vctx.v = v;
 	vctx.have_geom_objs = have_geom_objs;
 	vctx.all_view_objs = all_view_objs;
-	bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _bv_bound_view_obj_cb, &vctx);
+	bsg_view_obj_visit(v, BSG_VIEW_OBJ_SCOPE_ALL, _bv_bound_view_obj_cb, &vctx);
     }
 
     if (is_empty) {
@@ -1183,8 +1183,8 @@ _bv_scale(struct bsg_view *v, int sensitivity, int factor, point_t UNUSED(keypoi
 
     double f = (double)factor/(double)sensitivity;
     v->gv_scale /= f;
-    if (v->gv_scale < BV_MINVIEWSCALE)
-	v->gv_scale = BV_MINVIEWSCALE;
+    if (v->gv_scale < BSG_MINVIEWSCALE)
+	v->gv_scale = BSG_MINVIEWSCALE;
     v->gv_size = 2.0 * v->gv_scale;
     v->gv_isize = 1.0 / v->gv_size;
 
@@ -1214,20 +1214,20 @@ _bv_center(struct bsg_view *v, int vx, int vy, point_t UNUSED(keypoint), unsigne
 int
 bsg_adjust(struct bsg_view *v, int dx, int dy, point_t keypoint, int UNUSED(mode), unsigned long long flags)
 {
-    if (flags == BV_IDLE)
+    if (flags == BSG_IDLE)
 	return 0;
 
     // TODO - figure out why these need to be flipped for qdm to do the right thing...
-    if (flags & BV_ROT)
+    if (flags & BSG_ROT)
 	return _bv_rot(v, dy, dx, keypoint, flags);
 
-    if (flags & BV_TRANS)
+    if (flags & BSG_TRANS)
 	return _bv_trans(v, dx, dy, keypoint, flags);
 
-    if (flags & BV_SCALE)
+    if (flags & BSG_SCALE)
 	return _bv_scale(v, dx, dy, keypoint, flags);
 
-    if (flags & BV_CENTER)
+    if (flags & BSG_CENTER)
 	return _bv_center(v, dx, dy, keypoint, flags);
 
 
@@ -1317,8 +1317,8 @@ _bv_count_view_obj_cb(struct bsg_node *UNUSED(obj), void *data)
 size_t
 bsg_clear(struct bsg_view *v, int flags)
 {
-    if (!flags || flags & BV_DB_OBJS) {
-	struct bu_ptbl *sg = bsg_view_objs(v, BV_DB_OBJS | (flags & ~BV_VIEW_OBJS));
+    if (!flags || flags & BSG_OBJ_DB) {
+	struct bu_ptbl *sg = bsg_view_objs(v, BSG_OBJ_DB | (flags & ~BSG_OBJ_VIEW));
 	if (sg) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(sg); i++) {
 		struct bsg_node *cg = (struct bsg_scene_group *)BU_PTBL_GET(sg, i);
@@ -1330,21 +1330,21 @@ bsg_clear(struct bsg_view *v, int flags)
 
     /* Phase V4: view-only objects live in BSG VIEW_SCOPE nodes.
      * bsg_view_obj_remove_all handles the tree cleanup directly. */
-    if (!flags || flags & BV_VIEW_OBJS) {
+    if (!flags || flags & BSG_OBJ_VIEW) {
 	int scope_mask = 0;
 	if (!flags) {
-	    scope_mask = BV_VIEW_OBJ_SCOPE_ALL;
-	} else if (flags & BV_LOCAL_OBJS) {
-	    scope_mask = BV_VIEW_OBJ_SCOPE_LOCAL;
+	    scope_mask = BSG_VIEW_OBJ_SCOPE_ALL;
+	} else if (flags & BSG_OBJ_LOCAL) {
+	    scope_mask = BSG_VIEW_OBJ_SCOPE_LOCAL;
 	} else {
-	    scope_mask = BV_VIEW_OBJ_SCOPE_SHARED;
+	    scope_mask = BSG_VIEW_OBJ_SCOPE_SHARED;
 	}
 	bsg_view_obj_remove_all(v, scope_mask);
     }
 
-    if (!flags || flags & BV_LOCAL_OBJS || bsg_view_is_independent(v)) {
-	if (!flags || flags & BV_DB_OBJS) {
-	    struct bu_ptbl *sg = bsg_view_objs(v, BV_DB_OBJS | (flags & ~BV_VIEW_OBJS) | BV_LOCAL_OBJS);
+    if (!flags || flags & BSG_OBJ_LOCAL || bsg_view_is_independent(v)) {
+	if (!flags || flags & BSG_OBJ_DB) {
+	    struct bu_ptbl *sg = bsg_view_objs(v, BSG_OBJ_DB | (flags & ~BSG_OBJ_VIEW) | BSG_OBJ_LOCAL);
 	    if (sg) {
 		for (size_t i = 0; i < BU_PTBL_LEN(sg); i++) {
 		    struct bsg_scene_group *cg = (struct bsg_scene_group *)BU_PTBL_GET(sg, i);
@@ -1356,12 +1356,12 @@ bsg_clear(struct bsg_view *v, int flags)
 	/* VIEW_OBJS local clear already handled above via scope_mask */
     }
 
-    struct bu_ptbl *sg = bsg_view_objs(v, BV_DB_OBJS);
-    struct bu_ptbl *sgl = bsg_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *sg = bsg_view_objs(v, BSG_OBJ_DB);
+    struct bu_ptbl *sgl = bsg_view_objs(v, BSG_OBJ_DB | BSG_OBJ_LOCAL);
 
     /* Phase D: count view-only objects via bsg_view_obj_visit. */
     size_t vo_count = 0;
-    bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _bv_count_view_obj_cb, &vo_count);
+    bsg_view_obj_visit(v, BSG_VIEW_OBJ_SCOPE_ALL, _bv_count_view_obj_cb, &vo_count);
 
     size_t ocnt = 0;
     ocnt += (sg) ? BU_PTBL_LEN(sg) : 0;
@@ -1431,7 +1431,7 @@ bsg_obj_create(struct bsg_view *v, int type)
     // regardless of whether or not a shared repository is available.
     struct bsg_node *free_scene_obj = NULL;
     struct bu_list *vlfree = NULL;
-    if (type & BV_LOCAL_OBJS || type & BV_CHILD_OBJS || bsg_view_is_independent(v) || !v->vset)  {
+    if (type & BSG_OBJ_LOCAL || type & BSG_OBJ_CHILD || bsg_view_is_independent(v) || !v->vset)  {
 	free_scene_obj = v->gv_objs.free_scene_obj;
 	vlfree = &v->gv_objs.gv_vlfree;
     } else {
@@ -1445,18 +1445,18 @@ bsg_obj_create(struct bsg_view *v, int type)
     // to be stored in it, because they are part of the scene only by virtue
     // of their parent object
     struct bu_ptbl *otbl = NULL;
-    if (type & BV_LOCAL_OBJS || type & BV_CHILD_OBJS || bsg_view_is_independent(v) || !v->vset)  {
-	if (!(type & BV_CHILD_OBJS)) {
-	    if (type & BV_DB_OBJS) {
+    if (type & BSG_OBJ_LOCAL || type & BSG_OBJ_CHILD || bsg_view_is_independent(v) || !v->vset)  {
+	if (!(type & BSG_OBJ_CHILD)) {
+	    if (type & BSG_OBJ_DB) {
 		otbl = v->gv_objs.db_objs;
 	    }
-	    /* BV_VIEW_OBJS objects are tracked in BSG VIEW_SCOPE nodes; otbl = NULL. */
+	    /* BSG_OBJ_VIEW objects are tracked in BSG VIEW_SCOPE nodes; otbl = NULL. */
 	}
     } else {
-	if (type & BV_DB_OBJS) {
+	if (type & BSG_OBJ_DB) {
 	    otbl = &v->vset->i->shared_db_objs;
 	}
-	/* BV_VIEW_OBJS objects live in BSG VIEW_SCOPE; otbl = NULL. */
+	/* BSG_OBJ_VIEW objects live in BSG VIEW_SCOPE; otbl = NULL. */
     }
     if (!free_scene_obj)
 	return NULL;
@@ -1648,7 +1648,7 @@ bsg_view_obj_create(struct bsg_view *v, const char *name, unsigned long long typ
 struct bsg_node *
 bsg_view_obj_axes_create(struct bsg_view *v, const char *name, int local)
 {
-    struct bsg_view_obj_opts opts = BV_VIEW_OBJ_OPTS_INIT;
+    struct bsg_view_obj_opts opts = BSG_VIEW_OBJ_OPTS_INIT;
     opts.local = local;
     return bsg_view_obj_create(v, name, BSG_SHAPE_AXES, &opts);
 }
@@ -1656,7 +1656,7 @@ bsg_view_obj_axes_create(struct bsg_view *v, const char *name, int local)
 struct bsg_node *
 bsg_view_obj_lines_create(struct bsg_view *v, const char *name, int local)
 {
-    struct bsg_view_obj_opts opts = BV_VIEW_OBJ_OPTS_INIT;
+    struct bsg_view_obj_opts opts = BSG_VIEW_OBJ_OPTS_INIT;
     opts.local = local;
     return bsg_view_obj_create(v, name, 0, &opts);
 }
@@ -1664,7 +1664,7 @@ bsg_view_obj_lines_create(struct bsg_view *v, const char *name, int local)
 struct bsg_node *
 bsg_view_obj_label_create(struct bsg_view *v, const char *name, int local)
 {
-    struct bsg_view_obj_opts opts = BV_VIEW_OBJ_OPTS_INIT;
+    struct bsg_view_obj_opts opts = BSG_VIEW_OBJ_OPTS_INIT;
     opts.local = local;
     return bsg_view_obj_create(v, name, BSG_SHAPE_LABELS, &opts);
 }
@@ -1672,7 +1672,7 @@ bsg_view_obj_label_create(struct bsg_view *v, const char *name, int local)
 struct bsg_node *
 bsg_view_obj_arrow_create(struct bsg_view *v, const char *name, int local)
 {
-    struct bsg_view_obj_opts opts = BV_VIEW_OBJ_OPTS_INIT;
+    struct bsg_view_obj_opts opts = BSG_VIEW_OBJ_OPTS_INIT;
     opts.local = local;
     opts.arrow = 1;
     return bsg_view_obj_create(v, name, 0, &opts);
@@ -1681,7 +1681,7 @@ bsg_view_obj_arrow_create(struct bsg_view *v, const char *name, int local)
 struct bsg_node *
 bsg_view_obj_overlay_create(struct bsg_view *v, const char *name, int local)
 {
-    struct bsg_view_obj_opts opts = BV_VIEW_OBJ_OPTS_INIT;
+    struct bsg_view_obj_opts opts = BSG_VIEW_OBJ_OPTS_INIT;
     opts.local = local;
     return bsg_view_obj_create(v, name, 0, &opts);
 }
@@ -1689,7 +1689,7 @@ bsg_view_obj_overlay_create(struct bsg_view *v, const char *name, int local)
 struct bsg_node *
 bsg_view_obj_polygon_create(struct bsg_view *v, const char *name, int local)
 {
-    struct bsg_view_obj_opts opts = BV_VIEW_OBJ_OPTS_INIT;
+    struct bsg_view_obj_opts opts = BSG_VIEW_OBJ_OPTS_INIT;
     opts.local = local;
     return bsg_view_obj_create(v, name, BSG_SHAPE_VIEWONLY, &opts);
 }
@@ -1732,7 +1732,7 @@ bsg_view_obj_labels_sync(struct bsg_view *v,
 	bu_vls_sprintf(&l->label, "%s", gdlsp->gdls_labels[i]);
 	VMOVE(l->p, gdlsp->gdls_points[i]);
 	l->line_flag = 0;
-	l->anchor    = BV_ANCHOR_AUTO;
+	l->anchor    = BSG_ANCHOR_AUTO;
 	l->arrow     = 0;
 	bsg_node_set_payload(child, bsg_payload_text_create(l));
     }
@@ -1793,7 +1793,7 @@ bsg_view_obj_remove_all(struct bsg_view *v, int scope_mask)
 	return 0;
 
     if (!scope_mask)
-	scope_mask = BV_VIEW_OBJ_SCOPE_ALL;
+	scope_mask = BSG_VIEW_OBJ_SCOPE_ALL;
 
     struct bsg_node *root = (struct bsg_node *)v->gv_draw_root;
     size_t removed = 0;
@@ -1806,9 +1806,9 @@ bsg_view_obj_remove_all(struct bsg_view *v, int scope_mask)
 	if (_bv_is_independent_scope(scope, v))
 	    continue;
 	int is_local = scope->s_v ? 1 : 0;
-	if (is_local && !(scope_mask & BV_VIEW_OBJ_SCOPE_LOCAL))
+	if (is_local && !(scope_mask & BSG_VIEW_OBJ_SCOPE_LOCAL))
 	    continue;
-	if (!is_local && !(scope_mask & BV_VIEW_OBJ_SCOPE_SHARED))
+	if (!is_local && !(scope_mask & BSG_VIEW_OBJ_SCOPE_SHARED))
 	    continue;
 	if (!_bv_view_scope_visible(scope, v))
 	    continue;
@@ -1869,7 +1869,7 @@ bsg_view_obj_visit(struct bsg_view *v,
 	return;
 
     if (!scope_mask)
-	scope_mask = BV_VIEW_OBJ_SCOPE_ALL;
+	scope_mask = BSG_VIEW_OBJ_SCOPE_ALL;
 
     struct bsg_node *root = (struct bsg_node *)v->gv_draw_root;
     for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
@@ -1879,9 +1879,9 @@ bsg_view_obj_visit(struct bsg_view *v,
 	if (_bv_is_independent_scope(scope, v))
 	    continue;
 	int is_local = scope->s_v ? 1 : 0;
-	if (is_local && !(scope_mask & BV_VIEW_OBJ_SCOPE_LOCAL))
+	if (is_local && !(scope_mask & BSG_VIEW_OBJ_SCOPE_LOCAL))
 	    continue;
-	if (!is_local && !(scope_mask & BV_VIEW_OBJ_SCOPE_SHARED))
+	if (!is_local && !(scope_mask & BSG_VIEW_OBJ_SCOPE_SHARED))
 	    continue;
 	if (!_bv_view_scope_visible(scope, v))
 	    continue;
@@ -2363,8 +2363,8 @@ bsg_view_objs(struct bsg_view *v, int type)
     if (!v)
 	return NULL;
 
-    if (type & BV_DB_OBJS) {
-	if (type & BV_LOCAL_OBJS || bsg_view_is_independent(v)) {
+    if (type & BSG_OBJ_DB) {
+	if (type & BSG_OBJ_LOCAL || bsg_view_is_independent(v)) {
 	    return v->gv_objs.db_objs;
 	} else {
 	    if (v->vset)
@@ -2372,7 +2372,7 @@ bsg_view_objs(struct bsg_view *v, int type)
 	}
     }
 
-    /* BV_VIEW_OBJS queries are no longer supported (Phase D,
+    /* BSG_OBJ_VIEW queries are no longer supported (Phase D,
      * drawing_stack_modernization); use bsg_view_obj_visit instead. */
 
     return NULL;
@@ -2382,7 +2382,7 @@ bsg_view_objs(struct bsg_view *v, int type)
 /* Internal DFS helper for bsg_view_objs_visit_db.
  * Traverses the BSG tree rooted at @p node (which is just a struct bsg_node
  * since bsg_node is a layout-compatible alias).  The callback is invoked for
- * every node whose s_type_flags has BV_DB_OBJS set; returning 0 from the
+ * every node whose s_type_flags has BSG_OBJ_DB set; returning 0 from the
  * callback stops traversal early. */
 static int
 _bv_visit_db_internal(struct bsg_node *node,
@@ -2393,7 +2393,7 @@ _bv_visit_db_internal(struct bsg_node *node,
 	return 1;
 
     /* Call back for DB-derived shape leaves */
-    if ((node->s_type_flags & BV_DB_OBJS) && !(node->s_type_flags & BSG_NODE_VIEW_SCOPE)) {
+    if ((node->s_type_flags & BSG_OBJ_DB) && !(node->s_type_flags & BSG_NODE_VIEW_SCOPE)) {
 	if (!cb(node, data))
 	    return 0;
     }
@@ -2418,8 +2418,8 @@ bsg_view_objs_visit_db(struct bsg_view *v,
     /* Iterate all DB-derived scene objects visible from @p v.  When the view
      * has a BSG draw root (GED consumers after Phase B), the BSG tree is
      * traversed depth-first and the callback fires for every node with
-     * BV_DB_OBJS set in s_type_flags.  For non-GED consumers (no gv_draw_root)
-     * the legacy BV_DB_OBJS and BV_DB_OBJS|BV_LOCAL_OBJS ptbls are iterated.
+     * BSG_OBJ_DB set in s_type_flags.  For non-GED consumers (no gv_draw_root)
+     * the legacy BSG_OBJ_DB and BSG_OBJ_DB|BSG_OBJ_LOCAL ptbls are iterated.
      * Returning 0 from the callback stops traversal early.
      * See include/bv/util.h for the full API contract. */
     if (!v || !cb)
@@ -2428,7 +2428,7 @@ bsg_view_objs_visit_db(struct bsg_view *v,
     if (v->gv_draw_root) {
 	/* Phase B: GED consumers with the BSG draw tree.  The tree is
 	 * depth-first traversed; the callback fires for every node whose
-	 * s_type_flags has BV_DB_OBJS set (i.e. BViewState-owned leaves). */
+	 * s_type_flags has BSG_OBJ_DB set (i.e. BViewState-owned leaves). */
 	struct bsg_node *root = (struct bsg_node *)v->gv_draw_root;
 	if (bsg_view_is_independent(v)) {
 	    struct bsg_node *scope = _bv_independent_scope_find(root, v);
@@ -2442,7 +2442,7 @@ bsg_view_objs_visit_db(struct bsg_view *v,
 
     /* Fallback: non-GED / legacy consumers that store top-level objects
      * directly in the gv_objs ptbls. */
-    struct bu_ptbl *so = bsg_view_objs(v, BV_DB_OBJS);
+    struct bu_ptbl *so = bsg_view_objs(v, BSG_OBJ_DB);
     if (so) {
 	for (size_t i = 0; i < BU_PTBL_LEN(so); i++) {
 	    struct bsg_node *s =
@@ -2451,7 +2451,7 @@ bsg_view_objs_visit_db(struct bsg_view *v,
 		return;
 	}
     }
-    struct bu_ptbl *sol = bsg_view_objs(v, BV_DB_OBJS | BV_LOCAL_OBJS);
+    struct bu_ptbl *sol = bsg_view_objs(v, BSG_OBJ_DB | BSG_OBJ_LOCAL);
     if (sol && sol != so) {
 	for (size_t i = 0; i < BU_PTBL_LEN(sol); i++) {
 	    struct bsg_node *s =
@@ -2588,6 +2588,19 @@ bsg_view_print(const char *title, struct bsg_view *v, int UNUSED(verbosity))
     bu_log("  mod_flags:    %ld\n", v->gv_mod_flags);
     bu_log("  minMousedelta:%f\n", v->gv_minMouseDelta);
     bu_log("  maxMousedelta:%f\n", v->gv_maxMouseDelta);
+}
+
+void
+bsg_view_init(struct bsg_view *v, struct bsg_view_set *s)
+{
+    bsg_init(v, s);
+}
+
+
+void
+bsg_view_free(struct bsg_view *v)
+{
+    bsg_free(v);
 }
 
 // Local Variables:

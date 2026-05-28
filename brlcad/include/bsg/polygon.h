@@ -42,11 +42,16 @@ __BEGIN_DECLS
 
 /* View polygon logic and types */
 
-#define BV_POLYGON_GENERAL 0
-#define BV_POLYGON_CIRCLE 1
-#define BV_POLYGON_ELLIPSE 2
-#define BV_POLYGON_RECTANGLE 3
-#define BV_POLYGON_SQUARE 4
+#define BSG_POLYGON_GENERAL   0
+#define BV_POLYGON_GENERAL    BSG_POLYGON_GENERAL
+#define BSG_POLYGON_CIRCLE    1
+#define BV_POLYGON_CIRCLE     BSG_POLYGON_CIRCLE
+#define BSG_POLYGON_ELLIPSE   2
+#define BV_POLYGON_ELLIPSE    BSG_POLYGON_ELLIPSE
+#define BSG_POLYGON_RECTANGLE 3
+#define BV_POLYGON_RECTANGLE  BSG_POLYGON_RECTANGLE
+#define BSG_POLYGON_SQUARE    4
+#define BV_POLYGON_SQUARE     BSG_POLYGON_SQUARE
 
 struct bsg_polygon {
     int                 type;
@@ -74,55 +79,61 @@ struct bsg_polygon {
 };
 
 /* Given a polygon, create a scene object */
-BV_EXPORT extern struct bsg_node *bsg_create_polygon_obj(struct bsg_view *v, int flags, struct bsg_polygon *p);
+BSG_EXPORT extern struct bsg_node *bsg_create_polygon_obj(struct bsg_view *v, int flags, struct bsg_polygon *p);
 
 /* Return the polygon payload attached to a node, or the legacy internal
  * polygon pointer when called on pre-D1 nodes. */
-BV_EXPORT extern struct bsg_polygon *bsg_node_polygon(const struct bsg_node *node);
+BSG_EXPORT extern struct bsg_polygon *bsg_node_polygon(const struct bsg_node *node);
 
 /* Creates a scene object with a default polygon */
-BV_EXPORT extern struct bsg_node *bsg_create_polygon(struct bsg_view *v, int flags, int type, point_t *fp);
+BSG_EXPORT extern struct bsg_node *bsg_create_polygon(struct bsg_view *v, int flags, int type, point_t *fp);
 
 /* Various update modes have similar logic - we pass in the flags to the update
  * routine to enable/disable specific portions of the overall flow. */
-#define BV_POLYGON_UPDATE_DEFAULT 0
-#define BV_POLYGON_UPDATE_PROPS_ONLY 1
-#define BV_POLYGON_UPDATE_PT_SELECT 2
-#define BV_POLYGON_UPDATE_PT_SELECT_CLEAR 3
-#define BV_POLYGON_UPDATE_PT_MOVE 4
-#define BV_POLYGON_UPDATE_PT_APPEND 5
-BV_EXPORT extern int bsg_update_polygon(struct bsg_node *s, struct bsg_view *v, int utype);
+#define BSG_POLYGON_UPDATE_DEFAULT         0
+#define BV_POLYGON_UPDATE_DEFAULT          BSG_POLYGON_UPDATE_DEFAULT
+#define BSG_POLYGON_UPDATE_PROPS_ONLY      1
+#define BV_POLYGON_UPDATE_PROPS_ONLY       BSG_POLYGON_UPDATE_PROPS_ONLY
+#define BSG_POLYGON_UPDATE_PT_SELECT       2
+#define BV_POLYGON_UPDATE_PT_SELECT        BSG_POLYGON_UPDATE_PT_SELECT
+#define BSG_POLYGON_UPDATE_PT_SELECT_CLEAR 3
+#define BV_POLYGON_UPDATE_PT_SELECT_CLEAR  BSG_POLYGON_UPDATE_PT_SELECT_CLEAR
+#define BSG_POLYGON_UPDATE_PT_MOVE         4
+#define BV_POLYGON_UPDATE_PT_MOVE          BSG_POLYGON_UPDATE_PT_MOVE
+#define BSG_POLYGON_UPDATE_PT_APPEND       5
+#define BV_POLYGON_UPDATE_PT_APPEND        BSG_POLYGON_UPDATE_PT_APPEND
+BSG_EXPORT extern int bsg_update_polygon(struct bsg_node *s, struct bsg_view *v, int utype);
 
 /* Update just the scene obj vlist, without altering the source polygon */
-BV_EXPORT extern void bsg_polygon_vlist(struct bsg_node *s);
+BSG_EXPORT extern void bsg_polygon_vlist(struct bsg_node *s);
 
 /* Find the closest polygon obj to a point (caller-supplied ptbl) */
-BV_EXPORT extern struct bsg_node *bsg_select_polygon(struct bu_ptbl *objs, point_t *cp);
+BSG_EXPORT extern struct bsg_node *bsg_select_polygon(struct bu_ptbl *objs, point_t *cp);
 
 /* Phase A0/A2: typed variant - walks all BSG view-scope nodes visible to v
  * and returns the polygon object closest to cp. */
-BV_EXPORT extern struct bsg_node *bsg_view_select_polygon(struct bsg_view *v, point_t *cp);
+BSG_EXPORT extern struct bsg_node *bsg_view_select_polygon(struct bsg_view *v, point_t *cp);
 
-BV_EXPORT extern int bsg_move_polygon(struct bsg_node *s, point_t *cp, point_t *pp);
-BV_EXPORT extern struct bsg_node *bsg_dup_view_polygon(const char *nname, struct bsg_node *s);
+BSG_EXPORT extern int bsg_move_polygon(struct bsg_node *s, point_t *cp, point_t *pp);
+BSG_EXPORT extern struct bsg_node *bsg_dup_view_polygon(const char *nname, struct bsg_node *s);
 
 /* Copy a bv polygon.  Note that this also performs a
  * view sync - if the user is copying the polygon into
  * another view, they will have to update the output's
  * bsg_view to match their target view. */
-BV_EXPORT extern void bsg_polygon_cpy(struct bsg_polygon *dest , struct bsg_polygon *src);
+BSG_EXPORT extern void bsg_polygon_cpy(struct bsg_polygon *dest , struct bsg_polygon *src);
 
 /* Calculate a suggested default fill delta based on the polygon structure.  The
  * idea is to try and strike a balance between line count and having enough fill
  * lines to highlight interior holes. */
-BV_EXPORT extern int bsg_polygon_calc_fdelta(struct bsg_polygon *p);
+BSG_EXPORT extern int bsg_polygon_calc_fdelta(struct bsg_polygon *p);
 
-BV_EXPORT extern struct bg_polygon *
+BSG_EXPORT extern struct bg_polygon *
 bsg_polygon_fill_segments(struct bg_polygon *poly, plane_t *vp, vect2d_t line_slope, fastf_t line_spacing);
 
 /* For all polygon bsg_scene_objs in the objs table, apply the specified boolean
  * op using p and replace the original polygon geometry in objs with the results. */
-BV_EXPORT extern int bsg_polygon_csg(struct bsg_node *target, struct bsg_node *stencil, bg_clip_t op);
+BSG_EXPORT extern int bsg_polygon_csg(struct bsg_node *target, struct bsg_node *stencil, bg_clip_t op);
 
 __END_DECLS
 

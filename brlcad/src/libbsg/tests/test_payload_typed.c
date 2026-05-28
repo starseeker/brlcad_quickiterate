@@ -170,7 +170,7 @@ test_polygon_payload(void)
     bsg_node *root = bsg_scene_root_create(v);
     if (!root) FAIL("bsg_scene_root_create returned NULL");
     point_t origin = VINIT_ZERO;
-    bsg_node *poly = bsg_create_polygon(v, BSG_OBJ_VIEW, BV_POLYGON_RECTANGLE, &origin);
+    bsg_node *poly = bsg_create_polygon(v, BSG_OBJ_VIEW, BSG_POLYGON_RECTANGLE, &origin);
     if (!poly) FAIL("bsg_create_polygon returned NULL");
     if (!bsg_node_polygon(poly)) FAIL("node polygon accessor returned NULL");
     if (!bsg_node_get_payload(poly) || bsg_node_get_payload(poly)->pl_type != BSG_PL_POLYGON)

@@ -144,16 +144,16 @@ bsg_polygon_vlist(struct bsg_node *s)
 	int do_pnt = 0;
 	if (pcnt == 1)
 	    do_pnt = 1;
-	if (type == BV_POLYGON_CIRCLE && pcnt == 3)
+	if (type == BSG_POLYGON_CIRCLE && pcnt == 3)
 	    do_pnt = 1;
-	if (type == BV_POLYGON_ELLIPSE && pcnt == 4)
+	if (type == BSG_POLYGON_ELLIPSE && pcnt == 4)
 	    do_pnt = 1;
-	if (type == BV_POLYGON_RECTANGLE) {
+	if (type == BSG_POLYGON_RECTANGLE) {
 	    if (NEAR_ZERO(DIST_PNT_PNT_SQ(p->polygon.contour[0].point[0], p->polygon.contour[0].point[1]), SMALL_FASTF) &&
 		    NEAR_ZERO(DIST_PNT_PNT_SQ(p->polygon.contour[0].point[0], p->polygon.contour[0].point[2]), SMALL_FASTF))
 		do_pnt = 1;
 	}
-	if (type == BV_POLYGON_SQUARE) {
+	if (type == BSG_POLYGON_SQUARE) {
 	    if (NEAR_ZERO(DIST_PNT_PNT_SQ(p->polygon.contour[0].point[0], p->polygon.contour[0].point[1]), SMALL_FASTF) &&
 		    NEAR_ZERO(DIST_PNT_PNT_SQ(p->polygon.contour[0].point[0], p->polygon.contour[0].point[2]), SMALL_FASTF))
 		do_pnt = 1;
@@ -247,13 +247,13 @@ bsg_create_polygon(struct bsg_view *v, int flags, int type, point_t *fp)
     VMOVE(p->origin_point, m_pt);
 
     int pcnt = 1;
-    if (type == BV_POLYGON_CIRCLE)
+    if (type == BSG_POLYGON_CIRCLE)
 	pcnt = 3;
-    if (type == BV_POLYGON_ELLIPSE)
+    if (type == BSG_POLYGON_ELLIPSE)
 	pcnt = 4;
-    if (type == BV_POLYGON_RECTANGLE)
+    if (type == BSG_POLYGON_RECTANGLE)
 	pcnt = 4;
-    if (type == BV_POLYGON_SQUARE)
+    if (type == BSG_POLYGON_SQUARE)
 	pcnt = 4;
 
     p->polygon.num_contours = 1;
@@ -268,7 +268,7 @@ bsg_create_polygon(struct bsg_view *v, int flags, int type, point_t *fp)
     }
 
     // Only the general polygon isn't closed out of the gate
-    if (type == BV_POLYGON_GENERAL)
+    if (type == BSG_POLYGON_GENERAL)
 	p->polygon.contour[0].open = 1;
 
     // Have polygon, now make scene object
@@ -303,7 +303,7 @@ int
 bsg_append_polygon_pt(struct bsg_node *s, point_t *np)
 {
     struct bsg_polygon *p = bsg_node_polygon(s);
-    if (p->type != BV_POLYGON_GENERAL)
+    if (p->type != BSG_POLYGON_GENERAL)
 	return -1;
 
     if (p->curr_contour_i < 0)
@@ -404,7 +404,7 @@ bsg_view_select_polygon(struct bsg_view *v, point_t *cp)
 
     struct _bv_poly_select_ptbl state;
     bu_ptbl_init(&state.objs, 8, "bsg_view_select_polygon objs");
-    bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _bv_poly_collect_cb, &state);
+    bsg_view_obj_visit(v, BSG_VIEW_OBJ_SCOPE_ALL, _bv_poly_collect_cb, &state);
     struct bsg_node *result = bsg_select_polygon(&state.objs, cp);
     bu_ptbl_free(&state.objs);
     return result;
@@ -414,7 +414,7 @@ int
 bsg_select_polygon_pt(struct bsg_node *s, point_t *cp)
 {
     struct bsg_polygon *p = bsg_node_polygon(s);
-    if (p->type != BV_POLYGON_GENERAL)
+    if (p->type != BSG_POLYGON_GENERAL)
 	return -1;
 
     plane_t zpln;
@@ -524,7 +524,7 @@ int
 bsg_move_polygon_pt(struct bsg_node *s, point_t *mp)
 {
     struct bsg_polygon *p = bsg_node_polygon(s);
-    if (p->type != BV_POLYGON_GENERAL)
+    if (p->type != BSG_POLYGON_GENERAL)
 	return -1;
 
     // Need to have a point selected before we can move
@@ -779,23 +779,23 @@ int
 bsg_update_general_polygon(struct bsg_node *s, int utype, point_t *cp)
 {
     struct bsg_polygon *p = bsg_node_polygon(s);
-    if (p->type != BV_POLYGON_GENERAL)
+    if (p->type != BSG_POLYGON_GENERAL)
 	return 0;
 
-    if (utype == BV_POLYGON_UPDATE_PT_APPEND) {
+    if (utype == BSG_POLYGON_UPDATE_PT_APPEND) {
 	return bsg_append_polygon_pt(s, cp);
     }
 
-    if (utype == BV_POLYGON_UPDATE_PT_SELECT) {
+    if (utype == BSG_POLYGON_UPDATE_PT_SELECT) {
 	return bsg_select_polygon_pt(s, cp);
     }
 
-    if (utype == BV_POLYGON_UPDATE_PT_SELECT_CLEAR) {
+    if (utype == BSG_POLYGON_UPDATE_PT_SELECT_CLEAR) {
 	bsg_select_clear_polygon_pt(s);
 	return 1;
     }
 
-    if (utype == BV_POLYGON_UPDATE_PT_MOVE) {
+    if (utype == BSG_POLYGON_UPDATE_PT_MOVE) {
 	return bsg_move_polygon_pt(s, cp);
     }
 
@@ -822,7 +822,7 @@ bsg_update_polygon(struct bsg_node *s, struct bsg_view *v, int utype)
 	bu_color_to_rgb_chars(&p->fill_color, fobj->s_color);
     }
 
-    if (utype == BV_POLYGON_UPDATE_PROPS_ONLY) {
+    if (utype == BSG_POLYGON_UPDATE_PROPS_ONLY) {
 
 	for (size_t i = 0; i < BU_PTBL_LEN(&s->children); i++) {
 	    struct bsg_node *s_c = (struct bsg_node *)BU_PTBL_GET(&s->children, i);
@@ -845,7 +845,7 @@ bsg_update_polygon(struct bsg_node *s, struct bsg_view *v, int utype)
 
     /* Need pixel dimension for calculating segment approximations on these
      * shapes - based on view info */
-    if (p->type == BV_POLYGON_CIRCLE || p->type == BV_POLYGON_ELLIPSE) {
+    if (p->type == BSG_POLYGON_CIRCLE || p->type == BSG_POLYGON_ELLIPSE) {
 
 	// Need the length of the diagonal of a pixel
 	vect_t c1 = VINIT_ZERO;
@@ -857,17 +857,17 @@ bsg_update_polygon(struct bsg_node *s, struct bsg_view *v, int utype)
 	MAT4X3PNT(p2, v->gv_view2model, c2);
 	fastf_t d = DIST_PNT_PNT(p1, p2);
 
-	if (p->type == BV_POLYGON_CIRCLE)
+	if (p->type == BSG_POLYGON_CIRCLE)
 	    return bsg_update_polygon_circle(s, &v->gv_point, d);
-	if (p->type == BV_POLYGON_ELLIPSE)
+	if (p->type == BSG_POLYGON_ELLIPSE)
 	    return bsg_update_polygon_ellipse(s, &v->gv_point, d);
     }
 
-    if (p->type == BV_POLYGON_RECTANGLE)
+    if (p->type == BSG_POLYGON_RECTANGLE)
 	return bsg_update_polygon_rectangle(s, &v->gv_point);
-    if (p->type == BV_POLYGON_SQUARE)
+    if (p->type == BSG_POLYGON_SQUARE)
 	return bsg_update_polygon_square(s, &v->gv_point);
-    if (p->type != BV_POLYGON_GENERAL)
+    if (p->type != BSG_POLYGON_GENERAL)
 	return 0;
     return bsg_update_general_polygon(s, utype, &v->gv_point);
 }

@@ -1,6 +1,5 @@
 set(
   LIBBSG_SRCS
-  # BSG scene-graph sources (native)
   action.c
   appearance.c
   camera.c
@@ -13,6 +12,7 @@ set(
   lod.cpp
   lod_node.c
   material.c
+  mesh_lod.cpp
   node.c
   node_group.c
   node_root.c
@@ -28,17 +28,16 @@ set(
   scene_graph.cpp
   selection.c
   sensor.c
-  util.c
+  util.cpp
   view_scope.c
+  view_sets.cpp
   visit.c
   vlist.c
-  # Former libbv sources merged in (bv_ prefixed names avoid collision)
   adc.c
   diff.c
   font.c
   hash.c
   knobs.cpp
-  bv_lod.cpp
   polygon.c
   polygon_fill.cpp
   polygon_op.cpp
@@ -51,9 +50,6 @@ set(
   tig/tplot.c
   tig/vectfont.c
   tig/vector.c
-  bv_util.cpp
-  bv_vlist.c
-  view_sets.cpp
 )
 
 set(BSG_LOCAL_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR})
@@ -64,7 +60,7 @@ set(BSG_LOCAL_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR})
 # compiled exactly once.
 brlcad_addlib(libbsg "${LIBBSG_SRCS}" "" "${BSG_LOCAL_INCLUDE_DIRS}"
   PUBLIC_LIBS ${libbsg_deps}
-  UNITY_BUILD_SKIP bv_vlist.c
+  UNITY_BUILD_SKIP vlist.c
 )
 set_target_properties(libbsg PROPERTIES VERSION 1.0.0 SOVERSION 1)
 if(HIDE_INTERNAL_SYMBOLS)
@@ -93,6 +89,7 @@ cmakefiles(
   light.c
   lod_node.c
   material.c
+  mesh_lod.cpp
   node.c
   node_group.c
   node_root.c
@@ -110,9 +107,8 @@ cmakefiles(
   diff.c
   font.c
   hash.c
-  bv_vlist.c
-  bv_util.cpp
-  bv_lod.cpp
+  vlist.c
+  util.cpp
   polygon.c
   polygon_fill.cpp
   polygon_op.cpp

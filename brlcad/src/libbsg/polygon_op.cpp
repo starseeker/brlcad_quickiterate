@@ -86,7 +86,7 @@ bsg_polygon_csg(struct bsg_node *target, struct bsg_node *stencil, bg_clip_t op)
 	polyA->curr_point_i = polyB->curr_point_i;
 	VMOVE(polyA->origin_point, polyB->origin_point);
 	HMOVE(polyA->vp, polyB->vp);
-	bsg_update_polygon(target, target->s_v, BV_POLYGON_UPDATE_DEFAULT);
+	bsg_update_polygon(target, target->s_v, BSG_POLYGON_UPDATE_DEFAULT);
 	return 1;
     }
 
@@ -104,10 +104,10 @@ bsg_polygon_csg(struct bsg_node *target, struct bsg_node *stencil, bg_clip_t op)
     BU_PUT(cp, struct bg_polygon);
 
     // clipper results are always general polygons
-    polyA->type = BV_POLYGON_GENERAL;
+    polyA->type = BSG_POLYGON_GENERAL;
 
     // Make sure everything's current
-    bsg_update_polygon(target, target->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    bsg_update_polygon(target, target->s_v, BSG_POLYGON_UPDATE_DEFAULT);
 
     return 1;
 }
