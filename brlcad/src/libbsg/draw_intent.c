@@ -338,6 +338,7 @@ bsg_draw_intent_revalidate(bsg_node *root, const struct bsg_db_event *event)
     }
 
     const char *norm_path = _strip_lead_slash(event->dbe_path);
+    struct bu_ptbl to_remove = BU_PTBL_INIT_ZERO;
     for (size_t i = 0; i < BU_PTBL_LEN(&groups); i++) {
 	bsg_node *g = (bsg_node *)BU_PTBL_GET(&groups, i);
 	if (!g)
@@ -355,13 +356,19 @@ bsg_draw_intent_revalidate(bsg_node *root, const struct bsg_db_event *event)
 		count++;
 		break;
 	    case BSG_DB_EVENT_REMOVED:
-		bsg_node_destroy(g);
+		bu_ptbl_ins(&to_remove, (long *)g);
 		count++;
 		break;
 	    default:
 		break;
 	}
     }
+    for (size_t i = 0; i < BU_PTBL_LEN(&to_remove); i++) {
+	bsg_node *g = (bsg_node *)BU_PTBL_GET(&to_remove, i);
+	if (g)
+	    bsg_node_destroy(g);
+    }
+    bu_ptbl_free(&to_remove);
     bu_ptbl_free(&groups);
     return count;
 }
