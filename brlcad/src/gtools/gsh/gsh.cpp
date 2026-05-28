@@ -587,7 +587,7 @@ GshState::view_update()
 	    dm_get_bg(&dm_bg1, &dm_bg2, dmp);
 	    dm_set_bg(dmp, dm_bg1[0], dm_bg1[1], dm_bg1[2], dm_bg2[0], dm_bg2[1], dm_bg2[2]);
 	    dm_set_dirty(dmp, 0);
-	    dm_draw_objs(v, NULL, NULL);
+	    dm_draw_objs(v);
 	    dm_draw_end(dmp);
 	}
     }
@@ -891,4 +891,3 @@ main(int argc, const char **argv)
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

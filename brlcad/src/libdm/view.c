@@ -28,6 +28,9 @@
 #include "bsg/defines.h"
 #include "bsg/appearance.h"
 #include "bsg/hud.h"
+#include "bsg/render.h"
+#include "bsg/render_item.h"
+#include "bsg/backend_adapter.h"
 #include "bsg/material.h"
 #include "bsg/node.h"
 #include "bsg/lod.h"
@@ -144,153 +147,272 @@ dm_add_arrows(struct dm *dmp, struct bsg_node *s)
 	dm_draw_arrow(dmp, A, B, s->s_os->s_arrow_tip_length, s->s_os->s_arrow_tip_width, 1.0);
 }
 
-void
-dm_draw_faceplate(struct bsg_view *v)
+static void
+_dm_draw_hud_center_dot(struct dm *dmp, const struct bsg_hud_payload *payload)
 {
-    struct dm *dmp = (struct dm *)v->dmp;
+    if (!payload)
+	return;
 
-    /* Phase D4 (drawing_modernization): synchronize faceplate settings into
-     * the BSG HUD scene tree before drawing.  This populates gv_hud_root with
-     * one child node per enabled feature, ordered by render phase.  Actual
-     * rasterisation still happens via the dm_* calls below; the HUD tree
-     * records the *what* and *order* while libdm owns the *how*. */
-    bsg_hud_sync(v);
+    (void)dm_set_fg(dmp,
+		    payload->data.other.gos_line_color[0],
+		    payload->data.other.gos_line_color[1],
+		    payload->data.other.gos_line_color[2],
+		    1, 1.0);
+    (void)dm_draw_point_2d(dmp, 0.0, 0.0);
+}
 
-    /* Center dot */
-    if (v->gv_s->gv_center_dot.gos_draw) {
-	(void)dm_set_fg(dmp,
-			v->gv_s->gv_center_dot.gos_line_color[0],
-			v->gv_s->gv_center_dot.gos_line_color[1],
-			v->gv_s->gv_center_dot.gos_line_color[2],
-			1, 1.0);
-	(void)dm_draw_point_2d(dmp, 0.0, 0.0);
-    }
 
-    /* Model axes */
-    if (v->gv_s->gv_model_axes.draw) {
+static void
+_dm_draw_hud_axes_feature(struct dm *dmp, struct bsg_view *v, const struct bsg_hud_payload *payload, int model_axes)
+{
+    if (!payload)
+	return;
+
+    struct bsg_axes axes = payload->data.axes;
+    if (model_axes) {
 	point_t map;
 	point_t save_map;
 
-	VMOVE(save_map, v->gv_s->gv_model_axes.axes_pos);
-	VSCALE(map, v->gv_s->gv_model_axes.axes_pos, v->gv_local2base);
-	MAT4X3PNT(v->gv_s->gv_model_axes.axes_pos, v->gv_model2view, map);
-
-	dm_draw_hud_axes(dmp,
-		     v->gv_size,
-		     v->gv_rotation,
-		     &v->gv_s->gv_model_axes);
-
-	VMOVE(v->gv_s->gv_model_axes.axes_pos, save_map);
+	VMOVE(save_map, axes.axes_pos);
+	VSCALE(map, axes.axes_pos, v->gv_local2base);
+	MAT4X3PNT(axes.axes_pos, v->gv_model2view, map);
+	dm_draw_hud_axes(dmp, v->gv_size, v->gv_rotation, &axes);
+	VMOVE(axes.axes_pos, save_map);
+	return;
     }
 
-    /* View axes */
-    if (v->gv_s->gv_view_axes.draw) {
-	int width, height;
-	fastf_t inv_aspect;
-	fastf_t save_ypos;
+    int width = dm_get_width(dmp);
+    int height = dm_get_height(dmp);
+    fastf_t inv_aspect = (width > 0) ? (fastf_t)height / (fastf_t)width : 1.0;
+    axes.axes_pos[Y] = axes.axes_pos[Y] * inv_aspect;
+    dm_draw_hud_axes(dmp, v->gv_size, v->gv_rotation, &axes);
+}
 
-	save_ypos = v->gv_s->gv_view_axes.axes_pos[Y];
-	width = dm_get_width(dmp);
-	height = dm_get_height(dmp);
-	inv_aspect = (fastf_t)height / (fastf_t)width;
-	v->gv_s->gv_view_axes.axes_pos[Y] = save_ypos * inv_aspect;
-	dm_draw_hud_axes(dmp,
-		     v->gv_size,
-		     v->gv_rotation,
-		     &v->gv_s->gv_view_axes);
 
-	v->gv_s->gv_view_axes.axes_pos[Y] = save_ypos;
+static void
+_dm_draw_hud_scale(struct dm *dmp, struct bsg_view *v, const struct bsg_hud_payload *payload)
+{
+    if (!payload)
+	return;
+
+    dm_draw_scale(dmp,
+		  v->gv_size * v->gv_base2local,
+		  bu_units_string(1 / v->gv_base2local),
+		  payload->data.other.gos_line_color,
+		  v->gv_s->gv_view_params.color);
+}
+
+
+static void
+_dm_draw_hud_adc(struct dm *dmp, struct bsg_view *v, const struct bsg_hud_payload *payload)
+{
+    if (!payload)
+	return;
+    dm_draw_adc(dmp, (struct bsg_adc_state *)&payload->data.adc, v->gv_view2model, v->gv_model2view);
+}
+
+
+static void
+_dm_draw_hud_grid(struct dm *dmp, struct bsg_view *v, const struct bsg_hud_payload *payload)
+{
+    if (!payload)
+	return;
+    dm_draw_grid(dmp, (struct bsg_grid_state *)&payload->data.grid, v->gv_scale, v->gv_model2view, v->gv_base2local);
+}
+
+
+static void
+_dm_draw_hud_rect(struct dm *dmp, const struct bsg_hud_payload *payload)
+{
+    if (!payload)
+	return;
+    dm_draw_rect(dmp, (struct bsg_interactive_rect_state *)&payload->data.rect);
+}
+
+
+static void
+_dm_hud_params_string(struct dm *dmp, struct bsg_view *v, const struct bsg_params_state *ps, struct bu_vls *vls)
+{
+    point_t center;
+    char *ustr = (char *)bu_units_string(v->gv_local2base);
+    MAT_DELTAS_GET_NEG(center, v->gv_center);
+    VSCALE(center, center, v->gv_base2local);
+    int64_t elapsed_time = bu_gettime() - dmp->start_time;
+    if (elapsed_time > 10LL && elapsed_time < 30000000LL) {
+	v->gv_s->gv_frametime = 0.9 * v->gv_s->gv_frametime + 0.1 * elapsed_time / 1000000LL;
     }
 
-
-    /* View scale - TODO view_scale needs its own text color */
-    if (v->gv_s->gv_view_scale.gos_draw)
-	dm_draw_scale(dmp,
-		      v->gv_size*v->gv_base2local,
-		      bu_units_string(1/v->gv_base2local),
-		      v->gv_s->gv_view_scale.gos_line_color,
-		      v->gv_s->gv_view_params.color);
-
-
-    /* Draw the angle distance cursor */
-    if (v->gv_s->gv_adc.draw)
-	dm_draw_adc(dmp, &(v->gv_s->gv_adc), v->gv_view2model, v->gv_model2view);
-
-    /* Draw grid */
-    if (v->gv_s->gv_grid.draw) {
-	dm_draw_grid(dmp, &v->gv_s->gv_grid, v->gv_scale, v->gv_model2view, v->gv_base2local);
+    if (ps->draw_size) {
+	if (bu_vls_strlen(vls) > 0)
+	    bu_vls_printf(vls, " ");
+	bu_vls_printf(vls, "size[%s]: %.2f", ustr, v->gv_size * v->gv_base2local);
     }
-
-    /* Draw rect */
-    if (v->gv_s->gv_rect.draw && v->gv_s->gv_rect.line_width)
-	dm_draw_rect(dmp, &v->gv_s->gv_rect);
-
-    /* View parameters - drawn last so the FPS incorporates as much as possible
-     * of the drawing work. */
-    if (v->gv_s->gv_view_params.draw) {
-
-	// Save current font size
-	int ofontsize = dm_get_fontsize(dmp);
-	// Set font size for params
-	dm_set_fontsize(dmp, v->gv_s->gv_view_params.font_size);
-
-	struct bu_vls vls = BU_VLS_INIT_ZERO;
-	point_t center;
-	char *ustr = (char *)bu_units_string(v->gv_local2base);
-	MAT_DELTAS_GET_NEG(center, v->gv_center);
-	VSCALE(center, center, v->gv_base2local);
-	int64_t elapsed_time = bu_gettime() - (dmp)->start_time;
-	/* Only use reasonable measurements */
-	if (elapsed_time > 10LL && elapsed_time < 30000000LL) {
-	    /* Smoothly transition to new speed */
-	    v->gv_s->gv_frametime = 0.9 * v->gv_s->gv_frametime + 0.1 * elapsed_time / 1000000LL;
-	}
-
-	struct bsg_params_state *ps = &v->gv_s->gv_view_params;
-	if (ps->draw_size) {
-	    if (bu_vls_strlen(&vls) > 0)
-		bu_vls_printf(&vls, " ");
-	    bu_vls_printf(&vls, "size[%s]: %.2f", ustr, v->gv_size * v->gv_base2local);
-	}
-	if (ps->draw_center) {
-	    if (bu_vls_strlen(&vls) > 0)
-		bu_vls_printf(&vls, " ");
-	    bu_vls_printf(&vls, "center[%s]: (%.2f, %.2f, %.2f)", ustr, V3ARGS(center));
-	}
-	if (ps->draw_az) {
-	    if (bu_vls_strlen(&vls) > 0)
-		bu_vls_printf(&vls, " ");
-	    bu_vls_printf(&vls, "az:%.2f", v->gv_aet[0]);
-	}
-	if (ps->draw_el) {
-	    if (bu_vls_strlen(&vls) > 0)
-		bu_vls_printf(&vls, " ");
-	    bu_vls_printf(&vls, "el:%.2f", v->gv_aet[1]);
-	}
-	if (ps->draw_tw) {
-	    if (bu_vls_strlen(&vls) > 0)
-		bu_vls_printf(&vls, " ");
-	    bu_vls_printf(&vls, "tw:%.2f", v->gv_aet[2]);
-	}
-	if (ps->draw_fps) {
-	    if (bu_vls_strlen(&vls) > 0)
-		bu_vls_printf(&vls, " ");
-	    bu_vls_printf(&vls, "FPS:%.2f", 1/v->gv_s->gv_frametime);
-	}
-
-	// TODO - really should put a rectangle behind this to ensure visibility...
-
-	(void)dm_set_fg(dmp,
-			v->gv_s->gv_view_params.color[0],
-			v->gv_s->gv_view_params.color[1],
-			v->gv_s->gv_view_params.color[2],
-			1, 1.0);
-	(void)dm_draw_string_2d(dmp, bu_vls_addr(&vls), -0.98, -0.965, 10, 0);
-	bu_vls_free(&vls);
-
-	// Restore previous font setting
-	dm_set_fontsize(dmp, ofontsize);
+    if (ps->draw_center) {
+	if (bu_vls_strlen(vls) > 0)
+	    bu_vls_printf(vls, " ");
+	bu_vls_printf(vls, "center[%s]: (%.2f, %.2f, %.2f)", ustr, V3ARGS(center));
     }
+    if (ps->draw_az) {
+	if (bu_vls_strlen(vls) > 0)
+	    bu_vls_printf(vls, " ");
+	bu_vls_printf(vls, "az:%.2f", v->gv_aet[0]);
+    }
+    if (ps->draw_el) {
+	if (bu_vls_strlen(vls) > 0)
+	    bu_vls_printf(vls, " ");
+	bu_vls_printf(vls, "el:%.2f", v->gv_aet[1]);
+    }
+    if (ps->draw_tw) {
+	if (bu_vls_strlen(vls) > 0)
+	    bu_vls_printf(vls, " ");
+	bu_vls_printf(vls, "tw:%.2f", v->gv_aet[2]);
+    }
+    if (ps->draw_fps) {
+	if (bu_vls_strlen(vls) > 0)
+	    bu_vls_printf(vls, " ");
+	bu_vls_printf(vls, "FPS:%.2f", 1 / v->gv_s->gv_frametime);
+    }
+}
+
+
+static void
+_dm_draw_hud_params(struct dm *dmp, struct bsg_view *v, const struct bsg_hud_payload *payload)
+{
+    if (!payload)
+	return;
+
+    int ofontsize = dm_get_fontsize(dmp);
+    dm_set_fontsize(dmp, payload->data.params.font_size);
+
+    struct bu_vls vls = BU_VLS_INIT_ZERO;
+    _dm_hud_params_string(dmp, v, &payload->data.params, &vls);
+
+    (void)dm_set_fg(dmp,
+		    payload->data.params.color[0],
+		    payload->data.params.color[1],
+		    payload->data.params.color[2],
+		    1, 1.0);
+    (void)dm_draw_string_2d(dmp, bu_vls_addr(&vls), -0.98, -0.965, 10, 0);
+    bu_vls_free(&vls);
+    dm_set_fontsize(dmp, ofontsize);
+}
+
+
+static void
+_dm_draw_hud_framebuffer(struct dm *dmp)
+{
+    if (!dmp || !dm_get_fb(dmp))
+	return;
+
+    int zbuff_restore = dm_get_zbuffer(dmp);
+    dm_set_zbuffer(dmp, 0);
+    struct fb *fbp = dm_get_fb(dmp);
+    int rw = dm_get_width(dmp);
+    int rh = dm_get_height(dmp);
+    if (fbp) {
+	int fbw = fb_getwidth(fbp);
+	int fbh = fb_getheight(fbp);
+	if (fbw > 0 && fbw < rw) rw = fbw;
+	if (fbh > 0 && fbh < rh) rh = fbh;
+    }
+    if (rw > 0 && rh > 0)
+	fb_refresh(fbp, 0, 0, rw, rh);
+    if (zbuff_restore)
+	dm_set_zbuffer(dmp, 1);
+}
+
+
+static void
+_dm_hud_draw_item(void *dmp_ptr, const struct bsg_render_item *item)
+{
+    struct dm *dmp = (struct dm *)dmp_ptr;
+    if (!dmp || !item || !item->node || !item->node->s_v)
+	return;
+
+    struct bsg_view *v = item->node->s_v;
+    const struct bsg_hud_node_meta *meta = bsg_hud_node_get_meta(item->node);
+    const struct bsg_hud_payload *payload = bsg_hud_node_get_payload(item->node);
+    if (!meta || !payload)
+	return;
+    if (meta->feature_type == BSG_HUD_FEATURE_FRAMEBUFFER)
+	return;
+
+    switch (meta->feature_type) {
+	case BSG_HUD_FEATURE_CENTER_DOT:
+	    _dm_draw_hud_center_dot(dmp, payload);
+	    break;
+	case BSG_HUD_FEATURE_MODEL_AXES:
+	    _dm_draw_hud_axes_feature(dmp, v, payload, 1);
+	    break;
+	case BSG_HUD_FEATURE_VIEW_AXES:
+	    _dm_draw_hud_axes_feature(dmp, v, payload, 0);
+	    break;
+	case BSG_HUD_FEATURE_VIEW_SCALE:
+	    _dm_draw_hud_scale(dmp, v, payload);
+	    break;
+	case BSG_HUD_FEATURE_ADC:
+	    _dm_draw_hud_adc(dmp, v, payload);
+	    break;
+	case BSG_HUD_FEATURE_GRID:
+	    _dm_draw_hud_grid(dmp, v, payload);
+	    break;
+	case BSG_HUD_FEATURE_RECT:
+	    _dm_draw_hud_rect(dmp, payload);
+	    break;
+	case BSG_HUD_FEATURE_VIEW_PARAMS:
+	    _dm_draw_hud_params(dmp, v, payload);
+	    break;
+	case BSG_HUD_FEATURE_FRAMEBUFFER:
+	default:
+	    break;
+    }
+}
+
+
+static void
+_dm_framebuffer_draw_item(void *dmp_ptr, const struct bsg_render_item *item)
+{
+    struct dm *dmp = (struct dm *)dmp_ptr;
+    if (!dmp || !item || !item->node || !item->node->s_v)
+	return;
+
+    const struct bsg_hud_node_meta *meta = bsg_hud_node_get_meta(item->node);
+    const struct bsg_hud_payload *payload = bsg_hud_node_get_payload(item->node);
+    if (!meta || !payload || meta->feature_type != BSG_HUD_FEATURE_FRAMEBUFFER)
+	return;
+
+    _dm_draw_hud_framebuffer(dmp);
+}
+
+
+static int
+_dm_hud_render_request(struct bsg_view *v, struct bsg_backend_adapter *adapter)
+{
+    if (!v || !v->dmp)
+	return 0;
+    if (bsg_hud_sync(v) != 0)
+	return 0;
+
+    bsg_node *root = bsg_hud_root_get(v);
+    if (!root)
+	return 0;
+
+    struct bsg_render_request *req = bsg_render_request_create(v, root, v->dmp);
+    if (!req)
+	return 0;
+    req->flags = BSG_RENDER_FLAG_VISIBLE_ONLY | BSG_RENDER_FLAG_HUD_PASS;
+    req->adapter = adapter;
+    int ret = bsg_render_request_execute(req);
+    bsg_render_request_destroy(req);
+    return ret;
+}
+
+
+void
+dm_draw_faceplate(struct bsg_view *v)
+{
+    static struct bsg_backend_adapter hud_adapter = {NULL, _dm_hud_draw_item, NULL, NULL, NULL};
+    (void)_dm_hud_render_request(v, &hud_adapter);
 }
 
 void
@@ -702,27 +824,8 @@ dm_draw_objs(struct bsg_view *v)
     // matrices, but the framebuffer is always aligned to the view.  We also
     // can't have the zbuffer enabled or the fb image won't draw correctly.
     if (v->gv_s->gv_fb_mode && dm_get_fb(dmp)) {
-	int zbuff_restore = dm_get_zbuffer(dmp);
-	dm_set_zbuffer(dmp, 0);
-	/* Phase A2 (ert reliability): clamp the fb_refresh region to the
-	 * intersection of the framebuffer canvas and the dm widget so an
-	 * in-flight rt-driven fb that hasn't yet matched the resized
-	 * widget cannot induce out-of-bounds reads or stretched/tiled
-	 * artefacts.  When dm == fb (steady state) this is a no-op. */
-	struct fb *fbp = dm_get_fb(dmp);
-	int rw = dm_get_width(dmp);
-	int rh = dm_get_height(dmp);
-	if (fbp) {
-	    int fbw = fb_getwidth(fbp);
-	    int fbh = fb_getheight(fbp);
-	    if (fbw > 0 && fbw < rw) rw = fbw;
-	    if (fbh > 0 && fbh < rh) rh = fbh;
-	}
-	if (rw > 0 && rh > 0) {
-	    fb_refresh(fbp, 0, 0, rw, rh);
-	}
-	if (zbuff_restore)
-	    dm_set_zbuffer(dmp, 1);
+	static struct bsg_backend_adapter framebuffer_adapter = {NULL, _dm_framebuffer_draw_item, NULL, NULL, NULL};
+	(void)_dm_hud_render_request(v, &framebuffer_adapter);
 	if (v->gv_s->gv_fb_mode == 1) {
 	    // In overlay mode, it's just the fb - skip all the rest
 	    return;

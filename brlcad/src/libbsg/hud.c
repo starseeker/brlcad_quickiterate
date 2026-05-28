@@ -57,19 +57,21 @@ struct hud_feature_desc {
     bsg_hud_feature_type  type;
     bsg_hud_coord         coord_space;
     bsg_overlay_role      role;
+    bsg_overlay_class     overlay_class;
     bsg_overlay_lifecycle lifecycle;
     const char           *name;
 };
 
 static const struct hud_feature_desc _hud_features[BSG_HUD_FEATURE_COUNT] = {
-    { BSG_HUD_FEATURE_CENTER_DOT,  BSG_HUD_COORD_NDC,            BSG_OVERLAY_ROLE_SCREEN, BSG_OVERLAY_LC_PERSISTENT, "_hud_center_dot"  },
-    { BSG_HUD_FEATURE_MODEL_AXES,  BSG_HUD_COORD_MODEL_ANCHORED, BSG_OVERLAY_ROLE_SCREEN, BSG_OVERLAY_LC_PERSISTENT, "_hud_model_axes"  },
-    { BSG_HUD_FEATURE_VIEW_AXES,   BSG_HUD_COORD_VIEW_PLANE,     BSG_OVERLAY_ROLE_SCREEN, BSG_OVERLAY_LC_PERSISTENT, "_hud_view_axes"   },
-    { BSG_HUD_FEATURE_VIEW_SCALE,  BSG_HUD_COORD_NDC,            BSG_OVERLAY_ROLE_SCREEN, BSG_OVERLAY_LC_PERSISTENT, "_hud_view_scale"  },
-    { BSG_HUD_FEATURE_ADC,         BSG_HUD_COORD_VIEW_PLANE,     BSG_OVERLAY_ROLE_SCREEN, BSG_OVERLAY_LC_PERSISTENT, "_hud_adc"         },
-    { BSG_HUD_FEATURE_GRID,        BSG_HUD_COORD_MODEL_ANCHORED, BSG_OVERLAY_ROLE_MODEL,  BSG_OVERLAY_LC_PERSISTENT, "_hud_grid"        },
-    { BSG_HUD_FEATURE_RECT,        BSG_HUD_COORD_SCREEN_PX,      BSG_OVERLAY_ROLE_SCREEN, BSG_OVERLAY_LC_PER_FRAME,  "_hud_rect"        },
-    { BSG_HUD_FEATURE_VIEW_PARAMS, BSG_HUD_COORD_NDC,            BSG_OVERLAY_ROLE_SCREEN, BSG_OVERLAY_LC_PER_FRAME,  "_hud_view_params" }
+    { BSG_HUD_FEATURE_CENTER_DOT,  BSG_HUD_COORD_NDC,            BSG_OVERLAY_ROLE_SCREEN, BSG_OVERLAY_CLASS_FACEPLATE,             BSG_OVERLAY_LC_PERSISTENT,      "_hud_center_dot"  },
+    { BSG_HUD_FEATURE_MODEL_AXES,  BSG_HUD_COORD_MODEL_ANCHORED, BSG_OVERLAY_ROLE_SCREEN, BSG_OVERLAY_CLASS_DIAGNOSTIC,            BSG_OVERLAY_LC_PER_VIEW,        "_hud_model_axes"  },
+    { BSG_HUD_FEATURE_VIEW_AXES,   BSG_HUD_COORD_VIEW_PLANE,     BSG_OVERLAY_ROLE_SCREEN, BSG_OVERLAY_CLASS_DIAGNOSTIC,            BSG_OVERLAY_LC_PER_VIEW,        "_hud_view_axes"   },
+    { BSG_HUD_FEATURE_VIEW_SCALE,  BSG_HUD_COORD_NDC,            BSG_OVERLAY_ROLE_SCREEN, BSG_OVERLAY_CLASS_DIAGNOSTIC,            BSG_OVERLAY_LC_PERSISTENT,      "_hud_view_scale"  },
+    { BSG_HUD_FEATURE_ADC,         BSG_HUD_COORD_VIEW_PLANE,     BSG_OVERLAY_ROLE_SCREEN, BSG_OVERLAY_CLASS_DIAGNOSTIC,            BSG_OVERLAY_LC_PER_VIEW,        "_hud_adc"         },
+    { BSG_HUD_FEATURE_GRID,        BSG_HUD_COORD_MODEL_ANCHORED, BSG_OVERLAY_ROLE_MODEL,  BSG_OVERLAY_CLASS_DIAGNOSTIC,            BSG_OVERLAY_LC_PER_VIEW,        "_hud_grid"        },
+    { BSG_HUD_FEATURE_RECT,        BSG_HUD_COORD_SCREEN_PX,      BSG_OVERLAY_ROLE_SCREEN, BSG_OVERLAY_CLASS_SELECTION_RUBBER_BAND, BSG_OVERLAY_LC_PER_FRAME,       "_hud_rect"        },
+    { BSG_HUD_FEATURE_VIEW_PARAMS, BSG_HUD_COORD_NDC,            BSG_OVERLAY_ROLE_SCREEN, BSG_OVERLAY_CLASS_DIAGNOSTIC,            BSG_OVERLAY_LC_PER_FRAME,       "_hud_view_params" },
+    { BSG_HUD_FEATURE_FRAMEBUFFER, BSG_HUD_COORD_SCREEN_PX,      BSG_OVERLAY_ROLE_SCREEN, BSG_OVERLAY_CLASS_DIAGNOSTIC,            BSG_OVERLAY_LC_SHARED_VIEW_SET, "_hud_framebuffer" }
 };
 
 
@@ -86,9 +88,20 @@ _meta_alloc(int i)
     m->feature_type = _hud_features[i].type;
     m->coord_space  = _hud_features[i].coord_space;
     m->role         = _hud_features[i].role;
+    m->overlay_class = _hud_features[i].overlay_class;
     m->lifecycle    = _hud_features[i].lifecycle;
     m->sort_order   = i; /* default: index == phase order */
     return m;
+}
+
+static struct bsg_hud_payload *
+_payload_alloc(int i)
+{
+    struct bsg_hud_payload *p;
+    BU_ALLOC(p, struct bsg_hud_payload);
+    memset(p, 0, sizeof(*p));
+    p->feature_type = _hud_features[i].type;
+    return p;
 }
 
 /* Free the bsg_hud_node_meta stored as internal data on a node. */
@@ -101,6 +114,11 @@ _meta_free_cb(struct bsg_node *node)
     if (m) {
 	bu_free(m, "bsg_hud_node_meta");
 	bsg_node_set_internal_data(node, NULL);
+    }
+    struct bsg_hud_payload *p = (struct bsg_hud_payload *)bsg_node_get_draw_data(node);
+    if (p) {
+	bu_free(p, "bsg_hud_payload");
+	bsg_node_set_draw_data(node, NULL);
     }
 }
 
@@ -146,7 +164,9 @@ bsg_hud_root_create(struct bsg_view *v)
 	bu_vls_sprintf(&child->s_name, "%s", _hud_features[i].name);
 
 	struct bsg_hud_node_meta *m = _meta_alloc(i);
+	struct bsg_hud_payload *p = _payload_alloc(i);
 	bsg_node_set_internal_data(child, m);
+	bsg_node_set_draw_data(child, p);
 	child->s_free_callback = _meta_free_cb;
 
 	bsg_node_add_child(root, child);
@@ -215,34 +235,49 @@ bsg_hud_sync(struct bsg_view *v)
 	    continue;
 
 	struct bsg_hud_node_meta *m = (struct bsg_hud_node_meta *)bsg_node_get_internal_data(child);
+	struct bsg_hud_payload *p = (struct bsg_hud_payload *)bsg_node_get_draw_data(child);
 	if (!m)
+	    continue;
+	if (!p)
 	    continue;
 
 	int enabled = 0;
 	switch (m->feature_type) {
 	    case BSG_HUD_FEATURE_CENTER_DOT:
 		enabled = s->gv_center_dot.gos_draw;
+		memcpy(&p->data.other, &s->gv_center_dot, sizeof(struct bsg_other_state));
 		break;
 	    case BSG_HUD_FEATURE_MODEL_AXES:
 		enabled = s->gv_model_axes.draw;
+		memcpy(&p->data.axes, &s->gv_model_axes, sizeof(struct bsg_axes));
 		break;
 	    case BSG_HUD_FEATURE_VIEW_AXES:
 		enabled = s->gv_view_axes.draw;
+		memcpy(&p->data.axes, &s->gv_view_axes, sizeof(struct bsg_axes));
 		break;
 	    case BSG_HUD_FEATURE_VIEW_SCALE:
 		enabled = s->gv_view_scale.gos_draw;
+		memcpy(&p->data.other, &s->gv_view_scale, sizeof(struct bsg_other_state));
 		break;
 	    case BSG_HUD_FEATURE_ADC:
 		enabled = s->gv_adc.draw;
+		memcpy(&p->data.adc, &s->gv_adc, sizeof(struct bsg_adc_state));
 		break;
 	    case BSG_HUD_FEATURE_GRID:
 		enabled = s->gv_grid.draw;
+		memcpy(&p->data.grid, &s->gv_grid, sizeof(struct bsg_grid_state));
 		break;
 	    case BSG_HUD_FEATURE_RECT:
 		enabled = (s->gv_rect.draw && s->gv_rect.line_width > 0);
+		memcpy(&p->data.rect, &s->gv_rect, sizeof(struct bsg_interactive_rect_state));
 		break;
 	    case BSG_HUD_FEATURE_VIEW_PARAMS:
 		enabled = s->gv_view_params.draw;
+		memcpy(&p->data.params, &s->gv_view_params, sizeof(struct bsg_params_state));
+		break;
+	    case BSG_HUD_FEATURE_FRAMEBUFFER:
+		enabled = (s->gv_fb_mode != 0);
+		p->data.framebuffer.mode = s->gv_fb_mode;
 		break;
 	    default:
 		break;
@@ -263,6 +298,17 @@ bsg_hud_node_get_meta(bsg_node *node)
     if (!(bsg_node_get_payload_type(node) & BSG_PAYLOAD_OVERLAY))
 	return NULL;
     return (struct bsg_hud_node_meta *)bsg_node_get_internal_data(node);
+}
+
+
+const struct bsg_hud_payload *
+bsg_hud_node_get_payload(bsg_node *node)
+{
+    if (!node)
+	return NULL;
+    if (!(bsg_node_get_payload_type(node) & BSG_PAYLOAD_OVERLAY))
+	return NULL;
+    return (const struct bsg_hud_payload *)bsg_node_get_draw_data(node);
 }
 
 /*

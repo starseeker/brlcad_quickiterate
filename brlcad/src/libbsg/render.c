@@ -194,6 +194,36 @@ _sort_transparent_bucket(struct bu_ptbl *bucket)
 }
 
 
+static int
+_hud_item_cmp(const void *a, const void *b, void *UNUSED(context))
+{
+    const struct bsg_render_item *ia =
+	*(const struct bsg_render_item * const *)a;
+    const struct bsg_render_item *ib =
+	*(const struct bsg_render_item * const *)b;
+
+    if (ia->sort_key < ib->sort_key)
+	return -1;
+    if (ia->sort_key > ib->sort_key)
+	return 1;
+    return 0;
+}
+
+
+static void
+_sort_hud_bucket(struct bu_ptbl *bucket)
+{
+    if (!bucket || BU_PTBL_LEN(bucket) < 2)
+	return;
+
+    bu_sort(BU_PTBL_BASEADDR(bucket),
+	    BU_PTBL_LEN(bucket),
+	    sizeof(void *),
+	    _hud_item_cmp,
+	    NULL);
+}
+
+
 /**
  * Recursive traversal: collect render items from the subtree rooted at
  * @p node, accumulating the model matrix from ancestor transforms.
@@ -399,6 +429,8 @@ bsg_render_request_execute(struct bsg_render_request *req)
 
     if (req->flags & BSG_RENDER_FLAG_SORTED_ALPHA)
 	_sort_transparent_bucket(&st.phase_items[BSG_RENDER_PHASE_TRANSPARENT]);
+    if (req->flags & BSG_RENDER_FLAG_HUD_PASS)
+	_sort_hud_bucket(&st.phase_items[BSG_RENDER_PHASE_HUD]);
 
     /* Dispatch in phase order */
     int dispatched = 0;

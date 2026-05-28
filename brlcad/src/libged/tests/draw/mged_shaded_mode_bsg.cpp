@@ -87,7 +87,7 @@ do_refresh(struct ged *gedp)
     struct bsg_view *v = gedp->ged_gvp;
     struct dm *dmp = (struct dm *)v->dmp;
     dm_draw_begin(dmp);
-    dm_draw_objs(v, NULL, NULL);
+    dm_draw_objs(v);
     dm_draw_end(dmp);
 }
 

@@ -70,7 +70,7 @@ do_refresh(struct ged *gedp)
     struct bsg_view *v = gedp->ged_gvp;
     struct dm *dmp = (struct dm *)v->dmp;
     dm_draw_begin(dmp);
-    dm_draw_objs(v, NULL, NULL);
+    dm_draw_objs(v);
     dm_draw_end(dmp);
 }
 
@@ -92,7 +92,7 @@ do_full_refresh(struct ged *gedp)
     dm_get_bg(&bg1, &bg2, dmp);
     dm_set_bg(dmp, bg1[0], bg1[1], bg1[2], bg2[0], bg2[1], bg2[2]);
     dm_set_dirty(dmp, 0);
-    dm_draw_objs(v, NULL, NULL);
+    dm_draw_objs(v);
     dm_draw_end(dmp);
 }
 
