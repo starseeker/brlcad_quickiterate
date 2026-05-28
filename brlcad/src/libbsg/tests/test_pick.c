@@ -36,6 +36,7 @@
 #include "bu/app.h"
 #include "bu/malloc.h"
 #include "bu/ptbl.h"
+#include "bu/str.h"
 #include "bsg/defines.h"
 #include "bsg/draw_intent.h"
 #include "bsg/node.h"
@@ -84,12 +85,16 @@ append_record(struct bsg_pick_result *res, bsg_node *node, struct bsg_view *v,
     struct bsg_pick_record *pr;
     BU_GET(pr, struct bsg_pick_record);
     bu_vls_init(&pr->pr_source_path);
+    bu_vls_init(&pr->pr_instance_path);
     pr->pr_node = node;
     pr->pr_view = v;
     pr->pr_screen_x = sx;
     pr->pr_screen_y = sy;
     pr->pr_hit_dist = hit_dist;
+    pr->pr_primitive_id = -1;
+    pr->pr_subelement_id = -1;
     bu_vls_sprintf(&pr->pr_source_path, "%s", path ? path : bu_vls_cstr(&node->s_name));
+    bu_vls_sprintf(&pr->pr_instance_path, "%s", bu_vls_cstr(&pr->pr_source_path));
     bu_ptbl_ins(&res->pr_records, (long *)pr);
     return 1;
 }
@@ -340,6 +345,57 @@ test_pick_result_to_ptbl_nonempty(void)
     return 0;
 }
 
+static int
+test_pick_ray_null_view(void)
+{
+    printf("=== Test 11: pick_ray NULL view ===\n");
+    point_t o = VINIT_ZERO;
+    vect_t d = {0.0, 0.0, 1.0};
+    struct bsg_pick_result *res = bsg_pick_ray(NULL, o, d, BSG_PICK_INCLUDE_SCENE);
+    if (res) FAIL("pick_ray(NULL) should return NULL");
+    PASS("pick_ray NULL view");
+    return 0;
+}
+
+static int
+test_pick_semantic_path_basic(void)
+{
+    printf("=== Test 12: pick_semantic_path basic ===\n");
+
+    struct bsg_view *v = make_view();
+    bsg_node *root = bsg_scene_root_create(v);
+    bsg_node *g1 = bsg_group_create(v);
+    bsg_node *g2 = bsg_group_create(v);
+    if (!v || !root || !g1 || !g2) FAIL("scene setup failed");
+
+    bsg_node_set_draw_intent(g1, bsg_draw_intent_create("hull/main", BSG_DRAW_MODE_WIRE));
+    bsg_node_set_draw_intent(g2, bsg_draw_intent_create("engine/aux", BSG_DRAW_MODE_SHADED));
+    bsg_node_add_child(root, g1);
+    bsg_node_add_child(root, g2);
+
+    struct bsg_pick_result *res = bsg_pick_semantic_path(v, "hull/*");
+    if (!res) FAIL("pick_semantic_path returned NULL");
+    if (bsg_pick_result_count(res) != 1) FAIL("semantic path should match exactly one group");
+
+    struct bsg_pick_record *pr = bsg_pick_result_get(res, 0);
+    if (!pr) FAIL("missing semantic pick record");
+    if (!BU_STR_EQUAL(bu_vls_cstr(&pr->pr_source_path), "hull/main"))
+	FAIL("semantic path source mismatch");
+    if (!BU_STR_EQUAL(bu_vls_cstr(&pr->pr_instance_path), "hull/main"))
+	FAIL("instance path should mirror semantic source path");
+    if (pr->pr_primitive_id != -1 || pr->pr_subelement_id != -1)
+	FAIL("default primitive/subelement ids should be -1");
+
+    bsg_pick_result_free(res);
+    bsg_group_destroy(g1);
+    bsg_group_destroy(g2);
+    bsg_scene_root_destroy(root);
+    free_view(v);
+
+    PASS("pick_semantic_path basic");
+    return 0;
+}
+
 
 /* -----------------------------------------------------------------------
  * main
@@ -362,6 +418,8 @@ main(int argc, char *argv[])
     failures += test_pick_op_values();
     failures += test_pick_apply_nonempty();
     failures += test_pick_result_to_ptbl_nonempty();
+    failures += test_pick_ray_null_view();
+    failures += test_pick_semantic_path_basic();
 
     if (failures) {
 	printf("FAILED: %d test(s) failed\n", failures);

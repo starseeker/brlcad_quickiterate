@@ -73,6 +73,15 @@ typedef enum {
     BSG_PICK_OP_REMOVE = 2   /**< remove pick result from current selection */
 } bsg_pick_op;
 
+/**
+ * Flags controlling D3 pick-action queries.
+ */
+typedef enum {
+    BSG_PICK_INCLUDE_SCENE    = 0x01, /**< include database-drawn scene groups */
+    BSG_PICK_INCLUDE_OVERLAYS = 0x02, /**< include overlay groups/controls      */
+    BSG_PICK_FIRST_ONLY       = 0x04  /**< return nearest hit only              */
+} bsg_pick_flags;
+
 /* -----------------------------------------------------------------------
  * bsg_pick_record — single pick hit
  * ----------------------------------------------------------------------- */
@@ -91,6 +100,9 @@ typedef enum {
  *   pr_hit_dist     — model-space distance from the pick ray origin to the
  *                     centre of the node's bounding box.  Used for
  *                     nearest-first ordering.  Negative means not computed.
+ *   pr_primitive_id — primitive identifier when available, else -1.
+ *   pr_subelement_id — subelement identifier when available, else -1.
+ *   pr_instance_path — resolved instance-path string for semantic picks.
  *   pr_screen_x,
  *   pr_screen_y     — screen-pixel coordinates where the pick was initiated.
  *   pr_view         — view the pick was performed against (borrowed).
@@ -99,6 +111,9 @@ struct bsg_pick_record {
     bsg_node          *pr_node;         /**< @brief matched scene node */
     struct bu_vls      pr_source_path;  /**< @brief drawn source path */
     fastf_t            pr_hit_dist;     /**< @brief bbox centre hit distance */
+    int                pr_primitive_id; /**< @brief primitive id or -1 */
+    int                pr_subelement_id;/**< @brief subelement id or -1 */
+    struct bu_vls      pr_instance_path;/**< @brief resolved instance path */
     int                pr_screen_x;     /**< @brief screen X at pick time */
     int                pr_screen_y;     /**< @brief screen Y at pick time */
     struct bsg_view   *pr_view;         /**< @brief view (borrowed) */
@@ -195,6 +210,30 @@ bsg_pick_rect(struct bsg_view *v,
  */
 BSG_EXPORT extern struct bsg_pick_result *
 bsg_pick_nearest(struct bsg_view *v, int x, int y);
+
+/**
+ * D3 ray pick: intersect a model-space ray against visible scene and overlay
+ * groups and return sorted typed pick records.
+ */
+BSG_EXPORT extern struct bsg_pick_result *
+bsg_pick_ray(struct bsg_view *v, const point_t orig, const vect_t dir,
+	     bsg_pick_flags flags);
+
+/**
+ * D3 overlay-control pick: return nearest overlay handle/manipulator hit
+ * near screen location (@p x,@p y).  @p role_mask is reserved for overlay
+ * role filtering in later D4 policy work.
+ */
+BSG_EXPORT extern struct bsg_pick_result *
+bsg_pick_nearest_overlay_control(struct bsg_view *v, int x, int y,
+				 unsigned long long role_mask);
+
+/**
+ * D3 semantic-path pick: match draw-intent source paths using glob pattern
+ * semantics and return typed pick records for matching groups.
+ */
+BSG_EXPORT extern struct bsg_pick_result *
+bsg_pick_semantic_path(struct bsg_view *v, const char *path_pattern);
 
 /**
  * Build a @c bu_ptbl of raw @c bsg_node* from @p res for compatibility with

@@ -47,11 +47,13 @@
 #include "bu/ptbl.h"
 #include "bu/str.h"
 #include "bu/vls.h"
+#include "bg/aabb_ray.h"
 #include "vmath.h"
 
 #include "bsg/defines.h"
 #include "bsg/draw_intent.h"
 #include "bsg/lod.h"
+#include "bsg/node.h"
 #include "bsg/pick.h"
 #include "bsg/selection.h"
 #include "bsg/util.h"
@@ -99,22 +101,60 @@ _record_create(bsg_node *node, struct bsg_view *v, int sx, int sy)
     struct bsg_pick_record *pr;
     BU_GET(pr, struct bsg_pick_record);
     bu_vls_init(&pr->pr_source_path);
+    bu_vls_init(&pr->pr_instance_path);
 
     pr->pr_node     = node;
     pr->pr_view     = v;
     pr->pr_screen_x = sx;
     pr->pr_screen_y = sy;
     pr->pr_hit_dist = (v) ? _node_hit_dist(node, v) : -1.0;
+    pr->pr_primitive_id = -1;
+    pr->pr_subelement_id = -1;
 
     /* Prefer draw-intent path; fall back to s_name. */
     const struct bsg_draw_intent *di = bsg_node_get_draw_intent(node);
-    if (di && bsg_draw_intent_path(di))
+    if (di && bsg_draw_intent_path(di) && *bsg_draw_intent_path(di))
 	bu_vls_sprintf(&pr->pr_source_path, "%s", bsg_draw_intent_path(di));
     else
 	bu_vls_sprintf(&pr->pr_source_path, "%s",
 		       bu_vls_cstr(&node->s_name));
+    bu_vls_sprintf(&pr->pr_instance_path, "%s", bu_vls_cstr(&pr->pr_source_path));
 
     return pr;
+}
+
+static struct bsg_pick_record *
+_record_clone(const struct bsg_pick_record *src)
+{
+    if (!src)
+	return NULL;
+    struct bsg_pick_record *pr;
+    BU_GET(pr, struct bsg_pick_record);
+    bu_vls_init(&pr->pr_source_path);
+    bu_vls_init(&pr->pr_instance_path);
+    pr->pr_node = src->pr_node;
+    pr->pr_view = src->pr_view;
+    pr->pr_screen_x = src->pr_screen_x;
+    pr->pr_screen_y = src->pr_screen_y;
+    pr->pr_hit_dist = src->pr_hit_dist;
+    pr->pr_primitive_id = src->pr_primitive_id;
+    pr->pr_subelement_id = src->pr_subelement_id;
+    bu_vls_sprintf(&pr->pr_source_path, "%s", bu_vls_cstr(&src->pr_source_path));
+    bu_vls_sprintf(&pr->pr_instance_path, "%s", bu_vls_cstr(&src->pr_instance_path));
+    return pr;
+}
+
+static const struct bsg_draw_intent *
+_nearest_intent(const bsg_node *node)
+{
+    const bsg_node *n = node;
+    while (n) {
+	const struct bsg_draw_intent *di = bsg_node_get_draw_intent(n);
+	if (di)
+	    return di;
+	n = bsg_node_parent((bsg_node *)n);
+    }
+    return NULL;
 }
 
 static void
@@ -123,6 +163,7 @@ _record_free(struct bsg_pick_record *pr)
     if (!pr)
 	return;
     bu_vls_free(&pr->pr_source_path);
+    bu_vls_free(&pr->pr_instance_path);
     BU_PUT(pr, struct bsg_pick_record);
 }
 
@@ -268,6 +309,140 @@ struct bsg_pick_result *
 bsg_pick_nearest(struct bsg_view *v, int x, int y)
 {
     return bsg_pick_point(v, x, y, 1 /* first_only */);
+}
+
+struct bsg_pick_result *
+bsg_pick_ray(struct bsg_view *v, const point_t orig, const vect_t dir,
+	     bsg_pick_flags flags)
+{
+    if (!v)
+	return NULL;
+
+    struct bsg_pick_result *res = bsg_pick_result_create();
+    if (!res)
+	return NULL;
+
+    bsg_node *root = (bsg_node *)v->gv_draw_root;
+    if (!root)
+	return res;
+
+    int include_scene = (flags & BSG_PICK_INCLUDE_SCENE) ? 1 : 0;
+    int include_overlays = (flags & BSG_PICK_INCLUDE_OVERLAYS) ? 1 : 0;
+    int first_only = (flags & BSG_PICK_FIRST_ONLY) ? 1 : 0;
+    if (!include_scene && !include_overlays)
+	include_scene = 1;
+
+    vect_t invdir;
+    bg_ray_invdir(&invdir, (fastf_t *)dir);
+
+    struct bu_ptbl groups = BU_PTBL_INIT_ZERO;
+    bsg_collect_draw_groups(root, &groups, 1 /* include overlays */);
+    for (size_t i = 0; i < BU_PTBL_LEN(&groups); i++) {
+	bsg_node *g = (bsg_node *)BU_PTBL_GET(&groups, i);
+	const struct bsg_draw_intent *di = bsg_node_get_draw_intent(g);
+	if (!di)
+	    continue;
+	const int is_overlay = bsg_draw_intent_is_overlay(di);
+	if ((is_overlay && !include_overlays) || (!is_overlay && !include_scene))
+	    continue;
+	fastf_t tmin = 0.0, tmax = 0.0;
+	if (!bg_isect_aabb_ray(&tmin, &tmax, (fastf_t *)orig, (const fastf_t *)invdir,
+		    (const fastf_t *)g->bmin, (const fastf_t *)g->bmax))
+	    continue;
+	struct bsg_pick_record *pr = _record_create(g, v, -1, -1);
+	if (!pr)
+	    continue;
+	pr->pr_hit_dist = (tmin >= 0.0) ? tmin : tmax;
+	bu_vls_sprintf(&pr->pr_instance_path, "%s", bu_vls_cstr(&pr->pr_source_path));
+	bu_ptbl_ins(&res->pr_records, (long *)pr);
+    }
+    bu_ptbl_free(&groups);
+
+    _result_sort(res);
+    if (first_only && BU_PTBL_LEN(&res->pr_records) > 1) {
+	for (size_t i = 1; i < BU_PTBL_LEN(&res->pr_records); i++) {
+	    struct bsg_pick_record *pr =
+		(struct bsg_pick_record *)BU_PTBL_GET(&res->pr_records, i);
+	    _record_free(pr);
+	}
+	res->pr_records.end = 1;
+    }
+
+    return res;
+}
+
+struct bsg_pick_result *
+bsg_pick_nearest_overlay_control(struct bsg_view *v, int x, int y,
+				 unsigned long long role_mask)
+{
+    (void)role_mask;
+    if (!v)
+	return NULL;
+
+    struct bsg_pick_result *candidates = bsg_pick_point(v, x, y, 0);
+    if (!candidates)
+	return NULL;
+
+    struct bsg_pick_result *res = bsg_pick_result_create();
+    if (!res) {
+	bsg_pick_result_free(candidates);
+	return NULL;
+    }
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&candidates->pr_records); i++) {
+	const struct bsg_pick_record *pr =
+	    (const struct bsg_pick_record *)BU_PTBL_GET(&candidates->pr_records, i);
+	if (!pr || !pr->pr_node)
+	    continue;
+	const struct bsg_draw_intent *di = _nearest_intent(pr->pr_node);
+	if (!di || !bsg_draw_intent_is_overlay(di))
+	    continue;
+	struct bsg_pick_record *copy = _record_clone(pr);
+	if (copy)
+	    bu_ptbl_ins(&res->pr_records, (long *)copy);
+    }
+    bsg_pick_result_free(candidates);
+    _result_sort(res);
+
+    if (BU_PTBL_LEN(&res->pr_records) > 1) {
+	for (size_t i = 1; i < BU_PTBL_LEN(&res->pr_records); i++) {
+	    struct bsg_pick_record *pr =
+		(struct bsg_pick_record *)BU_PTBL_GET(&res->pr_records, i);
+	    _record_free(pr);
+	}
+	res->pr_records.end = 1;
+    }
+
+    return res;
+}
+
+struct bsg_pick_result *
+bsg_pick_semantic_path(struct bsg_view *v, const char *path_pattern)
+{
+    if (!v || !path_pattern || !*path_pattern)
+	return NULL;
+
+    struct bsg_pick_result *res = bsg_pick_result_create();
+    if (!res)
+	return NULL;
+
+    bsg_node *root = (bsg_node *)v->gv_draw_root;
+    if (!root)
+	return res;
+
+    struct bu_ptbl groups = BU_PTBL_INIT_ZERO;
+    bsg_draw_intent_match(root, path_pattern, &groups);
+    for (size_t i = 0; i < BU_PTBL_LEN(&groups); i++) {
+	bsg_node *g = (bsg_node *)BU_PTBL_GET(&groups, i);
+	struct bsg_pick_record *pr = _record_create(g, v, -1, -1);
+	if (!pr)
+	    continue;
+	bu_vls_sprintf(&pr->pr_instance_path, "%s", bu_vls_cstr(&pr->pr_source_path));
+	bu_ptbl_ins(&res->pr_records, (long *)pr);
+    }
+    bu_ptbl_free(&groups);
+    _result_sort(res);
+    return res;
 }
 
 

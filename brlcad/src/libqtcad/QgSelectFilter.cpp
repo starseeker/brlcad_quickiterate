@@ -47,10 +47,13 @@ _qg_pick_record_create(struct bsg_node *node, struct bsg_view *v, int sx, int sy
     struct bsg_pick_record *pr;
     BU_GET(pr, struct bsg_pick_record);
     bu_vls_init(&pr->pr_source_path);
+    bu_vls_init(&pr->pr_instance_path);
     pr->pr_node = node;
     pr->pr_view = v;
     pr->pr_screen_x = sx;
     pr->pr_screen_y = sy;
+    pr->pr_primitive_id = -1;
+    pr->pr_subelement_id = -1;
     if (hit_dist >= 0.0) {
 	pr->pr_hit_dist = hit_dist;
     } else if (v) {
@@ -62,6 +65,7 @@ _qg_pick_record_create(struct bsg_node *node, struct bsg_view *v, int sx, int sy
     }
     bu_vls_sprintf(&pr->pr_source_path, "%s",
 	(source_path && source_path[0]) ? source_path : bu_vls_cstr(&node->s_name));
+    bu_vls_sprintf(&pr->pr_instance_path, "%s", bu_vls_cstr(&pr->pr_source_path));
     return pr;
 }
 

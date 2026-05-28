@@ -120,13 +120,20 @@ Work still outstanding (target of this guide):
   Remaining D0 work: audit libdm, libqtcad, qged for residual "display list/
   solid list/scene object/view object" in non-GL contexts (not done this
   session; "display list" in GL code is legitimate technical terminology).
-- D2: only `bsg_draw_intent_find` and `bsg_collect_draw_groups` are exposed.
-  Re-evaluate-on-db-change, erase-by-intent, simplify/collapse equivalent
-  intents, and collect-visible-for-export are missing.  who/how/rt/nirt/gqa/
-  saveview/plot/ps/png/bot_dump still reconstruct intent from child tables.
-- D3: ray pick, nearest-overlay-control, and semantic-path pick actions are
-  missing, as is the snap/measurement query-action framework.  MGED
-  illumination and polygon point selection have not been ported.
+- D2: core action API is now in place and subtree-correct:
+  `bsg_draw_intent_revalidate`, `bsg_draw_intent_erase_by_path`,
+  `bsg_draw_intent_erase`, `bsg_draw_intent_simplify`,
+  `bsg_draw_intent_collect_visible`, `bsg_draw_intent_collect_for_export`,
+  and `bsg_draw_intent_match` now operate across full intent-bearing subtrees.
+  `who`/`who2` now enumerate draw-intent action results directly.  Remaining:
+  migrate rt/nirt/gqa/saveview/loadview/plot/ps/png/bot_dump and add db_io
+  event emission so edits trigger automatic revalidate.
+- D3: pick-action coverage has started: `bsg_pick_ray`,
+  `bsg_pick_nearest_overlay_control`, and `bsg_pick_semantic_path` are now
+  available, and `bsg_pick_record` now carries instance-path plus
+  primitive/subelement ids.  Remaining: snap/measurement action APIs,
+  payload `pl_snap`/`pl_measure_candidates` coverage, and consumer migrations
+  (MGED illumination, polygon point select, qged/libtclcad snap/measure).
 - D4: HUD payload geometry is not realized.  `dm_draw_faceplate` still
   rasterizes features in libdm.  Overlay roles cover only MODEL/SCREEN/XRAY;
   EDIT_HANDLE, MEASURE, SELECTION_RUBBER_BAND, SNAP_GUIDE, COMMAND_RESULT,
@@ -344,6 +351,13 @@ Goal: G3.
 Preconditions: D1 step 4d-k for the touched producers (draw/erase/report
 commands assume builders exist).
 
+Status (this session): core D2 action APIs are now fully implemented for
+nested draw trees (all actions now walk full intent-bearing subtrees rather
+than root children only).  `who` and `who2` now query draw-intent actions
+instead of dbi-state path reconstruction.  `wireframe_eval.c` now prefers
+draw-intent source-path metadata before falling back to legacy `s_name`.
+Remaining D2 work is command migration breadth and db_io event wiring.
+
 Tasks:
 1. Action API.  Extend `include/bsg/draw_intent.h` with the action set:
      a. `bsg_draw_intent_revalidate(bsg_node *root, const struct bsg_db_event *e)`
@@ -398,6 +412,12 @@ Phase D3 — Selection, pick, snap, and measurement actions
 Goal: G4.
 
 Preconditions: D1 step 1+2 so payloads expose `pl_pick`/`pl_snap`.
+
+Status (this session): started.  Pick action API now includes
+`bsg_pick_ray`, `bsg_pick_nearest_overlay_control`, and
+`bsg_pick_semantic_path`; pick records now include instance-path and
+primitive/subelement identifiers.  `libbsg_pick` tests now cover semantic-path
+pick and the new record metadata defaults.
 
 Tasks:
 1. Pick action coverage.  Add to `include/bsg/pick.h`:
