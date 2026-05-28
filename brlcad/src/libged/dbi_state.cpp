@@ -54,6 +54,7 @@
 #include "bu/opt.h"
 #include "bu/sort.h"
 #include "bsg/lod.h"
+#include "bsg/payload.h"
 #include "raytrace.h"
 #include "ged/defines.h"
 #include "ged/view.h"
@@ -3081,7 +3082,7 @@ BViewState::scene_obj(
     ud->ttol = &wdbp->wdb_ttol;
     ud->mesh_c = dbis->gedp->ged_lod;
     sp->dp = dp;
-    sp->s_i_data = (void *)ud;
+    bsg_node_set_internal_data(sp, (void *)ud);
 
     // Get color from path, unless we're overridden
     struct bu_color c;
@@ -3463,8 +3464,8 @@ BViewState::refresh(struct bsg_view *v, int argc, const char **argv)
 		continue;
 	    struct bsg_node *nso = bsg_obj_get_unregistered(v, BV_DB_OBJS);
 	    bsg_obj_sync(nso, s);
-	    nso->s_i_data = s->s_i_data;
-	    s->s_i_data = NULL;
+	    bsg_node_set_internal_data(nso, bsg_node_get_internal_data(s));
+	    bsg_node_set_internal_data(s, NULL);
 	    s_map[*k_it].erase(mm_it->first);
 	    ret = GED_DBISTATE_VIEW_CHANGE;
 

@@ -270,7 +270,7 @@ bot_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
 
     bsg_log(1, "bot_adaptive_plot %s[%s]", bu_vls_cstr(&s->s_name), (v) ? bu_vls_cstr(&v->gv_name) : "NULL");
 
-    if (!s->draw_data) {
+    if (!bsg_node_get_draw_data(s)) {
 
 	s->csg_obj = 0;
 	s->mesh_obj = 1;
@@ -346,7 +346,7 @@ bot_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
 
 	// Assign the LoD information to the object's draw_data, and let
 	// the LoD know which object it is associated with.
-	s->draw_data = (void *)lod;
+	bsg_node_set_draw_data(s, (void *)lod);
 	lod->s = s;
 
 	// The object bounds are based on the LoD's calculations.  Because the LoD
@@ -399,7 +399,7 @@ brep_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
     s->csg_obj = 0;
     s->mesh_obj = 1;
 
-    if (!s->draw_data) {
+    if (!bsg_node_get_draw_data(s)) {
 
 	struct db_i *dbip = d->dbip;
 	struct db_full_path *fp = (struct db_full_path *)bsg_node_get_draw_path(s);
@@ -482,7 +482,7 @@ brep_adaptive_plot(struct bsg_node *s, struct bsg_view *v)
 
 	// Assign the LoD information to the object's draw_data, and let
 	// the LoD know which object it is associated with.
-	s->draw_data = (void *)lod;
+	bsg_node_set_draw_data(s, (void *)lod);
 	lod->s = s;
 
 	// The object bounds are based on the LoD's calculations.  Because the LoD

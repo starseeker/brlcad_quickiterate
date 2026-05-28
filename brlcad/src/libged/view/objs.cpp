@@ -40,6 +40,7 @@ extern "C" {
 #include "bu/vls.h"
 #include "bsg.h"
 #include "bsg/defines.h"
+#include "bsg/draw_source.h"
 #include "raytrace.h"
 #include "ged/bsg_ged_draw.h"
 }
@@ -414,7 +415,7 @@ _objs_cmd_lcnt(void *bs, int argc, const char **argv)
 	bu_vls_printf(gedp->ged_result_str, "No view object named %s\n", gd->vobj);
 	return BRLCAD_ERROR;
     }
-    bu_vls_printf(gedp->ged_result_str, "%d\n", bu_list_len(&s->s_vlist));
+    bu_vls_printf(gedp->ged_result_str, "%d\n", bu_list_len(bsg_node_vlist_head(s)));
     return BRLCAD_OK;
 }
 

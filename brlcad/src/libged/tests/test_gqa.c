@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <bu.h>
 #include <bsg.h>
+#include "bsg/draw_source.h"
 #include <ged.h>
 #include <ged/bsg_ged_draw.h>
 
@@ -85,7 +86,7 @@ main(int ac, char *av[]) {
 	if (!fp)
 	    bu_exit(EXIT_FAILURE, "Could not open %s for writing\n", gqa_plot_fname);
 	printf("Writing plot data to %s for inspection with overlay command\n", gqa_plot_fname);
-	bsg_vlist_to_uplot(fp, &vdata->s_vlist);
+	bsg_vlist_to_uplot(fp, bsg_node_vlist_head(vdata));
 	fclose(fp);
     } else {
 	bu_exit(EXIT_FAILURE, "No GQA plotting data found.\n");

@@ -34,6 +34,7 @@
 #include "bsg/plot3.h"
 #include "bg/clip.h"
 
+#include "bsg/draw_source.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
 
@@ -75,7 +76,7 @@ plot_floating_cb(struct bsg_node *sp, void *userdata)
 	    pl_linmod(pd->fp, "solid");
 	pd->Dashing = sp->s_soldash;
     }
-    bsg_vlist_to_uplot(pd->fp, &(sp->s_vlist));
+    bsg_vlist_to_uplot(pd->fp, bsg_node_vlist_head(sp));
     return 1; /* continue */
 }
 
@@ -96,7 +97,7 @@ plot_integer_cb(struct bsg_node *sp, void *userdata)
 	    pl_linmod(pd->fp, "solid");
 	pd->Dashing = sp->s_soldash;
     }
-    for (BU_LIST_FOR(vp, bsg_vlist, &(sp->s_vlist))) {
+    for (BU_LIST_FOR(vp, bsg_vlist, bsg_node_vlist_head(sp))) {
 	size_t i;
 	size_t nused = vp->nused;
 	int *cmd = vp->cmd;

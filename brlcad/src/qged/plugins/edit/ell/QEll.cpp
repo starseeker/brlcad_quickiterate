@@ -30,6 +30,8 @@
 #include "ged.h"
 #include "rt/db_io.h"
 #include "rt/directory.h"
+#include "bsg/draw_source.h"
+#include "bsg/payload.h"
 #include "qtcad/QgPluginContext.h"
 #include "qtcad/QgSignalFlags.h"
 #include "ged/bsg_ged_draw.h"
@@ -232,7 +234,7 @@ QEll::update_obj_wireframe()
 	return;
     struct bn_tol *tol = &wdbp->wdb_tol;
     struct bg_tess_tol *ttol = &wdbp->wdb_ttol;
-    intern.idb_meth->ft_plot(&p->s_vlist, &intern, ttol, tol, p->s_v);
+    intern.idb_meth->ft_plot(bsg_node_vlist_head(p), &intern, ttol, tol, p->s_v);
 
     // At least for now, mimic the MGED behavior and make editing wireframes white
     const char *wcolor = "255/255/255";
@@ -253,9 +255,9 @@ QEll::update_obj_wireframe()
 	struct bsg_node *s = bsg_obj_get_child(p);
 	struct bsg_label *la;
 	BU_GET(la, struct bsg_label);
-	s->s_i_data = (void *)la;
+	bsg_node_set_internal_data(s, (void *)la);
 
-	BU_LIST_INIT(&(s->s_vlist));
+	BU_LIST_INIT(bsg_node_vlist_head(s));
 	VSET(s->s_color, 255, 255, 0);
 	s->s_type_flags |= BV_DBOBJ_BASED;
 	s->s_type_flags |= BV_LABELS;

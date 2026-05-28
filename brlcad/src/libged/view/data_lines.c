@@ -48,6 +48,7 @@
 #include "bu/str.h"
 #include "bu/vls.h"
 #include "bsg/vlist.h"
+#include "bsg/draw_source.h"
 #include "../ged_private.h"
 #include "./ged_view.h"
 

@@ -41,6 +41,7 @@ extern "C" {
 }
 
 #include "bsg/util.h"
+#include "bsg/draw_source.h"
 #include "bsg/view_sets.h"
 
 #include "../alphanum.h"
@@ -199,7 +200,7 @@ who_solids_print_scene_obj(struct bsg_node *sp, struct db_i *dbip, int lvl, stru
 	return;
 
     bsg_vlist *vp;
-    for (BU_LIST_FOR(vp, bsg_vlist, &sp->s_vlist)) {
+    for (BU_LIST_FOR(vp, bsg_vlist, bsg_node_vlist_head(sp))) {
 	size_t i;
 	size_t nused = vp->nused;
 	int *cmd = vp->cmd;
@@ -220,7 +221,7 @@ who_solids_print_scene_obj(struct bsg_node *sp, struct db_i *dbip, int lvl, stru
     }
 
     bu_vls_printf(vls, "  %zu vlist structures, %zu pts\n", nvlist, npts);
-    bu_vls_printf(vls, "  %zu pts (via bsg_ck_vlist)\n", bsg_ck_vlist(&sp->s_vlist));
+    bu_vls_printf(vls, "  %zu pts (via bsg_ck_vlist)\n", bsg_ck_vlist(bsg_node_vlist_head(sp)));
 }
 
 

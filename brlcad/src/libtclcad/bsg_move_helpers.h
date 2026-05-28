@@ -39,6 +39,7 @@
 #include "bu/malloc.h"
 #include "bsg/defines.h"
 #include "bsg/vlist.h"
+#include "bsg/draw_source.h"
 #include "bsg/util.h"
 #include "dm.h"
 

@@ -214,7 +214,7 @@ draw_solid_wireframe(struct bsg_node *sp, struct bsg_view *gvp, struct db_i *dbi
 }
 
 static int
-redraw_solid(struct bsg_node *sp, struct db_i *dbip, struct db_tree_state *tsp, struct bsg_view *gvp, struct bu_list *vlfree)
+redraw_solid(struct bsg_node *sp, struct db_i *dbip, struct db_tree_state *tsp, struct bsg_view *gvp, struct bu_list *UNUSED(vlfree))
 {
     if (bsg_appearance_dmode(sp) == _GED_WIREFRAME) {
 	/* replot wireframe */

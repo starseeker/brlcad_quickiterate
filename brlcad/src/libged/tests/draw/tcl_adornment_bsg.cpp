@@ -52,6 +52,7 @@
 #include "bsg/tcl_data.h"
 #include "bsg/util.h"
 #include "bsg/vlist.h"
+#include "bsg/draw_source.h"
 #include <dm.h>
 #include <ged.h>
 

@@ -36,6 +36,7 @@
 #include "rt/geom.h"
 #include "raytrace.h"
 #include "analyze.h"
+#include "bsg/payload.h"
 
 #include "./ged_private.h"
 
