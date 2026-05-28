@@ -178,7 +178,7 @@ _mesh_lod_select_level(bsg_node *node, struct bsg_view *v)
     if (!pl || !pl->user_data || !v)
 	return 0;
     struct ged_lod_state *st = (struct ged_lod_state *)pl->user_data;
-    if (!st->s || !st->s->draw_data)
+    if (!st->s || !bsg_node_get_draw_data(st->s))
 	return 0;
     bsg_mesh_lod_view(st->s, v, 0);
     return 0;
@@ -355,8 +355,8 @@ _sg_root(struct ged *gedp)
 
     gedp->i->ged_gdp->gd_draw_root = root;
 
-    /* Phase 7 Step 10: store a bsg_draw_ctx in root->s_i_data so that
-     * freeing helpers can bump gd_draw_rev without carrying gedp.
+    /* Phase 7 Step 10: store a bsg_draw_ctx via bsg_node_set_internal_data so
+     * that freeing helpers can bump gd_draw_rev without carrying gedp.
      * Phase 7 Step 11: also store the free-object pool pointer (fso) so
      * that bsg_free_group_contents / bsg_free_children_recursive can
      * recycle nodes without calling bsg_set_fsos (which needs gedp). */

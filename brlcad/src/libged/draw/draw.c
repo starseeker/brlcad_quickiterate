@@ -218,10 +218,7 @@ redraw_solid(struct bsg_node *sp, struct db_i *dbip, struct db_tree_state *tsp, 
 {
     if (bsg_appearance_dmode(sp) == _GED_WIREFRAME) {
 	/* replot wireframe */
-	if (BU_LIST_NON_EMPTY(bsg_node_vlist_head(sp))) {
-	    struct bu_list *_vl = bsg_node_vlist_head(sp);
-	    BSG_FREE_VLIST(vlfree, _vl);
-	}
+	bsg_node_clear_vlist_payload(sp);
 	return draw_solid_wireframe(sp, gvp, dbip, tsp->ts_tol, tsp->ts_ttol);
     }
     return 0;

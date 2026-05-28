@@ -242,8 +242,92 @@ test_remaining_payload_builders(void)
 }
 
 static int
-test_sketch_live_contract(void)
+test_lifecycle_hooks(void)
 {
+    printf("=== Test 5: lifecycle hook dispatch ===\n");
+
+    /* ---- VLIST payload: real bounds and export hooks ---- */
+    struct bsg_view *v = make_view();
+    bsg_node *shape = bsg_shape_create(v);
+    if (!shape) FAIL("bsg_shape_create");
+
+    /* Add a unit triangle so the bounds are well-defined. */
+    point_t pa = VINIT_ZERO;
+    point_t pb = VINIT_ZERO;
+    point_t pc = VINIT_ZERO;
+    VSET(pa, 0.0, 0.0, 0.0);
+    VSET(pb, 1.0, 0.0, 0.0);
+    VSET(pc, 0.5, 1.0, 0.0);
+    bsg_node_append_vlist_payload(shape, pa, BSG_VLIST_LINE_MOVE);
+    bsg_node_append_vlist_payload(shape, pb, BSG_VLIST_LINE_DRAW);
+    bsg_node_append_vlist_payload(shape, pc, BSG_VLIST_LINE_DRAW);
+
+    struct bsg_payload *pl = bsg_node_get_payload(shape);
+    if (!pl || pl->pl_type != BSG_PL_VLIST) FAIL("vlist payload missing");
+
+    /* bounds hook should return 1 and give sensible extents */
+    if (!pl->pl_bounds) FAIL("vlist pl_bounds is NULL");
+    point_t bmin = VINIT_ZERO;
+    point_t bmax = VINIT_ZERO;
+    int bounds_ok = pl->pl_bounds(pl, &bmin, &bmax);
+    if (!bounds_ok) FAIL("vlist pl_bounds returned 0 (expected 1)");
+    if (bmin[0] > 0.0 || bmax[0] < 1.0) FAIL("vlist bounds X range wrong");
+    if (bmin[1] > 0.0 || bmax[1] < 1.0) FAIL("vlist bounds Y range wrong");
+
+    /* export hook should return 0 (success) */
+    if (!pl->pl_export) FAIL("vlist pl_export is NULL");
+    struct bu_vls export_out = BU_VLS_INIT_ZERO;
+    int export_rc = pl->pl_export(pl, &export_out);
+    if (export_rc != 0) FAIL("vlist pl_export returned non-zero (expected 0)");
+    if (bu_vls_strlen(&export_out) == 0) FAIL("vlist pl_export produced empty output");
+    bu_vls_free(&export_out);
+
+    /* backend_prepare sentinel should return 0 (no-op) */
+    if (!pl->pl_backend_prepare) FAIL("vlist pl_backend_prepare is NULL");
+    if (pl->pl_backend_prepare(pl, NULL) != 0) FAIL("vlist backend_prepare sentinel returned non-zero");
+
+    bsg_shape_destroy(shape);
+    free_view(v);
+
+    /* ---- Non-VLIST types: sentinel hooks return 0 ---- */
+
+    /* TEXT sentinel */
+    struct bsg_label *label;
+    BU_GET(label, struct bsg_label);
+    memset(label, 0, sizeof(*label));
+    BU_VLS_INIT(&label->label);
+    bu_vls_sprintf(&label->label, "sentinel test");
+    struct bsg_payload *text_pl = bsg_payload_hud_text_create(label);
+    if (!text_pl) FAIL("hud_text payload create");
+    if (!text_pl->pl_bounds) FAIL("text pl_bounds is NULL");
+    point_t tbmin = VINIT_ZERO, tbmax = VINIT_ZERO;
+    if (text_pl->pl_bounds(text_pl, &tbmin, &tbmax) != 0)
+	FAIL("text pl_bounds sentinel returned non-zero");
+    if (!text_pl->pl_export) FAIL("text pl_export is NULL");
+    struct bu_vls text_export = BU_VLS_INIT_ZERO;
+    if (text_pl->pl_export(text_pl, &text_export) != 0)
+	FAIL("text pl_export sentinel returned non-zero");
+    bu_vls_free(&text_export);
+    if (!text_pl->pl_backend_prepare) FAIL("text pl_backend_prepare is NULL");
+    if (text_pl->pl_backend_prepare(text_pl, NULL) != 0)
+	FAIL("text pl_backend_prepare sentinel returned non-zero");
+    bsg_payload_free(text_pl);
+
+    /* IMAGE sentinel */
+    unsigned char px[4] = {128, 64, 32, 255};
+    struct bsg_payload *img_pl = bsg_payload_image_create(1, 1, 4, px);
+    if (!img_pl) FAIL("image payload create");
+    if (!img_pl->pl_bounds) FAIL("image pl_bounds is NULL");
+    point_t ibmin = VINIT_ZERO, ibmax = VINIT_ZERO;
+    if (img_pl->pl_bounds(img_pl, &ibmin, &ibmax) != 0)
+	FAIL("image pl_bounds sentinel returned non-zero");
+    bsg_payload_free(img_pl);
+
+    PASS("lifecycle hook dispatch");
+    return 0;
+}
+
+
     printf("=== Test 4: sketch live-source contract ===\n");
 
     int rt_edit_placeholder = 0;
@@ -324,6 +408,7 @@ main(int argc, char **argv)
     ret |= test_vlist_node_helpers();
     ret |= test_polygon_payload();
     ret |= test_remaining_payload_builders();
+    ret |= test_lifecycle_hooks();
     ret |= test_sketch_live_contract();
 
     return ret;

@@ -139,7 +139,7 @@ bsg_polygon_vlist(struct bsg_node *s)
 
     for (size_t i = 0; i < p->polygon.num_contours; ++i) {
 	/* Draw holes using segmented lines.  Since vlists don't have a style
-	 * command for that, we make child scene objects for the holes. */
+	 * command for that, we make child shape nodes for the holes. */
 	size_t pcnt = p->polygon.contour[i].num_points;
 	int do_pnt = 0;
 	if (pcnt == 1)
@@ -212,7 +212,7 @@ bsg_create_polygon_obj(struct bsg_view *v, int flags, struct bsg_polygon *p)
     bsg_node_set_payload(s, bsg_payload_polygon_create(p));
     s->s_update_callback = &bsg_update_polygon;
 
-    /* Have new polygon, now update view object vlist */
+    /* Have new polygon, now update shape payload vlist */
     bsg_polygon_vlist(s);
 
     /* updated */
@@ -271,7 +271,7 @@ bsg_create_polygon(struct bsg_view *v, int flags, int type, point_t *fp)
     if (type == BSG_POLYGON_GENERAL)
 	p->polygon.contour[0].open = 1;
 
-    // Have polygon, now make scene object
+    // Have polygon, now make shape node
     struct bsg_node *s = bsg_create_polygon_obj(v, flags, p);
     if (!s)
 	BU_PUT(p, struct bsg_polygon);
@@ -320,7 +320,7 @@ bsg_append_polygon_pt(struct bsg_node *s, point_t *np)
     c->point = (point_t *)bu_realloc(c->point,c->num_points * sizeof(point_t), "realloc contour points");
     VMOVE(c->point[c->num_points-1], m_pt);
 
-    /* Have new polygon, now update view object vlist */
+    /* Have new polygon, now update shape payload vlist */
     bsg_polygon_vlist(s);
 
     /* Updated */
@@ -457,7 +457,7 @@ bsg_select_polygon_pt(struct bsg_node *s, point_t *cp)
     p->curr_point_i = closest_ind;
     p->curr_contour_i = closest_contour;
 
-    /* Have new polygon, now update view object vlist */
+    /* Have new polygon, now update shape payload vlist */
     bsg_polygon_vlist(s);
 
     /* Updated */
@@ -508,7 +508,7 @@ bsg_move_polygon(struct bsg_node *s, point_t *cp, point_t *prev_point)
 	}
     }
 
-    /* Have new polygon, now update view object vlist */
+    /* Have new polygon, now update shape payload vlist */
     bsg_polygon_vlist(s);
 
     // Shift the origin point.
@@ -542,7 +542,7 @@ bsg_move_polygon_pt(struct bsg_node *s, point_t *mp)
     struct bg_poly_contour *c = &p->polygon.contour[p->curr_contour_i];
     VMOVE(c->point[p->curr_point_i], m_pt);
 
-    /* Have new polygon, now update view object vlist */
+    /* Have new polygon, now update shape payload vlist */
     bsg_polygon_vlist(s);
 
     /* Updated */
@@ -607,7 +607,7 @@ bsg_update_polygon_circle(struct bsg_node *s, point_t *cp, fastf_t pixel_size)
     p->polygon.hole = gp.hole;
     p->polygon.contour = gp.contour;
 
-    /* Have new polygon, now update view object vlist */
+    /* Have new polygon, now update shape payload vlist */
     bsg_polygon_vlist(s);
 
     /* Updated */
@@ -694,7 +694,7 @@ bsg_update_polygon_ellipse(struct bsg_node *s, point_t *cp, fastf_t pixel_size)
     p->polygon.hole = gp.hole;
     p->polygon.contour = gp.contour;
 
-    /* Have new polygon, now update view object vlist */
+    /* Have new polygon, now update shape payload vlist */
     bsg_polygon_vlist(s);
 
     /* Updated */
@@ -723,7 +723,7 @@ bsg_update_polygon_rectangle(struct bsg_node *s, point_t *cp)
 
     p->polygon.contour[0].open = 0;
 
-    /* Polygon updated, now update view object vlist */
+    /* Polygon updated, now update shape payload vlist */
     bsg_polygon_vlist(s);
 
     /* Updated */
@@ -766,7 +766,7 @@ bsg_update_polygon_square(struct bsg_node *s, point_t *cp)
     bg_plane_pt_at(&p->polygon.contour[0].point[2], &zpln, fx, fy);
     bg_plane_pt_at(&p->polygon.contour[0].point[3], &zpln, fx, pfy);
 
-    /* Polygon updated, now update view object vlist */
+    /* Polygon updated, now update shape payload vlist */
     bsg_polygon_vlist(s);
 
     /* Updated */
@@ -799,7 +799,7 @@ bsg_update_general_polygon(struct bsg_node *s, int utype, point_t *cp)
 	return bsg_move_polygon_pt(s, cp);
     }
 
-    /* Polygon updated, now update view object vlist */
+    /* Polygon updated, now update shape payload vlist */
     bsg_polygon_vlist(s);
 
     /* Updated */

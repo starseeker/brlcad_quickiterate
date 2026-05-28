@@ -1797,7 +1797,7 @@ draw_m3(struct bsg_node *s)
 
     struct bigE_data dgcdp;
 
-    struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
+    struct draw_update_data_t *d = (struct draw_update_data_t *)bsg_node_get_internal_data(s);
 
     dgcdp.dbip = d->dbip;
     dgcdp.do_polysolids = 0;
@@ -1847,7 +1847,7 @@ draw_m3(struct bsg_node *s)
 	if (dgcdp.num_halfs)
 	    fix_halfs(&dgcdp);
 
-	Eplot(eptr, &s->s_vlist, &dgcdp);
+	Eplot(eptr, bsg_node_vlist_head(s), &dgcdp);
 	free_etree(eptr, &dgcdp);
 	bu_ptbl_reset(&dgcdp.leaf_list);
     }
