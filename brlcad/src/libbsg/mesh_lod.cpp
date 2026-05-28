@@ -441,7 +441,7 @@ bsg_view_objs_select(struct bu_ptbl *sset, struct bsg_view *v, int x, int y)
     VSUB2(obb_e2, ep1, ec);
     VSUB2(obb_e3, ep2, ec);
 
-    // Having constructed the box, test the scene objects against it.  Any that intersect,
+    // Having constructed the box, test the shape nodes against it.  Any that intersect,
     // add them to the set
     std::set<struct bsg_node *> active;
     /* Phase B: use bsg_view_objs_visit_db to traverse BSG tree when available */
@@ -534,7 +534,7 @@ bsg_view_objs_rect_select(struct bu_ptbl *sset, struct bsg_view *v, int x1, int 
     bu_log("%s", obb_arb(obb_c, obb_e1, obb_e2, obb_e3));
 #endif
 
-    // Having constructed the box, test the scene objects against it.  Any that intersect,
+    // Having constructed the box, test the shape nodes against it.  Any that intersect,
     // add them to the set
     std::set<struct bsg_node *> active;
     /* Phase B: use bsg_view_objs_visit_db to traverse BSG tree when available */

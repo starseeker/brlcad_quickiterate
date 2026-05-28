@@ -240,14 +240,14 @@ ged_free(struct ged *gedp)
     if (gedp->i->ged_gdp != GED_DRAWABLE_NULL) {
 
 	for (size_t i = 0; i < BU_PTBL_LEN(&gedp->free_solids); i++) {
-	    // TODO - FREE_BV_SCENE_OBJ macro is stashing on the free_scene_obj list, not
-	    // BU_PUT-ing the solid objects themselves - is that what we expect
-	    // when doing ged_free?  I.e., is ownership of the free solid list
+	    // TODO - FREE_BV_SCENE_OBJ macro is stashing on the free-node pool, not
+	    // BU_PUT-ing the nodes themselves - is that what we expect
+	    // when doing ged_free?  I.e., is ownership of the free-node pool
 	    // with the struct ged or with the application as a whole?  We're
 	    // BU_PUT-ing gedp->ged_views.free_scene_obj - above why just that one?
 #if 0
 	    struct bsg_node *sp = (struct bsg_node *)BU_PTBL_GET(&gedp->free_solids, i);
-	    BSG_FREE_VLIST(vlfree, &(sp->s_vlist));
+	    bsg_node_clear_vlist_payload(sp);
 #endif
 	}
 	bu_ptbl_free(&gedp->free_solids);

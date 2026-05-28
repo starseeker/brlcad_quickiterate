@@ -620,7 +620,7 @@ struct _bv_autoview_view_ctx {
     int all_view_objs;
 };
 
-/* Pass 1 callback: set have_geom_objs if any view object has a geometric type. */
+/* Pass 1 callback: set have_geom_objs if any shape node has a geometric type. */
 static int
 _bv_find_view_geom_visit_cb(struct bsg_node *s, void *data)
 {
@@ -635,7 +635,7 @@ _bv_find_view_geom_visit_cb(struct bsg_node *s, void *data)
     return 1;
 }
 
-/* Pass 2 callback: bound each view object and its children. */
+/* Pass 2 callback: bound each shape node and its children. */
 static int
 _bv_bound_view_obj_cb(struct bsg_node *s, void *data)
 {
@@ -707,7 +707,7 @@ bsg_autoview(struct bsg_view *v, double factor, int all_view_objs)
     // using the default view settings.
 
     /* Phase D: use bsg_view_obj_visit instead of bsg_view_objs(BSG_OBJ_VIEW).
-     * Two passes: collect have_geom_objs across all view objects first, then
+     * Two passes: collect have_geom_objs across all shape nodes first, then
      * bound them so the geom-filter logic has complete information. */
     bsg_view_obj_visit(v, BSG_VIEW_OBJ_SCOPE_ALL, _bv_find_view_geom_visit_cb, &have_geom_objs);
     {
@@ -2093,7 +2093,7 @@ bsg_obj_put(struct bsg_node *s)
     if (s->otbl)
 	bu_ptbl_rm(s->otbl, (long *)s);
 
-    /* Phase V4: for BSG-placed view objects (otbl==NULL, parent set), remove
+    /* Phase V4: for BSG-placed overlay nodes (otbl==NULL, parent set), remove
      * from the parent scope's children so no stale pointer remains. */
     if (!s->otbl && s->parent) {
 	bu_ptbl_rm(&s->parent->children, (long *)s);
@@ -2415,7 +2415,7 @@ bsg_view_objs_visit_db(struct bsg_view *v,
 		      int (*cb)(struct bsg_node *obj, void *data),
 		      void *data)
 {
-    /* Iterate all DB-derived scene objects visible from @p v.  When the view
+    /* Iterate all DB-derived shape nodes visible from @p v.  When the view
      * has a BSG draw root (GED consumers after Phase B), the BSG tree is
      * traversed depth-first and the callback fires for every node with
      * BSG_OBJ_DB set in s_type_flags.  For non-GED consumers (no gv_draw_root)

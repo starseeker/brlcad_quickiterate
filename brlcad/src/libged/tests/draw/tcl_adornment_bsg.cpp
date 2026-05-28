@@ -152,13 +152,13 @@ main(int ac, char *av[])
     /* ------------------------------------------------------------------ *
      * [3] vlist: add vlist data and verify non-empty.                    *
      * ------------------------------------------------------------------ */
-    bu_log("[3] BSG_ADD_VLIST...\n");
+    bu_log("[3] bsg_node_append_vlist_payload...\n");
     {
 	point_t p0 = {0, 0, 0};
 	point_t p1 = {1, 0, 0};
-	BSG_ADD_VLIST(obj->vlfree, &obj->s_vlist, p0, BSG_VLIST_LINE_MOVE);
-	BSG_ADD_VLIST(obj->vlfree, &obj->s_vlist, p1, BSG_VLIST_LINE_DRAW);
-	ASSERT(!BU_LIST_IS_EMPTY(&obj->s_vlist));
+	bsg_node_append_vlist_payload(obj, p0, BSG_VLIST_LINE_MOVE);
+	bsg_node_append_vlist_payload(obj, p1, BSG_VLIST_LINE_DRAW);
+	ASSERT(BU_LIST_NON_EMPTY(bsg_node_vlist_head(obj)));
     }
 
     /* ------------------------------------------------------------------ *

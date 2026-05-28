@@ -68,14 +68,14 @@ _bsg_extract_pts(struct bsg_node *s, point_t **pts_out)
     /* Count points in vlist */
     int total = 0;
     bsg_vlist *vp;
-    for (BU_LIST_FOR(vp, bsg_vlist, &s->s_vlist))
+    for (BU_LIST_FOR(vp, bsg_vlist, bsg_node_vlist_head(s)))
 	total += vp->nused;
 
     if (total < 1) { *pts_out = NULL; return 0; }
 
     point_t *pts = (point_t *)bu_calloc(total, sizeof(point_t), "bsg pts");
     int k = 0;
-    for (BU_LIST_FOR(vp, bsg_vlist, &s->s_vlist))
+    for (BU_LIST_FOR(vp, bsg_vlist, bsg_node_vlist_head(s)))
 	for (size_t j = 0; j < (size_t)vp->nused; j++)
 	    VMOVE(pts[k++], vp->pt[j]);
 
@@ -147,8 +147,8 @@ _bsg_rebuild_arrows(struct bsg_view *v,
     if (!ns) return;
 
     for (int i = 0; i + 1 < npts; i += 2) {
-	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, pts[i],   BSG_VLIST_LINE_MOVE);
-	BSG_ADD_VLIST(ns->vlfree, &ns->s_vlist, pts[i+1], BSG_VLIST_LINE_DRAW);
+	bsg_node_append_vlist_payload(ns, pts[i],   BSG_VLIST_LINE_MOVE);
+	bsg_node_append_vlist_payload(ns, pts[i+1], BSG_VLIST_LINE_DRAW);
     }
     if (color)
 	bsg_view_obj_set_color(ns, color[0], color[1], color[2]);

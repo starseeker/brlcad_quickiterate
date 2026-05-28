@@ -42,7 +42,7 @@ bsg_set_init(struct bsg_view_set *s)
     BU_PTBL_INIT(&s->i->views);
     bu_ptbl_init(&s->i->shared_db_objs, 8, "db_objs init");
     BU_LIST_INIT(&s->i->vlfree);
-    /* init the solid list */
+    /* init the free-node pool */
     BU_GET(s->i->free_scene_obj, struct bsg_node);
     BU_LIST_INIT(&s->i->free_scene_obj->l);
 }

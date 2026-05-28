@@ -436,6 +436,115 @@ bsg_payload_line_set_get(struct bsg_payload *payload)
 }
 
 
+int
+bsg_payload_line_set_append_segments(struct bsg_payload *payload,
+	const point_t *points, const int *cmds, size_t add_cnt)
+{
+    if (!payload || payload->pl_type != BSG_PL_LINE_SET || !add_cnt)
+	return 0;
+    struct bsg_payload_line_set *ls = payload->pl.line_set;
+    if (!ls)
+	return 0;
+    size_t old_cnt = ls->point_cnt;
+    size_t new_cnt = old_cnt + add_cnt;
+    point_t *new_pts;
+    int *new_cmds;
+    if (ls->points) {
+	new_pts = (point_t *)bu_realloc(ls->points, new_cnt * sizeof(point_t), "line-set append points");
+    } else {
+	new_pts = (point_t *)bu_calloc(new_cnt, sizeof(point_t), "line-set append points");
+    }
+    if (ls->cmds) {
+	new_cmds = (int *)bu_realloc(ls->cmds, new_cnt * sizeof(int), "line-set append cmds");
+    } else {
+	new_cmds = (int *)bu_calloc(new_cnt, sizeof(int), "line-set append cmds");
+    }
+    if (!new_pts || !new_cmds) {
+	if (new_pts) bu_free(new_pts, "line-set append points");
+	if (new_cmds) bu_free(new_cmds, "line-set append cmds");
+	return 0;
+    }
+    ls->points = new_pts;
+    ls->cmds = new_cmds;
+    for (size_t i = 0; i < add_cnt; i++) {
+	if (points)
+	    VMOVE(ls->points[old_cnt + i], points[i]);
+	ls->cmds[old_cnt + i] = cmds ? cmds[i] : BSG_VLIST_LINE_DRAW;
+    }
+    ls->point_cnt = new_cnt;
+    bsg_payload_bump_revision(payload);
+    return 1;
+}
+
+int
+bsg_payload_line_set_replace(struct bsg_payload *payload,
+	const point_t *points, const int *cmds, size_t point_cnt)
+{
+    if (!payload || payload->pl_type != BSG_PL_LINE_SET)
+	return 0;
+    struct bsg_payload_line_set *ls = payload->pl.line_set;
+    if (!ls)
+	return 0;
+    if (ls->points)
+	bu_free(ls->points, "line-set replace points");
+    if (ls->cmds)
+	bu_free(ls->cmds, "line-set replace cmds");
+    ls->points = NULL;
+    ls->cmds = NULL;
+    ls->point_cnt = 0;
+    if (point_cnt) {
+	ls->points = (point_t *)bu_calloc(point_cnt, sizeof(point_t), "line-set replace points");
+	ls->cmds = (int *)bu_calloc(point_cnt, sizeof(int), "line-set replace cmds");
+	for (size_t i = 0; i < point_cnt; i++) {
+	    if (points)
+		VMOVE(ls->points[i], points[i]);
+	    ls->cmds[i] = cmds ? cmds[i] : ((i % 2) ? BSG_VLIST_LINE_DRAW : BSG_VLIST_LINE_MOVE);
+	}
+	ls->point_cnt = point_cnt;
+    }
+    bsg_payload_bump_revision(payload);
+    return 1;
+}
+
+int
+bsg_payload_line_set_clear(struct bsg_payload *payload)
+{
+    if (!payload || payload->pl_type != BSG_PL_LINE_SET)
+	return 0;
+    struct bsg_payload_line_set *ls = payload->pl.line_set;
+    if (!ls)
+	return 0;
+    if (ls->points)
+	bu_free(ls->points, "line-set clear points");
+    if (ls->cmds)
+	bu_free(ls->cmds, "line-set clear cmds");
+    ls->points = NULL;
+    ls->cmds = NULL;
+    ls->point_cnt = 0;
+    bsg_payload_bump_revision(payload);
+    return 1;
+}
+
+size_t
+bsg_payload_line_set_point_count(const struct bsg_payload *payload)
+{
+    if (!payload || payload->pl_type != BSG_PL_LINE_SET || !payload->pl.line_set)
+	return 0;
+    return payload->pl.line_set->point_cnt;
+}
+
+int
+bsg_payload_line_set_cmd_at(const struct bsg_payload *payload, size_t idx)
+{
+    if (!payload || payload->pl_type != BSG_PL_LINE_SET || !payload->pl.line_set)
+	return -1;
+    struct bsg_payload_line_set *ls = payload->pl.line_set;
+    if (idx >= ls->point_cnt || !ls->cmds)
+	return -1;
+    return ls->cmds[idx];
+}
+
+
 /* -----------------------------------------------------------------------
  * POLYGON payload — Phase D1
  * ----------------------------------------------------------------------- */

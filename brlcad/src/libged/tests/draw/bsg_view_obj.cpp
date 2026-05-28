@@ -1124,7 +1124,7 @@ main(int ac, char *av[])
 	{
 	    struct bsg_node *n = (struct bsg_node *)lod;
 	    ASSERT((n->s_type_flags & BSG_NODE_LOD) != 0);
-	    ASSERT(n->s_i_data != NULL);
+	    ASSERT(bsg_node_get_internal_data(n) != NULL);
 	}
 
 	/* No children yet. */
@@ -1159,14 +1159,14 @@ main(int ac, char *av[])
 
 	auto lod17_select = [](bsg_node *node, struct bsg_view */*v*/) -> int {
 	    auto *pl = (struct bsg_lod_payload *)
-		((struct bsg_node *)node)->s_i_data;
+		bsg_node_get_internal_data((struct bsg_node *)node);
 	    auto *st = (struct _lod17_state *)pl->user_data;
 	    st->select_calls++;
 	    return st->select_val;
 	};
 	auto lod17_activate = [](bsg_node *node, struct bsg_view *v, int level) {
 	    auto *pl = (struct bsg_lod_payload *)
-		((struct bsg_node *)node)->s_i_data;
+		bsg_node_get_internal_data((struct bsg_node *)node);
 	    auto *st = (struct _lod17_state *)pl->user_data;
 	    st->activate_calls++;
 	    auto *cur = bsg_lod_node_get_cursor(node, v);
@@ -1174,7 +1174,7 @@ main(int ac, char *av[])
 	};
 	auto lod17_stale = [](bsg_node *node, struct bsg_view */*v*/) -> int {
 	    auto *pl = (struct bsg_lod_payload *)
-		((struct bsg_node *)node)->s_i_data;
+		bsg_node_get_internal_data((struct bsg_node *)node);
 	    auto *st = (struct _lod17_state *)pl->user_data;
 	    return st->stale_val;
 	};

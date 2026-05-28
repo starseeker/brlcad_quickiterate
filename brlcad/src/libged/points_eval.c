@@ -45,7 +45,7 @@ draw_points(struct bsg_node *s)
     if (!s)
 	return BRLCAD_OK; /* nothing to do is fine */
 
-    struct draw_update_data_t *d = (struct draw_update_data_t *)s->s_i_data;
+    struct draw_update_data_t *d = (struct draw_update_data_t *)bsg_node_get_internal_data(s);
     if (!d)
 	return BRLCAD_OK; /* nothing to do is fine */
 
