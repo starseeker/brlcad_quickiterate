@@ -90,6 +90,8 @@ struct collect_state {
  * floating-point Z value into the integer sort_key field. */
 static const fastf_t depth_key_scale_factor = 1000000.0;
 
+/* In independent-view mode, only overlays/view-scope subtrees are rendered
+ * from the shared root.  Legacy root-level non-overlay children are skipped. */
 static int
 _independent_root_skip_child(const bsg_node *node)
 {
@@ -254,6 +256,8 @@ _render_collect(const bsg_node *node,
 	return;
 
     const struct bsg_render_request *req = st->req;
+    /* force_draw propagates from ancestors and bypasses s_flag visibility
+     * filtering for descendant shapes. */
     int force_draw = inherited_force_draw || node->s_force_draw;
 
     /* --------------------------------------------------------------- */
@@ -380,6 +384,7 @@ _render_collect(const bsg_node *node,
     /* Build the render item */
     struct bsg_render_item *item = bsg_render_item_create();
     item->node         = (bsg_node *)node;
+    item->view         = req->view;
     MAT_COPY(item->model_mat, parent_mat);
     item->color[0]     = color[0];
     item->color[1]     = color[1];
@@ -482,13 +487,12 @@ bsg_render_request_execute(struct bsg_render_request *req)
 	bsg_lod_update(req->root, req->view);
 
     unsigned int adapter_caps = 0;
-    if (req->adapter && req->adapter->capabilities)
+    int has_capability_query = (req->adapter && req->adapter->capabilities);
+    if (has_capability_query)
 	adapter_caps = req->adapter->capabilities(req->dmp);
     int do_sorted_alpha = ((req->flags & BSG_RENDER_FLAG_SORTED_ALPHA) != 0);
-    if (do_sorted_alpha && req->adapter && req->adapter->capabilities &&
-	!(adapter_caps & BSG_ADAPTER_CAP_SORTED_ALPHA)) {
-	/* Capabilities are advisory; libbsg still provides CPU-side ordering. */
-    }
+    if (do_sorted_alpha && has_capability_query)
+	do_sorted_alpha = ((adapter_caps & BSG_ADAPTER_CAP_SORTED_ALPHA) != 0);
 
     /* Identity matrix as the initial accumulated transform */
     mat_t identity;
