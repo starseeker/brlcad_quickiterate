@@ -149,12 +149,12 @@ test_children_initially_down(void)
 
 
 /* -----------------------------------------------------------------------
- * Test 5: each child carries BSG_PAYLOAD_OVERLAY and valid meta
+ * Test 5: each child carries BSG_PAYLOAD_OVERLAY, valid meta, and payload
  * ----------------------------------------------------------------------- */
 static int
 test_children_have_meta(void)
 {
-    TEST("HUD children have OVERLAY payload and meta");
+    TEST("HUD children have OVERLAY payload, meta, and payload snapshot");
     struct bsg_view *v = _make_view();
     bsg_node *root = bsg_hud_root_create(v);
     if (!root)
@@ -168,19 +168,62 @@ test_children_have_meta(void)
 	struct bsg_hud_node_meta *m = bsg_hud_node_get_meta(c);
 	if (!m)
 	    FAIL("bsg_hud_node_get_meta returned NULL");
+	const struct bsg_hud_payload *p = bsg_hud_node_get_payload(c);
+	if (!p)
+	    FAIL("bsg_hud_node_get_payload returned NULL");
 	if ((int)m->feature_type != i)
 	    FAIL("feature_type does not match sort order index");
+	if ((int)p->feature_type != i)
+	    FAIL("payload feature_type does not match sort order index");
 	if (m->sort_order != i)
 	    FAIL("sort_order does not match index");
     }
     _free_view(v);
-    PASS("HUD children have OVERLAY payload and meta");
+    PASS("HUD children have OVERLAY payload, meta, and payload snapshot");
     return 0;
 }
 
 
 /* -----------------------------------------------------------------------
- * Test 6: bsg_hud_sync with center_dot enabled → child UP
+ * Test 6: bsg_hud_sync copies faceplate payload state
+ * ----------------------------------------------------------------------- */
+static int
+test_sync_payloads(void)
+{
+    TEST("bsg_hud_sync updates payload snapshots");
+    struct bsg_view *v = _make_view();
+    v->gv_ls.gv_center_dot.gos_draw = 1;
+    VSET(v->gv_ls.gv_center_dot.gos_line_color, 1, 2, 3);
+    v->gv_ls.gv_fb_mode = 2;
+
+    int rc = bsg_hud_sync(v);
+    if (rc != 0)
+	FAIL("bsg_hud_sync returned error");
+
+    bsg_node *root = bsg_hud_root_get(v);
+    const struct bsg_hud_payload *center =
+	bsg_hud_node_get_payload((bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_CENTER_DOT));
+    const struct bsg_hud_payload *fb =
+	bsg_hud_node_get_payload((bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_FRAMEBUFFER));
+    if (!center || !fb)
+	FAIL("missing HUD payload snapshots");
+    if (center->data.other.gos_line_color[0] != 1 ||
+	center->data.other.gos_line_color[1] != 2 ||
+	center->data.other.gos_line_color[2] != 3)
+	FAIL("center-dot payload colors not copied");
+    if (fb->data.framebuffer.mode != 2)
+	FAIL("framebuffer mode not copied");
+    if (((bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_FRAMEBUFFER))->s_flag != UP)
+	FAIL("framebuffer feature should be enabled");
+
+    _free_view(v);
+    PASS("bsg_hud_sync updates payload snapshots");
+    return 0;
+}
+
+
+/* -----------------------------------------------------------------------
+ * Test 7: bsg_hud_sync with center_dot enabled → child UP
  * ----------------------------------------------------------------------- */
 static int
 test_sync_center_dot(void)
@@ -218,7 +261,7 @@ test_sync_center_dot(void)
 
 
 /* -----------------------------------------------------------------------
- * Test 7: bsg_hud_sync called twice keeps correct state
+ * Test 8: bsg_hud_sync called twice keeps correct state
  * ----------------------------------------------------------------------- */
 static int
 test_sync_idempotent(void)
@@ -248,7 +291,7 @@ test_sync_idempotent(void)
 
 
 /* -----------------------------------------------------------------------
- * Test 8: bsg_hud_root_create returns existing root on second call
+ * Test 9: bsg_hud_root_create returns existing root on second call
  * ----------------------------------------------------------------------- */
 static int
 test_create_idempotent(void)
@@ -266,7 +309,7 @@ test_create_idempotent(void)
 
 
 /* -----------------------------------------------------------------------
- * Test 9: overlay_role enum values are distinct and in range
+ * Test 10: overlay enums are distinct and in range
  * ----------------------------------------------------------------------- */
 static int
 test_enum_values(void)
@@ -275,6 +318,9 @@ test_enum_values(void)
     if (BSG_OVERLAY_ROLE_MODEL == BSG_OVERLAY_ROLE_SCREEN ||
 	BSG_OVERLAY_ROLE_SCREEN == BSG_OVERLAY_ROLE_XRAY)
 	FAIL("overlay role enum values collide");
+    if (BSG_OVERLAY_CLASS_FACEPLATE == BSG_OVERLAY_CLASS_EDIT_HANDLE ||
+	BSG_OVERLAY_CLASS_SELECTION_RUBBER_BAND == BSG_OVERLAY_CLASS_DIAGNOSTIC)
+	FAIL("overlay class enum values collide");
     if (BSG_HUD_COORD_SCREEN_PX == BSG_HUD_COORD_NDC ||
 	BSG_HUD_COORD_NDC == BSG_HUD_COORD_VIEW_PLANE)
 	FAIL("hud coord enum values collide");
@@ -286,7 +332,7 @@ test_enum_values(void)
 
 
 /* -----------------------------------------------------------------------
- * Test 10: bsg_hud_sync NULL guard
+ * Test 11: bsg_hud_sync NULL guard
  * ----------------------------------------------------------------------- */
 static int
 test_sync_null(void)
@@ -314,6 +360,7 @@ main(int UNUSED(argc), char **UNUSED(argv))
     fail += test_child_count();
     fail += test_children_initially_down();
     fail += test_children_have_meta();
+    fail += test_sync_payloads();
     fail += test_sync_center_dot();
     fail += test_sync_idempotent();
     fail += test_create_idempotent();

@@ -26,24 +26,24 @@
  * A @c bsg_view owns a HUD scene root (@c gv_hud_root) that is separate
  * from the model draw root (@c gv_draw_root).  The HUD root contains one
  * child @c bsg_node per faceplate feature (center dot, axes, scale, ADC,
- * grid, rubber-band rect, params text).  Each feature node carries a
+ * grid, rubber-band rect, params text, framebuffer).  Each feature node carries a
  * @c bsg_hud_node_meta descriptor that records:
  *
  *   - which faceplate feature it represents (@c bsg_hud_feature_type)
  *   - its coordinate space (@c bsg_hud_coord)
- *   - its overlay role (@c bsg_overlay_role)
+ *   - its render-stack placement (@c bsg_overlay_role)
+ *   - its semantic overlay class (@c bsg_overlay_class)
  *   - its lifecycle policy (@c bsg_overlay_lifecycle)
  *   - its render-phase sort order
  *
  * @c bsg_hud_sync() reads the current @c bsg_view_settings faceplate flags
- * and updates each feature node's @c s_flag (UP = enabled, DOWN = disabled).
- * The render pass orders nodes by @c sort_order so earlier phases (center dot,
- * axes) precede later ones (grid, rect, params text).
+ * and updates each feature node's @c s_flag (UP = enabled, DOWN = disabled)
+ * plus a lightweight D4 HUD payload snapshot stored as draw-data on the node.
+ * The HUD render pass then traverses @c gv_hud_root through
+ * @c bsg_render_request_execute() using @c sort_order to order the items.
  *
- * Actual rasterisation stays in libdm; libbsg only manages structure and
- * ordering.  @c dm_draw_faceplate() calls @c bsg_hud_sync() at the start of
- * each frame to propagate the current settings into the HUD tree before
- * drawing.
+ * Actual rasterisation stays in libdm via a backend adapter that consumes the
+ * HUD render items produced by the render-request traversal.
  */
 /** @{ */
 /* @file bsg/hud.h */
@@ -75,6 +75,24 @@ typedef enum bsg_overlay_role {
     BSG_OVERLAY_ROLE_XRAY   = 2  /**< @brief always on top (depth-ignore), in model space */
 } bsg_overlay_role;
 
+/**
+ * Semantic overlay class — records what kind of overlay/HUD feature a node
+ * represents independent of its placement in the render pipeline.
+ */
+typedef enum bsg_overlay_class {
+    BSG_OVERLAY_CLASS_FACEPLATE             = 0, /**< @brief built-in faceplate/HUD feature */
+    BSG_OVERLAY_CLASS_EDIT_HANDLE           = 1, /**< @brief edit handles / grips */
+    BSG_OVERLAY_CLASS_MEASURE               = 2, /**< @brief measurement graphics */
+    BSG_OVERLAY_CLASS_SELECTION_RUBBER_BAND = 3, /**< @brief selection rectangle */
+    BSG_OVERLAY_CLASS_SNAP_GUIDE            = 4, /**< @brief snapping guide */
+    BSG_OVERLAY_CLASS_COMMAND_RESULT        = 5, /**< @brief command-owned result graphic */
+    BSG_OVERLAY_CLASS_DIAGNOSTIC            = 6, /**< @brief diagnostics / status visuals */
+    BSG_OVERLAY_CLASS_TCL_ADORNMENT         = 7, /**< @brief Tcl-created adornment */
+    BSG_OVERLAY_CLASS_POLYGON_EDIT          = 8, /**< @brief polygon edit helper */
+    BSG_OVERLAY_CLASS_SKETCH_EDIT           = 9, /**< @brief sketch edit helper */
+    BSG_OVERLAY_CLASS_USER_ANNOTATION       = 10 /**< @brief user-created annotation */
+} bsg_overlay_class;
+
 
 /* -----------------------------------------------------------------------
  * HUD coordinate space
@@ -99,8 +117,13 @@ typedef enum bsg_hud_coord {
  * Lifecycle policy for an overlay or HUD node.
  */
 typedef enum bsg_overlay_lifecycle {
-    BSG_OVERLAY_LC_PERSISTENT = 0, /**< @brief node survives across frames; only rebuilt on settings change */
-    BSG_OVERLAY_LC_PER_FRAME  = 1  /**< @brief node is rebuilt/refreshed every frame */
+    BSG_OVERLAY_LC_PERSISTENT             = 0, /**< @brief node survives across frames; only rebuilt on settings change */
+    BSG_OVERLAY_LC_PER_FRAME              = 1, /**< @brief node is rebuilt/refreshed every frame */
+    BSG_OVERLAY_LC_PER_COMMAND            = 2, /**< @brief node lives for one command result */
+    BSG_OVERLAY_LC_PER_TOOL               = 3, /**< @brief node lives for one tool session */
+    BSG_OVERLAY_LC_PER_VIEW               = 4, /**< @brief node is private to one view */
+    BSG_OVERLAY_LC_SHARED_VIEW_SET        = 5, /**< @brief node is shared by a view set */
+    BSG_OVERLAY_LC_AUTO_REMOVE_ON_SOURCE  = 6  /**< @brief remove when source object changes */
 } bsg_overlay_lifecycle;
 
 
@@ -124,11 +147,12 @@ typedef enum bsg_hud_feature_type {
     BSG_HUD_FEATURE_ADC         = 4, /**< @brief angle/distance cursor */
     BSG_HUD_FEATURE_GRID        = 5, /**< @brief reference grid */
     BSG_HUD_FEATURE_RECT        = 6, /**< @brief rubber-band selection rectangle */
-    BSG_HUD_FEATURE_VIEW_PARAMS = 7  /**< @brief text overlay (size, center, az/el, FPS) */
+    BSG_HUD_FEATURE_VIEW_PARAMS = 7, /**< @brief text overlay (size, center, az/el, FPS) */
+    BSG_HUD_FEATURE_FRAMEBUFFER = 8  /**< @brief framebuffer underlay/overlay */
 } bsg_hud_feature_type;
 
 /** Number of distinct faceplate features managed by the HUD root. */
-#define BSG_HUD_FEATURE_COUNT 8
+#define BSG_HUD_FEATURE_COUNT 9
 
 
 /* -----------------------------------------------------------------------
@@ -147,8 +171,32 @@ struct bsg_hud_node_meta {
     bsg_hud_feature_type  feature_type; /**< @brief which faceplate feature */
     bsg_hud_coord         coord_space;  /**< @brief geometry coordinate convention */
     bsg_overlay_role      role;         /**< @brief render-pass placement */
+    bsg_overlay_class     overlay_class;/**< @brief semantic overlay classification */
     bsg_overlay_lifecycle lifecycle;    /**< @brief rebuild frequency */
     int                   sort_order;   /**< @brief render-phase ordering (lower = earlier) */
+};
+
+/**
+ * D4 HUD payload snapshot stored on each HUD feature node via
+ * @c bsg_node_set_draw_data().
+ *
+ * This records the current faceplate/HUD state needed by the libdm HUD
+ * backend adapter without requiring it to reach back into the view settings
+ * for feature-specific bookkeeping.
+ */
+struct bsg_hud_payload {
+    bsg_hud_feature_type feature_type; /**< @brief feature this payload snapshot represents */
+    union {
+	struct bsg_other_state            other;
+	struct bsg_axes                   axes;
+	struct bsg_adc_state              adc;
+	struct bsg_grid_state             grid;
+	struct bsg_interactive_rect_state rect;
+	struct bsg_params_state           params;
+	struct {
+	    int mode;
+	} framebuffer;
+    } data;
 };
 
 
@@ -210,6 +258,13 @@ bsg_hud_sync(struct bsg_view *v);
  */
 BSG_EXPORT extern struct bsg_hud_node_meta *
 bsg_hud_node_get_meta(bsg_node *node);
+
+/**
+ * Return the D4 HUD payload snapshot for @p node, or NULL if @p node is not a
+ * HUD feature node.
+ */
+BSG_EXPORT extern const struct bsg_hud_payload *
+bsg_hud_node_get_payload(bsg_node *node);
 
 __END_DECLS
 

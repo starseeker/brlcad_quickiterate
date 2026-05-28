@@ -191,7 +191,7 @@ main(int ac, char *av[])
     {
 	struct dm *saved_dmp = (struct dm *)v->dmp;
 	v->dmp = NULL;
-	dm_draw_objs(v, NULL, NULL);   /* must be a no-op, not a crash */
+	dm_draw_objs(v);   /* must be a no-op, not a crash */
 	v->dmp = saved_dmp;
     }
 

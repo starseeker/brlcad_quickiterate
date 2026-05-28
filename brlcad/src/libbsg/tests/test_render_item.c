@@ -41,6 +41,7 @@
 #include "bsg/node.h"
 #include "bsg/node_shape.h"
 #include "bsg/node_transform.h"
+#include "bsg/hud.h"
 #include "bsg/render.h"
 #include "bsg/render_item.h"
 #include "bsg/backend_adapter.h"
@@ -565,6 +566,71 @@ test_sorted_alpha(void)
 
 
 /* ------------------------------------------------------------------ */
+/* Test 12: HUD pass sorts by hud sort_order                           */
+/* ------------------------------------------------------------------ */
+
+static int
+test_hud_phase_sort(void)
+{
+    printf("=== Test 12: hud_phase_sort ===\n");
+
+    struct bsg_view *v = _make_view();
+    bsg_node *root = bsg_hud_root_create(v);
+    if (!root) FAIL("failed to create HUD root");
+
+    bsg_node *c0 = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_CENTER_DOT);
+    bsg_node *c1 = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_MODEL_AXES);
+    bsg_node *c2 = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_VIEW_PARAMS);
+    if (!c0 || !c1 || !c2) FAIL("missing HUD children");
+
+    c0->s_flag = UP;
+    c1->s_flag = UP;
+    c2->s_flag = UP;
+
+    struct bsg_hud_node_meta *m0 = bsg_hud_node_get_meta(c0);
+    struct bsg_hud_node_meta *m1 = bsg_hud_node_get_meta(c1);
+    struct bsg_hud_node_meta *m2 = bsg_hud_node_get_meta(c2);
+    if (!m0 || !m1 || !m2) FAIL("missing HUD metadata");
+    m0->sort_order = 30;
+    m1->sort_order = 10;
+    m2->sort_order = 20;
+
+    struct bu_ptbl items;
+    bu_ptbl_init(&items, 4, "hud phase items");
+
+    struct bsg_render_request *req =
+	bsg_render_request_create(v, root, NULL);
+    req->flags = BSG_RENDER_FLAG_COLLECT_ITEMS | BSG_RENDER_FLAG_VISIBLE_ONLY | BSG_RENDER_FLAG_HUD_PASS;
+    req->items = &items;
+
+    int n = bsg_render_request_execute(req);
+    if (n != 3) FAIL("should collect 3 HUD items");
+    if (BU_PTBL_LEN(&items) != 3) FAIL("items table should have 3 entries");
+
+    struct bsg_render_item *i0 = (struct bsg_render_item *)BU_PTBL_GET(&items, 0);
+    struct bsg_render_item *i1 = (struct bsg_render_item *)BU_PTBL_GET(&items, 1);
+    struct bsg_render_item *i2 = (struct bsg_render_item *)BU_PTBL_GET(&items, 2);
+
+    if (i0->node != c1 || i1->node != c2 || i2->node != c0)
+	FAIL("HUD items should sort in ascending sort_order");
+    if (!(i0->sort_key < i1->sort_key && i1->sort_key < i2->sort_key))
+	FAIL("HUD sort keys should be ascending");
+
+    for (size_t i = 0; i < BU_PTBL_LEN(&items); i++) {
+	struct bsg_render_item *item =
+	    (struct bsg_render_item *)BU_PTBL_GET(&items, i);
+	bsg_render_item_free(item);
+    }
+    bu_ptbl_free(&items);
+    bsg_render_request_destroy(req);
+    bsg_hud_root_destroy(v);
+    _free_view(v);
+    PASS("hud_phase_sort");
+    return 0;
+}
+
+
+/* ------------------------------------------------------------------ */
 /* main                                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -585,6 +651,7 @@ main(int UNUSED(argc), const char **argv)
     failures += test_item_model_mat_identity();
     failures += test_null_request();
     failures += test_sorted_alpha();
+    failures += test_hud_phase_sort();
 
     if (failures == 0)
 	printf("RESULT: all Phase D5 render-item tests PASSED\n");

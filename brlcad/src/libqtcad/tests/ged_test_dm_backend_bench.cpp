@@ -227,7 +227,7 @@ main(int ac, char *av[])
 		unsigned char *bg1, *bg2;
 		dm_get_bg(&bg1, &bg2, sw.displayManager());
 		dm_set_bg(sw.displayManager(), bg1[0], bg1[1], bg1[2], bg2[0], bg2[1], bg2[2]);
-		dm_draw_objs(sw.view(), NULL, NULL);
+		dm_draw_objs(sw.view());
 		dm_draw_end(sw.displayManager());
 	    }
 
@@ -237,7 +237,7 @@ main(int ac, char *av[])
 		unsigned char *bg1, *bg2;
 		dm_get_bg(&bg1, &bg2, sw.displayManager());
 		dm_set_bg(sw.displayManager(), bg1[0], bg1[1], bg1[2], bg2[0], bg2[1], bg2[2]);
-		dm_draw_objs(sw.view(), NULL, NULL);
+		dm_draw_objs(sw.view());
 		dm_draw_end(sw.displayManager());
 	    }
 	    int64_t elapsed_sw = bu_gettime() - t0;
@@ -289,7 +289,7 @@ main(int ac, char *av[])
 		unsigned char *bg1, *bg2;
 		dm_get_bg(&bg1, &bg2, gl.displayManager());
 		dm_set_bg(gl.displayManager(), bg1[0], bg1[1], bg1[2], bg2[0], bg2[1], bg2[2]);
-		dm_draw_objs(gl.view(), NULL, NULL);
+		dm_draw_objs(gl.view());
 		dm_draw_end(gl.displayManager());
 	    }
 
@@ -298,7 +298,7 @@ main(int ac, char *av[])
 		unsigned char *bg1, *bg2;
 		dm_get_bg(&bg1, &bg2, gl.displayManager());
 		dm_set_bg(gl.displayManager(), bg1[0], bg1[1], bg1[2], bg2[0], bg2[1], bg2[2]);
-		dm_draw_objs(gl.view(), NULL, NULL);
+		dm_draw_objs(gl.view());
 		dm_draw_end(gl.displayManager());
 	    }
 	    int64_t elapsed_gl = bu_gettime() - t0;
