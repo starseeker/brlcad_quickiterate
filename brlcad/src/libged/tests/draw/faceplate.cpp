@@ -108,10 +108,13 @@ main(int ac, char *av[]) {
     s_av[2] = "swrast";
     s_av[3] = "SW";
     s_av[4] = NULL;
-    ged_exec_dm(gedp, 4, s_av);
+    if (ged_exec_dm(gedp, 4, s_av) != BRLCAD_OK || !gedp->ged_gvp || !gedp->ged_gvp->dmp) {
+	bu_exit(EXIT_FAILURE, "failed to attach swrast display manager: %s\n",
+		bu_vls_strlen(gedp->ged_result_str) ? bu_vls_cstr(gedp->ged_result_str) : "no display manager available");
+    }
 
     struct bsg_view *v = gedp->ged_gvp;
-    struct dm *dmp = (struct dm *)v->dmp;
+    struct dm *dmp = (struct dm *)gedp->ged_gvp->dmp;
     dm_set_width(dmp, 512);
     dm_set_height(dmp, 512);
 
@@ -217,7 +220,11 @@ main(int ac, char *av[]) {
     bu_log("Testing turning on frames per second reporting...\n");
 
     // So we don't get random values here, override the timing variable values
-    ((struct dm *)v->dmp)->start_time = 0;
+    dmp = (struct dm *)gedp->ged_gvp->dmp;
+    if (!dmp) {
+	bu_exit(EXIT_FAILURE, "no active display manager available for fps faceplate test\n");
+    }
+    dmp->start_time = 0;
     v->gv_s->gv_frametime = 1000000000;
 
     s_av[0] = "view";
@@ -351,4 +358,3 @@ main(int ac, char *av[]) {
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-
