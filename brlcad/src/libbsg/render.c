@@ -72,6 +72,7 @@
 #include "bsg/hud.h"
 #include "bsg/appearance.h"
 #include "bsg/lod.h"
+#include "bsg/lod_ops.h"
 #include "bsg/util.h"
 
 
@@ -306,7 +307,8 @@ _render_collect(const bsg_node *node,
     /* --------------------------------------------------------------- */
     /* Non-shape (group/root/…): recurse with same matrix               */
     /* --------------------------------------------------------------- */
-    if (!(node->s_type_flags & BSG_NODE_SHAPE)) {
+    if (!(node->s_type_flags & BSG_NODE_SHAPE) &&
+	!(node->s_type_flags & BSG_OBJ_DB)) {
 	int independent_root = 0;
 	if (req->view && req->view->bsg_root &&
 	    bsg_view_is_independent(req->view) &&

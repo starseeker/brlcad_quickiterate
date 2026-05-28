@@ -91,6 +91,8 @@ dm_draw_arrow(struct dm *dmp, point_t A, point_t B, fastf_t tip_length, fastf_t 
     (void)dm_draw_lines_3d(dmp, 16, points, 0);
 }
 
+void dm_draw_label(struct dm *dmp, struct bsg_node *s);
+
 static int
 _independent_root_skip_child(struct bsg_node *s)
 {
@@ -422,15 +424,19 @@ _dm_scene_prepare_item(void *dmp_ptr, const struct bsg_render_item *item)
     return 1;
 }
 
+static struct bsg_view *_dm_scene_active_view = NULL;
+
 static void
 _dm_scene_draw_item(void *dmp_ptr, const struct bsg_render_item *item)
 {
     struct dm *dmp = (struct dm *)dmp_ptr;
-    if (!dmp || !item || !item->node || !item->node->s_v)
+    if (!dmp || !item || !item->node)
 	return;
 
     struct bsg_node *s = item->node;
-    struct bsg_view *v = s->s_v;
+    struct bsg_view *v = s->s_v ? s->s_v : _dm_scene_active_view;
+    if (!v)
+	return;
 
     if (dm_get_transparency(dmp))
 	(void)dm_set_depth_mask(dmp, (item->phase == BSG_RENDER_PHASE_TRANSPARENT) ? 0 : 1);
@@ -970,7 +976,9 @@ dm_draw_objs(struct bsg_view *v)
 	    if (dm_get_transparency(dmp))
 		req->flags |= BSG_RENDER_FLAG_SORTED_ALPHA;
 	    req->adapter = &scene_adapter;
+	    _dm_scene_active_view = v;
 	    (void)bsg_render_request_execute(req);
+	    _dm_scene_active_view = NULL;
 	    bsg_render_request_destroy(req);
 	    (void)dm_set_depth_mask(dmp, 1);
 	}
