@@ -76,6 +76,7 @@ typedef enum bsg_render_phase {
  */
 struct bsg_render_item {
     bsg_node          *node;          /**< @brief  source shape node (borrowed) */
+    struct bsg_view   *view;          /**< @brief  request view context (borrowed) */
     mat_t              model_mat;     /**< @brief  accumulated model-to-world matrix */
 
     /* Resolved appearance */

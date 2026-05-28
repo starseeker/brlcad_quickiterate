@@ -58,6 +58,7 @@
 #include "bu/malloc.h"
 #include "bu/ptbl.h"
 #include "bu/sort.h"
+#include "bu/str.h"
 
 #include "vmath.h"
 #include "bn/mat.h"
@@ -70,6 +71,9 @@
 #include "bsg/backend_adapter.h"
 #include "bsg/hud.h"
 #include "bsg/appearance.h"
+#include "bsg/lod.h"
+#include "bsg/lod_ops.h"
+#include "bsg/util.h"
 
 
 /* ------------------------------------------------------------------ */
@@ -85,6 +89,20 @@ struct collect_state {
 /* Preserve six decimal places of view-space depth when projecting the
  * floating-point Z value into the integer sort_key field. */
 static const fastf_t depth_key_scale_factor = 1000000.0;
+
+/* In independent-view mode, only overlays/view-scope subtrees are rendered
+ * from the shared root.  Legacy root-level non-overlay children are skipped. */
+static int
+_independent_root_skip_child(const bsg_node *node)
+{
+    if (!node)
+	return 1;
+    if (node->s_type_flags & BSG_NODE_VIEW_SCOPE)
+	return 0;
+    if (!BU_VLS_IS_INITIALIZED(&node->s_name))
+	return 1;
+    return BU_STR_EQUAL("_overlays", bu_vls_cstr(&node->s_name)) ? 0 : 1;
+}
 
 
 /**
@@ -231,12 +249,16 @@ _sort_hud_bucket(struct bu_ptbl *bucket)
 static void
 _render_collect(const bsg_node *node,
 		const mat_t parent_mat,
-		struct collect_state *st)
+		struct collect_state *st,
+		int inherited_force_draw)
 {
     if (!node)
 	return;
 
     const struct bsg_render_request *req = st->req;
+    /* force_draw propagates from ancestors and bypasses s_flag visibility
+     * filtering for descendant shapes. */
+    int force_draw = inherited_force_draw || node->s_force_draw;
 
     /* --------------------------------------------------------------- */
     /* Transform node: push matrix and recurse into children            */
@@ -247,7 +269,41 @@ _render_collect(const bsg_node *node,
 	for (size_t i = 0; i < BU_PTBL_LEN(&((bsg_node *)node)->children); i++) {
 	    bsg_node *child =
 		(bsg_node *)BU_PTBL_GET(&((bsg_node *)node)->children, i);
-	    _render_collect(child, new_mat, st);
+	    _render_collect(child, new_mat, st, force_draw);
+	}
+	return;
+    }
+
+    /* Sensor nodes are not drawable */
+    if (node->s_type_flags & BSG_NODE_SENSOR)
+	return;
+
+    /* Skip stale bridge placeholders from pre-V4 trees. */
+    if (node->s_type_flags & BSG_NODE_VIEW_BRIDGE)
+	return;
+
+    /* View-scope visibility filtering.  Shared (s_v == NULL) is visible in all
+     * views; owned scopes are visible only to the owning view. */
+    if (node->s_type_flags & BSG_NODE_VIEW_SCOPE) {
+	if (node->s_v != NULL && req->view != NULL && node->s_v != req->view)
+	    return;
+	for (size_t i = 0; i < BU_PTBL_LEN(&((bsg_node *)node)->children); i++) {
+	    bsg_node *child =
+		(bsg_node *)BU_PTBL_GET(&((bsg_node *)node)->children, i);
+	    _render_collect(child, parent_mat, st, force_draw);
+	}
+	return;
+    }
+
+    /* LoD traversal: recurse only into the active level child. */
+    if (node->s_type_flags & BSG_NODE_LOD) {
+	int active = bsg_lod_node_active_level((bsg_node *)node, req->view);
+	int nlevels = bsg_lod_node_level_count((bsg_node *)node);
+	if (nlevels > 0) {
+	    if (active < 0 || active >= nlevels)
+		active = 0;
+	    bsg_node *child = bsg_node_child_at(node, (size_t)active);
+	    _render_collect(child, parent_mat, st, force_draw);
 	}
 	return;
     }
@@ -255,11 +311,21 @@ _render_collect(const bsg_node *node,
     /* --------------------------------------------------------------- */
     /* Non-shape (group/root/…): recurse with same matrix               */
     /* --------------------------------------------------------------- */
-    if (!(node->s_type_flags & BSG_NODE_SHAPE)) {
+    if (!(node->s_type_flags & BSG_NODE_SHAPE) &&
+	!(node->s_type_flags & BSG_OBJ_DB)) {
+	int independent_root = 0;
+	if (req->view && req->view->bsg_root &&
+	    bsg_view_is_independent(req->view) &&
+	    node == (const bsg_node *)req->view->bsg_root) {
+	    independent_root = 1;
+	}
+
 	for (size_t i = 0; i < BU_PTBL_LEN(&((bsg_node *)node)->children); i++) {
 	    bsg_node *child =
 		(bsg_node *)BU_PTBL_GET(&((bsg_node *)node)->children, i);
-	    _render_collect(child, parent_mat, st);
+	    if (independent_root && _independent_root_skip_child(child))
+		continue;
+	    _render_collect(child, parent_mat, st, force_draw);
 	}
 	return;
     }
@@ -270,19 +336,20 @@ _render_collect(const bsg_node *node,
 
     /* Visibility filter */
     if ((req->flags & BSG_RENDER_FLAG_VISIBLE_ONLY) &&
-	((const bsg_node *)node)->s_flag == DOWN) {
+	((const bsg_node *)node)->s_flag == DOWN && !force_draw) {
 	/* shape is hidden — recurse into children only if any exist */
 	for (size_t i = 0; i < BU_PTBL_LEN(&((bsg_node *)node)->children); i++) {
 	    bsg_node *child =
 		(bsg_node *)BU_PTBL_GET(&((bsg_node *)node)->children, i);
-	    _render_collect(child, parent_mat, st);
+	    _render_collect(child, parent_mat, st, force_draw);
 	}
 	return;
     }
 
     /* Pre-render update pass for geometry types that need it (CSG / MESH /
      * BREP) — bsg_payload_dispatch calls s_update_callback when set. */
-    bsg_payload_dispatch(req->dmp, (bsg_node *)node, req->view);
+    if (req->flags & BSG_RENDER_FLAG_PAYLOAD_DISPATCH)
+	bsg_payload_dispatch(req->dmp, (bsg_node *)node, req->view);
 
     /* Resolve appearance from s_os (when set) or direct node fields */
     fastf_t transparency = 1.0;
@@ -317,6 +384,7 @@ _render_collect(const bsg_node *node,
     /* Build the render item */
     struct bsg_render_item *item = bsg_render_item_create();
     item->node         = (bsg_node *)node;
+    item->view         = req->view;
     MAT_COPY(item->model_mat, parent_mat);
     item->color[0]     = color[0];
     item->color[1]     = color[1];
@@ -324,7 +392,7 @@ _render_collect(const bsg_node *node,
     item->transparency = transparency;
     item->dmode        = dmode;
     item->line_width   = line_width;
-    item->line_style   = 0;  /* solid; extended in future slice */
+    item->line_style   = ((const bsg_node *)node)->s_soldash;
     item->highlighted  = (((const bsg_node *)node)->s_iflag == UP) ? 1 : 0;
     item->payload_flags =
 	bsg_node_get_payload_type((bsg_node *)node);
@@ -337,7 +405,7 @@ _render_collect(const bsg_node *node,
     for (size_t i = 0; i < BU_PTBL_LEN(&((bsg_node *)node)->children); i++) {
 	bsg_node *child =
 	    (bsg_node *)BU_PTBL_GET(&((bsg_node *)node)->children, i);
-	_render_collect(child, parent_mat, st);
+	_render_collect(child, parent_mat, st, force_draw);
     }
 }
 
@@ -369,7 +437,8 @@ _dispatch_item(struct bsg_render_request *req,
 	/* Legacy fallback: dispatch via bsg_payload_dispatch.
 	 * The update-pass call was already made during collection; this
 	 * second call is intentionally a no-op for update-only types. */
-	bsg_payload_dispatch(req->dmp, item->node, req->view);
+	if (req->flags & BSG_RENDER_FLAG_PAYLOAD_DISPATCH)
+	    bsg_payload_dispatch(req->dmp, item->node, req->view);
     }
 
     bsg_render_item_free(item);
@@ -414,6 +483,17 @@ bsg_render_request_execute(struct bsg_render_request *req)
     if (!req)
 	return -1;
 
+    if (req->view && req->root)
+	bsg_lod_update(req->root, req->view);
+
+    unsigned int adapter_caps = 0;
+    int has_capability_query = (req->adapter && req->adapter->capabilities);
+    if (has_capability_query)
+	adapter_caps = req->adapter->capabilities(req->dmp);
+    int do_sorted_alpha = ((req->flags & BSG_RENDER_FLAG_SORTED_ALPHA) != 0);
+    if (do_sorted_alpha && has_capability_query)
+	do_sorted_alpha = ((adapter_caps & BSG_ADAPTER_CAP_SORTED_ALPHA) != 0);
+
     /* Identity matrix as the initial accumulated transform */
     mat_t identity;
     MAT_IDN(identity);
@@ -425,9 +505,9 @@ bsg_render_request_execute(struct bsg_render_request *req)
 	bu_ptbl_init(&st.phase_items[p], 8, "render phase items");
 
     /* Collect items from the subtree */
-    _render_collect(req->root, identity, &st);
+    _render_collect(req->root, identity, &st, 0);
 
-    if (req->flags & BSG_RENDER_FLAG_SORTED_ALPHA)
+    if (do_sorted_alpha)
 	_sort_transparent_bucket(&st.phase_items[BSG_RENDER_PHASE_TRANSPARENT]);
     if (req->flags & BSG_RENDER_FLAG_HUD_PASS)
 	_sort_hud_bucket(&st.phase_items[BSG_RENDER_PHASE_HUD]);

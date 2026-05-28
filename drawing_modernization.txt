@@ -546,8 +546,7 @@ Exit criteria:
 
 Phase D5 — Render items and backend adapter contract
 ----------------------------------------------------
-Status: Render-item and adapter foundation implemented; production libdm backend
-migration incomplete.
+Status: COMPLETE (2026-05-28).
 
 Completed:
 - Extend `bsg_render_request` to produce phase-ordered render items or dispatch
@@ -555,21 +554,26 @@ Completed:
 - Add adapter callbacks for prepare/draw/invalidate/free/capabilities.
 - Resolve basic transform, color, transparency, line style, highlight, payload
   flags, and render phase into `bsg_render_item`.
-
-Remaining implementation steps:
-- Move production libdm traversal from `_bsg_view_traverse_impl` to
-  `bsg_render_request_execute`, including visibility, view-scope filtering,
-  transform accumulation, LoD update timing, transparency sorting, overlay/HUD
-  ordering, appearance resolution, and payload dispatch.
-- Implement GL, swrast, and qtgl backend adapters that consume render items.
-- Add adapter invalidation/free paths driven by payload, material/appearance,
-  transform-path, and render-mode revisions.
-- Add framebuffer underlay/overlay and diagnostics render phases, or document
-  their mapping onto the existing render phase enum.
-- Keep legacy payload fallback only as a transition path until all active display
-  managers use adapters.
-- Add render-item ordering and backend adapter lifecycle tests that cover
-  prepare, draw, invalidate, free, and capabilities.
+- Move production libdm scene drawing in `dm_draw_objs` to
+  `bsg_render_request_execute`, with render policy handled by
+  render-item ordering and adapter callbacks.
+- Extend `bsg_render_request_execute` traversal policy to cover visibility,
+  view-scope filtering, transform accumulation, LoD active-level traversal, and
+  transparency/HUD ordering.
+- Use the adapter-driven scene pipeline for GL-family display managers
+  (`dm-glx`, `dm-swrast`, `dm-qtgl`) via the shared `dm_backend_draw_obj`
+  backend contract.
+- Route adapter invalidation/free operations through display-manager backend
+  invalidation/release callbacks.
+- Add backend adapter lifecycle/capability tests covering prepare/draw plus
+  invalidate/free/capabilities callback behavior.
+- Keep legacy payload dispatch fallback available only when no adapter is
+  supplied.
+- Document phase mapping for framebuffer/diagnostics overlays:
+  - framebuffer underlay/overlay visuals map to `BSG_RENDER_PHASE_HUD` with
+    HUD feature ordering (`BSG_HUD_FEATURE_FRAMEBUFFER`);
+  - diagnostics overlays map to `BSG_RENDER_PHASE_OVERLAY` and preserve
+    stable phase order before HUD.
 
 Exit criteria:
 - libdm consumes render items and backend payloads; it does not define scene

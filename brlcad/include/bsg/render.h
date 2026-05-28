@@ -20,7 +20,7 @@
 /** @addtogroup libbsg
  *
  * @brief
- * BSG render-request — pre-render traversal / payload dispatch (Phase 8).
+ * BSG render-request — phase-ordered render-item execution (Phase D5).
  *
  * A `bsg_render_request` bundles together:
  *   - a target view (bsg_view*)
@@ -28,11 +28,9 @@
  *   - a display-manager handle (void*) forwarded to bsg_payload_dispatch
  *   - a set of BSG_RENDER_FLAG_* control flags
  *
- * bsg_render_request_execute() walks the subtree and calls
- * bsg_payload_dispatch() for every shape node, honouring the flags.
- * Actual rasterisation still happens in libdm; this layer only handles
- * the pre-render update pass to prevent a libbsg → libdm circular
- * dependency.
+ * bsg_render_request_execute() walks the subtree, resolves each shape to a
+ * bsg_render_item, orders by render phase, and dispatches either through a
+ * backend adapter or via legacy bsg_payload_dispatch fallback.
  */
 /** @{ */
 /* @file bsg/render.h */
@@ -140,12 +138,12 @@ bsg_render_request_destroy(struct bsg_render_request *req);
 
 /**
  * Execute the render request:
- *  1. Walk the subtree (req->root) with bsg_visit.
- *  2. For each BSG_NODE_SHAPE node:
- *     - If BSG_RENDER_FLAG_VISIBLE_ONLY is set, skip shapes with s_flag==DOWN.
- *     - If BSG_RENDER_FLAG_PAYLOAD_DISPATCH is set, call bsg_payload_dispatch.
- *     - If BSG_RENDER_FLAG_OVERLAY_LAST is set, BSG_NODE_OVERLAY shapes are
- *       deferred and dispatched after all non-overlay shapes.
+ *  1. Walk the subtree and collect shape items with resolved transform and
+ *     appearance.
+ *  2. Sort and dispatch in phase order:
+ *     OPAQUE -> TRANSPARENT -> OVERLAY -> HUD.
+ *  3. For each item: call adapter prepare/draw callbacks when an adapter is
+ *     attached; otherwise use bsg_payload_dispatch fallback.
  * Returns the number of shapes dispatched, or -1 if @p req is NULL.
  */
 BSG_EXPORT extern int
