@@ -36,8 +36,10 @@
 /** @{ */
 /** @file bsg/tcl_data.h */
 
-#define BV_POLY_CIRCLE_MODE 15
-#define BV_POLY_CONTOUR_MODE 16
+#define BSG_POLY_CIRCLE_MODE 15
+#define BV_POLY_CIRCLE_MODE BSG_POLY_CIRCLE_MODE
+#define BSG_POLY_CONTOUR_MODE 16
+#define BV_POLY_CONTOUR_MODE BSG_POLY_CONTOUR_MODE
 
 /* Separate these out, as we'll try not to use them in the new display work */
 struct bsg_node_old_settings {
@@ -52,14 +54,10 @@ struct bsg_node_old_settings {
     short s_regionid;		/**< @brief  region ID (MGED ONLY)*/
 };
 
-/* A display list corresponds (typically) to a database object.  It is composed of one
- * or more scene objects, which can be manipulated independently but collectively make
- * up the displayed representation of an object.
- *
- * NOTE: this type is no longer used by any BRL-CAD library.  It is kept here
- * temporarily for external consumers; use the bsg_view_obj_* API in
- * include/ged/bsg_ged_draw.h instead.  This definition will be removed in a
- * future release. */
+/* DEPRECATED (Phase D7): display_list was the pre-BSG drawing model.  Use
+ * bsg_scene_group (struct bsg_node) and bsg_draw_intent (see
+ * bsg/draw_intent.h) instead.  This struct will be removed in a future
+ * release (Phase 10). */
 struct display_list {
     struct bu_list      l;
     void               *dl_dp;                 /* Normally this will be a struct directory pointer */

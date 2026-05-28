@@ -44,18 +44,6 @@
 
 __BEGIN_DECLS
 
-#ifndef BV_EXPORT
-#  if defined(BV_DLL_EXPORTS) && defined(BV_DLL_IMPORTS)
-#    error "Only BV_DLL_EXPORTS or BV_DLL_IMPORTS can be defined, not both."
-#  elif defined(BV_DLL_EXPORTS)
-#    define BV_EXPORT COMPILER_DLLEXPORT
-#  elif defined(BV_DLL_IMPORTS)
-#    define BV_EXPORT COMPILER_DLLIMPORT
-#  else
-#    define BV_EXPORT
-#  endif
-#endif
-
 #ifndef BSG_EXPORT
 #  if defined(BSG_DLL_EXPORTS) && defined(BSG_DLL_IMPORTS)
 #    error "Only BSG_DLL_EXPORTS or BSG_DLL_IMPORTS can be defined, not both."
@@ -68,20 +56,32 @@ __BEGIN_DECLS
 #  endif
 #endif
 
+/* Phase D7: BV_EXPORT is now an alias for BSG_EXPORT.  Use BSG_EXPORT in new code. */
+#ifndef BV_EXPORT
+#define BV_EXPORT BSG_EXPORT
+#endif
+
 /* Define view ranges.  The numbers -2048 and 2047 go all the way back to the
  * original angle-distance cursor code that predates even BRL-CAD itself, but
  * (at least right now) there doesn't seem to be any documentation of why those
  * specific values were chosen. */
-#define BV_MAX 2047.0
-#define BV_MIN -2048.0
-#define BV_RANGE 4095.0
+#define BSG_VIEW_MAX 2047.0
+#define BV_MAX BSG_VIEW_MAX
+#define BSG_VIEW_MIN -2048.0
+#define BV_MIN BSG_VIEW_MIN
+#define BSG_VIEW_RANGE 4095.0
+#define BV_RANGE BSG_VIEW_RANGE
 /* Map +/-2048 BV space into -1.0..+1.0 :: x/2048*/
-#define INV_BV 0.00048828125
+#define BSG_INV_VIEW 0.00048828125
+#define INV_BV BSG_INV_VIEW
+#define BSG_INV_4096 0.000244140625
 #define INV_4096 0.000244140625
 
 
-#define BV_MINVIEWSIZE 0.0001
-#define BV_MINVIEWSCALE 0.00005
+#define BSG_MINVIEWSIZE 0.0001
+#define BV_MINVIEWSIZE BSG_MINVIEWSIZE
+#define BSG_MINVIEWSCALE 0.00005
+#define BV_MINVIEWSCALE BSG_MINVIEWSCALE
 
 #ifndef UP
 #  define UP 0
@@ -90,29 +90,26 @@ __BEGIN_DECLS
 #  define DOWN 1
 #endif
 
-#define BV_ANCHOR_AUTO          0
-#define BV_ANCHOR_BOTTOM_LEFT   1
-#define BV_ANCHOR_BOTTOM_CENTER 2
-#define BV_ANCHOR_BOTTOM_RIGHT  3
-#define BV_ANCHOR_MIDDLE_LEFT   4
-#define BV_ANCHOR_MIDDLE_CENTER 5
-#define BV_ANCHOR_MIDDLE_RIGHT  6
-#define BV_ANCHOR_TOP_LEFT      7
-#define BV_ANCHOR_TOP_CENTER    8
-#define BV_ANCHOR_TOP_RIGHT     9
-
-/* Phase D0 (drawing_modernization): BSG_ANCHOR_* — clean aliases for
- * label/text anchor positions.  Prefer these over BV_ANCHOR_* in new code. */
-#define BSG_ANCHOR_AUTO          BV_ANCHOR_AUTO
-#define BSG_ANCHOR_BOTTOM_LEFT   BV_ANCHOR_BOTTOM_LEFT
-#define BSG_ANCHOR_BOTTOM_CENTER BV_ANCHOR_BOTTOM_CENTER
-#define BSG_ANCHOR_BOTTOM_RIGHT  BV_ANCHOR_BOTTOM_RIGHT
-#define BSG_ANCHOR_MIDDLE_LEFT   BV_ANCHOR_MIDDLE_LEFT
-#define BSG_ANCHOR_MIDDLE_CENTER BV_ANCHOR_MIDDLE_CENTER
-#define BSG_ANCHOR_MIDDLE_RIGHT  BV_ANCHOR_MIDDLE_RIGHT
-#define BSG_ANCHOR_TOP_LEFT      BV_ANCHOR_TOP_LEFT
-#define BSG_ANCHOR_TOP_CENTER    BV_ANCHOR_TOP_CENTER
-#define BSG_ANCHOR_TOP_RIGHT     BV_ANCHOR_TOP_RIGHT
+#define BSG_ANCHOR_AUTO          0
+#define BV_ANCHOR_AUTO           BSG_ANCHOR_AUTO
+#define BSG_ANCHOR_BOTTOM_LEFT   1
+#define BV_ANCHOR_BOTTOM_LEFT    BSG_ANCHOR_BOTTOM_LEFT
+#define BSG_ANCHOR_BOTTOM_CENTER 2
+#define BV_ANCHOR_BOTTOM_CENTER  BSG_ANCHOR_BOTTOM_CENTER
+#define BSG_ANCHOR_BOTTOM_RIGHT  3
+#define BV_ANCHOR_BOTTOM_RIGHT   BSG_ANCHOR_BOTTOM_RIGHT
+#define BSG_ANCHOR_MIDDLE_LEFT   4
+#define BV_ANCHOR_MIDDLE_LEFT    BSG_ANCHOR_MIDDLE_LEFT
+#define BSG_ANCHOR_MIDDLE_CENTER 5
+#define BV_ANCHOR_MIDDLE_CENTER  BSG_ANCHOR_MIDDLE_CENTER
+#define BSG_ANCHOR_MIDDLE_RIGHT  6
+#define BV_ANCHOR_MIDDLE_RIGHT   BSG_ANCHOR_MIDDLE_RIGHT
+#define BSG_ANCHOR_TOP_LEFT      7
+#define BV_ANCHOR_TOP_LEFT       BSG_ANCHOR_TOP_LEFT
+#define BSG_ANCHOR_TOP_CENTER    8
+#define BV_ANCHOR_TOP_CENTER     BSG_ANCHOR_TOP_CENTER
+#define BSG_ANCHOR_TOP_RIGHT     9
+#define BV_ANCHOR_TOP_RIGHT      BSG_ANCHOR_TOP_RIGHT
 struct bsg_label {
     int           size;
     struct bu_vls label;
@@ -179,7 +176,8 @@ struct bsg_obj_settings {
     int draw_solid_lines_only;   /**< @brief do not use dashed lines for subtraction solids */
     int draw_non_subtract_only;  /**< @brief do not visualize subtraction solids */
 };
-#define BV_OBJ_SETTINGS_INIT {0, 0, 1.0, 0, {255, 0, 0}, 1, 0.0, 0.0, 0, 0}
+#define BSG_OBJ_SETTINGS_INIT {0, 0, 1.0, 0, {255, 0, 0}, 1, 0.0, 0.0, 0, 0}
+#define BV_OBJ_SETTINGS_INIT BSG_OBJ_SETTINGS_INIT
 
 
 /* Note that it is possible for a view object to be view-only (not
@@ -206,29 +204,29 @@ struct bsg_obj_settings {
  * Phase D4 (drawing_modernization) will migrate faceplate elements to explicit
  * HUD payload nodes.
  */
-#define BV_DBOBJ_BASED    0x01
-#define BV_VIEWONLY       0x02
-#define BV_LINES          0x04
-#define BV_LABELS         0x08
-#define BV_AXES           0x10
-#define BV_POLYGONS       0x20
-
-/* Phase D0 (drawing_modernization): BSG_SHAPE_* — clean BSG-vocabulary aliases
- * for the legacy BV_* shape-role flags stored in s_type_flags.  Prefer these
- * over BV_* names in new BSG-facing code. */
-#define BSG_SHAPE_DBOBJ    BV_DBOBJ_BASED  /**< @brief shape drawn from a database path */
-#define BSG_SHAPE_VIEWONLY BV_VIEWONLY     /**< @brief view-only / overlay shape */
-#define BSG_SHAPE_LINES    BV_LINES        /**< @brief line-segment set shape */
-#define BSG_SHAPE_LABELS   BV_LABELS       /**< @brief text-label shape */
-#define BSG_SHAPE_AXES     BV_AXES         /**< @brief axes-widget shape */
-#define BSG_SHAPE_POLYGONS BV_POLYGONS     /**< @brief polygon region shape */
+#define BSG_SHAPE_DBOBJ    0x01  /**< @brief shape drawn from a database path */
+#define BV_DBOBJ_BASED     BSG_SHAPE_DBOBJ
+#define BSG_SHAPE_VIEWONLY 0x02  /**< @brief view-only / overlay shape */
+#define BV_VIEWONLY        BSG_SHAPE_VIEWONLY
+#define BSG_SHAPE_LINES    0x04  /**< @brief line-segment set shape */
+#define BV_LINES           BSG_SHAPE_LINES
+#define BSG_SHAPE_LABELS   0x08  /**< @brief text-label shape */
+#define BV_LABELS          BSG_SHAPE_LABELS
+#define BSG_SHAPE_AXES     0x10  /**< @brief axes-widget shape */
+#define BV_AXES            BSG_SHAPE_AXES
+#define BSG_SHAPE_POLYGONS 0x20  /**< @brief polygon region shape */
+#define BV_POLYGONS        BSG_SHAPE_POLYGONS
 
 struct bsg_view;
 
-#define BV_DB_OBJS 0x01
-#define BV_VIEW_OBJS 0x02
-#define BV_LOCAL_OBJS 0x04
-#define BV_CHILD_OBJS 0x08
+#define BSG_OBJ_DB    0x01
+#define BV_DB_OBJS    BSG_OBJ_DB
+#define BSG_OBJ_VIEW  0x02
+#define BV_VIEW_OBJS  BSG_OBJ_VIEW
+#define BSG_OBJ_LOCAL 0x04
+#define BV_LOCAL_OBJS BSG_OBJ_LOCAL
+#define BSG_OBJ_CHILD 0x08
+#define BV_CHILD_OBJS BSG_OBJ_CHILD
 
 struct bsg_node_internal;
 struct bsg_node;
@@ -241,15 +239,10 @@ struct bsg_draw_intent;  /* Phase D2 (drawing_modernization): draw-intent metada
  * dm registration time; the per-shape s_backend slot carries the matching tag
  * so cross-backend handle confusion can be caught.  More tags will be added as
  * additional backends adopt the contract (e.g. dm-obol). */
-#define BV_BACKEND_NONE  0u   /* no backend state attached */
-#define BV_BACKEND_GL    1u   /* OpenGL/GL-via-software-rasterizer (dm-gl, dm-swrast, dm-qtgl, dm-glx, dm-wgl) */
-
-/* Phase D0 (drawing_modernization): BSG_BACKEND_* — clean BSG-vocabulary
- * aliases for backend type tags.  Prefer these over BV_BACKEND_* in new code.
- * Phase D5 will add a formal backend adapter interface; tags defined here will
- * be reused. */
-#define BSG_BACKEND_NONE BV_BACKEND_NONE  /**< @brief no backend state attached */
-#define BSG_BACKEND_GL   BV_BACKEND_GL    /**< @brief GL family (dm-gl, dm-swrast, dm-qtgl) */
+#define BSG_BACKEND_NONE 0u   /* no backend state attached */
+#define BV_BACKEND_NONE  BSG_BACKEND_NONE
+#define BSG_BACKEND_GL   1u   /* OpenGL/GL-via-software-rasterizer (dm-gl, dm-swrast, dm-qtgl, dm-glx, dm-wgl) */
+#define BV_BACKEND_GL    BSG_BACKEND_GL
 
 /**
  * Phase 11 (drawing_stack_modernization): per-shape backend state.
@@ -300,7 +293,7 @@ struct bsg_node  {
      * knowledge of its original/creation view, it should save that info
      * internally in its s_i_data container.
      *
-     * BV_DEPRECATED: do not use s_v for view-policy control flow;
+     * DEPRECATED (Phase D7): do not use s_v for view-policy control flow;
      * scene data should not drive rendering decisions.  Use BViewState::redraw()
      * or bsg_view_get/set_* accessors instead. */
     struct bsg_view *s_v;
@@ -312,7 +305,7 @@ struct bsg_node  {
      * below over raw s_i_data for new overlay/annotation shape nodes. */
     void *s_i_data;  /**< @brief custom view data (bsg_label, bsg_axes, bsg_data_polygon_state, etc) */
 
-    /* BV_DEPRECATED: LoD and CSG adaptive-wireframe update callbacks are now
+    /* DEPRECATED (scheduled Phase 10 removal): LoD and CSG adaptive-wireframe update callbacks are now
      * driven by the BSG LoD node (bsg_lod_update via dm_draw_objs); this field
      * is retained for non-LoD users such as polygon update callbacks.
      */
@@ -369,7 +362,7 @@ struct bsg_node  {
      * store it here; bsg_obj_reset() / bsg_obj_put() will fire the free callback
      * and clear the slot.  See struct gl_backend_handle in libdm/dm-gl_lod.cpp
      * for the GL family's per-shape state (display list index/mode/stale
-     * flag) — formerly the BV_DEPRECATED s_dlist / s_dlist_mode /
+     * flag) — formerly the DEPRECATED (scheduled Phase 10 removal): s_dlist / s_dlist_mode /
      * s_dlist_stale / s_dlist_free_callback fields, retired in Phase 13.
      *
      * Phase D5 (drawing_modernization) will formalize a full backend adapter
@@ -426,12 +419,12 @@ struct bsg_node  {
      * settings.  These values SHOULD NOT be directly manipulated by any user
      * facing commands (such as view obj).
      *
-     * BV_DEPRECATED: adaptive_wireframe, view_scale, bot_threshold,
-     * curve_scale, and point_scale are snapshot values used to detect when a
-     * redraw is needed.  The owning decision logic is being moved to
-     * BViewState::redraw().
-     * These fields will be removed after one release cycle once BViewState
-     * owns the full redraw trigger. */
+     * DEPRECATED (scheduled Phase 10 removal): adaptive_wireframe,
+     * view_scale, bot_threshold, curve_scale, and point_scale are snapshot
+     * values used to detect when a redraw is needed.  The owning decision
+     * logic is being moved to BViewState::redraw().
+     * Phase 10 cleanup: these fields will move to bsg_node_internal after
+     * BViewState fully owns redraw trigger decisions. */
     int     adaptive_wireframe;
     int     csg_obj;
     int     mesh_obj;
@@ -546,11 +539,16 @@ struct bsg_mesh_lod {
 };
 
 /* Flags to identify categories of objects to snap */
-#define BV_SNAP_SHARED 0x1
-#define BV_SNAP_LOCAL  0x2
-#define BV_SNAP_DB  0x4
-#define BV_SNAP_VIEW    0x8
-#define BV_SNAP_TCL    0x10
+#define BSG_SNAP_SHARED 0x1
+#define BV_SNAP_SHARED  BSG_SNAP_SHARED
+#define BSG_SNAP_LOCAL  0x2
+#define BV_SNAP_LOCAL   BSG_SNAP_LOCAL
+#define BSG_SNAP_DB     0x4
+#define BV_SNAP_DB      BSG_SNAP_DB
+#define BSG_SNAP_VIEW   0x8
+#define BV_SNAP_VIEW    BSG_SNAP_VIEW
+#define BSG_SNAP_TCL    0x10
+#define BV_SNAP_TCL     BSG_SNAP_TCL
 
 /* We encapsulate non-camera settings into a container mainly to allow for
  * easier reuse of the same settings between different views - if a common
@@ -905,16 +903,6 @@ struct bsg_view_set {
 
 /** Mask covering all payload bits */
 #define BSG_PAYLOAD_MASK    0x1F0000000000ULL
-
-/**
- * Object storage-type flags used by bsg_obj_create() / bsg_obj_get_unregistered().
- * These are aliases for the BV_ flags while the storage model is being moved
- * from libbv into libbsg.
- */
-#define BSG_OBJ_DB      BV_DB_OBJS    /**< @brief database-backed scene object */
-#define BSG_OBJ_VIEW    BV_VIEW_OBJS  /**< @brief view-only scene object */
-#define BSG_OBJ_LOCAL   BV_LOCAL_OBJS /**< @brief local (per-view) scope */
-#define BSG_OBJ_CHILD   BV_CHILD_OBJS /**< @brief child object (not in flat ptbl) */
 
 typedef struct bsg_node bsg_node;
 typedef struct bsg_node bsg_shape;

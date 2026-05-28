@@ -162,149 +162,176 @@ __END_DECLS
 __BEGIN_DECLS
 
 /* Set default values for a bv. */
-BV_EXPORT extern void bsg_init(struct bsg_view *v, struct bsg_view_set *s);
-BV_EXPORT extern void bsg_free(struct bsg_view *v);
+BSG_EXPORT extern void bsg_init(struct bsg_view *v, struct bsg_view_set *s);
+BSG_EXPORT extern void bsg_free(struct bsg_view *v);
 
 /* Phase T3 (drawing_stack_modernization): zero-initialize a bsg_data_tclcad
  * block. */
-BV_EXPORT extern void bsg_data_tclcad_init(struct bsg_data_tclcad *d);
-BV_EXPORT extern int bsg_view_is_independent(const struct bsg_view *v);
-BV_EXPORT extern struct bsg_node *bsg_view_independent_scope(struct bsg_view *v, int create);
-BV_EXPORT extern void bsg_view_independent_scope_destroy(struct bsg_view *v);
+BSG_EXPORT extern void bsg_data_tclcad_init(struct bsg_data_tclcad *d);
+BSG_EXPORT extern int bsg_view_is_independent(const struct bsg_view *v);
+BSG_EXPORT extern struct bsg_node *bsg_view_independent_scope(struct bsg_view *v, int create);
+BSG_EXPORT extern void bsg_view_independent_scope_destroy(struct bsg_view *v);
 
-BV_EXPORT void bsg_mat_aet(struct bsg_view *v);
+BSG_EXPORT void bsg_mat_aet(struct bsg_view *v);
 
-BV_EXPORT extern void bsg_settings_init(struct bsg_view_settings *s);
+BSG_EXPORT extern void bsg_settings_init(struct bsg_view_settings *s);
 
-#define BV_AUTOVIEW_SCALE_DEFAULT -1
-BV_EXPORT extern void bsg_autoview(struct bsg_view *v, fastf_t scale, int all_view_objs);
+#define BSG_AUTOVIEW_SCALE_DEFAULT -1
+#define BV_AUTOVIEW_SCALE_DEFAULT BSG_AUTOVIEW_SCALE_DEFAULT
+BSG_EXPORT extern void bsg_autoview(struct bsg_view *v, fastf_t scale, int all_view_objs);
 
 /* Copy the size and camera info */
-BV_EXPORT extern void bsg_sync(struct bsg_view *dest, struct bsg_view *src);
+BSG_EXPORT extern void bsg_sync(struct bsg_view *dest, struct bsg_view *src);
 
 /* Camera accessor functions */
-BV_EXPORT extern fastf_t bsg_view_get_scale(const struct bsg_view *v);
-BV_EXPORT extern void    bsg_view_set_scale(struct bsg_view *v, fastf_t scale);
-BV_EXPORT extern fastf_t bsg_view_get_size(const struct bsg_view *v);
-BV_EXPORT extern void    bsg_view_set_size(struct bsg_view *v, fastf_t size);
-BV_EXPORT extern fastf_t bsg_view_get_perspective(const struct bsg_view *v);
-BV_EXPORT extern void    bsg_view_set_perspective(struct bsg_view *v, fastf_t perspective);
-BV_EXPORT extern void bsg_view_get_aet(const struct bsg_view *v, vect_t aet);
-BV_EXPORT extern void bsg_view_set_aet(struct bsg_view *v, const vect_t aet);
-BV_EXPORT extern void bsg_view_get_rotation(const struct bsg_view *v, mat_t rot);
-BV_EXPORT extern void bsg_view_set_rotation(struct bsg_view *v, const mat_t rot);
-BV_EXPORT extern void bsg_view_get_center_vec(const struct bsg_view *v, point_t center);
-BV_EXPORT extern void bsg_view_set_center_vec(struct bsg_view *v, const point_t center);
+BSG_EXPORT extern fastf_t bsg_view_get_scale(const struct bsg_view *v);
+BSG_EXPORT extern void    bsg_view_set_scale(struct bsg_view *v, fastf_t scale);
+BSG_EXPORT extern fastf_t bsg_view_get_size(const struct bsg_view *v);
+BSG_EXPORT extern void    bsg_view_set_size(struct bsg_view *v, fastf_t size);
+BSG_EXPORT extern fastf_t bsg_view_get_perspective(const struct bsg_view *v);
+BSG_EXPORT extern void    bsg_view_set_perspective(struct bsg_view *v, fastf_t perspective);
+BSG_EXPORT extern void bsg_view_get_aet(const struct bsg_view *v, vect_t aet);
+BSG_EXPORT extern void bsg_view_set_aet(struct bsg_view *v, const vect_t aet);
+BSG_EXPORT extern void bsg_view_get_rotation(const struct bsg_view *v, mat_t rot);
+BSG_EXPORT extern void bsg_view_set_rotation(struct bsg_view *v, const mat_t rot);
+BSG_EXPORT extern void bsg_view_get_center_vec(const struct bsg_view *v, point_t center);
+BSG_EXPORT extern void bsg_view_set_center_vec(struct bsg_view *v, const point_t center);
 
 /* Copy settings common to views and shape nodes */
-BV_EXPORT extern int bsg_obj_settings_sync(struct bsg_obj_settings *dest, struct bsg_obj_settings *src);
+BSG_EXPORT extern int bsg_obj_settings_sync(struct bsg_obj_settings *dest, struct bsg_obj_settings *src);
 
 /* Sync values within the bv, perform callbacks if any are defined */
-BV_EXPORT extern void bsg_update(struct bsg_view *gvp);
+BSG_EXPORT extern void bsg_update(struct bsg_view *gvp);
 
 /* Update objects in the selection set (if any) and their children */
-BV_EXPORT extern int bsg_update_selected(struct bsg_view *gvp);
+BSG_EXPORT extern int bsg_update_selected(struct bsg_view *gvp);
 
 /* Clear or reset the knob states. */
-#ifndef BV_KNOBS_ALL
-#define BV_KNOBS_ALL 0
-#define BV_KNOBS_RATE 1
-#define BV_KNOBS_ABS 2
+#ifndef BSG_KNOBS_ALL
+#define BSG_KNOBS_ALL 0
+#define BSG_KNOBS_RATE 1
+#define BSG_KNOBS_ABS 2
 #endif
-BV_EXPORT extern void bsg_knobs_reset(struct bsg_view_knobs *k, int category);
-BV_EXPORT extern unsigned long long bsg_knobs_hash(struct bsg_view_knobs *k, struct bu_data_hash_state *state);
-BV_EXPORT extern int bsg_knobs_cmd_process(vect_t *rvec, int *do_rot, vect_t *tvec, int *do_tran, struct bsg_view *v, const char *cmd, fastf_t f, char origin, int model_flag, int incr_flag);
-BV_EXPORT extern void bsg_knobs_rot(struct bsg_view *v, const vect_t rvec, char origin, char coords, const matp_t obj_rot, const pointp_t pvt_pt);
-BV_EXPORT extern void bsg_knobs_tran(struct bsg_view *v, const vect_t tvec, int model_flag);
-BV_EXPORT extern void bsg_update_rate_flags(struct bsg_view *v);
+#ifndef BV_KNOBS_ALL
+#define BV_KNOBS_ALL BSG_KNOBS_ALL
+#define BV_KNOBS_RATE BSG_KNOBS_RATE
+#define BV_KNOBS_ABS BSG_KNOBS_ABS
+#endif
+BSG_EXPORT extern void bsg_knobs_reset(struct bsg_view_knobs *k, int category);
+BSG_EXPORT extern unsigned long long bsg_knobs_hash(struct bsg_view_knobs *k, struct bu_data_hash_state *state);
+BSG_EXPORT extern int bsg_knobs_cmd_process(vect_t *rvec, int *do_rot, vect_t *tvec, int *do_tran, struct bsg_view *v, const char *cmd, fastf_t f, char origin, int model_flag, int incr_flag);
+BSG_EXPORT extern void bsg_knobs_rot(struct bsg_view *v, const vect_t rvec, char origin, char coords, const matp_t obj_rot, const pointp_t pvt_pt);
+BSG_EXPORT extern void bsg_knobs_tran(struct bsg_view *v, const vect_t tvec, int model_flag);
+BSG_EXPORT extern void bsg_update_rate_flags(struct bsg_view *v);
 
 /* Comparison and hash */
-BV_EXPORT extern int bsg_differ(struct bsg_view *v1, struct bsg_view *v2);
-BV_EXPORT extern unsigned long long bsg_hash(struct bsg_view *v);
-BV_EXPORT extern size_t bsg_clear(struct bsg_view *v, int flags);
+BSG_EXPORT extern int bsg_differ(struct bsg_view *v1, struct bsg_view *v2);
+BSG_EXPORT extern unsigned long long bsg_hash(struct bsg_view *v);
+BSG_EXPORT extern size_t bsg_clear(struct bsg_view *v, int flags);
 
 /* Mouse/view coordinate utilities */
-#ifndef BV_IDLE
-#define BV_IDLE       0x000
-#define BV_ROT        0x001
-#define BV_TRANS      0x002
-#define BV_SCALE      0x004
-#define BV_CENTER     0x008
-#define BV_CON_X      0x010
-#define BV_CON_Y      0x020
-#define BV_CON_Z      0x040
-#define BV_CON_GRID   0x080
-#define BV_CON_LINES  0x100
+#ifndef BSG_IDLE
+#define BSG_IDLE       0x000
+#define BSG_ROT        0x001
+#define BSG_TRANS      0x002
+#define BSG_SCALE      0x004
+#define BSG_CENTER     0x008
+#define BSG_CON_X      0x010
+#define BSG_CON_Y      0x020
+#define BSG_CON_Z      0x040
+#define BSG_CON_GRID   0x080
+#define BSG_CON_LINES  0x100
 #endif
-BV_EXPORT extern int bsg_adjust(struct bsg_view *v, int dx, int dy, point_t keypoint, int mode, unsigned long long flags);
-BV_EXPORT extern int bsg_screen_to_view(struct bsg_view *v, fastf_t *fx, fastf_t *fy, fastf_t x, fastf_t y);
-BV_EXPORT extern int bsg_screen_pt(point_t *p, fastf_t x, fastf_t y, struct bsg_view *v);
+#ifndef BV_IDLE
+#define BV_IDLE       BSG_IDLE
+#define BV_ROT        BSG_ROT
+#define BV_TRANS      BSG_TRANS
+#define BV_SCALE      BSG_SCALE
+#define BV_CENTER     BSG_CENTER
+#define BV_CON_X      BSG_CON_X
+#define BV_CON_Y      BSG_CON_Y
+#define BV_CON_Z      BSG_CON_Z
+#define BV_CON_GRID   BSG_CON_GRID
+#define BV_CON_LINES  BSG_CON_LINES
+#endif
+BSG_EXPORT extern int bsg_adjust(struct bsg_view *v, int dx, int dy, point_t keypoint, int mode, unsigned long long flags);
+BSG_EXPORT extern int bsg_screen_to_view(struct bsg_view *v, fastf_t *fx, fastf_t *fy, fastf_t x, fastf_t y);
+BSG_EXPORT extern int bsg_screen_pt(point_t *p, fastf_t x, fastf_t y, struct bsg_view *v);
 
 /* Shape-node bounds and utilities */
-BV_EXPORT extern int bsg_scene_obj_bound(struct bsg_node *s, struct bsg_view *v);
-BV_EXPORT extern fastf_t bsg_vZ_calc(struct bsg_node *s, struct bsg_view *v, int mode);
-BV_EXPORT extern void bsg_obj_sync(struct bsg_node *dest, struct bsg_node *src);
-BV_EXPORT void bsg_obj_stale(struct bsg_node *s);
+BSG_EXPORT extern int bsg_scene_obj_bound(struct bsg_node *s, struct bsg_view *v);
+BSG_EXPORT extern fastf_t bsg_vZ_calc(struct bsg_node *s, struct bsg_view *v, int mode);
+BSG_EXPORT extern void bsg_obj_sync(struct bsg_node *dest, struct bsg_node *src);
+BSG_EXPORT void bsg_obj_stale(struct bsg_node *s);
 
 /* Backend contract helpers */
-BV_EXPORT void bsg_scene_obj_release_backend(struct bsg_node *s);
-BV_EXPORT void bsg_scene_obj_invalidate_backend(struct bsg_node *s);
+BSG_EXPORT void bsg_scene_obj_release_backend(struct bsg_node *s);
+BSG_EXPORT void bsg_scene_obj_invalidate_backend(struct bsg_node *s);
 
 /* Scene-graph node lifecycle */
-BV_EXPORT struct bsg_node *bsg_obj_create(struct bsg_view *v, int type);
-BV_EXPORT struct bsg_node *bsg_obj_get(struct bsg_view *v, int type);
-BV_EXPORT struct bsg_node *bsg_obj_get_unregistered(struct bsg_view *v, int type);
+BSG_EXPORT struct bsg_node *bsg_obj_create(struct bsg_view *v, int type);
+BSG_EXPORT struct bsg_node *bsg_obj_get(struct bsg_view *v, int type);
+BSG_EXPORT struct bsg_node *bsg_obj_get_unregistered(struct bsg_view *v, int type);
 
 /* View-only object API */
 struct bsg_view_obj_opts {
     int local;
     int arrow;
 };
+#ifndef BSG_VIEW_OBJ_OPTS_INIT
+#define BSG_VIEW_OBJ_OPTS_INIT {0, 0}
+#endif
 #ifndef BV_VIEW_OBJ_OPTS_INIT
-#define BV_VIEW_OBJ_OPTS_INIT {0, 0}
+#define BV_VIEW_OBJ_OPTS_INIT BSG_VIEW_OBJ_OPTS_INIT
 #endif
-BV_EXPORT struct bsg_node *bsg_view_obj_create(struct bsg_view *v, const char *name, unsigned long long type_flags, const struct bsg_view_obj_opts *opts);
-BV_EXPORT struct bsg_node *bsg_view_obj_axes_create(struct bsg_view *v, const char *name, int local);
-BV_EXPORT struct bsg_node *bsg_view_obj_lines_create(struct bsg_view *v, const char *name, int local);
-BV_EXPORT struct bsg_node *bsg_view_obj_label_create(struct bsg_view *v, const char *name, int local);
-BV_EXPORT struct bsg_node *bsg_view_obj_arrow_create(struct bsg_view *v, const char *name, int local);
-BV_EXPORT struct bsg_node *bsg_view_obj_overlay_create(struct bsg_view *v, const char *name, int local);
-BV_EXPORT struct bsg_node *bsg_view_obj_polygon_create(struct bsg_view *v, const char *name, int local);
+BSG_EXPORT struct bsg_node *bsg_view_obj_create(struct bsg_view *v, const char *name, unsigned long long type_flags, const struct bsg_view_obj_opts *opts);
+BSG_EXPORT struct bsg_node *bsg_view_obj_axes_create(struct bsg_view *v, const char *name, int local);
+BSG_EXPORT struct bsg_node *bsg_view_obj_lines_create(struct bsg_view *v, const char *name, int local);
+BSG_EXPORT struct bsg_node *bsg_view_obj_label_create(struct bsg_view *v, const char *name, int local);
+BSG_EXPORT struct bsg_node *bsg_view_obj_arrow_create(struct bsg_view *v, const char *name, int local);
+BSG_EXPORT struct bsg_node *bsg_view_obj_overlay_create(struct bsg_view *v, const char *name, int local);
+BSG_EXPORT struct bsg_node *bsg_view_obj_polygon_create(struct bsg_view *v, const char *name, int local);
 
-#ifndef BV_VIEW_OBJ_SCOPE_SHARED
-#define BV_VIEW_OBJ_SCOPE_SHARED 0x1
-#define BV_VIEW_OBJ_SCOPE_LOCAL  0x2
-#define BV_VIEW_OBJ_SCOPE_ALL    (BV_VIEW_OBJ_SCOPE_SHARED | BV_VIEW_OBJ_SCOPE_LOCAL)
+#ifndef BSG_VIEW_OBJ_SCOPE_SHARED
+#define BSG_VIEW_OBJ_SCOPE_SHARED 0x1
+#define BSG_VIEW_OBJ_SCOPE_LOCAL  0x2
+#define BSG_VIEW_OBJ_SCOPE_ALL    (BSG_VIEW_OBJ_SCOPE_SHARED | BSG_VIEW_OBJ_SCOPE_LOCAL)
 #endif
-BV_EXPORT int bsg_view_obj_remove(struct bsg_view *v, const char *name);
-BV_EXPORT size_t bsg_view_obj_remove_all(struct bsg_view *v, int scope);
-BV_EXPORT struct bsg_node *bsg_view_obj_find(struct bsg_view *v, const char *name);
-BV_EXPORT void bsg_view_obj_visit(struct bsg_view *v, int scope_mask, int (*cb)(struct bsg_node *obj, void *data), void *data);
-BV_EXPORT void bsg_view_obj_labels_sync(struct bsg_view *v, struct bsg_data_label_state *gdlsp, const char *bsg_name);
-BV_EXPORT void bsg_view_obj_set_color(struct bsg_node *s, int r, int g, int b);
-BV_EXPORT void bsg_view_obj_set_line_width(struct bsg_node *s, int line_width);
-BV_EXPORT void bsg_view_obj_set_visible(struct bsg_node *s, int visible);
+#ifndef BV_VIEW_OBJ_SCOPE_SHARED
+#define BV_VIEW_OBJ_SCOPE_SHARED BSG_VIEW_OBJ_SCOPE_SHARED
+#define BV_VIEW_OBJ_SCOPE_LOCAL  BSG_VIEW_OBJ_SCOPE_LOCAL
+#define BV_VIEW_OBJ_SCOPE_ALL    BSG_VIEW_OBJ_SCOPE_ALL
+#endif
+BSG_EXPORT int bsg_view_obj_remove(struct bsg_view *v, const char *name);
+BSG_EXPORT size_t bsg_view_obj_remove_all(struct bsg_view *v, int scope);
+BSG_EXPORT struct bsg_node *bsg_view_obj_find(struct bsg_view *v, const char *name);
+BSG_EXPORT void bsg_view_obj_visit(struct bsg_view *v, int scope_mask, int (*cb)(struct bsg_node *obj, void *data), void *data);
+BSG_EXPORT void bsg_view_obj_labels_sync(struct bsg_view *v, struct bsg_data_label_state *gdlsp, const char *bsg_name);
+BSG_EXPORT void bsg_view_obj_set_color(struct bsg_node *s, int r, int g, int b);
+BSG_EXPORT void bsg_view_obj_set_line_width(struct bsg_node *s, int line_width);
+BSG_EXPORT void bsg_view_obj_set_visible(struct bsg_node *s, int visible);
 
 /* Child objects */
-BV_EXPORT struct bsg_node *bsg_obj_get_child(struct bsg_node *s);
-BV_EXPORT void bsg_obj_reset(struct bsg_node *s);
-BV_EXPORT void bsg_obj_put(struct bsg_node *o);
+BSG_EXPORT struct bsg_node *bsg_obj_get_child(struct bsg_node *s);
+BSG_EXPORT void bsg_obj_reset(struct bsg_node *s);
+BSG_EXPORT void bsg_obj_put(struct bsg_node *o);
 
 /* Object lookup */
-BV_EXPORT struct bsg_node *bsg_find_child(struct bsg_node *s, const char *vname);
-BV_EXPORT struct bsg_node *bsg_find_obj(struct bsg_view *v, const char *vname);
-BV_EXPORT void bsg_uniq_obj_name(struct bu_vls *oname, const char *seed, struct bsg_view *v);
-BV_EXPORT int bsg_illum_obj(struct bsg_node *s, char ill_state);
-BV_EXPORT struct bu_ptbl *bsg_view_objs(struct bsg_view *v, int type);
-BV_EXPORT void bsg_view_objs_visit_db(struct bsg_view *v, int (*cb)(struct bsg_node *obj, void *data), void *data);
-BV_EXPORT int bsg_view_plane(plane_t *p, struct bsg_view *v);
+BSG_EXPORT struct bsg_node *bsg_find_child(struct bsg_node *s, const char *vname);
+BSG_EXPORT struct bsg_node *bsg_find_obj(struct bsg_view *v, const char *vname);
+BSG_EXPORT void bsg_uniq_obj_name(struct bu_vls *oname, const char *seed, struct bsg_view *v);
+BSG_EXPORT int bsg_illum_obj(struct bsg_node *s, char ill_state);
+BSG_EXPORT struct bu_ptbl *bsg_view_objs(struct bsg_view *v, int type);
+BSG_EXPORT void bsg_view_objs_visit_db(struct bsg_view *v, int (*cb)(struct bsg_node *obj, void *data), void *data);
+BSG_EXPORT int bsg_view_plane(plane_t *p, struct bsg_view *v);
 
 /* Environment variable controlled logging */
-#define BV_ENABLE_ENV_LOGGING 1
-BV_EXPORT void bsg_log(int level, const char *fmt, ...)  _BU_ATTR_PRINTF23;
+#define BSG_ENABLE_ENV_LOGGING 1
+#define BV_ENABLE_ENV_LOGGING BSG_ENABLE_ENV_LOGGING
+BSG_EXPORT void bsg_log(int level, const char *fmt, ...)  _BU_ATTR_PRINTF23;
 
 /* Debugging */
-BV_EXPORT void bsg_view_print(const char *title, struct bsg_view *v, int verbosity);
+BSG_EXPORT void bsg_view_print(const char *title, struct bsg_view *v, int verbosity);
 
 __END_DECLS
 
