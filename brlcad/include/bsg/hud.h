@@ -152,7 +152,7 @@ typedef enum bsg_hud_feature_type {
 } bsg_hud_feature_type;
 
 /** Number of distinct faceplate features managed by the HUD root. */
-#define BSG_HUD_FEATURE_COUNT 8
+#define BSG_HUD_FEATURE_COUNT 9
 
 
 /* -----------------------------------------------------------------------

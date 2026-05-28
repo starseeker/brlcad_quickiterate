@@ -84,7 +84,14 @@ ged_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mode, 
 extern "C" void
 dm_refresh(struct ged *gedp)
 {
-    struct bsg_view *v= gedp->ged_gvp;
+    struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
+    struct bsg_view *v = NULL;
+    if (views && BU_PTBL_LEN(views) > 0)
+	v = (struct bsg_view *)BU_PTBL_GET(views, 0);
+    if (!v)
+	v = gedp->ged_gvp;
+    if (!v)
+	return;
     DbiState *dbis = (DbiState *)gedp->dbi_state;
     BViewState *bvs = dbis->get_view_state(v);
     dbis->update();
@@ -93,6 +100,9 @@ dm_refresh(struct ged *gedp)
     bvs->redraw(NULL, uset, 1);
 
     struct dm *dmp = (struct dm *)v->dmp;
+    if (!dmp)
+	return;
+    dm_make_current(dmp);
     unsigned char *dm_bg1;
     unsigned char *dm_bg2;
     dm_get_bg(&dm_bg1, &dm_bg2, dmp);

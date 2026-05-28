@@ -198,7 +198,7 @@ _dm_draw_hud_scale(struct dm *dmp, struct bsg_view *v, const struct bsg_hud_payl
     dm_draw_scale(dmp,
 		  v->gv_size * v->gv_base2local,
 		  bu_units_string(1 / v->gv_base2local),
-		  payload->data.other.gos_line_color,
+		  (int *)payload->data.other.gos_line_color,
 		  v->gv_s->gv_view_params.color);
 }
 
