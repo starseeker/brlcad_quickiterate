@@ -355,7 +355,6 @@ bsg_pick_ray(struct bsg_view *v, const point_t orig, const vect_t dir,
 	if (!pr)
 	    continue;
 	pr->pr_hit_dist = (tmin >= 0.0) ? tmin : tmax;
-	bu_vls_sprintf(&pr->pr_instance_path, "%s", bu_vls_cstr(&pr->pr_source_path));
 	bu_ptbl_ins(&res->pr_records, (long *)pr);
     }
     bu_ptbl_free(&groups);
@@ -439,7 +438,6 @@ bsg_pick_semantic_path(struct bsg_view *v, const char *path_pattern)
 	struct bsg_pick_record *pr = _record_create(g, v, -1, -1);
 	if (!pr)
 	    continue;
-	bu_vls_sprintf(&pr->pr_instance_path, "%s", bu_vls_cstr(&pr->pr_source_path));
 	bu_ptbl_ins(&res->pr_records, (long *)pr);
     }
     bu_ptbl_free(&groups);
