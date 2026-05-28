@@ -770,6 +770,8 @@ _sketch_payload_update(struct bsg_payload *pl, struct bsg_view *v)
     else if (updated)
 	live_rev = prev_live_rev + 1;
 
+    /* If update_cb reports a change but revision_cb did not advance, force a
+     * monotonic increment so payload_revision tracks realized updates. */
     if (updated && live_rev == prev_live_rev)
 	live_rev++;
 
@@ -838,7 +840,7 @@ bsg_payload_sketch_set_live_ops(struct bsg_payload *payload,
     if (!d)
 	return -1;
 
-    d->live_ctx = (live_ctx) ? live_ctx : d->rt_edit_ptr;
+    d->live_ctx = live_ctx;
     d->owns_live_ctx = owns_live_ctx;
     d->revision_cb = revision_cb;
     d->update_cb = update_cb;

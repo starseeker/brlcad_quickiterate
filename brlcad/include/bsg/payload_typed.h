@@ -438,6 +438,10 @@ bsg_payload_grid_get(struct bsg_payload *payload);
  * ----------------------------------------------------------------------- */
 
 typedef uint64_t (*bsg_sketch_live_revision_cb_t)(void *live_ctx);
+/**
+ * Return non-zero when the live source changed and should advance revision,
+ * zero when no change occurred.
+ */
 typedef int (*bsg_sketch_live_update_cb_t)(void *live_ctx, struct bsg_view *v);
 typedef int (*bsg_sketch_live_bounds_cb_t)(void *live_ctx, point_t *bmin, point_t *bmax);
 typedef int (*bsg_sketch_live_pick_cb_t)(void *live_ctx, struct bsg_view *v, int x, int y, void *pick_out);
@@ -467,8 +471,8 @@ struct bsg_sketch_live_data {
     void *live_ctx;      /**< @brief callback context (defaults to rt_edit_ptr) */
     int owns_live_ctx;   /**< @brief if non-zero, call free_cb on teardown */
     uint64_t last_realized_revision; /**< @brief last realized live revision */
-    bsg_sketch_live_revision_cb_t revision_cb; /**< @brief revision query callback */
-    bsg_sketch_live_update_cb_t update_cb; /**< @brief realize/update callback */
+    bsg_sketch_live_revision_cb_t revision_cb; /**< @brief revision query callback (optional) */
+    bsg_sketch_live_update_cb_t update_cb; /**< @brief realize/update callback (non-zero => changed) */
     bsg_sketch_live_bounds_cb_t bounds_cb; /**< @brief bounds query callback */
     bsg_sketch_live_pick_cb_t pick_cb; /**< @brief pick query callback */
     bsg_sketch_live_snap_cb_t snap_cb; /**< @brief snap query callback */
@@ -501,6 +505,9 @@ bsg_payload_sketch_get_data(struct bsg_payload *payload);
  * @p payload must be a BSG_PL_SKETCH payload.
  * @p live_ctx is passed to all callbacks.  If NULL, @c rt_edit_ptr is used.
  * If @p owns_live_ctx is non-zero, @p free_cb is called at payload teardown.
+ * If @p revision_cb is supplied, it is authoritative for revision values.
+ * If @p update_cb reports a change (non-zero) but @p revision_cb does not
+ * advance, libbsg bumps the realized revision by one to preserve monotonicity.
  */
 BSG_EXPORT extern int
 bsg_payload_sketch_set_live_ops(struct bsg_payload *payload,

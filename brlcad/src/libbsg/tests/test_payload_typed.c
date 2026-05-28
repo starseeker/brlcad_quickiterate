@@ -246,7 +246,10 @@ test_sketch_live_contract(void)
 {
     printf("=== Test 4: sketch live-source contract ===\n");
 
-    struct bsg_payload *sketch = bsg_payload_sketch_create((void *)0x1, (void *)0x2);
+    int rt_edit_placeholder = 0;
+    int grid_placeholder = 0;
+    struct bsg_payload *sketch =
+	bsg_payload_sketch_create((void *)&rt_edit_placeholder, (void *)&grid_placeholder);
     if (!sketch || sketch->pl_type != BSG_PL_SKETCH) FAIL("sketch payload create");
 
     struct sketch_live_stub *stub =
