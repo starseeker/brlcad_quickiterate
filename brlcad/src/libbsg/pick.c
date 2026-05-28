@@ -113,11 +113,13 @@ _record_create(bsg_node *node, struct bsg_view *v, int sx, int sy)
 
     /* Prefer draw-intent path; fall back to s_name. */
     const struct bsg_draw_intent *di = bsg_node_get_draw_intent(node);
-    if (di && bsg_draw_intent_path(di) && *bsg_draw_intent_path(di))
-	bu_vls_sprintf(&pr->pr_source_path, "%s", bsg_draw_intent_path(di));
-    else
+    const char *di_path = (di) ? bsg_draw_intent_path(di) : NULL;
+    if (di_path && *di_path) {
+	bu_vls_sprintf(&pr->pr_source_path, "%s", di_path);
+    } else {
 	bu_vls_sprintf(&pr->pr_source_path, "%s",
 		       bu_vls_cstr(&node->s_name));
+    }
     bu_vls_sprintf(&pr->pr_instance_path, "%s", bu_vls_cstr(&pr->pr_source_path));
 
     return pr;

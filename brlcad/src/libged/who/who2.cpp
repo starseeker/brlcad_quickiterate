@@ -42,7 +42,7 @@ _path_subsumes(const std::string &prefix, const std::string &path)
 {
     if (prefix.size() >= path.size())
 	return false;
-    if (!BU_STR_EQUAL(path.substr(0, prefix.size()).c_str(), prefix.c_str()))
+    if (path.compare(0, prefix.size(), prefix) != 0)
 	return false;
     return path[prefix.size()] == '/';
 }
