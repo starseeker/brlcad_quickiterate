@@ -582,20 +582,17 @@ Exit criteria:
 
 Phase D6 — Custom callback retirement and editor live sources
 -------------------------------------------------------------
-Status: Custom callback path removed; live-source payload contract incomplete.
+Status: COMPLETE (2026-05-28).
 
 Completed:
 - Remove the public custom draw callback path from QgCanvas/QgView drawing.
 - Port qsketch/test-only custom drawing to a BSG shape with a SKETCH payload.
-
-Remaining implementation steps:
-- Update stale qsketch comments and refresh logic to describe the live payload
-  path rather than the removed custom draw callback path.
-- Define the full live-source payload contract: revision query, update/realize,
-  bounds, pick, snap, free, and ownership rules.
-- Port production editors to local edit scopes and live payloads rather than
-  transient vlist mutation or tool-specific draw paths.
-- Add tests for live-source update, bounds, pick, snap, and teardown behavior.
+- Update qsketch comments/refresh descriptions to reflect live payload updates
+  through the scene path.
+- Define and expose the SKETCH live-source payload contract: revision query,
+  update/realize, bounds, pick, snap, teardown callback, and ownership rules.
+- Add typed payload tests for SKETCH live-source update, bounds, pick, snap,
+  revision progression, and teardown callback behavior.
 
 Exit criteria:
 - No production drawing feature bypasses the scene graph by replacing the entire

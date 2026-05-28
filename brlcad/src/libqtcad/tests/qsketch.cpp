@@ -176,9 +176,9 @@ sketch_create_empty(struct db_i *dbip, const char *name)
 /* ------------------------------------------------------------------ */
 
 /*
- * Draw the sketch wireframe directly via ft_plot into the swrast dm.
- * This is the custom draw callback registered with QgView_SW: it bypasses
- * the scene-object machinery.  Phase D6 ports this to a BSG shape node.
+ * Build sketch wireframe vlist data for the sketch's BSG live-source node.
+ * Rendering now flows through the normal BSG render path (no custom frame
+ * callback bypass), with this helper refreshing the node payload geometry.
  */
 
 /*
@@ -705,7 +705,7 @@ QSketchEditWindow::refresh_tables()
 void
 QSketchEditWindow::refresh_view()
 {
-    /* Write edited sketch back to the DB so the view can re-read it */
+    /* Persist edit state, refresh the sketch live payload geometry, then redraw. */
     sketch_write_to_db(m_es, m_dbip, m_dp);
     update_sketch_vlist();
     m_view->need_update(QG_VIEW_REFRESH);

@@ -58,6 +58,73 @@ free_view(struct bsg_view *v)
     bu_free(v, "payload_view");
 }
 
+struct sketch_live_stub {
+    uint64_t revision;
+    int update_calls;
+    int bounds_calls;
+    int pick_calls;
+    int snap_calls;
+    point_t bmin;
+    point_t bmax;
+    point_t snap_out;
+    int pick_id;
+};
+
+static int g_sketch_live_free_calls = 0;
+
+static uint64_t
+sketch_stub_revision(void *live_ctx)
+{
+    struct sketch_live_stub *stub = (struct sketch_live_stub *)live_ctx;
+    return stub->revision;
+}
+
+static int
+sketch_stub_update(void *live_ctx, struct bsg_view *UNUSED(v))
+{
+    struct sketch_live_stub *stub = (struct sketch_live_stub *)live_ctx;
+    stub->update_calls++;
+    stub->revision++;
+    return 1;
+}
+
+static int
+sketch_stub_bounds(void *live_ctx, point_t *bmin, point_t *bmax)
+{
+    struct sketch_live_stub *stub = (struct sketch_live_stub *)live_ctx;
+    stub->bounds_calls++;
+    VMOVE((*bmin), stub->bmin);
+    VMOVE((*bmax), stub->bmax);
+    return 1;
+}
+
+static int
+sketch_stub_pick(void *live_ctx, struct bsg_view *UNUSED(v), int UNUSED(x), int UNUSED(y), void *pick_out)
+{
+    struct sketch_live_stub *stub = (struct sketch_live_stub *)live_ctx;
+    stub->pick_calls++;
+    if (pick_out)
+	*((int *)pick_out) = stub->pick_id;
+    return 1;
+}
+
+static int
+sketch_stub_snap(void *live_ctx, struct bsg_view *UNUSED(v), const point_t UNUSED(sample_pt), point_t out_pt)
+{
+    struct sketch_live_stub *stub = (struct sketch_live_stub *)live_ctx;
+    stub->snap_calls++;
+    VMOVE(out_pt, stub->snap_out);
+    return 1;
+}
+
+static void
+sketch_stub_free(void *live_ctx)
+{
+    struct sketch_live_stub *stub = (struct sketch_live_stub *)live_ctx;
+    g_sketch_live_free_calls++;
+    bu_free(stub, "sketch live stub");
+}
+
 static int
 test_vlist_node_helpers(void)
 {
@@ -174,6 +241,75 @@ test_remaining_payload_builders(void)
     return 0;
 }
 
+static int
+test_sketch_live_contract(void)
+{
+    printf("=== Test 4: sketch live-source contract ===\n");
+
+    struct bsg_payload *sketch = bsg_payload_sketch_create((void *)0x1, (void *)0x2);
+    if (!sketch || sketch->pl_type != BSG_PL_SKETCH) FAIL("sketch payload create");
+
+    struct sketch_live_stub *stub =
+	(struct sketch_live_stub *)bu_calloc(1, sizeof(struct sketch_live_stub), "sketch live stub");
+    stub->revision = 7;
+    stub->pick_id = 42;
+    VSET(stub->bmin, -1.0, -2.0, -3.0);
+    VSET(stub->bmax, 4.0, 5.0, 6.0);
+    VSET(stub->snap_out, 0.25, 0.5, 0.75);
+
+    g_sketch_live_free_calls = 0;
+    if (bsg_payload_sketch_set_live_ops(
+	    sketch,
+	    stub,
+	    1,
+	    sketch_stub_revision,
+	    sketch_stub_update,
+	    sketch_stub_bounds,
+	    sketch_stub_pick,
+	    sketch_stub_snap,
+	    sketch_stub_free))
+	FAIL("set sketch live ops");
+
+    if (bsg_payload_sketch_revision(sketch) != 7)
+	FAIL("initial sketch revision");
+
+    point_t bmin = VINIT_ZERO;
+    point_t bmax = VINIT_ZERO;
+    if (!bsg_payload_sketch_bounds(sketch, &bmin, &bmax))
+	FAIL("sketch bounds callback");
+    if (!NEAR_EQUAL(bmin[0], -1.0, SMALL_FASTF) || !NEAR_EQUAL(bmax[2], 6.0, SMALL_FASTF))
+	FAIL("sketch bounds values");
+
+    int pick_id = -1;
+    if (!bsg_payload_sketch_pick(sketch, NULL, 10, 20, &pick_id))
+	FAIL("sketch pick callback");
+    if (pick_id != 42)
+	FAIL("sketch pick value");
+
+    point_t sample_pt = VINIT_ZERO;
+    point_t snap_pt = VINIT_ZERO;
+    if (!bsg_payload_sketch_snap(sketch, NULL, sample_pt, snap_pt))
+	FAIL("sketch snap callback");
+    if (!NEAR_EQUAL(snap_pt[1], 0.5, SMALL_FASTF))
+	FAIL("sketch snap value");
+
+    if (bsg_payload_sketch_realize(sketch, NULL) != 1)
+	FAIL("sketch realize should report revision change");
+    if (stub->update_calls != 1)
+	FAIL("sketch update callback count");
+    if (bsg_payload_sketch_revision(sketch) != 8)
+	FAIL("sketch revision after realize");
+    if (stub->bounds_calls != 1 || stub->pick_calls != 1 || stub->snap_calls != 1)
+	FAIL("sketch callback counts");
+
+    bsg_payload_free(sketch);
+    if (g_sketch_live_free_calls != 1)
+	FAIL("sketch live free callback");
+
+    PASS("sketch live-source contract");
+    return 0;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -185,6 +321,7 @@ main(int argc, char **argv)
     ret |= test_vlist_node_helpers();
     ret |= test_polygon_payload();
     ret |= test_remaining_payload_builders();
+    ret |= test_sketch_live_contract();
 
     return ret;
 }

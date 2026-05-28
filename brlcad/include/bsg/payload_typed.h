@@ -437,17 +437,42 @@ bsg_payload_grid_get(struct bsg_payload *payload);
  * SKETCH payload — Phase D6 (drawing_modernization)
  * ----------------------------------------------------------------------- */
 
+typedef uint64_t (*bsg_sketch_live_revision_cb_t)(void *live_ctx);
+typedef int (*bsg_sketch_live_update_cb_t)(void *live_ctx, struct bsg_view *v);
+typedef int (*bsg_sketch_live_bounds_cb_t)(void *live_ctx, point_t *bmin, point_t *bmax);
+typedef int (*bsg_sketch_live_pick_cb_t)(void *live_ctx, struct bsg_view *v, int x, int y, void *pick_out);
+typedef int (*bsg_sketch_live_snap_cb_t)(void *live_ctx, struct bsg_view *v, const point_t sample_pt, point_t out_pt);
+typedef void (*bsg_sketch_live_free_cb_t)(void *live_ctx);
+
 /**
- * Opaque live-source data for a BSG_PL_SKETCH node.
+ * Opaque live-source contract for a BSG_PL_SKETCH node.
  *
- * Stores opaque pointers to the editor's rt_edit state and the view's
- * grid state so that type queries and future tooling can reach the live
- * source without a raw void* cast.  libbsg never dereferences these
- * pointers; geometry refresh stays with the editor/live-source owner.
+ * Stores editor/view pointers plus optional callbacks implementing the full
+ * live-source contract:
+ *   - revision query
+ *   - realize/update
+ *   - bounds query
+ *   - pick query
+ *   - snap query
+ *   - teardown/free
+ *
+ * Ownership rules:
+ *   - @c rt_edit_ptr and @c grid_ptr are borrowed from the editor/view.
+ *   - @c live_ctx ownership is controlled by @c owns_live_ctx; if non-zero,
+ *     @c free_cb is called during payload teardown.
  */
 struct bsg_sketch_live_data {
     void *rt_edit_ptr;   /**< @brief opaque rt_edit * — owned by the editor */
     void *grid_ptr;      /**< @brief opaque bsg_grid_state * — owned by the view */
+    void *live_ctx;      /**< @brief callback context (defaults to rt_edit_ptr) */
+    int owns_live_ctx;   /**< @brief if non-zero, call free_cb on teardown */
+    uint64_t last_realized_revision; /**< @brief last realized live revision */
+    bsg_sketch_live_revision_cb_t revision_cb; /**< @brief revision query callback */
+    bsg_sketch_live_update_cb_t update_cb; /**< @brief realize/update callback */
+    bsg_sketch_live_bounds_cb_t bounds_cb; /**< @brief bounds query callback */
+    bsg_sketch_live_pick_cb_t pick_cb; /**< @brief pick query callback */
+    bsg_sketch_live_snap_cb_t snap_cb; /**< @brief snap query callback */
+    bsg_sketch_live_free_cb_t free_cb; /**< @brief optional teardown callback */
 };
 
 /**
@@ -469,6 +494,59 @@ bsg_payload_sketch_create(void *rt_edit_ptr, void *grid_ptr);
  */
 BSG_EXPORT extern struct bsg_sketch_live_data *
 bsg_payload_sketch_get_data(struct bsg_payload *payload);
+
+/**
+ * Set the full live-source callback contract for a BSG_PL_SKETCH payload.
+ *
+ * @p payload must be a BSG_PL_SKETCH payload.
+ * @p live_ctx is passed to all callbacks.  If NULL, @c rt_edit_ptr is used.
+ * If @p owns_live_ctx is non-zero, @p free_cb is called at payload teardown.
+ */
+BSG_EXPORT extern int
+bsg_payload_sketch_set_live_ops(struct bsg_payload *payload,
+	void *live_ctx,
+	int owns_live_ctx,
+	bsg_sketch_live_revision_cb_t revision_cb,
+	bsg_sketch_live_update_cb_t update_cb,
+	bsg_sketch_live_bounds_cb_t bounds_cb,
+	bsg_sketch_live_pick_cb_t pick_cb,
+	bsg_sketch_live_snap_cb_t snap_cb,
+	bsg_sketch_live_free_cb_t free_cb);
+
+/**
+ * Return the current live-source revision for @p payload, or 0 on failure.
+ */
+BSG_EXPORT extern uint64_t
+bsg_payload_sketch_revision(struct bsg_payload *payload);
+
+/**
+ * Realize/update @p payload by invoking the live-source update callback.
+ *
+ * Returns:
+ *   1 if payload revision changed,
+ *   0 if no change or no update callback is defined,
+ *  -1 on invalid input.
+ */
+BSG_EXPORT extern int
+bsg_payload_sketch_realize(struct bsg_payload *payload, struct bsg_view *v);
+
+/**
+ * Query live-source bounds for @p payload.  Returns non-zero on success.
+ */
+BSG_EXPORT extern int
+bsg_payload_sketch_bounds(struct bsg_payload *payload, point_t *bmin, point_t *bmax);
+
+/**
+ * Query live-source pick information for @p payload.  Returns non-zero on success.
+ */
+BSG_EXPORT extern int
+bsg_payload_sketch_pick(struct bsg_payload *payload, struct bsg_view *v, int x, int y, void *pick_out);
+
+/**
+ * Query live-source snap result for @p payload.  Returns non-zero on success.
+ */
+BSG_EXPORT extern int
+bsg_payload_sketch_snap(struct bsg_payload *payload, struct bsg_view *v, const point_t sample_pt, point_t out_pt);
 
 /* -----------------------------------------------------------------------
  * ANNOTATION payload — Phase D1
