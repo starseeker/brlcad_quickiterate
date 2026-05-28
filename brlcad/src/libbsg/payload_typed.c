@@ -730,11 +730,61 @@ _sketch_payload_free(struct bsg_payload *pl)
 {
     if (!pl)
 	return;
-    struct bsg_sketch_live_data *d =
-	(struct bsg_sketch_live_data *)pl->pl.opaque;
-    if (d)
+    struct bsg_sketch_live_data *d = pl->pl.sketch;
+    if (d) {
+	if (d->owns_live_ctx && d->free_cb && d->live_ctx)
+	    d->free_cb(d->live_ctx);
 	BU_PUT(d, struct bsg_sketch_live_data);
+    }
     BU_PUT(pl, struct bsg_payload);
+}
+
+static void *
+_sketch_live_ctx(struct bsg_sketch_live_data *d)
+{
+    if (!d)
+	return NULL;
+    return (d->live_ctx) ? d->live_ctx : d->rt_edit_ptr;
+}
+
+static void
+_sketch_payload_update(struct bsg_payload *pl, struct bsg_view *v)
+{
+    if (!pl || pl->pl_type != BSG_PL_SKETCH || !pl->pl.sketch)
+	return;
+
+    struct bsg_sketch_live_data *d = pl->pl.sketch;
+    void *ctx = _sketch_live_ctx(d);
+    if (!ctx)
+	return;
+
+    uint64_t prev_live_rev = d->last_realized_revision;
+    int updated = 0;
+
+    if (d->update_cb)
+	updated = d->update_cb(ctx, v);
+
+    uint64_t live_rev = prev_live_rev;
+    if (d->revision_cb)
+	live_rev = d->revision_cb(ctx);
+    else if (updated)
+	live_rev = prev_live_rev + 1;
+
+    /* If update_cb reports a change but revision_cb did not advance, force a
+     * monotonic increment so payload_revision tracks realized updates. */
+    if (updated && live_rev == prev_live_rev)
+	live_rev++;
+
+    if (live_rev != prev_live_rev) {
+	d->last_realized_revision = live_rev;
+	bsg_payload_bump_revision(pl);
+    }
+}
+
+static int
+_sketch_payload_bounds(struct bsg_payload *pl, point_t *bmin, point_t *bmax)
+{
+    return bsg_payload_sketch_bounds(pl, bmin, bmax);
 }
 
 
@@ -749,9 +799,20 @@ bsg_payload_sketch_create(void *rt_edit_ptr, void *grid_ptr)
     BU_GET(d, struct bsg_sketch_live_data);
     d->rt_edit_ptr = rt_edit_ptr;
     d->grid_ptr    = grid_ptr;
+    d->live_ctx = rt_edit_ptr;
+    d->owns_live_ctx = 0;
+    d->last_realized_revision = 0;
+    d->revision_cb = NULL;
+    d->update_cb = NULL;
+    d->bounds_cb = NULL;
+    d->pick_cb = NULL;
+    d->snap_cb = NULL;
+    d->free_cb = NULL;
 
     pl->pl.sketch = d;
     pl->pl_free   = _sketch_payload_free;
+    pl->pl_update = _sketch_payload_update;
+    pl->pl_bounds = _sketch_payload_bounds;
     return pl;
 }
 
@@ -762,6 +823,86 @@ bsg_payload_sketch_get_data(struct bsg_payload *payload)
     if (!payload || payload->pl_type != BSG_PL_SKETCH)
 	return NULL;
     return payload->pl.sketch;
+}
+
+int
+bsg_payload_sketch_set_live_ops(struct bsg_payload *payload,
+	void *live_ctx,
+	int owns_live_ctx,
+	bsg_sketch_live_revision_cb_t revision_cb,
+	bsg_sketch_live_update_cb_t update_cb,
+	bsg_sketch_live_bounds_cb_t bounds_cb,
+	bsg_sketch_live_pick_cb_t pick_cb,
+	bsg_sketch_live_snap_cb_t snap_cb,
+	bsg_sketch_live_free_cb_t free_cb)
+{
+    struct bsg_sketch_live_data *d = bsg_payload_sketch_get_data(payload);
+    if (!d)
+	return -1;
+
+    d->live_ctx = live_ctx;
+    d->owns_live_ctx = owns_live_ctx;
+    d->revision_cb = revision_cb;
+    d->update_cb = update_cb;
+    d->bounds_cb = bounds_cb;
+    d->pick_cb = pick_cb;
+    d->snap_cb = snap_cb;
+    d->free_cb = free_cb;
+    d->last_realized_revision = (revision_cb) ? revision_cb(_sketch_live_ctx(d)) : 0;
+
+    return 0;
+}
+
+uint64_t
+bsg_payload_sketch_revision(struct bsg_payload *payload)
+{
+    struct bsg_sketch_live_data *d = bsg_payload_sketch_get_data(payload);
+    if (!d)
+	return 0;
+
+    if (d->revision_cb)
+	return d->revision_cb(_sketch_live_ctx(d));
+
+    return d->last_realized_revision;
+}
+
+int
+bsg_payload_sketch_realize(struct bsg_payload *payload, struct bsg_view *v)
+{
+    if (!payload || payload->pl_type != BSG_PL_SKETCH)
+	return -1;
+
+    uint64_t rev_before = payload->pl_revision;
+    _sketch_payload_update(payload, v);
+
+    return (payload->pl_revision != rev_before) ? 1 : 0;
+}
+
+int
+bsg_payload_sketch_bounds(struct bsg_payload *payload, point_t *bmin, point_t *bmax)
+{
+    struct bsg_sketch_live_data *d = bsg_payload_sketch_get_data(payload);
+    if (!d || !d->bounds_cb)
+	return 0;
+    return d->bounds_cb(_sketch_live_ctx(d), bmin, bmax);
+}
+
+int
+bsg_payload_sketch_pick(struct bsg_payload *payload, struct bsg_view *v, int x, int y, void *pick_out)
+{
+    struct bsg_sketch_live_data *d = bsg_payload_sketch_get_data(payload);
+    if (!d || !d->pick_cb)
+	return 0;
+    return d->pick_cb(_sketch_live_ctx(d), v, x, y, pick_out);
+}
+
+int
+bsg_payload_sketch_snap(struct bsg_payload *payload, struct bsg_view *v, const point_t sample_pt, point_t out_pt)
+{
+    struct bsg_sketch_live_data *d = bsg_payload_sketch_get_data(payload);
+    if (!d || !d->snap_cb)
+	return 0;
+    return d->snap_cb(_sketch_live_ctx(d), v, sample_pt, out_pt);
 }
 
 
