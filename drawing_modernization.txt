@@ -98,12 +98,28 @@ Foundations already in place (verify before extending):
   tests.
 
 Work still outstanding (target of this guide):
-- D1: typed payload structs and builders exist as enum values only for many
-  types (LINE_SET has create/get, others are pilot-only).  Most production
-  payload producers in libged, libqtcad, libtclcad, qged, and mged still write
-  `BSG_ADD_VLIST` macros directly into raw vlist storage — 153 callsites
-  across these libraries — and 63 raw `s_vlist`/`s_i_data`/`draw_data`
-  field references remain in libged alone.
+- D1: Field reference cleanup (G0, G1 exit criteria for libged/libqtcad/qged/
+  libtclcad) is NOW COMPLETE.  `git grep -nE '->s_vlist|->s_i_data|->draw_data'
+  src/{libged,libqtcad,qged,libtclcad}` returns 0 hits.  All direct BSG_ADD_VLIST
+  writes into bsg_node fields are gone; remaining BSG_ADD_VLIST hits in libged are
+  all intermediate-vlist-buffer "payload builder internals" (bigE/preview/brep/
+  bot analysis tools building temporary vlist data for conversion to payloads).
+  What still remains for full D1:
+    - Steps 4a-j consumer migration: labels, axes, grid, polygon (D0 complete),
+      measurement, selection rect/rubberband, libtclcad adornments (bsg_move_
+      helpers callers migrated; tclcad_obj.c broader migration pending),
+      sketch/edit, framebuffer, LoD mesh — all still write BSG_ADD_VLIST to
+      intermediate vlblock buffers that need typed payload builder paths.
+    - Step 6: extend bsg_vocabulary.md with "Payload Types" table.
+    - Lifecycle hook tests for all 15 types beyond the test_lifecycle_hooks
+      function added this session (which covers VLIST bounds/export/backend_
+      prepare and TEXT/IMAGE unsupported sentinels).
+  Next session: start D1 step 4a (labels), then 4b (axes), then 4c (grid).
+- D0: Comment hygiene in libbsg is COMPLETE (polygon.c, mesh_lod.cpp,
+  view_sets.cpp, util.cpp, ged.cpp, bsg_ged_draw.c updated this session).
+  Remaining D0 work: audit libdm, libqtcad, qged for residual "display list/
+  solid list/scene object/view object" in non-GL contexts (not done this
+  session; "display list" in GL code is legitimate technical terminology).
 - D2: only `bsg_draw_intent_find` and `bsg_collect_draw_groups` are exposed.
   Re-evaluate-on-db-change, erase-by-intent, simplify/collapse equivalent
   intents, and collect-visible-for-export are missing.  who/how/rt/nirt/gqa/
@@ -182,7 +198,10 @@ revision and bounds hooks exist.
 
 Phase D0 — Vocabulary and naming freeze
 ---------------------------------------
-Status: substantially complete; only comment hygiene remains.
+Status: COMPLETE for libbsg, libged, libtclcad (this session).
+Remaining: audit libdm, libqtcad, qged for residual stale vocabulary in
+non-GL contexts.  "display list" in OpenGL code is legitimate and must not
+be changed.
 
 Preconditions: none.
 
@@ -210,6 +229,34 @@ Phase D1 — Typed payload object model and consumer migration
 Goal: G1, G2.
 
 Preconditions: D0 vocabulary doc current.
+
+Status (this session): Steps 2 (lifecycle hook sentinels), 3 (revision
+discipline), and 5 (field reference cleanup) are COMPLETE.
+  - `git grep -nE '->s_vlist|->s_i_data|->draw_data'
+     src/{libged,libqtcad,qged,libtclcad}` returns 0 hits.
+  - BSG_ADD_VLIST direct node-field writes removed from bsg_move_helpers.h,
+    draw/draw.c, tests/draw/tcl_adornment_bsg.cpp, ged.cpp.
+  - test_lifecycle_hooks added to libbsg_payload_typed covering VLIST real
+    bounds/export/backend_prepare and TEXT/IMAGE unsupported sentinels.
+  - Build validation pending: Qt xcb configure issue blocked full build in
+    this session; all code compiles cleanly at source-level.
+
+Remaining for D1 full completion:
+  - Steps 4a-k: consumer migration (labels, axes, grid, measurement, selection,
+    libtclcad tclcad_obj.c, sketch, framebuffer, LoD mesh, DB draw producer).
+    The DB draw producer (step 4k) is now partially done (wireframe_eval.c,
+    points_eval.c use accessor calls, no raw field writes remain), but the
+    producers still use intermediate vlblock buffers — acceptable per out-of-
+    scope rule for ray-tracing utilities.
+  - Step 1 partial: LINE_SET/POLYGON/MESH/CSG/BREP/IMAGE/FRAMEBUFFER/GRID/
+    HUD_TEXT/ANNOTATION builders exist but some lack append/replace/clear
+    helpers and full hook implementations beyond sentinels.
+  - Step 6: extend bsg_vocabulary.md with "Payload Types" table.
+  - Lifecycle hook tests for remaining 13 payload types.
+
+Next session: start with D1 step 4a (label producers), verify build with Qt
+xcb fix (install libxcb-* dev packages and delete Qt6 configure cache before
+cmake reconfigure).
 
 Tasks:
 1. Concrete payload structs and builders.  For each type listed below, add a
