@@ -111,11 +111,17 @@ brlcad_add_test(NAME libbsg_render_item COMMAND test_bsg_render_item)
 brlcad_addexec(test_bsg_payload_typed test_payload_typed.c "libbsg;libbu" TEST)
 brlcad_add_test(NAME libbsg_payload_typed COMMAND test_bsg_payload_typed)
 
+# Phase D2: draw-intent action API coverage
+#
+brlcad_addexec(test_bsg_draw_intent_actions test_draw_intent_actions.c "libbsg;libbu" TEST)
+brlcad_add_test(NAME libbsg_draw_intent_actions COMMAND test_bsg_draw_intent_actions)
+
 cmakefiles(
   CMakeLists.txt
   test_action.c
   test_arb8.c
   test_camera.c
+  test_draw_intent_actions.c
   test_identity.c
   test_light.c
   test_lod_node.c

@@ -28,11 +28,16 @@
 
 #include "common.h"
 
+#include <string.h>
+
 #include "bu/malloc.h"
+#include "bu/path.h"
 #include "bu/ptbl.h"
 #include "bu/str.h"
 #include "bu/vls.h"
 #include "bsg/defines.h"
+#include "bsg/node.h"
+#include "bsg/util.h"
 #include "bsg/draw_intent.h"
 
 
@@ -272,6 +277,260 @@ bsg_collect_draw_groups(bsg_node *root, struct bu_ptbl *groups,
     for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
 	bsg_node *g = (bsg_node *)BU_PTBL_GET(&root->children, i);
 	_collect_intent_dfs(g, groups, include_overlays);
+    }
+}
+
+
+/* -----------------------------------------------------------------------
+ * D2 Action API
+ * ----------------------------------------------------------------------- */
+
+/*
+ * Return non-zero if @p prefix is a proper path prefix of @p path.
+ * E.g. "a" is a prefix of "a/b" but not of "ab" or "a" itself.
+ */
+static int
+_is_path_prefix(const char *prefix, const char *path)
+{
+    if (!prefix || !path)
+	return 0;
+    size_t plen = strlen(prefix);
+    if (strncmp(path, prefix, plen) != 0)
+	return 0;
+    /* Accept exactly "prefix/" as the next character. */
+    return path[plen] == '/';
+}
+
+
+int
+bsg_draw_intent_revalidate(bsg_node *root, const struct bsg_db_event *event)
+{
+    if (!root || !event || !event->dbe_path)
+	return 0;
+
+    int count = 0;
+
+    if (event->dbe_kind == BSG_DB_EVENT_RENAMED) {
+	/* Renamed: find intents matching the OLD path, update to new. */
+	const char *old_norm = event->dbe_old_path
+	    ? _strip_lead_slash(event->dbe_old_path)
+	    : NULL;
+	const char *new_norm = _strip_lead_slash(event->dbe_path);
+	if (!old_norm)
+	    return 0;
+	for (size_t i = 0; i < bsg_node_child_count(root); i++) {
+	    bsg_node *g = bsg_node_child_at(root, i);
+	    if (!g) continue;
+	    const struct bsg_draw_intent *di = bsg_node_get_draw_intent(g);
+	    if (!di) continue;
+	    const char *gpath = _strip_lead_slash(bu_vls_cstr(&di->di_path));
+	    if (BU_STR_EQUAL(gpath, old_norm)) {
+		bsg_draw_intent_set_path((struct bsg_draw_intent *)di, new_norm);
+		count++;
+	    }
+	}
+	return count;
+    }
+
+    const char *norm_path = _strip_lead_slash(event->dbe_path);
+    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
+	bsg_node *g = bsg_node_child_at(root, i);
+	if (!g)
+	    continue;
+	const struct bsg_draw_intent *di = bsg_node_get_draw_intent(g);
+	if (!di)
+	    continue;
+	const char *gpath = _strip_lead_slash(bu_vls_cstr(&di->di_path));
+	if (!BU_STR_EQUAL(gpath, norm_path))
+	    continue;
+
+	switch (event->dbe_kind) {
+	    case BSG_DB_EVENT_MODIFIED:
+		bsg_obj_stale(g);
+		count++;
+		break;
+	    case BSG_DB_EVENT_REMOVED:
+		bsg_node_destroy(g);
+		i--;
+		count++;
+		break;
+	    default:
+		break;
+	}
+    }
+    return count;
+}
+
+
+int
+bsg_draw_intent_erase_by_path(bsg_node *root, const char *path)
+{
+    if (!root || !path)
+	return 0;
+
+    const char *norm = _strip_lead_slash(path);
+
+    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
+	bsg_node *g = bsg_node_child_at(root, i);
+	if (!g)
+	    continue;
+	const struct bsg_draw_intent *di = bsg_node_get_draw_intent(g);
+	if (!di)
+	    continue;
+	const char *gpath = _strip_lead_slash(bu_vls_cstr(&di->di_path));
+	if (BU_STR_EQUAL(gpath, norm)) {
+	    bsg_node_destroy(g);
+	    return 1;
+	}
+    }
+    return 0;
+}
+
+
+int
+bsg_draw_intent_erase(bsg_node *root, struct bsg_draw_intent *intent)
+{
+    if (!root || !intent)
+	return 0;
+
+    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
+	bsg_node *g = bsg_node_child_at(root, i);
+	if (!g)
+	    continue;
+	if (bsg_node_get_draw_intent(g) == intent) {
+	    bsg_node_destroy(g);
+	    return 1;
+	}
+    }
+    return 0;
+}
+
+
+int
+bsg_draw_intent_simplify(bsg_node *root)
+{
+    if (!root)
+	return 0;
+
+    int removed = 0;
+
+    /* Pass 1: collect all intent-bearing groups. */
+    struct bu_ptbl groups;
+    bu_ptbl_init(&groups, 64, "simplify groups");
+    bsg_collect_draw_groups(root, &groups, 1 /* include overlays */);
+
+    size_t n = BU_PTBL_LEN(&groups);
+
+    /* For each group, check whether another group earlier in the list
+     * is a proper path prefix (subsumes it) or has the same path
+     * (duplicate).  Mark redundant groups by NULL-ing their slot so
+     * we don't double-free. */
+    for (size_t i = 0; i < n; i++) {
+	bsg_node *gi = (bsg_node *)BU_PTBL_GET(&groups, i);
+	if (!gi)
+	    continue;
+	const struct bsg_draw_intent *di_i = bsg_node_get_draw_intent(gi);
+	if (!di_i)
+	    continue;
+	const char *pi = _strip_lead_slash(bu_vls_cstr(&di_i->di_path));
+
+	for (size_t j = 0; j < i; j++) {
+	    bsg_node *gj = (bsg_node *)BU_PTBL_GET(&groups, j);
+	    if (!gj)
+		continue;
+	    const struct bsg_draw_intent *di_j = bsg_node_get_draw_intent(gj);
+	    if (!di_j)
+		continue;
+	    const char *pj = _strip_lead_slash(bu_vls_cstr(&di_j->di_path));
+
+	    if (BU_STR_EQUAL(pi, pj) || _is_path_prefix(pj, pi)) {
+		/* gi is subsumed by or duplicated by gj — remove gi. */
+		bsg_node_destroy(gi);
+		BU_PTBL_SET(&groups, i, NULL);
+		removed++;
+		break;
+	    }
+	}
+    }
+
+    bu_ptbl_free(&groups);
+    return removed;
+}
+
+
+void
+bsg_draw_intent_collect_visible(bsg_node *root, struct bu_ptbl *out,
+				const struct bsg_view *v)
+{
+    if (!root || !out)
+	return;
+
+    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
+	bsg_node *g = bsg_node_child_at(root, i);
+	if (!g)
+	    continue;
+	const struct bsg_draw_intent *di = bsg_node_get_draw_intent(g);
+	if (!di || di->di_overlay)
+	    continue;
+	/* Skip invisible groups. */
+	if (g->s_flag == DOWN)
+	    continue;
+	/* Skip groups scoped to a different view. */
+	if (g->s_v != NULL && g->s_v != (struct bsg_view *)v)
+	    continue;
+	bu_ptbl_ins(out, (long *)g);
+    }
+}
+
+
+void
+bsg_draw_intent_collect_for_export(bsg_node *root, struct bu_ptbl *out,
+				   unsigned long long flags)
+{
+    if (!root || !out)
+	return;
+
+    int include_overlays = (flags & BSG_EXPORT_INCLUDE_OVERLAYS) ? 1 : 0;
+    int shaded_only      = (flags & BSG_EXPORT_SHADED_ONLY)      ? 1 : 0;
+
+    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
+	bsg_node *g = bsg_node_child_at(root, i);
+	if (!g)
+	    continue;
+	const struct bsg_draw_intent *di = bsg_node_get_draw_intent(g);
+	if (!di)
+	    continue;
+	if (!include_overlays && di->di_overlay)
+	    continue;
+	if (shaded_only) {
+	    bsg_draw_mode m = di->di_mode;
+	    if (m != BSG_DRAW_MODE_SHADED_BOTS &&
+		m != BSG_DRAW_MODE_SHADED      &&
+		m != BSG_DRAW_MODE_SHADED_EVAL)
+		continue;
+	}
+	bu_ptbl_ins(out, (long *)g);
+    }
+}
+
+
+void
+bsg_draw_intent_match(bsg_node *root, const char *pattern,
+		      struct bu_ptbl *out)
+{
+    if (!root || !pattern || !out)
+	return;
+
+    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
+	bsg_node *g = bsg_node_child_at(root, i);
+	if (!g)
+	    continue;
+	const struct bsg_draw_intent *di = bsg_node_get_draw_intent(g);
+	if (!di)
+	    continue;
+	const char *gpath = _strip_lead_slash(bu_vls_cstr(&di->di_path));
+	if (bu_path_match(pattern, gpath, 0) == 0)
+	    bu_ptbl_ins(out, (long *)g);
     }
 }
 
