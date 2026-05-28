@@ -99,7 +99,6 @@ _payload_alloc(int i)
 {
     struct bsg_hud_payload *p;
     BU_ALLOC(p, struct bsg_hud_payload);
-    memset(p, 0, sizeof(*p));
     p->feature_type = _hud_features[i].type;
     return p;
 }
