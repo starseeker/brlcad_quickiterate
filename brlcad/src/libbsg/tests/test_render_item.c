@@ -683,7 +683,8 @@ static int g_invalidate_count = 0;
 static int g_free_count = 0;
 
 static void
-_test_invalidate_cb(void *UNUSED(dmp), const struct bsg_render_item *UNUSED(item))
+_test_invalidate_cb(void *UNUSED(dmp), const struct bsg_render_item *UNUSED(item),
+		    unsigned int UNUSED(reason_mask))
 {
     g_invalidate_count++;
 }
@@ -724,7 +725,7 @@ test_adapter_invalidate_free(void)
     for (size_t i = 0; i < BU_PTBL_LEN(&items); i++) {
 	struct bsg_render_item *item =
 	    (struct bsg_render_item *)BU_PTBL_GET(&items, i);
-	adapter.invalidate(NULL, item);
+	adapter.invalidate(NULL, item, BSG_INVALIDATE_ALL);
 	adapter.free(NULL, item);
 	bsg_render_item_free(item);
     }

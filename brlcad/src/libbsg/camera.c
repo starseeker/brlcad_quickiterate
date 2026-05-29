@@ -99,6 +99,37 @@ bsg_camera_apply(struct bsg_camera *cam, struct bsg_view *v)
     MAT_COPY(v->gv_view2model, cam->view2model);
 }
 
+
+/* -----------------------------------------------------------------------
+ * Phase D5: camera-node binding
+ * ----------------------------------------------------------------------- */
+
+void
+bsg_view_set_camera_node(struct bsg_view *v, struct bsg_camera *cam)
+{
+    if (!v)
+	return;
+    v->gv_camera_node = cam;
+}
+
+
+struct bsg_camera *
+bsg_view_get_camera_node(const struct bsg_view *v)
+{
+    if (!v)
+	return NULL;
+    return v->gv_camera_node;
+}
+
+
+void
+bsg_view_apply_camera_node(struct bsg_view *v)
+{
+    if (!v || !v->gv_camera_node)
+	return;
+    bsg_camera_apply(v->gv_camera_node, v);
+}
+
 /*
  * Local Variables:
  * tab-width: 8

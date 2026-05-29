@@ -112,6 +112,18 @@ brlcad_add_test(NAME libbsg_overlay COMMAND test_bsg_overlay)
 brlcad_addexec(test_bsg_render_item test_render_item.c "libbsg;libbu" TEST)
 brlcad_add_test(NAME libbsg_render_item COMMAND test_bsg_render_item)
 
+#
+# Phase D5: resolved appearance (appearance_action)
+#
+brlcad_addexec(test_bsg_appearance_resolve test_appearance_resolve.c "libbsg;libbu" TEST)
+brlcad_add_test(NAME libbsg_appearance_resolve COMMAND test_bsg_appearance_resolve)
+
+#
+# Phase D5: backend adapter invalidation reason mask
+#
+brlcad_addexec(test_bsg_backend_adapter test_backend_adapter.c "libbsg;libbu" TEST)
+brlcad_add_test(NAME libbsg_backend_adapter COMMAND test_bsg_backend_adapter)
+
 # Phase D1: typed payload coverage
 #
 brlcad_addexec(test_bsg_payload_typed test_payload_typed.c "libbsg;libbu" TEST)
@@ -125,7 +137,9 @@ brlcad_add_test(NAME libbsg_draw_intent_actions COMMAND test_bsg_draw_intent_act
 cmakefiles(
   CMakeLists.txt
   test_action.c
+  test_appearance_resolve.c
   test_arb8.c
+  test_backend_adapter.c
   test_camera.c
   test_draw_intent_actions.c
   test_identity.c

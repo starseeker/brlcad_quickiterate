@@ -2,6 +2,7 @@ set(
   LIBBSG_SRCS
   action.c
   appearance.c
+  appearance_action.c
   camera.c
   draw_intent.c
   draw_set.c
@@ -26,6 +27,7 @@ set(
   hud.c
   render.c
   render_item.c
+  render_settings.c
   scene_graph.cpp
   selection.c
   sensor.c
@@ -83,6 +85,7 @@ cmakefiles(
   bsg_private.h
   action.c
   appearance.c
+  appearance_action.c
   camera.c
   draw_intent.c
   draw_set.c
@@ -104,6 +107,7 @@ cmakefiles(
   hud.c
   render.c
   render_item.c
+  render_settings.c
   selection.c
   visit.c
   adc.c
