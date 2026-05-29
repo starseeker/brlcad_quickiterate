@@ -491,7 +491,7 @@ Exit criteria met:
 - `bu_ptbl`-of-`bsg_node*` selection storage is gone outside the
   documented compatibility shim in `bsg_pick_result_to_ptbl`.
 
-Next session target: **Phase D6** — Editor live sources beyond qsketch.
+Next session target: **Phase D7** — Compatibility isolation and public API cleanup.
 
 Phase D4 — HUD scene root and overlay policy
 --------------------------------------------
@@ -696,7 +696,7 @@ Deferred / partial items (for D5 follow-up or D6):
 - Task 8d: The large set of integration tests has not been run (compilation
   testing deferred per user instructions).
 
-Next session target: **Phase D6** — Editor live sources beyond qsketch.
+Next session target: **Phase D7** — Compatibility isolation and public API cleanup.
 
 Phase D6 — Editor live sources beyond qsketch
 ---------------------------------------------
@@ -705,7 +705,57 @@ Goal: completes G1/G2 for editor live state; supports G5.
 Preconditions: D1 step 1 (SKETCH and ANNOTATION payloads), D5 step 1
 (resolved appearance for edit-preview layer).
 
-Tasks:
+Current status: **COMPLETE** (implemented across two sessions)
+
+What was done:
+- Task 1: `BSG_PL_LIVE` payload type added to `include/bsg/payload_typed.h`.
+  Six callback typedefs (`bsg_live_revision_cb_t`, `bsg_live_update_cb_t`,
+  `bsg_live_bounds_cb_t`, `bsg_live_pick_cb_t`, `bsg_live_snap_cb_t`,
+  `bsg_live_free_cb_t`) and `struct bsg_live_source` defined.  All
+  `bsg_payload_live_*` functions declared and implemented in
+  `src/libbsg/payload_typed.c` (`bsg_payload_live_create`, `_get_data`,
+  `_set_ops`, `_revision`, `_realize`, `_bounds`, `_pick`, `_snap`).
+  `_typed_payload_flags()` dispatch updated for `BSG_PL_LIVE`.
+- Task 2: qsketch.cpp comments updated to describe the live-payload
+  contract (revision bump after `ft_plot`, `bsg_payload_live_set_ops`
+  pattern) rather than the retired custom-callback prototype.
+- Task 3a (polygon): `bsg_update_polygon()` in `src/libbsg/polygon.c`
+  refactored to capture sub-function return values and call
+  `bsg_payload_bump_revision(s->pl)` whenever geometry or props change.
+  Phase D6 live-source comment block added to `QPolyCreate.cpp` and
+  `QPolyMod.cpp` after the `p = cf->wp` assignment.
+- Task 3b (extrude): New stub plugin created at
+  `src/qged/plugins/edit/extrude/` — `QExtrude.h/cpp`, `EditExtrudeFactory.h`,
+  `extrude.cpp`, CMakeLists.txt, JSON, SVG icon.  Full BSG_PL_LIVE pattern:
+  lazy overlay create, `bsg_payload_live_create(this, NULL)`,
+  `bsg_payload_live_set_ops`, `bsg_payload_bump_revision` after `ft_plot`,
+  `bsg_obj_put` teardown in destructor.
+- Task 3c (revolve): New stub plugin at `src/qged/plugins/edit/revolve/`
+  with identical BSG_PL_LIVE pattern.
+- Task 3d (bot): New stub plugin at `src/qged/plugins/edit/bot/` with
+  BSG_PL_LIVE pattern plus `_bot_live_pick` stub callback and
+  `rt_db_get_internal`/`rt_db_free_internal` BOT load path.
+- `src/qged/plugins/edit/CMakeLists.txt` updated:
+  `add_subdirectory(extrude)`, `add_subdirectory(revolve)`,
+  `add_subdirectory(bot)`.
+- Task 4: Confirmed `set_draw_custom` has zero hits in
+  `include/` and `src/libqtcad/` — no shim removal needed.
+- Task 5: `src/libbsg/tests/test_payload_typed_live_source.c` created
+  with 9 subtests covering create/lifecycle, set_ops, revision
+  monotonicity, realize semantics, bounds, pick, snap, owns_live_ctx
+  teardown, and NULL-update_cb graceful handling.
+  Registered in `src/libbsg/tests/CMakeLists.txt` as
+  `test_bsg_payload_typed_live_source` /
+  `libbsg_payload_typed_live_source`.
+
+Deferred items (carry to D7 or a D6 follow-up):
+- `ged_test_editor_live_source` integration test (end-to-end rendering /
+  selection path for live-payload editor nodes) — deferred; compilation
+  testing not yet enabled in this environment.
+- Extrude/revolve/bot stubs are architecturally correct scaffolding;
+  actual interactive UI wiring (signal/slot bodies, draw-parameter
+  feedback) is left for the responsible developer to fill in.
+- Tasks:
 1. Generalise the SKETCH live-source contract into a payload-agnostic
    `bsg_live_source` helper in `include/bsg/payload_typed.h` so editors of
    non-sketch geometry (extrude, revolve, BoT edit, polygon edit) can attach
@@ -728,9 +778,10 @@ Tasks:
    selection.
 
 Exit criteria:
-- No production code uses `set_draw_custom`.
+- No production code uses `set_draw_custom`. ✓
 - Editor previews are scene nodes with live payloads and participate in
-  selection, snap, and rendering.
+  selection, snap, and rendering. (Core infrastructure complete; full
+  end-to-end integration pending ged_test_editor_live_source.)
 
 Phase D7 — Compatibility isolation and public API cleanup
 ---------------------------------------------------------

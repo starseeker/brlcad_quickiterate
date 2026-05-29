@@ -901,11 +901,18 @@ bsg_update_polygon(struct bsg_node *s, struct bsg_view *v, int utype)
 		bsg_obj_put(fobj);
 	}
 
+	/* Phase D6: props-only change still advances the revision so renderers
+	 * downstream (and any attached bsg_live_source) can detect color/fill
+	 * updates without polling s_changed. */
+	if (s->pl)
+	    bsg_payload_bump_revision(s->pl);
+
 	return 0;
     }
 
     /* Need pixel dimension for calculating segment approximations on these
      * shapes - based on view info */
+    int changed = 0;
     if (p->type == BSG_POLYGON_CIRCLE || p->type == BSG_POLYGON_ELLIPSE) {
 
 	// Need the length of the diagonal of a pixel
@@ -919,18 +926,25 @@ bsg_update_polygon(struct bsg_node *s, struct bsg_view *v, int utype)
 	fastf_t d = DIST_PNT_PNT(p1, p2);
 
 	if (p->type == BSG_POLYGON_CIRCLE)
-	    return bsg_update_polygon_circle(s, &v->gv_point, d);
-	if (p->type == BSG_POLYGON_ELLIPSE)
-	    return bsg_update_polygon_ellipse(s, &v->gv_point, d);
+	    changed = bsg_update_polygon_circle(s, &v->gv_point, d);
+	else
+	    changed = bsg_update_polygon_ellipse(s, &v->gv_point, d);
+    } else if (p->type == BSG_POLYGON_RECTANGLE) {
+	changed = bsg_update_polygon_rectangle(s, &v->gv_point);
+    } else if (p->type == BSG_POLYGON_SQUARE) {
+	changed = bsg_update_polygon_square(s, &v->gv_point);
+    } else if (p->type == BSG_POLYGON_GENERAL) {
+	changed = bsg_update_general_polygon(s, utype, &v->gv_point);
     }
 
-    if (p->type == BSG_POLYGON_RECTANGLE)
-	return bsg_update_polygon_rectangle(s, &v->gv_point);
-    if (p->type == BSG_POLYGON_SQUARE)
-	return bsg_update_polygon_square(s, &v->gv_point);
-    if (p->type != BSG_POLYGON_GENERAL)
-	return 0;
-    return bsg_update_general_polygon(s, utype, &v->gv_point);
+    /* Phase D6: whenever geometry actually changed, advance the payload
+     * revision.  Any bsg_live_source attached to this node can compare
+     * last_realized_revision to detect the change without the caller
+     * having to check s_changed directly. */
+    if (changed && s->pl)
+	bsg_payload_bump_revision(s->pl);
+
+    return changed;
 }
 
 struct bsg_node *

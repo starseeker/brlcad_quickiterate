@@ -129,6 +129,11 @@ brlcad_add_test(NAME libbsg_backend_adapter COMMAND test_bsg_backend_adapter)
 brlcad_addexec(test_bsg_payload_typed test_payload_typed.c "libbsg;libbu" TEST)
 brlcad_add_test(NAME libbsg_payload_typed COMMAND test_bsg_payload_typed)
 
+# Phase D6: generic live-source (BSG_PL_LIVE) payload contract
+#
+brlcad_addexec(test_bsg_payload_typed_live_source test_payload_typed_live_source.c "libbsg;libbu" TEST)
+brlcad_add_test(NAME libbsg_payload_typed_live_source COMMAND test_bsg_payload_typed_live_source)
+
 # Phase D2: draw-intent action API coverage
 #
 brlcad_addexec(test_bsg_draw_intent_actions test_draw_intent_actions.c "libbsg;libbu" TEST)
@@ -149,6 +154,7 @@ cmakefiles(
   test_measure.c
   test_node.c
   test_payload_typed.c
+  test_payload_typed_live_source.c
   test_phase6.c
   test_pick.c
   test_hud.c

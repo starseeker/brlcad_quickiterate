@@ -980,7 +980,11 @@ QPolyMod::eventFilter(QObject *, QEvent *e)
     // Run the guts of the libqtcad filter
     bool ret = cf->eventFilter(NULL, e);
 
-    // Retrieve the scene object from the libqtcad data container
+    // Retrieve the scene object from the libqtcad data container.
+    // Phase D6: cf->wp carries a BSG_PL_POLYGON payload whose revision is
+    // advanced by bsg_update_polygon() each time geometry changes.  Any
+    // downstream bsg_live_source attached to the working node can compare
+    // last_realized_revision to detect edits without polling s_changed.
     p = cf->wp;
     ip = (p) ? bsg_node_polygon(p) : NULL;
 
