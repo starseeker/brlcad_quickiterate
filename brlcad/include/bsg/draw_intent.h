@@ -37,7 +37,7 @@
  * Draw/erase semantics are now queryable through the intent API rather than
  * reconstructed from group naming conventions and child structure.
  *
- * Per drawing_modernization.txt Phase D2 exit criteria:
+ * Per doc/notes/drawing_stack_modernization.txt draw-intent criteria:
  *   - Database draw/erase semantics are explicit scene metadata.
  *   - Export/raytrace/report commands do not reconstruct command intent
  *     from child tables or raw node fields.
