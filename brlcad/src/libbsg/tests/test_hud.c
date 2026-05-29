@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "bu/app.h"
 #include "bu/malloc.h"
 #include "bu/ptbl.h"
 #include "bu/vls.h"
@@ -409,9 +410,12 @@ test_typed_payload_realization(void)
  * ----------------------------------------------------------------------- */
 
 int
-main(int UNUSED(argc), char **UNUSED(argv))
+main(int argc, char **argv)
 {
     int fail = 0;
+
+    bu_setprogname(argv[0]);
+    (void)argc;
 
     fail += test_null_guard();
     fail += test_create();

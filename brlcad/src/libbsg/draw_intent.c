@@ -297,7 +297,7 @@ _is_path_prefix(const char *prefix, const char *path)
     if (!prefix || !path)
 	return 0;
     size_t plen = strlen(prefix);
-    if (strncmp(path, prefix, plen) != 0)
+    if (bu_strncmp(path, prefix, plen) != 0)
 	return 0;
     /* Accept exactly "prefix/" as the next character. */
     return path[plen] == '/';

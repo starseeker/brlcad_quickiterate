@@ -1,11 +1,32 @@
 /*               T E S T _ O V E R L A Y . C
  * BRL-CAD
+ *
+ * Copyright (c) 2026 United States Government as represented by
+ * the U.S. Army Research Laboratory.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * version 2.1 as published by the Free Software Foundation.
+ *
+ * This library is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this file; see the file named COPYING for more
+ * information.
+ */
+/** @file libbsg/tests/test_overlay.c
+ *
+ * Unit tests for bsg overlay node API.
  */
 
 #include "common.h"
 
 #include <stdio.h>
 
+#include "bu/app.h"
 #include "bu/malloc.h"
 #include "bu/ptbl.h"
 #include "bu/vls.h"
@@ -82,9 +103,11 @@ BSG_OVERLAY_ORDER_MODEL, "db/path", 0), "register source overlay");
 }
 
 int
-main(int UNUSED(argc), char **UNUSED(argv))
+main(int argc, char **argv)
 {
     int ret = 0;
+    bu_setprogname(argv[0]);
+    (void)argc;
     ret += test_owner_replace_clear();
     ret += test_auto_remove();
     if (!ret)

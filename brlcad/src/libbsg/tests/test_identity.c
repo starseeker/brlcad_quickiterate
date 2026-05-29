@@ -25,10 +25,10 @@
 #include "common.h"
 
 #include <stdio.h>
-#include <string.h>
 
 #include "bu/app.h"
 #include "bu/malloc.h"
+#include "bu/str.h"
 #include "bsg/identity.h"
 #include "bsg/node.h"
 #include "bsg/util.h"
@@ -68,7 +68,7 @@ test_identity_fields(void)
     CHECK(n != NULL, "bsg_node_create");
 
     bsg_node_identity_set_name(n, "shape:foo");
-    CHECK(!strcmp(bsg_node_identity_name(n), "shape:foo"), "name");
+    CHECK(BU_STR_EQUAL(bsg_node_identity_name(n), "shape:foo"), "name");
 
     int path_token = 5;
     bsg_node_identity_set_path(n, &path_token);
