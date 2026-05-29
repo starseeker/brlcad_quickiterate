@@ -30,7 +30,6 @@
  */
 
 #include "./iges_struct.h"
-#include "bsg/node_private.h"
 
 Bubbleup(root)
     struct node *root;

@@ -40,7 +40,6 @@
 #include "bg/polygon.h"
 #include "bsg/plot3.h"
 #include "nmg.h"
-#include "bsg/node_private.h"
 
 
 /* macros for comparing 2D points in scanline order */

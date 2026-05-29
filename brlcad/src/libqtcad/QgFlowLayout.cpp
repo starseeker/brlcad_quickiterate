@@ -45,7 +45,6 @@
 #include <QLayoutItem>
 #include <QStyle>
 #include "qtcad/QgFlowLayout.h"
-#include "bsg/node_private.h"
 
 QgFlowLayout::QgFlowLayout(QWidget *pparent, int mmargin, int hSpacing, int vSpacing)
 	: QLayout(pparent), m_hSpace(hSpacing), m_vSpace(vSpacing)

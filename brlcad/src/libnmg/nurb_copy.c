@@ -32,7 +32,6 @@
 
 #include "vmath.h"
 #include "nmg.h"
-#include "bsg/node_private.h"
 
 struct face_g_snurb *
 nmg_nurb_scopy(const struct face_g_snurb *srf)

@@ -38,7 +38,6 @@
 
 extern "C" {
 #include "bsg/util.h"
-#include "bsg/node_private.h"
 }
 
 // FROM MGED

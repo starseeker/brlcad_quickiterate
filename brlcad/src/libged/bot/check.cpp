@@ -41,7 +41,6 @@
 #include "wdb.h"
 #include "../ged_private.h"
 #include "./ged_bot.h"
-#include "bsg/node_private.h"
 
 static bool
 manifold_check(struct rt_bot_internal *bot)

@@ -39,7 +39,6 @@
 #include "rt/primitives/bot.h"
 
 #include "./ged_lint.h"
-#include "bsg/node_private.h"
 
 struct lint_worker_vars {
     struct rt_i *rtip;

@@ -123,7 +123,6 @@
 #include "raytrace.h"
 
 #include "../../librt_private.h"
-#include "bsg/node_private.h"
 
 
 /*

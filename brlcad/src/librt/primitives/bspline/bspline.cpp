@@ -55,7 +55,6 @@
 #endif /* CONVERT_TO_BREP */
 
 #include "../../librt_private.h"
-#include "bsg/node_private.h"
 
 
 #ifdef __cplusplus

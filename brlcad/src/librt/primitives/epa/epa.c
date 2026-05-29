@@ -159,7 +159,6 @@
 #include "raytrace.h"
 
 #include "../../librt_private.h"
-#include "bsg/node_private.h"
 
 static int epa_is_valid(struct rt_epa_internal *epa);
 

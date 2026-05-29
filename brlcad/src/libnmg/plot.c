@@ -52,7 +52,6 @@
 #include "bsg/plot3.h"
 #include "bsg/vlist.h"
 #include "nmg.h"
-#include "bsg/node_private.h"
 
 #define US_DELAY 10 /* Additional delay between frames */
 

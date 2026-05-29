@@ -36,7 +36,6 @@
 #include "./sedit.h"
 #include "./mged_dm.h"
 #include "./menu.h"
-#include "bsg/node_private.h"
 
 #define USE_OLD_MENUS 0
 

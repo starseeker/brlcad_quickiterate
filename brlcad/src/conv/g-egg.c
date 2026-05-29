@@ -48,7 +48,6 @@
 #include "rt/geom.h"
 #include "raytrace.h"
 #include "gcv.h"
-#include "bsg/node_private.h"
 
 struct egg_conv_data {
     FILE *fp;

@@ -28,7 +28,6 @@
 #include "bu/debug.h"
 #include "./iges_struct.h"
 #include "./iges_extern.h"
-#include "bsg/node_private.h"
 
 
 /* translations to get knot vectors in first quadrant */

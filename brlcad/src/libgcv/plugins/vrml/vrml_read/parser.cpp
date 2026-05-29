@@ -41,7 +41,6 @@
 #include "node.h"
 #include "node_type.h"
 #include "transform_node.h"
-#include "bsg/node_private.h"
 
 char *getNextWord(char *instring, char *nextword);
 char *getNextWord( char *nextword);

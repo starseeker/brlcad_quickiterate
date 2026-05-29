@@ -34,7 +34,6 @@
 
 #include "ged.h"
 #include "ged/view.h"
-#include "bsg/node_private.h"
 
 static void
 cline_ed(struct mged_state *s, int arg, int UNUSED(a), int UNUSED(b))

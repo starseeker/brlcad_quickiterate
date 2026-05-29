@@ -36,7 +36,6 @@
 /* assimp headers */
 #include <assimp/scene.h>
 #include <assimp/Exporter.hpp>
-#include "bsg/node_private.h"
 
 typedef struct assetimport_write_options {
     char* format;

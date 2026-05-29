@@ -46,7 +46,6 @@
 #include "rt/geom.h"
 #include "raytrace.h"
 #include "wdb.h"
-#include "bsg/node_private.h"
 
 
 #define TXT_BUF_LEN 512

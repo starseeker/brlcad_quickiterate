@@ -107,7 +107,6 @@ extern "C" {
 #include "../../libged/alphanum.h"
 #include "rt/db_io.h"
 #include "./gdiff.h"
-#include "bsg/node_private.h"
 }
 
 #define TLSH_DEFAULT_THRESHOLD 30

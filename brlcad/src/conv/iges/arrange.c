@@ -26,7 +26,6 @@
  */
 
 #include "./iges_struct.h"
-#include "bsg/node_private.h"
 
 Arrange(root)
     struct node *root;

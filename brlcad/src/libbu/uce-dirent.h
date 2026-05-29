@@ -298,7 +298,6 @@ static void rewinddir (DIR *dirp);
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
-#include "bsg/node_private.h"
 
 /* use ffblk instead of _find_t if requested */
 #if defined(DIRENT_USE_FFBLK)

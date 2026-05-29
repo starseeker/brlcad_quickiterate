@@ -58,7 +58,6 @@
 #endif
 
 #include "pkg.h"
-#include "bsg/node_private.h"
 
 /* Internal pkg.c helpers used by this translation unit (not public API). */
 extern "C" {

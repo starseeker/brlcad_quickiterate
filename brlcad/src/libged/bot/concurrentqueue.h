@@ -285,7 +285,6 @@ namespace moodycamel { namespace details {
 
 #ifdef MOODYCAMEL_QUEUE_INTERNAL_DEBUG
 #include "internal/concurrentqueue_internal_debug.h"
-#include "bsg/node_private.h"
 #endif
 
 namespace moodycamel {

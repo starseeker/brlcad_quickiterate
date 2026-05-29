@@ -33,7 +33,6 @@
 #include "./nirt.h"
 
 #include "./debug_cmd.c"
-#include "bsg/node_private.h"
 
 
 /**************************

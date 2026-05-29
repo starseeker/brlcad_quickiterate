@@ -174,7 +174,6 @@
 #include "raytrace.h"
 
 #include "../../librt_private.h"
-#include "bsg/node_private.h"
 
 static int
 rhc_is_valid(struct rt_rhc_internal *rhc);

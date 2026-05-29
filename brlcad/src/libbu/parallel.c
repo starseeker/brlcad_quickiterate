@@ -115,7 +115,6 @@
 #include "bu/str.h"
 
 #include "./parallel.h"
-#include "bsg/node_private.h"
 
 /* #define CPP11THREAD */
 

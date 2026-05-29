@@ -34,7 +34,6 @@
 #include "bu/app.h"
 #include "raytrace.h"
 #include "wdb.h"
-#include "bsg/node_private.h"
 
 
 struct sphere  {

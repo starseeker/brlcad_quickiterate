@@ -40,7 +40,6 @@
 #include "raytrace.h"
 
 #include "../../librt_private.h"
-#include "bsg/node_private.h"
 
 static int eto_is_valid(struct rt_eto_internal *eto);
 

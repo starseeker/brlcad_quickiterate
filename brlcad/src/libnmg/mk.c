@@ -66,7 +66,6 @@
 #include "bu/malloc.h"
 #include "nmg.h"
 #include "./nmg_private.h"
-#include "bsg/node_private.h"
 
 /*
  * To find all the uses of this loop, use lu_p for one loopuse, then

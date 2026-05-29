@@ -44,7 +44,6 @@
 #include "raytrace.h"
 
 #include "../../librt_private.h"
-#include "bsg/node_private.h"
 
 #define MAX_RATIO 10.0	/* maximum allowed height-to-width ration for triangles after tessellation */
 #define RAT M_SQRT1_2

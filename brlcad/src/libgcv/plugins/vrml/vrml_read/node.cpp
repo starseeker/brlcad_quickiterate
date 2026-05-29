@@ -42,7 +42,6 @@
 
 #include "bn.h"
 #include "bu.h"
-#include "bsg/node_private.h"
 
 
 static const char *fields[] = {

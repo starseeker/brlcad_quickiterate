@@ -1424,7 +1424,6 @@ bot_cleanup:
 }
 
 #include "../include/plugin.h"
-#include "bsg/node_private.h"
 
 #define GED_BOT_COMMANDS(X, XID) \
     X(bot,              ged_bot_core,                      GED_CMD_DEFAULT) \

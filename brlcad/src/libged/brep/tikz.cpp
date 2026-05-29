@@ -29,7 +29,6 @@
 #include "raytrace.h"
 
 #include "./ged_brep.h"
-#include "bsg/node_private.h"
 
 static void tikz_comb(struct ged *gedp, struct bu_vls *tikz, struct directory *dp, struct bu_vls *color, int *cnt);
 

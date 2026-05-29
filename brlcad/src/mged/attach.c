@@ -50,7 +50,6 @@
 #include "./mged.h"
 #include "./sedit.h"
 #include "./mged_dm.h"
-#include "bsg/node_private.h"
 
 // FIXME: Globals
 /* Geometry display instances used by MGED */

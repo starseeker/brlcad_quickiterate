@@ -40,7 +40,6 @@
 
 extern "C" {
 #include "bsg/util.h"
-#include "bsg/node_private.h"
 }
 
 // Using the full BSG_VIEW_MIN/BSG_VIEW_MAX was causing drawing artifacts with moss I

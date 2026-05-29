@@ -634,7 +634,6 @@ ged_material_core(struct ged *gedp, int argc, const char *argv[])
 }
 
 #include "../include/plugin.h"
-#include "bsg/node_private.h"
 
 #define GED_MATERIAL_COMMANDS(X, XID) \
     X(material, ged_material_core, GED_CMD_DEFAULT) \

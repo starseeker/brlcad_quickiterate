@@ -81,7 +81,6 @@
 #include "./cmd.h"
 #include "./f_cmd.h" // for f_opendb
 #include "brlcad_ident.h"
-#include "bsg/node_private.h"
 
 #ifndef COMMAND_LINE_EDITING
 #  define COMMAND_LINE_EDITING 1

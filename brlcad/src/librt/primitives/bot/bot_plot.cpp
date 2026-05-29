@@ -38,7 +38,6 @@ extern "C" {
 #include "rt/global.h"
 #include "rt/db_internal.h"
 #include "rt/primitives/bot.h"
-#include "bsg/node_private.h"
 }
 
 static vdsNode *

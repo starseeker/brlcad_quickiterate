@@ -35,7 +35,6 @@
 #include "QgEdCategories.h"
 #include "QgEdMainWindow.h"
 #include "QgEdApp.h"
-#include "bsg/node_private.h"
 
 static int
 qged_dm_during_clbk(int ac, const char **av, void *u1, void *u2)

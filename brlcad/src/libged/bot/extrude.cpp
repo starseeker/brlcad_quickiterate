@@ -57,7 +57,6 @@ extern "C" {
 }
 #include "ged.h"
 #include "./ged_bot.h"
-#include "bsg/node_private.h"
 
 // Default to a maximum of 1% surface area change allowed - if we get more
 // change than that, don't simplify

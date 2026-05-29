@@ -34,7 +34,6 @@
 #include "bu/malloc.h"
 #include "raytrace.h"
 #include "rply.h"
-#include "bsg/node_private.h"
 
 struct ply_write_options
 {

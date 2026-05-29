@@ -32,7 +32,6 @@
 #define DM_WITH_RT
 #include "dm.h"
 #include "./include/private.h"
-#include "bsg/node_private.h"
 
 /*
  * Put labels on the vertices of the currently edited solid.

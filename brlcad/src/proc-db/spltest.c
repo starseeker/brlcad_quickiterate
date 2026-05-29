@@ -35,7 +35,6 @@
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "wdb.h"
-#include "bsg/node_private.h"
 
 
 #define SSET(_fp, _srf, _col, _row, _val) { \

@@ -33,7 +33,6 @@
 #include "vmath.h"
 #include "bu/malloc.h"
 #include "nmg.h"
-#include "bsg/node_private.h"
 
 /* TODO - this was defined in rt/debug.h */
 #define NMG_DEBUG_SPLINE  0x00000100

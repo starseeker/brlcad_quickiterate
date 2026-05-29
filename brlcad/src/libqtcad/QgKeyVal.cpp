@@ -24,7 +24,6 @@
 #include <QPainter>
 
 #include "qtcad/QgKeyVal.h"
-#include "bsg/node_private.h"
 
 // *********** Node **************
 

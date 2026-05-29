@@ -38,7 +38,6 @@
 #include "raytrace.h"
 #include "rt/primitives/nmg.h"
 #include "../edit_private.h"
-#include "bsg/node_private.h"
 
 #define ECMD_NMG_EPICK		11019	/* edge pick */
 #define ECMD_NMG_EMOVE		11020	/* edge move */

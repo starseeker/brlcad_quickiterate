@@ -42,7 +42,6 @@
 #include "./mged.h"
 #include "./cmd.h"
 #include "./mged_dm.h"
-#include "bsg/node_private.h"
 
 static void
 init_trail(struct trail *tp)
