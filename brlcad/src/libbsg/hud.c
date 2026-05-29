@@ -296,6 +296,7 @@ _realize_view_scale(struct bsg_view *v, bsg_node *feature, const struct bsg_othe
     point_t pts[6];
     int cmds[6] = {BSG_VLIST_LINE_MOVE, BSG_VLIST_LINE_DRAW, BSG_VLIST_LINE_MOVE, BSG_VLIST_LINE_DRAW, BSG_VLIST_LINE_MOVE, BSG_VLIST_LINE_DRAW};
     struct bu_vls scale = BU_VLS_INIT_ZERO;
+    int soffset = 0;
     VSET(pts[0], -0.5, -0.8, 0.0);
     VSET(pts[1],  0.5, -0.8, 0.0);
     VSET(pts[2], -0.5, -0.79, 0.0);
@@ -306,12 +307,15 @@ _realize_view_scale(struct bsg_view *v, bsg_node *feature, const struct bsg_othe
 
     bsg_node *zero = _make_feature_child(v, feature, BSG_HUD_FEATURE_VIEW_SCALE, "zero", 31);
     bsg_node *label = _make_feature_child(v, feature, BSG_HUD_FEATURE_VIEW_SCALE, "value", 32);
-    if (zero)
-_attach_hud_text_payload(zero, "0", -0.505, -0.78, 1);
+    if (zero) {
+	_attach_hud_text_payload(zero, "0", -0.505, -0.78, state->gos_font_size);
+	_set_feature_style(zero, state->gos_line_color[0], state->gos_line_color[1], state->gos_line_color[2], 1);
+    }
     if (label) {
 bu_vls_printf(&scale, "%g%s", v->gv_size * 0.5 * v->gv_base2local,
 bu_units_string(1 / v->gv_base2local));
-_attach_hud_text_payload(label, bu_vls_cstr(&scale), 0.25, -0.78, 1);
+soffset = (int)(strlen(bu_vls_cstr(&scale)) * 0.5);
+_attach_hud_text_payload(label, bu_vls_cstr(&scale), 0.5 - (soffset * 0.015), -0.78, state->gos_font_size);
 _set_feature_style(label, state->gos_line_color[0], state->gos_line_color[1], state->gos_line_color[2], 1);
     }
     bu_vls_free(&scale);

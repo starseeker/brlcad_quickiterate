@@ -343,6 +343,7 @@ _dm_scene_draw_item(void *dmp_ptr, const struct bsg_render_item *item)
 	&& !s->s_displayobj
 	&& (s->s_type_flags & BSG_NODE_SHAPE)
 	&& v->gv_isize > 0
+	&& s->s_size > SMALL_FASTF
 	&& (s->s_size * v->gv_isize) < 0.001) {
 	return;
     }

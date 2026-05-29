@@ -127,6 +127,7 @@ _label_cmd_create(void *bs, int argc, const char **argv)
 	bu_vls_printf(gedp->ged_result_str, "Failed to create %s\n", gd->vobj);
 	return BRLCAD_ERROR;
     }
+    bsg_view_obj_set_color(s, 255, 255, 0);
     struct bsg_label *l;
     BU_GET(l, struct bsg_label);
     BU_VLS_INIT(&l->label);
