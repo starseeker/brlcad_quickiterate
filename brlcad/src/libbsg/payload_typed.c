@@ -56,6 +56,9 @@ _typed_payload_flags(bsg_payload_type type)
 	case BSG_PL_GRID:
 	case BSG_PL_ANNOTATION:
 	    return BSG_PAYLOAD_VLIST;
+	case BSG_PL_SKETCH:
+	case BSG_PL_LIVE:
+	    return BSG_PAYLOAD_VLIST;  /* live-source nodes carry vlist geometry */
 	case BSG_PL_MESH:
 	    return BSG_PAYLOAD_MESH;
 	case BSG_PL_CSG:
@@ -855,6 +858,203 @@ bsg_payload_grid_get(struct bsg_payload *payload)
     if (!payload || payload->pl_type != BSG_PL_GRID)
 	return NULL;
     return payload->pl.grid;
+}
+
+
+/* -----------------------------------------------------------------------
+ * Generic live-source payload — Phase D6 (drawing_modernization)
+ *
+ * BSG_PL_LIVE wraps a bsg_live_source and implements the same
+ * revision/update/bounds/pick/snap contract as BSG_PL_SKETCH but for
+ * any interactive editor (extrude, revolve, BoT edit, polygon edit, …).
+ * The sketch-specific implementations below remain unchanged.
+ * ----------------------------------------------------------------------- */
+
+static void *
+_live_ctx(struct bsg_live_source *d)
+{
+    if (!d)
+	return NULL;
+    return (d->live_ctx) ? d->live_ctx : d->editor_ctx;
+}
+
+static void
+_live_payload_free(struct bsg_payload *pl)
+{
+    if (!pl)
+	return;
+    struct bsg_live_source *d = pl->pl.live;
+    if (d) {
+	if (d->owns_live_ctx && d->free_cb && d->live_ctx)
+	    d->free_cb(d->live_ctx);
+	BU_PUT(d, struct bsg_live_source);
+    }
+    BU_PUT(pl, struct bsg_payload);
+}
+
+static void
+_live_payload_update(struct bsg_payload *pl, struct bsg_view *v)
+{
+    if (!pl || pl->pl_type != BSG_PL_LIVE || !pl->pl.live)
+	return;
+
+    struct bsg_live_source *d = pl->pl.live;
+    void *ctx = _live_ctx(d);
+    if (!ctx)
+	return;
+
+    uint64_t prev_live_rev = d->last_realized_revision;
+    int updated = 0;
+
+    if (d->update_cb)
+	updated = d->update_cb(ctx, v);
+
+    uint64_t live_rev = prev_live_rev;
+    if (d->revision_cb)
+	live_rev = d->revision_cb(ctx);
+    else if (updated)
+	live_rev = prev_live_rev + 1;
+
+    if (updated && live_rev == prev_live_rev)
+	live_rev++;
+
+    if (live_rev != prev_live_rev) {
+	d->last_realized_revision = live_rev;
+	bsg_payload_bump_revision(pl);
+    }
+}
+
+static int
+_live_payload_bounds(struct bsg_payload *pl, point_t *bmin, point_t *bmax)
+{
+    return bsg_payload_live_bounds(pl, bmin, bmax);
+}
+
+
+struct bsg_payload *
+bsg_payload_live_create(void *editor_ctx, void *aux_ctx)
+{
+    struct bsg_payload *pl = bsg_payload_create(BSG_PL_LIVE);
+    if (!pl)
+	return NULL;
+
+    struct bsg_live_source *d;
+    BU_GET(d, struct bsg_live_source);
+    d->editor_ctx  = editor_ctx;
+    d->aux_ctx     = aux_ctx;
+    d->live_ctx    = editor_ctx;
+    d->owns_live_ctx = 0;
+    d->last_realized_revision = 0;
+    d->revision_cb = NULL;
+    d->update_cb   = NULL;
+    d->bounds_cb   = NULL;
+    d->pick_cb     = NULL;
+    d->snap_cb     = NULL;
+    d->free_cb     = NULL;
+
+    pl->pl.live   = d;
+    pl->pl_free   = _live_payload_free;
+    pl->pl_update = _live_payload_update;
+    pl->pl_bounds = _live_payload_bounds;
+    return pl;
+}
+
+
+struct bsg_live_source *
+bsg_payload_live_get_data(struct bsg_payload *payload)
+{
+    if (!payload || payload->pl_type != BSG_PL_LIVE)
+	return NULL;
+    return payload->pl.live;
+}
+
+
+int
+bsg_payload_live_set_ops(struct bsg_payload *payload,
+	void *live_ctx,
+	int owns_live_ctx,
+	bsg_live_revision_cb_t  revision_cb,
+	bsg_live_update_cb_t    update_cb,
+	bsg_live_bounds_cb_t    bounds_cb,
+	bsg_live_pick_cb_t      pick_cb,
+	bsg_live_snap_cb_t      snap_cb,
+	bsg_live_free_cb_t      free_cb)
+{
+    struct bsg_live_source *d = bsg_payload_live_get_data(payload);
+    if (!d)
+	return 0;
+
+    d->live_ctx      = live_ctx;
+    d->owns_live_ctx = owns_live_ctx;
+    d->revision_cb   = revision_cb;
+    d->update_cb     = update_cb;
+    d->bounds_cb     = bounds_cb;
+    d->pick_cb       = pick_cb;
+    d->snap_cb       = snap_cb;
+    d->free_cb       = free_cb;
+    d->last_realized_revision =
+	(revision_cb) ? revision_cb(_live_ctx(d)) : 0;
+
+    return 1;
+}
+
+
+uint64_t
+bsg_payload_live_revision(struct bsg_payload *payload)
+{
+    struct bsg_live_source *d = bsg_payload_live_get_data(payload);
+    if (!d)
+	return 0;
+
+    if (d->revision_cb)
+	return d->revision_cb(_live_ctx(d));
+
+    return d->last_realized_revision;
+}
+
+
+int
+bsg_payload_live_realize(struct bsg_payload *payload, struct bsg_view *v)
+{
+    if (!payload || payload->pl_type != BSG_PL_LIVE)
+	return -1;
+
+    uint64_t rev_before = payload->pl_revision;
+    _live_payload_update(payload, v);
+
+    return (payload->pl_revision != rev_before) ? 1 : 0;
+}
+
+
+int
+bsg_payload_live_bounds(struct bsg_payload *payload, point_t *bmin, point_t *bmax)
+{
+    struct bsg_live_source *d = bsg_payload_live_get_data(payload);
+    if (!d || !d->bounds_cb)
+	return 0;
+    return d->bounds_cb(_live_ctx(d), bmin, bmax);
+}
+
+
+int
+bsg_payload_live_pick(struct bsg_payload *payload, struct bsg_view *v,
+	int x, int y, void *pick_out)
+{
+    struct bsg_live_source *d = bsg_payload_live_get_data(payload);
+    if (!d || !d->pick_cb)
+	return 0;
+    return d->pick_cb(_live_ctx(d), v, x, y, pick_out);
+}
+
+
+int
+bsg_payload_live_snap(struct bsg_payload *payload, struct bsg_view *v,
+	const point_t sample_pt, point_t out_pt)
+{
+    struct bsg_live_source *d = bsg_payload_live_get_data(payload);
+    if (!d || !d->snap_cb)
+	return 0;
+    return d->snap_cb(_live_ctx(d), v, sample_pt, out_pt);
 }
 
 

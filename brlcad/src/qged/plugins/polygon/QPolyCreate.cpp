@@ -657,7 +657,12 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
 
     bool ret = cf->eventFilter(NULL, e);
 
-    // Retrieve the scene object from the libqtcad data container
+    // Retrieve the scene object from the libqtcad data container.
+    // Phase D6: cf->wp carries a BSG_PL_POLYGON payload whose revision is
+    // advanced by bsg_update_polygon() each time geometry changes (see
+    // polygon.c:bsg_update_polygon).  Any downstream bsg_live_source attached
+    // to the working node can compare last_realized_revision to detect edits
+    // without polling s_changed directly.
     p = cf->wp;
 
     if (cf->ptype == BV_POLYGON_GENERAL) {

@@ -455,8 +455,17 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
     m_view = new QgView(this, QgView_SW);
     m_view->set_view(m_bv);
 
-    /* Phase D6: create a BSG shape node for the sketch wireframe under the
-     * view's standalone draw root so it renders through the normal scene graph. */
+    /* Phase D6 (drawing_modernization): create a BSG shape node for the
+     * sketch wireframe under the view's standalone draw root.  The node
+     * carries a BSG_PL_SKETCH typed payload (bsg_sketch_live_data) that
+     * stores the rt_edit pointer and grid state so the scene graph can
+     * track the live-source revision and participate in selection/snap/pick.
+     *
+     * Note: qsketch still calls update_sketch_vlist() explicitly after each
+     * edit command to push the current vlist geometry into the node.  In a
+     * future step the live-source update_cb could be wired to do this
+     * automatically during bsg_payload_sketch_realize() — the contract is
+     * already in place; the callback simply has not been connected yet. */
     bsg_scene_root_create(m_bv);
     m_sketch_node = bsg_shape_create(m_bv);
     if (m_sketch_node) {
@@ -639,8 +648,10 @@ QSketchEditWindow::~QSketchEditWindow()
     if (m_es)
 	rt_edit_destroy(m_es);
     if (m_bv) {
-	/* Phase D6: destroy standalone draw root (and children including the
-	 * sketch shape node) before releasing the view. */
+	/* Live-payload teardown: destroy the standalone draw root (and all
+	 * children including the sketch shape node and its BSG_PL_SKETCH
+	 * payload) before releasing the view.  The node's own s_free_callback
+	 * chain handles payload teardown via bsg_payload_free(). */
 	if (m_bv->gv_draw_root) {
 	    bsg_obj_put((bsg_node *)m_bv->gv_draw_root);
 	    m_bv->gv_draw_root = NULL;
@@ -705,7 +716,10 @@ QSketchEditWindow::refresh_tables()
 void
 QSketchEditWindow::refresh_view()
 {
-    /* Persist edit state, refresh the sketch live payload geometry, then redraw. */
+    /* Live-payload contract: persist edit state, push current sketch
+     * geometry into the BSG_PL_SKETCH node via update_sketch_vlist(), then
+     * request a view refresh.  The node's pl_revision is bumped by
+     * bsg_shape_set_vlist() so backends can detect stale cached state. */
     sketch_write_to_db(m_es, m_dbip, m_dp);
     update_sketch_vlist();
     m_view->need_update(QG_VIEW_REFRESH);
@@ -714,6 +728,14 @@ QSketchEditWindow::refresh_view()
 void
 QSketchEditWindow::update_sketch_vlist()
 {
+    /* Live-payload update: regenerate the sketch wireframe vlist from the
+     * current rt_edit state and push it into the BSG_PL_SKETCH shape node.
+     *
+     * This is the "produce geometry" step of the live-source contract.
+     * In principle the bsg_sketch_live_data::update_cb could do this work
+     * automatically when bsg_payload_sketch_realize() is called during the
+     * render pass.  For qsketch we call it explicitly from refresh_view()
+     * so the geometry is always current when the user-visible slot fires. */
     if (!m_es || !m_sketch_node) return;
 
     struct bu_list vlist;
