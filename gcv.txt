@@ -1,0 +1,615 @@
+Key findings
+
+
+libged/facetize contains the robust logic:
+
+CLI option handling in brlcad/src/libged/facetize/facetize.cpp
+
+state/options in ged_facetize.h
+
+Manifold boolean evaluation and fallback orchestration in tri.cpp
+
+NMG path in nmg.cpp
+
+region replacement logic in regions.cpp
+
+fault-tolerant subprocess primitive tessellation in facetize/subprocess/main.cpp
+
+
+
+libgcv currently has only a simpler gcv_facetize() in brlcad/src/libgcv/facetize.c, using NMG boolean evaluation and nmg_bot.
+
+libgcv writers such as STL, OBJ, PLY, VRML, and assetimport still mostly walk trees with rt_booltree_leaf_tess and gcv_region_end, so they do not benefit from facetize’s Manifold, method fallback, perturb, fixup, timeout, or subprocess recovery behavior.
+
+gcv CLI currently has only input/output/both option buckets (-I, -O, -B) and does not model conversion as a scoped pipeline.
+
+
+Proposed rework
+
+1. Move facetize’s functional core into libgcv
+
+Create a new public API family, for example:
+
+
+
+include/gcv/facetize.h
+
+src/libgcv/facetize/
+
+
+Move the non-GED-specific implementation from libged/facetize into libgcv:
+
+
+
+primitive tessellation method handling
+
+method option parsing/description
+
+working-copy setup
+
+subprocess supervision and timeout recovery
+
+primitive fallback sequence: NMG → CM → SPSR
+
+plate BoT handling
+
+BRep CSG fallback
+
+Manifold boolean evaluation
+
+optional NMG boolean evaluation
+
+perturb variant planning
+
+BoT fixup
+
+region-by-region output mode
+
+empty-output handling
+
+logging/progress summaries
+
+
+Exclude the legacy old_facetize path.
+
+
+2. Define a real libgcv facetization API
+
+Introduce a durable options struct, not a GED command state struct:
+
+
+
+output mode:
+
+single BoT
+
+per-region BoTs
+
+NMG output where needed
+
+in-place database replacement
+
+write-to-target database
+
+
+
+primitive conversion methods:
+
+ordered method list
+
+per-method option map
+
+default/fallback policy
+
+
+
+boolean evaluation:
+
+Manifold default
+
+optional NMG boolean evaluation
+
+future boolean engines via registry
+
+
+
+fault tolerance:
+
+subprocess enabled/disabled
+
+max time
+
+per-method max time
+
+resume/cache directory/log file
+
+
+
+quality controls:
+
+no-empty
+
+disable-fixup
+
+perturb/no-perturb
+
+perturb volume/surface-area thresholds
+
+max sampled points
+
+
+
+callbacks:
+
+logging
+
+progress
+
+cancellation
+
+method-result reporting
+
+
+
+
+Expose APIs along these lines:
+
+
+
+gcv_facetize_opts_default
+
+gcv_facetize_methods
+
+gcv_facetize_method_options
+
+gcv_facetize_objects
+
+gcv_facetize_regions
+
+gcv_facetize_to_bot
+
+gcv_facetize_to_db
+
+gcv_facetize_describe_options
+
+
+3. Add extensible method registries
+
+Avoid hard-coding NMG/CM/SPSR permanently.
+
+
+Define registries for:
+
+
+
+primitive conversion methods
+
+boolean evaluators
+
+post-process/fixup steps
+
+
+Each method should publish:
+
+
+
+stable name
+
+description
+
+option descriptors
+
+supported primitive/data classes
+
+cost/quality/fallback ranking
+
+whether subprocess isolation is recommended
+
+whether it can consume point samples
+
+whether it can repair/convert existing BoTs
+
+whether it is deterministic/resumable
+
+
+This prepares libgcv for future primitive conversion and boolean evaluation methods.
+
+
+4. Keep subprocess isolation, but move ownership to libgcv
+
+The current ged_exec facetize_process pattern is important for robustness.
+
+
+Refactor it into a libgcv-owned worker, e.g.:
+
+
+
+gcv_facetize_process
+
+or a libgcv subprocess plugin executable
+
+
+The parent libgcv API should own:
+
+
+
+command construction
+
+timeout enforcement
+
+backup/restore of working .g
+
+stdout/stderr forwarding
+
+failure bisection
+
+per-method fallback retry
+
+
+libged should no longer know about this machinery.
+
+
+5. Make libged facetize a thin wrapper
+
+After the libgcv API exists, keep the current GED command behavior by mapping existing options into gcv_facetize_opts.
+
+
+libged/facetize/facetize.cpp should retain:
+
+
+
+user-facing command name
+
+current option names and semantics
+
+GED help output
+
+result-string reporting
+
+database read-only checks
+
+object-name validation
+
+compatibility with current workflows
+
+
+But it should call libgcv for actual work.
+
+
+6. Update libgcv plugins to use the shared facetizer
+
+Replace direct NMG tree-walk tessellation in mesh writers with a common libgcv mesh-production stage.
+
+
+Affected writers include:
+
+
+
+STL
+
+OBJ
+
+PLY
+
+VRML
+
+assetimport
+
+fastgen4 where applicable
+
+
+Instead of each plugin doing its own db_walk_tree + rt_booltree_leaf_tess + gcv_region_end, they should request meshable geometry from libgcv:
+
+
+
+default: auto facetize CSG to BoT/triangles
+
+advanced: honor caller-selected facetize options
+
+fallback: try next method/plugin if facetization or writing fails
+
+
+This gives all mesh outputs the same robust tessellation path as GED facetize.
+
+
+7. Model gcv as a scoped pipeline
+
+Extend gcv_context to represent:
+
+
+read → [process stages] → write
+
+
+Default behavior:
+
+
+
+gcv in.ext out.ext still works
+
+if writing a mesh format from CSG, automatically insert facetize
+
+
+Add stage scopes:
+
+
+
+in
+
+out
+
+facetize
+
+future scopes such as decimate, repair, validate
+
+
+Command-line examples conceptually become:
+
+
+
+gcv model.g model.stl
+
+gcv --facetize.methods=NMG,CM,SPSR model.g model.obj
+
+gcv --facetize.max-time=60 model.g model.stl
+
+gcv --out.binary model.g model.stl
+
+gcv --in.format=stl --out.format=g input output
+
+
+8. Improve plugin/stage self-description
+
+Extend struct gcv_filter or introduce struct gcv_stage metadata so every stage can report:
+
+
+
+plugin name
+
+stage type
+
+formats supported
+
+readable/writable capabilities
+
+option descriptors
+
+option scope
+
+aliases
+
+fallback priority
+
+support score for a given file/data type
+
+
+This enables:
+
+
+
+gcv --list-formats
+
+gcv --list-plugins
+
+gcv --describe facetize
+
+gcv --describe out:stl
+
+gcv --find-option max-time
+
+
+9. Migration order
+
+
+Add libgcv facetize public option structs and metadata APIs.
+
+Move method-option parsing and method descriptions from libged into libgcv.
+
+Move subprocess primitive tessellation into libgcv.
+
+Move Manifold boolean evaluation into libgcv.
+
+Move region/single-object orchestration into libgcv.
+
+Convert GED facetize to a compatibility wrapper.
+
+Add a libgcv pipeline/process-stage API.
+
+Teach mesh writers to consume the new facetize stage.
+
+Update gcv CLI to use scoped pipeline options.
+
+Add regression tests comparing GED facetize output behavior before/after.
+
+
+10. Validation strategy
+
+
+Preserve existing GED facetize regression tests.
+
+Add libgcv unit tests for default options, method discovery, option metadata, and fallback ordering.
+
+Add conversion tests for .g → stl/obj/ply that exercise CSG inputs.
+
+Add failure-mode tests for subprocess timeout and fallback.
+
+Add CLI tests confirming:
+
+simple gcv input output still works
+
+scoped options route to the correct stage
+
+plugin/format/option discovery reports facetize metadata.
+
+
+Implement the plan:
+
+
+
+
+Establish the new libgcv facetize API surface
+
+
+
+Add public include/gcv/facetize.h.
+
+Define durable gcv_facetize_opts, output modes, method lists, boolean-engine selection, fault-tolerance settings, quality controls, and callback hooks.
+
+Keep the existing gcv_facetize() entry point as a compatibility helper.
+
+
+
+
+Move method metadata and option parsing into libgcv
+
+
+
+Extract primitive tessellation method descriptions from libged/facetize.
+
+Add APIs for listing methods, describing method options, and resolving ordered fallback chains.
+
+Ensure NMG, CM, and SPSR are registered methods rather than hard-coded branches.
+
+
+
+
+Introduce registries
+
+
+
+Add registries for primitive conversion methods, boolean evaluators, and post-process/fixup steps.
+
+Each registry item should expose name, description, options, supported inputs, fallback ranking, subprocess preference, determinism, and repair capabilities.
+
+
+
+
+Move subprocess facetization ownership into libgcv
+
+
+
+Refactor the current facetize_process machinery into a libgcv-owned worker executable or plugin.
+
+Have libgcv own timeout handling, working database backup/restore, stdout/stderr forwarding, failure bisection, and fallback retries.
+
+
+
+
+Port Manifold/NMG boolean orchestration into libgcv
+
+
+
+Move the non-GED-specific logic from libged/facetize/tri.cpp, nmg.cpp, regions.cpp, and subprocess support.
+
+Preserve Manifold as the default boolean path.
+
+Keep NMG boolean evaluation as an optional fallback/evaluator.
+
+Exclude legacy old_facetize.
+
+
+
+
+Add high-level libgcv facetization entry points
+
+
+
+Implement APIs for object-level, region-level, single-BoT, per-region-BoT, target-database, and in-place replacement workflows.
+
+Support empty-output policy, perturb planning, BoT fixup, BRep fallback, plate BoT handling, and logging/progress callbacks.
+
+
+
+
+Convert GED facetize into a compatibility wrapper
+
+
+
+Keep existing GED option names, help text, validation, read-only checks, result-string behavior, and object-name semantics.
+
+Map GED command state into gcv_facetize_opts.
+
+Delegate actual facetization work to libgcv.
+
+
+
+
+Add a libgcv pipeline/stage model
+
+
+
+Extend gcv_context from a simple conversion context into a scoped read → process stages → write pipeline.
+
+Add stage scopes such as in, out, and facetize.
+
+Preserve current gcv input output behavior.
+
+
+
+
+Update mesh writers to consume the shared facetize stage
+
+
+
+Refactor STL, OBJ, PLY, VRML, assetimport, and applicable fastgen4 paths away from direct tree-walk tessellation.
+
+Route CSG-to-mesh production through libgcv facetization.
+
+Let writers receive meshable BoT/triangle data from the common stage.
+
+
+
+
+Improve plugin and stage self-description
+
+
+
+
+
+Extend gcv_filter or add gcv_stage metadata.
+
+Expose plugin names, stage type, formats, option descriptors, aliases, fallback priority, and support scoring.
+
+Enable discovery commands such as list formats, list plugins, describe facetize, describe output writer, and find option.
+
+
+
+Migrate in controlled slices
+
+
+
+Start with public structs and metadata APIs.
+
+Move method descriptions/options.
+
+Move subprocess primitive tessellation.
+
+Move Manifold boolean evaluation.
+
+Move orchestration.
+
+Wrap GED.
+
+Add pipeline API.
+
+Convert writers.
+
+Update CLI scoped options.
+
+Add regression coverage.
+
+
+
+Validate behavior
+
+
+
+Preserve existing GED facetize regression tests.
+
+Add libgcv tests for defaults, method discovery, option metadata, fallback ordering, and failure handling.
+
+Add .g → stl/obj/ply conversion tests using CSG inputs.
+
+Add subprocess timeout/fallback tests.
+
+Add CLI tests for default conversion, scoped options, and metadata discovery.
+
