@@ -1617,7 +1617,7 @@ _bv_view_obj_create(struct bsg_view *v, const char *name, int local, unsigned lo
     s->parent = scope;
     bu_ptbl_ins(&scope->children, (long *)s);
 
-    s->s_type_flags |= BSG_SHAPE_VIEWONLY;
+    s->s_type_flags |= (BSG_NODE_SHAPE | BSG_SHAPE_VIEWONLY);
     s->s_v = v;
     if (name && strlen(name)) {
 	bu_vls_sprintf(&s->s_name, "%s", name);
@@ -1985,6 +1985,7 @@ bsg_obj_get_child(struct bsg_node *sp)
     s->dp = sp->dp;
     s->free_scene_obj = sp->free_scene_obj;
     s->vlfree = sp->vlfree;
+    s->s_type_flags |= BSG_NODE_SHAPE;
 
     bu_ptbl_ins(&sp->children, (long *)s);
 
