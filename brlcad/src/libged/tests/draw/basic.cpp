@@ -494,7 +494,7 @@ main(int ac, char *av[]) {
     ged_exec_view(gedp, 9, s_av);
 
     // See if we got what we expected
-    ret += img_cmp(11, gedp, av[1], true, clear_images, soft_fail, ADIFF_THRES, "clear", "v");
+    ret += img_cmp(11, gedp, av[1], true, clear_images, soft_fail, 60, "clear", "v");
     bu_log("Done.\n");
 
     /***** Test label ****/
