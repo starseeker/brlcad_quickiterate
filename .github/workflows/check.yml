@@ -30,6 +30,8 @@ jobs:
           sudo apt-get install -y xserver-xorg-dev libx11-dev libxi-dev libxext-dev libglu1-mesa-dev libfontconfig-dev
           # Tools required by BRL-CAD build/test
           sudo apt-get install -y astyle re2c xsltproc libxml2-utils
+          # System libraries needed by the minimalist BRL-CAD configure
+          sudo apt-get install -y libjpeg-dev tcl-dev tk-dev
           # OpenGL and virtual framebuffer for headless display in CI
           sudo apt-get install -y libgl-dev xvfb
           # XCB / input dev packages required by the Qt6 platform plugin on Linux
@@ -59,7 +61,7 @@ jobs:
             -DBRLCAD_EXTRADOCS=OFF \
             -DBRLCAD_ENABLE_STEP=OFF \
             -DBRLCAD_ENABLE_GDAL=OFF \
-            -DBRLCAD_ENABLE_QT=ON
+            -DBRLCAD_ENABLE_QT=OFF
 
       - name: Build BRL-CAD
         run: |

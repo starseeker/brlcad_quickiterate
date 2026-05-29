@@ -1432,10 +1432,10 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     /* Mirror into bsg_selection so D3 consumers see the selection. */
     {
 	struct bsg_view *gvp = view_state->vs_gvp;
-	if (gvp && gvp->gv_selected) {
-	    bsg_selection_clear(gvp->gv_selected);
+	if (gvp && gvp->gv_s && gvp->gv_s->gv_selected) {
+	    bsg_selection_clear(gvp->gv_s->gv_selected);
 	    if (illump)
-		bsg_selection_add(gvp->gv_selected, illump);
+		bsg_selection_add(gvp->gv_s->gv_selected, illump);
 	}
     }
 

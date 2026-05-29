@@ -36,6 +36,7 @@
 #include "bn.h"
 #include "bg/clip.h"
 
+#include "bsg/node_private.h"
 #include "bsg/draw_source.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
@@ -489,7 +490,6 @@ ged_png_core(struct ged *gedp, int argc, const char *argv[])
 
 
 #include "../include/plugin.h"
-#include "bsg/node_private.h"
 
 #define GED_PNG_COMMANDS(X, XID) \
     X(png, ged_png_core, GED_CMD_DEFAULT) \

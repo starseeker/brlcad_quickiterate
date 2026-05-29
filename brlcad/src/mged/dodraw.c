@@ -29,6 +29,7 @@
 #include "raytrace.h"
 #include "rt/db4.h"
 #include "bsg/appearance.h"
+#include "bsg/node.h"
 #include "ged/view.h"
 
 #include "./mged.h"

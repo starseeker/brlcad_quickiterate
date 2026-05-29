@@ -56,7 +56,7 @@ bsg_draw_intent_create(const char *path, bsg_draw_mode mode)
     if (path)
 	bu_vls_sprintf(&di->di_path, "%s", path);
     di->di_mode    = mode;
-    di->di_lod     = BSG_LOD_AUTO;
+    di->di_lod     = BSG_DRAW_LOD_AUTO;
     di->di_mixed   = 0;
     di->di_overlay = 0;
     return di;
@@ -72,7 +72,7 @@ bsg_draw_intent_create_overlay(const char *name)
     if (name)
 	bu_vls_sprintf(&di->di_path, "%s", name);
     di->di_mode    = BSG_DRAW_MODE_WIRE;
-    di->di_lod     = BSG_LOD_OFF;
+    di->di_lod     = BSG_DRAW_LOD_OFF;
     di->di_mixed   = 0;
     di->di_overlay = 1;
     return di;
@@ -155,11 +155,11 @@ bsg_draw_intent_set_mode(struct bsg_draw_intent *di, bsg_draw_mode mode)
 }
 
 
-bsg_lod_policy
+bsg_draw_lod_policy
 bsg_draw_intent_lod(const struct bsg_draw_intent *di)
 {
     if (!di)
-	return BSG_LOD_AUTO;
+	return BSG_DRAW_LOD_AUTO;
     return di->di_lod;
 }
 

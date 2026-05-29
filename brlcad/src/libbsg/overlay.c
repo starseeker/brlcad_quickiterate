@@ -24,6 +24,8 @@
 
 #include "common.h"
 
+#include <string.h>
+
 #include "bu/malloc.h"
 #include "bu/ptbl.h"
 #include "bu/str.h"
@@ -32,7 +34,9 @@
 #include "bsg/defines.h"
 #include "bsg/draw_ctx.h"
 #include "bsg/draw_intent.h"
+#include "bsg/draw_set.h"
 #include "bsg/overlay.h"
+#include "bsg/payload.h"
 #include "bsg/util.h"
 #include "bsg/vlist.h"
 #include "bsg_private.h"

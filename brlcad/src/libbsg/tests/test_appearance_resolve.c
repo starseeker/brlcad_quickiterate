@@ -268,8 +268,8 @@ test_line_style_dmode(void)
     os->transparency = 1.0;
     os->s_dmode      = 3;   /* arbitrary non-zero display mode */
     os->s_line_width = 2;
-    os->s_soldash    = 1;
     s->s_os = os;
+    s->s_soldash = 1;
 
     struct bsg_resolved_appearance ra;
     memset(&ra, 0, sizeof(ra));
@@ -281,6 +281,7 @@ test_line_style_dmode(void)
 
     bu_free(os, "os");
     s->s_os = NULL;
+    s->s_soldash = 0;
     bsg_node_destroy(s);
     _free_view(v);
     PASS("line style and dmode");

@@ -20,6 +20,8 @@
 
 #include "common.h"
 
+#include <string.h>
+
 #include "bu/str.h"
 #include "bu/time.h"
 #include "bu/units.h"
@@ -218,8 +220,8 @@ _dm_hud_draw_item(void *dmp_ptr, const struct bsg_render_item *item)
 	    struct bsg_payload_line_set *ls = bsg_payload_line_set_get(pl);
 	    if (!ls || ls->point_cnt < 2)
 		break;
-	    int save_lw = dmp->i->dm_lineWidth;
-	    int save_ls = dmp->i->dm_lineStyle;
+	    int save_lw = dm_get_linewidth(dmp);
+	    int save_ls = dm_get_linestyle(dmp);
 	    dm_set_line_attr(dmp, item->appearance.line_width, item->node->s_soldash);
 	    dm_set_fg(dmp, item->appearance.color[0], item->appearance.color[1], item->appearance.color[2], 1, 1.0);
 	    point_t prev = VINIT_ZERO;

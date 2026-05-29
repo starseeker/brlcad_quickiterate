@@ -32,6 +32,7 @@
 
 #include "bn.h"
 #include "bsg/plot3.h"
+#include "bsg/node_private.h"
 #include "bg/clip.h"
 
 #include "bsg/draw_source.h"
@@ -311,7 +312,6 @@ ged_plot_core(struct ged *gedp, int argc, const char *argv[])
 
 
 #include "../include/plugin.h"
-#include "bsg/node_private.h"
 
 #define GED_PLOT_COMMANDS(X, XID) \
     X(plot, ged_plot_core, GED_CMD_DEFAULT) \

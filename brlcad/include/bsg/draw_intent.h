@@ -89,11 +89,11 @@ typedef enum {
  * Level-of-detail policy for the drawn group.
  */
 typedef enum {
-    BSG_LOD_AUTO  = 0,  /**< automatic (let the renderer decide) */
-    BSG_LOD_FORCE = 1,  /**< force LoD mesh even at close range */
-    BSG_LOD_FULL  = 2,  /**< force full-detail tessellation */
-    BSG_LOD_OFF   = 3   /**< LoD disabled (always draw full detail) */
-} bsg_lod_policy;
+    BSG_DRAW_LOD_AUTO  = 0,  /**< automatic (let the renderer decide) */
+    BSG_DRAW_LOD_FORCE = 1,  /**< force LoD mesh even at close range */
+    BSG_DRAW_LOD_FULL  = 2,  /**< force full-detail tessellation */
+    BSG_DRAW_LOD_OFF   = 3   /**< LoD disabled (always draw full detail) */
+} bsg_draw_lod_policy;
 
 /* -----------------------------------------------------------------------
  * bsg_draw_intent
@@ -124,7 +124,7 @@ typedef enum {
 struct bsg_draw_intent {
     struct bu_vls  di_path;    /**< @brief drawn source path string */
     bsg_draw_mode  di_mode;    /**< @brief draw mode */
-    bsg_lod_policy di_lod;     /**< @brief LoD policy */
+    bsg_draw_lod_policy di_lod;     /**< @brief LoD policy */
     int            di_mixed;   /**< @brief mixed-mode flag */
     int            di_overlay; /**< @brief 1 = synthetic overlay container */
 };
@@ -223,9 +223,9 @@ bsg_draw_intent_set_mode(struct bsg_draw_intent *di, bsg_draw_mode mode);
 /**
  * Return the LoD policy recorded in @p di.
  *
- * Returns BSG_LOD_AUTO (0) if @p di is NULL.
+ * Returns BSG_DRAW_LOD_AUTO (0) if @p di is NULL.
  */
-BSG_EXPORT extern bsg_lod_policy
+BSG_EXPORT extern bsg_draw_lod_policy
 bsg_draw_intent_lod(const struct bsg_draw_intent *di);
 
 /**

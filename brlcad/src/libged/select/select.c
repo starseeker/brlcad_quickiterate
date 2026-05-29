@@ -29,6 +29,7 @@
 
 
 #include "bu/getopt.h"
+#include "bsg/node_private.h"
 #include "bsg/draw_source.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
@@ -623,7 +624,6 @@ ged_rselect_core(struct ged *gedp, int argc, const char *argv[])
 
 
 #include "../include/plugin.h"
-#include "bsg/node_private.h"
 
 #define GED_SELECT_COMMANDS(X, XID) \
     X(select, ged_select_core, GED_CMD_DEFAULT) \

@@ -54,6 +54,7 @@
 #include "bu/process.h"
 #include "vmath.h"
 
+#include "bsg/node_private.h"
 #include "ged/bsg_ged_draw.h"
 #include "../qray.h"
 #include "../ged_private.h"
@@ -735,7 +736,6 @@ ged_vnirt_core(struct ged *gedp, int argc, const char *argv[])
 }
 
 #include "../include/plugin.h"
-#include "bsg/node_private.h"
 
 #define GED_NIRT_COMMANDS(X, XID) \
     X(nirt, ged_nirt_core, GED_CMD_DEFAULT) \

@@ -203,7 +203,9 @@ _bsg_polygon_pl_pick(struct bsg_payload *pl, const point_t sample,
     HMOVE(zpln, p->vp);
     zpln[3] += p->vZ;
     fastf_t fx, fy;
-    bg_plane_closest_pt(&fx, &fy, &zpln, sample);
+    point_t sample_pt;
+    VMOVE(sample_pt, sample);
+    bg_plane_closest_pt(&fx, &fy, &zpln, &sample_pt);
     point_t m_pt;
     bg_plane_pt_at(&m_pt, &zpln, fx, fy);
 
