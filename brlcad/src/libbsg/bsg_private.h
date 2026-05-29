@@ -41,9 +41,11 @@ struct bsg_view_set_internal {
     struct bu_list vlfree;
 };
 
+#include "bsg/overlay.h"
+
 /* Internal scene-node implementation data (reserved for future use) */
 struct bsg_node_internal {
-    int placeholder;
+    struct bsg_overlay_info *overlay;
 };
 
 /*

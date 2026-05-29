@@ -104,6 +104,8 @@ brlcad_add_test(NAME libbsg_measure COMMAND test_bsg_measure)
 #
 brlcad_addexec(test_bsg_hud test_hud.c "libbsg;libbu" TEST)
 brlcad_add_test(NAME libbsg_hud COMMAND test_bsg_hud)
+brlcad_addexec(test_bsg_overlay test_overlay.c "libbsg;libbu" TEST)
+brlcad_add_test(NAME libbsg_overlay COMMAND test_bsg_overlay)
 
 # Phase D5: render items and backend adapter
 #
@@ -136,6 +138,7 @@ cmakefiles(
   test_phase6.c
   test_pick.c
   test_hud.c
+  test_overlay.c
   test_render.c
   test_render_item.c
   test_scene_graph.c

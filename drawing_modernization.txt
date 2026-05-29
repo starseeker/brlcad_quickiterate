@@ -77,11 +77,12 @@ Foundations already in place (verify before extending):
   nearest pick actions, `bsg_pick_record`, `bsg_pick_result`, table conversion,
   selection application.  qged selection and measurement consume typed records
   and the legacy `bu_ptbl` shim only as a compatibility bridge.
-- D4 HUD core (`include/bsg/hud.h`, `src/libbsg/hud.c`): per-view HUD root,
-  9 HUD feature slots (center dot, model/view axes, view scale, ADC, grid,
-  rect, view params, framebuffer), 3 overlay roles (MODEL/SCREEN/XRAY), and
-  `bsg_hud_sync`.  `dm_draw_faceplate` synchronizes the HUD tree each frame
-  but still rasterizes faceplate features directly.
+- D4 HUD/overlay core (`include/bsg/hud.h`, `include/bsg/overlay.h`,
+  `src/libbsg/hud.c`, `src/libbsg/overlay.c`): per-view HUD root, typed HUD
+  payload realization for all 9 feature slots, overlay ownership/lifecycle/
+  ordering metadata, owner replace/clear/query helpers, and draw-intent-driven
+  auto-remove-on-source-change.  `dm_draw_faceplate` is now only a thin HUD
+  render-request wrapper; typed HUD render items drive the actual HUD pass.
 - D5 render-item and backend adapter core (`include/bsg/render_item.h`,
   `include/bsg/backend_adapter.h`, `src/libbsg/render.c`,
   `src/libbsg/render_item.c`): phase-ordered render items
@@ -538,13 +539,32 @@ Tasks:
      c. MGED ADC, grid, axes, params → migrate to HUD nodes built by the
         new builders rather than direct libdm calls.
 6. Retire `dm_draw_faceplate`.  Once step 1 and step 4 are in place, delete
-   the function and its callers from `libdm/view.c`.
+   the legacy direct-rasterizer body and any now-dead helper code from
+   `libdm/view.c`.
+
+Current status:
+- Core complete in-tree: HUD feature nodes now realize typed payloads
+  (`LINE_SET`, `HUD_TEXT`, `AXES`, `GRID`, `FRAMEBUFFER`) and execute through
+  `bsg_render_request_execute`.
+- Overlay ownership/lifecycle/order metadata lives in `bsg/overlay.h` with
+  `bsg_overlay_register_owner`, `bsg_overlay_replace`,
+  `bsg_overlay_clear_owned`, `bsg_overlay_query_by_role`, and
+  `bsg_overlay_auto_remove`.
+- qged measurement and the primary libtclcad adornment/polygon helpers now tag
+  overlays with typed overlay metadata instead of relying solely on names.
+- libbsg D4 test coverage now includes typed HUD payload checks plus a new
+  overlay lifecycle test.
+- Remaining cleanup for the next session:
+  * remove dead legacy HUD helper code from `src/libdm/view.c` now that the
+    HUD pass is render-item-driven;
+  * broaden consumer migration beyond the helper entry points touched here
+    (notably remaining libtclcad/qged overlay producers);
+  * run the deferred build/test validation once the environment is ready.
 
 Exit criteria:
-- `dm_draw_faceplate` does not exist; HUD output flows through render items.
-- `bsg_overlay_query_by_role(role)` enumerates a tool's overlays for replace/
-  clear without name matching.
-- HUD structural tests cover all 9 features and all expanded overlay roles.
+- HUD output flows through render items with typed HUD payloads.
+- `bsg_overlay_query_by_role(role)` enumerates overlays without name matching.
+- HUD structural tests cover all 9 features and overlay lifecycle APIs.
 
 Phase D5 — Render pipeline, resolved appearance, and backend adapter
 --------------------------------------------------------------------

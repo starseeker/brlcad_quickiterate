@@ -32,6 +32,7 @@
 #include "bu/vls.h"
 #include "bsg/defines.h"
 #include "bsg/node.h"
+#include "bsg/payload_typed.h"
 #include "bsg/payload.h"
 #include "bsg/util.h"
 #include "bsg/hud.h"
@@ -345,6 +346,46 @@ test_sync_null(void)
     return 0;
 }
 
+static int
+test_typed_payload_realization(void)
+{
+    TEST("bsg_hud_sync realizes typed payloads");
+    struct bsg_view *v = _make_view();
+    v->gv_ls.gv_center_dot.gos_draw = 1;
+    v->gv_ls.gv_model_axes.draw = 1;
+    v->gv_ls.gv_grid.draw = 1;
+    v->gv_ls.gv_view_params.draw = 1;
+    v->gv_ls.gv_view_params.font_size = 1;
+    v->gv_ls.gv_fb_mode = 1;
+
+    if (bsg_hud_sync(v) != 0)
+	FAIL("bsg_hud_sync returned error");
+
+    bsg_node *root = bsg_hud_root_get(v);
+    bsg_node *center = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_CENTER_DOT);
+    bsg_node *axes = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_MODEL_AXES);
+    bsg_node *grid = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_GRID);
+    bsg_node *params = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_VIEW_PARAMS);
+    bsg_node *fb = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_FRAMEBUFFER);
+
+    if (!center || !axes || !grid || !params || !fb)
+	FAIL("missing HUD feature nodes");
+    if (!bsg_node_get_payload(center) || bsg_node_get_payload(center)->pl_type != BSG_PL_LINE_SET)
+	FAIL("center dot should realize as line set");
+    if (!bsg_node_get_payload(axes) || bsg_node_get_payload(axes)->pl_type != BSG_PL_AXES)
+	FAIL("model axes should realize as axes payload");
+    if (!bsg_node_get_payload(grid) || bsg_node_get_payload(grid)->pl_type != BSG_PL_GRID)
+	FAIL("grid should realize as grid payload");
+    if (!bsg_node_get_payload(params) || bsg_node_get_payload(params)->pl_type != BSG_PL_HUD_TEXT)
+	FAIL("view params should realize as HUD text");
+    if (!bsg_node_get_payload(fb) || bsg_node_get_payload(fb)->pl_type != BSG_PL_FRAMEBUFFER)
+	FAIL("framebuffer should realize as framebuffer payload");
+
+    _free_view(v);
+    PASS("bsg_hud_sync realizes typed payloads");
+    return 0;
+}
+
 
 /* -----------------------------------------------------------------------
  * Main
@@ -366,6 +407,7 @@ main(int UNUSED(argc), char **UNUSED(argv))
     fail += test_create_idempotent();
     fail += test_enum_values();
     fail += test_sync_null();
+    fail += test_typed_payload_realization();
 
     if (fail)
 	printf("\n%d TEST(S) FAILED\n", fail);

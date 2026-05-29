@@ -39,6 +39,7 @@
 #include "bsg/lod.h"
 #include "bsg/measure.h"
 #include "bsg/obol_node.h"
+#include "bsg/overlay.h"
 #include "bsg/payload_typed.h"
 #include "bsg/pick.h"
 #include "bsg/polygon.h"

@@ -66,6 +66,13 @@ _sync_tcl_polygons_to_bsg(struct bsg_view *v, bsg_data_polygon_state *gdpsp, con
     struct bsg_node *s = bsg_view_obj_lines_create(v, bsg_name, 1 /* local */);
     if (!s)
 	return;
+    bsg_overlay_register_owner(s, NULL,
+			       BSG_OVERLAY_ROLE_MODEL,
+			       BSG_OVERLAY_CLASS_POLYGON_EDIT,
+			       BSG_OVERLAY_LC_PER_TOOL,
+			       BSG_OVERLAY_ORDER_POST_TRANSPARENT,
+			       NULL,
+			       0);
 
     bsg_node_clear_vlist_payload(s);
     for (size_t i = 0; i < gdpsp->gdps_polygons.num_polygons; i++) {

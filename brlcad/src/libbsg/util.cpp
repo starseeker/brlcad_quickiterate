@@ -39,6 +39,7 @@
 #include "bsg/defines.h"
 #include "bsg/draw_intent.h"
 #include "bsg/material.h"
+#include "bsg/overlay.h"
 #include "bsg/payload_typed.h"
 #include "bsg/selection.h"
 #include "bsg/snap.h"
@@ -1466,7 +1467,7 @@ bsg_obj_create(struct bsg_view *v, int type)
     // We know where we're going to get the object from - get it
     if (BU_LIST_IS_EMPTY(&free_scene_obj->l)) {
 	BU_ALLOC(s, struct bsg_node);
-	s->i = new bsg_node_internal;
+	s->i = new bsg_node_internal();
     } else {
 	s = BU_LIST_NEXT(bsg_node, &free_scene_obj->l);
 	BU_LIST_DEQUEUE(&((s)->l));
@@ -1963,12 +1964,12 @@ bsg_obj_get_child(struct bsg_node *sp)
     // Children use their parent's info
     if (BU_LIST_IS_EMPTY(&sp->free_scene_obj->l)) {
 	BU_ALLOC((s), struct bsg_node);
-	s->i = new bsg_node_internal;
+	s->i = new bsg_node_internal();
     } else {
 	s = BU_LIST_NEXT(bsg_node, &sp->free_scene_obj->l);
 	if (!s) {
 	    BU_ALLOC((s), struct bsg_node);
-	    s->i = new bsg_node_internal;
+	    s->i = new bsg_node_internal();
 	} else {
 	    BU_LIST_DEQUEUE(&((s)->l));
 	}
@@ -2019,6 +2020,8 @@ bsg_obj_reset(struct bsg_node *s)
 	bsg_draw_intent_free(s->di);
 	s->di = NULL;
     }
+
+    bsg_overlay_info_clear(s);
 
     // Phase 11: release any backend-owned per-shape state via the generic
     // contract.

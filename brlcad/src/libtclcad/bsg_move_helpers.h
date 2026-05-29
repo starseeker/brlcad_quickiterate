@@ -146,6 +146,13 @@ _bsg_rebuild_arrows(struct bsg_view *v,
 
     struct bsg_node *ns = bsg_view_obj_arrow_create(v, bsg_name, 1 /* local */);
     if (!ns) return;
+    bsg_overlay_register_owner(ns, NULL,
+	    BSG_OVERLAY_ROLE_MODEL,
+	    BSG_OVERLAY_CLASS_TCL_ADORNMENT,
+	    BSG_OVERLAY_LC_PER_COMMAND,
+	    BSG_OVERLAY_ORDER_POST_TRANSPARENT,
+	    NULL,
+	    0);
 
     for (int i = 0; i + 1 < npts; i += 2) {
 	bsg_node_append_vlist_payload(ns, pts[i],   BSG_VLIST_LINE_MOVE);
@@ -178,6 +185,13 @@ _bsg_rebuild_lines(struct bsg_view *v,
 
     struct bsg_node *ns = bsg_view_obj_lines_create(v, bsg_name, 1 /* local */);
     if (!ns) return;
+    bsg_overlay_register_owner(ns, NULL,
+	    BSG_OVERLAY_ROLE_MODEL,
+	    BSG_OVERLAY_CLASS_TCL_ADORNMENT,
+	    BSG_OVERLAY_LC_PER_COMMAND,
+	    BSG_OVERLAY_ORDER_POST_TRANSPARENT,
+	    NULL,
+	    0);
 
     bsg_node_clear_vlist_payload(ns);
     for (int i = 0; i + 1 < npts; i += 2) {
@@ -208,6 +222,13 @@ _bsg_rebuild_axes(struct bsg_view *v,
 
     struct bsg_node *ns = bsg_view_obj_lines_create(v, bsg_name, 1 /* local */);
     if (!ns) return;
+    bsg_overlay_register_owner(ns, NULL,
+	    BSG_OVERLAY_ROLE_MODEL,
+	    BSG_OVERLAY_CLASS_TCL_ADORNMENT,
+	    BSG_OVERLAY_LC_PER_COMMAND,
+	    BSG_OVERLAY_ORDER_POST_TRANSPARENT,
+	    NULL,
+	    0);
 
     bsg_node_clear_vlist_payload(ns);
     for (int i = 0; i < ncenters; i++) {

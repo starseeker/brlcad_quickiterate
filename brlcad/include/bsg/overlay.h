@@ -37,11 +37,31 @@
 #define BSG_OVERLAY_H
 
 #include "common.h"
+#include "bu/ptbl.h"
+#include "bu/vls.h"
 #include "bsg/defines.h"
+#include "bsg/hud.h"
 
 __BEGIN_DECLS
 
 struct bsg_view;          /* forward-declare to avoid circular includes */
+
+typedef enum {
+    BSG_OVERLAY_ORDER_MODEL = 0,
+    BSG_OVERLAY_ORDER_SCREEN,
+    BSG_OVERLAY_ORDER_XRAY,
+    BSG_OVERLAY_ORDER_POST_TRANSPARENT
+} bsg_overlay_order;
+
+struct bsg_overlay_info {
+    const void *owner;
+    bsg_overlay_role role;
+    bsg_overlay_class overlay_class;
+    bsg_overlay_lifecycle lifecycle;
+    bsg_overlay_order ordering;
+    int sort_order;
+    struct bu_vls source_path;
+};
 
 
 /**
@@ -80,6 +100,34 @@ bsg_ensure_overlay_group(bsg_node *draw_root, struct bsg_view *v);
  */
 BSG_EXPORT extern void
 bsg_erase_overlay_by_name(bsg_node *draw_root, const char *name);
+
+BSG_EXPORT extern int
+bsg_overlay_register_owner(bsg_node *overlay_node,
+			   const void *owner,
+			   bsg_overlay_role role,
+			   bsg_overlay_class overlay_class,
+			   bsg_overlay_lifecycle lifecycle,
+			   bsg_overlay_order ordering,
+			   const char *source_path,
+			   int sort_order);
+
+BSG_EXPORT extern bsg_node *
+bsg_overlay_replace(struct bsg_view *v, const void *owner, bsg_node *overlay_node);
+
+BSG_EXPORT extern size_t
+bsg_overlay_clear_owned(struct bsg_view *v, const void *owner);
+
+BSG_EXPORT extern size_t
+bsg_overlay_query_by_role(bsg_node *root, bsg_overlay_role role, struct bu_ptbl *out);
+
+BSG_EXPORT extern size_t
+bsg_overlay_auto_remove(bsg_node *root, const char *source_path);
+
+BSG_EXPORT extern const struct bsg_overlay_info *
+bsg_overlay_info_get(const bsg_node *overlay_node);
+
+BSG_EXPORT extern void
+bsg_overlay_info_clear(bsg_node *overlay_node);
 
 
 __END_DECLS

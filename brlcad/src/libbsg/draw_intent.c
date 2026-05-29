@@ -39,6 +39,7 @@
 #include "bsg/node.h"
 #include "bsg/util.h"
 #include "bsg/draw_intent.h"
+#include "bsg/overlay.h"
 
 
 /* -----------------------------------------------------------------------
@@ -333,11 +334,13 @@ bsg_draw_intent_revalidate(bsg_node *root, const struct bsg_db_event *event)
 		count++;
 	    }
 	}
+	count += (int)bsg_overlay_auto_remove(root, old_norm);
 	bu_ptbl_free(&groups);
 	return count;
     }
 
     const char *norm_path = _strip_lead_slash(event->dbe_path);
+    count += (int)bsg_overlay_auto_remove(root, norm_path);
     struct bu_ptbl to_remove = BU_PTBL_INIT_ZERO;
     for (size_t i = 0; i < BU_PTBL_LEN(&groups); i++) {
 	bsg_node *g = (bsg_node *)BU_PTBL_GET(&groups, i);

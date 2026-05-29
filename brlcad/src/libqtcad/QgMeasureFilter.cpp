@@ -126,6 +126,15 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 				bsg_obj_put(s);
 			/* Phase A2: use typed view-object API instead of legacy bsg_obj_get. */
 			s = bsg_view_obj_lines_create(v, oname.c_str(), 0);
+			if (s) {
+				bsg_overlay_register_owner(s, this,
+					BSG_OVERLAY_ROLE_SCREEN,
+					BSG_OVERLAY_CLASS_MEASURE,
+					BSG_OVERLAY_LC_PER_TOOL,
+					BSG_OVERLAY_ORDER_POST_TRANSPARENT,
+					NULL,
+					0);
+			}
 
 			mode = 1;
 			VMOVE(p1, mpnt);
@@ -186,7 +195,7 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 		if (m_e->button() == Qt::RightButton) {
 			mode = 0;
 			if (s) {
-				bsg_obj_put(s);
+				bsg_overlay_clear_owned(v, this);
 				emit view_updated(QG_VIEW_REFRESH);
 			}
 			s = nullptr;
