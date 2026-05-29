@@ -303,6 +303,8 @@ BSG_EXPORT int bsg_view_plane(plane_t *p, struct bsg_view *v);
 #define BSG_ENABLE_ENV_LOGGING 1
 BSG_EXPORT void bsg_log(int level, const char *fmt, ...)  _BU_ATTR_PRINTF23;
 
+/* Include here (after BSG_* macro blocks above) so legacy_compat can map the
+ * util.h-specific BV_* aliases to their BSG_* definitions. */
 #include "bsg/legacy_compat.h"
 
 /* Debugging */
