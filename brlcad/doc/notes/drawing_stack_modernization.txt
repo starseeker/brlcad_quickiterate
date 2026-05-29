@@ -1,587 +1,354 @@
-Drawing Stack Modernization — Concise Status and Next-Session Plan
-=================================================================
+BRL-CAD Drawing Stack Modernization Guide
+==========================================
 
 Purpose
 -------
-This note is the short handoff for future drawing-stack work.  It records
-what is already settled, why that work matters, and what still needs to be
-done to finish the migration to one clean rendering model.
-
-Use `draw_migration_plan.rtf` only when deeper historical design rationale is
-needed.  This file should stay focused on current status and the remaining
-implementation plan.
-
-
-Build and validation reminders
-------------------------------
-Drawing-stack work is Qt-sensitive.  Configure with Qt enabled unless a task
-explicitly asks for non-Qt validation:
-
-  cmake -S brlcad -B brlcad_build \
-    -DBRLCAD_EXT_DIR=bext_output \
-    -DCMAKE_PREFIX_PATH=bext_output/install \
-    -DBRLCAD_EXTRADOCS=OFF \
-    -DBRLCAD_ENABLE_STEP=OFF \
-    -DBRLCAD_ENABLE_GDAL=OFF \
-    -DBRLCAD_ENABLE_OPENGL=ON \
-    -DBRLCAD_ENABLE_QT=ON
-
-Keep these targets healthy when touching this area:
-- `libqtcad`
-- `dm-qtgl`
-- `dm-swrast`
-- `qged`
-- `archer`
-
-Most relevant regression tests:
-- `libbsg_lod_node`
-- `ged_test_bsg_view_obj`
-- `ged_test_drawing_basic`
-- `ged_test_drawing_faceplate`
-- `ged_test_drawing_lod`
-- `ged_test_lod_crossrun`
-- `ged_test_bsg_parity`
-- `ged_test_bsg_quad_parity`
-- `ged_test_qged_swrast`
-- `ged_test_mged_bsg`
-- `ged_test_rtwizard_bsg`
-- `ged_test_mged_shaded_mode_bsg`
-- `ged_test_view_independent`
-- `ged_test_view_command`
-
-
-Executive summary
------------------
-The major architectural merge is done:
-- DB-backed drawing now uses the BSG tree as the canonical scene model.
-- LoD is a first-class BSG concept, not a per-view duplicate-subtree hack.
-- View-only objects also now live on the BSG side, and the `view obj`
-  command surface has been consolidated around the unified grammar.
-- Public typed view-object APIs exist for creation, lookup, iteration, and
-  simple mutations.
-
-Why that matters:
-- qged, libged, and libdm now mostly agree on one scene representation.
-- Most rendering invariants now live in one traversal path instead of split
-  across BSG and ad hoc ptbl walks.
-- New work should build on typed view-object APIs and BSG view-scope nodes,
-  not on legacy `BV_VIEW_OBJS` storage assumptions.
-
-What still blocks a fully finished stack:
-- Tcl/Archer/mged refresh still has a legacy render path outside
-  `dm_draw_objs`.
-- Some producers/readers still rely on compatibility paths instead of the
-  typed API.
-- Final deprecation removal and backend-default policy are intentionally
-  deferred until the migration work is complete.
-
-
-Completed baseline (do not reopen without a new design reason)
---------------------------------------------------------------
-1. Canonical drawn scene ownership is unified on the BSG tree.
-   - `ged_drawable::gd_draw_root` is authoritative.
-   - `bview::gv_draw_root` / `bview::bsg_root` are handles to that tree.
-   - qged `dbi_state` is front-end state, not a parallel scene store.
-
-2. LoD redesign is complete.
-   - `BSG_NODE_LOD` is the adaptive representation.
-   - Per-view LoD state is cursor-based, not duplicate-subtree based.
-   - `dm_draw_objs` owns the single LoD update site.
-
-3. View-only object unification Phases V1-V8 are complete.
-   - `BSG_NODE_VIEW_SCOPE` exists and drives shared vs per-view visibility.
-   - libdm renders from the BSG tree only.
-   - `view independent` is structural via a private view scope.
-   - `view obj` uses the unified `create/remove/list/info/set` grammar.
-   - Public APIs exist: `bv_view_obj_create`, typed wrappers,
-     `bv_view_obj_find`, `bv_view_obj_visit`, and typed setters.
-
-4. Typed setter groundwork is complete.
-   - `bv_view_obj_set_color`
-   - `bv_view_obj_set_line_width`
-   - `bv_view_obj_set_visible`
-
-5. Early typed-API adoption work is already in place.
-   - libbv readers in `hash.c` and `snap.c` use typed iteration.
-   - libged readers in `view.c`, `draw2.cpp`, `rtcheck2.cpp`, and
-     `polygons.c` use typed iteration / lookup where the change was
-     mechanical.
-
-6. Per-view-variant / highlight model (Phase H) is complete.
-   - Design decision: LOCAL VIEW_SCOPE overlays (no new node type).
-   - `bsg_view_obj_illum_by_name` public API added.
-   - `QEll` migrated onto `bv_view_obj_overlay_create` and the new
-     illumination API.
-
-
-Still-open work, in priority order
-==================================
-
-Priority 1 — retire the Tcl/legacy render path (Phase T)
---------------------------------------------------------
-This is the highest-value remaining work.  Until it lands, the project still
-has two drawing systems: the BSG pipeline and the Tcl-only legacy path.
-
-Phase T0 is done:
-- The remaining legacy callers and adornment producers were audited.
-- Deprecation notes were added to `dm_draw_viewobjs` and `bv_data_tclcad`.
-
-### T1 — migrate Tcl faceplate adornments onto BSG view-scope objects
-Status: DONE (partial — lines, arrows, labels, axes migrated; polygons deferred).
-
-What was done:
-- `src/libtclcad/view/arrows.c`: Added `_sync_tcl_arrows_to_bsg()`; every
-  setter (draw/color/line_width/points/tip_length/tip_width) now calls the
-  helper to create or replace a `_tcl_data_arrows` / `_tcl_sdata_arrows`
-  BSG VIEW_SCOPE object via `bv_view_obj_arrow_create`.
-- `src/libtclcad/view/labels.c`: Added `_sync_tcl_labels_to_bsg()`; every
-  setter (draw/color/labels/size) now creates a container BSG object with
-  per-label `BV_LABELS` children via `bv_obj_get_child`.
-- `src/libged/view/data_lines.c`: Added `_sync_dlines_to_bsg()` and a
-  `bsg_name` field to `view_dlines_state`; every setter now maintains a
-  `_tcl_data_lines` / `_tcl_sdata_lines` BSG VIEW_SCOPE vlist object.
-- `src/libbv/util.cpp` (`bv_obj_reset`): Fixed a latent null-dereference that
-  would crash when a `BV_LABELS` scene object was reused from the free list;
-  added an `&& s->s_i_data` guard.
-- `src/libtclcad/view/axes.c`: Added `_sync_tcl_axes_to_bsg()`; every setter
-  (draw/color/line_width/size/points) now calls the helper to create or
-  replace a `_tcl_data_axes` / `_tcl_sdata_axes` BSG VIEW_SCOPE vlist object.
-  The legacy `dm_draw_data_axes` scales axis half-size by
-  `sf = gv_size / dm_width`; the BSG sync bakes in the current sf at setter
-  call time so the geometry is accurate when set and stays fixed until the
-  next setter call (acceptable for legacy Tcl use, where data_axes are
-  configured once rather than continuously resized on zoom).
-
-Deferred (not migrated — require view-size-dependent geometry or BSG polygon
-support that does not exist yet):
-- `src/libtclcad/view/polygons.c` (data_polygons): DONE (2026-05-08).
-  `_sync_tcl_polygons_to_bsg()` added; all 16 `to_refresh_view` call sites
-  and `to_poly_cont_build_end` now call the helper.  All five T1 adornment
-  kinds (arrows, lines, labels, axes, polygons) are now migrated.
-
-### T2 — switch refresh to `dm_draw_objs`
-Status: DONE (2026-05-08) — T2-final complete.
-
-What was done (T2-final):
-- `src/libtclcad/view/refresh.c` (`go_refresh_draw`): Replaced both
-  `dm_draw_viewobjs(wdbp, gdvp, &tgd->go_dmv)` call sites with
-  `dm_draw_objs(gdvp, NULL, NULL)`.  Removed now-unused `wdbp` / `tgd`
-  locals and the `DM_WITH_RT` define (no longer needed by the caller).
-
-### T3 — delete the legacy renderer
-Status: DONE (2026-05-08) — T3-final complete.
-
-What was done (T3-final):
-- `include/dm/view.h`: Removed `dm_draw_viewobjs` declaration and the
-  `TODO - needed for dm_draw_labels` comment; the `#ifdef DM_WITH_RT` block
-  now only conditionally includes `rt/wdb.h` (still needed by labels.c).
-- `src/libdm/view.c`: Removed `dm_draw_viewobjs` implementation (and the
-  `_dm_draw_view_objs_ctx` / `_dm_draw_view_obj_cb` helpers that only it
-  used).  Removed `dm_draw_arrows`, `dm_draw_polys`, `dm_draw_lines`
-  deprecated stubs.  Removed top-level `#define DM_WITH_RT` (no longer
-  needed after viewobjs removal).
-- `src/libtclcad/CMakeLists.txt`: Removed the stale comment about why
-  refresh.c needed UNITY_BUILD_SKIP for `DM_WITH_RT`.
-- `dm_draw_labels` retained (has external consumers per comment).
-
-Still to do:
-- Remove `bv_data_tclcad` and the `gv_tcl.*` state from `bview` (medium
-  complexity — requires auditing all libtclcad callers).
-- Remove the standalone `dm_obj` path in `src/libtclcad/dm.c`.
-
-### T4 — add parity coverage for the refresh path
-Status: DONE (2026-05-08).
-
-What was done:
-- `src/libged/tests/draw/tcl_adornment_bsg.cpp`: Added headless structural
-  test (`ged_test_tcl_adornment_bsg`) that exercises the BSG view-scope
-  object lifecycle used by T1 sync helpers: create/find/vlist/setters/visit/
-  remove/idempotency/multi-slot.  Registered in CMakeLists.txt alongside
-  the existing bsg_view_obj test.
-
-
-Priority 2 — finish typed-API adoption (Phase A)
-------------------------------------------------
-The architecture is in place, but not every producer/reader uses it directly
-yet.  The remaining work should eliminate compatibility-path dependence.
-
-### A0 — finish libbv internal producer migration
-Status: DONE.
-
-Already done:
-- Reader migrations in `src/libbv/hash.c`
-- Reader migrations in `src/libbv/snap.c`
-- `src/libbv/vlist.c::bv_vlblock_obj` migrated to `bv_view_obj_find` +
-  `bv_view_obj_overlay_create` (removes `bv_find_obj` + `bv_obj_get` path).
-- `src/libbv/polygon.c::bv_dup_view_polygon` spurious `bu_vls_init` removed
-  (object is already initialized by `bv_obj_reset`).
-- `bv_create_polygon_obj`: `BV_VIEW_OBJS` path already uses
-  `bv_view_obj_overlay_create` — no legacy ptbl insertion dependency.
-- Added `bv_view_select_polygon(v, cp)` typed wrapper (declared in
-  `include/bv/polygon.h`) that uses `bv_view_obj_visit` internally.
-
-### A1 — finish libged producer migration
-Status: DONE.
-
-Already done:
-- typed reader/lookup conversions in `view.c`, `draw2.cpp`, `rtcheck2.cpp`,
-  and `view/polygons.c`
-- `src/libged/view/polygons.c` polygon create: `bu_vls_init`+`bu_vls_printf`
-  replaced with `bu_vls_sprintf` (name was already initialized by `bv_obj_reset`).
-- `src/librt/primitives/sketch/polygons.c::db_sketch_to_scene_obj`: same fix.
-  All polygon creation paths now use the typed BSG-scope API uniformly.
-
-### A2 — migrate libqtcad and qged plugin producers
-Status: DONE.
-
-Completed:
-- `src/libqtcad/QgMeasureFilter.cpp`: replaced `bv_obj_get(v, BV_VIEW_OBJS)` +
-  post-creation `bu_vls_init/printf` with `bv_view_obj_lines_create(v, name, 0)`.
-- `src/libqtcad/QgPolyFilter.cpp::QPolySelectFilter::eventFilter`: replaced
-  `bv_view_objs` + `bv_select_polygon(ptbl, ...)` with typed
-  `bv_view_select_polygon(v, cp)`.
-- `src/qged/plugins/polygon/QPolyCreate.cpp`: all `bv_view_objs(BV_VIEW_OBJS)`
-  ptbl loops replaced with `bv_view_obj_visit` callbacks (toggle_line_snapping,
-  toplevel_config, eventFilter bool_objs collection).
-- `src/qged/plugins/polygon/QPolyMod.cpp`: all `bv_view_objs(BV_VIEW_OBJS)`
-  ptbl loops replaced with `bv_view_obj_visit` callbacks (mod_names_reset,
-  toplevel_config, select, toggle_closed_poly, apply_bool_op,
-  toggle_line_snapping).
-
-Note: `src/qged/plugins/edit/ell/QEll.cpp` migration remains blocked by
-Phase H (per-view-variant/highlight model) as noted below.
-
-
-Priority 3 — define the per-view-variant / highlight model (Phase H)
---------------------------------------------------------------------
-Status: DONE.
-
-Design decision — overlay scope, no new node type:
-- Edit overlays are LOCAL (per-view) BSG view-scope objects created via
-  `bv_view_obj_overlay_create(v, name, 1/*local*/)`.  A fixed name
-  (`"_ell_edit"` for the ellipsoid tool) is used at creation time so the
-  BSG scope owns the object's lifetime without extra bookkeeping.
-  No new BSG node concept is needed: the existing LOCAL VIEW_SCOPE
-  already provides per-view containment, automatic cleanup, and
-  proper integration with `bv_obj_put`.
-- This is the "overlay scope" option from the design question; the
-  dedicated-node-concept option was rejected because it would require a
-  new BSG payload type and offer no additional capability over what the
-  existing LOCAL VIEW_SCOPE already provides.
-
-Highlight API (`bsg_view_obj_illum_by_name`):
-- Added to `include/ged/bsg_ged_draw.h` and `src/libged/bsg_ged_draw.c`.
-- Walks drawn display-list groups via `bsg_view_obj_foreach_group`.
-- Basename-matches the last slash-separated component of each group path
-  against `name`; illuminates the first solid in the first matching group
-  via `bsg_view_obj_set_illum`.
-- Returns the illuminated solid, or NULL (and clears any highlight) when
-  no matching drawn solid is found.
-- Builds on the pre-existing `bsg_view_obj_set_illum` /
-  `bsg_view_obj_get_illum` infrastructure; does not touch `gd_illum_sensor`
-  directly.
-
-`QEll` migration:
-- `src/qged/plugins/edit/ell/QEll.cpp`:
-  - Added `#include "ged/bsg_ged_draw.h"`.
-  - Both `bv_obj_get(v, BV_VIEW_OBJS)` calls replaced with
-    `bv_view_obj_overlay_create(v, "_ell_edit", 1/*local*/)`.  The BSG
-    scope sets the object name at creation; the old manual
-    `bu_vls_sprintf(&p->s_name, ...)` line was removed.
-  - `update_viewobj_name`: when the typed name resolves to a known DB
-    object, calls `bsg_view_obj_illum_by_name(gedp, name)` to highlight
-    the drawn representation.  When the name becomes invalid, calls
-    `bsg_view_obj_set_illum(gedp, NULL)` to clear the highlight.
-  - Destructor: `bv_obj_put(p)` retained unchanged — it correctly removes
-    BSG-native overlay objects from their parent scope (Phase V4 path in
-    `bv_obj_put`).
-
-
-Priority 4 — final cleanup after the migrations are stable (Phase D)
---------------------------------------------------------------------
-Status: DONE (2026-05-08).
-
-Completed cleanup items:
-- Removed `BV_MESH_LOD` and `BV_CSG_LOD` deprecated flag bits (no in-tree
-  producers remained; binary-compat grace period ended).
-- Removed the `BV_VIEW_OBJS` auto-routing fallback from `bv_obj_get` (all
-  callers were already migrated to bv_view_obj_*_create APIs).
-- Removed the `BV_VIEW_OBJS` branch from `bv_view_objs` (bv_view_objs now only
-  serves BV_DB_OBJS queries; BV_VIEW_OBJS returns NULL with a comment).
-- Removed `view_obj_cache` from `bview_objs` and `shared_view_obj_cache` from
-  `bview_set_internal`; removed corresponding init/free calls in bv_init,
-  bv_free, view_set.cpp, and mged/attach.c.
-- Migrated `bv_autoview` from `bv_view_objs(BV_VIEW_OBJS)` to
-  `bv_view_obj_visit` (two-pass: find-geom first, then bound).
-- Migrated `bv_clear` object-count return value to use `bv_view_obj_visit`.
-- Migrated `dm_draw_viewobjs` view-only rendering to use `bv_view_obj_visit`
-  (replacing the two bv_view_objs(BV_VIEW_OBJS) ptbl loops).
-- Updated `bv_view_objs` header comment to reflect BV_VIEW_OBJS removal.
-
-Deferred item:
-- `bview::independent` boolean: DONE (2026-05-08). Field removed from bview.
-  Direct accesses in libbv, libqtcad, mged, and tests migrated to
-  bv_view_is_independent() / bv_view_independent_scope().
-
-
-Priority 5 — backend default decision (Phase B)
------------------------------------------------
-Status: DONE (2026-05-08).
-
-Policy decision (based on architectural analysis; see rationale below):
-- **qged default backend**: dm-qtgl (hardware OpenGL via QgGL widget).
-  Fall back to dm-swrast when the user passes -s / --swrast or when
-  BRL-CAD is built without OpenGL support.
-- **mged / legacy applications**: dm-bestXType selects from {wgl, ogl, X}
-  (the priority_list in src/libdm/dm_plugins.cpp).  dm-qtgl is intentionally
-  absent because it requires a Qt widget context that only qged provides;
-  for headless/scripted mged use, pass --dm-type swrast.
-
-What was done:
-
-### B1 — benchmark test
-- Added `src/libqtcad/tests/ged_test_dm_backend_bench.cpp`:
-  - Registers as CTest target `ged_test_dm_backend_bench`.
-  - Part 1 (always runs): times dm_draw_objs via QgSW / dm-swrast on Qt's
-    offscreen platform over N iterations; reports avg ms/frame and fps.
-  - Part 2 (hardware optional): attempts QgGL / dm-qtgl init; if an OpenGL
-    context is available, times dm_draw_objs the same way; otherwise prints
-    a diagnostic note and skips.  On CI/headless machines Part 2 is skipped
-    automatically; on developer hardware with a GPU both sections run and
-    produce a direct performance comparison.
-  - Exit status is always 0 — the test is purely informational.
-
-### B2 — codify qged default backend
-- `src/qged/QgEdApp.cpp` (QgEdApp constructor): replaced the implicit
-  QgView_AUTO (0) pass-through with an explicit canvas_type selection:
-    #ifdef BRLCAD_OPENGL
-        canvas_type = swrast_mode ? QgView_SW : QgView_GL;
-    #else
-        canvas_type = QgView_SW;
-    #endif
-  The comment above the selection block documents the policy in the source.
-
-### B3 — codify mged / libdm default path
-- `src/libdm/dm_plugins.cpp` (priority_list): Added a block comment above
-  the priority_list explaining why dm-qtgl and dm-swrast are absent and
-  documenting the recommended --dm-type swrast flag for headless mged use.
-
-Rationale:
-  dm-qtgl is the qged default because it delegates rendering to the system
-  GPU via hardware OpenGL.  For interactive 3-D work this is substantially
-  faster than dm-swrast (Mesa OSMesa, CPU-only), which is available for
-  environments without functional OpenGL hardware.  The benchmark test
-  provides the infrastructure to confirm this on any given machine.
-  mged cannot use dm-qtgl (no Qt widget context is available), so its
-  priority list continues to prefer the platform-native OpenGL backend
-  (ogl/wgl) before falling back to X or null.
-
-
-Suggested next-session order
-----------------------------
-All five items from the previous session plan are DONE (2026-05-08).
-
-The three remaining items from the problem statement are now DONE (2026-05-08):
-
-- Remove `bv_data_tclcad` / `gv_tcl.*` state from `bview` (DONE).
-  `bview::gv_tcl` is now a pointer (NULL for non-Tcl views).
-  Ownership moved to `tclcad_view_data::tcl_data`.
-  Public API: `bv_data_tclcad_init()` in `bv/util.h`.
-  libbv (hash, diff, snap) guards `if (v->gv_tcl)` before accessing.
-  libtclcad (commands, mouse, polygons, view/*) uses `->` throughout.
-  libged (view/view.c, view/data_lines.c, bot/dump/obj.c) also guarded.
-
-- Remove `dm_obj` standalone path in `src/libtclcad/dm.c` (DONE).
-  The entire `struct dm_obj` system (≈2730 lines) has been deleted.
-  `Dmo_Init` declaration removed from `tclcad_private.h`.
-  `Dm_Init` no longer calls `Dmo_Init`.
-  `Dm.tcl::createDm` now raises an error pointing to the Qt path.
-  `helplib.tcl` dm_open entry removed.
-
-- Port `dm_draw_labels` to BSG label-scope API (DONE).
-  New public function `bv_view_obj_labels_sync(v, gdlsp, bsg_name)` in
-  `libbv/util.cpp`, declared in `bv/util.h`.
-  `libtclcad/view/labels.c` calls `bv_view_obj_labels_sync()` instead of
-  the now-deleted private `_sync_tcl_labels_to_bsg()`.
-  `dm_draw_labels` comment updated to reference the new public API.
-
-
-Phase T-final — make BSG the source of truth and eliminate gv_tcl
------------------------------------------------------------------
-Status: PARTIAL (2026-05-08). What this session settled, what is still
-pending, and the order in which a follow-up should attack it.
-
-Audit summary
-^^^^^^^^^^^^^
-Coming into this session, BSG already owned every renderable adornment
-(arrows, axes, labels, lines, polygons) via the per-state sync helpers
-(`_sync_tcl_arrows_to_bsg`, `_sync_tcl_axes_to_bsg`,
-`bv_view_obj_labels_sync`, `_sync_dlines_to_bsg`, plus the polygon
-flow).  The remaining gv_tcl footprint fell into three groups:
-
-  1. Dead direct-render libdm entry points that pre-dated the BSG
-     contract (`dm_draw_data_axes` slot, `dm_draw_labels` deprecated
-     stub, `gl_draw_data_axes` per-backend impls and the matching
-     calltable slot, `dm_obj.c` standalone path, `init_dm_obj` Tcl
-     proc).  These exist for legacy ABI reasons only and have zero
-     in-tree callers.
-
-  2. libbv readers that hashed / diffed the gv_tcl per-state shapes
-     directly (`hash.c`, `diff.c`, `snap.c`).  These ran in parallel
-     with the BSG view-scope walks the same files already perform and
-     produced double-counted change signals.
-
-  3. libged consumers that still poked `gv_tcl` directly even outside
-     the libtclcad command surface — `bot/dump/obj.c::obj_write_data`
-     (OBJ adornment bake-out) and `view/view.c::_view_cmd_data_vZ`
-     (Tcl editing-mode scratch storage).  Both predate the BSG cutover
-     and partially shadow Tcl-side commands that already do the right
-     thing.
-
-Done in this session
-^^^^^^^^^^^^^^^^^^^^
-
-A. libdm cleanup (the user explicitly waived libdm ABI compat).
-   - Removed the `dm_draw_data_axes` slot from `dm_impl_t::dm_backend_ops`
-     in `src/libdm/include/calltable.h` and the matching initializer
-     entries in every backend (glx/dm-ogl.c, wgl/dm-wgl.c, X/dm-X.c,
-     txt/dm-txt.c, null/dm-Null.c, postscript/dm-ps.c, plot/dm-plot.c,
-     swrast/dm-swrast.cpp, qtgl/dm-qtgl.cpp).
-   - Removed the `dm_draw_data_axes` public wrapper from
-     `include/dm.h` and `src/libdm/axes.c`.
-   - Removed `gl_draw_data_axes` from `src/libdm/dm-gl.c` /
-     `src/libdm/dm-gl.h` (the GL family's per-backend implementation
-     that the now-deleted slot used to dispatch into).
-   - Removed the `dm_draw_labels` public stub in `src/libdm/view.c`
-     (the deprecated direct-render label path the BSG label-sync API
-     replaced).
-   - Removed the `dm_obj.c FB_USE_INTERNAL_API` line in
-     `src/libdm/CMakeLists.txt` (the standalone dm_obj source file is
-     gone after Phase T3).
-   - Replaced the `init_dm_obj` Tcl proc in
-     `src/tclscripts/libtclcad.tcl` with an explanatory empty stub
-     (no callers; preserved as a stub because the file is referenced
-     by the libtclcad CMake script).
-
-B. libbv: drop gv_tcl-direct readers; BSG view-scope walk now stands
-   alone as the source of truth for renderable adornment state.
-   - `hash.c::bv_view_hash`: removed the gv_tcl per-state hash block
-     (arrows / axes / labels / lines / polygons + sdata twins +
-     prim_labels).  Their hashed content is already covered by the
-     BSG view-scope visit later in the same function.  Removed the
-     now-unused `_bv_data_arrow_state_hash`, `_bv_data_axes_state_hash`,
-     `_bv_data_label_state_hash`, `_bv_data_line_state_hash`,
-     `_bg_poly_contour_hash`, `_bg_polygon_hash`, `_bg_polygons_hash`,
-     `_bv_data_polygon_state_hash` helpers (kept `_bv_other_state_hash`
-     since it is still used for the non-Tcl gv_center_dot /
-     gv_view_scale states).
-   - `diff.c::bv_differ`: removed the parallel gv_tcl per-state diff
-     block and the eight matching helpers.
-   - `snap.c::bv_snap_lines_3d`: removed the gv_tcl-only branch and
-     the bv_cp_info_tcl wrapper / `_find_closest_tcl_point` /
-     `_find_close_isect_tcl` / `_find_close_isect` helpers.  The
-     `BV_SNAP_TCL` flag now resolves to a BSG view-scope visit (the
-     `_tcl_data_lines` / `_tcl_sdata_lines` BSG objects are picked up
-     by the same `_bv_snap_view_obj_cb` pass that already serves
-     BV_SNAP_VIEW).  Behaviour is preserved because vlist-based snap
-     distance is computed identically via `_find_closest_obj_point`.
-
-C. libged: no more direct gv_tcl access from non-Tcl libged code.
-   - `bot/dump/obj.c::obj_write_data`: replaced the gv_tcl-coupled
-     OBJ adornment exporter with a no-op stub.  The legacy bake-out
-     was a Tcl-only feature that produced nothing for Qt callers
-     anyway.  A future replacement could iterate `_tcl_data_*` BSG
-     vlists if the bake-out is ever reinstated.  The four `static`
-     helpers (`write_data_arrows`, `write_data_axes`,
-     `write_data_lines`, plus `obj_get_material` callsite) were
-     removed.
-   - `view/view.c::_view_cmd_data_vZ`: removed the get/set scratch
-     path that read/wrote `gv_tcl->gv_data_vZ` in libged.  The
-     command's `-N` / `-F` BSG-canonical calc path remains (this is
-     what the deprecation message at the top of the command already
-     directs callers towards).  The Tcl-mode scratch scalar continues
-     to be settable via the existing `data_vZ` command in
-     `libtclcad/commands.c`, which is the correct home for editing-
-     mode scratch state.
-
-After (B) and (C), libged and libbv have zero direct `gv_tcl` reads
-or writes.  Every remaining `gv_tcl` reference is in libtclcad, where
-it represents true Tcl editing-mode state (mouse drag scratch,
-polygon Z-plane, etc.).
-
-Pending in a follow-up session (with the order to tackle them)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-1. Migrate `data_lines` writes off `gv_tcl`.  DONE (2026-05-08).
-   `src/libged/view/data_lines.c` rewritten as BSG-first:
-     - `_sync_dlines_to_bsg` replaced by `_rebuild_bsg_dlines` which
-       accepts an explicit pts/color/linewidth snapshot rather than
-       reading a gv_tcl struct.
-     - For non-Tcl views (`gv_tcl == NULL`): BSG vlist is the sole
-       persistent store; no gv_tcl mirror is allocated.  The "points"
-       getter walks the BSG vlist; draw/color/line_width getters read
-       BSG object fields.
-     - For Tcl views: BSG is now the sole persistent store here as well.
-       The old gv_tcl compatibility shim was removed after commands.c
-       pick/move and mouse.c line/arrow/label paths were migrated to BSG.
-     - `ged_view_data_lines()` no longer errors on views without
-       gv_tcl; it just sets gdlsp = NULL and takes the BSG-only path.
-
-2. Decide where data_vZ lives long-term.
-   `gv_tcl->gv_data_vZ` is a Tcl-mode editing-Z-plane scalar consumed
-   by polygon setup in libtclcad/polygons.c, cached into
-   `bv_data_polygon_state::gdps_data_vZ`, and exposed via the
-   libtclcad "data_vZ" command in commands.c.  The cleanest endgame is
-   to move the field
-   onto `bview` directly — it is the "current Z height" for the view
-   plane in 3D space, a concept that the view reasonably owns.
-   libtclcad becomes a consumer of a BV-owned value rather than the
-   owner.  That refactor is small (one struct move + ~6 callsite renames
-   in libtclcad) but it churns the public `bv_data_tclcad` ABI.
-   Defer until the next ABI break.
-
-3. Do the same for `gv_data_arrows` / `gv_data_axes` / `gv_data_labels`
-   / `gv_data_polygons` and their sdata twins inside `bv_data_tclcad`.
-   PARTIAL (2026-05-08).  Getters migrated; setters still use gv_tcl as
-   intermediate storage:
-     - arrows.c: ALL getters (draw/color/line_width/points/tip_length/
-       tip_width) now read from the BSG _tcl_data_arrows object.
-     - axes.c: draw/color/line_width/size/points all read from BSG
-       (size and points recovered by decoding vlist geometry using
-       _bsg_extract_axes_centers / half-size from X-axis endpoints).
-     - labels.c: draw/color/labels getters read from BSG label children
-       (bv_label structs in s_i_data).  size getter still reads gv_tcl.
-     - Phase T3 COMPLETE (2026-05-08): all setters in arrows.c and
-       axes.c no longer write gv_tcl.  data_lines.c gv_tcl mirror removed.
-       commands.c to_data_pick_func and to_data_move_func read from BSG
-       directly (labels from bv_label children, lines/arrows/axes from
-       BSG vlist).  mouse.c to_data_scale for arrows/labels reads/writes
-       BSG directly.
-   Remaining work to fully eliminate gv_tcl mirror:
-     c. Add a "size" scalar field to bv_obj_settings (ABI break) and
-        migrate the labels size getter (currently still reads gv_tcl).
-     d. Migrate gv_data_polygons / gv_sdata_polygons (complex; uses
-        gv_data_vZ and bg_polygons; deferred).
-
-4. Sweep stale comments.  DONE (2026-05-08).
-   `include/bv/tcl_data.h` comment block updated to describe the BSG
-   canonical path, the sync-helper names, and the Phase T3 progress
-   state of each getter/setter pair.
-
-5. Reach production-ready state.
-   After (1)–(4), the only gv_tcl-resident state is genuine Tcl
-   editing scratch (mouse_pos, prev_point, etc.).  At that point the
-   canonical drawing pipeline is BSG-only end-to-end and the `gv_tcl`
-   pointer is purely an ergonomic handle for libtclcad — the user's
-   "production ready state" goal.
-
-No further structural modernization work is expected at this time.
-
-
-Do not reopen
--------------
-- BSG ownership of DB-backed draw content
-- LoD node architecture
-- V1-V8 view-only object unification
-- unified `view obj` command grammar
-- typed setter API foundation
+This is the single active guide for BRL-CAD's drawing modernization effort.  It
+replaces the older planning/work-log files `bsg_modernize.txt`, `bview2bsg.txt`,
+`draw_migration_plan.rtf`, `drawing_modernization.txt`, and the previous version
+of this note.
+
+The goal is to make BRL-CAD drawing an OpenInventor/Obol-style scene graph: GED,
+MGED, Archer, qged, libqtcad, Tcl, and display managers should describe drawing
+state as typed BSG scene data, while renderers consume prepared render requests
+through a backend contract.  Existing native GL/swrast behavior must remain
+compatible while laying the foundation for an Obol backend.
+
+Vision and non-negotiables
+--------------------------
+1. `libbsg` is the canonical drawing/scene-graph library.  The old `libbv` layer
+   is gone; do not reintroduce `bv_*`, `BV_*`, display-list, or raw solid-list
+   concepts in new code.
+2. Producers create typed payloads and draw intents.  Commands should not encode
+   draw state by mutating child tables, names, or former `bsg_node` fields.
+3. Consumers use BSG actions and accessors.  Picking, selection, snapping,
+   measuring, exporting, reporting, HUD drawing, overlays, LoD, and rendering
+   must flow through the BSG APIs rather than ad hoc node traversal.
+4. `libdm` owns display-manager operations and backend primitive drawing only;
+   BSG owns traversal policy, render phases, payload dispatch, appearance
+   resolution, HUD/overlay ordering, and backend cache invalidation rules.
+5. Obol is an adapter/backend, not a bypass.  Do not add Obol-specific shortcuts
+   that skip BSG payloads, draw intents, render items, camera/light state, or
+   selection/pick/snap records.
+6. Preserve current capabilities while modernizing internals: native GL,
+   swrast, qtgl, MGED/Tcl, qged, offscreen tests, plot/export/report commands,
+   edit previews, HUD/faceplate features, and legacy-visible command behavior
+   must continue to work.
+
+Current state summary
+---------------------
+The foundational modernization is substantially complete:
+
+* `libbv` has been folded into `libbsg` and removed as an independent source-tree
+  dependency.  Public callers use `bsg/` headers and `bsg_*` APIs.
+* BSG now has first-class APIs for nodes, identity/revisions, typed payloads,
+  materials, appearance, draw intents, actions, selection, pick/snap/measure,
+  HUD, overlays, camera, lights, render settings, render items, and backend
+  adapters.
+* `bsg_node` is opaque in public headers; the layout lives in
+  `include/bsg/node_private.h` for internal in-tree users that have not yet been
+  fully converted to accessor-only code.
+* Render traversal is centered in `bsg_render_request_execute()`.  `libdm/view.c`
+  drives BSG render requests and backend callbacks instead of owning the scene
+  traversal model.
+* qged/libqtcad and editor work have moved away from custom draw callbacks
+  toward BSG scene nodes and live payloads.
+* Legacy `BV_*` aliases are isolated in `include/bsg/legacy_compat.h` behind
+  `BSG_ENABLE_LEGACY_BV_ALIASES`; new code should not include or depend on them.
+
+Canonical code map
+------------------
+Use these files as the current implementation reference:
+
+* Scene graph and identity
+  * `include/bsg/node.h`, `src/libbsg/node.c`
+  * `include/bsg/identity.h`, `src/libbsg/identity.c`
+  * `include/bsg/node_private.h` for internal layout only
+* Payloads and source data
+  * `include/bsg/payload_typed.h`, `src/libbsg/payload_typed.c`
+  * `include/bsg/payload.h`, `src/libbsg/payload.c`
+  * `include/bsg/draw_source.h`, `src/libbsg/draw_source.c`
+* Materials and appearance
+  * `include/bsg/material.h`, `src/libbsg/material.c`
+  * `include/bsg/appearance.h`, `src/libbsg/appearance.c`
+  * `include/bsg/appearance_action.h`, `src/libbsg/appearance_action.c`
+* Draw intent and actions
+  * `include/bsg/draw_intent.h`, `src/libbsg/draw_intent.c`
+  * `include/bsg/action.h`, `src/libbsg/action.c`
+* Selection, pick, snap, and measurement
+  * `include/bsg/selection.h`, `src/libbsg/selection.c`
+  * `include/bsg/pick.h`, `src/libbsg/pick.c`
+  * `include/bsg/snap_action.h`, `src/libbsg/snap_action.c`
+  * `include/bsg/measure.h`, `src/libbsg/measure.c`
+* HUD and overlays
+  * `include/bsg/hud.h`, `src/libbsg/hud.c`
+  * `include/bsg/overlay.h`, `src/libbsg/overlay.c`
+* Rendering and backend contract
+  * `include/bsg/render.h`, `src/libbsg/render.c`
+  * `include/bsg/render_item.h`, `src/libbsg/render_item.c`
+  * `include/bsg/render_settings.h`, `src/libbsg/render_settings.c`
+  * `include/bsg/backend_adapter.h`
+* Camera and lights
+  * `include/bsg/camera.h`, `src/libbsg/camera.c`
+  * `include/bsg/light.h`, `src/libbsg/light.c`
+* Consumer fronts to audit when changing behavior
+  * `src/libged/`, especially drawing, reporting, export, view, and edit paths
+  * `src/libdm/view.c` and backend-specific `src/libdm/*` code
+  * `src/libqtcad/` and `src/qged/plugins/`
+  * `src/libtclcad/` and `src/mged/`
+
+Modernized architecture
+-----------------------
+
+### Node and identity model
+A BSG scene is a tree of typed nodes: roots, groups, transforms, shapes, LoD
+nodes, view scopes, HUD nodes, and overlays.  Identity, source path, source
+directory, instance path, revision, parent/child structure, visibility,
+transform, bounds, and user/internal payload references are accessed through BSG
+APIs.  Public headers forward-declare `struct bsg_node`; direct layout access is
+an implementation detail and should continue to shrink.
+
+### Typed payload model
+Geometry and annotations live in typed payloads rather than raw `s_vlist` or
+`draw_data` fields.  Current payload vocabulary includes VLIST, HUD text,
+line-set, polygon, mesh, CSG, BRep, image, framebuffer, grid, axes, live-source
+editor payloads, and annotation/measurement-style payloads.  Payloads provide
+revision, bounds, export, pick, snap, measure, realization, and backend-prepare
+hooks as applicable.  Unsupported operations must return documented sentinel
+results, not NULL surprises or implicit fallbacks.
+
+### Draw intents
+GED-style draw commands attach semantic draw intents to scene nodes.  Reporting,
+export, erase, revalidate, simplify, and visible-target collection should query
+intent actions instead of reconstructing state from node names or child tables.
+Database changes should flow through draw-intent revalidation, and overlays with
+source-change lifecycles should auto-remove through the same event path.
+
+### Selection, picking, snapping, and measurement
+Selection is represented by `bsg_selection`, and highlighting is derived
+appearance.  Pick/snap/measurement APIs return typed records with semantic paths,
+primitive/subelement identifiers, hit distance, and view information.  UI code
+should not use raw `bsg_node *` tables as the primary selection currency except
+inside explicitly documented compatibility helpers.
+
+### HUD and overlays
+Faceplate/HUD output is represented as BSG view-scope/HUD nodes and rendered via
+render requests.  Overlays carry role, lifecycle, owner, ordering, and optional
+source-path metadata.  Tools should refresh their visuals by owner/role APIs,
+not by name conventions or renderer-specific custom callbacks.
+
+### Render pipeline
+`bsg_render_request_execute()` owns traversal, filtering, render phases,
+transparent ordering, HUD/overlay ordering, payload dispatch, appearance
+resolution, LoD participation, render settings, and backend-adapter calls.
+Backends receive `bsg_render_item` objects with resolved appearance and payload
+information.  Backend caches must invalidate from typed reason masks: payload,
+appearance, transform, render-mode, or all.
+
+### Camera, lights, and render settings
+Camera snapshots, camera-node binding, lights, and render settings are BSG state.
+Saved views, multi-view qged layouts, native GL/swrast drawing, and the future
+Obol adapter should all consume the same camera/light/settings APIs.
+
+Completed work
+--------------
+
+### 1. libbv to libbsg migration
+Completed.  Former `libbv` functionality was merged into `libbsg`; callers were
+renamed from `bv_*`/`BV_*`/`bview`/`bv_scene_obj` vocabulary to BSG vocabulary;
+`bsg.h` and `bsg/` headers are canonical.
+
+### 2. BSG API foundation
+Completed.  Generic node APIs, identity/revision helpers, material/appearance
+split, typed payloads, action framework, selection, camera, lights, render
+request, and backend-adapter APIs are present and wired into the libbsg build.
+
+### 3. Consumer modernization
+Substantially complete.  libged, libdm, libqtcad, qged, MGED, and Tcl paths have
+been migrated through many BSG accessors/actions.  Recent work removed direct
+custom draw callbacks, routed qged/MGED selection through `bsg_selection`, moved
+HUD rendering through BSG render requests, and introduced live payloads for edit
+previews.
+
+### 4. Public API cleanup
+Completed for the public boundary.  `bsg_node` is opaque to public headers,
+legacy aliases are isolated in `bsg/legacy_compat.h`, and surviving internal
+layout users must include `bsg/node_private.h` explicitly.
+
+### 5. Documentation support
+`brlcad/doc/bsg_vocabulary.md` and `brlcad/doc/bsg_drawing_api.md` describe the
+vocabulary and API.  This file is now the active roadmap/status document.
+
+Remaining work
+--------------
+The next sessions should focus on finishing the foundations cleanly before
+starting or merging an Obol backend.
+
+### R1. Run and fix the full validation matrix
+This is the highest-priority remaining task.  Several planning notes recorded
+successful targeted builds/tests in earlier sessions, but the full Qt-enabled
+matrix still needs to be run on the current tree and any regressions fixed.
+
+Required build targets:
+
+* `libbsg`, `libdm`, `dm-qtgl`, `dm-swrast`, `dm-glx`, `libged`, `libqtcad`,
+  `qged`, `mged`, `archer`
+
+Required core tests:
+
+* `libbsg_node`, `libbsg_identity`, `libbsg_material_appearance`,
+  `libbsg_action`, `libbsg_selection`, `libbsg_camera`, `libbsg_light`,
+  `libbsg_render`, `libbsg_lod_node`, `libbsg_scene_graph`, `libbsg_pick`,
+  `libbsg_hud`, `libbsg_render_item`, `libbsg_payload_typed`,
+  `libbsg_payload_typed_live_source`, `libbsg_snap_action`, `libbsg_measure`,
+  `libbsg_appearance_resolve`, `libbsg_backend_adapter`
+
+Required drawing/application tests:
+
+* `ged_test_bsg_view_obj`, `ged_test_drawing_basic`,
+  `ged_test_drawing_faceplate`, `ged_test_drawing_lod`,
+  `ged_test_lod_crossrun`, `ged_test_bsg_parity`, `ged_test_bsg_quad_parity`,
+  `ged_test_tcl_adornment_bsg`, `ged_test_view_independent`,
+  `ged_test_view_command`, `ged_test_qged_swrast`, `ged_test_mged_bsg`,
+  `ged_test_mged_shaded_mode_bsg`, `ged_test_rtwizard_bsg`,
+  `ged_test_selection_parity`, `ged_test_snap_parity`,
+  `ged_test_measure_parity`
+
+If Qt configure fails due to xcb support, install the missing `libxcb-*` dev
+packages, clear the Qt/CMake configure cache, reconfigure, and rerun the matrix.
+
+### R2. Finish payload hook coverage and consumer breadth
+Do a payload-by-payload audit and make sure every payload type has the complete
+builder/accessor/hook contract expected by render, export, pick, snap, measure,
+and backend preparation.  In particular, verify labels, axes, grid, polygons,
+measurement annotations, selection rectangles/rubber bands, framebuffer,
+LoD/mesh, CSG, BRep, and database draw producers.
+
+Acceptance checks:
+
+* `BSG_ADD_VLIST`/`BSG_FREE_VLIST` direct node writes appear only in payload
+  builder or primitive-plotter internals.
+* No libged/libqtcad/qged/libtclcad consumer reads former node fields such as
+  `s_vlist`, `s_i_data`, or `draw_data` directly.
+* `libbsg_payload_typed` has per-type tests for create/mutate/revision/bounds/
+  pick/snap/export/backend-prepare behavior.
+
+### R3. Complete draw-intent command migration
+Continue migrating every command that needs drawn object sets to draw-intent
+actions: `gqa`, `loadview`, `plot`, `ps`, `png`, `bot_dump`, `rt`, `rtcheck`,
+`rtarea`, `nirt`, `rtwizard`, MGED report/export helpers, erase/zap/draw refresh,
+and any remaining `who`/`how` variants.
+
+Acceptance checks:
+
+* Commands obtain targets with `bsg_draw_intent_collect_visible`,
+  `bsg_draw_intent_collect_for_export`, `bsg_draw_intent_match`, or erase/
+  revalidate helpers.
+* No command infers intent from child-table traversal or node naming.
+* Database object changes trigger draw-intent revalidation for all active draw
+  roots.
+
+### R4. Finish overlay role/lifecycle adoption
+The overlay API exists; continue using it everywhere instead of names or custom
+renderer callbacks.  Confirm all expected roles are present and used:
+
+* model, screen, xray, edit handle, measure, selection rubber band, snap guide,
+  command result, diagnostic, Tcl adornment, polygon edit, sketch edit, user
+  annotation
+
+Acceptance checks:
+
+* qged/libqtcad measurement, selection, polygon, edit, and live-preview overlays
+  all carry typed role/lifecycle metadata.
+* libtclcad and MGED adornments use overlay nodes with owner/lifecycle metadata.
+* `bsg_overlay_query_by_role()` can enumerate each role without string matching.
+
+### R5. Audit backend parity and cache invalidation
+Now that render items and resolved appearance are in place, audit native backends
+for remaining policy decisions that should live in BSG.  Focus on `dm-glx`,
+`dm-swrast`, `dm-qtgl`, plot/ps/txt paths, framebuffer paths, LoD update timing,
+transparency sorting, default geometry color, highlight appearance, HUD ordering,
+and cache invalidation.
+
+Acceptance checks:
+
+* Backends draw prepared render items and do not recompute material, selection,
+  transparency, overlay ordering, or traversal policy.
+* Cache invalidation reacts to payload, appearance, transform, and render-mode
+  revision changes through `bsg_backend_adapter` reason masks.
+* Native backend output remains parity-compatible before Obol is introduced.
+
+### R6. Convert remaining internal layout users to accessor APIs
+Public API opacity is done, but many in-tree sources still include
+`bsg/node_private.h` for direct layout access.  Continue reducing those users
+where doing so improves API clarity.  Do not add accessors just to keep legacy
+patterns alive; add semantic helpers only when they express stable scene-graph
+concepts.
+
+Priorities:
+
+* libged draw/report/export code
+* libdm render consumption
+* qged/libqtcad plugin and filter code
+* MGED/Tcl edit, illuminate, and adornment paths
+* libbsg internals where direct field access hides a reusable semantic operation
+
+### R7. Remove scheduled compatibility bridges when safe
+`include/bsg/legacy_compat.h` is a temporary bridge for remaining compatibility
+aliases.  Keep it isolated and documented until the native backend parity and
+Obol adapter work demonstrate that no caller requires the legacy names.
+
+Acceptance checks before removal:
+
+* No production code includes `bsg/legacy_compat.h` for new behavior.
+* `BSG_ENABLE_LEGACY_BV_ALIASES=0` builds the drawing stack.
+* `brlcad/doc/bsg_vocabulary.md` and `brlcad/doc/bsg_drawing_api.md` list any
+  remaining scheduled removals with clear owner/status.
+
+### R8. Implement Obol as a backend adapter
+Only start this after R1-R7 are either complete or explicitly triaged.  The Obol
+backend should implement the documented backend-adapter callbacks, payload
+prepare hooks, camera/light/settings consumption, pick mapping, and cache
+lifecycle.  It must not introduce a separate scene traversal path or its own
+parallel draw-state model.
+
+Acceptance checks:
+
+* Obol consumes `bsg_render_item` plus payload/backend-prepare data.
+* Obol camera, pick, instance-path, material/appearance, overlay, HUD, and LoD
+  behavior match native BSG rendering.
+* Native GL/swrast/qtgl tests continue to pass.
+* Adding Obol requires no changes to GED command intent, payload builder,
+  selection, snap, measure, HUD, or traversal policy APIs.
+
+Definition of done
+------------------
+The drawing modernization is complete when:
+
+1. The full validation matrix passes on a Qt-enabled build.
+2. All drawing producers use typed BSG payloads and draw intents.
+3. All drawing consumers use payload/action/accessor APIs rather than raw node
+   layout or display-list assumptions.
+4. Selection, pick, snap, measurement, HUD, overlays, camera, lights, render
+   settings, appearance resolution, and backend cache lifecycle are all first-
+   class BSG concepts with tests.
+5. Native backends and Obol all consume the same `bsg_render_request` /
+   `bsg_backend_adapter` contract.
+6. Compatibility shims are either removed or explicitly isolated with documented
+   removal criteria.
+7. Existing BRL-CAD drawing behavior remains compatible for users while the
+   internal architecture is scene-graph based.
+
+Guidance for future agents
+--------------------------
+* Start by checking this file, `brlcad/doc/bsg_drawing_api.md`, and
+  `brlcad/doc/bsg_vocabulary.md`.
+* For implementation work, make one small migration slice at a time and run the
+  narrow relevant build/tests immediately, then the full validation matrix before
+  claiming a phase complete.
+* Do not solve short-term UI or backend needs by adding new raw node fields,
+  custom draw callbacks, display-list traversal, or Obol-only bypasses.
+* Prefer semantic BSG APIs: payload builders, draw-intent actions,
+  selection/pick/snap/measure records, overlay owner/role/lifecycle operations,
+  render requests, render settings, resolved appearance, and backend-adapter
+  callbacks.
