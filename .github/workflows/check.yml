@@ -52,7 +52,7 @@ jobs:
             qt6-tools-dev \
             libqt6opengl6t64 \
             libqt6openglwidgets6t64
-            
+
       - name: Configure BRL-CAD
         run: |
           cmake -S ${{ github.workspace }}/brlcad \
