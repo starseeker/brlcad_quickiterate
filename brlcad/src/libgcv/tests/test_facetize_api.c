@@ -20,10 +20,14 @@
 
 #include "common.h"
 
+#include <string.h>
+
+#include "vmath.h"
 #include "bu/app.h"
 #include "bu/avs.h"
+#include "bu/str.h"
 #include "bu/vls.h"
-#include "gcv.h"
+#include "gcv/facetize.h"
 
 
 static int

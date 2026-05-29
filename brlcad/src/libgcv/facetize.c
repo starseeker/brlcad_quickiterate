@@ -25,6 +25,8 @@
 
 #include "common.h"
 
+#include <string.h>
+
 #include "bu/parallel.h"
 #include "bu/str.h"
 #include "bu/vls.h"
