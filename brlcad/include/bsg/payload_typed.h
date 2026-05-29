@@ -20,7 +20,15 @@
 /** @addtogroup libbsg
  *
  * @brief
- * Phase D1 (drawing_modernization): typed payload object model.
+ * Phase D1/D6 (drawing_modernization): typed payload object model.
+ *
+ * Phase D6 adds a payload-agnostic @c bsg_live_source helper that
+ * generalises the sketch live-source contract so any editor (extrude,
+ * revolve, BoT edit, polygon edit, …) can attach live producers without
+ * duplicating qsketch's plumbing.  The @c BSG_PL_LIVE payload type wraps a
+ * @c bsg_live_source and participates in selection, snap, and rendering
+ * exactly like @c BSG_PL_SKETCH.  @c bsg_sketch_live_data and the existing
+ * @c bsg_payload_sketch_*() API remain unchanged for backward compatibility.
  *
  * A *payload* is the typed geometry or annotation data carried by a
  * BSG_NODE_SHAPE.  Before Phase D1, payload data was stored in the untyped
@@ -66,6 +74,7 @@ struct bsg_payload;
 struct bsg_polygon;
 struct bsg_grid_state;
 struct bsg_mesh_lod;
+struct bsg_live_source;
 struct bsg_sketch_live_data;
 struct bsg_snap_result;
 struct bsg_pick_record;
@@ -129,7 +138,8 @@ typedef enum {
     BSG_PL_AXES,             /**< @brief axes widget (bsg_axes) */
     BSG_PL_GRID,             /**< @brief grid overlay */
     BSG_PL_SKETCH,           /**< @brief live sketch edit source */
-    BSG_PL_ANNOTATION        /**< @brief measurement annotation */
+    BSG_PL_ANNOTATION,       /**< @brief measurement annotation */
+    BSG_PL_LIVE              /**< @brief generic live-source editor node (Phase D6) */
 } bsg_payload_type;
 
 /* -----------------------------------------------------------------------
@@ -160,6 +170,7 @@ union bsg_payload_data {
     struct bsg_grid_state      *grid;        /**< @brief BSG_PL_GRID — grid state */
     struct bsg_sketch_live_data *sketch;     /**< @brief BSG_PL_SKETCH — live sketch edit source */
     struct bsg_payload_annotation *annotation; /**< @brief BSG_PL_ANNOTATION — annotation payload */
+    struct bsg_live_source     *live;        /**< @brief BSG_PL_LIVE — generic live-source editor */
     void                       *opaque;      /**< @brief catch-all for other types */
 };
 
@@ -525,7 +536,178 @@ BSG_EXPORT extern struct bsg_grid_state *
 bsg_payload_grid_get(struct bsg_payload *payload);
 
 /* -----------------------------------------------------------------------
+ * Generic live-source contract — Phase D6 (drawing_modernization)
+ *
+ * bsg_live_source is a payload-agnostic helper that any interactive editor
+ * (extrude, revolve, BoT edit, polygon edit, …) can use without copying
+ * qsketch's plumbing.  It stores an editor context pointer and a set of
+ * optional callbacks that implement the full live-source contract:
+ *   - revision query   (bsg_live_revision_cb_t)
+ *   - realize/update   (bsg_live_update_cb_t)
+ *   - bounds query     (bsg_live_bounds_cb_t)
+ *   - pick query       (bsg_live_pick_cb_t)
+ *   - snap query       (bsg_live_snap_cb_t)
+ *   - teardown         (bsg_live_free_cb_t)
+ *
+ * Usage:
+ *   1. Create a BSG_PL_LIVE payload with bsg_payload_live_create().
+ *   2. Install callbacks with bsg_payload_live_set_ops().
+ *   3. Attach to a shape node with bsg_node_set_payload().
+ *   4. Renderers/selection call bsg_payload_live_realize() on each frame;
+ *      revision changes drive cache invalidation.
+ *
+ * The sketch-specific bsg_sketch_live_data / bsg_payload_sketch_*() API
+ * remains fully supported for backward compatibility; it shares identical
+ * callback semantics with this generic contract.
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Revision callback — return the current live revision.
+ * If NULL, libbsg derives the revision from the update callback result.
+ */
+typedef uint64_t (*bsg_live_revision_cb_t)(void *live_ctx);
+
+/**
+ * Update/realize callback — realize geometry for the current view.
+ * Return non-zero when the live source changed (will advance revision),
+ * zero when nothing changed.
+ */
+typedef int (*bsg_live_update_cb_t)(void *live_ctx, struct bsg_view *v);
+
+/** Bounds callback — fill @p bmin / @p bmax; return 1 on success. */
+typedef int (*bsg_live_bounds_cb_t)(void *live_ctx, point_t *bmin, point_t *bmax);
+
+/** Pick callback — fill @p pick_out; return non-zero on hit. */
+typedef int (*bsg_live_pick_cb_t)(void *live_ctx, struct bsg_view *v, int x, int y, void *pick_out);
+
+/** Snap callback — fill @p out_pt; return non-zero on snap candidate. */
+typedef int (*bsg_live_snap_cb_t)(void *live_ctx, struct bsg_view *v, const point_t sample_pt, point_t out_pt);
+
+/** Teardown callback — free resources owned by @p live_ctx. */
+typedef void (*bsg_live_free_cb_t)(void *live_ctx);
+
+/**
+ * Generic live-source contract for a BSG_PL_LIVE node — Phase D6.
+ *
+ * @c editor_ctx is the borrowed pointer to the editor's internal state
+ * (analogous to @c rt_edit_ptr in bsg_sketch_live_data).
+ * @c aux_ctx is an optional secondary context (e.g. a grid state pointer,
+ * analogous to @c grid_ptr in bsg_sketch_live_data).
+ *
+ * Ownership rules:
+ *   - @c editor_ctx and @c aux_ctx are borrowed; libbsg never frees them.
+ *   - @c live_ctx ownership is controlled by @c owns_live_ctx; if non-zero,
+ *     @c free_cb is called on payload teardown.  If @c live_ctx is NULL,
+ *     @c editor_ctx is used as the callback context.
+ */
+struct bsg_live_source {
+    void *editor_ctx;          /**< @brief borrowed editor state (e.g. rt_edit *) */
+    void *aux_ctx;             /**< @brief optional auxiliary context (e.g. grid state) */
+    void *live_ctx;            /**< @brief callback context — defaults to editor_ctx */
+    int owns_live_ctx;         /**< @brief if non-zero, call free_cb on teardown */
+    uint64_t last_realized_revision; /**< @brief last realized live revision */
+    bsg_live_revision_cb_t  revision_cb; /**< @brief revision query (optional) */
+    bsg_live_update_cb_t    update_cb;   /**< @brief realize/update (non-zero => changed) */
+    bsg_live_bounds_cb_t    bounds_cb;   /**< @brief bounds query */
+    bsg_live_pick_cb_t      pick_cb;     /**< @brief pick query */
+    bsg_live_snap_cb_t      snap_cb;     /**< @brief snap query */
+    bsg_live_free_cb_t      free_cb;     /**< @brief teardown */
+};
+
+/**
+ * Create a BSG_PL_LIVE payload with @p editor_ctx and optional @p aux_ctx.
+ *
+ * Neither pointer is dereferenced by libbsg; they are stored for the
+ * editor's own use.  Install callbacks afterwards with
+ * bsg_payload_live_set_ops().
+ *
+ * @returns newly allocated payload, or NULL on failure.
+ */
+BSG_EXPORT extern struct bsg_payload *
+bsg_payload_live_create(void *editor_ctx, void *aux_ctx);
+
+/**
+ * Return the @c bsg_live_source from a BSG_PL_LIVE @p payload,
+ * or NULL if @p payload is not of that type.
+ */
+BSG_EXPORT extern struct bsg_live_source *
+bsg_payload_live_get_data(struct bsg_payload *payload);
+
+/**
+ * Install the full live-source callback contract on a BSG_PL_LIVE payload.
+ *
+ * @p live_ctx is passed to all callbacks; if NULL, @c editor_ctx is used.
+ * If @p owns_live_ctx is non-zero, @p free_cb is called at payload teardown.
+ * If @p revision_cb is supplied it is authoritative for revision values.
+ * If @p update_cb reports a change but @p revision_cb does not advance,
+ * libbsg bumps the realized revision by one to preserve monotonicity.
+ *
+ * @returns 1 on success, 0 on failure (wrong payload type or NULL payload).
+ */
+BSG_EXPORT extern int
+bsg_payload_live_set_ops(struct bsg_payload *payload,
+	void *live_ctx,
+	int owns_live_ctx,
+	bsg_live_revision_cb_t  revision_cb,
+	bsg_live_update_cb_t    update_cb,
+	bsg_live_bounds_cb_t    bounds_cb,
+	bsg_live_pick_cb_t      pick_cb,
+	bsg_live_snap_cb_t      snap_cb,
+	bsg_live_free_cb_t      free_cb);
+
+/**
+ * Return the current live-source revision for a BSG_PL_LIVE @p payload.
+ * Returns 0 on failure.
+ */
+BSG_EXPORT extern uint64_t
+bsg_payload_live_revision(struct bsg_payload *payload);
+
+/**
+ * Realize/update @p payload by invoking the live-source update callback.
+ *
+ * Returns:
+ *   1 if payload revision changed,
+ *   0 if no change or no update callback is defined,
+ *  -1 on invalid input.
+ */
+BSG_EXPORT extern int
+bsg_payload_live_realize(struct bsg_payload *payload, struct bsg_view *v);
+
+/**
+ * Query live-source bounds for a BSG_PL_LIVE @p payload.
+ * Returns non-zero on success.
+ */
+BSG_EXPORT extern int
+bsg_payload_live_bounds(struct bsg_payload *payload, point_t *bmin, point_t *bmax);
+
+/**
+ * Query live-source pick result for a BSG_PL_LIVE @p payload.
+ * Returns non-zero on hit.
+ */
+BSG_EXPORT extern int
+bsg_payload_live_pick(struct bsg_payload *payload, struct bsg_view *v,
+	int x, int y, void *pick_out);
+
+/**
+ * Query live-source snap result for a BSG_PL_LIVE @p payload.
+ * Returns non-zero on snap candidate.
+ */
+BSG_EXPORT extern int
+bsg_payload_live_snap(struct bsg_payload *payload, struct bsg_view *v,
+	const point_t sample_pt, point_t out_pt);
+
+/* -----------------------------------------------------------------------
  * SKETCH payload — Phase D6 (drawing_modernization)
+ *
+ * The sketch-specific bsg_sketch_live_data struct and bsg_payload_sketch_*()
+ * functions remain available for backward compatibility with existing callers.
+ * New editors should use BSG_PL_LIVE / bsg_live_source / bsg_payload_live_*()
+ * instead.
+ *
+ * Note on callback type compatibility:
+ *   The bsg_sketch_live_*_cb_t typedefs below are identical in signature to
+ *   the corresponding bsg_live_*_cb_t typedefs above; both sets of names
+ *   are kept so existing code compiles without change.
  * ----------------------------------------------------------------------- */
 
 typedef uint64_t (*bsg_sketch_live_revision_cb_t)(void *live_ctx);
