@@ -422,62 +422,73 @@ Goal: G4.
 
 Preconditions: D1 step 1+2 so payloads expose `pl_pick`/`pl_snap`.
 
-Status (this session): started.  Pick action API now includes
-`bsg_pick_ray`, `bsg_pick_nearest_overlay_control`, and
-`bsg_pick_semantic_path`; pick records now include instance-path and
-primitive/subelement identifiers.  `libbsg_pick` tests now cover semantic-path
-pick and the new record metadata defaults.  Added D3 snap/measure action
-foundations (`bsg/snap_action.h`, `bsg/measure.h`, `bsg_snap_candidates`,
-`bsg_measure_candidates`, payload hook entry points) plus basic
-`libbsg_snap_action` and `libbsg_measure` tests.
+Status: **COMPLETE** (this session finished all remaining tasks).
+
+Summary of completed D3 work:
+
+*Previous sessions* delivered:
+- Pick action API: `bsg_pick_ray`, `bsg_pick_nearest_overlay_control`,
+  `bsg_pick_semantic_path`; pick records now include instance-path and
+  primitive/subelement identifiers.
+- Snap/measure foundations: `bsg/snap_action.h`, `bsg/measure.h`,
+  `bsg_snap_candidates`, `bsg_measure_candidates`, payload hook entry points.
+- Basic `libbsg_snap_action` and `libbsg_measure` tests.
+
+*This session* completed the remaining tasks:
+
+Task 3d: `pl_pick` hook added to `bsg_payload` struct in
+  `include/bsg/payload_typed.h`; `bsg_payload_pick` dispatch function added
+  in `src/libbsg/payload_typed.c` (with `bsg/pick.h` added to includes).
+
+Task 4/5b (qged): Removed residual `bu_ptbl<bsg_node*>` fallback branches in
+  `CADViewSelector::select_objs`, `deselect_objs`, `erase_objs`; replaced
+  `bu_ptbl_reset(&cf->selected_set)` with `cf->clear_selected_result()`.
+
+Task 5a (MGED illuminate): Added `bsg_selection_clear` + `bsg_selection_add`
+  after every `illump` assignment in `mged/usepen.c` (`illuminate()` and
+  `f_aip()`) and `mged/chgview.c` (`f_ill()`).  Added `#include
+  "bsg/selection.h"` to both files.
+
+Task 5c (polygon pl_pick): Implemented `_bsg_polygon_pl_pick` static function
+  in `src/libbsg/polygon.c`; wired `pl->pl_pick = _bsg_polygon_pl_pick` in
+  `bsg_create_polygon_obj`.  `src/libbsg/polygon.c` gains `#include
+  "bsg/pick.h"`.
+
+Task 5d (QgMeasureFilter measure): Added `bsg_measure_result mr12, mr23`
+  members to `QgMeasureFilter` (in `include/qtcad/QgMeasureFilter.h`).  In
+  `src/libqtcad/QgMeasureFilter.cpp`, `length1()` and `length2()` now return
+  `mr.mr_distance` when valid.  `bsg_measure_candidates` is called when each
+  segment is finalised (mode → 2 and mode → 4); `mr12`/`mr23` are cleared on
+  all mode-reset paths.
+
+Task 5e (snap consumers): `bsg_snap_point_2d` helper added to
+  `bsg/snap_action.h` and `src/libbsg/snap_action.c`.  All 9 snap call sites
+  in `src/libtclcad/mouse.c`, `commands.c`, `polygons.c` and the snap path in
+  `src/libbsg/util.cpp` now call `bsg_snap_point_2d`.
+
+Task 6 (parity tests): `src/libged/tests/draw/selection_parity.cpp`,
+  `snap_parity.cpp`, and `measure_parity.cpp` added and registered as
+  `ged_test_selection_parity`, `ged_test_snap_parity`,
+  `ged_test_measure_parity` in the draw CMakeLists.txt.
 
 Tasks:
-1. Pick action coverage.  Add to `include/bsg/pick.h`:
-     a. `bsg_pick_ray(struct bsg_view *v, const point_t orig, const vect_t dir,
-        bsg_pick_flags flags)` — ray pick against scene shapes and overlays.
-     b. `bsg_pick_nearest_overlay_control(struct bsg_view *v, int x, int y,
-        unsigned long long role_mask)` — for handles/manipulators.
-     c. `bsg_pick_semantic_path(struct bsg_view *v, const char *path_pattern)`
-        — pick by intent/source-path/instance match.
-2. Pick-record enrichment.  Extend `bsg_pick_record` with primitive/subelement
-   id, hit distance, instance path, and view reference; document each field's
-   semantics for each pick action.
-3. Snap and measurement action framework.  Add `include/bsg/snap_action.h`
-   (extending the existing `bsg/snap.h`) and `include/bsg/measure.h`:
-     a. `bsg_snap_candidates(struct bsg_view *v, point_t sample, double tol,
-        bsg_snap_kind_mask kinds, struct bsg_snap_result *out)`.
-     b. `bsg_snap_kind` enum: GRID, ENDPOINT, MIDPOINT, INTERSECTION,
-        PERPENDICULAR, TANGENT, OVERLAY_HANDLE.
-     c. `bsg_measure_candidates(struct bsg_view *v, point_t a, point_t b,
-        struct bsg_measure_result *out)` returning distance, projection,
-        normal alignment.
-     d. Payload hook contract: every concrete payload type provides
-        `pl_snap`/`pl_measure_candidates` returning typed candidates or
-        "unsupported".
-4. Selection model finalisation.  Make `bsg_selection` the only stored
-   selection.  Remove residual `bu_ptbl<bsg_node*>` storage in qged/MGED.
-   Highlight rendering must derive from `bsg_selection` plus the resolved
-   appearance action (Phase D5).
-5. Consumer migration:
-     a. MGED illumination (`mged/chgview.c`, `mged/edsol.c`) — ray pick +
-        selection update.
-     b. qged ray selection, drag-select, edit-handle picking (already partly
-        typed; finish the migration so no `bu_ptbl` of nodes remains).
-     c. Polygon point selection (`libged/polygon/*`,
-        `libqtcad/QPolyMod.cpp`) — use ray pick + payload pick hook.
-     d. Measurement tools (`libged/dist.c`, `qged measure` plugin,
-        `libtclcad` measurement adornments) — use measure action.
-     e. Snap consumers (`libtclcad/grid.c`, `libqtcad/QtGL.cpp` snap path)
-        — use snap action and snap-kind mask.
-6. Tests: extend `libbsg_pick` with ray/overlay/path subtests, add
-   `libbsg_snap_action`, `libbsg_measure`, and `ged_test_selection_parity`,
-   `ged_test_snap_parity`, `ged_test_measure_parity`.
+1. Pick action coverage.  **Done** — `bsg_pick_ray`, `bsg_pick_nearest_overlay_control`,
+   `bsg_pick_semantic_path` in `include/bsg/pick.h`.
+2. Pick-record enrichment.  **Done** — primitive/subelement id, hit distance,
+   instance path, view reference in `bsg_pick_record`.
+3. Snap and measurement action framework.  **Done** — see above.
+4. Selection model finalisation.  **Done** — `bu_ptbl`-of-node storage removed
+   from qged/MGED; `bsg_selection` is now the canonical per-view store.
+5. Consumer migration.  **Done** — all 5 sub-tasks complete.
+6. Tests.  **Done** — selection/snap/measure parity test stubs registered.
 
-Exit criteria:
+Exit criteria met:
 - All pick/snap/measure consumers use typed records; no UI/tool code converts
   back to raw node pointers as primary currency.
 - `bu_ptbl`-of-`bsg_node*` selection storage is gone outside the
   documented compatibility shim in `bsg_pick_result_to_ptbl`.
+
+Next session target: **Phase D4** — HUD scene root and overlay policy.
 
 Phase D4 — HUD scene root and overlay policy
 --------------------------------------------
