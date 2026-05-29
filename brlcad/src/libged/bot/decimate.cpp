@@ -41,6 +41,7 @@
 #include "ged/database.h"
 #include "ged/objects.h"
 #include "./ged_bot.h"
+#include "bsg/node_private.h"
 
 static void
 decimate_usage(struct bu_vls *str, const char *cmd, struct bu_opt_desc *d) {

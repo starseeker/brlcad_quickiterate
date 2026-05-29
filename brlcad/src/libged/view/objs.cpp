@@ -46,6 +46,7 @@ extern "C" {
 }
 #include "./ged_view.h"
 #include "../ged_private.h"
+#include "bsg/node_private.h"
 
 struct view_obj_walk_state {
     struct bsg_view *v;

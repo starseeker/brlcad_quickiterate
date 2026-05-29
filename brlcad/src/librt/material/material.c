@@ -34,6 +34,7 @@
 #include "rt/db4.h"
 #include "pc.h"
 #include "raytrace.h"
+#include "bsg/node_private.h"
 
 
 const char *

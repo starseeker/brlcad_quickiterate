@@ -65,6 +65,7 @@
 
 #include "./ged_bot.h"
 #include "../ged_private.h"
+#include "bsg/node_private.h"
 
 static struct rt_bot_internal *
 bot_repair(struct rt_bot_internal *bot, struct rt_bot_repair_info *i)

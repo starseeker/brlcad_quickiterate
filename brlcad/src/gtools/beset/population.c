@@ -42,6 +42,7 @@
 
 #include "population.h"
 #include "beset.h"
+#include "bsg/node_private.h"
 
 
 /* FIXME: get rid of globals*/

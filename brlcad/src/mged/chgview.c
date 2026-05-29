@@ -42,6 +42,7 @@
 #include "./mged.h"
 #include "./mged_dm.h"
 #include "./cmd.h"
+#include "bsg/node_private.h"
 
 
 extern void mged_color_soltab(struct mged_state *s);
@@ -1689,7 +1690,7 @@ knob_apply_misc(struct mged_state *s,
     if (BU_STR_EQUAL(token, "zap") || BU_STR_EQUAL(token, "zero")) {
 	bsg_knobs_reset(&view_state->vs_gvp->k, 0);
 	if (MEDIT(s)) {
-	    bsg_knobs_reset(&MEDIT(s)->k, BV_KNOBS_RATE);
+	    bsg_knobs_reset(&MEDIT(s)->k, BSG_KNOBS_RATE);
 	}
 	view_state->k = view_state->vs_gvp->k;
 	update_all_rate_flags(s);
@@ -3094,8 +3095,8 @@ mged_vscale(struct mged_state *s, fastf_t sfactor)
 
     view_state->vs_gvp->gv_scale *= sfactor;
 
-    if (view_state->vs_gvp->gv_scale < BV_MINVIEWSIZE) {
-	view_state->vs_gvp->gv_scale = BV_MINVIEWSIZE;
+    if (view_state->vs_gvp->gv_scale < BSG_MINVIEWSIZE) {
+	view_state->vs_gvp->gv_scale = BSG_MINVIEWSIZE;
     }
 
     f = view_state->vs_gvp->gv_scale / view_state->vs_gvp->gv_i_scale;

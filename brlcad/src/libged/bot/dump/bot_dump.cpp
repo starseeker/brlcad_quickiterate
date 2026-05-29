@@ -56,6 +56,7 @@
 #include "../../ged_private.h"
 #include "../ged_bot.h"
 #include "./ged_bot_dump.h"
+#include "bsg/node_private.h"
 
 void
 _ged_bot_dump(struct _ged_bot_dump_client_data *d, struct directory *dp, const struct db_full_path *pathp, struct rt_bot_internal *bot)

@@ -38,6 +38,7 @@
 #include "bn/mat.h"
 #include "bsg/plot3.h"
 #include "nmg.h"
+#include "bsg/node_private.h"
 
 
 /* Plot a faceuse and a line between pt and plane_pt */

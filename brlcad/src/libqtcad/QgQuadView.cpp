@@ -50,6 +50,7 @@
 #include "ged/commands.h"
 #include "qtcad/QgQuadView.h"
 #include "qtcad/QgView.h"
+#include "bsg/node_private.h"
 
 static const char *VIEW_NAMES[] = {"Q1", "Q2", "Q3", "Q4"};
 
@@ -274,7 +275,7 @@ QgQuadView::changeToQuadFrame()
 	// but if we don't do it here we'll start out with blank windows until something notifies
 	// the draw logic it needs to do updates.
 	for (int i = UPPER_RIGHT_QUADRANT + 1; i < LOWER_RIGHT_QUADRANT + 1; i++) {
-		bsg_autoview(views[i]->view(), BV_AUTOVIEW_SCALE_DEFAULT, 0);
+		bsg_autoview(views[i]->view(), BSG_AUTOVIEW_SCALE_DEFAULT, 0);
 		bsg_view_bounds(views[i]->view());
 	}
 	/* Phase B: use bsg_view_objs_visit_db to iterate DB-derived objects so

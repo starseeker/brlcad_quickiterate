@@ -94,7 +94,7 @@ struct QgCanvasState {
 	/* ---- input-binding flags ---- */
 	bool use_default_keybindings   = true;
 	bool use_default_mousebindings = true;
-	int  lmouse_mode = -1;  /* set to BV_SCALE in canvas constructor */
+	int  lmouse_mode = -1;  /* set to BSG_SCALE in canvas constructor */
 
 	/* ---- widget-level tracking ---- */
 	int    current = 1;     /* 1 = this view is active */

@@ -53,7 +53,6 @@
 #define BSG_SHIFT_MOD            0x200
 #define BSG_ALT_MOD              0x400
 
-#include "bsg/legacy_compat.h"
 
 #endif /* BSG_EVENTS_H */
 

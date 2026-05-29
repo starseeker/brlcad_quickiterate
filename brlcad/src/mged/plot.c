@@ -40,6 +40,7 @@
 
 #include "./mged.h"
 #include "./mged_dm.h"
+#include "bsg/node_private.h"
 
 #if defined(HAVE_FDOPEN) && !defined(HAVE_DECL_FDOPEN)
 extern FILE *fdopen(int fd, const char *mode);

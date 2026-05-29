@@ -41,6 +41,7 @@
 #include "bu/str.h"
 #include "bn/mat.h"
 #include "nmg.h"
+#include "bsg/node_private.h"
 
 
 extern int debug_file_count;

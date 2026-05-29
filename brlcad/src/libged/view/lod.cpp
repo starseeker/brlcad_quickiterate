@@ -38,6 +38,7 @@
 
 #include "../ged_private.h"
 #include "./ged_view.h"
+#include "bsg/node_private.h"
 
 int
 _view_cmd_lod(void *bs, int argc, const char **argv)

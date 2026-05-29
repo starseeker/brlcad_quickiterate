@@ -310,7 +310,7 @@ Completed cleanup items:
   serves BV_DB_OBJS queries; BV_VIEW_OBJS returns NULL with a comment).
 - Removed `view_obj_cache` from `bview_objs` and `shared_view_obj_cache` from
   `bview_set_internal`; removed corresponding init/free calls in bv_init,
-  bv_free, view_sets.cpp, and mged/attach.c.
+  bv_free, view_set.cpp, and mged/attach.c.
 - Migrated `bv_autoview` from `bv_view_objs(BV_VIEW_OBJS)` to
   `bv_view_obj_visit` (two-pass: find-geom first, then bound).
 - Migrated `bv_clear` object-count return value to use `bv_view_obj_visit`.

@@ -35,6 +35,7 @@
 /* Private headers */
 #include "../tclcad_private.h"
 #include "../view/view.h"
+#include "bsg/node_private.h"
 
 
 
@@ -219,13 +220,13 @@ to_edit_redraw(struct ged *gedp,
     if (db_string_to_path(&subpath, gedp->dbip, argv[1]) != 0)
 	return BRLCAD_OK;  /* path not found — nothing to do */
 
-    /* Phase 6: iterate the BSG view tree (BV_DB_OBJS) instead of walking
+    /* Phase 6: iterate the BSG view tree (BSG_OBJ_DB) instead of walking
      * the legacy ged_dl / dl_head_scene_obj display-list chain. */
     struct bu_ptbl *views = bsg_set_views(&gedp->ged_views);
     size_t vi;
     for (vi = 0; vi < BU_PTBL_LEN(views); vi++) {
 	struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, vi);
-	struct bu_ptbl *db_objs = bsg_view_objs(v, BV_DB_OBJS);
+	struct bu_ptbl *db_objs = bsg_view_objs(v, BSG_OBJ_DB);
 	if (!db_objs)
 	    continue;
 

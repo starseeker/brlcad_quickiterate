@@ -32,6 +32,7 @@
 #include "bsg/material.h"
 #include "bsg/appearance.h"
 #include "bsg/appearance_action.h"
+#include "bsg/node_private.h"
 
 
 int

@@ -3732,6 +3732,7 @@ do_new_update:
 
 
 #include "../include/plugin.h"
+#include "bsg/node_private.h"
 
 #define GED_TYPEIN_COMMANDS(X, XID) \
     X(in, ged_in_core, GED_CMD_DEFAULT) \

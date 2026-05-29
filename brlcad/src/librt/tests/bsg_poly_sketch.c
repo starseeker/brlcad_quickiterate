@@ -101,7 +101,7 @@ test_non_origin_plane_roundtrip(void)
     struct bsg_polygon *p;
     BU_GET(p, struct bsg_polygon);
     memset(p, 0, sizeof(struct bsg_polygon));
-    p->type = BV_POLYGON_GENERAL;
+    p->type = BSG_POLYGON_GENERAL;
     p->polygon.num_contours = 1;
     p->polygon.hole = (int *)bu_calloc(1, sizeof(int), "gp_hole");
     p->polygon.contour = (struct bg_poly_contour *)bu_calloc(1, sizeof(struct bg_poly_contour), "gp_contour");

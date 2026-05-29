@@ -64,6 +64,7 @@ extern "C" {
 #include "vmath.h"
 #include "bn/mat.h"
 #include "rt/geom.h"
+#include "bsg/node_private.h"
 }
 
 /* Guided by http://tensor-compiler.org/codegen.html with

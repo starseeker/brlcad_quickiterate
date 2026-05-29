@@ -33,7 +33,7 @@ set(
   sensor.c
   util.cpp
   view_scope.c
-  view_sets.cpp
+  view_set.cpp
   visit.c
   vlist.c
   adc.c
@@ -121,7 +121,7 @@ cmakefiles(
   polygon_op.cpp
   snap.c
   snap_action.c
-  view_sets.cpp
+  view_set.cpp
   tig/axis.c
   tig/list.c
   tig/marker.c

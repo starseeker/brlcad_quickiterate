@@ -28,6 +28,7 @@
 #include "nmg.h"
 #include "raytrace.h"
 #include "rt/geom.h"
+#include "bsg/node_private.h"
 
 
 /**

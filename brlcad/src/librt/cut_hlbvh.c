@@ -53,6 +53,7 @@
 
 #define HLBVH_IMPLEMENTATION
 #include "cut_hlbvh.h"
+#include "bsg/node_private.h"
 
 #define HLBVH_STACK_SIZE 256
 

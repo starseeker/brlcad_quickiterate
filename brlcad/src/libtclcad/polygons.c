@@ -39,6 +39,7 @@
 /* Private headers */
 #include "./tclcad_private.h"
 #include "./view/view.h"
+#include "bsg/node_private.h"
 
 /* Phase T1 (drawing_stack_modernization): keep a BSG VIEW_SCOPE object in sync
  * with the gv_tcl data-polygons state so the modern BSG renderer picks up
@@ -132,7 +133,7 @@ to_extract_contours_av(Tcl_Interp *interp, struct ged *gedp, struct bsg_view *gd
 	point_ac = ac;
 
 	/* point_ac includes a hole flag */
-	if (mode != BV_POLY_CONTOUR_MODE && point_ac < 4) {
+	if (mode != BSG_POLY_CONTOUR_MODE && point_ac < 4) {
 	    bu_vls_printf(gedp->ged_result_str, "There must be at least 3 points per contour");
 	    Tcl_Free((char *)point_av);
 	    return BRLCAD_ERROR;
@@ -1274,7 +1275,7 @@ to_poly_circ_mode_func(Tcl_Interp *interp,
 
     gdvp->gv_prevMouseX = x;
     gdvp->gv_prevMouseY = y;
-    gdvp->gv_tcl->gv_polygon_mode = BV_POLY_CIRCLE_MODE;
+    gdvp->gv_tcl->gv_polygon_mode = BSG_POLY_CIRCLE_MODE;
 
     gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
@@ -1283,7 +1284,7 @@ to_poly_circ_mode_func(Tcl_Interp *interp,
     {
 	bsg_snap_kind_mask snap_kinds = 0;
 	if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	    gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	    gedp->ged_gvp->gv_s->gv_snap_flags = BSG_SNAP_TCL;
 	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
 	}
 	if (gedp->ged_gvp->gv_s->gv_grid.snap)
@@ -1352,7 +1353,7 @@ to_poly_cont_build_func(Tcl_Interp *interp,
 
     gdvp->gv_prevMouseX = x;
     gdvp->gv_prevMouseY = y;
-    gdvp->gv_tcl->gv_polygon_mode = BV_POLY_CONTOUR_MODE;
+    gdvp->gv_tcl->gv_polygon_mode = BSG_POLY_CONTOUR_MODE;
 
     gdvp->gv_width = dm_get_width((struct dm *)gdvp->dmp);
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
@@ -1361,7 +1362,7 @@ to_poly_cont_build_func(Tcl_Interp *interp,
     {
 	bsg_snap_kind_mask snap_kinds = 0;
 	if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	    gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	    gedp->ged_gvp->gv_s->gv_snap_flags = BSG_SNAP_TCL;
 	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
 	}
 	if (gedp->ged_gvp->gv_s->gv_grid.snap)
@@ -1739,7 +1740,7 @@ to_poly_ell_mode_func(Tcl_Interp *interp,
     {
 	bsg_snap_kind_mask snap_kinds = 0;
 	if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	    gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	    gedp->ged_gvp->gv_s->gv_snap_flags = BSG_SNAP_TCL;
 	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
 	}
 	if (gedp->ged_gvp->gv_s->gv_grid.snap)
@@ -1914,7 +1915,7 @@ to_poly_rect_mode_func(Tcl_Interp *interp,
     {
 	bsg_snap_kind_mask snap_kinds = 0;
 	if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	    gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	    gedp->ged_gvp->gv_s->gv_snap_flags = BSG_SNAP_TCL;
 	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
 	}
 	if (gedp->ged_gvp->gv_s->gv_grid.snap)

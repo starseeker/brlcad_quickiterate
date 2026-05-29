@@ -44,6 +44,7 @@
 #include "bsg/util.h"
 #include "bsg/field.h"
 #include "bsg/sensor.h"
+#include "bsg/node_private.h"
 
 #define BSG_SENSOR_MAX 256
 

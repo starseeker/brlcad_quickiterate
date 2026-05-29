@@ -1824,6 +1824,7 @@ ged_redraw_core(struct ged *gedp, int argc, const char *argv[])
 }
 
 #include "../include/plugin.h"
+#include "bsg/node_private.h"
 
 #define GED_DRAW_COMMANDS(X, XID) \
     X(draw, ged_draw_core, GED_CMD_DEFAULT) \

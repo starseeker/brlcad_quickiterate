@@ -30,6 +30,7 @@
 
 #include "raytrace.h"
 #include "wdb.h"
+#include "bsg/node_private.h"
 
 
 int

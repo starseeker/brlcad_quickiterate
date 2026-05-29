@@ -33,6 +33,7 @@
 #include "bu/malloc.h"
 #include "bsg/polygon.h"
 #include "bsg/util.h"
+#include "bsg/node_private.h"
 
 int
 bsg_polygon_csg(struct bsg_node *target, struct bsg_node *stencil, bg_clip_t op)

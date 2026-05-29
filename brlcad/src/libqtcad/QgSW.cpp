@@ -40,9 +40,10 @@
 
 extern "C" {
 #include "bsg/util.h"
+#include "bsg/node_private.h"
 }
 
-// Using the full BV_MIN/BV_MAX was causing drawing artifacts with moss I
+// Using the full BSG_VIEW_MIN/BSG_VIEW_MAX was causing drawing artifacts with moss I
 // in shaded mode (I think I was seeing the "Z-fighting" problem:
 // https://www.sjbaker.org/steve/omniv/love_your_z_buffer.html )
 //
@@ -60,7 +61,7 @@ QgSW::QgSW(QWidget *parent, struct fb *fbp)
 {
     d = new QgCanvasState();
     d->ifp = fbp;
-    d->lmouse_mode = BV_SCALE;
+    d->lmouse_mode = BSG_SCALE;
 
     // Provide a view specific to this widget - set gedp->ged_gvp to v
     // if this is the current view

@@ -40,6 +40,7 @@
 #include "bsg/util.h"
 #include "bsg/draw_intent.h"
 #include "bsg/overlay.h"
+#include "bsg/node_private.h"
 
 
 /* -----------------------------------------------------------------------

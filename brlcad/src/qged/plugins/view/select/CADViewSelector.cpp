@@ -42,6 +42,7 @@
 
 #include "qtcad/QgSelectFilter.h"
 #include "./CADViewSelector.h"
+#include "bsg/node_private.h"
 
 CADViewSelector::CADViewSelector(QWidget *)
 {

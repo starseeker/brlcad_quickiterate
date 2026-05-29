@@ -42,6 +42,7 @@
 #include "bsg/payload.h"
 #include "bsg/payload_typed.h"
 #include "bsg/util.h"
+#include "bsg/node_private.h"
 
 struct hud_feature_desc {
     bsg_hud_feature_type  type;
@@ -67,7 +68,7 @@ static const struct hud_feature_desc _hud_features[BSG_HUD_FEATURE_COUNT] = {
 static fastf_t
 _ged_to_ndc(int val)
 {
-    return ((fastf_t)val) / (fastf_t)BV_MAX;
+    return ((fastf_t)val) / (fastf_t)BSG_VIEW_MAX;
 }
 
 static struct bsg_hud_node_meta *

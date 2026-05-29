@@ -39,6 +39,7 @@
 #include "nmg/nurb.h"
 #include "wdb.h"
 #include "rt/rt_ecmds.h"
+#include "bsg/node_private.h"
 
 /* ECMD constants (file-local in edbspline.c) */
 #define ECMD_VTRANS          9017

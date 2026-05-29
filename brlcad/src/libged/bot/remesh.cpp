@@ -47,6 +47,7 @@
 #include "ged/objects.h"
 #include "../ged_private.h"
 #include "./ged_bot.h"
+#include "bsg/node_private.h"
 
 
 #ifdef OPENVDB_ABI_VERSION_NUMBER

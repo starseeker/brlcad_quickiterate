@@ -31,6 +31,7 @@
 
 #include "bsg/defines.h"
 #include "bsg/render_settings.h"
+#include "bsg/node_private.h"
 
 
 struct bsg_render_settings *

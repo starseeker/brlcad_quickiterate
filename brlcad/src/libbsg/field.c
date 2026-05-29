@@ -35,6 +35,7 @@
 #include "bsg/field.h"
 #include "bsg/material.h"
 #include "bsg/sensor.h"
+#include "bsg/node_private.h"
 
 
 void

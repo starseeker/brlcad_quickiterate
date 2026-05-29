@@ -47,6 +47,7 @@
 #include "raytrace.h"
 #include "wdb.h"
 #include "../../librt_private.h"
+#include "bsg/node_private.h"
 
 #if defined(HAVE_ISNAN) && !defined(HAVE_DECL_ISNAN) && !defined(isnan)
 extern int isnan(double x);

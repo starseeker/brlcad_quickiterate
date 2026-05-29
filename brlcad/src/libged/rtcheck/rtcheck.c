@@ -325,6 +325,7 @@ ged_rtcheck_core(struct ged *gedp, int argc, const char *argv[])
 
 
 #include "../include/plugin.h"
+#include "bsg/node_private.h"
 
 #define GED_RTCHECK_COMMANDS(X, XID) \
     X(rtcheck, ged_rtcheck_core, GED_CMD_DEFAULT) \

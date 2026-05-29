@@ -38,7 +38,6 @@
 
 #define BSG_POLY_CIRCLE_MODE 15
 #define BSG_POLY_CONTOUR_MODE 16
-#include "bsg/legacy_compat.h"
 
 /* Separate these out, as we'll try not to use them in the new display work */
 struct bsg_node_old_settings {

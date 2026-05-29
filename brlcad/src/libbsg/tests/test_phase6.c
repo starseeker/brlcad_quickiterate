@@ -37,6 +37,7 @@
 #include "bsg/node_shape.h"
 #include "bsg/node_transform.h"
 #include "bsg/payload.h"
+#include "bsg/node_private.h"
 
 #define PASS(msg) do { printf("  PASS: %s\n", (msg)); } while (0)
 #define FAIL(msg) do { printf("  FAIL: %s\n", (msg)); return 1; } while (0)

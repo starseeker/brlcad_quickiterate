@@ -72,6 +72,7 @@
 #include "qtcad/QgUtil.h"
 #include "qtcad/QgSignalFlags.h"
 #include "../librt/librt_private.h"
+#include "bsg/node_private.h"
 
 /* Validate the character constant stored in QgItem::op matches the enum. */
 static_assert(DB_OP_UNION == 'u', "DB_OP_UNION enum value changed; update QgItem::op default in QgModel.h");

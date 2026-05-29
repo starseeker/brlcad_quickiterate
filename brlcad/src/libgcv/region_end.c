@@ -31,6 +31,7 @@
 #include "rt/resource.h"
 #include "rt/nmg_conv.h"
 #include "gcv.h"
+#include "bsg/node_private.h"
 
 
 union tree *

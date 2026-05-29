@@ -29,6 +29,7 @@
 #include "bsg/defines.h"
 #include "bsg/draw_set.h"
 #include "bsg/identity.h"
+#include "bsg/node_private.h"
 
 
 void

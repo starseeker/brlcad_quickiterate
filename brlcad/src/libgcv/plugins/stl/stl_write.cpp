@@ -47,6 +47,7 @@ extern "C" {
 #include "rt/geom.h"
 #include "raytrace.h"
 #include "gcv.h"
+#include "bsg/node_private.h"
 }
 
 #define V3ARGS_SCALE(v, factor)       (v)[X] * (factor), (v)[Y] * (factor), (v)[Z] * (factor)

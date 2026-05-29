@@ -48,6 +48,7 @@ extern "C" {
 #include "rt/edit.h"
 #include "rt/func.h"
 #include "rt/functab.h"
+#include "bsg/node_private.h"
 }
 
 class RT_Edit_Map_Internal {

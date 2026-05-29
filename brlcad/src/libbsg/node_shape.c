@@ -32,6 +32,7 @@
 #include "bsg/util.h"
 #include "bsg/vlist.h"
 #include "bsg/node_shape.h"
+#include "bsg/node_private.h"
 
 
 bsg_node *

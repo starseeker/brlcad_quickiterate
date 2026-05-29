@@ -38,6 +38,7 @@
 #include "bu/list.h"
 #include "bu/log.h"
 #include "nmg.h"
+#include "bsg/node_private.h"
 
 
 struct nmg_bool_state {

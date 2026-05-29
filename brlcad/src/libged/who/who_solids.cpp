@@ -42,10 +42,11 @@ extern "C" {
 
 #include "bsg/util.h"
 #include "bsg/draw_source.h"
-#include "bsg/view_sets.h"
+#include "bsg/view_set.h"
 
 #include "../alphanum.h"
 #include "../ged_private.h"
+#include "bsg/node_private.h"
 
 #define LAST_SOLID(_sp) DB_FULL_PATH_CUR_DIR(&(_sp)->s_fullpath)
 

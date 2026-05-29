@@ -126,6 +126,7 @@ ged_lod_core(struct ged *gedp, int argc, const char *argv[])
 
 
 #include "../include/plugin.h"
+#include "bsg/node_private.h"
 
 #define GED_LOD_COMMANDS(X, XID) \
     X(lod, ged_lod_core, GED_CMD_DEFAULT) \

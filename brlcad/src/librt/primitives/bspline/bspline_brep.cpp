@@ -29,6 +29,7 @@
 #include "raytrace.h"
 #include "rt/geom.h"
 #include "brep.h"
+#include "bsg/node_private.h"
 
 
 extern "C" void

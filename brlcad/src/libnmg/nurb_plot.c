@@ -34,6 +34,7 @@
 #include "vmath.h"
 #include "bsg/plot3.h"
 #include "nmg.h"
+#include "bsg/node_private.h"
 
 void
 nmg_nurb_plot_snurb(FILE *fp, const struct face_g_snurb *srf)

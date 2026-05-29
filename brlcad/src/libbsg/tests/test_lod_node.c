@@ -56,6 +56,7 @@
 #include "bsg/lod_ops.h"
 #include "bsg/node_group.h"
 #include "bsg/node_shape.h"
+#include "bsg/node_private.h"
 
 static int g_fail = 0;
 

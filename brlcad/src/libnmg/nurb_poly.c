@@ -34,6 +34,7 @@
 #include "vmath.h"
 #include "bu/malloc.h"
 #include "nmg.h"
+#include "bsg/node_private.h"
 
 /**
  * Algorithm -

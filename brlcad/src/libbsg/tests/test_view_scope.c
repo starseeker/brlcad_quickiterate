@@ -47,6 +47,7 @@
 
 #include "bsg/node_group.h"
 #include "bsg/view_scope.h"
+#include "bsg/node_private.h"
 
 static int g_fail = 0;
 

@@ -35,6 +35,7 @@
 #include "vmath.h"
 #include "bu/malloc.h"
 #include "nmg.h"
+#include "bsg/node_private.h"
 
 /* This doesn't seem to be used anymore: */
 /* extern fastf_t spl_crv_flat(); */

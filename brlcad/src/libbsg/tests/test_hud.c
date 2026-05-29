@@ -36,6 +36,7 @@
 #include "bsg/payload.h"
 #include "bsg/util.h"
 #include "bsg/hud.h"
+#include "bsg/node_private.h"
 
 
 /* -----------------------------------------------------------------------

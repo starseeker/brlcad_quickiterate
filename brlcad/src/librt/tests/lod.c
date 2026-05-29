@@ -27,6 +27,7 @@
 #include "bg.h"
 #include "bsg/lod.h"
 #include "raytrace.h"
+#include "bsg/node_private.h"
 
 int
 main(int argc, char *argv[])

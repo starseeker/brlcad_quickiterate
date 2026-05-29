@@ -1594,6 +1594,7 @@ ged_brep_core(struct ged *gedp, int argc, const char *argv[])
 }
 
 #include "../include/plugin.h"
+#include "bsg/node_private.h"
 
 #define GED_BREP_COMMANDS(X, XID) \
     X(brep,   ged_brep_core,   GED_CMD_DEFAULT) \

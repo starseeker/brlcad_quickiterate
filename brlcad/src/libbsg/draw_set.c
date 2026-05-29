@@ -45,6 +45,7 @@
 #include "bsg/draw_ctx.h"
 #include "bsg/draw_set.h"
 #include "bsg_private.h"
+#include "bsg/node_private.h"
 
 
 /* ------------------------------------------------------------------ */

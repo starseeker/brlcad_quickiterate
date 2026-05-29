@@ -54,6 +54,7 @@
 #include "ged/database.h"
 #include "ged/objects.h"
 #include "./ged_bot.h"
+#include "bsg/node_private.h"
 
 
 static struct rt_bot_internal *

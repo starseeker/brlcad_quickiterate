@@ -36,6 +36,7 @@ extern "C" {
 #include <unordered_set>
 #include "qtcad/QgSelectFilter.h"
 #include "qtcad/QgSignalFlags.h"
+#include "bsg/node_private.h"
 
 static struct bsg_pick_record *
 _qg_pick_record_create(struct bsg_node *node, struct bsg_view *v, int sx, int sy,

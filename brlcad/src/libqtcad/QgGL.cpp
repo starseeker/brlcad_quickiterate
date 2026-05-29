@@ -38,6 +38,7 @@
 
 extern "C" {
 #include "bsg/util.h"
+#include "bsg/node_private.h"
 }
 
 // FROM MGED
@@ -46,7 +47,7 @@ extern "C" {
 #define YMIN            (-2048)
 #define YMAX            (2047)
 
-// from BV_MIN and BV_MAX
+// from BSG_VIEW_MIN and BSG_VIEW_MAX
 #define QTGL_ZMIN -2048
 #define QTGL_ZMAX 2047
 
@@ -55,7 +56,7 @@ QgGL::QgGL(QWidget *parent, struct fb *fbp)
 {
     d = new QgCanvasState();
     d->ifp = fbp;
-    d->lmouse_mode = BV_SCALE;
+    d->lmouse_mode = BSG_SCALE;
 
     // Provide a view specific to this widget - set gedp->ged_gvp to v
     // if this is the current view

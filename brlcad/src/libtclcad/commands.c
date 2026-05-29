@@ -85,6 +85,7 @@
 #include "./tclcad_private.h"
 #include "./view/view.h"
 #include "./bsg_move_helpers.h"
+#include "bsg/node_private.h"
 
 static int to_base2local(struct ged *gedp,
 	int argc,
@@ -1440,10 +1441,10 @@ to_bounds(struct ged *gedp,
      * use it for controlling the location of the zclipping plane in
      * dm-ogl.c. dm-X.c uses dm_clipmin and dm_clipmax.
      */
-    if (dm_get_clipmax((struct dm *)gdvp->dmp) && (*dm_get_clipmax((struct dm *)gdvp->dmp))[2] <= BV_MAX)
+    if (dm_get_clipmax((struct dm *)gdvp->dmp) && (*dm_get_clipmax((struct dm *)gdvp->dmp))[2] <= BSG_VIEW_MAX)
 	dm_set_bound((struct dm *)gdvp->dmp, 1.0);
     else
-	dm_set_bound((struct dm *)gdvp->dmp, BV_MAX/((*dm_get_clipmax((struct dm *)gdvp->dmp))[2]));
+	dm_set_bound((struct dm *)gdvp->dmp, BSG_VIEW_MAX/((*dm_get_clipmax((struct dm *)gdvp->dmp))[2]));
 
     (void)dm_make_current((struct dm *)gdvp->dmp);
     (void)dm_set_win_bounds((struct dm *)gdvp->dmp, bounds);
@@ -3678,7 +3679,7 @@ to_idle_mode(struct ged *gedp,
 	need_refresh = 1;
     }
 
-    if (mode != BV_POLY_CONTOUR_MODE ||
+    if (mode != BSG_POLY_CONTOUR_MODE ||
 	    gdvp->gv_tcl->gv_data_polygons.gdps_cflag == 0)
     {
 	struct bu_vls bindings = BU_VLS_INIT_ZERO;
@@ -5819,7 +5820,7 @@ to_snap_view(struct ged *gedp,
     {
 	bsg_snap_kind_mask snap_kinds = 0;
 	if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	    gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	    gedp->ged_gvp->gv_s->gv_snap_flags = BSG_SNAP_TCL;
 	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
 	}
 	if (gedp->ged_gvp->gv_s->gv_grid.snap)

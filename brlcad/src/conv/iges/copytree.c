@@ -26,6 +26,7 @@
  */
 
 #include "./iges_struct.h"
+#include "bsg/node_private.h"
 
 struct node *Copytree(struct node *root, struct node *parent)
 {

@@ -22,6 +22,7 @@
 
 #include "./iges_struct.h"
 #include "./iges_extern.h"
+#include "bsg/node_private.h"
 
 #define STKBLK 100	/* Allocation block size */
 

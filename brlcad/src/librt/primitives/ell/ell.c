@@ -40,6 +40,7 @@
 #include "raytrace.h"
 
 #include "../../librt_private.h"
+#include "bsg/node_private.h"
 
 
 extern int rt_sph_prep(struct soltab *stp, struct rt_db_internal *ip,

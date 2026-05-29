@@ -39,6 +39,7 @@
 #include "bsg/snap.h"
 #include "bsg/util.h"
 #include "bsg/vlist.h"
+#include "bsg/node_private.h"
 
 struct bsg_cp_info {
     double ctol_sq; // square of the distance that defines "close to a line"
@@ -174,16 +175,16 @@ bsg_snap_lines_3d(point_t *out_pt, struct bsg_view *v, point_t *p)
 
     // If we're not in Tcl mode only, we are looking at objects - either
     // all of them, or a specified subset
-    if (gv_s->gv_snap_flags != BV_SNAP_TCL) {
+    if (gv_s->gv_snap_flags != BSG_SNAP_TCL) {
 	struct bsg_cp_info *s = &cpinfo;
 	s->ctol_sq = line_tol_sq(v, 1);
 	if (BU_PTBL_LEN(&gv_s->gv_snap_objs) > 0) {
 	    for (size_t i = 0; i < BU_PTBL_LEN(&gv_s->gv_snap_objs); i++) {
 		struct bsg_node *so = (struct bsg_node *)BU_PTBL_GET(&gv_s->gv_snap_objs, i);
 		if (gv_s->gv_snap_flags) {
-		    if (gv_s->gv_snap_flags == BV_SNAP_DB && (!(so->s_type_flags & BSG_OBJ_DB)))
+		    if (gv_s->gv_snap_flags == BSG_SNAP_DB && (!(so->s_type_flags & BSG_OBJ_DB)))
 			continue;
-		    if (gv_s->gv_snap_flags == BV_SNAP_VIEW && (!(so->s_type_flags & BSG_OBJ_VIEW)))
+		    if (gv_s->gv_snap_flags == BSG_SNAP_VIEW && (!(so->s_type_flags & BSG_OBJ_VIEW)))
 			continue;
 		}
 		struct bsg_obj_settings *s_os = (so->s_os) ? so->s_os : &so->s_local_os;
@@ -191,10 +192,10 @@ bsg_snap_lines_3d(point_t *out_pt, struct bsg_view *v, point_t *p)
 		ret += _find_closest_obj_point(s, p, so);
 	    }
 	} else {
-	    if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_DB)) {
+	    if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BSG_SNAP_DB)) {
 		/* Phase B: use bsg_view_objs_visit_db to traverse BSG tree when
 		 * gv_draw_root is set; falls back to shared+local ptbls for
-		 * non-GED consumers.  The BV_SNAP_SHARED/LOCAL sub-distinction
+		 * non-GED consumers.  The BSG_SNAP_SHARED/LOCAL sub-distinction
 		 * is handled transparently by the helper's two-ptbl fallback. */
 		struct _bv_snap_db_ctx snap_ctx;
 		snap_ctx.s = s;
@@ -202,16 +203,16 @@ bsg_snap_lines_3d(point_t *out_pt, struct bsg_view *v, point_t *p)
 		snap_ctx.ret = &ret;
 		bsg_view_objs_visit_db(v, _bv_snap_db_obj_cb, &snap_ctx);
 	    }
-	    if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_VIEW)) {
+	    if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BSG_SNAP_VIEW)) {
 		/* Phase A0 (drawing_stack_modernization): use bsg_view_obj_visit
 		 * for the view-only scope.  scope_mask honors the same
-		 * BV_SNAP_SHARED / BV_SNAP_LOCAL distinction as the legacy
+		 * BSG_SNAP_SHARED / BSG_SNAP_LOCAL distinction as the legacy
 		 * ptbl scan. */
 		int scope_mask = 0;
-		if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_SHARED))
-		    scope_mask |= BV_VIEW_OBJ_SCOPE_SHARED;
-		if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BV_SNAP_LOCAL))
-		    scope_mask |= BV_VIEW_OBJ_SCOPE_LOCAL;
+		if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BSG_SNAP_SHARED))
+		    scope_mask |= BSG_VIEW_OBJ_SCOPE_SHARED;
+		if (!gv_s->gv_snap_flags || (gv_s->gv_snap_flags & BSG_SNAP_LOCAL))
+		    scope_mask |= BSG_VIEW_OBJ_SCOPE_LOCAL;
 		if (scope_mask) {
 		    struct _bv_snap_db_ctx snap_ctx;
 		    snap_ctx.s = s;
@@ -232,12 +233,12 @@ bsg_snap_lines_3d(point_t *out_pt, struct bsg_view *v, point_t *p)
     // Phase T-final (drawing_stack_modernization): the legacy gv_tcl
     // data_lines / sdata_lines snap branch was removed.  After T1, the Tcl
     // data_lines state is mirrored into BSG view-scope objects
-    // (`_tcl_data_lines`, `_tcl_sdata_lines`), which the BV_SNAP_VIEW
+    // (`_tcl_data_lines`, `_tcl_sdata_lines`), which the BSG_SNAP_VIEW
     // branch above already snaps against via bsg_view_obj_visit.  The
-    // BV_SNAP_TCL flag is now equivalent to BV_SNAP_VIEW and is retained
+    // BSG_SNAP_TCL flag is now equivalent to BSG_SNAP_VIEW and is retained
     // only for caller backward-compatibility.
-    if (gv_s->gv_snap_flags == BV_SNAP_TCL) {
-	int scope_mask = BV_VIEW_OBJ_SCOPE_ALL;
+    if (gv_s->gv_snap_flags == BSG_SNAP_TCL) {
+	int scope_mask = BSG_VIEW_OBJ_SCOPE_ALL;
 	struct _bv_snap_db_ctx snap_ctx;
 	snap_ctx.s = &cpinfo;
 	snap_ctx.p = p;

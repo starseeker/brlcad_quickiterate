@@ -35,6 +35,7 @@
 #include "../tclcad_private.h"
 #include "../view/view.h"
 #include "../bsg_move_helpers.h"
+#include "bsg/node_private.h"
 
 /* Phase T3 (drawing_stack_modernization): the "view get" introspection path
  * (getters in to_data_arrows_func) now recovers values by reading the BSG

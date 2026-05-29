@@ -36,6 +36,7 @@
 #include "bu/malloc.h"
 #include "nmg.h"
 #include "./nmg_private.h"
+#include "bsg/node_private.h"
 
 #define NMG_TEST_EDGEUSE(_p) do { \
     if (!(_p)->l.forw || !(_p)->l.back || !(_p)->eumate_p || \

@@ -42,6 +42,7 @@
 #include "rt/db5.h"
 #include "raytrace.h"
 #include "librt_private.h"
+#include "bsg/node_private.h"
 
 /* flags for size calculations */
 #define RT_DIR_SIZE_FINALIZED   0x1

@@ -128,6 +128,7 @@ ged_set_transparency_core(struct ged *gedp, int argc, const char *argv[])
 
 
 #include "../include/plugin.h"
+#include "bsg/node_private.h"
 
 #define GED_SET_TRANSPARENCY_COMMANDS(X, XID) \
     X(set_transparency, ged_set_transparency_core, GED_CMD_DEFAULT) \

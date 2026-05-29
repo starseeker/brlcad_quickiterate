@@ -87,6 +87,7 @@ EMail:               luebke@cs.virginia.edu
 #include "vds.h"
 
 #include "bu/log.h"
+#include "bsg/node_private.h"
 
 #define MAJOR 1
 #define MINOR 1

@@ -38,6 +38,7 @@
 #include "bu/malloc.h"
 #include "bu/str.h"
 #include "nmg.h"
+#include "bsg/node_private.h"
 
 
 static char nmg_pr_padstr[128];

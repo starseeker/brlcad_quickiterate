@@ -60,6 +60,7 @@
 #include "bsg/util.h"
 #include "bsg/visit.h"
 #include "../../ged_private.h"
+#include "bsg/node_private.h"
 
 
 #define ASSERT(cond) do { \
@@ -1063,7 +1064,7 @@ main(int ac, char *av[])
 	/* Attach a backend descriptor to the target shape. */
 	struct bsg_backend *be;
 	BU_GET(be, struct bsg_backend);
-	be->type_tag   = BV_BACKEND_GL;  /* any tag works for the stub */
+	be->type_tag   = BSG_BACKEND_GL;  /* any tag works for the stub */
 	be->handle     = &st;
 	be->free       = phase11_helpers::backend_free;
 	be->invalidate = phase11_helpers::backend_invalidate;

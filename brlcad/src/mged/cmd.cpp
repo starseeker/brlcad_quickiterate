@@ -68,6 +68,7 @@ extern "C" {
 #include "./cmd.h"
 #include "./mged_dm.h"
 #include "./sedit.h"
+#include "bsg/node_private.h"
 
 void mged_finish(struct mged_state *s, int exitcode); /* in mged.c */
 void update_grids(struct mged_state *s, fastf_t sf);		/* in grid.c */

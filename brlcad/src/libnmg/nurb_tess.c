@@ -35,6 +35,7 @@
 
 #include "vmath.h"
 #include "nmg.h"
+#include "bsg/node_private.h"
 
 /**
  * Algorithm -

@@ -55,8 +55,8 @@ extern void *fb_backends;
 #define DIVBY4096(x) (((double)(x))*INV_4096)
 #define GED_TO_Xx(_dmp, x) ((int)((DIVBY4096(x)+0.5)*_dmp->i->dm_width))
 #define GED_TO_Xy(_dmp, x) ((int)((0.5-DIVBY4096(x))*_dmp->i->dm_height))
-#define Xx_TO_GED(_dmp, x) ((int)(((x)/(double)_dmp->i->dm_width - 0.5) * BV_RANGE))
-#define Xy_TO_GED(_dmp, x) ((int)((0.5 - (x)/(double)_dmp->i->dm_height) * BV_RANGE))
+#define Xx_TO_GED(_dmp, x) ((int)(((x)/(double)_dmp->i->dm_width - 0.5) * BSG_VIEW_RANGE))
+#define Xy_TO_GED(_dmp, x) ((int)((0.5 - (x)/(double)_dmp->i->dm_height) * BSG_VIEW_RANGE))
 
 /* +-2048 to +-1 */
 #define GED_TO_PM1(x) (((fastf_t)(x))*INV_BV)

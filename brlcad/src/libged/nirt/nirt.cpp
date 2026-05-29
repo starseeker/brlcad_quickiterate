@@ -690,7 +690,7 @@ ged_vnirt_core(struct ged *gedp, int argc, const char *argv[])
 	sscanf(argv[argc-1], "%lf", &scan[Y]) != 1) {
 	return BRLCAD_ERROR;
     }
-    scan[Z] = BV_MAX;
+    scan[Z] = BSG_VIEW_MAX;
     argc -= 2;
 
     av = (char **)bu_calloc(1, sizeof(char *) * (argc + 5), "gd_vnirt_cmd: av");
@@ -735,6 +735,7 @@ ged_vnirt_core(struct ged *gedp, int argc, const char *argv[])
 }
 
 #include "../include/plugin.h"
+#include "bsg/node_private.h"
 
 #define GED_NIRT_COMMANDS(X, XID) \
     X(nirt, ged_nirt_core, GED_CMD_DEFAULT) \

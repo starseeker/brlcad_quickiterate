@@ -38,6 +38,7 @@
 #include "rt/wdb.h"
 
 #include "../librt_private.h"
+#include "bsg/node_private.h"
 
 int
 rt_sample_pnts(struct bsg_node *s, struct rt_db_internal *ip)

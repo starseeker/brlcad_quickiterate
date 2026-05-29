@@ -35,9 +35,10 @@
 #include "rt/primitives/sketch.h"
 #include "QPolyCreate.h"
 #include "QPolyMod.h"
+#include "bsg/node_private.h"
 
 /* Phase A2 (drawing_stack_modernization): typed visitor helpers that replace
- * bsg_view_objs(BV_VIEW_OBJS) ptbl loops with bsg_view_obj_visit callbacks. */
+ * bsg_view_objs(BSG_OBJ_VIEW) ptbl loops with bsg_view_obj_visit callbacks. */
 
 /* Collect polygon objects (optionally excluding one). */
 struct _qpolymod_poly_collect {
@@ -48,7 +49,7 @@ extern "C" int
 _qpolymod_poly_collect_cb(struct bsg_node *obj, void *data)
 {
     struct _qpolymod_poly_collect *s = (struct _qpolymod_poly_collect *)data;
-    if ((obj->s_type_flags & BV_POLYGONS) && obj != s->exclude)
+    if ((obj->s_type_flags & BSG_SHAPE_POLYGONS) && obj != s->exclude)
 	s->polys->push_back(obj);
     return 1;
 }
@@ -60,7 +61,7 @@ struct _qpolymod_clear_pts {
 extern "C" int
 _qpolymod_clear_pts_cb(struct bsg_node *obj, void *data)
 {
-    if (!(obj->s_type_flags & BV_POLYGONS))
+    if (!(obj->s_type_flags & BSG_SHAPE_POLYGONS))
 	return 1;
     struct _qpolymod_clear_pts *s = (struct _qpolymod_clear_pts *)data;
     struct bsg_polygon *ip = bsg_node_polygon(obj);
@@ -69,7 +70,7 @@ _qpolymod_clear_pts_cb(struct bsg_node *obj, void *data)
 	bu_log("Clear pnt selection\n");
 	ip->curr_point_i = -1;
 	ip->curr_contour_i = 0;
-	bsg_update_polygon(obj, obj->s_v, BV_POLYGON_UPDATE_PROPS_ONLY);
+	bsg_update_polygon(obj, obj->s_v, BSG_POLYGON_UPDATE_PROPS_ONLY);
     }
     return 1;
 }
@@ -85,7 +86,7 @@ _qpolymod_snap_collect_cb(struct bsg_node *obj, void *data)
     struct _qpolymod_snap_collect *s = (struct _qpolymod_snap_collect *)data;
     if (obj == s->exclude)
 	return 1;
-    if (obj->s_type_flags & BV_POLYGONS)
+    if (obj->s_type_flags & BSG_SHAPE_POLYGONS)
 	bu_ptbl_ins(s->snap_objs, (long *)obj);
     return 1;
 }
@@ -267,7 +268,7 @@ QPolyMod::mod_names_reset()
 	struct _qpolymod_poly_collect pc;
 	pc.polys = &polyvec;
 	pc.exclude = NULL;
-	bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _qpolymod_poly_collect_cb, &pc);
+	bsg_view_obj_visit(v, BSG_VIEW_OBJ_SCOPE_ALL, _qpolymod_poly_collect_cb, &pc);
 	for (auto *s : polyvec)
 	    mod_names->addItem(bu_vls_cstr(&s->s_name));
     }
@@ -289,7 +290,7 @@ QPolyMod::poly_type_settings(struct bsg_polygon *ip)
 {
     if (!ip || !ip->polygon.contour)
 	return;
-    if (ip->type == BV_POLYGON_GENERAL) {
+    if (ip->type == BSG_POLYGON_GENERAL) {
 	general_mode_opts->setEnabled(true);
 	close_general_poly->setEnabled(true);
 	close_general_poly->blockSignals(true);
@@ -345,7 +346,7 @@ QPolyMod::polygon_update_props()
     }
 
     // TODO - this should be a visual-properties-only update, but libbg doesn't support that yet.
-    bsg_update_polygon(p, p->s_v, BV_POLYGON_UPDATE_PROPS_ONLY);
+    bsg_update_polygon(p, p->s_v, BSG_POLYGON_UPDATE_PROPS_ONLY);
     emit view_updated(QG_VIEW_REFRESH);
 }
 
@@ -368,7 +369,7 @@ QPolyMod::toplevel_config(bool)
 	 * Note: the bu_log call for point-selection clearing is preserved. */
 	struct _qpolymod_clear_pts cps;
 	cps.draw_change = &draw_change;
-	bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _qpolymod_clear_pts_cb, &cps);
+	bsg_view_obj_visit(v, BSG_VIEW_OBJ_SCOPE_ALL, _qpolymod_clear_pts_cb, &cps);
     }
 
     // Make sure the Combo box list is current.
@@ -400,14 +401,14 @@ QPolyMod::clear_pnt_selection(bool checked)
 	    return;
 	ptype = ip->type;
     }
-    if (ptype != BV_POLYGON_GENERAL) {
+    if (ptype != BSG_POLYGON_GENERAL) {
 	return;
     }
     bu_log("got pnt selection clear\n");
     ip->curr_point_i = -1;
     ip->curr_contour_i = 0;
 
-    bsg_update_polygon(p, p->s_v, BV_POLYGON_UPDATE_PROPS_ONLY);
+    bsg_update_polygon(p, p->s_v, BSG_POLYGON_UPDATE_PROPS_ONLY);
 
     struct ged *gedp = getGed();
     if (!gedp)
@@ -432,7 +433,7 @@ QPolyMod::select(const QString &poly)
     struct _qpolymod_poly_collect pc;
     pc.polys = &polyvec;
     pc.exclude = NULL;
-    bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _qpolymod_poly_collect_cb, &pc);
+    bsg_view_obj_visit(v, BSG_VIEW_OBJ_SCOPE_ALL, _qpolymod_poly_collect_cb, &pc);
     for (auto *s : polyvec) {
 	QString pname(bu_vls_cstr(&s->s_name));
 	if (pname == poly) {
@@ -467,7 +468,7 @@ QPolyMod::toggle_closed_poly(bool checked)
 	ptype = ip->type;
     }
 
-    if (!ip || ptype != BV_POLYGON_GENERAL) {
+    if (!ip || ptype != BSG_POLYGON_GENERAL) {
 	if (!checked) {
 	    close_general_poly->blockSignals(true);
 	    close_general_poly->setChecked(true);
@@ -484,7 +485,7 @@ QPolyMod::toggle_closed_poly(bool checked)
     if (!ip->polygon.contour)
 	return;
 
-    if (checked && ptype == BV_POLYGON_GENERAL) {
+    if (checked && ptype == BSG_POLYGON_GENERAL) {
 	// A contour with less than 3 points can't be closed
 	if (ip->polygon.contour[0].num_points < 3) {
 	    ip->polygon.contour[0].open = 1;
@@ -519,13 +520,13 @@ QPolyMod::toggle_closed_poly(bool checked)
     if (!gedp)
 	return;
 
-    if (do_bool && ip->type == BV_POLYGON_GENERAL && close_general_poly->isChecked()) {
+    if (do_bool && ip->type == BSG_POLYGON_GENERAL && close_general_poly->isChecked()) {
 	/* Phase A2: use bsg_view_obj_visit to collect polygon targets. */
 	std::vector<struct bsg_node *> targets;
 	struct _qpolymod_poly_collect pc;
 	pc.polys = &targets;
 	pc.exclude = p;
-	bsg_view_obj_visit(getView(), BV_VIEW_OBJ_SCOPE_ALL, _qpolymod_poly_collect_cb, &pc);
+	bsg_view_obj_visit(getView(), BSG_VIEW_OBJ_SCOPE_ALL, _qpolymod_poly_collect_cb, &pc);
 
 	bg_clip_t op = bg_Union;
 	if (do_bool) {
@@ -557,7 +558,7 @@ QPolyMod::toggle_closed_poly(bool checked)
     }
 
     if (p) {
-	bsg_update_polygon(p, p->s_v, BV_POLYGON_UPDATE_DEFAULT);
+	bsg_update_polygon(p, p->s_v, BSG_POLYGON_UPDATE_DEFAULT);
     }
 
     toplevel_config(false);
@@ -599,7 +600,7 @@ QPolyMod::apply_bool_op()
     struct _qpolymod_poly_collect pc;
     pc.polys = &targets;
     pc.exclude = p;
-    bsg_view_obj_visit(getView(), BV_VIEW_OBJ_SCOPE_ALL, _qpolymod_poly_collect_cb, &pc);
+    bsg_view_obj_visit(getView(), BSG_VIEW_OBJ_SCOPE_ALL, _qpolymod_poly_collect_cb, &pc);
 
     std::vector<struct bsg_node *> cleanup;
     for (auto *target : targets) {
@@ -868,7 +869,7 @@ QPolyMod::toggle_line_snapping(bool s)
     if (!v || !co)
 	return;
 
-    v->gv_s->gv_snap_flags = BV_SNAP_VIEW;
+    v->gv_s->gv_snap_flags = BSG_SNAP_VIEW;
     bu_ptbl_reset(&v->gv_s->gv_snap_objs);
     if (!s) {
 	v->gv_s->gv_snap_lines = 0;
@@ -877,7 +878,7 @@ QPolyMod::toggle_line_snapping(bool s)
 	struct _qpolymod_snap_collect sc;
 	sc.exclude = co;
 	sc.snap_objs = &v->gv_s->gv_snap_objs;
-	bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _qpolymod_snap_collect_cb, &sc);
+	bsg_view_obj_visit(v, BSG_VIEW_OBJ_SCOPE_ALL, _qpolymod_snap_collect_cb, &sc);
 	v->gv_s->gv_snap_lines = BU_PTBL_LEN(&v->gv_s->gv_snap_objs) ? 1 : 0;
     }
 
@@ -891,7 +892,7 @@ QPolyMod::toggle_grid_snapping(bool s)
     if (!v)
 	return;
 
-    v->gv_s->gv_snap_flags = BV_SNAP_VIEW;
+    v->gv_s->gv_snap_flags = BSG_SNAP_VIEW;
     if (!s) {
 	v->gv_s->gv_grid.snap = 0;
     } else {
@@ -952,7 +953,7 @@ QPolyMod::eventFilter(QObject *, QEvent *e)
 	cf = psf;
     if (move_mode->isChecked())
 	cf = pmf;
-    if (update_mode->isChecked() && ip && ip->type == BV_POLYGON_GENERAL) {
+    if (update_mode->isChecked() && ip && ip->type == BSG_POLYGON_GENERAL) {
 	if (append_pnt->isChecked() || select_pnt->isChecked())
 	    cf = ppf;
     }
@@ -960,7 +961,7 @@ QPolyMod::eventFilter(QObject *, QEvent *e)
     // Set libqtcad know what the current polygon is
     cf->wp = p;
     cf->set_view((p) ? p->s_v : v);
-    cf->ptype = (ip) ? ip->type : BV_POLYGON_GENERAL;
+    cf->ptype = (ip) ? ip->type : BSG_POLYGON_GENERAL;
     checkbox_refresh(0);
 
     // Connect whatever the current filter is to pass on updating signals from

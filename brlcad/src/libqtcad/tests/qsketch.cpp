@@ -2032,6 +2032,7 @@ create_demo_sketches(struct rt_wdb *wdbp)
 }
 
 #include "qsketch.moc"
+#include "bsg/node_private.h"
 
 int
 main(int argc, char *argv[])

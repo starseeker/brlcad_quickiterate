@@ -25,6 +25,7 @@
 #include "common.h"
 
 #include "bsg/appearance.h"
+#include "bsg/node_private.h"
 
 
 void

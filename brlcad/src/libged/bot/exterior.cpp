@@ -77,6 +77,7 @@
 
 #include "./ged_bot.h"
 #include "concurrentqueue.h"
+#include "bsg/node_private.h"
 
 /*
  * Offset the probe-ray origin outside the entry point by 10x BN_TOL_DIST.

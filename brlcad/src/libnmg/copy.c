@@ -33,6 +33,7 @@
 
 #include "bu/malloc.h"
 #include "nmg.h"
+#include "bsg/node_private.h"
 
 static struct nmgregion_a *
 nmg_construct_region_a(const struct nmgregion_a *original, void **structArray)

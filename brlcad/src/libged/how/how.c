@@ -120,6 +120,7 @@ not_found:
 }
 
 #include "../include/plugin.h"
+#include "bsg/node_private.h"
 
 #define GED_HOW_COMMANDS(X, XID) \
     X(how, ged_how_core, GED_CMD_DEFAULT) \

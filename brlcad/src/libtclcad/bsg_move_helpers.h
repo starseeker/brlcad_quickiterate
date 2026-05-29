@@ -42,6 +42,7 @@
 #include "bsg/draw_source.h"
 #include "bsg/util.h"
 #include "dm.h"
+#include "bsg/node_private.h"
 
 __BEGIN_DECLS
 

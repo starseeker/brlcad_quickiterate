@@ -77,6 +77,7 @@
 #include "bsg/lod.h"
 #include "bsg/lod_ops.h"
 #include "bsg/util.h"
+#include "bsg/node_private.h"
 
 
 /* ------------------------------------------------------------------ */

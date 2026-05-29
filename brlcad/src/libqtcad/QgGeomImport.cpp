@@ -26,6 +26,7 @@
 #include <QFileInfo>
 #include "qtcad/QgAppExecDialog.h"
 #include "qtcad/QgGeomImport.h"
+#include "bsg/node_private.h"
 
 QgAscImportDialog::QgAscImportDialog(QString filename, QString g_path, QString l_path)
 {

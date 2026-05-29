@@ -93,7 +93,6 @@ BSG_EXPORT extern struct bsg_node *bsg_create_polygon(struct bsg_view *v, int fl
 #define BSG_POLYGON_UPDATE_PT_APPEND       5
 BSG_EXPORT extern int bsg_update_polygon(struct bsg_node *s, struct bsg_view *v, int utype);
 
-#include "bsg/legacy_compat.h"
 
 /* Update just the scene obj vlist, without altering the source polygon */
 BSG_EXPORT extern void bsg_polygon_vlist(struct bsg_node *s);

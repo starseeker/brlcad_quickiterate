@@ -41,6 +41,7 @@
 #include "rt/geom.h"
 #include "wdb.h"
 #include "../edit_private.h"
+#include "bsg/node_private.h"
 
 #define ECMD_VTRANS		9017	/* vertex translate */
 #define ECMD_SPLINE_VPICK       9018	/* vertex pick via mouse proximity */

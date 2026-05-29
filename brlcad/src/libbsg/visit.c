@@ -34,6 +34,7 @@
 #include "bu/ptbl.h"
 #include "bsg/defines.h"
 #include "bsg/visit.h"
+#include "bsg/node_private.h"
 
 
 /* Internal DFS helper.  Returns 0 to request early stop. */

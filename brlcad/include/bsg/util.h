@@ -305,7 +305,6 @@ BSG_EXPORT void bsg_log(int level, const char *fmt, ...)  _BU_ATTR_PRINTF23;
 
 /* Include here (after BSG_* macro blocks above) so legacy_compat can map the
  * util.h-specific BV_* aliases to their BSG_* definitions. */
-#include "bsg/legacy_compat.h"
 
 /* Debugging */
 BSG_EXPORT void bsg_view_print(const char *title, struct bsg_view *v, int verbosity);

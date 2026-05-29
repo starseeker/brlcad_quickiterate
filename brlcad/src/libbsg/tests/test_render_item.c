@@ -47,6 +47,7 @@
 #include "bsg/backend_adapter.h"
 #include "bsg/payload.h"
 #include "bsg/appearance.h"
+#include "bsg/node_private.h"
 
 #define PASS(msg) do { printf("  PASS: %s\n", (msg)); } while (0)
 #define FAIL(msg) do { printf("  FAIL: %s\n", (msg)); return 1; } while (0)
@@ -250,7 +251,7 @@ test_transparent_phase(void)
     /* Give the shape a settings block with transparency < 1 */
     struct bsg_obj_settings *os;
     BU_ALLOC(os, struct bsg_obj_settings);
-    *os = (struct bsg_obj_settings)BV_OBJ_SETTINGS_INIT;
+    *os = (struct bsg_obj_settings)BSG_OBJ_SETTINGS_INIT;
     os->transparency = 0.5;
     s->s_os = os;
 
@@ -492,9 +493,9 @@ test_sorted_alpha(void)
     s2->s_flag = UP;
     s3->s_flag = UP;
 
-    struct bsg_obj_settings os1 = BV_OBJ_SETTINGS_INIT;
-    struct bsg_obj_settings os2 = BV_OBJ_SETTINGS_INIT;
-    struct bsg_obj_settings os3 = BV_OBJ_SETTINGS_INIT;
+    struct bsg_obj_settings os1 = BSG_OBJ_SETTINGS_INIT;
+    struct bsg_obj_settings os2 = BSG_OBJ_SETTINGS_INIT;
+    struct bsg_obj_settings os3 = BSG_OBJ_SETTINGS_INIT;
     os1.transparency = 0.5;
     os2.transparency = 0.5;
     os3.transparency = 0.5;

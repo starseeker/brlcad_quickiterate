@@ -535,7 +535,7 @@ _view_cmd_vZ(void *bs, int argc, const char **argv)
 	    ctx.calc_mode = calc_mode;
 	    ctx.vZ = (calc_mode) ? -DBL_MAX : DBL_MAX;
 	    ctx.have_vz = 0;
-	    bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _view_vZ_visit_cb, &ctx);
+	    bsg_view_obj_visit(v, BSG_VIEW_OBJ_SCOPE_ALL, _view_vZ_visit_cb, &ctx);
 	    bsg_view_objs_visit_db(v, _view_vZ_visit_cb, &ctx);
 	    if (ctx.have_vz) {
 		bu_vls_sprintf(gedp->ged_result_str, "%0.15f", ctx.vZ);
@@ -773,6 +773,7 @@ ged_view_core(struct ged *gedp, int argc, const char *argv[])
 }
 
 #include "../include/plugin.h"
+#include "bsg/node_private.h"
 
 #define GED_VIEW_COMMANDS(X, XID) \
     X(ae, ged_aet_core, GED_CMD_DEFAULT) \

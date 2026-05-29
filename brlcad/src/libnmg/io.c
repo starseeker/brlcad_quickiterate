@@ -30,6 +30,7 @@
 #include "bu/malloc.h"
 #include "bn/tol.h"
 #include "nmg.h"
+#include "bsg/node_private.h"
 
 /* The following is a "stand-in" for the librt v4 record union - we need only
  * the nmg form of that union, so rather than pull in the full librt header
