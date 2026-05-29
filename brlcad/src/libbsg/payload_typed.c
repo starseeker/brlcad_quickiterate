@@ -1176,7 +1176,7 @@ bsg_payload_sketch_set_live_ops(struct bsg_payload *payload,
 {
     struct bsg_sketch_live_data *d = bsg_payload_sketch_get_data(payload);
     if (!d)
-	return -1;
+	return 0;
 
     d->live_ctx = live_ctx;
     d->owns_live_ctx = owns_live_ctx;
@@ -1188,7 +1188,7 @@ bsg_payload_sketch_set_live_ops(struct bsg_payload *payload,
     d->free_cb = free_cb;
     d->last_realized_revision = (revision_cb) ? revision_cb(_sketch_live_ctx(d)) : 0;
 
-    return 0;
+    return 1;
 }
 
 uint64_t
