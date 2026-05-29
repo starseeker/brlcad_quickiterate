@@ -41,7 +41,7 @@
  * ----------------------------
  * Layers are applied in priority order (lowest to highest):
  *   BSG_ALAY_BASE        — raw node material
- *   BSG_ALAY_GEOM_DEFAULT — renderer default color (s_cflag) when un-overridden
+ *   BSG_ALAY_GEOM_DEFAULT — renderer default color (s_cflag) when not overridden
  *   BSG_ALAY_INHERITED   — group/ancestor color override
  *   BSG_ALAY_COMMAND     — s_os color override
  *   BSG_ALAY_TRANSPARENCY — transparency from s_os
