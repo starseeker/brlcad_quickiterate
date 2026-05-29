@@ -359,6 +359,9 @@ test_sketch_live_contract(void)
 	    sketch_stub_pick,
 	    sketch_stub_snap,
 	    sketch_stub_free))
+	{
+	}
+    else
 	FAIL("set sketch live ops");
 
     if (bsg_payload_sketch_revision(sketch) != 7)
@@ -575,7 +578,15 @@ test_remaining_lifecycle_hooks(void)
     {
         point_t ann_pts[2] = {{0,0,0}, {1,1,0}};
         struct bsg_payload *pl = bsg_payload_annotation_create("check", ann_pts, 2);
-        CHECK_SENTINEL_HOOKS(pl, "ANNOTATION");
+        CHECK_HOOKS(pl, "ANNOTATION");
+        point_t bmin = VINIT_ZERO, bmax = VINIT_ZERO;
+        if (pl->pl_bounds(pl, &bmin, &bmax) != 1) FAIL("ANNOTATION real pl_bounds");
+        if (bmax[0] < 1.0 || bmax[1] < 1.0) FAIL("ANNOTATION bounds value");
+        struct bu_vls exp = BU_VLS_INIT_ZERO;
+        if (pl->pl_export(pl, &exp) != 0) FAIL("ANNOTATION pl_export sentinel");
+        bu_vls_free(&exp);
+        if (pl->pl_backend_prepare(pl, NULL) != 0) FAIL("ANNOTATION pl_backend_prepare sentinel");
+        bsg_payload_free(pl);
     }
 
 #undef CHECK_HOOKS

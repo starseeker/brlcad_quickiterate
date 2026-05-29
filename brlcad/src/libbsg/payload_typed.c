@@ -232,7 +232,7 @@ _vlist_payload_bounds(struct bsg_payload *pl, point_t *bmin, point_t *bmax)
 
     size_t length = 0;
     int dispmode = 0;
-    return bsg_vlist_bbox(pl->pl.vlist->vlist, bmin, bmax, &length, &dispmode);
+    return (bsg_vlist_bbox(pl->pl.vlist->vlist, bmin, bmax, &length, &dispmode) == 0 && length > 0) ? 1 : 0;
 }
 
 static int

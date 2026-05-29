@@ -525,9 +525,9 @@ if (enabled)
     _attach_grid_payload(child, &s->gv_grid);
 break;
     case BSG_HUD_FEATURE_RECT:
-enabled = (s->gv_rect.draw && s->gv_rect.line_width > 0);
+enabled = s->gv_rect.draw;
 memcpy(&p->data.rect, &s->gv_rect, sizeof(struct bsg_interactive_rect_state));
-_set_feature_style(child, s->gv_rect.color[0], s->gv_rect.color[1], s->gv_rect.color[2], s->gv_rect.line_width);
+_set_feature_style(child, s->gv_rect.color[0], s->gv_rect.color[1], s->gv_rect.color[2], (s->gv_rect.line_width > 0) ? s->gv_rect.line_width : 1);
 if (enabled)
     _realize_rect(child, &s->gv_rect);
 break;

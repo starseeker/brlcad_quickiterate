@@ -271,6 +271,7 @@ bsg_vlist_export(struct bu_vls *vls, struct bu_list *hp, const char *name)
     /* FIXME: this is pretty much an abuse of vls.  should be using
      * vlb for variable-length byte buffers.
      */
+    bu_vls_extend(vls, nbytes + 1);
     bu_vls_setlen(vls, (int)nbytes);
     buf = (unsigned char *)bu_vls_addr(vls);
     *(uint32_t *)buf = htonl((uint32_t)nelem);
@@ -303,6 +304,7 @@ bsg_vlist_export(struct bu_vls *vls, struct bu_list *hp, const char *name)
 	    bp += ELEMENTS_PER_VECT*SIZEOF_NETWORK_DOUBLE;
 	}
     }
+    *bp = '\0';
 }
 
 void
