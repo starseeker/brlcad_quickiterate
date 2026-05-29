@@ -35,6 +35,7 @@
 
 #include "dm.h"  // For labelface - see if the dm_set_dirty is really needed
 
+#include "bsg/node_private.h"
 #include "ged.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
@@ -303,7 +304,6 @@ ged_nmg_core(struct ged *gedp, int argc, const char *argv[])
 
 
 #include "../include/plugin.h"
-#include "bsg/node_private.h"
 
 #define GED_NMG_COMMANDS(X, XID) \
     X(nmg, ged_nmg_core, GED_CMD_DEFAULT) \

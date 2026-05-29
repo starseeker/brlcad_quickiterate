@@ -40,6 +40,7 @@
 #include "bsg/draw_source.h"
 #include "bsg/material.h"
 #include "bsg/node.h"
+#include "bsg/node_private.h"
 #include "bsg/payload.h"
 #include "../ged_private.h"
 #include "./ged_draw.h"
@@ -1824,7 +1825,6 @@ ged_redraw_core(struct ged *gedp, int argc, const char *argv[])
 }
 
 #include "../include/plugin.h"
-#include "bsg/node_private.h"
 
 #define GED_DRAW_COMMANDS(X, XID) \
     X(draw, ged_draw_core, GED_CMD_DEFAULT) \

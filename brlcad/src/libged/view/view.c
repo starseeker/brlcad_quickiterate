@@ -33,6 +33,7 @@
 #include "bu/malloc.h"
 #include "bu/vls.h"
 
+#include "bsg/node_private.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
 #include "./ged_view.h"
@@ -773,7 +774,6 @@ ged_view_core(struct ged *gedp, int argc, const char *argv[])
 }
 
 #include "../include/plugin.h"
-#include "bsg/node_private.h"
 
 #define GED_VIEW_COMMANDS(X, XID) \
     X(ae, ged_aet_core, GED_CMD_DEFAULT) \

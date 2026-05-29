@@ -30,6 +30,7 @@
 
 #include "bsg/appearance.h"
 #include "bsg/draw_source.h"
+#include "bsg/node_private.h"
 
 #include "ged.h"
 #include "ged/bsg_ged_draw.h"
@@ -191,7 +192,6 @@ bad:
 }
 
 #include "../include/plugin.h"
-#include "bsg/node_private.h"
 
 #define GED_ILLUM_COMMANDS(X, XID) \
     X(illum, ged_illum_core, GED_CMD_DEFAULT) \

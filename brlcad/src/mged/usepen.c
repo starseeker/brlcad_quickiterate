@@ -128,10 +128,10 @@ illuminate(struct mged_state *s, int y) {
      * D3 consumers (highlight rendering, D5 resolved appearance) see a
      * typed selection record rather than only the legacy illump global. */
     struct bsg_view *gvp = view_state->vs_gvp;
-    if (gvp && gvp->gv_selected) {
-	bsg_selection_clear(gvp->gv_selected);
+    if (gvp && gvp->gv_s && gvp->gv_s->gv_selected) {
+	bsg_selection_clear(gvp->gv_s->gv_selected);
 	if (illump)
-	    bsg_selection_add(gvp->gv_selected, illump);
+	    bsg_selection_add(gvp->gv_s->gv_selected, illump);
     }
 
     s->update_views = 1;
@@ -212,10 +212,10 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     /* Keep bsg_selection in sync with illump so D3/D5 consumers stay current. */
     {
 	struct bsg_view *gvp = view_state->vs_gvp;
-	if (gvp && gvp->gv_selected) {
-	    bsg_selection_clear(gvp->gv_selected);
+	if (gvp && gvp->gv_s && gvp->gv_s->gv_selected) {
+	    bsg_selection_clear(gvp->gv_s->gv_selected);
 	    if (illump)
-		bsg_selection_add(gvp->gv_selected, illump);
+		bsg_selection_add(gvp->gv_s->gv_selected, illump);
 	}
     }
 

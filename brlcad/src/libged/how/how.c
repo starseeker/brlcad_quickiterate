@@ -31,6 +31,7 @@
 #include "bu/cmd.h"
 #include "bu/str.h"
 #include "bsg/draw_intent.h"
+#include "bsg/node_private.h"
 #include "dm.h"
 #include "ged/bsg_ged_draw.h"
 #include "../ged_private.h"
@@ -120,7 +121,6 @@ not_found:
 }
 
 #include "../include/plugin.h"
-#include "bsg/node_private.h"
 
 #define GED_HOW_COMMANDS(X, XID) \
     X(how, ged_how_core, GED_CMD_DEFAULT) \
