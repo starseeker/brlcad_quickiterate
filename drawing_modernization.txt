@@ -701,10 +701,11 @@ What was done:
 Deferred / partial items (for D5 follow-up or D6):
 - Task 3 (adapter parity audit): `dm-glx`/`dm-swrast`/`dm-qtgl`/`dm-plot`
   backends have not yet been audited for redundant policy decisions.  NOTE:
-  `_dm_scene_draw_item` in `libdm/view.c` still keeps a `s_old.s_cflag`
-  geometry-default-color branch that `bsg_appearance_resolve` does not yet
-  model; once resolve handles the geometry-default-color layer, that branch
-  can collapse to a straight `item->appearance.color` read (G7).
+  `_dm_scene_draw_item` in `libdm/view.c` now reads transparency/line/highlight
+  state straight from `item->appearance.*`, but still keeps a `s_old.s_cflag`
+  geometry-default-*color* branch that `bsg_appearance_resolve` does not yet
+  model; once resolve handles the geometry-default-color layer, that color
+  branch can collapse to a straight `item->appearance.color` read (G7).
 - Task 7b/7c: `libged/view/objs.cpp` and `qged_view_settings` have not yet
   been migrated to write through `bsg_render_settings`.
 - Task 8b: `libbsg_render` test extension (transparency sort, overlay ordering)
@@ -720,7 +721,7 @@ fields" was only half-applied.  `src/libbsg/render_item.c`,
 the removed flat fields (`item->transparency`, `item->color`,
 `item->line_width`, `item->line_style`, `item->highlighted`).  All of these
 now read through `item->appearance.*`.  A repo-wide grep
-(`grep -rnoE 'item->(transparency|color|line_width|line_style|highlighted|dmode|draw_mode)' src/libdm/view.c src/libbsg/render_item.c src/libbsg/tests/test_render_item.c`)
+(`grep -rnoE 'item->(transparency|color|line_width|line_style|highlighted)' src/libdm/view.c src/libbsg/render_item.c src/libbsg/tests/test_render_item.c`)
 now returns 0 hits, so the render-item appearance migration is fully applied
 and the render pass will compile against the current struct layout.
 
