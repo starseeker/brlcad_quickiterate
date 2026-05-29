@@ -42,14 +42,12 @@
 #include "rt/nmg_conv.h"
 
 
-static const struct gcv_facetize_option_desc _gcv_facetize_sample_options[] = {
-    {"feature_scale", GCV_FACETIZE_OPT_FASTF, "0.15", "Percentage of average sampled thickness to use for sampling feature size."},
-    {"feature_size", GCV_FACETIZE_OPT_FASTF, "0.0", "Explicit sampling feature length; overrides feature_scale."},
-    {"d_feature_size", GCV_FACETIZE_OPT_FASTF, "0.0", "Initial decimation feature length; default handling is method specific."},
-    {"max_sample_time", GCV_FACETIZE_OPT_INT, "30", "Maximum time to allow point sampling to continue."},
+#define GCV_FACETIZE_SAMPLE_OPTION_ENTRIES \
+    {"feature_scale", GCV_FACETIZE_OPT_FASTF, "0.15", "Percentage of average sampled thickness to use for sampling feature size."}, \
+    {"feature_size", GCV_FACETIZE_OPT_FASTF, "0.0", "Explicit sampling feature length; overrides feature_scale."}, \
+    {"d_feature_size", GCV_FACETIZE_OPT_FASTF, "0.0", "Initial decimation feature length; default handling is method specific."}, \
+    {"max_sample_time", GCV_FACETIZE_OPT_INT, "30", "Maximum time to allow point sampling to continue."}, \
     {"max_pnts", GCV_FACETIZE_OPT_INT, "200000", "Maximum number of points to sample."}
-};
-
 
 static const struct gcv_facetize_option_desc _gcv_facetize_nmg_options[] = {
     {"max_time", GCV_FACETIZE_OPT_INT, "30", "Maximum overall run time for object conversion."},
@@ -62,22 +60,14 @@ static const struct gcv_facetize_option_desc _gcv_facetize_nmg_options[] = {
 
 
 static const struct gcv_facetize_option_desc _gcv_facetize_cm_options[] = {
-    {"feature_scale", GCV_FACETIZE_OPT_FASTF, "0.15", "Percentage of average sampled thickness to use for sampling feature size."},
-    {"feature_size", GCV_FACETIZE_OPT_FASTF, "0.0", "Explicit sampling feature length; overrides feature_scale."},
-    {"d_feature_size", GCV_FACETIZE_OPT_FASTF, "0.0", "Initial decimation feature length; default handling is method specific."},
-    {"max_sample_time", GCV_FACETIZE_OPT_INT, "30", "Maximum time to allow point sampling to continue."},
-    {"max_pnts", GCV_FACETIZE_OPT_INT, "200000", "Maximum number of points to sample."},
+    GCV_FACETIZE_SAMPLE_OPTION_ENTRIES,
     {"max_cycle_time", GCV_FACETIZE_OPT_INT, "30", "Maximum time to take for one processing cycle."},
     {"max_time", GCV_FACETIZE_OPT_INT, "600", "Maximum overall run time for object conversion."}
 };
 
 
 static const struct gcv_facetize_option_desc _gcv_facetize_spsr_options[] = {
-    {"feature_scale", GCV_FACETIZE_OPT_FASTF, "0.15", "Percentage of average sampled thickness to use for sampling feature size."},
-    {"feature_size", GCV_FACETIZE_OPT_FASTF, "0.0", "Explicit sampling feature length; overrides feature_scale."},
-    {"d_feature_size", GCV_FACETIZE_OPT_FASTF, "0.0", "Initial decimation feature length; default handling is method specific."},
-    {"max_sample_time", GCV_FACETIZE_OPT_INT, "30", "Maximum time to allow point sampling to continue."},
-    {"max_pnts", GCV_FACETIZE_OPT_INT, "200000", "Maximum number of points to sample."},
+    GCV_FACETIZE_SAMPLE_OPTION_ENTRIES,
     {"depth", GCV_FACETIZE_OPT_INT, "8", "Maximum reconstruction depth."},
     {"interpolate", GCV_FACETIZE_OPT_FASTF, "2.0", "Point interpolation weight for reconstruction accuracy."},
     {"max_time", GCV_FACETIZE_OPT_INT, "600", "Maximum overall run time for object conversion."},
