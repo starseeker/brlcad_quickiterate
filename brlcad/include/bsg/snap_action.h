@@ -62,6 +62,17 @@ BSG_EXPORT extern int
 bsg_snap_candidates(struct bsg_view *v, point_t sample, double tol,
 		    bsg_snap_kind_mask kinds, struct bsg_snap_result *out);
 
+/**
+ * Convenience wrapper: snap a 2D view-space point (vx, vy) using the
+ * specified snap-kind mask.  On success the pointed-to values are updated
+ * in place and 1 is returned; 0 means no snap occurred.  The caller
+ * already has 2D view coords; this avoids duplicating the 2D↔model
+ * conversion at every call site.
+ */
+BSG_EXPORT extern int
+bsg_snap_point_2d(struct bsg_view *v, fastf_t *vx, fastf_t *vy,
+		  bsg_snap_kind_mask kinds);
+
 __END_DECLS
 
 #endif /* BSG_SNAP_ACTION_H */

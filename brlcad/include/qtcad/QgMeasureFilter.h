@@ -87,6 +87,11 @@ public:
 	struct bsg_node *s = nullptr;
 	std::string oname = std::string("tool:measurement");
 
+	/* Measure results populated via bsg_measure_candidates when each
+	 * segment is finalized.  mr12 covers p1→p2, mr23 covers p2→p3. */
+	struct bsg_measure_result mr12 = {0.0, 0.0, 0.0, 0};
+	struct bsg_measure_result mr23 = {0.0, 0.0, 0.0, 0};
+
 public slots:
 	void update_color(struct bu_color *);
 

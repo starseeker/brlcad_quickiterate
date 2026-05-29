@@ -33,6 +33,7 @@
 #include "bn/tol.h"
 #include "bsg/vlist.h"
 #include "bsg/defines.h"
+#include "bsg/pick.h"
 #include "bsg/util.h"
 #include "bg/lseg.h"
 #include "bg/plane.h"
@@ -184,6 +185,61 @@ bsg_polygon_vlist(struct bsg_node *s)
     }
 }
 
+/* pl_pick hook for BSG_PL_POLYGON payloads: find the nearest polygon vertex
+ * to a model-coordinate sample point and fill a pick record for that vertex.
+ */
+static int
+_bsg_polygon_pl_pick(struct bsg_payload *pl, const point_t sample,
+		     struct bsg_pick_record *out)
+{
+    if (!pl || !out)
+	return -1;
+    struct bsg_polygon *p = pl->pl.polygon;
+    if (!p || p->type != BSG_POLYGON_GENERAL)
+	return -1;
+
+    plane_t zpln;
+    HMOVE(zpln, p->vp);
+    zpln[3] += p->vZ;
+    fastf_t fx, fy;
+    bg_plane_closest_pt(&fx, &fy, &zpln, sample);
+    point_t m_pt;
+    bg_plane_pt_at(&m_pt, &zpln, fx, fy);
+
+    double dist_min_sq = DBL_MAX;
+    long closest_i = -1, closest_contour = -1;
+    for (size_t j = 0; j < p->polygon.num_contours; j++) {
+	struct bg_poly_contour *c = &p->polygon.contour[j];
+	for (size_t i = 0; i < c->num_points; i++) {
+	    double dcand = DIST_PNT_PNT_SQ(c->point[i], m_pt);
+	    if (dcand < dist_min_sq) {
+		closest_i = (long)i;
+		closest_contour = (long)j;
+		dist_min_sq = dcand;
+	    }
+	}
+    }
+
+    if (closest_i < 0)
+	return 0;
+
+    /* Fill the pick record with the closest vertex location.
+     * pr_primitive_id encodes the contour index, pr_subelement_id the
+     * point index within that contour so callers can unambiguously locate
+     * the vertex.  pr_hit_dist carries the Euclidean distance. */
+    out->pr_hit_dist = sqrt(dist_min_sq);
+    out->pr_primitive_id = (int)closest_contour;
+    out->pr_subelement_id = (int)closest_i;
+    /* pr_node and path fields must be filled by the caller from context. */
+    out->pr_node = NULL;
+    bu_vls_init(&out->pr_source_path);
+    bu_vls_init(&out->pr_instance_path);
+    out->pr_screen_x = 0;
+    out->pr_screen_y = 0;
+    out->pr_view = NULL;
+    return 1;
+}
+
 struct bsg_node *
 bsg_create_polygon_obj(struct bsg_view *v, int flags, struct bsg_polygon *p)
 {
@@ -209,7 +265,12 @@ bsg_create_polygon_obj(struct bsg_view *v, int flags, struct bsg_polygon *p)
     s->s_color[1] = 255;
     s->s_color[2] = 0;
     s->s_i_data = (void *)p;
-    bsg_node_set_payload(s, bsg_payload_polygon_create(p));
+    {
+	struct bsg_payload *_pl = bsg_payload_polygon_create(p);
+	if (_pl)
+	    _pl->pl_pick = _bsg_polygon_pl_pick;
+	bsg_node_set_payload(s, _pl);
+    }
     s->s_update_callback = &bsg_update_polygon;
 
     /* Have new polygon, now update shape payload vlist */

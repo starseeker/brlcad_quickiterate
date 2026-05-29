@@ -115,3 +115,40 @@ bsg_snap_candidates(struct bsg_view *v, point_t sample, double tol,
     return (int)out->sr_cnt;
 }
 
+int
+bsg_snap_point_2d(struct bsg_view *v, fastf_t *vx, fastf_t *vy,
+		  bsg_snap_kind_mask kinds)
+{
+    if (!v || !vx || !vy)
+	return 0;
+
+    /* Convert the 2D view-space sample to a 3D model point. */
+    point_t view_pt = VINIT_ZERO;
+    point_t model_pt = VINIT_ZERO;
+    VSET(view_pt, *vx, *vy, 0.0);
+    MAT4X3PNT(model_pt, v->gv_view2model, view_pt);
+
+    struct bsg_snap_result sr;
+    bsg_snap_result_init(&sr);
+    if (!bsg_snap_candidates(v, model_pt, 0.0, kinds, &sr) || !sr.sr_cnt) {
+	bsg_snap_result_free(&sr);
+	return 0;
+    }
+
+    /* Pick the nearest candidate. */
+    size_t best = 0;
+    for (size_t i = 1; i < sr.sr_cnt; i++) {
+	if (sr.sr_candidates[i].sc_distance < sr.sr_candidates[best].sc_distance)
+	    best = i;
+    }
+
+    /* Convert winner back to 2D view space. */
+    point_t snapped_view = VINIT_ZERO;
+    MAT4X3PNT(snapped_view, v->gv_model2view, sr.sr_candidates[best].sc_point);
+    *vx = snapped_view[X];
+    *vy = snapped_view[Y];
+
+    bsg_snap_result_free(&sr);
+    return 1;
+}
+

@@ -5816,13 +5816,16 @@ to_snap_view(struct ged *gedp,
 	return BRLCAD_OK;
     }
 
-    int snapped = 0;
-    if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
-	snapped = bsg_snap_lines_2d(gedp->ged_gvp, &fvx, &fvy);
-    }
-    if (!snapped && gedp->ged_gvp->gv_s->gv_grid.snap) {
-	bsg_snap_grid_2d(gedp->ged_gvp, &fvx, &fvy);
+    {
+	bsg_snap_kind_mask snap_kinds = 0;
+	if (gedp->ged_gvp->gv_s->gv_snap_lines) {
+	    gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
+	}
+	if (gedp->ged_gvp->gv_s->gv_grid.snap)
+	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_GRID;
+	if (snap_kinds)
+	    bsg_snap_point_2d(gedp->ged_gvp, &fvx, &fvy, snap_kinds);
     }
 
     bu_vls_printf(gedp->ged_result_str, "%lf %lf", fvx, fvy);

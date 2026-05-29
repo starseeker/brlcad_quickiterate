@@ -42,6 +42,7 @@
 #include "bsg/payload_typed.h"
 #include "bsg/selection.h"
 #include "bsg/snap.h"
+#include "bsg/snap_action.h"
 #include "bsg/util.h"
 #include "bsg/view_sets.h"
 #include "bsg/vlist.h"
@@ -1256,14 +1257,14 @@ bsg_screen_to_view(struct bsg_view *v, fastf_t *fx, fastf_t *fy, fastf_t x, fast
     }
 
     // If snapping is enabled, apply it
-    int snapped = 0;
     if (v->gv_s) {
-	if (v->gv_s->gv_snap_lines) {
-	    snapped = bsg_snap_lines_2d(v, fx, fy);
-	}
-	if (!snapped && v->gv_s->gv_grid.snap) {
-	    bsg_snap_grid_2d(v, fx, fy);
-	}
+	bsg_snap_kind_mask kinds = 0;
+	if (v->gv_s->gv_snap_lines)
+	    kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
+	if (v->gv_s->gv_grid.snap)
+	    kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_GRID;
+	if (kinds && fx && fy)
+	    bsg_snap_point_2d(v, fx, fy, kinds);
     }
 
     return 0;

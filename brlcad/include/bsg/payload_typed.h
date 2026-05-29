@@ -68,6 +68,7 @@ struct bsg_grid_state;
 struct bsg_mesh_lod;
 struct bsg_sketch_live_data;
 struct bsg_snap_result;
+struct bsg_pick_record;
 struct bsg_measure_result;
 struct fb;
 
@@ -231,6 +232,16 @@ struct bsg_payload {
      */
     int   (*pl_measure_candidates)(struct bsg_payload *pl, const point_t a,
 				   const point_t b, struct bsg_measure_result *out);
+
+    /**
+     * Optional per-payload vertex pick query.
+     * Given a 3D @p sample point (in model coordinates), find the nearest
+     * payload vertex and fill @p out with the result.
+     * Returns 1 on success, 0 on no candidates, negative for unsupported.
+     * May be NULL for payloads that do not support vertex picking.
+     */
+    int   (*pl_pick)(struct bsg_payload *pl, const point_t sample,
+		     struct bsg_pick_record *out);
 };
 
 /* -----------------------------------------------------------------------
@@ -313,6 +324,19 @@ bsg_payload_snap(struct bsg_payload *pl, const point_t sample, double tol,
 BSG_EXPORT extern int
 bsg_payload_measure_candidates(struct bsg_payload *pl, const point_t a,
 			       const point_t b, struct bsg_measure_result *out);
+
+/**
+ * Call the @c pl_pick hook on @p pl if present.
+ *
+ * Finds the nearest vertex of @p pl to the model-coordinate @p sample point
+ * and fills @p out with a pick record for that vertex.
+ *
+ * Returns 1 on success, 0 if no vertices qualify, negative if the payload
+ * type does not support vertex picking (pl_pick is NULL).
+ */
+BSG_EXPORT extern int
+bsg_payload_pick(struct bsg_payload *pl, const point_t sample,
+		 struct bsg_pick_record *out);
 
 /* -----------------------------------------------------------------------
  * VLIST payload (node-owned geometry) — Phase D1
