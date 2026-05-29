@@ -33,6 +33,7 @@
 __BEGIN_DECLS
 
 #include "./gcv/defines.h"
+#include "./gcv/facetize.h"
 #include "./gcv/util.h"
 #include "./gcv/api.h"
 

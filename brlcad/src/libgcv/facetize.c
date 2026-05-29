@@ -26,6 +26,9 @@
 #include "common.h"
 
 #include "bu/parallel.h"
+#include "bu/str.h"
+#include "bu/vls.h"
+#include "gcv/facetize.h"
 #include "gcv/util.h"
 #include "rt/conv.h"
 #include "rt/db5.h"
@@ -35,6 +38,201 @@
 #include "rt/primitives/bot.h"
 #include "rt/functab.h"
 #include "rt/nmg_conv.h"
+
+
+static const struct gcv_facetize_option_desc _gcv_facetize_sample_options[] = {
+    {"feature_scale", GCV_FACETIZE_OPT_FASTF, "0.15", "Percentage of average sampled thickness to use for sampling feature size."},
+    {"feature_size", GCV_FACETIZE_OPT_FASTF, "0.0", "Explicit sampling feature length; overrides feature_scale."},
+    {"d_feature_size", GCV_FACETIZE_OPT_FASTF, "0.0", "Initial decimation feature length; default handling is method specific."},
+    {"max_sample_time", GCV_FACETIZE_OPT_INT, "30", "Maximum time to allow point sampling to continue."},
+    {"max_pnts", GCV_FACETIZE_OPT_INT, "200000", "Maximum number of points to sample."}
+};
+
+
+static const struct gcv_facetize_option_desc _gcv_facetize_nmg_options[] = {
+    {"max_time", GCV_FACETIZE_OPT_INT, "30", "Maximum overall run time for object conversion."},
+    {"plate_max_time", GCV_FACETIZE_OPT_INT, "1200", "Maximum run time for plate-mode BoT conversion."},
+    {"nmg_debug", GCV_FACETIZE_OPT_INT, "0x00000000", "NMG debugging flag."},
+    {"tol_abs", GCV_FACETIZE_OPT_FASTF, "0", "Absolute tessellation distance tolerance."},
+    {"tol_norm", GCV_FACETIZE_OPT_FASTF, "0", "Normal tessellation tolerance."},
+    {"tol_rel", GCV_FACETIZE_OPT_FASTF, "0.01", "Relative tessellation distance tolerance."}
+};
+
+
+static const struct gcv_facetize_option_desc _gcv_facetize_cm_options[] = {
+    {"feature_scale", GCV_FACETIZE_OPT_FASTF, "0.15", "Percentage of average sampled thickness to use for sampling feature size."},
+    {"feature_size", GCV_FACETIZE_OPT_FASTF, "0.0", "Explicit sampling feature length; overrides feature_scale."},
+    {"d_feature_size", GCV_FACETIZE_OPT_FASTF, "0.0", "Initial decimation feature length; default handling is method specific."},
+    {"max_sample_time", GCV_FACETIZE_OPT_INT, "30", "Maximum time to allow point sampling to continue."},
+    {"max_pnts", GCV_FACETIZE_OPT_INT, "200000", "Maximum number of points to sample."},
+    {"max_cycle_time", GCV_FACETIZE_OPT_INT, "30", "Maximum time to take for one processing cycle."},
+    {"max_time", GCV_FACETIZE_OPT_INT, "600", "Maximum overall run time for object conversion."}
+};
+
+
+static const struct gcv_facetize_option_desc _gcv_facetize_spsr_options[] = {
+    {"feature_scale", GCV_FACETIZE_OPT_FASTF, "0.15", "Percentage of average sampled thickness to use for sampling feature size."},
+    {"feature_size", GCV_FACETIZE_OPT_FASTF, "0.0", "Explicit sampling feature length; overrides feature_scale."},
+    {"d_feature_size", GCV_FACETIZE_OPT_FASTF, "0.0", "Initial decimation feature length; default handling is method specific."},
+    {"max_sample_time", GCV_FACETIZE_OPT_INT, "30", "Maximum time to allow point sampling to continue."},
+    {"max_pnts", GCV_FACETIZE_OPT_INT, "200000", "Maximum number of points to sample."},
+    {"depth", GCV_FACETIZE_OPT_INT, "8", "Maximum reconstruction depth."},
+    {"interpolate", GCV_FACETIZE_OPT_FASTF, "2.0", "Point interpolation weight for reconstruction accuracy."},
+    {"max_time", GCV_FACETIZE_OPT_INT, "600", "Maximum overall run time for object conversion."},
+    {"samples_per_node", GCV_FACETIZE_OPT_FASTF, "1.5", "Samples required in a reconstruction cell before refinement."}
+};
+
+
+static const struct gcv_facetize_method_info _gcv_facetize_methods[] = {
+    {"NMG", "N-Manifold Geometry tessellation method.", "BRL-CAD primitives and BoTs", 0, GCV_FACETIZE_CAP_SUBPROCESS_RECOMMENDED | GCV_FACETIZE_CAP_REPAIRS_BOTS | GCV_FACETIZE_CAP_DETERMINISTIC | GCV_FACETIZE_CAP_RESUMABLE, _gcv_facetize_nmg_options, sizeof(_gcv_facetize_nmg_options) / sizeof(_gcv_facetize_nmg_options[0])},
+    {"CM", "Continuation Method/Bloomenthal polygonizer.", "Sampled implicit geometry", 1, GCV_FACETIZE_CAP_SUBPROCESS_RECOMMENDED | GCV_FACETIZE_CAP_CONSUMES_POINT_SAMPLES | GCV_FACETIZE_CAP_RESUMABLE, _gcv_facetize_cm_options, sizeof(_gcv_facetize_cm_options) / sizeof(_gcv_facetize_cm_options[0])},
+    {"SPSR", "Screened Poisson Surface Reconstruction.", "Sampled point clouds", 2, GCV_FACETIZE_CAP_SUBPROCESS_RECOMMENDED | GCV_FACETIZE_CAP_CONSUMES_POINT_SAMPLES | GCV_FACETIZE_CAP_RESUMABLE, _gcv_facetize_spsr_options, sizeof(_gcv_facetize_spsr_options) / sizeof(_gcv_facetize_spsr_options[0])}
+};
+
+
+static const struct gcv_facetize_step_info _gcv_facetize_boolean_evaluators[] = {
+    {"Manifold", "Manifold-backed triangular boolean evaluation.", 0, GCV_FACETIZE_CAP_DETERMINISTIC, NULL, 0},
+    {"NMG", "libnmg boolean evaluation.", 1, GCV_FACETIZE_CAP_DETERMINISTIC, NULL, 0}
+};
+
+
+static const struct gcv_facetize_step_info _gcv_facetize_postprocess_steps[] = {
+    {"bot-fixup", "BoT post-processing and mesh cleanup.", 0, GCV_FACETIZE_CAP_REPAIRS_BOTS, NULL, 0},
+    {"perturb", "Coplanarity-avoidance perturbation retry planning.", 1, GCV_FACETIZE_CAP_DETERMINISTIC, NULL, 0}
+};
+
+
+void
+gcv_facetize_opts_default(struct gcv_facetize_opts *opts)
+{
+    if (!opts)
+	return;
+
+    memset(opts, 0, sizeof(*opts));
+    opts->output_mode = GCV_FACETIZE_OUTPUT_SINGLE_BOT;
+    opts->boolean_engine = GCV_FACETIZE_BOOL_MANIFOLD;
+    opts->subprocess = 1;
+    opts->max_time = 0;
+    opts->per_method_max_time = 0;
+    opts->no_empty = 0;
+    opts->disable_fixup = 0;
+    opts->perturb = 0;
+    opts->perturb_volume_threshold = 10.0;
+    opts->perturb_surface_area_threshold = 10.0;
+    opts->max_sampled_points = 200000;
+    bu_avs_init_empty(&opts->method_options);
+}
+
+
+size_t
+gcv_facetize_methods(const struct gcv_facetize_method_info **methods)
+{
+    if (methods)
+	*methods = _gcv_facetize_methods;
+    return sizeof(_gcv_facetize_methods) / sizeof(_gcv_facetize_methods[0]);
+}
+
+
+const struct gcv_facetize_method_info *
+gcv_facetize_method(const char *name)
+{
+    size_t i = 0;
+    size_t method_cnt = gcv_facetize_methods(NULL);
+
+    if (!name)
+	return NULL;
+
+    for (i = 0; i < method_cnt; i++)
+	if (BU_STR_EQUAL(name, _gcv_facetize_methods[i].name))
+	    return &_gcv_facetize_methods[i];
+
+    return NULL;
+}
+
+
+size_t
+gcv_facetize_method_options(const char *method, const struct gcv_facetize_option_desc **options)
+{
+    const struct gcv_facetize_method_info *minfo = gcv_facetize_method(method);
+
+    if (!minfo) {
+	if (options)
+	    *options = NULL;
+	return 0;
+    }
+
+    if (options)
+	*options = minfo->options;
+    return minfo->option_count;
+}
+
+
+size_t
+gcv_facetize_resolve_methods(const struct gcv_facetize_opts *opts, const struct gcv_facetize_method_info **methods, size_t max_methods)
+{
+    size_t i = 0;
+    size_t cnt = 0;
+
+    if (opts && opts->method_count && opts->methods) {
+	for (i = 0; i < opts->method_count; i++) {
+	    const struct gcv_facetize_method_info *minfo = gcv_facetize_method(opts->methods[i]);
+	    if (!minfo)
+		continue;
+	    if (methods && cnt < max_methods)
+		methods[cnt] = minfo;
+	    cnt++;
+	}
+	return cnt;
+    }
+
+    cnt = gcv_facetize_methods(NULL);
+    if (methods && max_methods) {
+	size_t copy_cnt = (cnt < max_methods) ? cnt : max_methods;
+	for (i = 0; i < copy_cnt; i++)
+	    methods[i] = &_gcv_facetize_methods[i];
+    }
+    return cnt;
+}
+
+
+size_t
+gcv_facetize_boolean_evaluators(const struct gcv_facetize_step_info **evaluators)
+{
+    if (evaluators)
+	*evaluators = _gcv_facetize_boolean_evaluators;
+    return sizeof(_gcv_facetize_boolean_evaluators) / sizeof(_gcv_facetize_boolean_evaluators[0]);
+}
+
+
+size_t
+gcv_facetize_postprocess_steps(const struct gcv_facetize_step_info **steps)
+{
+    if (steps)
+	*steps = _gcv_facetize_postprocess_steps;
+    return sizeof(_gcv_facetize_postprocess_steps) / sizeof(_gcv_facetize_postprocess_steps[0]);
+}
+
+
+void
+gcv_facetize_describe_options(struct bu_vls *description)
+{
+    size_t i = 0;
+    size_t j = 0;
+    const struct gcv_facetize_method_info *methods = NULL;
+    size_t method_cnt = gcv_facetize_methods(&methods);
+
+    if (!description)
+	return;
+
+    bu_vls_printf(description, "Facetize primitive conversion methods:\n");
+    for (i = 0; i < method_cnt; i++) {
+	bu_vls_printf(description, "\n%s - %s\n", methods[i].name, methods[i].description);
+	for (j = 0; j < methods[i].option_count; j++) {
+	    const struct gcv_facetize_option_desc *opt = &methods[i].options[j];
+	    bu_vls_printf(description, "  %s (default %s): %s\n", opt->name, opt->default_value ? opt->default_value : "", opt->description);
+	}
+    }
+}
 
 
 static union tree *
