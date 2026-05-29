@@ -38,10 +38,7 @@
 __BEGIN_DECLS
 
 
-/*
- * Tessellate the object at the specified path.
- */
-struct rt_bot_internal *gcv_facetize(struct db_i *db, const struct db_full_path *path, const struct bn_tol *tol, const struct bg_tess_tol *tess_tol, struct bu_list *vlfree);
+#include "gcv/facetize.h"
 
 
 /*
