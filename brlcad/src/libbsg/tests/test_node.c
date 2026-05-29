@@ -29,6 +29,7 @@
 
 #include "bu/app.h"
 #include "bu/malloc.h"
+#include "bu/str.h"
 #include "bsg/node.h"
 #include "bsg/util.h"
 
@@ -89,7 +90,7 @@ test_name_user_bounds(void)
     CHECK(n != NULL, "create shape");
 
     bsg_node_set_name(n, "nodeA");
-    CHECK(!strcmp(bsg_node_name(n), "nodeA"), "name round trip");
+    CHECK(BU_STR_EQUAL(bsg_node_name(n), "nodeA"), "name round trip");
 
     int payload = 42;
     bsg_node_set_user_data(n, &payload);

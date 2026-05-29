@@ -45,6 +45,7 @@
 
 #include "bu/malloc.h"
 #include "bu/ptbl.h"
+#include "bu/sort.h"
 #include "bu/str.h"
 #include "bu/vls.h"
 #include "bg/aabb_ray.h"
@@ -77,10 +78,10 @@ _node_hit_dist(const bsg_node *s, const struct bsg_view *v)
 }
 
 /*
- * Comparator for qsort: order bsg_pick_record* by ascending pr_hit_dist.
+ * Comparator for bu_sort: order bsg_pick_record* by ascending pr_hit_dist.
  */
 static int
-_record_cmp(const void *a, const void *b)
+_record_cmp(const void *a, const void *b, void *UNUSED(ctx))
 {
     const struct bsg_pick_record *ra = *(const struct bsg_pick_record **)a;
     const struct bsg_pick_record *rb = *(const struct bsg_pick_record **)b;
@@ -179,8 +180,8 @@ _result_sort(struct bsg_pick_result *res)
     size_t n = BU_PTBL_LEN(&res->pr_records);
     if (n < 2)
 	return;
-    qsort(res->pr_records.buffer, n,
-	  sizeof(long *), _record_cmp);
+    bu_sort(res->pr_records.buffer, n,
+	  sizeof(long *), _record_cmp, NULL);
 }
 
 

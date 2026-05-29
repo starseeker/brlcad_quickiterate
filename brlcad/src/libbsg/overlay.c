@@ -72,9 +72,9 @@ return 0;
 return 1;
     size_t llen = strlen(lhs);
     size_t rlen = strlen(rhs);
-    if (llen < rlen && !strncmp(rhs, lhs, llen) && rhs[llen] == '/')
+    if (llen < rlen && !bu_strncmp(rhs, lhs, llen) && rhs[llen] == '/')
 return 1;
-    if (rlen < llen && !strncmp(lhs, rhs, rlen) && lhs[rlen] == '/')
+    if (rlen < llen && !bu_strncmp(lhs, rhs, rlen) && lhs[rlen] == '/')
 return 1;
     return 0;
 }
