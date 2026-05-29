@@ -78,6 +78,50 @@ __BEGIN_DECLS
 
 
 /* -----------------------------------------------------------------------
+ * Invalidation reason mask (Phase D5)
+ *
+ * Passed to the adapter invalidate() callback so that the backend can
+ * selectively re-upload only the resources that actually changed instead
+ * of blindly discarding the entire cached representation.
+ *
+ * Multiple reasons may be OR'd together in a single invalidate() call.
+ * ----------------------------------------------------------------------- */
+
+/**
+ * The payload geometry changed (e.g. vlist rebuilt, mesh re-tessellated).
+ * Backend should re-upload vertex/index data.
+ */
+#define BSG_INVALIDATE_PAYLOAD     0x01u
+
+/**
+ * The node's material or appearance changed (color, transparency, line
+ * style/width, display mode, highlight state).
+ * Backend should update per-object uniform buffers / material state.
+ */
+#define BSG_INVALIDATE_APPEARANCE  0x02u
+
+/**
+ * The accumulated transform path changed (a parent transform matrix was
+ * edited).  Backend may need to rebuild the model matrix for the object.
+ */
+#define BSG_INVALIDATE_TRANSFORM   0x04u
+
+/**
+ * The render mode changed (draw mode switched between wireframe/shaded,
+ * hidden-line toggled, etc.).
+ * Backend should re-select or recompile the render pipeline state.
+ */
+#define BSG_INVALIDATE_RENDER_MODE 0x08u
+
+/**
+ * All backend state for the node is stale; equivalent to
+ * BSG_INVALIDATE_PAYLOAD | BSG_INVALIDATE_APPEARANCE |
+ * BSG_INVALIDATE_TRANSFORM | BSG_INVALIDATE_RENDER_MODE.
+ */
+#define BSG_INVALIDATE_ALL         0x0Fu
+
+
+/* -----------------------------------------------------------------------
  * Adapter struct
  * ----------------------------------------------------------------------- */
 
@@ -117,9 +161,13 @@ struct bsg_backend_adapter {
      * Mark cached backend resources for @p item as stale.
      *
      * Called when a node's geometry or appearance has changed and the backend
-     * needs to re-upload data on the next draw.  May be NULL.
+     * needs to re-upload data on the next draw.  @p reason_mask is a bitmask
+     * of BSG_INVALIDATE_* flags describing what changed; backends should only
+     * re-upload or recompile the resources indicated by the set flags.
+     * Pass BSG_INVALIDATE_ALL when the full reason is unknown.  May be NULL.
      */
-    void (*invalidate)(void *dmp, const struct bsg_render_item *item);
+    void (*invalidate)(void *dmp, const struct bsg_render_item *item,
+		       unsigned int reason_mask);
 
     /**
      * Release all backend resources associated with @p item.

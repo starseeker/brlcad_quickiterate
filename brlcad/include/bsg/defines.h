@@ -685,6 +685,8 @@ struct bsg_view_knobs {
 };
 
 struct bsg_view_set;
+struct bsg_camera;       /* forward decl for Phase D5 camera-node binding */
+struct bsg_render_settings; /* forward decl for Phase D5 render settings */
 
 struct bsg_view {
     uint32_t	  magic;             /**< @brief magic number */
@@ -826,6 +828,20 @@ struct bsg_view {
      * faceplate feature; bsg_hud_sync() updates s_flag on each child to
      * reflect the current bsg_view_settings before each render pass. */
     void           *gv_hud_root;
+
+    /* Phase D5 (drawing_modernization): bound camera snapshot for this
+     * view.  When non-NULL, bsg_view_apply_camera_node() restores the
+     * camera state from this snapshot.  Stored as a borrowed pointer
+     * (the view does NOT own the struct bsg_camera); callers must keep
+     * the camera alive for the lifetime of the binding.  NULL by default. */
+    struct bsg_camera *gv_camera_node;
+
+    /* Phase D5 (drawing_modernization): per-view render settings.
+     * When non-NULL, the render traversal reads policy from this struct
+     * instead of from gv_s fields directly.  The view does NOT own this
+     * pointer; the caller allocates/frees via bsg_render_settings_create/
+     * bsg_render_settings_destroy.  NULL means "use view defaults". */
+    struct bsg_render_settings *gv_render_settings;
 };
 
 // Because bsg_view instances frequently share objects in applications, they are

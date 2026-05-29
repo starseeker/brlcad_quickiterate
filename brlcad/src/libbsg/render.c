@@ -68,10 +68,12 @@
 #include "bsg/payload.h"
 #include "bsg/render.h"
 #include "bsg/render_item.h"
+#include "bsg/render_settings.h"
 #include "bsg/backend_adapter.h"
 #include "bsg/hud.h"
 #include "bsg/overlay.h"
 #include "bsg/appearance.h"
+#include "bsg/appearance_action.h"
 #include "bsg/lod.h"
 #include "bsg/lod_ops.h"
 #include "bsg/util.h"
@@ -373,53 +375,27 @@ _render_collect(const bsg_node *node,
     if (req->flags & BSG_RENDER_FLAG_PAYLOAD_DISPATCH)
 	bsg_payload_dispatch(req->dmp, (bsg_node *)node, req->view);
 
-    /* Resolve appearance from s_os (when set) or direct node fields */
-    fastf_t transparency = 1.0;
-    int     dmode        = 0;
-    int     line_width   = 1;
-    unsigned char color[3] = {255, 0, 0};
-
-    const struct bsg_obj_settings *os =
-	((const bsg_node *)node)->s_os;
-    if (os) {
-	transparency = os->transparency;
-	dmode        = os->s_dmode;
-	line_width   = os->s_line_width;
-	if (os->color_override) {
-	    color[0] = os->color[0];
-	    color[1] = os->color[1];
-	    color[2] = os->color[2];
-	} else {
-	    color[0] = ((const bsg_node *)node)->s_color[0];
-	    color[1] = ((const bsg_node *)node)->s_color[1];
-	    color[2] = ((const bsg_node *)node)->s_color[2];
-	}
-    } else {
-	color[0] = ((const bsg_node *)node)->s_color[0];
-	color[1] = ((const bsg_node *)node)->s_color[1];
-	color[2] = ((const bsg_node *)node)->s_color[2];
-    }
+    /* Phase D5: resolve appearance via bsg_appearance_resolve so that
+     * backends read from item->appearance and never re-derive from node. */
+    struct bsg_resolved_appearance ra;
+    memset(&ra, 0, sizeof(ra));
+    /* Pass NULL for inherited_os; future group-propagation work will
+     * supply a non-NULL inherited_os from the group traversal stack. */
+    bsg_appearance_resolve(req->view, node, NULL, &ra);
 
     bsg_render_phase phase =
-	_classify_phase(req, node, transparency);
+	_classify_phase(req, node, ra.transparency);
 
     /* Build the render item */
     struct bsg_render_item *item = bsg_render_item_create();
-    item->node         = (bsg_node *)node;
-    item->view         = req->view;
+    item->node          = (bsg_node *)node;
+    item->view          = req->view;
     MAT_COPY(item->model_mat, parent_mat);
-    item->color[0]     = color[0];
-    item->color[1]     = color[1];
-    item->color[2]     = color[2];
-    item->transparency = transparency;
-    item->dmode        = dmode;
-    item->line_width   = line_width;
-    item->line_style   = ((const bsg_node *)node)->s_soldash;
-    item->highlighted  = (((const bsg_node *)node)->s_iflag == UP) ? 1 : 0;
+    item->appearance    = ra;
     item->payload_flags =
 	bsg_node_get_payload_type((bsg_node *)node);
-    item->phase        = phase;
-    item->sort_key     = _sort_key(req, item);
+    item->phase         = phase;
+    item->sort_key      = _sort_key(req, item);
 
     bu_ptbl_ins(&st->phase_items[(int)phase], (long *)item);
 
@@ -486,6 +462,14 @@ bsg_render_request_create(struct bsg_view *view,
     req->flags   = BSG_RENDER_FLAG_VISIBLE_ONLY | BSG_RENDER_FLAG_PAYLOAD_DISPATCH;
     req->adapter = NULL;
     req->items   = NULL;
+
+    /* Phase D5: populate render settings from view at request creation time.
+     * The executor and backends read policy fields (LoD, HUD, etc.) from here
+     * rather than reaching back into the view directly. */
+    req->settings = bsg_render_settings_create();
+    if (view)
+	bsg_render_settings_from_view(req->settings, view);
+
     return req;
 }
 
@@ -495,6 +479,8 @@ bsg_render_request_destroy(struct bsg_render_request *req)
 {
     if (!req)
 	return;
+    bsg_render_settings_destroy(req->settings);
+    req->settings = NULL;
     bu_free(req, "bsg_render_request");
 }
 

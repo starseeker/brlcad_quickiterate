@@ -146,13 +146,15 @@ Work still outstanding (target of this guide):
   DIAGNOSTIC, TCL_ADORNMENT, POLYGON_EDIT, SKETCH_EDIT, and USER_ANNOTATION
   roles, and the lifecycle policy enum, are missing.  No tool-owned
   overlay-replacement/cleanup API exists.
-- D5: render-item dispatch is live for the GL family, but libdm still hosts
-  `_bsg_view_traverse_impl` and calls `dm_draw_faceplate` as a post-scene
-  epilogue.  Transparency-pass control and LoD update timing are split between
-  libdm and libbsg.  There is no resolved-appearance action; libdm still
-  combines node color, material, transparency, line style, and highlight at
-  draw time.  Framebuffer underlay and diagnostics are documented as HUD/
-  overlay phases but not yet driven through render items.
+- D5: **COMPLETE** (this session).  `_bsg_view_traverse_impl` removed from
+  libdm; `bsg_view_traverse()` delegates to `bsg_render_request_execute()`.
+  `bsg_resolved_appearance` struct introduced; `bsg_appearance_resolve()` in
+  libbsg centralizes appearance resolution; `bsg_render_item` embeds the
+  resolved appearance.  `bsg_render_settings` struct added and wired into
+  `bsg_render_request`.  Camera-node binding API added.  `BSG_INVALIDATE_*`
+  reason mask added to adapter invalidation callback.  Remaining deferred
+  items: D3/D4 backend parity audit, `libged/qged_view_settings` write-through,
+  and integration test suite.
 - D6: qsketch comments/refresh wording still references the old custom-callback
   flow.  The SKETCH live-source contract works for qsketch but has no other
   consumer, and no shared "live source payload" base for editors beyond sketch
@@ -489,7 +491,7 @@ Exit criteria met:
 - `bu_ptbl`-of-`bsg_node*` selection storage is gone outside the
   documented compatibility shim in `bsg_pick_result_to_ptbl`.
 
-Next session target: **Phase D5** — Render pipeline, resolved appearance, and backend adapter.
+Next session target: **Phase D6** — Editor live sources beyond qsketch.
 
 Phase D4 — HUD scene root and overlay policy
 --------------------------------------------
@@ -649,13 +651,52 @@ Exit criteria:
   from `bsg_view`/`bsg_view_settings` directly during draw.
 - Backend invalidations fire for the correct revision changes (tested).
 
-Current status: **NOT STARTED**
-- Preconditions (D4 complete) are now satisfied.
-- Next session should begin with Task 1 (resolved appearance action) and
-  Task 2 (move scene traversal into libbsg).
+Current status: **COMPLETE** (implemented this session)
 
-Next session target: **Phase D5** — Render pipeline, resolved appearance, and
-backend adapter.
+What was done:
+- Task 1a/1b: `include/bsg/appearance_action.h` + `src/libbsg/appearance_action.c` —
+  `bsg_appearance_layer` enum, `bsg_resolved_appearance` struct, `bsg_appearance_resolve()`
+  accumulating base material, inherited_os, s_os command override, transparency,
+  line style/width, display mode, and highlight state.  `bsg_render_item` now
+  embeds `struct bsg_resolved_appearance appearance` replacing the inline fields.
+- Task 2: `_bsg_view_traverse_impl` removed from `libdm/view.c`.
+  `bsg_view_traverse()` is now a thin wrapper calling `bsg_render_request_execute()`
+  via a static `bsg_backend_adapter`.  All traversal logic lives in `libbsg/render.c`.
+- Task 4: `include/bsg/render_settings.h` + `src/libbsg/render_settings.c` —
+  `bsg_render_settings` struct with draw_mode, zclip, transparency_policy,
+  lod_policy/level/scale, fb_mode, hud_enabled, adaptive_plot_* settings.
+  `bsg_render_settings_from_view()` bridges `gv_s->*` fields into the struct.
+- Task 5: Camera node binding API added to `include/bsg/camera.h`:
+  `bsg_view_set_camera_node`, `bsg_view_get_camera_node`, `bsg_view_apply_camera_node`.
+  Implementations in `src/libbsg/camera.c`.  `bsg_view` struct gains
+  `gv_camera_node` (struct bsg_camera*) and `gv_render_settings` (struct
+  bsg_render_settings*) pointer fields.
+- Task 6: `BSG_INVALIDATE_PAYLOAD`, `BSG_INVALIDATE_APPEARANCE`,
+  `BSG_INVALIDATE_TRANSFORM`, `BSG_INVALIDATE_RENDER_MODE`, `BSG_INVALIDATE_ALL`
+  flags added to `include/bsg/backend_adapter.h`.  `invalidate` callback
+  signature updated to `void (*invalidate)(void*, const struct bsg_render_item*,
+  unsigned int reason_mask)`.  All call sites (view.c, test_render_item.c) updated.
+- Task 7: `bsg_render_request` struct gains `struct bsg_render_settings *settings`
+  (owned by the request).  `bsg_render_request_create()` calls
+  `bsg_render_settings_from_view()`; `bsg_render_request_destroy()` frees it.
+  `render.c` updated to include `render_settings.h`.
+- Task 8a/8c: New test files `test_appearance_resolve.c` (8 tests) and
+  `test_backend_adapter.c` (5 tests) created; registered in
+  `src/libbsg/tests/CMakeLists.txt`.
+- `src/libbsg/CMakeLists.txt` updated: `appearance_action.c` and
+  `render_settings.c` added to `LIBBSG_SRCS` and `cmakefiles`.
+
+Deferred / partial items (for D5 follow-up or D6):
+- Task 3 (adapter parity audit): `dm-glx`/`dm-swrast`/`dm-qtgl`/`dm-plot`
+  backends have not yet been audited for redundant policy decisions.
+- Task 7b/7c: `libged/view/objs.cpp` and `qged_view_settings` have not yet
+  been migrated to write through `bsg_render_settings`.
+- Task 8b: `libbsg_render` test extension (transparency sort, overlay ordering)
+  deferred.
+- Task 8d: The large set of integration tests has not been run (compilation
+  testing deferred per user instructions).
+
+Next session target: **Phase D6** — Editor live sources beyond qsketch.
 
 Phase D6 — Editor live sources beyond qsketch
 ---------------------------------------------

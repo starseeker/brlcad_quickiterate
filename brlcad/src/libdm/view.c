@@ -91,20 +91,9 @@ dm_draw_arrow(struct dm *dmp, point_t A, point_t B, fastf_t tip_length, fastf_t 
     (void)dm_draw_lines_3d(dmp, 16, points, 0);
 }
 
+
 /* Draw label payloads for BSG_SHAPE_LABELS nodes. */
 void dm_draw_label(struct dm *dmp, struct bsg_node *s);
-
-static int
-_independent_root_skip_child(struct bsg_node *s)
-{
-    if (!s)
-	return 1;
-    if (s->s_type_flags & BSG_NODE_VIEW_SCOPE)
-	return 0;
-    if (!BU_VLS_IS_INITIALIZED(&s->s_name))
-	return 1;
-    return BU_STR_EQUAL("_overlays", bu_vls_cstr(&s->s_name)) ? 0 : 1;
-}
 
 // Draw an arrow head for each MOVE+LAST_DRAW paring
 void
@@ -390,7 +379,8 @@ _dm_scene_draw_item(void *dmp_ptr, const struct bsg_render_item *item)
 }
 
 static void
-_dm_scene_invalidate_item(void *dmp_ptr, const struct bsg_render_item *item)
+_dm_scene_invalidate_item(void *dmp_ptr, const struct bsg_render_item *item,
+			   unsigned int UNUSED(reason_mask))
 {
     struct dm *dmp = (struct dm *)dmp_ptr;
     if (!dmp || !item || !item->node)
@@ -701,107 +691,37 @@ dm_draw_scene_obj(struct dm *dmp, struct bsg_node *s, struct bsg_view *v, int fo
 // state and then draws each child node using dm_draw_scene_obj, producing
 // the same output as the legacy dl_* walk.
 
-/* Internal traversal — supports transparency-pass filtering and the
- * accumulated transform-stack matrix.  Public bsg_view_traverse() and
- * dm_draw_objs() both delegate here. */
-static void
-_bsg_view_traverse_impl(struct bsg_view *v, void *root,
-			int transparency_pass,
-			const fastf_t *cur_mat)
-{
-    if (!v || !root)
-	return;
-
-    struct dm *dmp = (struct dm *)v->dmp;
-    if (!dmp)
-	return;
-
-    struct bsg_node *r = (struct bsg_node *)root;
-    int independent_root = 0;
-    if (bsg_view_is_independent(v) && r == (struct bsg_node *)v->bsg_root) {
-	independent_root = 1;
-    }
-    for (size_t i = 0; i < bsg_node_child_count(r); i++) {
-	struct bsg_node *s = bsg_node_child_at(r, i);
-	if (!s)
-	    continue;
-
-	/* Phase 6: skip sensor nodes — they are not drawable */
-	if (s->s_type_flags & BSG_NODE_SENSOR)
-	    continue;
-
-	if (independent_root && _independent_root_skip_child(s))
-	    continue;
-
-	/* Phase V1 (view-scope): skip nodes scoped to a different view.
-	 * A NULL owner means "shared" (visible to all views); a non-NULL
-	 * owner means view-private (only visible to the owning view).
-	 * When the scope is visible, recurse into children and continue — the
-	 * scope node itself contributes no geometry. */
-	if (s->s_type_flags & BSG_NODE_VIEW_SCOPE) {
-	    if (s->s_v != NULL && s->s_v != v)
-		continue; /* wrong view — skip entire subtree */
-	    _bsg_view_traverse_impl(v, s, transparency_pass, cur_mat);
-	    continue;
-	}
-
-	/* Phase V4: BSG_NODE_VIEW_REF and BSG_NODE_VIEW_BRIDGE were removed
-	 * when the legacy ptbl bridge was retired.  Skip any stale nodes
-	 * from pre-V4 trees so the traversal stays correct. */
-	if (s->s_type_flags & BSG_NODE_VIEW_BRIDGE)
-	    continue;
-
-	/* Phase L0 (LoD redesign): for BSG_NODE_LOD nodes, render only
-	 * the child selected by the per-view cursor.  bsg_lod_update()
-	 * (called once before this traversal from dm_draw_objs) has already
-	 * run select_level/activate_level, so we just need to read the
-	 * cursor and recurse into the right child.  When no level has been
-	 * selected yet (level == -1) we fall through to the child at index 0
-	 * as a safe default. */
-	if (s->s_type_flags & BSG_NODE_LOD) {
-	    int active = bsg_lod_node_active_level((bsg_node *)s, v);
-	    int nlevels = bsg_lod_node_level_count((bsg_node *)s);
-	    if (nlevels > 0) {
-		if (active < 0 || active >= nlevels)
-		    active = 0;
-		struct bsg_node *child = bsg_node_child_at(s, active);
-		if (child)
-		    _bsg_view_traverse_impl(v, child,
-					    transparency_pass, cur_mat);
-	    }
-	    continue;
-	}
-
-	/* Phase 6 (BSG render contract): handle transform nodes — push
-	 * matrix, recurse, pop.  Carry the new accumulated matrix
-	 * through to dm_draw_scene_obj so that an s_iflag==UP child
-	 * under this transform restores back to the transform after the
-	 * gv_edit_mat swap, not to gv_model2view. */
-	if (s->s_type_flags & BSG_NODE_TRANSFORM) {
-	    mat_t save_mat;
-	    if (cur_mat)
-		MAT_COPY(save_mat, cur_mat);
-	    else
-		MAT_COPY(save_mat, v->gv_model2view);
-	    mat_t new_mat;
-	    bn_mat_mul(new_mat, save_mat, s->s_mat);
-	    dm_loadmatrix(dmp, new_mat, 0);
-	    _bsg_view_traverse_impl(v, s, transparency_pass, new_mat);
-	    dm_loadmatrix(dmp, save_mat, 0);
-	    continue;
-	}
-
-	_dm_draw_scene_obj_internal(dmp, s, v, s->s_force_draw,
-				    (s->s_inherit_settings) ? s->s_os : NULL,
-				    transparency_pass, cur_mat);
-    }
-}
-
+/* Phase D5: bsg_view_traverse is now a thin wrapper around
+ * bsg_render_request_execute.  The old _bsg_view_traverse_impl traversal
+ * has been removed; all traversal logic now lives in libbsg/render.c. */
 void
 bsg_view_traverse(struct bsg_view *v, void *root)
 {
     bsg_log(3, "libdm:bsg_view_traverse");
-    _bsg_view_traverse_impl(v, root, /*transparency_pass=*/0, /*cur_mat=*/NULL);
+    if (!v || !root)
+	return;
+    struct dm *dmp = (struct dm *)v->dmp;
+    if (!dmp)
+	return;
+
+    static struct bsg_backend_adapter traverse_adapter = {
+	_dm_scene_prepare_item,
+	_dm_scene_draw_item,
+	_dm_scene_invalidate_item,
+	_dm_scene_free_item,
+	_dm_scene_capabilities
+    };
+
+    struct bsg_render_request *req =
+	bsg_render_request_create(v, (bsg_node *)root, dmp);
+    if (!req)
+	return;
+    req->flags = BSG_RENDER_FLAG_VISIBLE_ONLY | BSG_RENDER_FLAG_PAYLOAD_DISPATCH;
+    if (dm_get_transparency(dmp))
+	req->flags |= BSG_RENDER_FLAG_SORTED_ALPHA;
+    req->adapter = &traverse_adapter;
+    (void)bsg_render_request_execute(req);
+    bsg_render_request_destroy(req);
 }
 
 // Phase D6 (drawing_modernization): all interactive visuals are expected to

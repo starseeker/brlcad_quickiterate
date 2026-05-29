@@ -94,6 +94,45 @@ bsg_camera_snapshot(const struct bsg_view *v);
 BSG_EXPORT extern void
 bsg_camera_apply(struct bsg_camera *cam, struct bsg_view *v);
 
+
+/* -----------------------------------------------------------------------
+ * Camera-node bindings (Phase D5)
+ *
+ * A view can carry a persistent camera snapshot that is consulted by the
+ * render request executor.  When a camera node is bound, multi-view
+ * layouts can share a single scene root and bind per-view camera nodes
+ * without duplicating scene geometry.
+ *
+ * The view does NOT take ownership of the camera node; callers must
+ * ensure the node outlives the view or explicitly unbind it before
+ * destroying it.
+ * ----------------------------------------------------------------------- */
+
+/**
+ * Bind camera snapshot @p cam to view @p v.
+ *
+ * The snapshot is stored as a borrowed pointer on the view.
+ * Passing NULL unbinds any previously bound camera.
+ * No-op if @p v is NULL.
+ */
+BSG_EXPORT extern void
+bsg_view_set_camera_node(struct bsg_view *v, struct bsg_camera *cam);
+
+/**
+ * Return the camera snapshot bound to view @p v, or NULL if none is bound.
+ */
+BSG_EXPORT extern struct bsg_camera *
+bsg_view_get_camera_node(const struct bsg_view *v);
+
+/**
+ * Apply the camera node bound to @p v (if any) to restore the camera
+ * state.  Equivalent to:
+ *   bsg_camera_apply(bsg_view_get_camera_node(v), v)
+ * but handles a missing camera node gracefully (no-op).
+ */
+BSG_EXPORT extern void
+bsg_view_apply_camera_node(struct bsg_view *v);
+
 __END_DECLS
 
 #endif /* BSG_CAMERA_H */

@@ -47,6 +47,7 @@
 #include "vmath.h"
 #include "bu/vls.h"
 #include "bsg/defines.h"
+#include "bsg/appearance_action.h"
 
 __BEGIN_DECLS
 
@@ -79,13 +80,14 @@ struct bsg_render_item {
     struct bsg_view   *view;          /**< @brief  request view context (borrowed) */
     mat_t              model_mat;     /**< @brief  accumulated model-to-world matrix */
 
-    /* Resolved appearance */
-    unsigned char      color[3];      /**< @brief  resolved RGB colour (s_color) */
-    fastf_t            transparency;  /**< @brief  0 = fully transparent, 1 = fully opaque */
-    int                dmode;         /**< @brief  display mode (s_dmode) */
-    int                line_width;    /**< @brief  line width in pixels */
-    int                line_style;    /**< @brief  line style flag (0 = solid) */
-    int                highlighted;   /**< @brief  non-zero when node is highlighted */
+    /**
+     * Fully resolved appearance (Phase D5).
+     *
+     * Populated by bsg_appearance_resolve() during bsg_render_request_execute.
+     * Backends MUST read appearance fields from here and must NOT re-derive
+     * them by accessing node internals during drawing.
+     */
+    struct bsg_resolved_appearance appearance;
 
     /* Payload / phase classification */
     unsigned long long payload_flags; /**< @brief  BSG_PAYLOAD_* bits copied from s_type_flags */

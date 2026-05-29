@@ -43,6 +43,7 @@
 #include "bsg/defines.h"
 #include "bsg/render_item.h"
 #include "bsg/backend_adapter.h"
+#include "bsg/render_settings.h"
 
 __BEGIN_DECLS
 
@@ -113,6 +114,16 @@ struct bsg_render_request {
      * Ignored when BSG_RENDER_FLAG_COLLECT_ITEMS is clear.
      */
     struct bu_ptbl             *items;
+
+    /**
+     * Phase D5: resolved rendering settings (owned by the request).
+     *
+     * Populated by bsg_render_request_create() from the view settings via
+     * bsg_render_settings_from_view().  The executor reads draw mode, LOD
+     * policy, HUD enable, etc. from here instead of reaching into the view.
+     * Never NULL when the request was created with a non-NULL view.
+     */
+    struct bsg_render_settings *settings;
 };
 
 /**
