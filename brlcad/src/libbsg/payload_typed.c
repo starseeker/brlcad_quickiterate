@@ -177,6 +177,24 @@ bsg_payload_update(bsg_node *node, struct bsg_view *v)
 	pl->pl_update(pl, v);
 }
 
+int
+bsg_payload_snap(struct bsg_payload *pl, const point_t sample, double tol,
+		 unsigned long long kinds, struct bsg_snap_result *out)
+{
+    if (!pl || !pl->pl_snap)
+	return -1;
+    return pl->pl_snap(pl, sample, tol, kinds, out);
+}
+
+int
+bsg_payload_measure_candidates(struct bsg_payload *pl, const point_t a,
+			       const point_t b, struct bsg_measure_result *out)
+{
+    if (!pl || !pl->pl_measure_candidates)
+	return -1;
+    return pl->pl_measure_candidates(pl, a, b, out);
+}
+
 
 /* -----------------------------------------------------------------------
  * VLIST payload (node-owned geometry) — Phase D1

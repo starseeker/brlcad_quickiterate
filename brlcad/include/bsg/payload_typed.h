@@ -67,6 +67,8 @@ struct bsg_polygon;
 struct bsg_grid_state;
 struct bsg_mesh_lod;
 struct bsg_sketch_live_data;
+struct bsg_snap_result;
+struct bsg_measure_result;
 struct fb;
 
 struct bsg_payload_vlist {
@@ -215,6 +217,20 @@ struct bsg_payload {
      * backend adapter interface.
      */
     int   (*pl_backend_prepare)(struct bsg_payload *pl, void *backend_ctx);
+
+    /**
+     * Optional snap candidate query for this payload.
+     * Returns 1 on success, 0 on no candidates, negative for unsupported.
+     */
+    int   (*pl_snap)(struct bsg_payload *pl, const point_t sample, double tol,
+		     unsigned long long kinds, struct bsg_snap_result *out);
+
+    /**
+     * Optional measure candidate query for this payload.
+     * Returns 1 on success, 0 on no candidates, negative for unsupported.
+     */
+    int   (*pl_measure_candidates)(struct bsg_payload *pl, const point_t a,
+				   const point_t b, struct bsg_measure_result *out);
 };
 
 /* -----------------------------------------------------------------------
@@ -289,6 +305,14 @@ bsg_node_get_payload(const bsg_node *node);
  */
 BSG_EXPORT extern void
 bsg_payload_update(bsg_node *node, struct bsg_view *v);
+
+BSG_EXPORT extern int
+bsg_payload_snap(struct bsg_payload *pl, const point_t sample, double tol,
+		 unsigned long long kinds, struct bsg_snap_result *out);
+
+BSG_EXPORT extern int
+bsg_payload_measure_candidates(struct bsg_payload *pl, const point_t a,
+			       const point_t b, struct bsg_measure_result *out);
 
 /* -----------------------------------------------------------------------
  * VLIST payload (node-owned geometry) — Phase D1

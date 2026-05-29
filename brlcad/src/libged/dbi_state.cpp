@@ -63,6 +63,7 @@
 #include "bsg/util.h"
 #include "bsg/draw_set.h"
 #include "bsg/lod_ops.h"
+#include "bsg/draw_intent.h"
 
 #include "./dbi.h"
 
@@ -2152,6 +2153,46 @@ DbiState::update()
 	struct directory *dp = *g_it;
 	unsigned long long hash = bu_data_hash(dp->d_namep, strlen(dp->d_namep)*sizeof(char));
 	changed_hashes.insert(hash);
+    }
+
+    auto revalidate_event = [&](const struct bsg_db_event *ev) {
+	if (!ev || !ev->dbe_path || !strlen(ev->dbe_path))
+	    return;
+	std::set<struct bsg_node *> roots;
+	if (gedp && gedp->i && gedp->i->ged_gdp && gedp->i->ged_gdp->gd_draw_root)
+	    roots.insert(gedp->i->ged_gdp->gd_draw_root);
+	struct bu_ptbl *views = (gedp) ? bsg_set_views(&gedp->ged_views) : NULL;
+	if (views) {
+	    for (size_t vi = 0; vi < BU_PTBL_LEN(views); vi++) {
+		struct bsg_view *v = (struct bsg_view *)BU_PTBL_GET(views, vi);
+		if (v && v->gv_draw_root)
+		    roots.insert((struct bsg_node *)v->gv_draw_root);
+	    }
+	}
+	for (auto *root : roots)
+	    bsg_draw_intent_revalidate(root, ev);
+    };
+
+    for (g_it = added.begin(); g_it != added.end(); g_it++) {
+	struct directory *dp = *g_it;
+	if (!dp || !dp->d_namep || !strlen(dp->d_namep))
+	    continue;
+	struct bsg_db_event ev = {dp->d_namep, NULL, BSG_DB_EVENT_MODIFIED};
+	revalidate_event(&ev);
+    }
+    for (g_it = changed.begin(); g_it != changed.end(); g_it++) {
+	struct directory *dp = *g_it;
+	if (!dp || !dp->d_namep || !strlen(dp->d_namep))
+	    continue;
+	struct bsg_db_event ev = {dp->d_namep, NULL, BSG_DB_EVENT_MODIFIED};
+	revalidate_event(&ev);
+    }
+    for (s_it = removed.begin(); s_it != removed.end(); s_it++) {
+	std::unordered_map<unsigned long long, std::string>::iterator on_it = old_names.find(*s_it);
+	if (on_it == old_names.end() || !on_it->second.size())
+	    continue;
+	struct bsg_db_event ev = {on_it->second.c_str(), NULL, BSG_DB_EVENT_REMOVED};
+	revalidate_event(&ev);
     }
 
     // Update the primary data structures

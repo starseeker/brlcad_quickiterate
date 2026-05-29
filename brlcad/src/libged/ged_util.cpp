@@ -54,6 +54,7 @@
 #include "bu/units.h"
 #include "bu/vls.h"
 #include "bsg.h"
+#include "bsg/draw_intent.h"
 #include "bsg/node.h"
 #include "ged.h"
 #include "ged/bsg_ged_draw.h"
@@ -1044,68 +1045,41 @@ ged_scale_args(struct ged *gedp, int argc, const char *argv[], fastf_t *sf1, fas
     return ret;
 }
 
-/* Callback for ged_who_argc to count groups */
-static int
-who_argc_cb(struct bsg_node * /* group */, void *userdata)
+static struct bsg_node *
+_ged_draw_root(struct ged *gedp)
 {
-    size_t *cnt = (size_t *)userdata;
-    (*cnt)++;
-    return 1; /* continue */
+    if (!gedp || !gedp->i || !gedp->i->ged_gdp)
+	return NULL;
+    return gedp->i->ged_gdp->gd_draw_root;
+}
+
+static size_t
+_ged_draw_intent_path_count(struct ged *gedp)
+{
+    struct bsg_node *root = _ged_draw_root(gedp);
+    if (!root)
+	return 0;
+
+    struct bu_ptbl groups = BU_PTBL_INIT_ZERO;
+    size_t cnt = 0;
+    bsg_draw_intent_collect_for_export(root, &groups, 0ULL);
+    for (size_t i = 0; i < BU_PTBL_LEN(&groups); i++) {
+	struct bsg_node *group = (struct bsg_node *)BU_PTBL_GET(&groups, i);
+	const struct bsg_draw_intent *di = bsg_node_get_draw_intent(group);
+	const char *path = bsg_draw_intent_path(di);
+	if (path && *path)
+	    cnt++;
+    }
+    bu_ptbl_free(&groups);
+    return cnt;
 }
 
 size_t
 ged_who_argc(struct ged *gedp)
 {
-    if (gedp->dbi_state) {
-	if (!gedp || !gedp->ged_gvp || !gedp->dbi_state)
-	    return 0;
-	DbiState *dbis = (DbiState *)gedp->dbi_state;
-	BViewState *bvs = dbis->get_view_state(gedp->ged_gvp);
-	if (bvs)
-	    return bvs->count_drawn_paths(-1, true);
-	return 0;
-    }
-
-    if (!gedp)
-	return 0;
-
-    size_t visibleCount = 0;
-    bsg_view_obj_foreach_group(gedp, who_argc_cb, &visibleCount);
-    return visibleCount;
+    return _ged_draw_intent_path_count(gedp);
 }
 
-
-/* Callback data for ged_who_argv */
-struct who_argv_data {
-    struct ged *gedp;
-    char **vp;
-    const char **end;
-    int overflow;
-};
-
-/* Callback for ged_who_argv */
-static int
-who_argv_cb(struct bsg_node *group, void *userdata)
-{
-    struct who_argv_data *data = (struct who_argv_data *)userdata;
-
-    /* Skip phony addresses */
-    if (bsg_view_obj_group_is_phony(group))
-	return 1;
-
-    const char *path = bsg_view_obj_group_path(group);
-    if (!path)
-	return 1;
-
-    if ((data->vp != NULL) && ((const char **)data->vp < data->end)) {
-	*data->vp++ = bu_strdup(path);
-    } else {
-	bu_vls_printf(data->gedp->ged_result_str, "INTERNAL ERROR: ged_who_argv() ran out of space\n");
-	data->overflow = 1;
-	return 0; /* stop iteration */
-    }
-    return 1; /* continue */
-}
 
 /**
  * Build a command line vector of the tops of all objects in view.
@@ -1121,43 +1095,37 @@ ged_who_argv(struct ged *gedp, char **start, const char **end)
     char **vp = start;
     if (!gedp)
 	return 0;
-    if (gedp->dbi_state) {
-	if (!gedp->ged_gvp || !gedp->dbi_state)
-	    return 0;
-	DbiState *dbis = (DbiState *)gedp->dbi_state;
-	BViewState *bvs = dbis->get_view_state(gedp->ged_gvp);
-	if (bvs) {
-	    std::vector<std::string> drawn_paths = bvs->list_drawn_paths(-1, true);
-	    for (size_t i = 0; i < drawn_paths.size(); i++) {
-		if ((vp != NULL) && ((const char **)vp < end)) {
-		    *vp++ = bu_strdup(drawn_paths[i].c_str());
-		} else {
-		    bu_vls_printf(gedp->ged_result_str, "INTERNAL ERROR: ged_who_argv() ran out of space at %s\n", drawn_paths[i].c_str());
-		    break;
-		}
-	    }
-	} else {
-	    return 0;
-	}
-    }
 
     if (UNLIKELY(!start || !end)) {
 	bu_vls_printf(gedp->ged_result_str, "INTERNAL ERROR: ged_who_argv() called with NULL args\n");
 	return 0;
     }
 
-    struct who_argv_data data;
-    data.gedp = gedp;
-    data.vp = start;
-    data.end = end;
-    data.overflow = 0;
-    bsg_view_obj_foreach_group(gedp, who_argv_cb, &data);
+    struct bsg_node *root = _ged_draw_root(gedp);
+    if (!root)
+	return 0;
 
-    if ((data.vp != NULL) && ((const char **)data.vp < data.end)) {
-	*data.vp = (char *) 0;
+    struct bu_ptbl groups = BU_PTBL_INIT_ZERO;
+    bsg_draw_intent_collect_for_export(root, &groups, 0ULL);
+    for (size_t i = 0; i < BU_PTBL_LEN(&groups); i++) {
+	struct bsg_node *group = (struct bsg_node *)BU_PTBL_GET(&groups, i);
+	const struct bsg_draw_intent *di = bsg_node_get_draw_intent(group);
+	const char *path = bsg_draw_intent_path(di);
+	if (!path || !*path)
+	    continue;
+	if ((vp != NULL) && ((const char **)vp < end)) {
+	    *vp++ = bu_strdup(path);
+	} else {
+	    bu_vls_printf(gedp->ged_result_str, "INTERNAL ERROR: ged_who_argv() ran out of space at %s\n", path);
+	    break;
+	}
     }
+    bu_ptbl_free(&groups);
 
-    return data.vp - start;
+    if ((vp != NULL) && ((const char **)vp < end))
+	*vp = (char *)0;
+
+    return vp - start;
 }
 
 void

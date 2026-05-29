@@ -33,7 +33,7 @@
 #include "bu/file.h"
 #include "bu/getopt.h"
 
-
+#include "bsg/draw_intent.h"
 #include "../ged_private.h"
 #include "ged/bsg_ged_draw.h"
 
@@ -67,18 +67,6 @@ basename_without_suffix(const char *p1, const char *suff)
     /* stash and return filename, sans suffix */
     bu_strlcpy(buf, p2, p1-p2+1);
     return buf;
-}
-
-
-/* Write a draw-path token for each drawn group. */
-static int
-saveview_draw_path_cb(struct bsg_node *group, void *fp_)
-{
-    FILE *fp = (FILE *)fp_;
-    const char *path = bsg_view_obj_group_path(group);
-    if (path)
-	fprintf(fp, "'%s' ", path);
-    return 1;
 }
 
 
@@ -181,8 +169,20 @@ ged_saveview_core(struct ged *gedp, int argc, const char *argv[])
     }
     fprintf(fp, " '%s'\\\n ", inputg);
 
-    /* Write out display list paths */
-    bsg_view_obj_foreach_group(gedp, saveview_draw_path_cb, fp);
+    /* Write out draw-intent source paths */
+    struct bsg_node *root = (gedp->i && gedp->i->ged_gdp) ? gedp->i->ged_gdp->gd_draw_root : NULL;
+    if (root) {
+	struct bu_ptbl groups = BU_PTBL_INIT_ZERO;
+	bsg_draw_intent_collect_for_export(root, &groups, 0ULL);
+	for (size_t gi = 0; gi < BU_PTBL_LEN(&groups); gi++) {
+	    struct bsg_node *group = (struct bsg_node *)BU_PTBL_GET(&groups, gi);
+	    const struct bsg_draw_intent *di = bsg_node_get_draw_intent(group);
+	    const char *path = bsg_draw_intent_path(di);
+	    if (path && *path)
+		fprintf(fp, "'%s' ", path);
+	}
+	bu_ptbl_free(&groups);
+    }
 
     fprintf(fp, "\\\n 2>> %s\\\n", outlog);
     fprintf(fp, " <<EOF\n");

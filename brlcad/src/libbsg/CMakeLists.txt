@@ -12,6 +12,7 @@ set(
   lod.cpp
   lod_node.c
   material.c
+  measure.c
   mesh_lod.cpp
   node.c
   node_group.c
@@ -42,6 +43,7 @@ set(
   polygon_fill.cpp
   polygon_op.cpp
   snap.c
+  snap_action.c
   tig/axis.c
   tig/list.c
   tig/marker.c
@@ -89,6 +91,7 @@ cmakefiles(
   light.c
   lod_node.c
   material.c
+  measure.c
   mesh_lod.cpp
   node.c
   node_group.c
@@ -113,6 +116,7 @@ cmakefiles(
   polygon_fill.cpp
   polygon_op.cpp
   snap.c
+  snap_action.c
   view_sets.cpp
   tig/axis.c
   tig/list.c
