@@ -513,8 +513,24 @@ bsg_render_request_execute(struct bsg_render_request *req)
     for (int p = 0; p < BSG_RENDER_PHASE_COUNT; p++)
 	bu_ptbl_init(&st.phase_items[p], 8, "render phase items");
 
+    /* Phase D5/G7: bind this request's settings to the view for the duration
+     * of the traversal so view-context resolvers (bsg_appearance_resolve)
+     * can read render policy such as the geometry-default color.  Save and
+     * restore any previously-bound settings to avoid leaking the request's
+     * lifetime onto the view. */
+    struct bsg_render_settings *saved_view_settings = NULL;
+    int rebound_view_settings = 0;
+    if (req->view && req->settings) {
+	saved_view_settings = req->view->gv_render_settings;
+	req->view->gv_render_settings = req->settings;
+	rebound_view_settings = 1;
+    }
+
     /* Collect items from the subtree */
     _render_collect(req->root, identity, &st, 0);
+
+    if (rebound_view_settings)
+	req->view->gv_render_settings = saved_view_settings;
 
     if (do_sorted_alpha)
 	_sort_transparent_bucket(&st.phase_items[BSG_RENDER_PHASE_TRANSPARENT]);

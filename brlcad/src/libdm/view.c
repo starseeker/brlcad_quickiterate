@@ -353,15 +353,12 @@ _dm_scene_draw_item(void *dmp_ptr, const struct bsg_render_item *item)
 
     if (item->appearance.highlighted) {
 	(void)dm_set_fg(dmp, 255, 255, 255, 0, item->appearance.transparency);
-    } else if (s->s_os && s->s_os->color_override) {
-	(void)dm_set_fg(dmp, item->appearance.color[0], item->appearance.color[1], item->appearance.color[2], 0, item->appearance.transparency);
-    } else if (s->s_old.s_cflag) {
-	unsigned char *gdc = dm_get_geometry_default_color(dmp);
-	(void)dm_set_fg(dmp, gdc[0], gdc[1], gdc[2], 0, item->appearance.transparency);
     } else {
-	unsigned char sr, sg, sb;
-	bsg_material_get_rgb(s, &sr, &sg, &sb);
-	(void)dm_set_fg(dmp, sr, sg, sb, 0, item->appearance.transparency);
+	/* Phase D5/G7: command override, geometry-default color (s_cflag),
+	 * and the base material color are all resolved into
+	 * item->appearance.color by bsg_appearance_resolve, so the backend
+	 * reads the final color directly instead of re-deriving it. */
+	(void)dm_set_fg(dmp, item->appearance.color[0], item->appearance.color[1], item->appearance.color[2], 0, item->appearance.transparency);
     }
 
     int lw = item->appearance.line_width;
@@ -720,6 +717,14 @@ bsg_view_traverse(struct bsg_view *v, void *root)
     req->flags = BSG_RENDER_FLAG_VISIBLE_ONLY | BSG_RENDER_FLAG_PAYLOAD_DISPATCH;
     if (dm_get_transparency(dmp))
 	req->flags |= BSG_RENDER_FLAG_SORTED_ALPHA;
+    /* Phase D5/G7: hand the backend's geometry-default color to the render
+     * settings so bsg_appearance_resolve can model the default-color layer. */
+    if (req->settings) {
+	unsigned char *gdc = dm_get_geometry_default_color(dmp);
+	req->settings->geometry_default_color[0] = gdc[0];
+	req->settings->geometry_default_color[1] = gdc[1];
+	req->settings->geometry_default_color[2] = gdc[2];
+    }
     req->adapter = &traverse_adapter;
     (void)bsg_render_request_execute(req);
     bsg_render_request_destroy(req);
@@ -802,6 +807,16 @@ dm_draw_objs(struct bsg_view *v)
 	    req->flags = BSG_RENDER_FLAG_VISIBLE_ONLY | BSG_RENDER_FLAG_PAYLOAD_DISPATCH;
 	    if (dm_get_transparency(dmp))
 		req->flags |= BSG_RENDER_FLAG_SORTED_ALPHA;
+	    /* Phase D5/G7: hand the backend's geometry-default color to the
+	     * render settings so bsg_appearance_resolve models the
+	     * default-color layer and the scene adapter can read the resolved
+	     * color directly from item->appearance.color. */
+	    if (req->settings) {
+		unsigned char *gdc = dm_get_geometry_default_color(dmp);
+		req->settings->geometry_default_color[0] = gdc[0];
+		req->settings->geometry_default_color[1] = gdc[1];
+		req->settings->geometry_default_color[2] = gdc[2];
+	    }
 	    req->adapter = &scene_adapter;
 	    (void)bsg_render_request_execute(req);
 	    bsg_render_request_destroy(req);

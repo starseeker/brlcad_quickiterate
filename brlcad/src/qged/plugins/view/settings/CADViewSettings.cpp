@@ -31,6 +31,7 @@
 #include "bu/opt.h"
 #include "bu/malloc.h"
 #include "bu/str.h"
+#include "bsg/render_settings.h"
 #include "qtcad/QgPluginContext.h"
 #include "qtcad/QgSignalFlags.h"
 
@@ -185,9 +186,14 @@ CADViewSettings::checkbox_refresh(unsigned long long)
     if (!v)
 	return;
 
+    /* Phase D5/G7 (Task 7c): read render-policy fields through
+     * bsg_render_settings rather than poking gv_s directly. */
+    struct bsg_render_settings rs;
+    bsg_render_settings_from_view(&rs, v);
+
     /* Top-level faceplate elements */
-    set_ckbx(acsg_ckbx,     v->gv_s->adaptive_plot_csg);
-    set_ckbx(amesh_ckbx,    v->gv_s->adaptive_plot_mesh);
+    set_ckbx(acsg_ckbx,     rs.adaptive_plot_csg);
+    set_ckbx(amesh_ckbx,    rs.adaptive_plot_mesh);
     set_ckbx(adc_ckbx,      v->gv_s->gv_adc.draw);
     set_ckbx(cdot_ckbx,     v->gv_s->gv_center_dot.gos_draw);
     set_ckbx(grid_ckbx,     v->gv_s->gv_grid.draw);
@@ -197,7 +203,7 @@ CADViewSettings::checkbox_refresh(unsigned long long)
 
     /* Framebuffer mode (0=off, 1=overlay, 2=underlay) maps directly to
      * combo index. Clamp to a valid range in case of unexpected values. */
-    int fb_mode = v->gv_s->gv_fb_mode;
+    int fb_mode = (int)rs.fb_mode;
     if (fb_mode < 0 || fb_mode > 2)
 	fb_mode = 0;
     fb_mode_combo->blockSignals(true);
@@ -224,18 +230,24 @@ CADViewSettings::view_refresh(unsigned long long)
     if (!v)
 	return;
 
-    /* Top-level faceplate elements */
-    v->gv_s->adaptive_plot_csg     = ckbx_val(acsg_ckbx);
-    v->gv_s->adaptive_plot_mesh    = ckbx_val(amesh_ckbx);
+    /* Phase D5/G7 (Task 7c): write render-policy fields through
+     * bsg_render_settings.  Start from the current view state so non-widget
+     * policy fields are preserved, overwrite the widget-backed render-policy
+     * fields, then flush back to the view's canonical gv_s store. */
+    struct bsg_render_settings rs;
+    bsg_render_settings_from_view(&rs, v);
+    rs.adaptive_plot_csg  = ckbx_val(acsg_ckbx);
+    rs.adaptive_plot_mesh = ckbx_val(amesh_ckbx);
+    rs.fb_mode            = (bsg_framebuffer_mode)fb_mode_combo->currentIndex();
+    bsg_render_settings_apply_to_view(&rs, v);
+
+    /* Faceplate-only elements with no bsg_render_settings backing stay direct */
     v->gv_s->gv_adc.draw           = ckbx_val(adc_ckbx);
     v->gv_s->gv_center_dot.gos_draw = ckbx_val(cdot_ckbx);
     v->gv_s->gv_grid.draw          = ckbx_val(grid_ckbx);
     v->gv_s->gv_model_axes.draw    = ckbx_val(mdlaxes_ckbx);
     v->gv_s->gv_view_scale.gos_draw = ckbx_val(scale_ckbx);
     v->gv_s->gv_view_axes.draw     = ckbx_val(viewaxes_ckbx);
-
-    /* Framebuffer mode: combo index maps directly to gv_fb_mode (0/1/2) */
-    v->gv_s->gv_fb_mode = fb_mode_combo->currentIndex();
 
     /* Parameters: master draw flag + per-element sub-flags */
     struct bsg_params_state *pst = &v->gv_s->gv_view_params;

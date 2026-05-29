@@ -699,19 +699,46 @@ What was done:
   `render_settings.c` added to `LIBBSG_SRCS` and `cmakefiles`.
 
 Deferred / partial items (for D5 follow-up or D6):
-- Task 3 (adapter parity audit): `dm-glx`/`dm-swrast`/`dm-qtgl`/`dm-plot`
-  backends have not yet been audited for redundant policy decisions.  NOTE:
-  `_dm_scene_draw_item` in `libdm/view.c` now reads transparency/line/highlight
-  state straight from `item->appearance.*`, but still keeps a `s_old.s_cflag`
-  geometry-default-*color* branch that `bsg_appearance_resolve` does not yet
-  model; once resolve handles the geometry-default-color layer, that color
-  branch can collapse to a straight `item->appearance.color` read (G7).
-- Task 7b/7c: `libged/view/objs.cpp` and `qged_view_settings` have not yet
-  been migrated to write through `bsg_render_settings`.
-- Task 8b: `libbsg_render` test extension (transparency sort, overlay ordering)
-  deferred.
+- Task 3 (G7 geometry-default color): **DONE**.  `bsg_appearance_resolve` now
+  models the geometry-default-color layer (`BSG_ALAY_GEOM_DEFAULT`): when a
+  node sets `s_old.s_cflag`, the resolver fills `out->color` from the view's
+  bound `gv_render_settings->geometry_default_color` (falling back to red
+  {255,0,0}), and a later inherited/command color override still wins.  The
+  backend-owned default color is plumbed in via a new
+  `bsg_render_settings.geometry_default_color[3]` field that `libdm/view.c`
+  populates from `dm_get_geometry_default_color(dmp)` on each render request
+  (both `bsg_view_traverse` and `dm_draw_objs` sites); the request settings
+  are bound onto `req->view->gv_render_settings` for the duration of
+  `_render_collect` in `bsg_render_request_execute`.  Consequently the 4-way
+  color branch in `_dm_scene_draw_item` collapses to: highlighted -> white,
+  else -> `item->appearance.color`.
+  REMAINING (Task 3 audit): `dm-glx`/`dm-swrast`/`dm-qtgl`/`dm-plot` backends
+  still have not been audited for *other* redundant policy decisions.
+- Task 7b: `libged/view/objs.cpp` writes no `bsg_render_settings`-backed
+  fields (verified by grep), so there is nothing to migrate there.
+- Task 7c: **DONE**.  Added inverse API
+  `bsg_render_settings_apply_to_view()` and migrated `qged_view_settings`
+  (`CADViewSettings`) to read (adaptive_plot_csg/mesh, fb_mode) and write
+  those render-policy fields through `bsg_render_settings`; faceplate-only
+  widgets with no render-settings backing stay direct.
+- Task 8b: **DONE**.  `libbsg_render` test extended with
+  `test_transparency_sort` (back-to-front ordering) and
+  `test_overlay_ordering` (overlay bucket ordering) in
+  `src/libbsg/tests/test_render.c`.
 - Task 8d: The large set of integration tests has not been run (compilation
   testing deferred per user instructions).
+
+  NOTE (build state): at this branch HEAD the `libbsg` library does not yet
+  compile due to pre-existing, unrelated breakage from prior sessions
+  (`overlay.c` missing `<string.h>`/payload-helper declarations, `hud.c`
+  references undeclared `BSG_PAYLOAD_LINE/LABEL/AXES/GRID/IMAGE`, `polygon.c`
+  `bg_plane_closest_pt` pointer-type mismatch) plus a duplicate, conflicting
+  `bsg_lod_policy` enum defined in both `include/bsg/render_settings.h` and
+  `include/bsg/draw_intent.h`.  These predate and are independent of the G7/7c
+  changes (the baseline tree fails identically with the changes stashed), so
+  the new/changed sources here were validated by per-file `-fsyntax-only`
+  compilation; full `libbsg_render`/`libbsg_appearance_resolve` ctest runs
+  remain blocked until that pre-existing breakage is resolved.
 
 Correctness fix (this session): the D5 statement "`bsg_render_item` now
 embeds `struct bsg_resolved_appearance appearance` replacing the inline
