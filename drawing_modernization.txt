@@ -825,7 +825,7 @@ Tasks:
    <issue/PR ref> after Obol parity */` and listed in
    `bsg_drawing_api.md`'s "Scheduled removals" section.
 
-Current status: **SUBSTANTIALLY COMPLETE** (implemented this session)
+Current status: **COMPLETE**
 
 What was done:
 - Task 2b/2c: Legacy `BV_*` alias definitions were centralized into a single
@@ -835,8 +835,22 @@ What was done:
   - `include/bsg/defines.h`, `include/bsg/util.h`, `include/bsg/events.h`,
     `include/bsg/polygon.h`, and `include/bsg/tcl_data.h` were updated so they
     no longer define ad-hoc `BV_*` aliases directly.
-  - Compatibility aliases are now provided through one bridge include
-    (`bsg/legacy_compat.h`) instead of being scattered across API headers.
+  - Repository code now uses canonical `BSG_*` names directly; BSG public
+    headers no longer auto-include `bsg/legacy_compat.h`.
+- Task 1: `struct bsg_node` layout moved out of `include/bsg/defines.h` into
+  the internal header `include/bsg/node_private.h`, and `src/libbsg/bsg_private.h`
+  now consumes that definition for libbsg internals.  Public headers expose
+  `bsg_node` only as an opaque type.
+- Task 1 follow-through: raw-field consumers across `brlcad/src` were updated to
+  include the internal node-layout header explicitly instead of depending on the
+  public API to expose `struct bsg_node`.
+- Task 3: legacy filenames were modernized:
+  - `include/bsg/view_set.h` is now the canonical header; `view_sets.h` is a
+   compatibility bridge.
+  - `src/libbsg/view_set.cpp` replaces `view_sets.cpp`.
+  - `src/librt/tests/bsg_poly_sketch.c` replaces `bv_poly_sketch.c`.
+- Task 4: final D7 sweep confirmed there are no remaining
+  `TODO(bsg-modernize)` markers in-tree.
 - Task 5: Added `brlcad/doc/bsg_drawing_api.md` describing the D7 public API
   surface and compatibility policy, including a "Scheduled removals" table.
 - Task 5 + Task 2c docs: `brlcad/doc/bsg_vocabulary.md` now includes a D7
@@ -845,13 +859,11 @@ What was done:
   `bsg_drawing_api.md` with explicit tracking references.
 
 Deferred follow-up items:
-- Task 1 (full `struct bsg_node` opacity): this is still pending for direct
-  raw-field consumers in non-libbsg modules; migrate remaining field users to
-  accessor APIs, then move full layout to `src/libbsg/bsg_private.h`.
-- Task 3 (legacy filename cleanup): broad file-rename/split pass still pending.
-- Task 4 (final TODO/comment sweep): final global sweep still pending.
 - Validation matrix execution remains deferred in this environment per current
   session instruction (no compilation/testing run yet).
+- Optional future cleanup: continue replacing direct internal-header field users
+  with accessor-style helpers where practical, but D7 no longer requires public
+  headers to expose `struct bsg_node`.
 
 Exit criteria:
 - `struct bsg_node` is not visible to public headers.

@@ -240,9 +240,6 @@ struct bsg_backend {
     void (*invalidate)(struct bsg_node *);  /**< @brief mark cached resource stale; may be NULL */
 };
 
-struct bsg_node;
-
-
 /* bsg_scene_groups are BSG_NODE_GROUP nodes that record the user's draw-command
  * intent — which database path was drawn and how.  They sit one level above
  * the shape leaves that hold the realized geometry.  For example:

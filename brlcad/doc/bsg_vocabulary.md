@@ -148,8 +148,8 @@ The following terms from the legacy codebase should not be used in new BSG code:
 ## D7 deprecation guide: BV_* to BSG_* mapping
 
 Remaining transitional aliases are centralized in
-`include/bsg/legacy_compat.h` and controlled by
-`BSG_ENABLE_LEGACY_BV_ALIASES`.
+`include/bsg/legacy_compat.h`; in-tree code now includes that bridge only
+explicitly when compatibility aliases are actually needed.
 
 | Retired BV_* name | BSG replacement |
 |---|---|

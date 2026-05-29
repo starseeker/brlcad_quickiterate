@@ -17,7 +17,7 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file bsg/view_set.h
+/** @file bsg/view_sets.h
  *
  * Legacy include bridge.  New code should include bsg/view_set.h.
  */

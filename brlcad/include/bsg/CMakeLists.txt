@@ -43,6 +43,7 @@ set(
   tig.h
   util.h
   vectfont.h
+  view_set.h
   view_scope.h
   view_sets.h
   visit.h

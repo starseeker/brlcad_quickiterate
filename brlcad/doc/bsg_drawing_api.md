@@ -6,10 +6,12 @@ Phase D7 compatibility cleanup.
 ## Header layout
 
 - Primary API headers live under `include/bsg/`.
-- Legacy `BV_*` compatibility aliases are centralized in
-  `include/bsg/legacy_compat.h`.
-- Alias exposure is controlled by `BSG_ENABLE_LEGACY_BV_ALIASES` (enabled by
-  default for transition compatibility).
+- In-tree code now uses canonical `BSG_*` names directly; transitional aliases
+  remain available only through an explicit `#include <bsg/legacy_compat.h>`.
+- `include/bsg/node_private.h` carries the in-tree `bsg_node` layout; public
+  headers expose `bsg_node` only as an opaque type.
+- `include/bsg/view_set.h` is the canonical view-set header; `bsg/view_sets.h`
+  is a compatibility bridge.
 
 ## Scene and payload API surface
 
@@ -53,8 +55,8 @@ Phase D7 compatibility cleanup.
 ## Compatibility policy
 
 1. New code should use only `BSG_*` symbols and node/payload accessors.
-2. Existing `BV_*` aliases are transitional and are all routed through one
-   compatibility header (`bsg/legacy_compat.h`).
+2. Existing `BV_*` aliases are transitional and are all routed through the
+   optional compatibility header (`bsg/legacy_compat.h`).
 3. Any unavoidable compatibility bridge must be documented here with a removal
    owner/reference before release freeze.
 
