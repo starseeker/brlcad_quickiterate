@@ -64,6 +64,6 @@ Phase D7 compatibility cleanup.
 
 | Bridge/shim | Location | Tracking reference |
 |---|---|---|
-| `BV_*` macro aliases (`BSG_ENABLE_LEGACY_BV_ALIASES`) | `include/bsg/legacy_compat.h` | `drawing_modernization.txt` Phase D7 Task 6 |
-| Legacy `display_list` struct bridge | `include/bsg/tcl_data.h` | `drawing_modernization.txt` Phase D7 Task 4 |
-| `bsg_scene_group` alias macro | `include/bsg/defines.h` | `drawing_modernization.txt` Phase D7 Task 2 |
+| `BV_*` macro aliases (`BSG_ENABLE_LEGACY_BV_ALIASES`) | `include/bsg/legacy_compat.h` | `doc/notes/drawing_stack_modernization.txt` R7 |
+| Legacy `display_list` struct bridge | `include/bsg/tcl_data.h` | `doc/notes/drawing_stack_modernization.txt` R7 |
+| `bsg_scene_group` alias macro | `include/bsg/defines.h` | `doc/notes/drawing_stack_modernization.txt` R7 |

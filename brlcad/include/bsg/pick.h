@@ -40,7 +40,7 @@
  * This header is intentionally free of Qt and GED dependencies so that
  * libbsg can implement the pick logic and Qt/GED consumers can both use it.
  *
- * Per drawing_modernization.txt Phase D3 exit criteria:
+ * Per doc/notes/drawing_stack_modernization.txt pick/selection criteria:
  *   - Tools receive typed records rather than raw node tables where practical.
  *   - Selection state is stored in bsg_selection; highlighting is derived
  *     appearance.

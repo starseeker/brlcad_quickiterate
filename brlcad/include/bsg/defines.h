@@ -687,8 +687,8 @@ struct bsg_view_set {
 typedef struct bsg_node bsg_node;
 typedef struct bsg_node bsg_shape;
 
-/* Phase D7 (drawing_modernization.txt): all BV_* compatibility aliases live in
- * this single compatibility header and are controlled by
+/* Drawing modernization compatibility policy: all BV_* compatibility aliases
+ * live in this single compatibility header and are controlled by
  * BSG_ENABLE_LEGACY_BV_ALIASES. */
 
 __END_DECLS

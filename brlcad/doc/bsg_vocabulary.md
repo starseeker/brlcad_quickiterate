@@ -1,10 +1,10 @@
 # BSG Scene-Graph Vocabulary Reference
 
 This document is the authoritative vocabulary for BRL-CAD's BSG (BRL-CAD Scene
-Graph) drawing API, established in Phase D0 of the drawing modernization plan
-(`drawing_modernization.txt`).  New code should use these terms and the BSG_*
-names defined in `include/bsg/`.  Legacy BV_* and display-list terminology in
-existing code is being retired incrementally through Phases D1–D7.
+Graph) drawing API, established by the drawing modernization guide
+(`doc/notes/drawing_stack_modernization.txt`).  New code should use these terms
+and the BSG_* names defined in `include/bsg/`.  Legacy BV_* and display-list
+terminology in existing code is being retired incrementally.
 
 ## Core scene-graph concepts
 
