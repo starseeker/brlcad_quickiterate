@@ -34,7 +34,25 @@ jobs:
           sudo apt-get install -y libjpeg-dev tcl-dev tk-dev
           # OpenGL and virtual framebuffer for headless display in CI
           sudo apt-get install -y libgl-dev xvfb
-
+          # XCB / input dev packages required by the Qt6 platform plugin on Linux
+          # See: https://doc.qt.io/qt-6/linux-requirements.html
+          sudo apt-get install -y \
+            libfontconfig1-dev libfreetype6-dev \
+            libx11-xcb-dev libxfixes-dev libxrender-dev \
+            libxcb1-dev libxcb-cursor-dev libxcb-glx0-dev \
+            libxcb-keysyms1-dev libxcb-image0-dev libxcb-shm0-dev \
+            libxcb-icccm4-dev libxcb-sync-dev libxcb-xfixes0-dev \
+            libxcb-shape0-dev libxcb-randr0-dev libxcb-render-util0-dev \
+            libxcb-util-dev libxcb-xinerama0-dev libxcb-xkb-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev
+          # Qt6 development packages (Widgets, SVG, Network, OpenGL, OpenGLWidgets)
+          sudo apt-get install -y \
+            qt6-base-dev \
+            qt6-svg-dev \
+            qt6-tools-dev \
+            libqt6opengl6t64 \
+            libqt6openglwidgets6t64
+            
       - name: Configure BRL-CAD
         run: |
           cmake -S ${{ github.workspace }}/brlcad \
