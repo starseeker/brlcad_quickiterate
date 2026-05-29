@@ -37,6 +37,7 @@
 #include "bu/str.h"
 #include "bg/aabb_ray.h"
 #include "bg/plane.h"
+#include "bsg/node.h"
 
 #include "../../../../libged/dbi.h"
 
@@ -243,7 +244,7 @@ CADViewSelector::select_objs()
 	if (!pr || !pr->pr_node)
 	    continue;
 	bu_vls_sprintf(&dpath, "%s",
-	    bu_vls_strlen(&pr->pr_source_path) ? bu_vls_cstr(&pr->pr_source_path) : bu_vls_cstr(&pr->pr_node->s_name));
+	    bu_vls_strlen(&pr->pr_source_path) ? bu_vls_cstr(&pr->pr_source_path) : bsg_node_name(pr->pr_node));
 	if (bu_vls_cstr(&dpath)[0] != '/')
 	    bu_vls_prepend(&dpath, "/");
 	if (!ss->select_path(bu_vls_cstr(&dpath), false)) {
@@ -277,7 +278,7 @@ CADViewSelector::deselect_objs()
 	if (!pr || !pr->pr_node)
 	    continue;
 	bu_vls_sprintf(&dpath, "%s",
-	    bu_vls_strlen(&pr->pr_source_path) ? bu_vls_cstr(&pr->pr_source_path) : bu_vls_cstr(&pr->pr_node->s_name));
+	    bu_vls_strlen(&pr->pr_source_path) ? bu_vls_cstr(&pr->pr_source_path) : bsg_node_name(pr->pr_node));
 	if (bu_vls_cstr(&dpath)[0] != '/')
 	    bu_vls_prepend(&dpath, "/");
 	if (!ss->deselect_path(bu_vls_cstr(&dpath), false)) {
@@ -310,7 +311,7 @@ CADViewSelector::erase_objs()
 	if (!pr || !pr->pr_node)
 	    continue;
 	av[scnt++] = bu_vls_strlen(&pr->pr_source_path) ?
-	    bu_vls_cstr(&pr->pr_source_path) : bu_vls_cstr(&pr->pr_node->s_name);
+	    bu_vls_cstr(&pr->pr_source_path) : bsg_node_name(pr->pr_node);
     }
     ged_exec_erase(gedp, scnt, av);
     bu_free(av, "av");
@@ -411,21 +412,18 @@ CADViewSelector::eventFilter(QObject *o, QEvent *e)
     if (erase_from_scene_button->isChecked()) {
 	erase_objs();
 	emit view_changed(QG_VIEW_DRAWN);
-	cf->clear_selected_result();
 	return true;
     }
 
     if (add_to_group_button->isChecked()) {
 	select_objs();
 	emit view_changed(QG_VIEW_DRAWN);
-	cf->clear_selected_result();
 	return true;
     }
 
     if (rm_from_group_button->isChecked()) {
 	deselect_objs();
 	emit view_changed(QG_VIEW_DRAWN);
-	cf->clear_selected_result();
 	return true;
     }
 
