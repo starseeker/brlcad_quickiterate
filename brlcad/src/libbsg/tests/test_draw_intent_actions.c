@@ -36,6 +36,7 @@
 #include "bu/app.h"
 #include "bu/malloc.h"
 #include "bu/ptbl.h"
+#include "bu/str.h"
 #include "bsg/defines.h"
 #include "bsg/draw_intent.h"
 #include "bsg/node.h"
@@ -366,7 +367,7 @@ test_match(struct bsg_view *v)
     add_intent_group(root, v, "engine/main", BSG_DRAW_MODE_WIRE);
     add_intent_group(root, v, "engine/aux",  BSG_DRAW_MODE_WIRE);
 
-    /* Wildcard "hull/*" should match hull/frame and hull/plating. */
+    /* Wildcard hull slash star should match hull/frame and hull/plating. */
     struct bu_ptbl out1;
     bu_ptbl_init(&out1, 8, "match out1");
     bsg_draw_intent_match(root, "hull/*", &out1);
@@ -374,7 +375,7 @@ test_match(struct bsg_view *v)
 	  "match('hull/*'): two hull groups");
     bu_ptbl_free(&out1);
 
-    /* Wildcard "*/main" should match engine/main. */
+    /* Wildcard star slash main should match engine/main. */
     struct bu_ptbl out2;
     bu_ptbl_init(&out2, 8, "match out2");
     bsg_draw_intent_match(root, "*/main", &out2);

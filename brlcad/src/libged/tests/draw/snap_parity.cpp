@@ -72,14 +72,15 @@ main(int UNUSED(ac), char *av[])
     v.gv_s = &v.gv_ls;
     v.gv_s->gv_grid.res_h = 1.0;
     v.gv_s->gv_grid.res_v = 1.0;
-    v.gv_snap_flags = 0;
+    v.gv_s->gv_snap_flags = 0;
 
     /* ------------------------------------------------------------------
      * Test 1: bsg_snap_candidates near origin with GRID kind.
      * ------------------------------------------------------------------ */
     {
 	point_t sample = {0.4, 0.4, 0.0};
-	struct bsg_snap_result sr = {0};
+	struct bsg_snap_result sr;
+	bsg_snap_result_init(&sr);
 	int cnt = bsg_snap_candidates(&v, sample, 0.0,
 				      BSG_SNAP_KIND_GRID, &sr);
 	/* A valid grid snap should return at least 1 candidate and the
@@ -108,7 +109,8 @@ main(int UNUSED(ac), char *av[])
      * Test 3: NULL guards — must not crash.
      * ------------------------------------------------------------------ */
     {
-	struct bsg_snap_result sr = {0};
+	struct bsg_snap_result sr;
+	bsg_snap_result_init(&sr);
 	point_t p = VINIT_ZERO;
 	int r = bsg_snap_candidates(NULL, p, 0.0, BSG_SNAP_KIND_GRID, &sr);
 	ASSERT(r == 0);

@@ -173,7 +173,7 @@ bsg_node_set_payload_type(node, BSG_PAYLOAD_OVERLAY);
 return;
     }
     bsg_node_set_payload(node, bsg_payload_line_set_create(pts, cmds, cnt));
-    bsg_node_set_payload_type(node, BSG_PAYLOAD_LINE | BSG_PAYLOAD_OVERLAY);
+    bsg_node_set_payload_type(node, BSG_PAYLOAD_OVERLAY);
 }
 
 static void
@@ -194,7 +194,7 @@ return;
     label->size = size;
     VSET(label->p, x, y, 0.0);
     bsg_node_set_payload(node, bsg_payload_hud_text_create(label));
-    bsg_node_set_payload_type(node, BSG_PAYLOAD_LABEL | BSG_PAYLOAD_OVERLAY);
+    bsg_node_set_payload_type(node, BSG_PAYLOAD_OVERLAY);
 }
 
 static void
@@ -209,7 +209,7 @@ return;
     BU_GET(axes, struct bsg_axes);
     memcpy(axes, src, sizeof(*axes));
     bsg_node_set_payload(node, bsg_payload_axes_create(axes));
-    bsg_node_set_payload_type(node, BSG_PAYLOAD_AXES | BSG_PAYLOAD_OVERLAY);
+    bsg_node_set_payload_type(node, BSG_PAYLOAD_OVERLAY);
 }
 
 static void
@@ -221,7 +221,7 @@ if (node)
 return;
     }
     bsg_node_set_payload(node, bsg_payload_grid_create(grid));
-    bsg_node_set_payload_type(node, BSG_PAYLOAD_GRID | BSG_PAYLOAD_OVERLAY);
+    bsg_node_set_payload_type(node, BSG_PAYLOAD_OVERLAY);
 }
 
 static void
@@ -235,7 +235,7 @@ if (node) {
 return;
     }
     bsg_node_set_payload(node, bsg_payload_framebuffer_create(NULL, mode));
-    bsg_node_set_payload_type(node, BSG_PAYLOAD_IMAGE | BSG_PAYLOAD_OVERLAY);
+    bsg_node_set_payload_type(node, BSG_PAYLOAD_OVERLAY);
 }
 
 static void

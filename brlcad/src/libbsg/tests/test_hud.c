@@ -358,8 +358,8 @@ test_typed_payload_realization(void)
     v->gv_ls.gv_grid.draw = 1;
     v->gv_ls.gv_view_params.draw = 1;
     v->gv_ls.gv_view_params.font_size = 1;
-    v->gv_ls.gv_view_scale.draw = 1;
-    v->gv_ls.gv_adc_state.draw = 1;
+    v->gv_ls.gv_view_scale.gos_draw = 1;
+    v->gv_ls.gv_adc.draw = 1;
     v->gv_ls.gv_rect.draw = 1;
     v->gv_ls.gv_fb_mode = 1;
 
