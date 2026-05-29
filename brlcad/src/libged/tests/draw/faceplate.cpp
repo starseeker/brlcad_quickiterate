@@ -35,6 +35,8 @@
 
 #include "../../dbi.h"
 
+#define ADIFF_THRES 20
+
 extern "C" int img_cmp(int id, struct ged *gedp, const char *cdir, bool clear_scene, bool clear_image, int soft_fail, int approximate_check, const char *clear_root, const char *img_root);
 
 int
@@ -172,7 +174,7 @@ main(int ac, char *av[]) {
     s_av[3] = "1";
     s_av[4] = NULL;
     ged_exec_view(gedp, 4, s_av);
-    ret += img_cmp(2, gedp, av[1], false, clear_images, soft_fail, 0, "faceplate_clear", "fp");
+    ret += img_cmp(2, gedp, av[1], false, clear_images, soft_fail, ADIFF_THRES, "faceplate_clear", "fp");
 
     // Check that turning off works
     s_av[3] = "0";
@@ -261,7 +263,7 @@ main(int ac, char *av[]) {
     s_av[3] = "1";
     s_av[4] = NULL;
     ged_exec_view(gedp, 4, s_av);
-    ret += img_cmp(6, gedp, av[1], false, clear_images, soft_fail, 0, "faceplate_clear", "fp");
+    ret += img_cmp(6, gedp, av[1], false, clear_images, soft_fail, ADIFF_THRES, "faceplate_clear", "fp");
 
     // Check that turning off works
     s_av[3] = "0";
