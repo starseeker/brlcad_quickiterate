@@ -177,7 +177,6 @@ BSG_EXPORT void bsg_mat_aet(struct bsg_view *v);
 BSG_EXPORT extern void bsg_settings_init(struct bsg_view_settings *s);
 
 #define BSG_AUTOVIEW_SCALE_DEFAULT -1
-#define BV_AUTOVIEW_SCALE_DEFAULT BSG_AUTOVIEW_SCALE_DEFAULT
 BSG_EXPORT extern void bsg_autoview(struct bsg_view *v, fastf_t scale, int all_view_objs);
 
 /* Copy the size and camera info */
@@ -212,11 +211,6 @@ BSG_EXPORT extern int bsg_update_selected(struct bsg_view *gvp);
 #define BSG_KNOBS_RATE 1
 #define BSG_KNOBS_ABS 2
 #endif
-#ifndef BV_KNOBS_ALL
-#define BV_KNOBS_ALL BSG_KNOBS_ALL
-#define BV_KNOBS_RATE BSG_KNOBS_RATE
-#define BV_KNOBS_ABS BSG_KNOBS_ABS
-#endif
 BSG_EXPORT extern void bsg_knobs_reset(struct bsg_view_knobs *k, int category);
 BSG_EXPORT extern unsigned long long bsg_knobs_hash(struct bsg_view_knobs *k, struct bu_data_hash_state *state);
 BSG_EXPORT extern int bsg_knobs_cmd_process(vect_t *rvec, int *do_rot, vect_t *tvec, int *do_tran, struct bsg_view *v, const char *cmd, fastf_t f, char origin, int model_flag, int incr_flag);
@@ -241,18 +235,6 @@ BSG_EXPORT extern size_t bsg_clear(struct bsg_view *v, int flags);
 #define BSG_CON_Z      0x040
 #define BSG_CON_GRID   0x080
 #define BSG_CON_LINES  0x100
-#endif
-#ifndef BV_IDLE
-#define BV_IDLE       BSG_IDLE
-#define BV_ROT        BSG_ROT
-#define BV_TRANS      BSG_TRANS
-#define BV_SCALE      BSG_SCALE
-#define BV_CENTER     BSG_CENTER
-#define BV_CON_X      BSG_CON_X
-#define BV_CON_Y      BSG_CON_Y
-#define BV_CON_Z      BSG_CON_Z
-#define BV_CON_GRID   BSG_CON_GRID
-#define BV_CON_LINES  BSG_CON_LINES
 #endif
 BSG_EXPORT extern int bsg_adjust(struct bsg_view *v, int dx, int dy, point_t keypoint, int mode, unsigned long long flags);
 BSG_EXPORT extern int bsg_screen_to_view(struct bsg_view *v, fastf_t *fx, fastf_t *fy, fastf_t x, fastf_t y);
@@ -281,9 +263,6 @@ struct bsg_view_obj_opts {
 #ifndef BSG_VIEW_OBJ_OPTS_INIT
 #define BSG_VIEW_OBJ_OPTS_INIT {0, 0}
 #endif
-#ifndef BV_VIEW_OBJ_OPTS_INIT
-#define BV_VIEW_OBJ_OPTS_INIT BSG_VIEW_OBJ_OPTS_INIT
-#endif
 BSG_EXPORT struct bsg_node *bsg_view_obj_create(struct bsg_view *v, const char *name, unsigned long long type_flags, const struct bsg_view_obj_opts *opts);
 BSG_EXPORT struct bsg_node *bsg_view_obj_axes_create(struct bsg_view *v, const char *name, int local);
 BSG_EXPORT struct bsg_node *bsg_view_obj_lines_create(struct bsg_view *v, const char *name, int local);
@@ -296,11 +275,6 @@ BSG_EXPORT struct bsg_node *bsg_view_obj_polygon_create(struct bsg_view *v, cons
 #define BSG_VIEW_OBJ_SCOPE_SHARED 0x1
 #define BSG_VIEW_OBJ_SCOPE_LOCAL  0x2
 #define BSG_VIEW_OBJ_SCOPE_ALL    (BSG_VIEW_OBJ_SCOPE_SHARED | BSG_VIEW_OBJ_SCOPE_LOCAL)
-#endif
-#ifndef BV_VIEW_OBJ_SCOPE_SHARED
-#define BV_VIEW_OBJ_SCOPE_SHARED BSG_VIEW_OBJ_SCOPE_SHARED
-#define BV_VIEW_OBJ_SCOPE_LOCAL  BSG_VIEW_OBJ_SCOPE_LOCAL
-#define BV_VIEW_OBJ_SCOPE_ALL    BSG_VIEW_OBJ_SCOPE_ALL
 #endif
 BSG_EXPORT int bsg_view_obj_remove(struct bsg_view *v, const char *name);
 BSG_EXPORT size_t bsg_view_obj_remove_all(struct bsg_view *v, int scope);
@@ -327,8 +301,9 @@ BSG_EXPORT int bsg_view_plane(plane_t *p, struct bsg_view *v);
 
 /* Environment variable controlled logging */
 #define BSG_ENABLE_ENV_LOGGING 1
-#define BV_ENABLE_ENV_LOGGING BSG_ENABLE_ENV_LOGGING
 BSG_EXPORT void bsg_log(int level, const char *fmt, ...)  _BU_ATTR_PRINTF23;
+
+#include "bsg/legacy_compat.h"
 
 /* Debugging */
 BSG_EXPORT void bsg_view_print(const char *title, struct bsg_view *v, int verbosity);

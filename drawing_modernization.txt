@@ -491,7 +491,8 @@ Exit criteria met:
 - `bu_ptbl`-of-`bsg_node*` selection storage is gone outside the
   documented compatibility shim in `bsg_pick_result_to_ptbl`.
 
-Next session target: **Phase D7** — Compatibility isolation and public API cleanup.
+Next session target: **Post-D7 validation sweep** — run the deferred Qt-enabled
+build/test matrix and close any parity regressions.
 
 Phase D4 — HUD scene root and overlay policy
 --------------------------------------------
@@ -696,7 +697,8 @@ Deferred / partial items (for D5 follow-up or D6):
 - Task 8d: The large set of integration tests has not been run (compilation
   testing deferred per user instructions).
 
-Next session target: **Phase D7** — Compatibility isolation and public API cleanup.
+Next session target: **Post-D7 validation sweep** — run the deferred Qt-enabled
+build/test matrix and close any parity regressions.
 
 Phase D6 — Editor live sources beyond qsketch
 ---------------------------------------------
@@ -822,6 +824,34 @@ Tasks:
    be removed before Obol must be tagged `/* legacy-compat: remove with
    <issue/PR ref> after Obol parity */` and listed in
    `bsg_drawing_api.md`'s "Scheduled removals" section.
+
+Current status: **SUBSTANTIALLY COMPLETE** (implemented this session)
+
+What was done:
+- Task 2b/2c: Legacy `BV_*` alias definitions were centralized into a single
+  compatibility header: `brlcad/include/bsg/legacy_compat.h` with
+  `BSG_ENABLE_LEGACY_BV_ALIASES` gating.
+- Task 2a inventory application pass:
+  - `include/bsg/defines.h`, `include/bsg/util.h`, `include/bsg/events.h`,
+    `include/bsg/polygon.h`, and `include/bsg/tcl_data.h` were updated so they
+    no longer define ad-hoc `BV_*` aliases directly.
+  - Compatibility aliases are now provided through one bridge include
+    (`bsg/legacy_compat.h`) instead of being scattered across API headers.
+- Task 5: Added `brlcad/doc/bsg_drawing_api.md` describing the D7 public API
+  surface and compatibility policy, including a "Scheduled removals" table.
+- Task 5 + Task 2c docs: `brlcad/doc/bsg_vocabulary.md` now includes a D7
+  one-page deprecation guide mapping retired `BV_*` names to `BSG_*`.
+- Task 6: Compatibility bridges retained for transition are documented in
+  `bsg_drawing_api.md` with explicit tracking references.
+
+Deferred follow-up items:
+- Task 1 (full `struct bsg_node` opacity): this is still pending for direct
+  raw-field consumers in non-libbsg modules; migrate remaining field users to
+  accessor APIs, then move full layout to `src/libbsg/bsg_private.h`.
+- Task 3 (legacy filename cleanup): broad file-rename/split pass still pending.
+- Task 4 (final TODO/comment sweep): final global sweep still pending.
+- Validation matrix execution remains deferred in this environment per current
+  session instruction (no compilation/testing run yet).
 
 Exit criteria:
 - `struct bsg_node` is not visible to public headers.

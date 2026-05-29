@@ -53,18 +53,7 @@
 #define BSG_SHIFT_MOD            0x200
 #define BSG_ALT_MOD              0x400
 
-/* BV_ aliases — deprecated, use BSG_ names above */
-#define BV_KEY_PRESS             BSG_KEY_PRESS
-#define BV_KEY_RELEASE           BSG_KEY_RELEASE
-#define BV_LEFT_MOUSE_PRESS      BSG_LEFT_MOUSE_PRESS
-#define BV_LEFT_MOUSE_RELEASE    BSG_LEFT_MOUSE_RELEASE
-#define BV_RIGHT_MOUSE_PRESS     BSG_RIGHT_MOUSE_PRESS
-#define BV_RIGHT_MOUSE_RELEASE   BSG_RIGHT_MOUSE_RELEASE
-#define BV_MIDDLE_MOUSE_PRESS    BSG_MIDDLE_MOUSE_PRESS
-#define BV_MIDDLE_MOUSE_RELEASE  BSG_MIDDLE_MOUSE_RELEASE
-#define BV_CTRL_MOD              BSG_CTRL_MOD
-#define BV_SHIFT_MOD             BSG_SHIFT_MOD
-#define BV_ALT_MOD               BSG_ALT_MOD
+#include "bsg/legacy_compat.h"
 
 #endif /* BSG_EVENTS_H */
 

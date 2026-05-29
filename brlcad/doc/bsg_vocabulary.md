@@ -144,3 +144,26 @@ The following terms from the legacy codebase should not be used in new BSG code:
 | `BV_CHILD_OBJS` | `BSG_OBJ_CHILD` |
 | `s_draw_custom` callback | live-source payload scope (Phase D6) |
 | faceplate struct drawing | HUD root payload nodes (Phase D4) |
+
+## D7 deprecation guide: BV_* to BSG_* mapping
+
+Remaining transitional aliases are centralized in
+`include/bsg/legacy_compat.h` and controlled by
+`BSG_ENABLE_LEGACY_BV_ALIASES`.
+
+| Retired BV_* name | BSG replacement |
+|---|---|
+| `BV_EXPORT` | `BSG_EXPORT` |
+| `BV_MAX`, `BV_MIN`, `BV_RANGE` | `BSG_VIEW_MAX`, `BSG_VIEW_MIN`, `BSG_VIEW_RANGE` |
+| `BV_MINVIEWSIZE`, `BV_MINVIEWSCALE` | `BSG_MINVIEWSIZE`, `BSG_MINVIEWSCALE` |
+| `BV_OBJ_SETTINGS_INIT` | `BSG_OBJ_SETTINGS_INIT` |
+| `BV_DB_OBJS`, `BV_VIEW_OBJS`, `BV_LOCAL_OBJS`, `BV_CHILD_OBJS` | `BSG_OBJ_DB`, `BSG_OBJ_VIEW`, `BSG_OBJ_LOCAL`, `BSG_OBJ_CHILD` |
+| `BV_BACKEND_NONE`, `BV_BACKEND_GL` | `BSG_BACKEND_NONE`, `BSG_BACKEND_GL` |
+| `BV_SNAP_SHARED`, `BV_SNAP_LOCAL`, `BV_SNAP_DB`, `BV_SNAP_VIEW`, `BV_SNAP_TCL` | `BSG_SNAP_SHARED`, `BSG_SNAP_LOCAL`, `BSG_SNAP_DB`, `BSG_SNAP_VIEW`, `BSG_SNAP_TCL` |
+| `BV_POLYGON_*`, `BV_POLYGON_UPDATE_*` | `BSG_POLYGON_*`, `BSG_POLYGON_UPDATE_*` |
+| `BV_POLY_CIRCLE_MODE`, `BV_POLY_CONTOUR_MODE` | `BSG_POLY_CIRCLE_MODE`, `BSG_POLY_CONTOUR_MODE` |
+| `BV_KEY_*`, `BV_*_MOUSE_*`, `BV_*_MOD` | `BSG_KEY_*`, `BSG_*_MOUSE_*`, `BSG_*_MOD` |
+| `BV_KNOBS_*` | `BSG_KNOBS_*` |
+| `BV_IDLE`, `BV_ROT`, `BV_TRANS`, `BV_SCALE`, `BV_CENTER`, `BV_CON_*` | `BSG_IDLE`, `BSG_ROT`, `BSG_TRANS`, `BSG_SCALE`, `BSG_CENTER`, `BSG_CON_*` |
+| `BV_VIEW_OBJ_OPTS_INIT`, `BV_VIEW_OBJ_SCOPE_*` | `BSG_VIEW_OBJ_OPTS_INIT`, `BSG_VIEW_OBJ_SCOPE_*` |
+| `BV_ENABLE_ENV_LOGGING` | `BSG_ENABLE_ENV_LOGGING` |

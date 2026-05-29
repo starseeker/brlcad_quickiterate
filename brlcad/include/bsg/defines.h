@@ -56,21 +56,13 @@ __BEGIN_DECLS
 #  endif
 #endif
 
-/* Phase D7: BV_EXPORT is now an alias for BSG_EXPORT.  Use BSG_EXPORT in new code. */
-#ifndef BV_EXPORT
-#define BV_EXPORT BSG_EXPORT
-#endif
-
 /* Define view ranges.  The numbers -2048 and 2047 go all the way back to the
  * original angle-distance cursor code that predates even BRL-CAD itself, but
  * (at least right now) there doesn't seem to be any documentation of why those
  * specific values were chosen. */
 #define BSG_VIEW_MAX 2047.0
-#define BV_MAX BSG_VIEW_MAX
 #define BSG_VIEW_MIN -2048.0
-#define BV_MIN BSG_VIEW_MIN
 #define BSG_VIEW_RANGE 4095.0
-#define BV_RANGE BSG_VIEW_RANGE
 /* Map +/-2048 BV space into -1.0..+1.0 :: x/2048*/
 #define BSG_INV_VIEW 0.00048828125
 #define INV_BV BSG_INV_VIEW
@@ -79,9 +71,7 @@ __BEGIN_DECLS
 
 
 #define BSG_MINVIEWSIZE 0.0001
-#define BV_MINVIEWSIZE BSG_MINVIEWSIZE
 #define BSG_MINVIEWSCALE 0.00005
-#define BV_MINVIEWSCALE BSG_MINVIEWSCALE
 
 #ifndef UP
 #  define UP 0
@@ -91,25 +81,15 @@ __BEGIN_DECLS
 #endif
 
 #define BSG_ANCHOR_AUTO          0
-#define BV_ANCHOR_AUTO           BSG_ANCHOR_AUTO
 #define BSG_ANCHOR_BOTTOM_LEFT   1
-#define BV_ANCHOR_BOTTOM_LEFT    BSG_ANCHOR_BOTTOM_LEFT
 #define BSG_ANCHOR_BOTTOM_CENTER 2
-#define BV_ANCHOR_BOTTOM_CENTER  BSG_ANCHOR_BOTTOM_CENTER
 #define BSG_ANCHOR_BOTTOM_RIGHT  3
-#define BV_ANCHOR_BOTTOM_RIGHT   BSG_ANCHOR_BOTTOM_RIGHT
 #define BSG_ANCHOR_MIDDLE_LEFT   4
-#define BV_ANCHOR_MIDDLE_LEFT    BSG_ANCHOR_MIDDLE_LEFT
 #define BSG_ANCHOR_MIDDLE_CENTER 5
-#define BV_ANCHOR_MIDDLE_CENTER  BSG_ANCHOR_MIDDLE_CENTER
 #define BSG_ANCHOR_MIDDLE_RIGHT  6
-#define BV_ANCHOR_MIDDLE_RIGHT   BSG_ANCHOR_MIDDLE_RIGHT
 #define BSG_ANCHOR_TOP_LEFT      7
-#define BV_ANCHOR_TOP_LEFT       BSG_ANCHOR_TOP_LEFT
 #define BSG_ANCHOR_TOP_CENTER    8
-#define BV_ANCHOR_TOP_CENTER     BSG_ANCHOR_TOP_CENTER
 #define BSG_ANCHOR_TOP_RIGHT     9
-#define BV_ANCHOR_TOP_RIGHT      BSG_ANCHOR_TOP_RIGHT
 struct bsg_label {
     int           size;
     struct bu_vls label;
@@ -177,7 +157,6 @@ struct bsg_obj_settings {
     int draw_non_subtract_only;  /**< @brief do not visualize subtraction solids */
 };
 #define BSG_OBJ_SETTINGS_INIT {0, 0, 1.0, 0, {255, 0, 0}, 1, 0.0, 0.0, 0, 0}
-#define BV_OBJ_SETTINGS_INIT BSG_OBJ_SETTINGS_INIT
 
 
 /* Note that it is possible for a view object to be view-only (not
@@ -205,28 +184,18 @@ struct bsg_obj_settings {
  * HUD payload nodes.
  */
 #define BSG_SHAPE_DBOBJ    0x01  /**< @brief shape drawn from a database path */
-#define BV_DBOBJ_BASED     BSG_SHAPE_DBOBJ
 #define BSG_SHAPE_VIEWONLY 0x02  /**< @brief view-only / overlay shape */
-#define BV_VIEWONLY        BSG_SHAPE_VIEWONLY
 #define BSG_SHAPE_LINES    0x04  /**< @brief line-segment set shape */
-#define BV_LINES           BSG_SHAPE_LINES
 #define BSG_SHAPE_LABELS   0x08  /**< @brief text-label shape */
-#define BV_LABELS          BSG_SHAPE_LABELS
 #define BSG_SHAPE_AXES     0x10  /**< @brief axes-widget shape */
-#define BV_AXES            BSG_SHAPE_AXES
 #define BSG_SHAPE_POLYGONS 0x20  /**< @brief polygon region shape */
-#define BV_POLYGONS        BSG_SHAPE_POLYGONS
 
 struct bsg_view;
 
 #define BSG_OBJ_DB    0x01
-#define BV_DB_OBJS    BSG_OBJ_DB
 #define BSG_OBJ_VIEW  0x02
-#define BV_VIEW_OBJS  BSG_OBJ_VIEW
 #define BSG_OBJ_LOCAL 0x04
-#define BV_LOCAL_OBJS BSG_OBJ_LOCAL
 #define BSG_OBJ_CHILD 0x08
-#define BV_CHILD_OBJS BSG_OBJ_CHILD
 
 struct bsg_node_internal;
 struct bsg_node;
@@ -240,9 +209,7 @@ struct bsg_draw_intent;  /* Phase D2 (drawing_modernization): draw-intent metada
  * so cross-backend handle confusion can be caught.  More tags will be added as
  * additional backends adopt the contract (e.g. dm-obol). */
 #define BSG_BACKEND_NONE 0u   /* no backend state attached */
-#define BV_BACKEND_NONE  BSG_BACKEND_NONE
 #define BSG_BACKEND_GL   1u   /* OpenGL/GL-via-software-rasterizer (dm-gl, dm-swrast, dm-qtgl, dm-glx, dm-wgl) */
-#define BV_BACKEND_GL    BSG_BACKEND_GL
 
 /**
  * Phase 11 (drawing_stack_modernization): per-shape backend state.
@@ -540,15 +507,10 @@ struct bsg_mesh_lod {
 
 /* Flags to identify categories of objects to snap */
 #define BSG_SNAP_SHARED 0x1
-#define BV_SNAP_SHARED  BSG_SNAP_SHARED
 #define BSG_SNAP_LOCAL  0x2
-#define BV_SNAP_LOCAL   BSG_SNAP_LOCAL
 #define BSG_SNAP_DB     0x4
-#define BV_SNAP_DB      BSG_SNAP_DB
 #define BSG_SNAP_VIEW   0x8
-#define BV_SNAP_VIEW    BSG_SNAP_VIEW
 #define BSG_SNAP_TCL    0x10
-#define BV_SNAP_TCL     BSG_SNAP_TCL
 
 /* We encapsulate non-camera settings into a container mainly to allow for
  * easier reuse of the same settings between different views - if a common
@@ -922,6 +884,10 @@ struct bsg_view_set {
 
 typedef struct bsg_node bsg_node;
 typedef struct bsg_node bsg_shape;
+
+/* Phase D7: all BV_* compatibility aliases live in this single compatibility
+ * header and are controlled by BSG_ENABLE_LEGACY_BV_ALIASES. */
+#include "bsg/legacy_compat.h"
 
 __END_DECLS
 

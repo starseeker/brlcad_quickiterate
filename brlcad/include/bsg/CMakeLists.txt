@@ -14,6 +14,7 @@ set(
   field.h
   identity.h
   light.h
+  legacy_compat.h
   lod.h
   lod_ops.h
   material.h
