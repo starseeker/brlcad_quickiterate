@@ -86,9 +86,9 @@
 #include "bu/str.h"
 #include "bn/tol.h"
 #include "bsg.h"
+#include "bsg/field.h"
 #include "bsg/node.h"
 #include "bsg/node_shape.h"
-#include "bsg/scene_graph.h"
 #include "bsg/util.h"
 #include "dm.h"
 #include "raytrace.h"
@@ -466,15 +466,15 @@ QSketchEditWindow::QSketchEditWindow(struct db_i *dbip,
      * future step the live-source update_cb could be wired to do this
      * automatically during bsg_payload_sketch_realize() — the contract is
      * already in place; the callback simply has not been connected yet. */
-    bsg_scene_root_create(m_bv);
+    bsg_node *root = bsg_scene_root_create(m_bv);
     m_sketch_node = bsg_shape_create(m_bv);
     if (m_sketch_node) {
-	VSET(m_sketch_node->s_color, 255, 255, 0); /* yellow wireframe */
-	bu_vls_sprintf(&m_sketch_node->s_name, "sketch_wireframe");
+	bsg_node_set_color(m_sketch_node, 255, 255, 0); /* yellow wireframe */
+	bsg_node_set_name(m_sketch_node, "sketch_wireframe");
 	struct bsg_payload *sketch_pl =
 	    bsg_payload_sketch_create(m_es, &m_bv->gv_s->gv_grid);
 	bsg_node_set_payload(m_sketch_node, sketch_pl);
-	bsg_node_add_child((bsg_node *)m_bv->bsg_root, m_sketch_node);
+	bsg_node_add_child(root, m_sketch_node);
     }
 
     /* ---- vertex table — allow multi-row selection ---- */

@@ -140,7 +140,7 @@ QBot::getGed() const
 {
     if (!m_ctx)
 	return nullptr;
-    return m_ctx->ged();
+    return m_ctx->getGed();
 }
 
 struct bsg_view *
@@ -148,7 +148,7 @@ QBot::getView() const
 {
     if (!m_ctx)
 	return nullptr;
-    return m_ctx->view();
+    return m_ctx->getView();
 }
 
 void
@@ -231,7 +231,7 @@ QBot::update_obj_wireframe()
 
     /* Load and plot the BOT geometry. */
     struct rt_db_internal intern = RT_DB_INTERNAL_INIT_ZERO;
-    if (rt_db_get_internal(&intern, dp, gedp->dbip, NULL, &rt_uniresource) < 0)
+    if (rt_db_get_internal(&intern, dp, gedp->dbip, NULL) < 0)
 	return;
     if (intern.idb_minor_type != DB5_MINORTYPE_BRLCAD_BOT) {
 	rt_db_free_internal(&intern);

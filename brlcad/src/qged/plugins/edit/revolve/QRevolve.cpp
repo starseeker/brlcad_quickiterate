@@ -126,7 +126,7 @@ QRevolve::getGed() const
 {
     if (!m_ctx)
 	return nullptr;
-    return m_ctx->ged();
+    return m_ctx->getGed();
 }
 
 struct bsg_view *
@@ -134,7 +134,7 @@ QRevolve::getView() const
 {
     if (!m_ctx)
 	return nullptr;
-    return m_ctx->view();
+    return m_ctx->getView();
 }
 
 void
@@ -149,7 +149,7 @@ QRevolve::read_from_db()
 	return;
 
     struct rt_db_internal intern = RT_DB_INTERNAL_INIT_ZERO;
-    if (rt_db_get_internal(&intern, ldp, gedp->dbip, NULL, &rt_uniresource) < 0)
+    if (rt_db_get_internal(&intern, ldp, gedp->dbip, NULL) < 0)
 	return;
 
     struct rt_revolve_internal *rp = (struct rt_revolve_internal *)intern.idb_ptr;
@@ -179,7 +179,7 @@ QRevolve::write_to_db()
     intern.idb_ptr = &rev;
     intern.idb_meth = &OBJ[ID_REVOLVE];
 
-    if (rt_db_put_internal(ldp, gedp->dbip, &intern, &rt_uniresource) < 0)
+    if (rt_db_put_internal(ldp, gedp->dbip, &intern) < 0)
 	return;
 
     emit view_updated(QG_VIEW_DB);
