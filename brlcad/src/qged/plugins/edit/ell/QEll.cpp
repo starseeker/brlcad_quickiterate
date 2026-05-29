@@ -31,6 +31,8 @@
 #include "rt/db_io.h"
 #include "rt/directory.h"
 #include "bsg/draw_source.h"
+#include "bsg/hud.h"
+#include "bsg/overlay.h"
 #include "bsg/payload.h"
 #include "qtcad/QgPluginContext.h"
 #include "qtcad/QgSignalFlags.h"
@@ -192,8 +194,16 @@ QEll::update_obj_wireframe()
     // Resolve the edit object fresh in case it was removed externally
     // (e.g. by a clear/zap command).
     p = bsg_view_obj_find(v, "_ell_edit");
-    if (!p)
+    if (!p) {
 	p = bsg_view_obj_overlay_create(v, "_ell_edit", 1/*local*/);
+	if (p)
+	    bsg_overlay_register_owner(p, this,
+		    BSG_OVERLAY_ROLE_MODEL,
+		    BSG_OVERLAY_CLASS_EDIT_HANDLE,
+		    BSG_OVERLAY_LC_PER_TOOL,
+		    BSG_OVERLAY_ORDER_POST_TRANSPARENT,
+		    NULL, 0);
+    }
     if (!p)
 	return;
 
@@ -287,8 +297,16 @@ QEll::update_viewobj_name(const QString &)
     // Resolve/create the edit view object.  Don't trust cached pointers here
     // since clear/zap may have removed it.
     p = bsg_view_obj_find(v, "_ell_edit");
-    if (!p)
+    if (!p) {
 	p = bsg_view_obj_overlay_create(v, "_ell_edit", 1/*local*/);
+	if (p)
+	    bsg_overlay_register_owner(p, this,
+		    BSG_OVERLAY_ROLE_MODEL,
+		    BSG_OVERLAY_CLASS_EDIT_HANDLE,
+		    BSG_OVERLAY_LC_PER_TOOL,
+		    BSG_OVERLAY_ORDER_POST_TRANSPARENT,
+		    NULL, 0);
+    }
     if (!p)
 	return;
 

@@ -151,21 +151,6 @@ dm_add_arrows(struct dm *dmp, struct bsg_node *s)
 }
 
 static void
-_dm_draw_hud_center_dot(struct dm *dmp, const struct bsg_hud_payload *payload)
-{
-    if (!payload)
-	return;
-
-    (void)dm_set_fg(dmp,
-		    payload->data.other.gos_line_color[0],
-		    payload->data.other.gos_line_color[1],
-		    payload->data.other.gos_line_color[2],
-		    1, 1.0);
-    (void)dm_draw_point_2d(dmp, 0.0, 0.0);
-}
-
-
-static void
 _dm_draw_hud_axes_feature(struct dm *dmp, struct bsg_view *v, const struct bsg_hud_payload *payload, int model_axes)
 {
     if (!payload)
@@ -193,111 +178,11 @@ _dm_draw_hud_axes_feature(struct dm *dmp, struct bsg_view *v, const struct bsg_h
 
 
 static void
-_dm_draw_hud_scale(struct dm *dmp, struct bsg_view *v, const struct bsg_hud_payload *payload)
-{
-    if (!payload)
-	return;
-
-    dm_draw_scale(dmp,
-		  v->gv_size * v->gv_base2local,
-		  bu_units_string(1 / v->gv_base2local),
-		  (int *)payload->data.other.gos_line_color,
-		  v->gv_s->gv_view_params.color);
-}
-
-
-static void
-_dm_draw_hud_adc(struct dm *dmp, struct bsg_view *v, const struct bsg_hud_payload *payload)
-{
-    if (!payload)
-	return;
-    dm_draw_adc(dmp, (struct bsg_adc_state *)&payload->data.adc, v->gv_view2model, v->gv_model2view);
-}
-
-
-static void
 _dm_draw_hud_grid(struct dm *dmp, struct bsg_view *v, const struct bsg_hud_payload *payload)
 {
     if (!payload)
 	return;
     dm_draw_grid(dmp, (struct bsg_grid_state *)&payload->data.grid, v->gv_scale, v->gv_model2view, v->gv_base2local);
-}
-
-
-static void
-_dm_draw_hud_rect(struct dm *dmp, const struct bsg_hud_payload *payload)
-{
-    if (!payload)
-	return;
-    dm_draw_rect(dmp, (struct bsg_interactive_rect_state *)&payload->data.rect);
-}
-
-
-static void
-_dm_hud_params_string(struct dm *dmp, struct bsg_view *v, const struct bsg_params_state *ps, struct bu_vls *vls)
-{
-    point_t center;
-    char *ustr = (char *)bu_units_string(v->gv_local2base);
-    MAT_DELTAS_GET_NEG(center, v->gv_center);
-    VSCALE(center, center, v->gv_base2local);
-    int64_t elapsed_time = bu_gettime() - dmp->start_time;
-    if (elapsed_time > 10LL && elapsed_time < 30000000LL) {
-	v->gv_s->gv_frametime = 0.9 * v->gv_s->gv_frametime + 0.1 * elapsed_time / 1000000LL;
-    }
-
-    if (ps->draw_size) {
-	if (bu_vls_strlen(vls) > 0)
-	    bu_vls_printf(vls, " ");
-	bu_vls_printf(vls, "size[%s]: %.2f", ustr, v->gv_size * v->gv_base2local);
-    }
-    if (ps->draw_center) {
-	if (bu_vls_strlen(vls) > 0)
-	    bu_vls_printf(vls, " ");
-	bu_vls_printf(vls, "center[%s]: (%.2f, %.2f, %.2f)", ustr, V3ARGS(center));
-    }
-    if (ps->draw_az) {
-	if (bu_vls_strlen(vls) > 0)
-	    bu_vls_printf(vls, " ");
-	bu_vls_printf(vls, "az:%.2f", v->gv_aet[0]);
-    }
-    if (ps->draw_el) {
-	if (bu_vls_strlen(vls) > 0)
-	    bu_vls_printf(vls, " ");
-	bu_vls_printf(vls, "el:%.2f", v->gv_aet[1]);
-    }
-    if (ps->draw_tw) {
-	if (bu_vls_strlen(vls) > 0)
-	    bu_vls_printf(vls, " ");
-	bu_vls_printf(vls, "tw:%.2f", v->gv_aet[2]);
-    }
-    if (ps->draw_fps) {
-	if (bu_vls_strlen(vls) > 0)
-	    bu_vls_printf(vls, " ");
-	bu_vls_printf(vls, "FPS:%.2f", 1 / v->gv_s->gv_frametime);
-    }
-}
-
-
-static void
-_dm_draw_hud_params(struct dm *dmp, struct bsg_view *v, const struct bsg_hud_payload *payload)
-{
-    if (!payload)
-	return;
-
-    int ofontsize = dm_get_fontsize(dmp);
-    dm_set_fontsize(dmp, payload->data.params.font_size);
-
-    struct bu_vls vls = BU_VLS_INIT_ZERO;
-    _dm_hud_params_string(dmp, v, &payload->data.params, &vls);
-
-    (void)dm_set_fg(dmp,
-		    payload->data.params.color[0],
-		    payload->data.params.color[1],
-		    payload->data.params.color[2],
-		    1, 1.0);
-    (void)dm_draw_string_2d(dmp, bu_vls_addr(&vls), -0.98, -0.965, 10, 0);
-    bu_vls_free(&vls);
-    dm_set_fontsize(dmp, ofontsize);
 }
 
 

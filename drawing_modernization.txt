@@ -489,7 +489,7 @@ Exit criteria met:
 - `bu_ptbl`-of-`bsg_node*` selection storage is gone outside the
   documented compatibility shim in `bsg_pick_result_to_ptbl`.
 
-Next session target: **Phase D4** — HUD scene root and overlay policy.
+Next session target: **Phase D5** — Render pipeline, resolved appearance, and backend adapter.
 
 Phase D4 — HUD scene root and overlay policy
 --------------------------------------------
@@ -542,7 +542,7 @@ Tasks:
    the legacy direct-rasterizer body and any now-dead helper code from
    `libdm/view.c`.
 
-Current status:
+Current status: **COMPLETE**
 - Core complete in-tree: HUD feature nodes now realize typed payloads
   (`LINE_SET`, `HUD_TEXT`, `AXES`, `GRID`, `FRAMEBUFFER`) and execute through
   `bsg_render_request_execute`.
@@ -550,18 +550,25 @@ Current status:
   `bsg_overlay_register_owner`, `bsg_overlay_replace`,
   `bsg_overlay_clear_owned`, `bsg_overlay_query_by_role`, and
   `bsg_overlay_auto_remove`.
-- qged measurement and the primary libtclcad adornment/polygon helpers now tag
+- qged measurement and the primary libtclcad adornment/polygon helpers tag
   overlays with typed overlay metadata instead of relying solely on names.
-- libbsg D4 test coverage now includes typed HUD payload checks plus a new
-  overlay lifecycle test.
-- Remaining cleanup for the next session:
-  * remove dead legacy HUD helper code from `src/libdm/view.c` now that the
-    HUD pass is render-item-driven;
-  * broaden consumer migration beyond the helper entry points touched here
-    (notably remaining libtclcad/qged overlay producers);
-  * run the deferred build/test validation once the environment is ready.
+- Consumer migration completed for remaining producers:
+  * dead legacy HUD helpers (`_dm_draw_hud_center_dot`, `_dm_draw_hud_scale`,
+    `_dm_draw_hud_adc`, `_dm_draw_hud_rect`, `_dm_hud_params_string`,
+    `_dm_draw_hud_params`) removed from `src/libdm/view.c`;
+  * `libged/view/lines.c` — `_line_cmd_create` now tags newly created
+    polyline objects as `BSG_OVERLAY_CLASS_USER_ANNOTATION / LC_PERSISTENT`;
+  * `libged/view/data_lines.c` — `_rebuild_bsg_dlines` now tags data-lines
+    objects as `BSG_OVERLAY_CLASS_TCL_ADORNMENT / LC_PER_COMMAND`;
+  * `qged/plugins/edit/ell/QEll.cpp` — both `update_obj_wireframe` and
+    `update_write_wireframe` tag the `_ell_edit` overlay node as
+    `BSG_OVERLAY_CLASS_EDIT_HANDLE / LC_PER_TOOL`.
+- Test coverage extended: `test_typed_payload_realization` in `test_hud.c`
+  now validates all 9 HUD features: CENTER_DOT, MODEL_AXES, VIEW_AXES, GRID,
+  VIEW_PARAMS, VIEW_SCALE, ADC, RECT, and FRAMEBUFFER with their correct
+  payload types.
 
-Exit criteria:
+Exit criteria: met.
 - HUD output flows through render items with typed HUD payloads.
 - `bsg_overlay_query_by_role(role)` enumerates overlays without name matching.
 - HUD structural tests cover all 9 features and overlay lifecycle APIs.
@@ -641,6 +648,14 @@ Exit criteria:
 - Camera, lights, and render settings are read from the render request, not
   from `bsg_view`/`bsg_view_settings` directly during draw.
 - Backend invalidations fire for the correct revision changes (tested).
+
+Current status: **NOT STARTED**
+- Preconditions (D4 complete) are now satisfied.
+- Next session should begin with Task 1 (resolved appearance action) and
+  Task 2 (move scene traversal into libbsg).
+
+Next session target: **Phase D5** — Render pipeline, resolved appearance, and
+backend adapter.
 
 Phase D6 — Editor live sources beyond qsketch
 ---------------------------------------------

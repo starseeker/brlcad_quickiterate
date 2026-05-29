@@ -353,31 +353,47 @@ test_typed_payload_realization(void)
     struct bsg_view *v = _make_view();
     v->gv_ls.gv_center_dot.gos_draw = 1;
     v->gv_ls.gv_model_axes.draw = 1;
+    v->gv_ls.gv_view_axes.draw = 1;
     v->gv_ls.gv_grid.draw = 1;
     v->gv_ls.gv_view_params.draw = 1;
     v->gv_ls.gv_view_params.font_size = 1;
+    v->gv_ls.gv_view_scale.draw = 1;
+    v->gv_ls.gv_adc_state.draw = 1;
+    v->gv_ls.gv_rect.draw = 1;
     v->gv_ls.gv_fb_mode = 1;
 
     if (bsg_hud_sync(v) != 0)
 	FAIL("bsg_hud_sync returned error");
 
     bsg_node *root = bsg_hud_root_get(v);
-    bsg_node *center = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_CENTER_DOT);
-    bsg_node *axes = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_MODEL_AXES);
-    bsg_node *grid = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_GRID);
-    bsg_node *params = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_VIEW_PARAMS);
-    bsg_node *fb = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_FRAMEBUFFER);
+    bsg_node *center  = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_CENTER_DOT);
+    bsg_node *mAxes   = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_MODEL_AXES);
+    bsg_node *vAxes   = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_VIEW_AXES);
+    bsg_node *grid    = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_GRID);
+    bsg_node *params  = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_VIEW_PARAMS);
+    bsg_node *scale   = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_VIEW_SCALE);
+    bsg_node *adc     = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_ADC);
+    bsg_node *rect    = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_RECT);
+    bsg_node *fb      = (bsg_node *)BU_PTBL_GET(&root->children, BSG_HUD_FEATURE_FRAMEBUFFER);
 
-    if (!center || !axes || !grid || !params || !fb)
+    if (!center || !mAxes || !vAxes || !grid || !params || !scale || !adc || !rect || !fb)
 	FAIL("missing HUD feature nodes");
     if (!bsg_node_get_payload(center) || bsg_node_get_payload(center)->pl_type != BSG_PL_LINE_SET)
 	FAIL("center dot should realize as line set");
-    if (!bsg_node_get_payload(axes) || bsg_node_get_payload(axes)->pl_type != BSG_PL_AXES)
+    if (!bsg_node_get_payload(mAxes) || bsg_node_get_payload(mAxes)->pl_type != BSG_PL_AXES)
 	FAIL("model axes should realize as axes payload");
+    if (!bsg_node_get_payload(vAxes) || bsg_node_get_payload(vAxes)->pl_type != BSG_PL_AXES)
+	FAIL("view axes should realize as axes payload");
     if (!bsg_node_get_payload(grid) || bsg_node_get_payload(grid)->pl_type != BSG_PL_GRID)
 	FAIL("grid should realize as grid payload");
     if (!bsg_node_get_payload(params) || bsg_node_get_payload(params)->pl_type != BSG_PL_HUD_TEXT)
 	FAIL("view params should realize as HUD text");
+    if (!bsg_node_get_payload(scale) || bsg_node_get_payload(scale)->pl_type != BSG_PL_LINE_SET)
+	FAIL("view scale should realize as line set");
+    if (!bsg_node_get_payload(adc) || bsg_node_get_payload(adc)->pl_type != BSG_PL_LINE_SET)
+	FAIL("ADC should realize as line set");
+    if (!bsg_node_get_payload(rect) || bsg_node_get_payload(rect)->pl_type != BSG_PL_LINE_SET)
+	FAIL("selection rect should realize as line set");
     if (!bsg_node_get_payload(fb) || bsg_node_get_payload(fb)->pl_type != BSG_PL_FRAMEBUFFER)
 	FAIL("framebuffer should realize as framebuffer payload");
 
