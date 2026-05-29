@@ -192,17 +192,19 @@ ged_view_snap(struct ged *gedp, int argc, const char *argv[])
 	struct bsg_snap_result sres = {0};
 	point_t sample = VINIT_ZERO;
 	point_t vp = VINIT_ZERO;
+	int line_snap_ok = 0;
 	VMOVE(sample, view_pt);
 	if (bsg_snap_candidates(gedp->ged_gvp, sample, 0.0, BSG_SNAP_KIND_ENDPOINT, &sres) > 0) {
+	    line_snap_ok = 1;
 	    VMOVE(view_pt, sres.sr_candidates[0].sc_point);
 	    MAT4X3PNT(vp, gedp->ged_gvp->gv_model2view, view_pt);
 	    V2SET(view_pt_2d, vp[0], vp[1]);
-	} else {
-	    bsg_snap_result_free(&sres);
+	}
+	bsg_snap_result_free(&sres);
+	if (!line_snap_ok) {
 	    bu_vls_printf(gedp->ged_result_str, "no lines close enough for snapping");
 	    return BRLCAD_OK;
 	}
-	bsg_snap_result_free(&sres);
     }
 
     bu_vls_printf(gedp->ged_result_str, "%g %g %g\n", V3ARGS(view_pt));
