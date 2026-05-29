@@ -19,32 +19,22 @@
  */
 /** @file libbsg/overlay.c
  *
- * Phase 7 Step 13 (drawing_stack_modernization):
- * Pure-BSG overlay group helpers — no dependency on GED types.
- *
- * Extracted from the file-private helpers _sg_find_overlay_group,
- * _sg_overlay_root, and _sg_erase_overlay_by_name in
- * src/libged/bsg_view_obj.c (now bsg_ged_draw.c).  Moving them here
- * removes the last overlay-management code from the GED layer that carries
- * no GED-specific logic.
- *
- * Dependencies: libbsg lifecycle helpers, bv/defines.h, bu (bu_ptbl, bu_str).
- * No librt, no libged.
+ * Overlay ownership, lifecycle, and query helpers.
  */
 
 #include "common.h"
 
+#include "bu/malloc.h"
 #include "bu/ptbl.h"
 #include "bu/str.h"
 #include "bu/vls.h"
+
 #include "bsg/defines.h"
+#include "bsg/draw_ctx.h"
 #include "bsg/draw_intent.h"
+#include "bsg/overlay.h"
 #include "bsg/util.h"
 #include "bsg/vlist.h"
-
-#include "bsg/draw_ctx.h"
-#include "bsg/draw_set.h"
-#include "bsg/overlay.h"
 #include "bsg_private.h"
 
 
@@ -53,14 +43,132 @@
 /* ------------------------------------------------------------------ */
 
 /*
- * FREE_BSG_NODE: recycle a bsg_node back into the free-pool
- * list @p fp and free its vlist data using the vlist pool @p vlf.
- *
- * Mirrors the identical macro in libbsg/draw_set.c.
+ * FREE_BSG_NODE: recycle a bsg_node back into the free-pool list @p fp and
+ * free its vlist data using the vlist pool @p vlf.
  */
 #define FREE_BSG_NODE(p, fp, vlf) { \
     BU_LIST_APPEND(fp, &((p)->l)); \
     BSG_FREE_VLIST(vlf, &((p)->s_vlist)); }
+
+static const char *
+_strip_lead_slash(const char *path)
+{
+    return (path && path[0] == '/') ? path + 1 : path;
+}
+
+static int
+_path_matches(const char *lhs, const char *rhs)
+{
+    lhs = _strip_lead_slash(lhs);
+    rhs = _strip_lead_slash(rhs);
+    if (!lhs || !rhs)
+return 0;
+    if (BU_STR_EQUAL(lhs, rhs))
+return 1;
+    size_t llen = strlen(lhs);
+    size_t rlen = strlen(rhs);
+    if (llen < rlen && !strncmp(rhs, lhs, llen) && rhs[llen] == '/')
+return 1;
+    if (rlen < llen && !strncmp(lhs, rhs, rlen) && lhs[rlen] == '/')
+return 1;
+    return 0;
+}
+
+static struct bsg_overlay_info *
+_overlay_info(bsg_node *node)
+{
+    if (!node || !node->i)
+return NULL;
+    return node->i->overlay;
+}
+
+static const struct bsg_overlay_info *
+_overlay_info_const(const bsg_node *node)
+{
+    if (!node || !node->i)
+return NULL;
+    return node->i->overlay;
+}
+
+static void
+_collect_nodes_recursive(bsg_node *root, struct bu_ptbl *nodes,
+ int (*predicate)(const bsg_node *, void *), void *ctx)
+{
+    if (!root)
+return;
+    if (!predicate || predicate(root, ctx))
+bu_ptbl_ins(nodes, (long *)root);
+    for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
+bsg_node *child = (bsg_node *)BU_PTBL_GET(&root->children, i);
+_collect_nodes_recursive(child, nodes, predicate, ctx);
+    }
+}
+
+struct owner_ctx {
+    const void *owner;
+    const bsg_node *skip;
+};
+
+static int
+_match_owner(const bsg_node *node, void *data)
+{
+    const struct bsg_overlay_info *info = _overlay_info_const(node);
+    const struct owner_ctx *ctx = (const struct owner_ctx *)data;
+    return (info && ctx && ctx->owner && node != ctx->skip && info->owner == ctx->owner);
+}
+
+struct role_ctx {
+    bsg_overlay_role role;
+};
+
+static int
+_match_role(const bsg_node *node, void *data)
+{
+    const struct bsg_overlay_info *info = _overlay_info_const(node);
+    const struct role_ctx *ctx = (const struct role_ctx *)data;
+    return (info && ctx && info->role == ctx->role);
+}
+
+struct source_ctx {
+    const char *path;
+};
+
+static int
+_match_source(const bsg_node *node, void *data)
+{
+    const struct bsg_overlay_info *info = _overlay_info_const(node);
+    const struct source_ctx *ctx = (const struct source_ctx *)data;
+    if (!info || !ctx || !ctx->path)
+return 0;
+    if (info->lifecycle != BSG_OVERLAY_LC_AUTO_REMOVE_ON_SOURCE)
+return 0;
+    if (!BU_VLS_IS_INITIALIZED(&info->source_path) || bu_vls_strlen(&info->source_path) == 0)
+return 0;
+    return _path_matches(bu_vls_cstr(&info->source_path), ctx->path);
+}
+
+static size_t
+_clear_nodes(struct bu_ptbl *nodes)
+{
+    size_t removed = 0;
+    for (size_t i = 0; i < BU_PTBL_LEN(nodes); i++) {
+bsg_node *node = (bsg_node *)BU_PTBL_GET(nodes, i);
+if (!node)
+    continue;
+bsg_node_destroy(node);
+removed++;
+    }
+    return removed;
+}
+
+static size_t
+_collect_from_root(bsg_node *root, struct bu_ptbl *nodes,
+   int (*predicate)(const bsg_node *, void *), void *ctx)
+{
+    size_t before = BU_PTBL_LEN(nodes);
+    _collect_nodes_recursive(root, nodes, predicate, ctx);
+    return BU_PTBL_LEN(nodes) - before;
+}
 
 
 /* ------------------------------------------------------------------ */
@@ -70,12 +178,11 @@ bsg_find_overlay_group(bsg_node *draw_root)
 {
     bsg_node *root = (bsg_node *)draw_root;
     if (!root)
-	return NULL;
+return NULL;
     for (size_t i = 0; i < BU_PTBL_LEN(&root->children); i++) {
-	bsg_node *g =
-	    (bsg_node *)BU_PTBL_GET(&root->children, i);
-	if (BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name)))
-	    return (bsg_node *)g;
+bsg_node *g = (bsg_node *)BU_PTBL_GET(&root->children, i);
+if (BU_STR_EQUAL("_overlays", bu_vls_cstr(&g->s_name)))
+    return (bsg_node *)g;
     }
     return NULL;
 }
@@ -86,16 +193,16 @@ bsg_ensure_overlay_group(bsg_node *draw_root, struct bsg_view *v)
 {
     bsg_node *existing = bsg_find_overlay_group(draw_root);
     if (existing)
-	return existing;
+return existing;
 
     if (!v)
-	return NULL;
+return NULL;
 
     bsg_node *root = (bsg_node *)draw_root;
 
     bsg_node *ov = bsg_obj_create(v, BSG_OBJ_CHILD);
     if (!ov)
-	return NULL;
+return NULL;
 
     ov->s_type_flags = BSG_NODE_GROUP;
     ov->s_flag       = UP;
@@ -103,9 +210,6 @@ bsg_ensure_overlay_group(bsg_node *draw_root, struct bsg_view *v)
     ov->parent       = draw_root;
     bu_vls_sprintf(&ov->s_name, "_overlays");
     bu_ptbl_ins(&root->children, (long *)ov);
-
-    /* Phase D2: attach overlay intent so callers can use bsg_draw_intent_is_overlay()
-     * instead of comparing s_name to "_overlays". */
     bsg_node_set_draw_intent(ov, bsg_draw_intent_create_overlay("_overlays"));
 
     return (bsg_node *)ov;
@@ -117,46 +221,160 @@ bsg_erase_overlay_by_name(bsg_node *draw_root, const char *name)
 {
     bsg_node *root = (bsg_node *)draw_root;
     if (!root)
-	return;
+return;
 
-    bsg_node *ov =
-	(bsg_node *)bsg_find_overlay_group(draw_root);
+    bsg_node *ov = (bsg_node *)bsg_find_overlay_group(draw_root);
     if (!ov)
-	return;
+return;
 
     struct bsg_draw_ctx *ctx = _ctx_of_node(root);
     bsg_node *fso = (ctx && ctx->fso) ? ctx->fso : NULL;
 
     struct bu_ptbl snap = BU_PTBL_INIT_ZERO;
     for (size_t i = 0; i < BU_PTBL_LEN(&ov->children); i++)
-	bu_ptbl_ins(&snap, BU_PTBL_GET(&ov->children, i));
+bu_ptbl_ins(&snap, BU_PTBL_GET(&ov->children, i));
 
     for (size_t i = 0; i < BU_PTBL_LEN(&snap); i++) {
-	bsg_node *sp =
-	    (bsg_node *)BU_PTBL_GET(&snap, i);
-	if (!BU_STR_EQUAL(name, bu_vls_cstr(&sp->s_name)))
-	    continue;
+bsg_node *sp = (bsg_node *)BU_PTBL_GET(&snap, i);
+if (!BU_STR_EQUAL(name, bu_vls_cstr(&sp->s_name)))
+    continue;
 
-	/* Phase 11: release backend resources via the generic contract. */
-	bsg_scene_obj_release_backend(sp);
-	bu_ptbl_rm(&ov->children, (const long *)sp);
-	/* bump rev via root (sp->parent now being cleared) */
-	bsg_bump_rev_node(draw_root);
-	sp->parent = NULL;
-	bsg_node *sfso = fso ? fso : sp->free_scene_obj;
-	if (sfso)
-	    FREE_BSG_NODE(sp, &sfso->l, sp->vlfree);
+bsg_scene_obj_release_backend(sp);
+bu_ptbl_rm(&ov->children, (const long *)sp);
+bsg_bump_rev_node(draw_root);
+sp->parent = NULL;
+bsg_overlay_info_clear(sp);
+bsg_node *sfso = fso ? fso : sp->free_scene_obj;
+if (sfso)
+    FREE_BSG_NODE(sp, &sfso->l, sp->vlfree);
     }
     bu_ptbl_free(&snap);
 
-    /* Remove empty _overlays group from root */
     if (BU_PTBL_LEN(&ov->children) == 0) {
-	bu_ptbl_rm(&root->children, (const long *)ov);
-	ov->parent = NULL;
-	bsg_node *ofso = ov->free_scene_obj;
-	if (ofso)
-	    FREE_BSG_NODE(ov, &ofso->l, ov->vlfree);
+bu_ptbl_rm(&root->children, (const long *)ov);
+ov->parent = NULL;
+bsg_overlay_info_clear(ov);
+bsg_node *ofso = ov->free_scene_obj;
+if (ofso)
+    FREE_BSG_NODE(ov, &ofso->l, ov->vlfree);
     }
+}
+
+
+int
+bsg_overlay_register_owner(bsg_node *overlay_node,
+   const void *owner,
+   bsg_overlay_role role,
+   bsg_overlay_class overlay_class,
+   bsg_overlay_lifecycle lifecycle,
+   bsg_overlay_order ordering,
+   const char *source_path,
+   int sort_order)
+{
+    if (!overlay_node)
+return 0;
+
+    if (!overlay_node->i)
+return 0;
+
+    if (!overlay_node->i->overlay) {
+BU_ALLOC(overlay_node->i->overlay, struct bsg_overlay_info);
+memset(overlay_node->i->overlay, 0, sizeof(struct bsg_overlay_info));
+BU_VLS_INIT(&overlay_node->i->overlay->source_path);
+    }
+
+    struct bsg_overlay_info *info = overlay_node->i->overlay;
+    info->owner = owner;
+    info->role = role;
+    info->overlay_class = overlay_class;
+    info->lifecycle = lifecycle;
+    info->ordering = ordering;
+    info->sort_order = sort_order;
+    bu_vls_trunc(&info->source_path, 0);
+    if (source_path)
+bu_vls_sprintf(&info->source_path, "%s", _strip_lead_slash(source_path));
+
+    bsg_node_set_payload_type(overlay_node,
+    bsg_node_get_payload_type(overlay_node) | BSG_PAYLOAD_OVERLAY);
+
+    return 1;
+}
+
+
+bsg_node *
+bsg_overlay_replace(struct bsg_view *v, const void *owner, bsg_node *overlay_node)
+{
+    if (!v || !owner)
+return overlay_node;
+
+    struct bu_ptbl nodes = BU_PTBL_INIT_ZERO;
+    struct owner_ctx ctx = {owner, overlay_node};
+    _collect_from_root((bsg_node *)v->gv_draw_root, &nodes, _match_owner, &ctx);
+    _collect_from_root((bsg_node *)v->gv_hud_root, &nodes, _match_owner, &ctx);
+    (void)_clear_nodes(&nodes);
+    bu_ptbl_free(&nodes);
+    return overlay_node;
+}
+
+
+size_t
+bsg_overlay_clear_owned(struct bsg_view *v, const void *owner)
+{
+    if (!v || !owner)
+return 0;
+
+    struct bu_ptbl nodes = BU_PTBL_INIT_ZERO;
+    struct owner_ctx ctx = {owner, NULL};
+    _collect_from_root((bsg_node *)v->gv_draw_root, &nodes, _match_owner, &ctx);
+    _collect_from_root((bsg_node *)v->gv_hud_root, &nodes, _match_owner, &ctx);
+    size_t removed = _clear_nodes(&nodes);
+    bu_ptbl_free(&nodes);
+    return removed;
+}
+
+
+size_t
+bsg_overlay_query_by_role(bsg_node *root, bsg_overlay_role role, struct bu_ptbl *out)
+{
+    if (!root || !out)
+return 0;
+    struct role_ctx ctx = {role};
+    return _collect_from_root(root, out, _match_role, &ctx);
+}
+
+
+size_t
+bsg_overlay_auto_remove(bsg_node *root, const char *source_path)
+{
+    if (!root || !source_path)
+return 0;
+
+    struct bu_ptbl nodes = BU_PTBL_INIT_ZERO;
+    struct source_ctx ctx = {source_path};
+    _collect_from_root(root, &nodes, _match_source, &ctx);
+    size_t removed = _clear_nodes(&nodes);
+    bu_ptbl_free(&nodes);
+    return removed;
+}
+
+
+const struct bsg_overlay_info *
+bsg_overlay_info_get(const bsg_node *overlay_node)
+{
+    return _overlay_info_const(overlay_node);
+}
+
+
+void
+bsg_overlay_info_clear(bsg_node *overlay_node)
+{
+    struct bsg_overlay_info *info = _overlay_info(overlay_node);
+    if (!info)
+return;
+    if (BU_VLS_IS_INITIALIZED(&info->source_path))
+bu_vls_free(&info->source_path);
+    BU_PUT(info, struct bsg_overlay_info);
+    overlay_node->i->overlay = NULL;
 }
 
 

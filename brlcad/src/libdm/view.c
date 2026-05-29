@@ -151,21 +151,6 @@ dm_add_arrows(struct dm *dmp, struct bsg_node *s)
 }
 
 static void
-_dm_draw_hud_center_dot(struct dm *dmp, const struct bsg_hud_payload *payload)
-{
-    if (!payload)
-	return;
-
-    (void)dm_set_fg(dmp,
-		    payload->data.other.gos_line_color[0],
-		    payload->data.other.gos_line_color[1],
-		    payload->data.other.gos_line_color[2],
-		    1, 1.0);
-    (void)dm_draw_point_2d(dmp, 0.0, 0.0);
-}
-
-
-static void
 _dm_draw_hud_axes_feature(struct dm *dmp, struct bsg_view *v, const struct bsg_hud_payload *payload, int model_axes)
 {
     if (!payload)
@@ -193,111 +178,11 @@ _dm_draw_hud_axes_feature(struct dm *dmp, struct bsg_view *v, const struct bsg_h
 
 
 static void
-_dm_draw_hud_scale(struct dm *dmp, struct bsg_view *v, const struct bsg_hud_payload *payload)
-{
-    if (!payload)
-	return;
-
-    dm_draw_scale(dmp,
-		  v->gv_size * v->gv_base2local,
-		  bu_units_string(1 / v->gv_base2local),
-		  (int *)payload->data.other.gos_line_color,
-		  v->gv_s->gv_view_params.color);
-}
-
-
-static void
-_dm_draw_hud_adc(struct dm *dmp, struct bsg_view *v, const struct bsg_hud_payload *payload)
-{
-    if (!payload)
-	return;
-    dm_draw_adc(dmp, (struct bsg_adc_state *)&payload->data.adc, v->gv_view2model, v->gv_model2view);
-}
-
-
-static void
 _dm_draw_hud_grid(struct dm *dmp, struct bsg_view *v, const struct bsg_hud_payload *payload)
 {
     if (!payload)
 	return;
     dm_draw_grid(dmp, (struct bsg_grid_state *)&payload->data.grid, v->gv_scale, v->gv_model2view, v->gv_base2local);
-}
-
-
-static void
-_dm_draw_hud_rect(struct dm *dmp, const struct bsg_hud_payload *payload)
-{
-    if (!payload)
-	return;
-    dm_draw_rect(dmp, (struct bsg_interactive_rect_state *)&payload->data.rect);
-}
-
-
-static void
-_dm_hud_params_string(struct dm *dmp, struct bsg_view *v, const struct bsg_params_state *ps, struct bu_vls *vls)
-{
-    point_t center;
-    char *ustr = (char *)bu_units_string(v->gv_local2base);
-    MAT_DELTAS_GET_NEG(center, v->gv_center);
-    VSCALE(center, center, v->gv_base2local);
-    int64_t elapsed_time = bu_gettime() - dmp->start_time;
-    if (elapsed_time > 10LL && elapsed_time < 30000000LL) {
-	v->gv_s->gv_frametime = 0.9 * v->gv_s->gv_frametime + 0.1 * elapsed_time / 1000000LL;
-    }
-
-    if (ps->draw_size) {
-	if (bu_vls_strlen(vls) > 0)
-	    bu_vls_printf(vls, " ");
-	bu_vls_printf(vls, "size[%s]: %.2f", ustr, v->gv_size * v->gv_base2local);
-    }
-    if (ps->draw_center) {
-	if (bu_vls_strlen(vls) > 0)
-	    bu_vls_printf(vls, " ");
-	bu_vls_printf(vls, "center[%s]: (%.2f, %.2f, %.2f)", ustr, V3ARGS(center));
-    }
-    if (ps->draw_az) {
-	if (bu_vls_strlen(vls) > 0)
-	    bu_vls_printf(vls, " ");
-	bu_vls_printf(vls, "az:%.2f", v->gv_aet[0]);
-    }
-    if (ps->draw_el) {
-	if (bu_vls_strlen(vls) > 0)
-	    bu_vls_printf(vls, " ");
-	bu_vls_printf(vls, "el:%.2f", v->gv_aet[1]);
-    }
-    if (ps->draw_tw) {
-	if (bu_vls_strlen(vls) > 0)
-	    bu_vls_printf(vls, " ");
-	bu_vls_printf(vls, "tw:%.2f", v->gv_aet[2]);
-    }
-    if (ps->draw_fps) {
-	if (bu_vls_strlen(vls) > 0)
-	    bu_vls_printf(vls, " ");
-	bu_vls_printf(vls, "FPS:%.2f", 1 / v->gv_s->gv_frametime);
-    }
-}
-
-
-static void
-_dm_draw_hud_params(struct dm *dmp, struct bsg_view *v, const struct bsg_hud_payload *payload)
-{
-    if (!payload)
-	return;
-
-    int ofontsize = dm_get_fontsize(dmp);
-    dm_set_fontsize(dmp, payload->data.params.font_size);
-
-    struct bu_vls vls = BU_VLS_INIT_ZERO;
-    _dm_hud_params_string(dmp, v, &payload->data.params, &vls);
-
-    (void)dm_set_fg(dmp,
-		    payload->data.params.color[0],
-		    payload->data.params.color[1],
-		    payload->data.params.color[2],
-		    1, 1.0);
-    (void)dm_draw_string_2d(dmp, bu_vls_addr(&vls), -0.98, -0.965, 10, 0);
-    bu_vls_free(&vls);
-    dm_set_fontsize(dmp, ofontsize);
 }
 
 
@@ -334,38 +219,68 @@ _dm_hud_draw_item(void *dmp_ptr, const struct bsg_render_item *item)
 
     struct bsg_view *v = item->node->s_v;
     const struct bsg_hud_node_meta *meta = bsg_hud_node_get_meta(item->node);
-    const struct bsg_hud_payload *payload = bsg_hud_node_get_payload(item->node);
-    if (!meta || !payload)
-	return;
-    if (meta->feature_type == BSG_HUD_FEATURE_FRAMEBUFFER)
+    struct bsg_payload *pl = bsg_node_get_payload(item->node);
+    if (!meta || !pl)
 	return;
 
-    switch (meta->feature_type) {
-	case BSG_HUD_FEATURE_CENTER_DOT:
-	    _dm_draw_hud_center_dot(dmp, payload);
+    switch (pl->pl_type) {
+	case BSG_PL_LINE_SET: {
+	    struct bsg_payload_line_set *ls = bsg_payload_line_set_get(pl);
+	    if (!ls || ls->point_cnt < 2)
+		break;
+	    int save_lw = dmp->i->dm_lineWidth;
+	    int save_ls = dmp->i->dm_lineStyle;
+	    dm_set_line_attr(dmp, item->line_width, item->node->s_soldash);
+	    dm_set_fg(dmp, item->color[0], item->color[1], item->color[2], 1, 1.0);
+	    point_t prev = VINIT_ZERO;
+	    int have_prev = 0;
+	    for (size_t i = 0; i < ls->point_cnt; i++) {
+		if (ls->cmds[i] == BSG_VLIST_LINE_MOVE) {
+		    VMOVE(prev, ls->points[i]);
+		    have_prev = 1;
+		    continue;
+		}
+		if (ls->cmds[i] == BSG_VLIST_LINE_DRAW && have_prev) {
+		    dm_draw_line_2d(dmp, prev[X], prev[Y], ls->points[i][X], ls->points[i][Y]);
+		    VMOVE(prev, ls->points[i]);
+		}
+	    }
+	    dm_set_line_attr(dmp, save_lw, save_ls);
 	    break;
-	case BSG_HUD_FEATURE_MODEL_AXES:
-	    _dm_draw_hud_axes_feature(dmp, v, payload, 1);
+	}
+	case BSG_PL_HUD_TEXT: {
+	    struct bsg_label *label = bsg_payload_hud_text_get(pl);
+	    if (!label)
+		break;
+	    int ofontsize = dm_get_fontsize(dmp);
+	    dm_set_fg(dmp, item->color[0], item->color[1], item->color[2], 1, 1.0);
+	    dm_set_fontsize(dmp, label->size);
+	    dm_draw_string_2d(dmp, bu_vls_cstr(&label->label), label->p[X], label->p[Y], label->size, 0);
+	    dm_set_fontsize(dmp, ofontsize);
 	    break;
-	case BSG_HUD_FEATURE_VIEW_AXES:
-	    _dm_draw_hud_axes_feature(dmp, v, payload, 0);
+	}
+	case BSG_PL_AXES: {
+	    struct bsg_axes *axes = bsg_payload_axes_get(pl);
+	    if (!axes)
+		break;
+	    struct bsg_hud_payload payload;
+	    memset(&payload, 0, sizeof(payload));
+	    payload.feature_type = meta->feature_type;
+	    payload.data.axes = *axes;
+	    _dm_draw_hud_axes_feature(dmp, v, &payload, meta->feature_type == BSG_HUD_FEATURE_MODEL_AXES);
 	    break;
-	case BSG_HUD_FEATURE_VIEW_SCALE:
-	    _dm_draw_hud_scale(dmp, v, payload);
+	}
+	case BSG_PL_GRID: {
+	    struct bsg_grid_state *grid = bsg_payload_grid_get(pl);
+	    if (!grid)
+		break;
+	    struct bsg_hud_payload payload;
+	    memset(&payload, 0, sizeof(payload));
+	    payload.feature_type = meta->feature_type;
+	    payload.data.grid = *grid;
+	    _dm_draw_hud_grid(dmp, v, &payload);
 	    break;
-	case BSG_HUD_FEATURE_ADC:
-	    _dm_draw_hud_adc(dmp, v, payload);
-	    break;
-	case BSG_HUD_FEATURE_GRID:
-	    _dm_draw_hud_grid(dmp, v, payload);
-	    break;
-	case BSG_HUD_FEATURE_RECT:
-	    _dm_draw_hud_rect(dmp, payload);
-	    break;
-	case BSG_HUD_FEATURE_VIEW_PARAMS:
-	    _dm_draw_hud_params(dmp, v, payload);
-	    break;
-	case BSG_HUD_FEATURE_FRAMEBUFFER:
+	}
 	default:
 	    break;
     }
@@ -380,8 +295,8 @@ _dm_framebuffer_draw_item(void *dmp_ptr, const struct bsg_render_item *item)
 	return;
 
     const struct bsg_hud_node_meta *meta = bsg_hud_node_get_meta(item->node);
-    const struct bsg_hud_payload *payload = bsg_hud_node_get_payload(item->node);
-    if (!meta || !payload || meta->feature_type != BSG_HUD_FEATURE_FRAMEBUFFER)
+    struct bsg_payload *pl = bsg_node_get_payload(item->node);
+    if (!meta || !pl || pl->pl_type != BSG_PL_FRAMEBUFFER || meta->feature_type != BSG_HUD_FEATURE_FRAMEBUFFER)
 	return;
 
     _dm_draw_hud_framebuffer(dmp);

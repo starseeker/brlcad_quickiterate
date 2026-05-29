@@ -33,6 +33,7 @@
 #include "bu/opt.h"
 #include "bu/vls.h"
 #include "bsg/snap.h"
+#include "bsg/snap_action.h"
 #include "dm.h"
 #include "../ged_private.h"
 #include "./ged_view.h"
@@ -175,21 +176,32 @@ ged_view_snap(struct ged *gedp, int argc, const char *argv[])
     bu_vls_trunc(gedp->ged_result_str, 0);
 
     if (use_grid) {
-	// Grid operates on view space points
-	bsg_snap_grid_2d(gedp->ged_gvp, &view_pt_2d[X], &view_pt_2d[Y]);
+	struct bsg_snap_result sres = {0};
+	point_t sample = VINIT_ZERO;
+	VMOVE(sample, view_pt);
+	if (bsg_snap_candidates(gedp->ged_gvp, sample, 0.0, BSG_SNAP_KIND_GRID, &sres) > 0) {
+	    point_t vp = VINIT_ZERO;
+	    VMOVE(view_pt, sres.sr_candidates[0].sc_point);
+	    MAT4X3PNT(vp, gedp->ged_gvp->gv_model2view, view_pt);
+	    V2SET(view_pt_2d, vp[0], vp[1]);
+	}
+	bsg_snap_result_free(&sres);
     }
 
     if (use_lines) {
-	point_t out_pt = VINIT_ZERO;
+	struct bsg_snap_result sres = {0};
+	point_t sample = VINIT_ZERO;
 	point_t vp = VINIT_ZERO;
-	// It's OK if we have no lines close enough to snap to -
-	// in that case just pass back the view pt.  If we do
-	// have a snap, update the output
-	if (bsg_snap_lines_3d(&out_pt, gedp->ged_gvp, &view_pt) == BRLCAD_OK) {
-	    MAT4X3PNT(vp, gedp->ged_gvp->gv_model2view, out_pt);
+	int line_snap_ok = 0;
+	VMOVE(sample, view_pt);
+	if (bsg_snap_candidates(gedp->ged_gvp, sample, 0.0, BSG_SNAP_KIND_ENDPOINT, &sres) > 0) {
+	    line_snap_ok = 1;
+	    VMOVE(view_pt, sres.sr_candidates[0].sc_point);
+	    MAT4X3PNT(vp, gedp->ged_gvp->gv_model2view, view_pt);
 	    V2SET(view_pt_2d, vp[0], vp[1]);
-	    VMOVE(view_pt, out_pt);
-	} else {
+	}
+	bsg_snap_result_free(&sres);
+	if (!line_snap_ok) {
 	    bu_vls_printf(gedp->ged_result_str, "no lines close enough for snapping");
 	    return BRLCAD_OK;
 	}

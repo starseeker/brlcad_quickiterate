@@ -39,6 +39,7 @@
 #include "bsg/node.h"
 #include "bsg/util.h"
 #include "bsg/draw_intent.h"
+#include "bsg/overlay.h"
 
 
 /* -----------------------------------------------------------------------
@@ -309,6 +310,8 @@ bsg_draw_intent_revalidate(bsg_node *root, const struct bsg_db_event *event)
 	return 0;
 
     int count = 0;
+    struct bu_ptbl groups = BU_PTBL_INIT_ZERO;
+    bsg_collect_draw_groups(root, &groups, 1 /* include overlays */);
 
     if (event->dbe_kind == BSG_DB_EVENT_RENAMED) {
 	/* Renamed: find intents matching the OLD path, update to new. */
@@ -316,10 +319,12 @@ bsg_draw_intent_revalidate(bsg_node *root, const struct bsg_db_event *event)
 	    ? _strip_lead_slash(event->dbe_old_path)
 	    : NULL;
 	const char *new_norm = _strip_lead_slash(event->dbe_path);
-	if (!old_norm)
+	if (!old_norm) {
+	    bu_ptbl_free(&groups);
 	    return 0;
-	for (size_t i = 0; i < bsg_node_child_count(root); i++) {
-	    bsg_node *g = bsg_node_child_at(root, i);
+	}
+	for (size_t i = 0; i < BU_PTBL_LEN(&groups); i++) {
+	    bsg_node *g = (bsg_node *)BU_PTBL_GET(&groups, i);
 	    if (!g) continue;
 	    const struct bsg_draw_intent *di = bsg_node_get_draw_intent(g);
 	    if (!di) continue;
@@ -329,12 +334,16 @@ bsg_draw_intent_revalidate(bsg_node *root, const struct bsg_db_event *event)
 		count++;
 	    }
 	}
+	count += (int)bsg_overlay_auto_remove(root, old_norm);
+	bu_ptbl_free(&groups);
 	return count;
     }
 
     const char *norm_path = _strip_lead_slash(event->dbe_path);
-    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
-	bsg_node *g = bsg_node_child_at(root, i);
+    count += (int)bsg_overlay_auto_remove(root, norm_path);
+    struct bu_ptbl to_remove = BU_PTBL_INIT_ZERO;
+    for (size_t i = 0; i < BU_PTBL_LEN(&groups); i++) {
+	bsg_node *g = (bsg_node *)BU_PTBL_GET(&groups, i);
 	if (!g)
 	    continue;
 	const struct bsg_draw_intent *di = bsg_node_get_draw_intent(g);
@@ -350,14 +359,20 @@ bsg_draw_intent_revalidate(bsg_node *root, const struct bsg_db_event *event)
 		count++;
 		break;
 	    case BSG_DB_EVENT_REMOVED:
-		bsg_node_destroy(g);
-		i--;
+		bu_ptbl_ins(&to_remove, (long *)g);
 		count++;
 		break;
 	    default:
 		break;
 	}
     }
+    for (size_t i = 0; i < BU_PTBL_LEN(&to_remove); i++) {
+	bsg_node *g = (bsg_node *)BU_PTBL_GET(&to_remove, i);
+	if (g)
+	    bsg_node_destroy(g);
+    }
+    bu_ptbl_free(&to_remove);
+    bu_ptbl_free(&groups);
     return count;
 }
 
@@ -368,20 +383,12 @@ bsg_draw_intent_erase_by_path(bsg_node *root, const char *path)
     if (!root || !path)
 	return 0;
 
-    const char *norm = _strip_lead_slash(path);
-
-    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
-	bsg_node *g = bsg_node_child_at(root, i);
-	if (!g)
-	    continue;
-	const struct bsg_draw_intent *di = bsg_node_get_draw_intent(g);
-	if (!di)
-	    continue;
-	const char *gpath = _strip_lead_slash(bu_vls_cstr(&di->di_path));
-	if (BU_STR_EQUAL(gpath, norm)) {
-	    bsg_node_destroy(g);
-	    return 1;
-	}
+    bsg_node *g = bsg_draw_intent_find(root, path);
+    if (g) {
+	/* draw-intent actions operate on draw-tree-owned groups; callers pass
+	 * roots from that tree, so destroy is the expected erase operation. */
+	bsg_node_destroy(g);
+	return 1;
     }
     return 0;
 }
@@ -393,15 +400,19 @@ bsg_draw_intent_erase(bsg_node *root, struct bsg_draw_intent *intent)
     if (!root || !intent)
 	return 0;
 
-    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
-	bsg_node *g = bsg_node_child_at(root, i);
+    struct bu_ptbl groups = BU_PTBL_INIT_ZERO;
+    bsg_collect_draw_groups(root, &groups, 1 /* include overlays */);
+    for (size_t i = 0; i < BU_PTBL_LEN(&groups); i++) {
+	bsg_node *g = (bsg_node *)BU_PTBL_GET(&groups, i);
 	if (!g)
 	    continue;
 	if (bsg_node_get_draw_intent(g) == intent) {
 	    bsg_node_destroy(g);
+	    bu_ptbl_free(&groups);
 	    return 1;
 	}
     }
+    bu_ptbl_free(&groups);
     return 0;
 }
 
@@ -465,12 +476,11 @@ bsg_draw_intent_collect_visible(bsg_node *root, struct bu_ptbl *out,
     if (!root || !out)
 	return;
 
-    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
-	bsg_node *g = bsg_node_child_at(root, i);
+    struct bu_ptbl groups = BU_PTBL_INIT_ZERO;
+    bsg_collect_draw_groups(root, &groups, 0 /* no overlays */);
+    for (size_t i = 0; i < BU_PTBL_LEN(&groups); i++) {
+	bsg_node *g = (bsg_node *)BU_PTBL_GET(&groups, i);
 	if (!g)
-	    continue;
-	const struct bsg_draw_intent *di = bsg_node_get_draw_intent(g);
-	if (!di || di->di_overlay)
 	    continue;
 	/* Skip invisible groups. */
 	if (g->s_flag == DOWN)
@@ -480,6 +490,7 @@ bsg_draw_intent_collect_visible(bsg_node *root, struct bu_ptbl *out,
 	    continue;
 	bu_ptbl_ins(out, (long *)g);
     }
+    bu_ptbl_free(&groups);
 }
 
 
@@ -493,14 +504,14 @@ bsg_draw_intent_collect_for_export(bsg_node *root, struct bu_ptbl *out,
     int include_overlays = (flags & BSG_EXPORT_INCLUDE_OVERLAYS) ? 1 : 0;
     int shaded_only      = (flags & BSG_EXPORT_SHADED_ONLY)      ? 1 : 0;
 
-    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
-	bsg_node *g = bsg_node_child_at(root, i);
+    struct bu_ptbl groups = BU_PTBL_INIT_ZERO;
+    bsg_collect_draw_groups(root, &groups, include_overlays);
+    for (size_t i = 0; i < BU_PTBL_LEN(&groups); i++) {
+	bsg_node *g = (bsg_node *)BU_PTBL_GET(&groups, i);
 	if (!g)
 	    continue;
 	const struct bsg_draw_intent *di = bsg_node_get_draw_intent(g);
 	if (!di)
-	    continue;
-	if (!include_overlays && di->di_overlay)
 	    continue;
 	if (shaded_only) {
 	    bsg_draw_mode m = di->di_mode;
@@ -511,6 +522,7 @@ bsg_draw_intent_collect_for_export(bsg_node *root, struct bu_ptbl *out,
 	}
 	bu_ptbl_ins(out, (long *)g);
     }
+    bu_ptbl_free(&groups);
 }
 
 
@@ -521,8 +533,10 @@ bsg_draw_intent_match(bsg_node *root, const char *pattern,
     if (!root || !pattern || !out)
 	return;
 
-    for (size_t i = 0; i < bsg_node_child_count(root); i++) {
-	bsg_node *g = bsg_node_child_at(root, i);
+    struct bu_ptbl groups = BU_PTBL_INIT_ZERO;
+    bsg_collect_draw_groups(root, &groups, 1 /* include overlays */);
+    for (size_t i = 0; i < BU_PTBL_LEN(&groups); i++) {
+	bsg_node *g = (bsg_node *)BU_PTBL_GET(&groups, i);
 	if (!g)
 	    continue;
 	const struct bsg_draw_intent *di = bsg_node_get_draw_intent(g);
@@ -532,6 +546,7 @@ bsg_draw_intent_match(bsg_node *root, const char *pattern,
 	if (bu_path_match(pattern, gpath, 0) == 0)
 	    bu_ptbl_ins(out, (long *)g);
     }
+    bu_ptbl_free(&groups);
 }
 
 

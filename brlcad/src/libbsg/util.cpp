@@ -39,9 +39,11 @@
 #include "bsg/defines.h"
 #include "bsg/draw_intent.h"
 #include "bsg/material.h"
+#include "bsg/overlay.h"
 #include "bsg/payload_typed.h"
 #include "bsg/selection.h"
 #include "bsg/snap.h"
+#include "bsg/snap_action.h"
 #include "bsg/util.h"
 #include "bsg/view_sets.h"
 #include "bsg/vlist.h"
@@ -1256,14 +1258,14 @@ bsg_screen_to_view(struct bsg_view *v, fastf_t *fx, fastf_t *fy, fastf_t x, fast
     }
 
     // If snapping is enabled, apply it
-    int snapped = 0;
     if (v->gv_s) {
-	if (v->gv_s->gv_snap_lines) {
-	    snapped = bsg_snap_lines_2d(v, fx, fy);
-	}
-	if (!snapped && v->gv_s->gv_grid.snap) {
-	    bsg_snap_grid_2d(v, fx, fy);
-	}
+	bsg_snap_kind_mask kinds = 0;
+	if (v->gv_s->gv_snap_lines)
+	    kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
+	if (v->gv_s->gv_grid.snap)
+	    kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_GRID;
+	if (kinds && fx && fy)
+	    bsg_snap_point_2d(v, fx, fy, kinds);
     }
 
     return 0;
@@ -1465,7 +1467,7 @@ bsg_obj_create(struct bsg_view *v, int type)
     // We know where we're going to get the object from - get it
     if (BU_LIST_IS_EMPTY(&free_scene_obj->l)) {
 	BU_ALLOC(s, struct bsg_node);
-	s->i = new bsg_node_internal;
+	s->i = new bsg_node_internal();
     } else {
 	s = BU_LIST_NEXT(bsg_node, &free_scene_obj->l);
 	BU_LIST_DEQUEUE(&((s)->l));
@@ -1962,12 +1964,12 @@ bsg_obj_get_child(struct bsg_node *sp)
     // Children use their parent's info
     if (BU_LIST_IS_EMPTY(&sp->free_scene_obj->l)) {
 	BU_ALLOC((s), struct bsg_node);
-	s->i = new bsg_node_internal;
+	s->i = new bsg_node_internal();
     } else {
 	s = BU_LIST_NEXT(bsg_node, &sp->free_scene_obj->l);
 	if (!s) {
 	    BU_ALLOC((s), struct bsg_node);
-	    s->i = new bsg_node_internal;
+	    s->i = new bsg_node_internal();
 	} else {
 	    BU_LIST_DEQUEUE(&((s)->l));
 	}
@@ -2018,6 +2020,8 @@ bsg_obj_reset(struct bsg_node *s)
 	bsg_draw_intent_free(s->di);
 	s->di = NULL;
     }
+
+    bsg_overlay_info_clear(s);
 
     // Phase 11: release any backend-owned per-shape state via the generic
     // contract.

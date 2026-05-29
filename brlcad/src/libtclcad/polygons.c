@@ -66,6 +66,13 @@ _sync_tcl_polygons_to_bsg(struct bsg_view *v, bsg_data_polygon_state *gdpsp, con
     struct bsg_node *s = bsg_view_obj_lines_create(v, bsg_name, 1 /* local */);
     if (!s)
 	return;
+    bsg_overlay_register_owner(s, NULL,
+			       BSG_OVERLAY_ROLE_MODEL,
+			       BSG_OVERLAY_CLASS_POLYGON_EDIT,
+			       BSG_OVERLAY_LC_PER_TOOL,
+			       BSG_OVERLAY_ORDER_POST_TRANSPARENT,
+			       NULL,
+			       0);
 
     bsg_node_clear_vlist_payload(s);
     for (size_t i = 0; i < gdpsp->gdps_polygons.num_polygons; i++) {
@@ -1273,13 +1280,16 @@ to_poly_circ_mode_func(Tcl_Interp *interp,
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
     VSET(v_pt, fx, fy, gdvp->gv_tcl->gv_data_vZ);
-    int snapped = 0;
-    if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
-	snapped = bsg_snap_lines_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y]);
-    }
-    if (!snapped && gedp->ged_gvp->gv_s->gv_grid.snap) {
-	bsg_snap_grid_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y]);
+    {
+	bsg_snap_kind_mask snap_kinds = 0;
+	if (gedp->ged_gvp->gv_s->gv_snap_lines) {
+	    gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
+	}
+	if (gedp->ged_gvp->gv_s->gv_grid.snap)
+	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_GRID;
+	if (snap_kinds)
+	    bsg_snap_point_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y], snap_kinds);
     }
 
     MAT4X3PNT(m_pt, gdvp->gv_view2model, v_pt);
@@ -1348,13 +1358,16 @@ to_poly_cont_build_func(Tcl_Interp *interp,
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
     VSET(v_pt, fx, fy, gdvp->gv_tcl->gv_data_vZ);
-    int snapped = 0;
-    if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
-	snapped = bsg_snap_lines_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y]);
-    }
-    if (!snapped && gedp->ged_gvp->gv_s->gv_grid.snap) {
-	bsg_snap_grid_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y]);
+    {
+	bsg_snap_kind_mask snap_kinds = 0;
+	if (gedp->ged_gvp->gv_s->gv_snap_lines) {
+	    gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
+	}
+	if (gedp->ged_gvp->gv_s->gv_grid.snap)
+	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_GRID;
+	if (snap_kinds)
+	    bsg_snap_point_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y], snap_kinds);
     }
 
     MAT4X3PNT(m_pt, gdvp->gv_view2model, v_pt);
@@ -1723,13 +1736,16 @@ to_poly_ell_mode_func(Tcl_Interp *interp,
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
     VSET(v_pt, fx, fy, gdvp->gv_tcl->gv_data_vZ);
-    int snapped = 0;
-    if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
-	snapped = bsg_snap_lines_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y]);
-    }
-    if (!snapped && gedp->ged_gvp->gv_s->gv_grid.snap) {
-	bsg_snap_grid_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y]);
+    {
+	bsg_snap_kind_mask snap_kinds = 0;
+	if (gedp->ged_gvp->gv_s->gv_snap_lines) {
+	    gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
+	}
+	if (gedp->ged_gvp->gv_s->gv_grid.snap)
+	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_GRID;
+	if (snap_kinds)
+	    bsg_snap_point_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y], snap_kinds);
     }
 
     MAT4X3PNT(m_pt, gdvp->gv_view2model, v_pt);
@@ -1895,13 +1911,16 @@ to_poly_rect_mode_func(Tcl_Interp *interp,
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
     VSET(v_pt, fx, fy, gdvp->gv_tcl->gv_data_vZ);
-    int snapped = 0;
-    if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
-	snapped = bsg_snap_lines_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y]);
-    }
-    if (!snapped && gedp->ged_gvp->gv_s->gv_grid.snap) {
-	bsg_snap_grid_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y]);
+    {
+	bsg_snap_kind_mask snap_kinds = 0;
+	if (gedp->ged_gvp->gv_s->gv_snap_lines) {
+	    gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
+	}
+	if (gedp->ged_gvp->gv_s->gv_grid.snap)
+	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_GRID;
+	if (snap_kinds)
+	    bsg_snap_point_2d(gedp->ged_gvp, &v_pt[X], &v_pt[Y], snap_kinds);
     }
 
     MAT4X3PNT(m_pt, gdvp->gv_view2model, v_pt);

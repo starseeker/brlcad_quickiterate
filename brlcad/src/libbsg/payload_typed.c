@@ -36,6 +36,7 @@
 #include "bsg/defines.h"
 #include "bsg/faceplate.h"
 #include "bsg/lod.h"
+#include "bsg/pick.h"
 #include "bsg/polygon.h"
 #include "bsg/payload_typed.h"
 #include "bsg/vlist.h"
@@ -175,6 +176,33 @@ bsg_payload_update(bsg_node *node, struct bsg_view *v)
     struct bsg_payload *pl = node->pl;
     if (pl->pl_update)
 	pl->pl_update(pl, v);
+}
+
+int
+bsg_payload_snap(struct bsg_payload *pl, const point_t sample, double tol,
+		 unsigned long long kinds, struct bsg_snap_result *out)
+{
+    if (!pl || !pl->pl_snap)
+	return -1;
+    return pl->pl_snap(pl, sample, tol, kinds, out);
+}
+
+int
+bsg_payload_measure_candidates(struct bsg_payload *pl, const point_t a,
+			       const point_t b, struct bsg_measure_result *out)
+{
+    if (!pl || !pl->pl_measure_candidates)
+	return -1;
+    return pl->pl_measure_candidates(pl, a, b, out);
+}
+
+int
+bsg_payload_pick(struct bsg_payload *pl, const point_t sample,
+		 struct bsg_pick_record *out)
+{
+    if (!pl || !pl->pl_pick)
+	return -1;
+    return pl->pl_pick(pl, sample, out);
 }
 
 

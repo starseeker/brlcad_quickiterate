@@ -34,6 +34,8 @@
 #include "bu/opt.h"
 #include "bu/vls.h"
 #include "bsg.h"
+#include "bsg/hud.h"
+#include "bsg/overlay.h"
 
 #include "../ged_private.h"
 #include "./ged_view.h"
@@ -82,6 +84,12 @@ _line_cmd_create(void *bs, int argc, const char **argv)
 	bu_vls_printf(gedp->ged_result_str, "Failed to create %s\n", gd->vobj);
 	return BRLCAD_ERROR;
     }
+    bsg_overlay_register_owner(s, NULL,
+	    BSG_OVERLAY_ROLE_MODEL,
+	    BSG_OVERLAY_CLASS_USER_ANNOTATION,
+	    BSG_OVERLAY_LC_PERSISTENT,
+	    BSG_OVERLAY_ORDER_MODEL,
+	    NULL, 0);
     bsg_node_append_vlist_payload(s, p, BSG_VLIST_LINE_MOVE);
 
     return BRLCAD_OK;

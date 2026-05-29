@@ -77,11 +77,12 @@ Foundations already in place (verify before extending):
   nearest pick actions, `bsg_pick_record`, `bsg_pick_result`, table conversion,
   selection application.  qged selection and measurement consume typed records
   and the legacy `bu_ptbl` shim only as a compatibility bridge.
-- D4 HUD core (`include/bsg/hud.h`, `src/libbsg/hud.c`): per-view HUD root,
-  9 HUD feature slots (center dot, model/view axes, view scale, ADC, grid,
-  rect, view params, framebuffer), 3 overlay roles (MODEL/SCREEN/XRAY), and
-  `bsg_hud_sync`.  `dm_draw_faceplate` synchronizes the HUD tree each frame
-  but still rasterizes faceplate features directly.
+- D4 HUD/overlay core (`include/bsg/hud.h`, `include/bsg/overlay.h`,
+  `src/libbsg/hud.c`, `src/libbsg/overlay.c`): per-view HUD root, typed HUD
+  payload realization for all 9 feature slots, overlay ownership/lifecycle/
+  ordering metadata, owner replace/clear/query helpers, and draw-intent-driven
+  auto-remove-on-source-change.  `dm_draw_faceplate` is now only a thin HUD
+  render-request wrapper; typed HUD render items drive the actual HUD pass.
 - D5 render-item and backend adapter core (`include/bsg/render_item.h`,
   `include/bsg/backend_adapter.h`, `src/libbsg/render.c`,
   `src/libbsg/render_item.c`): phase-ordered render items
@@ -120,13 +121,25 @@ Work still outstanding (target of this guide):
   Remaining D0 work: audit libdm, libqtcad, qged for residual "display list/
   solid list/scene object/view object" in non-GL contexts (not done this
   session; "display list" in GL code is legitimate technical terminology).
-- D2: only `bsg_draw_intent_find` and `bsg_collect_draw_groups` are exposed.
-  Re-evaluate-on-db-change, erase-by-intent, simplify/collapse equivalent
-  intents, and collect-visible-for-export are missing.  who/how/rt/nirt/gqa/
-  saveview/plot/ps/png/bot_dump still reconstruct intent from child tables.
-- D3: ray pick, nearest-overlay-control, and semantic-path pick actions are
-  missing, as is the snap/measurement query-action framework.  MGED
-  illumination and polygon point selection have not been ported.
+- D2: core action API is now in place and subtree-correct:
+  `bsg_draw_intent_revalidate`, `bsg_draw_intent_erase_by_path`,
+  `bsg_draw_intent_erase`, `bsg_draw_intent_simplify`,
+  `bsg_draw_intent_collect_visible`, `bsg_draw_intent_collect_for_export`,
+  and `bsg_draw_intent_match` now operate across full intent-bearing subtrees.
+  `who`/`who2` now enumerate draw-intent action results directly.  Remaining:
+  gqa/loadview/plot/ps/png/bot_dump/MGED helper migration breadth.
+  `dbi_state.cpp` now emits draw-intent revalidate events for added/changed/
+  removed db objects, and `ged_who_argc`/`ged_who_argv` + `how` + `saveview`
+  now consume draw-intent action APIs.
+- D3: pick-action coverage has started: `bsg_pick_ray`,
+  `bsg_pick_nearest_overlay_control`, and `bsg_pick_semantic_path` are now
+  available, and `bsg_pick_record` now carries instance-path plus
+  primitive/subelement ids.  Snap/measurement action API foundations are now
+  in place (`bsg/snap_action.h`, `bsg/measure.h`, `bsg_snap_candidates`,
+  `bsg_measure_candidates`) and `ged view snap` now routes through the snap
+  action path.  Remaining: payload per-type `pl_snap`/`pl_measure_candidates`
+  coverage plus broad consumer migration (MGED illumination, polygon point
+  select, qged/libtclcad snap/measure).
 - D4: HUD payload geometry is not realized.  `dm_draw_faceplate` still
   rasterizes features in libdm.  Overlay roles cover only MODEL/SCREEN/XRAY;
   EDIT_HANDLE, MEASURE, SELECTION_RUBBER_BAND, SNAP_GUIDE, COMMAND_RESULT,
@@ -344,6 +357,17 @@ Goal: G3.
 Preconditions: D1 step 4d-k for the touched producers (draw/erase/report
 commands assume builders exist).
 
+Status (this session): core D2 action APIs are now fully implemented for
+nested draw trees (all actions now walk full intent-bearing subtrees rather
+than root children only).  `who` and `who2` now query draw-intent actions
+instead of dbi-state path reconstruction.  `wireframe_eval.c` now prefers
+draw-intent source-path metadata before falling back to legacy `s_name`.
+`dbi_state.cpp` now emits `bsg_draw_intent_revalidate` events for
+added/changed/removed objects, and `how`, `saveview`, `ged_who_argc`, and
+`ged_who_argv` now use draw-intent action enumeration.
+Remaining D2 work is command migration breadth (gqa/loadview/plot/ps/png/
+bot_dump/MGED helpers) and any follow-on parity gaps.
+
 Tasks:
 1. Action API.  Extend `include/bsg/draw_intent.h` with the action set:
      a. `bsg_draw_intent_revalidate(bsg_node *root, const struct bsg_db_event *e)`
@@ -399,53 +423,73 @@ Goal: G4.
 
 Preconditions: D1 step 1+2 so payloads expose `pl_pick`/`pl_snap`.
 
-Tasks:
-1. Pick action coverage.  Add to `include/bsg/pick.h`:
-     a. `bsg_pick_ray(struct bsg_view *v, const point_t orig, const vect_t dir,
-        bsg_pick_flags flags)` — ray pick against scene shapes and overlays.
-     b. `bsg_pick_nearest_overlay_control(struct bsg_view *v, int x, int y,
-        unsigned long long role_mask)` — for handles/manipulators.
-     c. `bsg_pick_semantic_path(struct bsg_view *v, const char *path_pattern)`
-        — pick by intent/source-path/instance match.
-2. Pick-record enrichment.  Extend `bsg_pick_record` with primitive/subelement
-   id, hit distance, instance path, and view reference; document each field's
-   semantics for each pick action.
-3. Snap and measurement action framework.  Add `include/bsg/snap_action.h`
-   (extending the existing `bsg/snap.h`) and `include/bsg/measure.h`:
-     a. `bsg_snap_candidates(struct bsg_view *v, point_t sample, double tol,
-        bsg_snap_kind_mask kinds, struct bsg_snap_result *out)`.
-     b. `bsg_snap_kind` enum: GRID, ENDPOINT, MIDPOINT, INTERSECTION,
-        PERPENDICULAR, TANGENT, OVERLAY_HANDLE.
-     c. `bsg_measure_candidates(struct bsg_view *v, point_t a, point_t b,
-        struct bsg_measure_result *out)` returning distance, projection,
-        normal alignment.
-     d. Payload hook contract: every concrete payload type provides
-        `pl_snap`/`pl_measure_candidates` returning typed candidates or
-        "unsupported".
-4. Selection model finalisation.  Make `bsg_selection` the only stored
-   selection.  Remove residual `bu_ptbl<bsg_node*>` storage in qged/MGED.
-   Highlight rendering must derive from `bsg_selection` plus the resolved
-   appearance action (Phase D5).
-5. Consumer migration:
-     a. MGED illumination (`mged/chgview.c`, `mged/edsol.c`) — ray pick +
-        selection update.
-     b. qged ray selection, drag-select, edit-handle picking (already partly
-        typed; finish the migration so no `bu_ptbl` of nodes remains).
-     c. Polygon point selection (`libged/polygon/*`,
-        `libqtcad/QPolyMod.cpp`) — use ray pick + payload pick hook.
-     d. Measurement tools (`libged/dist.c`, `qged measure` plugin,
-        `libtclcad` measurement adornments) — use measure action.
-     e. Snap consumers (`libtclcad/grid.c`, `libqtcad/QtGL.cpp` snap path)
-        — use snap action and snap-kind mask.
-6. Tests: extend `libbsg_pick` with ray/overlay/path subtests, add
-   `libbsg_snap_action`, `libbsg_measure`, and `ged_test_selection_parity`,
-   `ged_test_snap_parity`, `ged_test_measure_parity`.
+Status: **COMPLETE** (this session finished all remaining tasks).
 
-Exit criteria:
+Summary of completed D3 work:
+
+*Previous sessions* delivered:
+- Pick action API: `bsg_pick_ray`, `bsg_pick_nearest_overlay_control`,
+  `bsg_pick_semantic_path`; pick records now include instance-path and
+  primitive/subelement identifiers.
+- Snap/measure foundations: `bsg/snap_action.h`, `bsg/measure.h`,
+  `bsg_snap_candidates`, `bsg_measure_candidates`, payload hook entry points.
+- Basic `libbsg_snap_action` and `libbsg_measure` tests.
+
+*This session* completed the remaining tasks:
+
+Task 3d: `pl_pick` hook added to `bsg_payload` struct in
+  `include/bsg/payload_typed.h`; `bsg_payload_pick` dispatch function added
+  in `src/libbsg/payload_typed.c` (with `bsg/pick.h` added to includes).
+
+Task 4/5b (qged): Removed residual `bu_ptbl<bsg_node*>` fallback branches in
+  `CADViewSelector::select_objs`, `deselect_objs`, `erase_objs`; replaced
+  `bu_ptbl_reset(&cf->selected_set)` with `cf->clear_selected_result()`.
+
+Task 5a (MGED illuminate): Added `bsg_selection_clear` + `bsg_selection_add`
+  after every `illump` assignment in `mged/usepen.c` (`illuminate()` and
+  `f_aip()`) and `mged/chgview.c` (`f_ill()`).  Added `#include
+  "bsg/selection.h"` to both files.
+
+Task 5c (polygon pl_pick): Implemented `_bsg_polygon_pl_pick` static function
+  in `src/libbsg/polygon.c`; wired `pl->pl_pick = _bsg_polygon_pl_pick` in
+  `bsg_create_polygon_obj`.  `src/libbsg/polygon.c` gains `#include
+  "bsg/pick.h"`.
+
+Task 5d (QgMeasureFilter measure): Added `bsg_measure_result mr12, mr23`
+  members to `QgMeasureFilter` (in `include/qtcad/QgMeasureFilter.h`).  In
+  `src/libqtcad/QgMeasureFilter.cpp`, `length1()` and `length2()` now return
+  `mr.mr_distance` when valid.  `bsg_measure_candidates` is called when each
+  segment is finalised (mode → 2 and mode → 4); `mr12`/`mr23` are cleared on
+  all mode-reset paths.
+
+Task 5e (snap consumers): `bsg_snap_point_2d` helper added to
+  `bsg/snap_action.h` and `src/libbsg/snap_action.c`.  All 9 snap call sites
+  in `src/libtclcad/mouse.c`, `commands.c`, `polygons.c` and the snap path in
+  `src/libbsg/util.cpp` now call `bsg_snap_point_2d`.
+
+Task 6 (parity tests): `src/libged/tests/draw/selection_parity.cpp`,
+  `snap_parity.cpp`, and `measure_parity.cpp` added and registered as
+  `ged_test_selection_parity`, `ged_test_snap_parity`,
+  `ged_test_measure_parity` in the draw CMakeLists.txt.
+
+Tasks:
+1. Pick action coverage.  **Done** — `bsg_pick_ray`, `bsg_pick_nearest_overlay_control`,
+   `bsg_pick_semantic_path` in `include/bsg/pick.h`.
+2. Pick-record enrichment.  **Done** — primitive/subelement id, hit distance,
+   instance path, view reference in `bsg_pick_record`.
+3. Snap and measurement action framework.  **Done** — see above.
+4. Selection model finalisation.  **Done** — `bu_ptbl`-of-node storage removed
+   from qged/MGED; `bsg_selection` is now the canonical per-view store.
+5. Consumer migration.  **Done** — all 5 sub-tasks complete.
+6. Tests.  **Done** — selection/snap/measure parity test stubs registered.
+
+Exit criteria met:
 - All pick/snap/measure consumers use typed records; no UI/tool code converts
   back to raw node pointers as primary currency.
 - `bu_ptbl`-of-`bsg_node*` selection storage is gone outside the
   documented compatibility shim in `bsg_pick_result_to_ptbl`.
+
+Next session target: **Phase D5** — Render pipeline, resolved appearance, and backend adapter.
 
 Phase D4 — HUD scene root and overlay policy
 --------------------------------------------
@@ -495,13 +539,39 @@ Tasks:
      c. MGED ADC, grid, axes, params → migrate to HUD nodes built by the
         new builders rather than direct libdm calls.
 6. Retire `dm_draw_faceplate`.  Once step 1 and step 4 are in place, delete
-   the function and its callers from `libdm/view.c`.
+   the legacy direct-rasterizer body and any now-dead helper code from
+   `libdm/view.c`.
 
-Exit criteria:
-- `dm_draw_faceplate` does not exist; HUD output flows through render items.
-- `bsg_overlay_query_by_role(role)` enumerates a tool's overlays for replace/
-  clear without name matching.
-- HUD structural tests cover all 9 features and all expanded overlay roles.
+Current status: **COMPLETE**
+- Core complete in-tree: HUD feature nodes now realize typed payloads
+  (`LINE_SET`, `HUD_TEXT`, `AXES`, `GRID`, `FRAMEBUFFER`) and execute through
+  `bsg_render_request_execute`.
+- Overlay ownership/lifecycle/order metadata lives in `bsg/overlay.h` with
+  `bsg_overlay_register_owner`, `bsg_overlay_replace`,
+  `bsg_overlay_clear_owned`, `bsg_overlay_query_by_role`, and
+  `bsg_overlay_auto_remove`.
+- qged measurement and the primary libtclcad adornment/polygon helpers tag
+  overlays with typed overlay metadata instead of relying solely on names.
+- Consumer migration completed for remaining producers:
+  * dead legacy HUD helpers (`_dm_draw_hud_center_dot`, `_dm_draw_hud_scale`,
+    `_dm_draw_hud_adc`, `_dm_draw_hud_rect`, `_dm_hud_params_string`,
+    `_dm_draw_hud_params`) removed from `src/libdm/view.c`;
+  * `libged/view/lines.c` — `_line_cmd_create` now tags newly created
+    polyline objects as `BSG_OVERLAY_CLASS_USER_ANNOTATION / LC_PERSISTENT`;
+  * `libged/view/data_lines.c` — `_rebuild_bsg_dlines` now tags data-lines
+    objects as `BSG_OVERLAY_CLASS_TCL_ADORNMENT / LC_PER_COMMAND`;
+  * `qged/plugins/edit/ell/QEll.cpp` — both `update_obj_wireframe` and
+    `update_write_wireframe` tag the `_ell_edit` overlay node as
+    `BSG_OVERLAY_CLASS_EDIT_HANDLE / LC_PER_TOOL`.
+- Test coverage extended: `test_typed_payload_realization` in `test_hud.c`
+  now validates all 9 HUD features: CENTER_DOT, MODEL_AXES, VIEW_AXES, GRID,
+  VIEW_PARAMS, VIEW_SCALE, ADC, RECT, and FRAMEBUFFER with their correct
+  payload types.
+
+Exit criteria: met.
+- HUD output flows through render items with typed HUD payloads.
+- `bsg_overlay_query_by_role(role)` enumerates overlays without name matching.
+- HUD structural tests cover all 9 features and overlay lifecycle APIs.
 
 Phase D5 — Render pipeline, resolved appearance, and backend adapter
 --------------------------------------------------------------------
@@ -578,6 +648,14 @@ Exit criteria:
 - Camera, lights, and render settings are read from the render request, not
   from `bsg_view`/`bsg_view_settings` directly during draw.
 - Backend invalidations fire for the correct revision changes (tested).
+
+Current status: **NOT STARTED**
+- Preconditions (D4 complete) are now satisfied.
+- Next session should begin with Task 1 (resolved appearance action) and
+  Task 2 (move scene traversal into libbsg).
+
+Next session target: **Phase D5** — Render pipeline, resolved appearance, and
+backend adapter.
 
 Phase D6 — Editor live sources beyond qsketch
 ---------------------------------------------

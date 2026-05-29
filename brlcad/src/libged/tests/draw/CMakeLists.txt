@@ -252,6 +252,52 @@ endif()
 distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_bsg_quad_tmp.g)
 distclean(${CMAKE_CURRENT_BINARY_DIR}/bsg_qparity_cache)
 
+# Phase D3: typed selection / snap / measure parity
+brlcad_addexec(ged_test_selection_parity "selection_parity.cpp" "libged;libbsg;libbu" TEST)
+if(TARGET ged_test_selection_parity)
+  foreach(tdp ${test_deps})
+    if (TARGET tdp)
+      add_dependencies(ged_test_selection_parity ${tdp})
+    endif ()
+  endforeach()
+endif(TARGET ged_test_selection_parity)
+brlcad_add_test(NAME ged_test_selection_parity
+  COMMAND ged_test_selection_parity "${CMAKE_CURRENT_SOURCE_DIR}")
+if(TARGET ged_test_selection_parity)
+  set_property(TEST ged_test_selection_parity
+    APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif()
+distclean(${CMAKE_CURRENT_BINARY_DIR}/moss_selection_parity_tmp.g)
+distclean(${CMAKE_CURRENT_BINARY_DIR}/ged_selection_parity_cache)
+
+brlcad_addexec(ged_test_snap_parity "snap_parity.cpp" "libbsg;libbu" TEST)
+if(TARGET ged_test_snap_parity)
+  foreach(tdp ${test_deps})
+    if (TARGET tdp)
+      add_dependencies(ged_test_snap_parity ${tdp})
+    endif ()
+  endforeach()
+endif(TARGET ged_test_snap_parity)
+brlcad_add_test(NAME ged_test_snap_parity COMMAND ged_test_snap_parity)
+if(TARGET ged_test_snap_parity)
+  set_property(TEST ged_test_snap_parity
+    APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif()
+
+brlcad_addexec(ged_test_measure_parity "measure_parity.cpp" "libbsg;libbu" TEST)
+if(TARGET ged_test_measure_parity)
+  foreach(tdp ${test_deps})
+    if (TARGET tdp)
+      add_dependencies(ged_test_measure_parity ${tdp})
+    endif ()
+  endforeach()
+endif(TARGET ged_test_measure_parity)
+brlcad_add_test(NAME ged_test_measure_parity COMMAND ged_test_measure_parity)
+if(TARGET ged_test_measure_parity)
+  set_property(TEST ged_test_measure_parity
+    APPEND PROPERTY ENVIRONMENT BRLCAD_ROOT=${CMAKE_BINARY_DIR})
+endif()
+
 # LoD cross-run cache stability (populate cache → close → reopen → same pixels)
 brlcad_addexec(ged_test_lod_crossrun "lod_crossrun.cpp;util.cpp" "libged;libdm" TEST)
 if(TARGET ged_test_lod_crossrun)
@@ -401,6 +447,9 @@ cmakefiles(
   bsg_parity.cpp
   bsg_quad_parity.cpp
   bsg_view_obj.cpp
+  selection_parity.cpp
+  snap_parity.cpp
+  measure_parity.cpp
   tcl_adornment_bsg.cpp
   view_independent.cpp
   view_command.cpp

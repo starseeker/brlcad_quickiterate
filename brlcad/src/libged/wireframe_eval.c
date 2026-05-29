@@ -43,6 +43,7 @@
 #include "raytrace.h"
 #include "rt/func.h"
 
+#include "bsg/draw_intent.h"
 #include "bsg/draw_source.h"
 #include "bsg/payload.h"
 #include "./ged_private.h"
@@ -1829,7 +1830,9 @@ draw_m3(struct bsg_node *s)
 	db_path_to_vls(&ppath, dgcdp.fp);
 	path = bu_vls_cstr(&ppath);
     } else {
-	path = bu_vls_cstr(&s->s_name);
+	const struct bsg_draw_intent *di = bsg_node_get_draw_intent(s);
+	path = (di && bsg_draw_intent_path(di) && *bsg_draw_intent_path(di)) ?
+	    bsg_draw_intent_path(di) : bu_vls_cstr(&s->s_name);
     }
 
     if (!path || rt_gettrees(dgcdp.rtip, 1, (const char **)&path, 1)) {

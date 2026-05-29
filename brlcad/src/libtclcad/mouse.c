@@ -114,13 +114,16 @@ to_mouse_append_pnt_common(struct ged *gedp,
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
 
     gedp->ged_gvp = gdvp;
-    int snapped = 0;
-    if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
-	snapped = bsg_snap_lines_2d(gedp->ged_gvp, &view[X], &view[Y]);
-    }
-    if (!snapped && gedp->ged_gvp->gv_s->gv_grid.snap) {
-	bsg_snap_grid_2d(gedp->ged_gvp, &view[X], &view[Y]);
+    {
+	bsg_snap_kind_mask snap_kinds = 0;
+	if (gedp->ged_gvp->gv_s->gv_snap_lines) {
+	    gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
+	}
+	if (gedp->ged_gvp->gv_s->gv_grid.snap)
+	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_GRID;
+	if (snap_kinds)
+	    bsg_snap_point_2d(gedp->ged_gvp, &view[X], &view[Y], snap_kinds);
     }
 
     bu_vls_printf(&pt_vls, "%lf %lf %lf", view[X], view[Y], view[Z]);
@@ -2185,13 +2188,16 @@ to_mouse_poly_circ_func(Tcl_Interp *interp,
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
 
-    int snapped = 0;
-    if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
-	snapped = bsg_snap_lines_2d(gedp->ged_gvp, &fx, &fy);
-    }
-    if (!snapped && gedp->ged_gvp->gv_s->gv_grid.snap) {
-	bsg_snap_grid_2d(gedp->ged_gvp, &fx, &fy);
+    {
+	bsg_snap_kind_mask snap_kinds = 0;
+	if (gedp->ged_gvp->gv_s->gv_snap_lines) {
+	    gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
+	}
+	if (gedp->ged_gvp->gv_s->gv_grid.snap)
+	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_GRID;
+	if (snap_kinds)
+	    bsg_snap_point_2d(gedp->ged_gvp, &fx, &fy, snap_kinds);
     }
 
     bu_vls_printf(&plist, "{0 ");
@@ -2505,13 +2511,16 @@ to_mouse_poly_ell_func(Tcl_Interp *interp,
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
 
-    int snapped = 0;
-    if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
-	snapped = bsg_snap_lines_2d(gedp->ged_gvp, &fx, &fy);
-    }
-    if (!snapped && gedp->ged_gvp->gv_s->gv_grid.snap) {
-	bsg_snap_grid_2d(gedp->ged_gvp, &fx, &fy);
+    {
+	bsg_snap_kind_mask snap_kinds = 0;
+	if (gedp->ged_gvp->gv_s->gv_snap_lines) {
+	    gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
+	}
+	if (gedp->ged_gvp->gv_s->gv_grid.snap)
+	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_GRID;
+	if (snap_kinds)
+	    bsg_snap_point_2d(gedp->ged_gvp, &fx, &fy, snap_kinds);
     }
 
     bu_vls_printf(&plist, "{0 ");
@@ -2691,13 +2700,16 @@ to_mouse_poly_rect_func(Tcl_Interp *interp,
     gdvp->gv_height = dm_get_height((struct dm *)gdvp->dmp);
     bsg_screen_to_view(gdvp, &fx, &fy, x, y);
 
-    int snapped = 0;
-    if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
-	snapped = bsg_snap_lines_2d(gedp->ged_gvp, &fx, &fy);
-    }
-    if (!snapped && gedp->ged_gvp->gv_s->gv_grid.snap) {
-	bsg_snap_grid_2d(gedp->ged_gvp, &fx, &fy);
+    {
+	bsg_snap_kind_mask snap_kinds = 0;
+	if (gedp->ged_gvp->gv_s->gv_snap_lines) {
+	    gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
+	}
+	if (gedp->ged_gvp->gv_s->gv_grid.snap)
+	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_GRID;
+	if (snap_kinds)
+	    bsg_snap_point_2d(gedp->ged_gvp, &fx, &fy, snap_kinds);
     }
 
 

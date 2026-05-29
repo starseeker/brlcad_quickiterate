@@ -31,6 +31,7 @@
 #include "bn.h"
 #include "bsg/appearance.h"
 #include "bsg/node.h"
+#include "bsg/selection.h"
 #include "ged/view.h"
 
 #include "./mged.h"
@@ -122,6 +123,16 @@ illuminate(struct mged_state *s, int y) {
      * O(1) instead of sweeping the full tree (B5). */
     bsg_view_obj_set_illum(s->gedp, illump);
 
+    /* Mirror the illuminated solid into the view's bsg_selection so that
+     * D3 consumers (highlight rendering, D5 resolved appearance) see a
+     * typed selection record rather than only the legacy illump global. */
+    struct bsg_view *gvp = view_state->vs_gvp;
+    if (gvp && gvp->gv_selected) {
+	bsg_selection_clear(gvp->gv_selected);
+	if (illump)
+	    bsg_selection_add(gvp->gv_selected, illump);
+    }
+
     s->update_views = 1;
     dm_set_dirty(DMP, 1);
 }
@@ -195,6 +206,16 @@ f_aip(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
 	bsg_view_obj_set_illum(s->gedp, sp);
 	illump = sp;
 	illum_gdlp = bsg_view_obj_group_of_solid(s->gedp, sp);
+    }
+
+    /* Keep bsg_selection in sync with illump so D3/D5 consumers stay current. */
+    {
+	struct bsg_view *gvp = view_state->vs_gvp;
+	if (gvp && gvp->gv_selected) {
+	    bsg_selection_clear(gvp->gv_selected);
+	    if (illump)
+		bsg_selection_add(gvp->gv_selected, illump);
+	}
     }
 
     s->update_views = 1;

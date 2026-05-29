@@ -235,31 +235,20 @@ CADViewSelector::select_objs()
 	return;
 
     const struct bsg_pick_result *res = cf->pick_result();
+    if (!res || !bsg_pick_result_count(res))
+	return;
     struct bu_vls dpath = BU_VLS_INIT_ZERO;
-    if (res && bsg_pick_result_count(res)) {
-	for (size_t i = 0; i < bsg_pick_result_count(res); i++) {
-	    struct bsg_pick_record *pr = bsg_pick_result_get(res, i);
-	    if (!pr || !pr->pr_node)
-		continue;
-	    bu_vls_sprintf(&dpath, "%s",
-		bu_vls_strlen(&pr->pr_source_path) ? bu_vls_cstr(&pr->pr_source_path) : bu_vls_cstr(&pr->pr_node->s_name));
-	    if (bu_vls_cstr(&dpath)[0] != '/')
-		bu_vls_prepend(&dpath, "/");
-	    if (!ss->select_path(bu_vls_cstr(&dpath), false)) {
-		bu_vls_free(&dpath);
-		return;
-	    }
-	}
-    } else {
-	for (size_t i = 0; i < BU_PTBL_LEN(&cf->selected_set); i++) {
-	    struct bsg_node *s = (struct bsg_node *)BU_PTBL_GET(&cf->selected_set, i);
-	    bu_vls_sprintf(&dpath, "%s",  bu_vls_cstr(&s->s_name));
-	    if (bu_vls_cstr(&dpath)[0] != '/')
-		bu_vls_prepend(&dpath, "/");
-	    if (!ss->select_path(bu_vls_cstr(&dpath), false)) {
-		bu_vls_free(&dpath);
-		return;
-	    }
+    for (size_t i = 0; i < bsg_pick_result_count(res); i++) {
+	struct bsg_pick_record *pr = bsg_pick_result_get(res, i);
+	if (!pr || !pr->pr_node)
+	    continue;
+	bu_vls_sprintf(&dpath, "%s",
+	    bu_vls_strlen(&pr->pr_source_path) ? bu_vls_cstr(&pr->pr_source_path) : bu_vls_cstr(&pr->pr_node->s_name));
+	if (bu_vls_cstr(&dpath)[0] != '/')
+	    bu_vls_prepend(&dpath, "/");
+	if (!ss->select_path(bu_vls_cstr(&dpath), false)) {
+	    bu_vls_free(&dpath);
+	    return;
 	}
     }
 
@@ -280,31 +269,20 @@ CADViewSelector::deselect_objs()
 	return;
 
     const struct bsg_pick_result *res = cf->pick_result();
+    if (!res || !bsg_pick_result_count(res))
+	return;
     struct bu_vls dpath = BU_VLS_INIT_ZERO;
-    if (res && bsg_pick_result_count(res)) {
-	for (size_t i = 0; i < bsg_pick_result_count(res); i++) {
-	    struct bsg_pick_record *pr = bsg_pick_result_get(res, i);
-	    if (!pr || !pr->pr_node)
-		continue;
-	    bu_vls_sprintf(&dpath, "%s",
-		bu_vls_strlen(&pr->pr_source_path) ? bu_vls_cstr(&pr->pr_source_path) : bu_vls_cstr(&pr->pr_node->s_name));
-	    if (bu_vls_cstr(&dpath)[0] != '/')
-		bu_vls_prepend(&dpath, "/");
-	    if (!ss->deselect_path(bu_vls_cstr(&dpath), false)) {
-		bu_vls_free(&dpath);
-		return;
-	    }
-	}
-    } else {
-	for (size_t i = 0; i < BU_PTBL_LEN(&cf->selected_set); i++) {
-	    struct bsg_node *s = (struct bsg_node *)BU_PTBL_GET(&cf->selected_set, i);
-	    bu_vls_sprintf(&dpath, "%s",  bu_vls_cstr(&s->s_name));
-	    if (bu_vls_cstr(&dpath)[0] != '/')
-		bu_vls_prepend(&dpath, "/");
-	    if (!ss->deselect_path(bu_vls_cstr(&dpath), false)) {
-		bu_vls_free(&dpath);
-		return;
-	    }
+    for (size_t i = 0; i < bsg_pick_result_count(res); i++) {
+	struct bsg_pick_record *pr = bsg_pick_result_get(res, i);
+	if (!pr || !pr->pr_node)
+	    continue;
+	bu_vls_sprintf(&dpath, "%s",
+	    bu_vls_strlen(&pr->pr_source_path) ? bu_vls_cstr(&pr->pr_source_path) : bu_vls_cstr(&pr->pr_node->s_name));
+	if (bu_vls_cstr(&dpath)[0] != '/')
+	    bu_vls_prepend(&dpath, "/");
+	if (!ss->deselect_path(bu_vls_cstr(&dpath), false)) {
+	    bu_vls_free(&dpath);
+	    return;
 	}
     }
 
@@ -321,27 +299,18 @@ CADViewSelector::erase_objs()
     if (!gedp)
 	return;
     const struct bsg_pick_result *res = cf->pick_result();
-    size_t pick_cnt = (res) ? bsg_pick_result_count(res) : 0;
-    if (!pick_cnt)
-	pick_cnt = BU_PTBL_LEN(&cf->selected_set);
+    if (!res || !bsg_pick_result_count(res))
+	return;
+    size_t pick_cnt = bsg_pick_result_count(res);
     const char **av = (const char **)bu_calloc(pick_cnt+2, sizeof(char *), "av");
     av[0] = "erase";
     int scnt = 1;
-    if (res && bsg_pick_result_count(res)) {
-	for (size_t i = 0; i < bsg_pick_result_count(res); i++) {
-	    struct bsg_pick_record *pr = bsg_pick_result_get(res, i);
-	    if (!pr || !pr->pr_node)
-		continue;
-	    av[scnt++] = bu_vls_strlen(&pr->pr_source_path) ?
-		bu_vls_cstr(&pr->pr_source_path) : bu_vls_cstr(&pr->pr_node->s_name);
-	}
-    } else {
-	for (size_t i = 0; i < BU_PTBL_LEN(&cf->selected_set); i++) {
-	    struct bsg_node *s = (struct bsg_node *)BU_PTBL_GET(&cf->selected_set, i);
-	    if (!s)
-		continue;
-	    av[scnt++] = bu_vls_cstr(&s->s_name);
-	}
+    for (size_t i = 0; i < pick_cnt; i++) {
+	struct bsg_pick_record *pr = bsg_pick_result_get(res, i);
+	if (!pr || !pr->pr_node)
+	    continue;
+	av[scnt++] = bu_vls_strlen(&pr->pr_source_path) ?
+	    bu_vls_cstr(&pr->pr_source_path) : bu_vls_cstr(&pr->pr_node->s_name);
     }
     ged_exec_erase(gedp, scnt, av);
     bu_free(av, "av");
@@ -442,21 +411,21 @@ CADViewSelector::eventFilter(QObject *o, QEvent *e)
     if (erase_from_scene_button->isChecked()) {
 	erase_objs();
 	emit view_changed(QG_VIEW_DRAWN);
-	bu_ptbl_reset(&cf->selected_set);
+	cf->clear_selected_result();
 	return true;
     }
 
     if (add_to_group_button->isChecked()) {
 	select_objs();
 	emit view_changed(QG_VIEW_DRAWN);
-	bu_ptbl_reset(&cf->selected_set);
+	cf->clear_selected_result();
 	return true;
     }
 
     if (rm_from_group_button->isChecked()) {
 	deselect_objs();
 	emit view_changed(QG_VIEW_DRAWN);
-	bu_ptbl_reset(&cf->selected_set);
+	cf->clear_selected_result();
 	return true;
     }
 

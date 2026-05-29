@@ -49,6 +49,8 @@
 #include "bu/vls.h"
 #include "bsg/vlist.h"
 #include "bsg/draw_source.h"
+#include "bsg/hud.h"
+#include "bsg/overlay.h"
 #include "../ged_private.h"
 #include "./ged_view.h"
 
@@ -77,6 +79,12 @@ _rebuild_bsg_dlines(struct bsg_view *v, const char *bsg_name,
     struct bsg_node *s = bsg_view_obj_lines_create(v, bsg_name, 1 /* local */);
     if (!s)
 	return;
+    bsg_overlay_register_owner(s, NULL,
+	    BSG_OVERLAY_ROLE_MODEL,
+	    BSG_OVERLAY_CLASS_TCL_ADORNMENT,
+	    BSG_OVERLAY_LC_PER_COMMAND,
+	    BSG_OVERLAY_ORDER_POST_TRANSPARENT,
+	    NULL, 0);
 
     bsg_node_clear_vlist_payload(s);
     for (int i = 0; i + 1 < npts; i += 2) {

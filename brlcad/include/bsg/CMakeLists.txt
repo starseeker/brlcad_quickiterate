@@ -17,6 +17,7 @@ set(
   lod.h
   lod_ops.h
   material.h
+  measure.h
   node.h
   node_group.h
   node_shape.h
@@ -36,6 +37,7 @@ set(
   selection.h
   sensor.h
   snap.h
+  snap_action.h
   tcl_data.h
   tig.h
   util.h

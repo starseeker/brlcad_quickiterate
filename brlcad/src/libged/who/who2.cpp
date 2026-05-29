@@ -25,16 +25,26 @@
 
 #include "common.h"
 
-#include <set>
+#include <algorithm>
+#include <string>
+#include <vector>
 
 #include "bu/malloc.h"
 #include "bu/str.h"
 #include "ged.h"
 
-#include "../dbi.h"
 #include "../ged_private.h"
 
 extern "C" int ged_who_solids_core(struct ged *gedp, int argc, const char *argv[]);
+
+static bool
+_path_subsumes(const std::string &prefix, const std::string &path)
+{
+    if (prefix.size() >= path.size() ||
+	path.compare(0, prefix.size(), prefix) != 0)
+	return false;
+    return path[prefix.size()] == '/';
+}
 
 /*
  * List the db objects currently drawn
@@ -103,9 +113,57 @@ ged_who2_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_ERROR;
     }
 
-    DbiState *dbis = (DbiState *)gedp->dbi_state;
-    BViewState *bvs = dbis->get_view_state(v);
-    std::vector<std::string> paths = bvs->list_drawn_paths(mode, (bool)!expand);
+    struct bsg_node *root = (struct bsg_node *)v->gv_draw_root;
+    if (!root)
+	return BRLCAD_OK;
+
+    struct bu_ptbl groups = BU_PTBL_INIT_ZERO;
+    bsg_draw_intent_collect_visible(root, &groups, v);
+
+    std::vector<std::string> paths;
+    paths.reserve(BU_PTBL_LEN(&groups));
+    for (size_t i = 0; i < BU_PTBL_LEN(&groups); i++) {
+	struct bsg_node *group = (struct bsg_node *)BU_PTBL_GET(&groups, i);
+	const struct bsg_draw_intent *di = bsg_node_get_draw_intent(group);
+	if (!di)
+	    continue;
+	if (mode >= 0 && (int)bsg_draw_intent_mode(di) != mode)
+	    continue;
+	const char *path = bsg_draw_intent_path(di);
+	if (!path || !*path)
+	    continue;
+	paths.push_back(std::string(path));
+    }
+    bu_ptbl_free(&groups);
+
+    std::sort(paths.begin(), paths.end());
+    paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
+
+    if (!expand) {
+	std::vector<std::string> collapsed;
+	for (size_t i = 0; i < paths.size(); i++) {
+	    const std::string &p = paths[i];
+	    bool skip = false;
+	    for (size_t j = 0; j < collapsed.size(); j++) {
+		if (collapsed[j] == p || _path_subsumes(collapsed[j], p)) {
+		    skip = true;
+		    break;
+		}
+	    }
+	    if (skip)
+		continue;
+	    std::vector<std::string> next;
+	    next.reserve(collapsed.size() + 1);
+	    for (size_t j = 0; j < collapsed.size(); j++) {
+		if (!_path_subsumes(p, collapsed[j]))
+		    next.push_back(collapsed[j]);
+	    }
+	    next.push_back(p);
+	    collapsed.swap(next);
+	}
+	paths.swap(collapsed);
+    }
+
     for (size_t i = 0; i < paths.size(); i++) {
 	bu_vls_printf(gedp->ged_result_str, "%s\n", paths[i].c_str());
     }

@@ -38,6 +38,8 @@ extern "C" {
 double
 QgMeasureFilter::length1()
 {
+	if (mr12.mr_valid)
+		return mr12.mr_distance;
 	return DIST_PNT_PNT(p1, p2);
 }
 
@@ -47,6 +49,8 @@ QgMeasureFilter::length2()
 	if (mode < 3)
 		return 0.0;
 
+	if (mr23.mr_valid)
+		return mr23.mr_distance;
 	return DIST_PNT_PNT(p2, p3);
 }
 
@@ -94,6 +98,8 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 			VSETALL(p1, 0.0);
 			VSETALL(p2, 0.0);
 			VSETALL(p3, 0.0);
+			mr12 = {0.0, 0.0, 0.0, 0};
+			mr23 = {0.0, 0.0, 0.0, 0};
 			emit view_updated(QG_VIEW_REFRESH);
 			return true;
 		}
@@ -101,6 +107,8 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 			if (s)
 				bsg_obj_put(s);
 			mode = 0;
+			mr12 = {0.0, 0.0, 0.0, 0};
+			mr23 = {0.0, 0.0, 0.0, 0};
 			emit view_updated(QG_VIEW_REFRESH);
 			return true;
 		}
@@ -111,11 +119,22 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 			VSETALL(p1, 0.0);
 			VSETALL(p2, 0.0);
 			VSETALL(p3, 0.0);
+			mr12 = {0.0, 0.0, 0.0, 0};
+			mr23 = {0.0, 0.0, 0.0, 0};
 
 			if (s)
 				bsg_obj_put(s);
 			/* Phase A2: use typed view-object API instead of legacy bsg_obj_get. */
 			s = bsg_view_obj_lines_create(v, oname.c_str(), 0);
+			if (s) {
+				bsg_overlay_register_owner(s, this,
+					BSG_OVERLAY_ROLE_SCREEN,
+					BSG_OVERLAY_CLASS_MEASURE,
+					BSG_OVERLAY_LC_PER_TOOL,
+					BSG_OVERLAY_ORDER_POST_TRANSPARENT,
+					NULL,
+					0);
+			}
 
 			mode = 1;
 			VMOVE(p1, mpnt);
@@ -176,7 +195,7 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 		if (m_e->button() == Qt::RightButton) {
 			mode = 0;
 			if (s) {
-				bsg_obj_put(s);
+				bsg_overlay_clear_owned(v, this);
 				emit view_updated(QG_VIEW_REFRESH);
 			}
 			s = nullptr;
@@ -203,6 +222,8 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 			bsg_node_append_vlist_payload(s, p1, BSG_VLIST_LINE_MOVE);
 			VMOVE(p2, mpnt);
 			bsg_node_append_vlist_payload(s, p2, BSG_VLIST_LINE_DRAW);
+			/* Record p1→p2 measure via typed API for D3 consumers. */
+			bsg_measure_candidates(v, p1, p2, &mr12);
 			emit view_updated(QG_VIEW_REFRESH);
 			return true;
 		}
@@ -215,6 +236,8 @@ QgMeasureFilter::eventFilter(QObject *, QEvent *e)
 			bsg_node_append_vlist_payload(s, p2, BSG_VLIST_LINE_DRAW);
 			VMOVE(p3, mpnt);
 			bsg_node_append_vlist_payload(s, p3, BSG_VLIST_LINE_DRAW);
+			/* Record p2→p3 measure via typed API for D3 consumers. */
+			bsg_measure_candidates(v, p2, p3, &mr23);
 			emit view_updated(QG_VIEW_REFRESH);
 			return true;
 		}

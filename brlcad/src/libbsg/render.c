@@ -70,6 +70,7 @@
 #include "bsg/render_item.h"
 #include "bsg/backend_adapter.h"
 #include "bsg/hud.h"
+#include "bsg/overlay.h"
 #include "bsg/appearance.h"
 #include "bsg/lod.h"
 #include "bsg/lod_ops.h"
@@ -158,6 +159,13 @@ _sort_key(const struct bsg_render_request *req,
 	    return meta->sort_order;
     }
 
+    if (item->phase == BSG_RENDER_PHASE_OVERLAY) {
+	const struct bsg_overlay_info *info =
+	    bsg_overlay_info_get(item->node);
+	if (info)
+	    return ((int)info->ordering * 1000) + info->sort_order;
+    }
+
     if (item->phase == BSG_RENDER_PHASE_TRANSPARENT && req && req->view) {
 	mat_t view_mat;
 	point_t model_origin = VINIT_ZERO;
@@ -230,6 +238,20 @@ _hud_item_cmp(const void *a, const void *b, void *UNUSED(context))
 
 static void
 _sort_hud_bucket(struct bu_ptbl *bucket)
+{
+    if (!bucket || BU_PTBL_LEN(bucket) < 2)
+	return;
+
+    bu_sort(BU_PTBL_BASEADDR(bucket),
+	    BU_PTBL_LEN(bucket),
+	    sizeof(void *),
+	    _hud_item_cmp,
+	    NULL);
+}
+
+
+static void
+_sort_overlay_bucket(struct bu_ptbl *bucket)
 {
     if (!bucket || BU_PTBL_LEN(bucket) < 2)
 	return;
@@ -509,6 +531,7 @@ bsg_render_request_execute(struct bsg_render_request *req)
 
     if (do_sorted_alpha)
 	_sort_transparent_bucket(&st.phase_items[BSG_RENDER_PHASE_TRANSPARENT]);
+    _sort_overlay_bucket(&st.phase_items[BSG_RENDER_PHASE_OVERLAY]);
     if (req->flags & BSG_RENDER_FLAG_HUD_PASS)
 	_sort_hud_bucket(&st.phase_items[BSG_RENDER_PHASE_HUD]);
 

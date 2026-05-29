@@ -32,6 +32,7 @@
 #include "bn.h"
 #include "bsg/util.h"
 #include "bsg/appearance.h"
+#include "bsg/selection.h"
 #include "ged/view.h"
 #include "raytrace.h"
 #include "rt/edit.h"
@@ -1426,6 +1427,16 @@ f_ill(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[])
     /* Make the specified solid the illuminated solid */
     illump = lastfound;
     bsg_appearance_set_highlighted(illump, 1);
+
+    /* Mirror into bsg_selection so D3 consumers see the selection. */
+    {
+	struct bsg_view *gvp = view_state->vs_gvp;
+	if (gvp && gvp->gv_selected) {
+	    bsg_selection_clear(gvp->gv_selected);
+	    if (illump)
+		bsg_selection_add(gvp->gv_selected, illump);
+	}
+    }
 
     if (!illum_only) {
 	if (s->global_editing_state == ST_O_PICK) {
