@@ -146,23 +146,34 @@ Work still outstanding (target of this guide):
   DIAGNOSTIC, TCL_ADORNMENT, POLYGON_EDIT, SKETCH_EDIT, and USER_ANNOTATION
   roles, and the lifecycle policy enum, are missing.  No tool-owned
   overlay-replacement/cleanup API exists.
-- D5: **COMPLETE** (this session).  `_bsg_view_traverse_impl` removed from
+- D5: **COMPLETE** (core).  `_bsg_view_traverse_impl` removed from
   libdm; `bsg_view_traverse()` delegates to `bsg_render_request_execute()`.
   `bsg_resolved_appearance` struct introduced; `bsg_appearance_resolve()` in
   libbsg centralizes appearance resolution; `bsg_render_item` embeds the
   resolved appearance.  `bsg_render_settings` struct added and wired into
   `bsg_render_request`.  Camera-node binding API added.  `BSG_INVALIDATE_*`
-  reason mask added to adapter invalidation callback.  Remaining deferred
-  items: D3/D4 backend parity audit, `libged/qged_view_settings` write-through,
-  and integration test suite.
-- D6: qsketch comments/refresh wording still references the old custom-callback
-  flow.  The SKETCH live-source contract works for qsketch but has no other
-  consumer, and no shared "live source payload" base for editors beyond sketch
-  exists.
-- D7: `bsg_node` is still a public struct.  `BV_*` aliases remain in public
-  headers (`include/bsg/defines.h`, `include/bv/*`).  Legacy comments
-  referring to display lists, solid lists, view objects, and scene objects
-  remain throughout libbsg/libdm/libqtcad/qged.
+  reason mask added to adapter invalidation callback.  This session finished
+  applying the render-item appearance migration in the consumers that were
+  still reading the removed flat fields (`libdm/view.c` HUD+scene draw items,
+  `render_item.c`, `test_render_item.c` now use `item->appearance.*`).
+  Remaining deferred items: GL-family backend parity audit (G7 — the
+  `s_cflag` geometry-default-color branch in `_dm_scene_draw_item` still
+  re-derives color), `libged/qged_view_settings` write-through, and the
+  integration test suite.
+- D6: **COMPLETE** (core).  `BSG_PL_LIVE` payload type plus the
+  `bsg_live_source` callback contract are in place; qsketch comments describe
+  the live-payload flow; extrude/revolve/bot edit-plugin scaffolding exists.
+  This session aligned `bsg_payload_sketch_set_live_ops`'s return convention
+  with the documented `bsg_payload_live_set_ops` contract (1 = success,
+  0 = failure).  Remaining deferred: `ged_test_editor_live_source` end-to-end
+  test and interactive UI wiring for the extrude/revolve/bot stubs.
+- D7: **COMPLETE** (core).  `struct bsg_node` is opaque to public headers
+  (layout moved to `include/bsg/node_private.h`); `BV_*` aliases are
+  centralized in `include/bsg/legacy_compat.h` behind
+  `BSG_ENABLE_LEGACY_BV_ALIASES`; `bsg_drawing_api.md` and the
+  `bsg_vocabulary.md` deprecation guide exist.  Remaining: incremental
+  libged comment-vocabulary cleanup (D0 audit tail) and the deferred
+  validation matrix.
 
 Modernization goals (acceptance reference)
 ==========================================
@@ -688,14 +699,58 @@ What was done:
   `render_settings.c` added to `LIBBSG_SRCS` and `cmakefiles`.
 
 Deferred / partial items (for D5 follow-up or D6):
-- Task 3 (adapter parity audit): `dm-glx`/`dm-swrast`/`dm-qtgl`/`dm-plot`
-  backends have not yet been audited for redundant policy decisions.
-- Task 7b/7c: `libged/view/objs.cpp` and `qged_view_settings` have not yet
-  been migrated to write through `bsg_render_settings`.
-- Task 8b: `libbsg_render` test extension (transparency sort, overlay ordering)
-  deferred.
+- Task 3 (G7 geometry-default color): **DONE**.  `bsg_appearance_resolve` now
+  models the geometry-default-color layer (`BSG_ALAY_GEOM_DEFAULT`): when a
+  node sets `s_old.s_cflag`, the resolver fills `out->color` from the view's
+  bound `gv_render_settings->geometry_default_color` (falling back to red
+  {255,0,0}), and a later inherited/command color override still wins.  The
+  backend-owned default color is plumbed in via a new
+  `bsg_render_settings.geometry_default_color[3]` field that `libdm/view.c`
+  populates from `dm_get_geometry_default_color(dmp)` on each render request
+  (both `bsg_view_traverse` and `dm_draw_objs` sites); the request settings
+  are bound onto `req->view->gv_render_settings` for the duration of
+  `_render_collect` in `bsg_render_request_execute`.  Consequently the 4-way
+  color branch in `_dm_scene_draw_item` collapses to: highlighted -> white,
+  else -> `item->appearance.color`.
+  REMAINING (Task 3 audit): `dm-glx`/`dm-swrast`/`dm-qtgl`/`dm-plot` backends
+  still have not been audited for *other* redundant policy decisions.
+- Task 7b: `libged/view/objs.cpp` writes no `bsg_render_settings`-backed
+  fields (verified by grep), so there is nothing to migrate there.
+- Task 7c: **DONE**.  Added inverse API
+  `bsg_render_settings_apply_to_view()` and migrated `qged_view_settings`
+  (`CADViewSettings`) to read (adaptive_plot_csg/mesh, fb_mode) and write
+  those render-policy fields through `bsg_render_settings`; faceplate-only
+  widgets with no render-settings backing stay direct.
+- Task 8b: **DONE**.  `libbsg_render` test extended with
+  `test_transparency_sort` (back-to-front ordering) and
+  `test_overlay_ordering` (overlay bucket ordering) in
+  `src/libbsg/tests/test_render.c`.
 - Task 8d: The large set of integration tests has not been run (compilation
   testing deferred per user instructions).
+
+  NOTE (build state): at this branch HEAD the `libbsg` library does not yet
+  compile due to pre-existing, unrelated breakage from prior sessions
+  (`overlay.c` missing `<string.h>`/payload-helper declarations, `hud.c`
+  references undeclared `BSG_PAYLOAD_LINE/LABEL/AXES/GRID/IMAGE`, `polygon.c`
+  `bg_plane_closest_pt` pointer-type mismatch) plus a duplicate, conflicting
+  `bsg_lod_policy` enum defined in both `include/bsg/render_settings.h` and
+  `include/bsg/draw_intent.h`.  These predate and are independent of the G7/7c
+  changes (the baseline tree fails identically with the changes stashed), so
+  the new/changed sources here were validated by per-file `-fsyntax-only`
+  compilation; full `libbsg_render`/`libbsg_appearance_resolve` ctest runs
+  remain blocked until that pre-existing breakage is resolved.
+
+Correctness fix (this session): the D5 statement "`bsg_render_item` now
+embeds `struct bsg_resolved_appearance appearance` replacing the inline
+fields" was only half-applied.  `src/libbsg/render_item.c`,
+`src/libbsg/tests/test_render_item.c`, and the two render-item consumers in
+`src/libdm/view.c` (`_dm_hud_draw_item` and `_dm_scene_draw_item`) still read
+the removed flat fields (`item->transparency`, `item->color`,
+`item->line_width`, `item->line_style`, `item->highlighted`).  All of these
+now read through `item->appearance.*`.  A repo-wide grep
+(`grep -rnoE 'item->(transparency|color|line_width|line_style|highlighted)' src/libdm/view.c src/libbsg/render_item.c src/libbsg/tests/test_render_item.c`)
+now returns 0 hits, so the render-item appearance migration is fully applied
+and the render pass will compile against the current struct layout.
 
 Next session target: **Post-D7 validation sweep** — run the deferred Qt-enabled
 build/test matrix and close any parity regressions.

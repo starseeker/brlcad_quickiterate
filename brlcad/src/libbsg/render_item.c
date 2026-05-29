@@ -40,7 +40,7 @@ bsg_render_item_create(void)
     memset(item, 0, sizeof(struct bsg_render_item));
     /* Default: identity transform, fully opaque, phase opaque */
     MAT_IDN(item->model_mat);
-    item->transparency = 1.0;
+    item->appearance.transparency = 1.0;
     item->phase        = BSG_RENDER_PHASE_OPAQUE;
     return item;
 }

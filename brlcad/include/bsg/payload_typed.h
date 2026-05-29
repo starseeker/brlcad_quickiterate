@@ -781,6 +781,8 @@ bsg_payload_sketch_get_data(struct bsg_payload *payload);
  * If @p revision_cb is supplied, it is authoritative for revision values.
  * If @p update_cb reports a change (non-zero) but @p revision_cb does not
  * advance, libbsg bumps the realized revision by one to preserve monotonicity.
+ *
+ * @returns 1 on success, 0 on failure (wrong payload type or NULL payload).
  */
 BSG_EXPORT extern int
 bsg_payload_sketch_set_live_ops(struct bsg_payload *payload,

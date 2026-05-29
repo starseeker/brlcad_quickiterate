@@ -73,6 +73,9 @@ bsg_render_settings_init_defaults(struct bsg_render_settings *rs)
     rs->bot_threshold         = 0;
     rs->curve_scale           = 0.0;
     rs->point_scale           = 0.0;
+    rs->geometry_default_color[0] = 255;
+    rs->geometry_default_color[1] = 0;
+    rs->geometry_default_color[2] = 0;
 }
 
 
@@ -99,6 +102,40 @@ bsg_render_settings_from_view(struct bsg_render_settings *rs,
     /* View params and scale HUD features mirror their settings flags */
     rs->hud_view_params     = s->gv_view_params.draw;
     rs->hud_view_scale      = s->gv_view_scale.gos_draw;
+
+    /* Geometry default color is a backend-owned policy value with no
+     * bsg_view_settings backing.  Preserve any value already bound to the
+     * view's render settings; otherwise keep the {255,0,0} default set by
+     * bsg_render_settings_init_defaults above. */
+    if (v->gv_render_settings) {
+	rs->geometry_default_color[0] = v->gv_render_settings->geometry_default_color[0];
+	rs->geometry_default_color[1] = v->gv_render_settings->geometry_default_color[1];
+	rs->geometry_default_color[2] = v->gv_render_settings->geometry_default_color[2];
+    }
+}
+
+
+void
+bsg_render_settings_apply_to_view(const struct bsg_render_settings *rs,
+				  struct bsg_view *v)
+{
+    if (!rs || !v)
+	return;
+
+    struct bsg_view_settings *s = v->gv_s ? v->gv_s : &v->gv_ls;
+
+    s->gv_zclip            = rs->zclip;
+    s->gv_fb_mode          = (int)rs->fb_mode;
+    s->adaptive_plot_mesh  = rs->adaptive_plot_mesh;
+    s->adaptive_plot_csg   = rs->adaptive_plot_csg;
+    s->bot_threshold       = rs->bot_threshold;
+    s->curve_scale         = rs->curve_scale;
+    s->point_scale         = rs->point_scale;
+    s->lod_scale           = rs->lod_scale;
+
+    /* HUD faceplate enable flags mirror their bsg_view_settings sources. */
+    s->gv_view_params.draw      = rs->hud_view_params;
+    s->gv_view_scale.gos_draw   = rs->hud_view_scale;
 }
 
 /*

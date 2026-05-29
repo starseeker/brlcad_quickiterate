@@ -204,6 +204,22 @@ struct bsg_render_settings {
      * Point scale for adaptive point cloud density (0.0 = default).
      */
     fastf_t         point_scale;
+
+    /* ----- Geometry default color -------------------------------------- */
+
+    /**
+     * Default wireframe RGB color used for geometry whose node requested
+     * the renderer's default color (s_old.s_cflag set) and that carries no
+     * per-node command color override.
+     *
+     * Phase D5/G7: this is the policy input that `bsg_appearance_resolve`
+     * reads (via the view's bound render settings) when modeling the
+     * geometry-default-color appearance layer, so backends no longer have
+     * to re-derive it during draw.  Backends that own a default color
+     * (e.g. libdm's dm_get_geometry_default_color) populate this field on
+     * the request settings before traversal.  Defaults to red {255,0,0}.
+     */
+    unsigned char   geometry_default_color[3];
 };
 
 
@@ -248,6 +264,24 @@ bsg_render_settings_init_defaults(struct bsg_render_settings *rs);
 BSG_EXPORT extern void
 bsg_render_settings_from_view(struct bsg_render_settings *rs,
 			       const struct bsg_view *v);
+
+/**
+ * Write the render-policy fields of @p rs back into the active
+ * bsg_view_settings of @p v.
+ *
+ * This is the inverse of bsg_render_settings_from_view: it lets a consumer
+ * (e.g. a settings panel or a libged view subcommand) edit a render-settings
+ * object and then flush the changes into the view's canonical gv_s store.
+ * Only the data/render-policy fields that round-trip through
+ * bsg_render_settings_from_view are written (zclip, framebuffer mode,
+ * adaptive plotting, LoD scale, HUD faceplate enable flags); fields that have
+ * no bsg_view_settings backing are ignored.
+ *
+ * No-op if either argument is NULL.
+ */
+BSG_EXPORT extern void
+bsg_render_settings_apply_to_view(const struct bsg_render_settings *rs,
+				  struct bsg_view *v);
 
 __END_DECLS
 

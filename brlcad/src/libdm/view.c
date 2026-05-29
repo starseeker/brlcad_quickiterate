@@ -220,8 +220,8 @@ _dm_hud_draw_item(void *dmp_ptr, const struct bsg_render_item *item)
 		break;
 	    int save_lw = dmp->i->dm_lineWidth;
 	    int save_ls = dmp->i->dm_lineStyle;
-	    dm_set_line_attr(dmp, item->line_width, item->node->s_soldash);
-	    dm_set_fg(dmp, item->color[0], item->color[1], item->color[2], 1, 1.0);
+	    dm_set_line_attr(dmp, item->appearance.line_width, item->node->s_soldash);
+	    dm_set_fg(dmp, item->appearance.color[0], item->appearance.color[1], item->appearance.color[2], 1, 1.0);
 	    point_t prev = VINIT_ZERO;
 	    int have_prev = 0;
 	    for (size_t i = 0; i < ls->point_cnt; i++) {
@@ -243,7 +243,7 @@ _dm_hud_draw_item(void *dmp_ptr, const struct bsg_render_item *item)
 	    if (!label)
 		break;
 	    int ofontsize = dm_get_fontsize(dmp);
-	    dm_set_fg(dmp, item->color[0], item->color[1], item->color[2], 1, 1.0);
+	    dm_set_fg(dmp, item->appearance.color[0], item->appearance.color[1], item->appearance.color[2], 1, 1.0);
 	    dm_set_fontsize(dmp, label->size);
 	    dm_draw_string_2d(dmp, bu_vls_cstr(&label->label), label->p[X], label->p[Y], label->size, 0);
 	    dm_set_fontsize(dmp, ofontsize);
@@ -348,26 +348,23 @@ _dm_scene_draw_item(void *dmp_ptr, const struct bsg_render_item *item)
     mat_t model2view;
     bn_mat_mul(model2view, v->gv_model2view, item->model_mat);
     dm_loadmatrix(dmp, model2view, 0);
-    if (item->highlighted && v->gv_edit_mat)
+    if (item->appearance.highlighted && v->gv_edit_mat)
 	dm_loadmatrix(dmp, v->gv_edit_mat, 0);
 
-    if (item->highlighted) {
-	(void)dm_set_fg(dmp, 255, 255, 255, 0, item->transparency);
-    } else if (s->s_os && s->s_os->color_override) {
-	(void)dm_set_fg(dmp, item->color[0], item->color[1], item->color[2], 0, item->transparency);
-    } else if (s->s_old.s_cflag) {
-	unsigned char *gdc = dm_get_geometry_default_color(dmp);
-	(void)dm_set_fg(dmp, gdc[0], gdc[1], gdc[2], 0, item->transparency);
+    if (item->appearance.highlighted) {
+	(void)dm_set_fg(dmp, 255, 255, 255, 0, item->appearance.transparency);
     } else {
-	unsigned char sr, sg, sb;
-	bsg_material_get_rgb(s, &sr, &sg, &sb);
-	(void)dm_set_fg(dmp, sr, sg, sb, 0, item->transparency);
+	/* Phase D5/G7: command override, geometry-default color (s_cflag),
+	 * and the base material color are all resolved into
+	 * item->appearance.color by bsg_appearance_resolve, so the backend
+	 * reads the final color directly instead of re-deriving it. */
+	(void)dm_set_fg(dmp, item->appearance.color[0], item->appearance.color[1], item->appearance.color[2], 0, item->appearance.transparency);
     }
 
-    int lw = item->line_width;
+    int lw = item->appearance.line_width;
     if (lw <= 0)
 	lw = dm_get_linewidth(dmp);
-    (void)dm_set_line_attr(dmp, lw, item->line_style);
+    (void)dm_set_line_attr(dmp, lw, item->appearance.line_style);
 
     (void)dm_backend_draw_obj(dmp, s);
     s->s_drawn_rev = v->gv_frame_rev;
@@ -720,6 +717,14 @@ bsg_view_traverse(struct bsg_view *v, void *root)
     req->flags = BSG_RENDER_FLAG_VISIBLE_ONLY | BSG_RENDER_FLAG_PAYLOAD_DISPATCH;
     if (dm_get_transparency(dmp))
 	req->flags |= BSG_RENDER_FLAG_SORTED_ALPHA;
+    /* Phase D5/G7: hand the backend's geometry-default color to the render
+     * settings so bsg_appearance_resolve can model the default-color layer. */
+    if (req->settings) {
+	unsigned char *gdc = dm_get_geometry_default_color(dmp);
+	req->settings->geometry_default_color[0] = gdc[0];
+	req->settings->geometry_default_color[1] = gdc[1];
+	req->settings->geometry_default_color[2] = gdc[2];
+    }
     req->adapter = &traverse_adapter;
     (void)bsg_render_request_execute(req);
     bsg_render_request_destroy(req);
@@ -802,6 +807,16 @@ dm_draw_objs(struct bsg_view *v)
 	    req->flags = BSG_RENDER_FLAG_VISIBLE_ONLY | BSG_RENDER_FLAG_PAYLOAD_DISPATCH;
 	    if (dm_get_transparency(dmp))
 		req->flags |= BSG_RENDER_FLAG_SORTED_ALPHA;
+	    /* Phase D5/G7: hand the backend's geometry-default color to the
+	     * render settings so bsg_appearance_resolve models the
+	     * default-color layer and the scene adapter can read the resolved
+	     * color directly from item->appearance.color. */
+	    if (req->settings) {
+		unsigned char *gdc = dm_get_geometry_default_color(dmp);
+		req->settings->geometry_default_color[0] = gdc[0];
+		req->settings->geometry_default_color[1] = gdc[1];
+		req->settings->geometry_default_color[2] = gdc[2];
+	    }
 	    req->adapter = &scene_adapter;
 	    (void)bsg_render_request_execute(req);
 	    bsg_render_request_destroy(req);

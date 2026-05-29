@@ -88,7 +88,7 @@ test_item_create_free(void)
     struct bsg_render_item *item = bsg_render_item_create();
     if (!item) FAIL("bsg_render_item_create returned NULL");
     if (item->node         != NULL)              FAIL("node should be NULL");
-    if (!NEAR_EQUAL(item->transparency, 1.0, BN_TOL_DIST))               FAIL("default transparency should be 1.0");
+    if (!NEAR_EQUAL(item->appearance.transparency, 1.0, BN_TOL_DIST))               FAIL("default transparency should be 1.0");
     if (item->phase        != BSG_RENDER_PHASE_OPAQUE) FAIL("default phase should be OPAQUE");
 
     bsg_render_item_free(item);
@@ -270,7 +270,7 @@ test_transparent_phase(void)
 	(struct bsg_render_item *)BU_PTBL_GET(&items, 0);
     if (item->phase != BSG_RENDER_PHASE_TRANSPARENT)
 	FAIL("transparent shape should be in TRANSPARENT phase");
-    if (!NEAR_EQUAL(item->transparency, 0.5, BN_TOL_DIST))
+    if (!NEAR_EQUAL(item->appearance.transparency, 0.5, BN_TOL_DIST))
 	FAIL("transparency value not preserved");
 
     bsg_render_item_free(item);

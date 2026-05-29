@@ -32,11 +32,12 @@
 #include "bsg/material.h"
 #include "bsg/appearance.h"
 #include "bsg/appearance_action.h"
+#include "bsg/render_settings.h"
 #include "bsg/node_private.h"
 
 
 int
-bsg_appearance_resolve(const struct bsg_view *UNUSED(v),
+bsg_appearance_resolve(const struct bsg_view *v,
 		       const bsg_node *node,
 		       const struct bsg_obj_settings *inherited_os,
 		       struct bsg_resolved_appearance *out)
@@ -57,7 +58,29 @@ bsg_appearance_resolve(const struct bsg_view *UNUSED(v),
     out->active_layers |= BSG_ALAY_BASE;
 
     /* ------------------------------------------------------------------ */
-    /* 2. Inherited ancestor group settings                                */
+    /* 2. Geometry-default-color layer (s_old.s_cflag).                    */
+    /*                                                                     */
+    /* When the node asked for the renderer's default wireframe color, use */
+    /* it in place of the base material color.  The default color is a     */
+    /* backend-owned policy value carried on the view's bound render       */
+    /* settings; fall back to red {255,0,0} when no settings are bound.    */
+    /* A later inherited/command color override (steps 3/4) still wins.    */
+    /* ------------------------------------------------------------------ */
+    if (((const bsg_node *)node)->s_old.s_cflag) {
+	unsigned char gd[3] = { 255, 0, 0 };
+	if (v && v->gv_render_settings) {
+	    gd[0] = v->gv_render_settings->geometry_default_color[0];
+	    gd[1] = v->gv_render_settings->geometry_default_color[1];
+	    gd[2] = v->gv_render_settings->geometry_default_color[2];
+	}
+	out->color[0] = gd[0];
+	out->color[1] = gd[1];
+	out->color[2] = gd[2];
+	out->active_layers |= BSG_ALAY_GEOM_DEFAULT;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* 3. Inherited ancestor group settings                                */
     /* ------------------------------------------------------------------ */
     if (inherited_os) {
 	out->transparency = inherited_os->transparency;
@@ -76,7 +99,7 @@ bsg_appearance_resolve(const struct bsg_view *UNUSED(v),
     }
 
     /* ------------------------------------------------------------------ */
-    /* 3. Per-node command override (s_os)                                 */
+    /* 4. Per-node command override (s_os)                                 */
     /* ------------------------------------------------------------------ */
     const struct bsg_obj_settings *os =
 	((const bsg_node *)node)->s_os;
@@ -93,31 +116,31 @@ bsg_appearance_resolve(const struct bsg_view *UNUSED(v),
     }
 
     /* ------------------------------------------------------------------ */
-    /* 4. Line style from the shape node                                   */
+    /* 5. Line style from the shape node                                   */
     /* ------------------------------------------------------------------ */
     out->line_style = ((const bsg_node *)node)->s_soldash;
 
     /* ------------------------------------------------------------------ */
-    /* 5. Transparency layer flag                                           */
+    /* 6. Transparency layer flag                                           */
     /* ------------------------------------------------------------------ */
     if (out->transparency < 1.0)
 	out->active_layers |= BSG_ALAY_TRANSPARENCY;
 
     /* ------------------------------------------------------------------ */
-    /* 6. Hidden-line display mode                                          */
+    /* 7. Hidden-line display mode                                          */
     /* ------------------------------------------------------------------ */
     if (out->dmode == 4)
 	out->active_layers |= BSG_ALAY_HIDDEN_LINE;
 
     /* ------------------------------------------------------------------ */
-    /* 7. Highlight state (s_iflag == UP)                                   */
+    /* 8. Highlight state (s_iflag == UP)                                   */
     /* ------------------------------------------------------------------ */
     out->highlighted = bsg_appearance_is_highlighted(node);
     if (out->highlighted)
 	out->active_layers |= BSG_ALAY_HIGHLIGHT;
 
     /* ------------------------------------------------------------------ */
-    /* 8. Revision stamps for backend cache invalidation                   */
+    /* 9. Revision stamps for backend cache invalidation                   */
     /* ------------------------------------------------------------------ */
     out->material_rev   = ((const bsg_node *)node)->s_color_rev;
     out->appearance_rev = (uint32_t)((const bsg_node *)node)->s_drawn_rev & 0xFFFFFFFFu;

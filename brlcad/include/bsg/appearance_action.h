@@ -41,6 +41,7 @@
  * ----------------------------
  * Layers are applied in priority order (lowest to highest):
  *   BSG_ALAY_BASE        — raw node material
+ *   BSG_ALAY_GEOM_DEFAULT — renderer default color (s_cflag) when not overridden
  *   BSG_ALAY_INHERITED   — group/ancestor color override
  *   BSG_ALAY_COMMAND     — s_os color override
  *   BSG_ALAY_TRANSPARENCY — transparency from s_os
@@ -98,7 +99,15 @@ typedef enum bsg_appearance_layer {
     BSG_ALAY_EDIT_PREVIEW = 0x040,
 
     /** Highlight: node is selected/illuminated (s_iflag == UP). */
-    BSG_ALAY_HIGHLIGHT    = 0x080
+    BSG_ALAY_HIGHLIGHT    = 0x080,
+
+    /**
+     * Geometry default color: the node requested the renderer's default
+     * wireframe color (s_old.s_cflag set) and no command/inherited color
+     * override applied.  The resolved color is taken from the view's bound
+     * render settings (bsg_render_settings::geometry_default_color).
+     */
+    BSG_ALAY_GEOM_DEFAULT = 0x100
 } bsg_appearance_layer;
 
 
@@ -162,13 +171,15 @@ struct bsg_resolved_appearance {
  *
  * The resolution accumulates:
  *   1. Base material RGB from the node (s_color / s_material).
- *   2. Ancestor group settings passed in as @p inherited_os (may be NULL).
- *   3. Per-node command override from s_os (when set and color_override set).
- *   4. Transparency from s_os (defaults to 1.0 = fully opaque).
- *   5. Display mode, line width, line style from s_os (defaults: 0, 1, 0).
- *   6. Highlight state from s_iflag == UP.
- *   7. Active layer bits in out->active_layers.
- *   8. Material and appearance revision stamps copied from the node.
+ *   2. Geometry-default color when s_old.s_cflag is set and no override
+ *      applies (from the view's bound render settings; defaults to red).
+ *   3. Ancestor group settings passed in as @p inherited_os (may be NULL).
+ *   4. Per-node command override from s_os (when set and color_override set).
+ *   5. Transparency from s_os (defaults to 1.0 = fully opaque).
+ *   6. Display mode, line width, line style from s_os (defaults: 0, 1, 0).
+ *   7. Highlight state from s_iflag == UP.
+ *   8. Active layer bits in out->active_layers.
+ *   9. Material and appearance revision stamps copied from the node.
  *
  * No-op (returns 0) if @p node or @p out is NULL.
  * Returns non-zero on success.
