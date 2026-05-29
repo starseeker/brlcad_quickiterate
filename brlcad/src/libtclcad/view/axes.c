@@ -36,6 +36,7 @@
 #include "../tclcad_private.h"
 #include "../view/view.h"
 #include "../bsg_move_helpers.h"
+#include "bsg/node_private.h"
 
 /* Phase T3 (drawing_stack_modernization): all getters and setters in
  * to_data_axes_func now operate on BSG objects directly.  gv_tcl is no longer

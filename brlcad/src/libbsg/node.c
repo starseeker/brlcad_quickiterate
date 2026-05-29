@@ -32,6 +32,7 @@
 #include "bsg/identity.h"
 #include "bsg/node.h"
 #include "bsg/util.h"
+#include "bsg/node_private.h"
 
 
 bsg_node *

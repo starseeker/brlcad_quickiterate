@@ -25,6 +25,7 @@
 #include "common.h"
 
 #include "bsg/material.h"
+#include "bsg/node_private.h"
 
 
 void

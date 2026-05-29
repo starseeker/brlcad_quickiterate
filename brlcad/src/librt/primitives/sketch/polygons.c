@@ -47,6 +47,7 @@
 #include "rt/functab.h"
 #include "rt/geom.h"
 #include "rt/primitives/sketch.h"
+#include "bsg/node_private.h"
 
 struct segment_node {
     struct bu_list l;
@@ -250,19 +251,19 @@ end:
 	}
 	val = bu_avs_get(&lavs, "POLYGON_TYPE");
 	if (BU_STR_EQUAL(val, "CIRCLE")) {
-	    p->type = BV_POLYGON_CIRCLE;
+	    p->type = BSG_POLYGON_CIRCLE;
 	}
 	if (BU_STR_EQUAL(val, "ELLIPSE")) {
-	    p->type = BV_POLYGON_ELLIPSE;
+	    p->type = BSG_POLYGON_ELLIPSE;
 	}
 	if (BU_STR_EQUAL(val, "RECTANGLE")) {
-	    p->type = BV_POLYGON_RECTANGLE;
+	    p->type = BSG_POLYGON_RECTANGLE;
 	}
 	if (BU_STR_EQUAL(val, "SQUARE")) {
-	    p->type = BV_POLYGON_SQUARE;
+	    p->type = BSG_POLYGON_SQUARE;
 	}
 	if (BU_STR_EQUAL(val, "GENERAL")) {
-	    p->type = BV_POLYGON_GENERAL;
+	    p->type = BSG_POLYGON_GENERAL;
 	}
 
 	// See if we have a stored view
@@ -333,7 +334,7 @@ struct directory *
 db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bsg_node *s)
 {
     // Make sure we have a view polygon
-    if (!(s->s_type_flags & BV_VIEWONLY) || !(s->s_type_flags & BV_POLYGONS)) {
+    if (!(s->s_type_flags & BSG_SHAPE_VIEWONLY) || !(s->s_type_flags & BSG_SHAPE_POLYGONS)) {
 	return NULL;
     }
 
@@ -438,16 +439,16 @@ db_scene_obj_to_sketch(struct db_i *dbip, const char *sname, struct bsg_node *s)
 	bu_vls_sprintf(&val, "%g", p->fill_delta);
 	bu_avs_add(&lavs, "POLYGON_FILL_DELTA", bu_vls_cstr(&val));
 	switch (p->type) {
-	    case BV_POLYGON_CIRCLE:
+	    case BSG_POLYGON_CIRCLE:
 		bu_vls_sprintf(&val, "CIRCLE");
 		break;
-	    case BV_POLYGON_ELLIPSE:
+	    case BSG_POLYGON_ELLIPSE:
 		bu_vls_sprintf(&val, "ELLIPSE");
 		break;
-	    case BV_POLYGON_RECTANGLE:
+	    case BSG_POLYGON_RECTANGLE:
 		bu_vls_sprintf(&val, "RECTANGLE");
 		break;
-	    case BV_POLYGON_SQUARE:
+	    case BSG_POLYGON_SQUARE:
 		bu_vls_sprintf(&val, "SQUARE");
 		break;
 	    default:

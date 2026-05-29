@@ -34,6 +34,7 @@
 #include "bsg/visit.h"
 #include "bsg/vlist.h"
 #include "bsg/action.h"
+#include "bsg/node_private.h"
 
 /* ------------------------------------------------------------------ */
 /* BBOX action                                                          */

@@ -40,6 +40,7 @@
 #include "bsg/polygon.h"
 #include "bsg/payload_typed.h"
 #include "bsg/vlist.h"
+#include "bsg/node_private.h"
 
 static unsigned long long
 _typed_payload_flags(bsg_payload_type type)

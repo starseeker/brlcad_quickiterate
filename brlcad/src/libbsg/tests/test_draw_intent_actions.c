@@ -41,6 +41,7 @@
 #include "bsg/node.h"
 #include "bsg/node_group.h"
 #include "bsg/util.h"
+#include "bsg/node_private.h"
 
 /* ---- Minimal test harness ------------------------------------------- */
 

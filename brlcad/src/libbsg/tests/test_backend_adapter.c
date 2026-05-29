@@ -39,6 +39,7 @@
 #include "bsg/render.h"
 #include "bsg/render_item.h"
 #include "bsg/backend_adapter.h"
+#include "bsg/node_private.h"
 
 #define PASS(msg) do { printf("  PASS: %s\n", (msg)); } while (0)
 #define FAIL(msg) do { printf("  FAIL: %s\n", (msg)); return 1; } while (0)

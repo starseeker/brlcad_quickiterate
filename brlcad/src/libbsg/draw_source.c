@@ -27,6 +27,7 @@
 
 #include "vmath.h"
 #include "bsg/draw_source.h"
+#include "bsg/node_private.h"
 
 
 void

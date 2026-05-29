@@ -40,6 +40,7 @@
 
 #include "../ged_private.h"
 #include "./ged_view.h"
+#include "bsg/node_private.h"
 
 int
 _poly_cmd_create(void *bs, int argc, const char **argv)
@@ -79,17 +80,17 @@ _poly_cmd_create(void *bs, int argc, const char **argv)
     point_t sp;
     bsg_screen_pt(&sp, (fastf_t)x, (fastf_t)y, gedp->ged_gvp);
 
-    int type = BV_POLYGON_GENERAL;
+    int type = BSG_POLYGON_GENERAL;
     if (argc == 3) {
 	if (BU_STR_EQUAL(argv[2], "circ") || BU_STR_EQUAL(argv[2], "circle"))
-	    type = BV_POLYGON_CIRCLE;
+	    type = BSG_POLYGON_CIRCLE;
 	if (BU_STR_EQUAL(argv[2], "ell") || BU_STR_EQUAL(argv[2], "ellipse"))
-	    type = BV_POLYGON_ELLIPSE;
+	    type = BSG_POLYGON_ELLIPSE;
 	if (BU_STR_EQUAL(argv[2], "rect") || BU_STR_EQUAL(argv[2], "rectangle"))
-	    type = BV_POLYGON_RECTANGLE;
+	    type = BSG_POLYGON_RECTANGLE;
 	if (BU_STR_EQUAL(argv[2], "sq") || BU_STR_EQUAL(argv[2], "square"))
-	    type = BV_POLYGON_SQUARE;
-	if (type == BV_POLYGON_GENERAL) {
+	    type = BSG_POLYGON_SQUARE;
+	if (type == BSG_POLYGON_GENERAL) {
 	    bu_vls_printf(gedp->ged_result_str, "Unknown polygon type %s\n", argv[2]);
 	    return BRLCAD_ERROR;
 	}
@@ -136,7 +137,7 @@ _poly_cmd_select(void *bs, int argc, const char **argv)
 
     struct bsg_polygon *p = bsg_node_polygon(s);
 
-    if (p->type != BV_POLYGON_GENERAL) {
+    if (p->type != BSG_POLYGON_GENERAL) {
 	bu_vls_printf(gedp->ged_result_str, "Point selection is only supported for general polygons - specified object defines a constrained shape\n");
 	return BRLCAD_ERROR;
     }
@@ -172,7 +173,7 @@ _poly_cmd_select(void *bs, int argc, const char **argv)
     s->s_v->gv_mouse_y = y;
     bsg_screen_pt(&s->s_v->gv_point, (fastf_t)x, (fastf_t)y, gedp->ged_gvp);
 
-    bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_PT_SELECT);
+    bsg_update_polygon(s, s->s_v, BSG_POLYGON_UPDATE_PT_SELECT);
 
     return BRLCAD_OK;
 }
@@ -204,7 +205,7 @@ _poly_cmd_append(void *bs, int argc, const char **argv)
     }
 
     struct bsg_polygon *p = bsg_node_polygon(s);
-    if (p->type != BV_POLYGON_GENERAL) {
+    if (p->type != BSG_POLYGON_GENERAL) {
 	bu_vls_printf(gedp->ged_result_str, "Point appending is only supported for general polygons - specified object defines a constrained shape\n");
 	return BRLCAD_ERROR;
     }
@@ -238,7 +239,7 @@ _poly_cmd_append(void *bs, int argc, const char **argv)
     s->s_v->gv_mouse_x = x;
     s->s_v->gv_mouse_y = y;
     bsg_screen_pt(&s->s_v->gv_point, (fastf_t)x, (fastf_t)y, gedp->ged_gvp);
-    bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_PT_APPEND);
+    bsg_update_polygon(s, s->s_v, BSG_POLYGON_UPDATE_PT_APPEND);
 
     return BRLCAD_OK;
 }
@@ -269,7 +270,7 @@ _poly_cmd_move(void *bs, int argc, const char **argv)
     }
 
     struct bsg_polygon *p = bsg_node_polygon(s);
-    if (p->type != BV_POLYGON_GENERAL) {
+    if (p->type != BSG_POLYGON_GENERAL) {
 	bu_vls_printf(gedp->ged_result_str, "Individual point movement is only supported for general polygons - specified object defines a constrained shape.  Use \"update\" to adjust constrained shapes.\n");
 	return BRLCAD_ERROR;
     }
@@ -291,7 +292,7 @@ _poly_cmd_move(void *bs, int argc, const char **argv)
     s->s_v->gv_mouse_x = x;
     s->s_v->gv_mouse_y = y;
     bsg_screen_pt(&s->s_v->gv_point, (fastf_t)x, (fastf_t)y, gedp->ged_gvp);
-    bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_PT_MOVE);
+    bsg_update_polygon(s, s->s_v, BSG_POLYGON_UPDATE_PT_MOVE);
 
     return BRLCAD_OK;
 }
@@ -324,7 +325,7 @@ _poly_cmd_clear(void *bs, int argc, const char **argv)
     struct bsg_polygon *p = bsg_node_polygon(s);
     p->curr_contour_i = 0;
     p->curr_point_i = -1;
-    bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    bsg_update_polygon(s, s->s_v, BSG_POLYGON_UPDATE_DEFAULT);
 
     return BRLCAD_OK;
 }
@@ -355,7 +356,7 @@ _poly_cmd_close(void *bs, int argc, const char **argv)
     }
 
     struct bsg_polygon *p = bsg_node_polygon(s);
-    if (p->type != BV_POLYGON_GENERAL) {
+    if (p->type != BSG_POLYGON_GENERAL) {
 	return BRLCAD_OK;
     }
 
@@ -380,7 +381,7 @@ _poly_cmd_close(void *bs, int argc, const char **argv)
        p->polygon.contour[ind].open = 0;
    }
 
-    bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    bsg_update_polygon(s, s->s_v, BSG_POLYGON_UPDATE_DEFAULT);
 
     return BRLCAD_OK;
 }
@@ -411,7 +412,7 @@ _poly_cmd_open(void *bs, int argc, const char **argv)
     }
 
     struct bsg_polygon *p = bsg_node_polygon(s);
-    if (p->type != BV_POLYGON_GENERAL) {
+    if (p->type != BSG_POLYGON_GENERAL) {
 	bu_vls_printf(gedp->ged_result_str, "Constrained polygon shapes are always closed.\n");
 	return BRLCAD_ERROR;
     }
@@ -437,7 +438,7 @@ _poly_cmd_open(void *bs, int argc, const char **argv)
        p->polygon.contour[ind].open = 1;
    }
 
-    bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    bsg_update_polygon(s, s->s_v, BSG_POLYGON_UPDATE_DEFAULT);
 
     return BRLCAD_OK;
 }
@@ -672,7 +673,7 @@ _poly_cmd_fill(void *bs, int argc, const char **argv)
     if (argc == 1 && BU_STR_EQUAL(argv[0], "0")) {
 	struct bsg_polygon *p = bsg_node_polygon(s);
 	p->fill_flag = 0;
-	bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
+	bsg_update_polygon(s, s->s_v, BSG_POLYGON_UPDATE_DEFAULT);
 	return BRLCAD_OK;
     }
 
@@ -699,7 +700,7 @@ _poly_cmd_fill(void *bs, int argc, const char **argv)
     p->fill_flag = 1;
     V2MOVE(p->fill_dir, vdir);
     p->fill_delta = vdelta;
-    bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    bsg_update_polygon(s, s->s_v, BSG_POLYGON_UPDATE_DEFAULT);
 
     return BRLCAD_OK;
 }
@@ -831,10 +832,10 @@ _poly_cmd_csg(void *bs, int argc, const char **argv)
     polyA->polygon.contour = cp->contour;
 
     // clipper results are always general polygons
-    polyA->type = BV_POLYGON_GENERAL;
+    polyA->type = BSG_POLYGON_GENERAL;
 
     BU_PUT(cp, struct bg_polygon);
-    bsg_update_polygon(s, s->s_v, BV_POLYGON_UPDATE_DEFAULT);
+    bsg_update_polygon(s, s->s_v, BSG_POLYGON_UPDATE_DEFAULT);
 
     return BRLCAD_OK;
 }

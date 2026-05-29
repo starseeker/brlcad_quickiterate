@@ -56,6 +56,7 @@
 #include "bu/ptbl.h"
 #include "bsg/defines.h"
 #include "bsg/util.h"
+#include "bsg/node_private.h"
 
 static int g_fail = 0;
 

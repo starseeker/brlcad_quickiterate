@@ -29,6 +29,7 @@
 #include "./tclcad_private.h"
 #include "./view/view.h"
 #include "./bsg_move_helpers.h"
+#include "bsg/node_private.h"
 
 int
 to_get_prev_mouse(struct ged *gedp,
@@ -117,7 +118,7 @@ to_mouse_append_pnt_common(struct ged *gedp,
     {
 	bsg_snap_kind_mask snap_kinds = 0;
 	if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	    gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	    gedp->ged_gvp->gv_s->gv_snap_flags = BSG_SNAP_TCL;
 	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
 	}
 	if (gedp->ged_gvp->gv_s->gv_grid.snap)
@@ -2191,7 +2192,7 @@ to_mouse_poly_circ_func(Tcl_Interp *interp,
     {
 	bsg_snap_kind_mask snap_kinds = 0;
 	if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	    gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	    gedp->ged_gvp->gv_s->gv_snap_flags = BSG_SNAP_TCL;
 	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
 	}
 	if (gedp->ged_gvp->gv_s->gv_grid.snap)
@@ -2514,7 +2515,7 @@ to_mouse_poly_ell_func(Tcl_Interp *interp,
     {
 	bsg_snap_kind_mask snap_kinds = 0;
 	if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	    gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	    gedp->ged_gvp->gv_s->gv_snap_flags = BSG_SNAP_TCL;
 	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
 	}
 	if (gedp->ged_gvp->gv_s->gv_grid.snap)
@@ -2703,7 +2704,7 @@ to_mouse_poly_rect_func(Tcl_Interp *interp,
     {
 	bsg_snap_kind_mask snap_kinds = 0;
 	if (gedp->ged_gvp->gv_s->gv_snap_lines) {
-	    gedp->ged_gvp->gv_s->gv_snap_flags = BV_SNAP_TCL;
+	    gedp->ged_gvp->gv_s->gv_snap_flags = BSG_SNAP_TCL;
 	    snap_kinds |= (bsg_snap_kind_mask)BSG_SNAP_KIND_ENDPOINT;
 	}
 	if (gedp->ged_gvp->gv_s->gv_grid.snap)

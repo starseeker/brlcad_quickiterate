@@ -35,6 +35,7 @@
 #include "bsg/plot3.h"
 #include "bsg/vlist.h"
 #include "bsg/util.h"
+#include "bsg/node_private.h"
 
 size_t
 bsg_vlist_cmd_cnt(struct bsg_vlist *vlist)
@@ -566,7 +567,7 @@ bsg_vlblock_to_objs(struct bu_ptbl *out, const char *name_root, struct bsg_vlblo
 	if (!BU_LIST_IS_EMPTY(&(vbp->head[i]))) {
 	    struct bsg_node *s;
 	    GET_BV_SCENE_OBJ(s, &f->l);
-	    s->s_type_flags = BV_VIEWONLY;
+	    s->s_type_flags = BSG_SHAPE_VIEWONLY;
 	    s->s_v = v;
 	    bu_vls_sprintf(&s->s_name, "%sobj%zd", name_root, i);
 	    struct bsg_vlist *bvl = (struct bsg_vlist *)&vbp->head[i];

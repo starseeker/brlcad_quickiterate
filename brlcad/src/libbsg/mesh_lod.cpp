@@ -89,7 +89,8 @@
 #include "bsg/plot3.h"
 #include "bsg/lod.h"
 #include "bsg/util.h"
-#include "bsg/view_sets.h"
+#include "bsg/view_set.h"
+#include "bsg/node_private.h"
 
 // Number of levels of detail to define
 #define POP_MAXLEVEL 16

@@ -35,11 +35,12 @@
 #include "bsg/defines.h"
 #include "bsg/payload_typed.h"
 #include "./include/private.h"
+#include "bsg/node_private.h"
 
 void
 dm_draw_scene_axes(struct dm *dmp,  struct bsg_node *s)
 {
-    if (!(s->s_type_flags & BV_AXES))
+    if (!(s->s_type_flags & BSG_SHAPE_AXES))
 	return;
 
     struct bsg_axes *bndasp = bsg_payload_axes_get(bsg_node_get_payload(s));

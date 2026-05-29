@@ -37,9 +37,7 @@
 /** @file bsg/tcl_data.h */
 
 #define BSG_POLY_CIRCLE_MODE 15
-#define BV_POLY_CIRCLE_MODE BSG_POLY_CIRCLE_MODE
 #define BSG_POLY_CONTOUR_MODE 16
-#define BV_POLY_CONTOUR_MODE BSG_POLY_CONTOUR_MODE
 
 /* Separate these out, as we'll try not to use them in the new display work */
 struct bsg_node_old_settings {

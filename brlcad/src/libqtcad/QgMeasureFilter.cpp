@@ -34,6 +34,7 @@ extern "C" {
 #include <vector>
 #include "qtcad/QgMeasureFilter.h"
 #include "qtcad/QgSignalFlags.h"
+#include "bsg/node_private.h"
 
 double
 QgMeasureFilter::length1()

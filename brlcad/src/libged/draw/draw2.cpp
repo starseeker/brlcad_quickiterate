@@ -132,7 +132,7 @@ ged_draw2_core(struct ged *gedp, int argc, const char *argv[])
     /* User settings may override various options - set up to collect them.
      * Option defaults may be overridden for the purposes of the current draw
      * command by command line options. */
-    struct bsg_obj_settings vs = BV_OBJ_SETTINGS_INIT;
+    struct bsg_obj_settings vs = BSG_OBJ_SETTINGS_INIT;
 
     int drawing_modes[6] = {-1, 0, 0, 0, 0, 0};
     struct bu_opt_desc d[18];

@@ -39,6 +39,7 @@
 #include "bsg/defines.h"
 #include "bsg/lod.h"
 #include "bsg/lod_ops.h"
+#include "bsg/node_private.h"
 
 
 /* ------------------------------------------------------------------ */

@@ -40,6 +40,7 @@
 #include "bsg/visit.h"
 #include "bsg/view_scope.h"
 #include "dm.h"
+#include "bsg/node_private.h"
 
 void
 dm_draw_arrow(struct dm *dmp, point_t A, point_t B, fastf_t tip_length, fastf_t tip_width, fastf_t sf)
@@ -456,7 +457,7 @@ dm_draw_label(struct dm *dmp, struct bsg_node *s)
 	bmid[1] = (bmax[1] - bmin[1]) * 0.5 + bmin[1];
 
 	vect2d_t anchor = V2INIT_ZERO;
-	if (l->anchor == BV_ANCHOR_AUTO) {
+	if (l->anchor == BSG_ANCHOR_AUTO) {
 	    fastf_t xvals[3];
 	    fastf_t yvals[3];
 	    xvals[0] = bmin[0];
@@ -483,31 +484,31 @@ dm_draw_label(struct dm *dmp, struct bsg_node *s)
 	    }
 	} else {
 	    switch (l->anchor) {
-		case BV_ANCHOR_BOTTOM_LEFT:
+		case BSG_ANCHOR_BOTTOM_LEFT:
 		    V2SET(anchor, bmin[0], bmin[1]);
 		    break;
-		case BV_ANCHOR_BOTTOM_CENTER:
+		case BSG_ANCHOR_BOTTOM_CENTER:
 		    V2SET(anchor, bmid[0], bmin[1]);
 		    break;
-		case BV_ANCHOR_BOTTOM_RIGHT:
+		case BSG_ANCHOR_BOTTOM_RIGHT:
 		    V2SET(anchor, bmax[0], bmin[1]);
 		    break;
-		case BV_ANCHOR_MIDDLE_LEFT:
+		case BSG_ANCHOR_MIDDLE_LEFT:
 		    V2SET(anchor, bmin[0], bmid[1]);
 		    break;
-		case BV_ANCHOR_MIDDLE_CENTER:
+		case BSG_ANCHOR_MIDDLE_CENTER:
 		    V2SET(anchor, bmid[0], bmid[1]);
 		    break;
-		case BV_ANCHOR_MIDDLE_RIGHT:
+		case BSG_ANCHOR_MIDDLE_RIGHT:
 		    V2SET(anchor, bmax[0], bmid[1]);
 		    break;
-		case BV_ANCHOR_TOP_LEFT:
+		case BSG_ANCHOR_TOP_LEFT:
 		    V2SET(anchor, bmin[0], bmax[1]);
 		    break;
-		case BV_ANCHOR_TOP_CENTER:
+		case BSG_ANCHOR_TOP_CENTER:
 		    V2SET(anchor, bmid[0], bmax[1]);
 		    break;
-		case BV_ANCHOR_TOP_RIGHT:
+		case BSG_ANCHOR_TOP_RIGHT:
 		    V2SET(anchor, bmax[0], bmax[1]);
 		    break;
 		default:

@@ -49,7 +49,7 @@
 #include "bsg/snap.h"
 #include "bsg/snap_action.h"
 #include "bsg/util.h"
-#include "bsg/view_sets.h"
+#include "bsg/view_set.h"
 #include "bsg/vlist.h"
 
 #endif /* BSG_H */

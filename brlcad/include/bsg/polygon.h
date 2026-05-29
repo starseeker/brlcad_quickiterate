@@ -43,15 +43,10 @@ __BEGIN_DECLS
 /* View polygon logic and types */
 
 #define BSG_POLYGON_GENERAL   0
-#define BV_POLYGON_GENERAL    BSG_POLYGON_GENERAL
 #define BSG_POLYGON_CIRCLE    1
-#define BV_POLYGON_CIRCLE     BSG_POLYGON_CIRCLE
 #define BSG_POLYGON_ELLIPSE   2
-#define BV_POLYGON_ELLIPSE    BSG_POLYGON_ELLIPSE
 #define BSG_POLYGON_RECTANGLE 3
-#define BV_POLYGON_RECTANGLE  BSG_POLYGON_RECTANGLE
 #define BSG_POLYGON_SQUARE    4
-#define BV_POLYGON_SQUARE     BSG_POLYGON_SQUARE
 
 struct bsg_polygon {
     int                 type;
@@ -91,18 +86,13 @@ BSG_EXPORT extern struct bsg_node *bsg_create_polygon(struct bsg_view *v, int fl
 /* Various update modes have similar logic - we pass in the flags to the update
  * routine to enable/disable specific portions of the overall flow. */
 #define BSG_POLYGON_UPDATE_DEFAULT         0
-#define BV_POLYGON_UPDATE_DEFAULT          BSG_POLYGON_UPDATE_DEFAULT
 #define BSG_POLYGON_UPDATE_PROPS_ONLY      1
-#define BV_POLYGON_UPDATE_PROPS_ONLY       BSG_POLYGON_UPDATE_PROPS_ONLY
 #define BSG_POLYGON_UPDATE_PT_SELECT       2
-#define BV_POLYGON_UPDATE_PT_SELECT        BSG_POLYGON_UPDATE_PT_SELECT
 #define BSG_POLYGON_UPDATE_PT_SELECT_CLEAR 3
-#define BV_POLYGON_UPDATE_PT_SELECT_CLEAR  BSG_POLYGON_UPDATE_PT_SELECT_CLEAR
 #define BSG_POLYGON_UPDATE_PT_MOVE         4
-#define BV_POLYGON_UPDATE_PT_MOVE          BSG_POLYGON_UPDATE_PT_MOVE
 #define BSG_POLYGON_UPDATE_PT_APPEND       5
-#define BV_POLYGON_UPDATE_PT_APPEND        BSG_POLYGON_UPDATE_PT_APPEND
 BSG_EXPORT extern int bsg_update_polygon(struct bsg_node *s, struct bsg_view *v, int utype);
+
 
 /* Update just the scene obj vlist, without altering the source polygon */
 BSG_EXPORT extern void bsg_polygon_vlist(struct bsg_node *s);

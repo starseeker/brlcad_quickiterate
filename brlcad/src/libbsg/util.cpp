@@ -45,11 +45,12 @@
 #include "bsg/snap.h"
 #include "bsg/snap_action.h"
 #include "bsg/util.h"
-#include "bsg/view_sets.h"
+#include "bsg/view_set.h"
 #include "bsg/vlist.h"
 #include "bsg/defines.h"
 #include "bsg/lod_ops.h"
 #include "./bsg_private.h"
+#include "bsg/node_private.h"
 
 #define VIEW_NAME_MAXTRIES 100000
 #define DM_DEFAULT_FONT_SIZE 20
@@ -2037,7 +2038,7 @@ bsg_obj_reset(struct bsg_node *s)
 	BU_VLS_INIT(&s->s_name);
     bu_vls_trunc(&s->s_name, 0);
 
-    struct bsg_obj_settings defaults = BV_OBJ_SETTINGS_INIT;
+    struct bsg_obj_settings defaults = BSG_OBJ_SETTINGS_INIT;
     bsg_obj_settings_sync(&s->s_local_os, &defaults);
     s->s_os = &s->s_local_os;
     s->s_inherit_settings = 0;

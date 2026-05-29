@@ -32,7 +32,8 @@
 #include "bsg/vlist.h"
 #include "bsg/defines.h"
 #include "bsg/util.h"
-#include "bsg/view_sets.h"
+#include "bsg/view_set.h"
+#include "bsg/node_private.h"
 
 static void
 _bv_adc_state_hash(struct bu_data_hash_state *state, struct bsg_adc_state *v)
@@ -215,8 +216,8 @@ bsg_hash(struct bsg_view *v)
     /* Phase A0 (drawing_stack_modernization): use bsg_view_obj_visit so we
      * walk the BSG view-scope subtree directly rather than the legacy
      * BSG_OBJ_VIEW traversal.  Both shared and local scopes are covered by
-     * BV_VIEW_OBJ_SCOPE_ALL. */
-    bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _bv_hash_view_obj_cb, state);
+     * BSG_VIEW_OBJ_SCOPE_ALL. */
+    bsg_view_obj_visit(v, BSG_VIEW_OBJ_SCOPE_ALL, _bv_hash_view_obj_cb, state);
 
     /* Hash DB-derived objects via the BSG-aware helper */
     bsg_view_objs_visit_db(v, _bv_hash_db_obj_cb, state);

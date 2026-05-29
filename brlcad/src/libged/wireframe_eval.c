@@ -47,6 +47,7 @@
 #include "bsg/draw_source.h"
 #include "bsg/payload.h"
 #include "./ged_private.h"
+#include "bsg/node_private.h"
 
 struct bigE_data {
     struct bsg_node *s;

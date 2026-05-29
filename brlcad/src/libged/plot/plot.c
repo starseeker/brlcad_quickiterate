@@ -136,18 +136,18 @@ plot_integer_cb(struct bsg_node *sp, void *userdata)
 			 sp->s_color[1],
 			 sp->s_color[2]);
 		pl_3line(pd->fp,
-			 (int)(start[X] * BV_MAX),
-			 (int)(start[Y] * BV_MAX),
-			 (int)(start[Z] * BV_MAX),
-			 (int)(fin[X] * BV_MAX),
-			 (int)(fin[Y] * BV_MAX),
-			 (int)(fin[Z] * BV_MAX));
+			 (int)(start[X] * BSG_VIEW_MAX),
+			 (int)(start[Y] * BSG_VIEW_MAX),
+			 (int)(start[Z] * BSG_VIEW_MAX),
+			 (int)(fin[X] * BSG_VIEW_MAX),
+			 (int)(fin[Y] * BSG_VIEW_MAX),
+			 (int)(fin[Z] * BSG_VIEW_MAX));
 	    } else {
 		pl_line(pd->fp,
-			(int)(start[0] * BV_MAX),
-			(int)(start[1] * BV_MAX),
-			(int)(fin[0] * BV_MAX),
-			(int)(fin[1] * BV_MAX));
+			(int)(start[0] * BSG_VIEW_MAX),
+			(int)(start[1] * BSG_VIEW_MAX),
+			(int)(fin[0] * BSG_VIEW_MAX),
+			(int)(fin[1] * BSG_VIEW_MAX));
 	    }
 	}
     }
@@ -200,9 +200,9 @@ dl_plot(struct ged *gedp, FILE *fp, mat_t model2view, int floating, mat_t center
     }
 
     if (Three_D)
-	pl_3space(fp, (int)BV_MIN, (int)BV_MIN, (int)BV_MIN, (int)BV_MAX, (int)BV_MAX, (int)BV_MAX);
+	pl_3space(fp, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MAX, (int)BSG_VIEW_MAX, (int)BSG_VIEW_MAX);
     else
-	pl_space(fp, (int)BV_MIN, (int)BV_MIN, (int)BV_MAX, (int)BV_MAX);
+	pl_space(fp, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MAX, (int)BSG_VIEW_MAX);
     pl_erase(fp);
     pl_linmod(fp, "solid");
     bsg_view_obj_foreach_solid(gedp, plot_integer_cb, &pd);
@@ -311,6 +311,7 @@ ged_plot_core(struct ged *gedp, int argc, const char *argv[])
 
 
 #include "../include/plugin.h"
+#include "bsg/node_private.h"
 
 #define GED_PLOT_COMMANDS(X, XID) \
     X(plot, ged_plot_core, GED_CMD_DEFAULT) \

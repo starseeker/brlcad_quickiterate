@@ -34,6 +34,7 @@
 #include "./mged.h"
 #include "./mged_dm.h"
 #include "./cmd.h"
+#include "bsg/node_private.h"
 
 #define GET_BV_SCENE_OBJ(p, fp) { \
           if (BU_LIST_IS_EMPTY(fp)) { \

@@ -45,6 +45,7 @@
 #include "bsg/draw_set.h"
 #include "bsg/lod_ops.h"
 #include "bsg/node_group.h"
+#include "bsg/node_private.h"
 
 
 /* ------------------------------------------------------------------ */

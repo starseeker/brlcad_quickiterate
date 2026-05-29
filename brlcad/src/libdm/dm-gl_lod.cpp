@@ -39,6 +39,7 @@ extern "C" {
 #include "dm.h"
 #include "./dm-gl.h"
 #include "./include/private.h"
+#include "bsg/node_private.h"
 }
 
 struct swrast_vars_fast {
@@ -331,7 +332,7 @@ gl_backend_handle_get(struct bsg_node *s, bool create)
     if (!s)
 	return NULL;
     if (s->s_backend) {
-	if (s->s_backend->type_tag != BV_BACKEND_GL)
+	if (s->s_backend->type_tag != BSG_BACKEND_GL)
 	    return NULL;
 	return (struct gl_backend_handle *)s->s_backend->handle;
     }
@@ -340,7 +341,7 @@ gl_backend_handle_get(struct bsg_node *s, bool create)
 
     struct bsg_backend *be;
     BU_GET(be, struct bsg_backend);
-    be->type_tag = BV_BACKEND_GL;
+    be->type_tag = BSG_BACKEND_GL;
     be->free = gl_backend_release_obj_free;
     be->invalidate = gl_backend_invalidate_obj_free;
 
@@ -367,7 +368,7 @@ gl_backend_handle_release(struct bsg_node *s, int enqueue_delete)
      * object by higher-level scene teardown paths (e.g. bsg_obj_put on each
      * leaf).  Recursing from a parent can double-release child backend state,
      * leading to stale GL list IDs reaching glDeleteLists. */
-    if (s->s_backend && s->s_backend->type_tag == BV_BACKEND_GL) {
+    if (s->s_backend && s->s_backend->type_tag == BSG_BACKEND_GL) {
 	struct gl_backend_handle *h = (struct gl_backend_handle *)s->s_backend->handle;
 	if (h) {
 	    if (enqueue_delete && h->dlist && s->s_v && s->s_v->dmp)
@@ -422,7 +423,7 @@ gl_backend_invalidate_obj_free(struct bsg_node *s)
 }
 
 extern "C" const struct dm_backend_ops gl_backend_ops = {
-    BV_BACKEND_GL,
+    BSG_BACKEND_GL,
     gl_draw_obj,
     gl_backend_invalidate_obj,
     gl_backend_release_obj,

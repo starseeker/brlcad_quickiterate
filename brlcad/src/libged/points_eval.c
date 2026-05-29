@@ -39,6 +39,7 @@
 #include "bsg/payload.h"
 
 #include "./ged_private.h"
+#include "bsg/node_private.h"
 
 int
 draw_points(struct bsg_node *s)

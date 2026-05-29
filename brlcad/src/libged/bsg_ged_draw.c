@@ -62,7 +62,7 @@
 #include "bsg/sensor.h"
 #include "bsg/visit.h"
 
-#include "bsg/view_sets.h"
+#include "bsg/view_set.h"
 
 #include "bsg/appearance.h"
 #include "bsg/draw_source.h"
@@ -73,6 +73,7 @@
 #include "ged.h"
 #include "ged/bsg_ged_draw.h"
 #include "./ged_private.h"
+#include "bsg/node_private.h"
 
 /* ------------------------------------------------------------------ */
 /* Internal macros                                                     */

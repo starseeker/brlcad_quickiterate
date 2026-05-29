@@ -38,6 +38,7 @@
 #include "qtcad/QgSignalFlags.h"
 #include "ged/bsg_ged_draw.h"
 #include "QEll.h"
+#include "bsg/node_private.h"
 
 QEll::QEll()
     : QWidget()
@@ -269,8 +270,8 @@ QEll::update_obj_wireframe()
 
 	BU_LIST_INIT(bsg_node_vlist_head(s));
 	VSET(s->s_color, 255, 255, 0);
-	s->s_type_flags |= BV_DBOBJ_BASED;
-	s->s_type_flags |= BV_LABELS;
+	s->s_type_flags |= BSG_SHAPE_DBOBJ;
+	s->s_type_flags |= BSG_SHAPE_LABELS;
 	BU_VLS_INIT(&la->label);
 
 	bu_vls_sprintf(&la->label, "%s", pl[i].str);

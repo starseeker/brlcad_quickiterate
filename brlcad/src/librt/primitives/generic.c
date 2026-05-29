@@ -33,6 +33,7 @@
 
 #include "bn.h"
 #include "raytrace.h"
+#include "bsg/node_private.h"
 
 /**
  * Apply a 4x4 transformation matrix to the internal form of a solid.

@@ -36,6 +36,7 @@
 #include "bsg/util.h"
 #include "bsg/vlist.h"
 #include "bsg_private.h"
+#include "bsg/node_private.h"
 
 
 /* ------------------------------------------------------------------ */

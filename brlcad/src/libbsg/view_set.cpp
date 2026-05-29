@@ -17,7 +17,7 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file view_sets.cpp
+/** @file view_set.cpp
  *
  * Utility functions for operating on BRL-CAD view sets
  *
@@ -32,8 +32,9 @@
 #include "bn/mat.h"
 #include "bsg/defines.h"
 #include "bsg/util.h"
-#include "bsg/view_sets.h"
+#include "bsg/view_set.h"
 #include "./bsg_private.h"
+#include "bsg/node_private.h"
 
 void
 bsg_set_init(struct bsg_view_set *s)

@@ -53,6 +53,7 @@
 #include "bsg/overlay.h"
 #include "../ged_private.h"
 #include "./ged_view.h"
+#include "bsg/node_private.h"
 
 struct view_dlines_state {
     struct ged *gedp;

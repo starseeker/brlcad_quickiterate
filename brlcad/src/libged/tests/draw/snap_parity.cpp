@@ -72,7 +72,7 @@ main(int UNUSED(ac), char *av[])
     v.gv_s = &v.gv_ls;
     v.gv_s->gv_grid.res_h = 1.0;
     v.gv_s->gv_grid.res_v = 1.0;
-    v.gv_snap_flags = BV_SNAP_GRID;
+    v.gv_snap_flags = 0;
 
     /* ------------------------------------------------------------------
      * Test 1: bsg_snap_candidates near origin with GRID kind.

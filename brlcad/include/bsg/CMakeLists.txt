@@ -14,6 +14,7 @@ set(
   field.h
   identity.h
   light.h
+  legacy_compat.h
   lod.h
   lod_ops.h
   material.h
@@ -42,6 +43,7 @@ set(
   tig.h
   util.h
   vectfont.h
+  view_set.h
   view_scope.h
   view_sets.h
   visit.h

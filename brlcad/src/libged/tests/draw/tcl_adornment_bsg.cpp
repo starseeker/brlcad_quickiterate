@@ -55,6 +55,7 @@
 #include "bsg/draw_source.h"
 #include <dm.h>
 #include <ged.h>
+#include "bsg/node_private.h"
 
 #define ASSERT(cond) do { \
     nchecks++; \
@@ -174,13 +175,13 @@ main(int ac, char *av[])
     ASSERT(obj->s_force_draw == 1);
 
     /* ------------------------------------------------------------------ *
-     * [5] visit: bsg_view_obj_visit with BV_VIEW_OBJ_SCOPE_LOCAL must    *
+     * [5] visit: bsg_view_obj_visit with BSG_VIEW_OBJ_SCOPE_LOCAL must    *
      *     reach at least the one object we created.                      *
      * ------------------------------------------------------------------ */
     bu_log("[5] bsg_view_obj_visit (local scope)...\n");
     {
 	int cnt = 0;
-	bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_LOCAL, _count_visit_cb, &cnt);
+	bsg_view_obj_visit(v, BSG_VIEW_OBJ_SCOPE_LOCAL, _count_visit_cb, &cnt);
 	ASSERT(cnt >= 1);
     }
 

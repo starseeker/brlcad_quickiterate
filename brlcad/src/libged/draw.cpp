@@ -53,6 +53,7 @@
 #include "ged/view.h"
 #include "../librt/librt_private.h"
 #include "./ged_private.h"
+#include "bsg/node_private.h"
 
 static int
 prim_tess(struct bsg_node *s, struct rt_db_internal *ip)
@@ -986,7 +987,7 @@ draw_gather_paths(struct db_full_path *path, mat_t *curr_mat, void *client_data)
 
 	bsg_node_set_draw_mat(s, *curr_mat);
 	bsg_obj_settings_sync(bsg_node_settings(s), bsg_node_settings(dd->g));
-	s->s_type_flags = BV_DBOBJ_BASED | BSG_NODE_SHAPE;
+	s->s_type_flags = BSG_SHAPE_DBOBJ | BSG_NODE_SHAPE;
 	s->current = 0;
 	bsg_appearance_set_changed(s, bsg_appearance_get_changed(s) + 1);
 	if (!bsg_node_settings(s)->draw_solid_lines_only) {

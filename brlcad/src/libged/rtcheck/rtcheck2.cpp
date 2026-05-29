@@ -40,6 +40,7 @@
 #include "bu/app.h"
 
 #include "../ged_private.h"
+#include "bsg/node_private.h"
 
 struct ged_rtcheck {
     struct ged_subprocess *rrtp;
@@ -141,7 +142,7 @@ rtcheck_vector_handler(void *clientData, int type)
 	// overlaps to draw, we're eliminating all the old objects
 	//
 	// Phase A1 (drawing_stack_modernization): use bsg_view_obj_visit
-	// instead of the legacy BV_VIEW_OBJS ptbl shim.  Both shared and
+	// instead of the legacy BSG_OBJ_VIEW ptbl shim.  Both shared and
 	// local view scopes can hold prior rtcheck output, so visit ALL.
 	const char *sname = "rtcheck::";
 	struct bsg_view *v = gedp->ged_gvp;
@@ -157,7 +158,7 @@ rtcheck_vector_handler(void *clientData, int type)
 		c->robjs->insert(s);
 	    return 1;
 	};
-	bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _collect_rtcheck, &cctx);
+	bsg_view_obj_visit(v, BSG_VIEW_OBJ_SCOPE_ALL, _collect_rtcheck, &cctx);
 	std::set<struct bsg_node *>::iterator r_it;
 	for (r_it = robjs.begin(); r_it != robjs.end(); r_it++) {
 	    struct bsg_node *s = *r_it;

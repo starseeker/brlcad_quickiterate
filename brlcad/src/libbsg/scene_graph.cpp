@@ -53,6 +53,7 @@
 
 #include "bsg/visit.h"
 #include "bsg/scene_set.h"
+#include "bsg/node_private.h"
 
 /* ---------------------------------------------------------------------- */
 /* Public API                                                               */

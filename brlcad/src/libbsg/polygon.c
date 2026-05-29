@@ -42,6 +42,7 @@
 #include "bsg/polygon.h"
 #include "bsg/payload_typed.h"
 #include "bsg/snap.h"
+#include "bsg/node_private.h"
 
 struct bsg_polygon *
 bsg_node_polygon(const struct bsg_node *node)

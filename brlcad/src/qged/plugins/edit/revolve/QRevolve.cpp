@@ -46,6 +46,7 @@
 #include "qtcad/QgSignalFlags.h"
 #include "ged/bsg_ged_draw.h"
 #include "QRevolve.h"
+#include "bsg/node_private.h"
 
 
 /* ---- Phase D6: live-source callbacks ------------------------------------ */

@@ -76,6 +76,7 @@
 
 /* Private header for DbiState */
 #include "../../dbi.h"
+#include "bsg/node_private.h"
 
 extern "C" void ged_changed_callback(struct db_i *UNUSED(dbip), struct directory *dp, int mode, void *u_data);
 

@@ -45,6 +45,7 @@
 #include "./sedit.h"
 #include "./mged_dm.h"
 #include "./menu.h"
+#include "bsg/node_private.h"
 
 extern void pipe_split_pnt(struct bu_list *, struct wdb_pipe_pnt *, fastf_t *);
 extern struct wdb_pipe_pnt *pipe_add_pnt(struct rt_pipe_internal *, struct wdb_pipe_pnt *, const point_t);

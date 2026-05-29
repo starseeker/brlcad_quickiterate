@@ -30,6 +30,7 @@
 #include "bsg/appearance.h"
 #include "bsg/defines.h"
 #include "bsg/selection.h"
+#include "bsg/node_private.h"
 
 
 struct bsg_selection {

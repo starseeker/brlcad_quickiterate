@@ -35,9 +35,10 @@
 #include "rt/primitives/sketch.h"
 #include "QPolyCreate.h"
 #include "qtcad/QgSignalFlags.h"
+#include "bsg/node_private.h"
 
 /* Phase A2 (drawing_stack_modernization): typed visitor helpers that replace
- * bsg_view_objs(BV_VIEW_OBJS) ptbl loops with bsg_view_obj_visit callbacks. */
+ * bsg_view_objs(BSG_OBJ_VIEW) ptbl loops with bsg_view_obj_visit callbacks. */
 
 /* Collect polygon objects, optionally excluding one. */
 struct _qpolycreate_poly_collect {
@@ -48,7 +49,7 @@ extern "C" int
 _qpolycreate_poly_collect_cb(struct bsg_node *obj, void *data)
 {
     struct _qpolycreate_poly_collect *s = (struct _qpolycreate_poly_collect *)data;
-    if ((obj->s_type_flags & BV_POLYGONS) && obj != s->exclude)
+    if ((obj->s_type_flags & BSG_SHAPE_POLYGONS) && obj != s->exclude)
 	s->polys->push_back(obj);
     return 1;
 }
@@ -60,7 +61,7 @@ struct _qpolycreate_clear_pts {
 extern "C" int
 _qpolycreate_clear_pts_cb(struct bsg_node *obj, void *data)
 {
-    if (!(obj->s_type_flags & BV_POLYGONS))
+    if (!(obj->s_type_flags & BSG_SHAPE_POLYGONS))
 	return 1;
     struct _qpolycreate_clear_pts *s = (struct _qpolycreate_clear_pts *)data;
     struct bsg_polygon *ip = bsg_node_polygon(obj);
@@ -68,7 +69,7 @@ _qpolycreate_clear_pts_cb(struct bsg_node *obj, void *data)
 	*s->draw_change = true;
 	ip->curr_point_i = -1;
 	ip->curr_contour_i = 0;
-	bsg_update_polygon(obj, obj->s_v, BV_POLYGON_UPDATE_PROPS_ONLY);
+	bsg_update_polygon(obj, obj->s_v, BSG_POLYGON_UPDATE_PROPS_ONLY);
     }
     return 1;
 }
@@ -84,7 +85,7 @@ _qpolycreate_snap_collect_cb(struct bsg_node *obj, void *data)
     struct _qpolycreate_snap_collect *s = (struct _qpolycreate_snap_collect *)data;
     if (obj == s->exclude)
 	return 1;
-    if (obj->s_type_flags & BV_POLYGONS)
+    if (obj->s_type_flags & BSG_SHAPE_POLYGONS)
 	bu_ptbl_ins(s->snap_objs, (long *)obj);
     return 1;
 }
@@ -361,7 +362,7 @@ QPolyCreate::do_import_sketch()
     }
 
     // Names are valid, dp is ready - try the sketch import
-    p = db_sketch_to_scene_obj(bu_vls_cstr(&vname), gedp->dbip, dp, v, BV_VIEW_OBJS);
+    p = db_sketch_to_scene_obj(bu_vls_cstr(&vname), gedp->dbip, dp, v, BSG_OBJ_VIEW);
     bu_vls_free(&vname);
     if (!p)
 	return;
@@ -450,7 +451,7 @@ QPolyCreate::toggle_line_snapping(bool s)
     if (!v || !co)
 	return;
 
-    v->gv_s->gv_snap_flags = BV_SNAP_VIEW;
+    v->gv_s->gv_snap_flags = BSG_SNAP_VIEW;
     bu_ptbl_reset(&v->gv_s->gv_snap_objs);
     if (!s) {
 	v->gv_s->gv_snap_lines = 0;
@@ -459,7 +460,7 @@ QPolyCreate::toggle_line_snapping(bool s)
 	struct _qpolycreate_snap_collect sc;
 	sc.exclude = co;
 	sc.snap_objs = &v->gv_s->gv_snap_objs;
-	bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _qpolycreate_snap_collect_cb, &sc);
+	bsg_view_obj_visit(v, BSG_VIEW_OBJ_SCOPE_ALL, _qpolycreate_snap_collect_cb, &sc);
 	v->gv_s->gv_snap_lines = BU_PTBL_LEN(&v->gv_s->gv_snap_objs) ? 1 : 0;
     }
 
@@ -473,7 +474,7 @@ QPolyCreate::toggle_grid_snapping(bool s)
     if (!v)
 	return;
 
-    v->gv_s->gv_snap_flags = BV_SNAP_VIEW;
+    v->gv_s->gv_snap_flags = BSG_SNAP_VIEW;
     if (!s) {
 	v->gv_s->gv_grid.snap = 0;
     } else {
@@ -552,7 +553,7 @@ QPolyCreate::toplevel_config(bool)
 	/* Phase A2: use bsg_view_obj_visit instead of bsg_view_objs ptbl. */
 	struct _qpolycreate_clear_pts cps;
 	cps.draw_change = &draw_change;
-	bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _qpolycreate_clear_pts_cb, &cps);
+	bsg_view_obj_visit(v, BSG_VIEW_OBJ_SCOPE_ALL, _qpolycreate_clear_pts_cb, &cps);
     }
 
     if (draw_change && gedp)
@@ -600,16 +601,16 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
 	cf->ptype = ip->type;
     } else {
 	if (ellipse_mode->isChecked()) {
-	    cf->ptype = BV_POLYGON_ELLIPSE;
+	    cf->ptype = BSG_POLYGON_ELLIPSE;
 	}
 	if (square_mode->isChecked()) {
-	    cf->ptype = BV_POLYGON_SQUARE;
+	    cf->ptype = BSG_POLYGON_SQUARE;
 	}
 	if (rectangle_mode->isChecked()) {
-	    cf->ptype = BV_POLYGON_RECTANGLE;
+	    cf->ptype = BSG_POLYGON_RECTANGLE;
 	}
 	if (general_mode->isChecked()) {
-	    cf->ptype = BV_POLYGON_GENERAL;
+	    cf->ptype = BSG_POLYGON_GENERAL;
 	}
 
 	cf->op = bg_None;
@@ -650,7 +651,7 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
 	struct _qpolycreate_poly_collect pc;
 	pc.polys = &polyvec;
 	pc.exclude = p;
-	bsg_view_obj_visit(v, BV_VIEW_OBJ_SCOPE_ALL, _qpolycreate_poly_collect_cb, &pc);
+	bsg_view_obj_visit(v, BSG_VIEW_OBJ_SCOPE_ALL, _qpolycreate_poly_collect_cb, &pc);
 	for (auto *s : polyvec)
 	    bu_ptbl_ins(&pcf->bool_objs, (long *)s);
     }
@@ -665,7 +666,7 @@ QPolyCreate::eventFilter(QObject *, QEvent *e)
     // without polling s_changed directly.
     p = cf->wp;
 
-    if (cf->ptype == BV_POLYGON_GENERAL) {
+    if (cf->ptype == BSG_POLYGON_GENERAL) {
 	close_general_poly->setEnabled(true);
 	close_general_poly->blockSignals(true);
 	close_general_poly->setChecked(false);

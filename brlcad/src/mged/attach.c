@@ -61,7 +61,7 @@ extern struct _color_scheme default_color_scheme;
 extern void share_dlist(struct mged_dm *dlp2);	/* defined in share.c */
 int mged_default_dlist = 0;   /* This variable is available via Tcl for controlling use of display lists */
 
-static fastf_t windowbounds[6] = { (int)BV_MIN, (int)BV_MAX, (int)BV_MIN, (int)BV_MAX, (int)BV_MIN, (int)BV_MAX };
+static fastf_t windowbounds[6] = { (int)BSG_VIEW_MIN, (int)BSG_VIEW_MAX, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MAX, (int)BSG_VIEW_MIN, (int)BSG_VIEW_MAX };
 
 /* If we changed the active dm, need to update GEDP as well.. */
 void set_curr_dm(struct mged_state *s, struct mged_dm *nc)

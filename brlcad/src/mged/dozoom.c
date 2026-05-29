@@ -53,6 +53,7 @@
 #include "./mged.h"
 #include "./sedit.h"
 #include "./mged_dm.h"
+#include "bsg/node_private.h"
 
 mat_t perspective_mat;
 mat_t identity;

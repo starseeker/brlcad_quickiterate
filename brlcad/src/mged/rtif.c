@@ -47,6 +47,7 @@
 #include "./mged.h"
 #include "./mged_dm.h"
 #include "./cmd.h"
+#include "bsg/node_private.h"
 
 
 /* Callback: find the solid named "EYE" (LAST_SOLID matches dp) for rmats. */

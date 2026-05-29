@@ -60,6 +60,7 @@
 #include "ged/bsg_ged_draw.h"
 #include "./ged_private.h"
 #include "./dbi.h"
+#include "bsg/node_private.h"
 
 int
 _ged_subcmd_help(struct ged *gedp, struct bu_opt_desc *gopts, const struct bu_cmdtab *cmds, const char *cmdname, const char *cmdargs, void *gd, int argc, const char **argv)
@@ -1683,7 +1684,7 @@ _ged_rt_set_eye_model(struct ged *gedp,
 	    VSETALL(extremum[0],  INFINITY);
 	    VSETALL(extremum[1], -INFINITY);
 	    /* Phase B: use bsg_view_objs_visit_db to traverse BSG tree when
-	     * gv_draw_root is set, so GED sessions work after BV_DB_OBJS
+	     * gv_draw_root is set, so GED sessions work after BSG_OBJ_DB
 	     * ptbls are emptied by B-full-1. */
 	    struct _scene_bsph_ctx bsph_ctx;
 	    bsph_ctx.vmin = &extremum[0];

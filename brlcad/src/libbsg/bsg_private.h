@@ -30,6 +30,7 @@
 #include "bu/list.h"
 #include "bu/ptbl.h"
 #include "bsg/defines.h"
+#include "bsg/node_private.h"
 #include "bsg/draw_ctx.h"
 
 /* Internal view-set implementation data */

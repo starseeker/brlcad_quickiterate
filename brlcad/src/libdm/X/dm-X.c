@@ -77,6 +77,7 @@
 #include "bsg/defines.h"
 
 #include "../include/private.h"
+#include "bsg/node_private.h"
 
 #define PLOTBOUND 1000.0	/* Max magnification in Rot matrix */
 
@@ -2253,8 +2254,8 @@ struct dm_impl dm_X_impl = {
     {0, 0, 0},			/* bg2 color */
     {0, 0, 0},			/* fg color */
     {255, 0, 0},/* geometry default color */
-    {BV_MIN, BV_MIN, BV_MIN},	/* clipmin */
-    {BV_MAX, BV_MAX, BV_MAX},	/* clipmax */
+    {BSG_VIEW_MIN, BSG_VIEW_MIN, BSG_VIEW_MIN},	/* clipmin */
+    {BSG_VIEW_MAX, BSG_VIEW_MAX, BSG_VIEW_MAX},	/* clipmax */
     0,				/* no debugging */
     0,				/* no perspective */
     0,				/* depth buffer is not writable */

@@ -34,6 +34,7 @@
 
 #include "bsg/defines.h"
 #include "bsg/payload.h"
+#include "bsg/node_private.h"
 
 
 void

@@ -56,21 +56,13 @@ __BEGIN_DECLS
 #  endif
 #endif
 
-/* Phase D7: BV_EXPORT is now an alias for BSG_EXPORT.  Use BSG_EXPORT in new code. */
-#ifndef BV_EXPORT
-#define BV_EXPORT BSG_EXPORT
-#endif
-
 /* Define view ranges.  The numbers -2048 and 2047 go all the way back to the
  * original angle-distance cursor code that predates even BRL-CAD itself, but
  * (at least right now) there doesn't seem to be any documentation of why those
  * specific values were chosen. */
 #define BSG_VIEW_MAX 2047.0
-#define BV_MAX BSG_VIEW_MAX
 #define BSG_VIEW_MIN -2048.0
-#define BV_MIN BSG_VIEW_MIN
 #define BSG_VIEW_RANGE 4095.0
-#define BV_RANGE BSG_VIEW_RANGE
 /* Map +/-2048 BV space into -1.0..+1.0 :: x/2048*/
 #define BSG_INV_VIEW 0.00048828125
 #define INV_BV BSG_INV_VIEW
@@ -79,9 +71,7 @@ __BEGIN_DECLS
 
 
 #define BSG_MINVIEWSIZE 0.0001
-#define BV_MINVIEWSIZE BSG_MINVIEWSIZE
 #define BSG_MINVIEWSCALE 0.00005
-#define BV_MINVIEWSCALE BSG_MINVIEWSCALE
 
 #ifndef UP
 #  define UP 0
@@ -91,25 +81,15 @@ __BEGIN_DECLS
 #endif
 
 #define BSG_ANCHOR_AUTO          0
-#define BV_ANCHOR_AUTO           BSG_ANCHOR_AUTO
 #define BSG_ANCHOR_BOTTOM_LEFT   1
-#define BV_ANCHOR_BOTTOM_LEFT    BSG_ANCHOR_BOTTOM_LEFT
 #define BSG_ANCHOR_BOTTOM_CENTER 2
-#define BV_ANCHOR_BOTTOM_CENTER  BSG_ANCHOR_BOTTOM_CENTER
 #define BSG_ANCHOR_BOTTOM_RIGHT  3
-#define BV_ANCHOR_BOTTOM_RIGHT   BSG_ANCHOR_BOTTOM_RIGHT
 #define BSG_ANCHOR_MIDDLE_LEFT   4
-#define BV_ANCHOR_MIDDLE_LEFT    BSG_ANCHOR_MIDDLE_LEFT
 #define BSG_ANCHOR_MIDDLE_CENTER 5
-#define BV_ANCHOR_MIDDLE_CENTER  BSG_ANCHOR_MIDDLE_CENTER
 #define BSG_ANCHOR_MIDDLE_RIGHT  6
-#define BV_ANCHOR_MIDDLE_RIGHT   BSG_ANCHOR_MIDDLE_RIGHT
 #define BSG_ANCHOR_TOP_LEFT      7
-#define BV_ANCHOR_TOP_LEFT       BSG_ANCHOR_TOP_LEFT
 #define BSG_ANCHOR_TOP_CENTER    8
-#define BV_ANCHOR_TOP_CENTER     BSG_ANCHOR_TOP_CENTER
 #define BSG_ANCHOR_TOP_RIGHT     9
-#define BV_ANCHOR_TOP_RIGHT      BSG_ANCHOR_TOP_RIGHT
 struct bsg_label {
     int           size;
     struct bu_vls label;
@@ -177,7 +157,6 @@ struct bsg_obj_settings {
     int draw_non_subtract_only;  /**< @brief do not visualize subtraction solids */
 };
 #define BSG_OBJ_SETTINGS_INIT {0, 0, 1.0, 0, {255, 0, 0}, 1, 0.0, 0.0, 0, 0}
-#define BV_OBJ_SETTINGS_INIT BSG_OBJ_SETTINGS_INIT
 
 
 /* Note that it is possible for a view object to be view-only (not
@@ -205,28 +184,18 @@ struct bsg_obj_settings {
  * HUD payload nodes.
  */
 #define BSG_SHAPE_DBOBJ    0x01  /**< @brief shape drawn from a database path */
-#define BV_DBOBJ_BASED     BSG_SHAPE_DBOBJ
 #define BSG_SHAPE_VIEWONLY 0x02  /**< @brief view-only / overlay shape */
-#define BV_VIEWONLY        BSG_SHAPE_VIEWONLY
 #define BSG_SHAPE_LINES    0x04  /**< @brief line-segment set shape */
-#define BV_LINES           BSG_SHAPE_LINES
 #define BSG_SHAPE_LABELS   0x08  /**< @brief text-label shape */
-#define BV_LABELS          BSG_SHAPE_LABELS
 #define BSG_SHAPE_AXES     0x10  /**< @brief axes-widget shape */
-#define BV_AXES            BSG_SHAPE_AXES
 #define BSG_SHAPE_POLYGONS 0x20  /**< @brief polygon region shape */
-#define BV_POLYGONS        BSG_SHAPE_POLYGONS
 
 struct bsg_view;
 
 #define BSG_OBJ_DB    0x01
-#define BV_DB_OBJS    BSG_OBJ_DB
 #define BSG_OBJ_VIEW  0x02
-#define BV_VIEW_OBJS  BSG_OBJ_VIEW
 #define BSG_OBJ_LOCAL 0x04
-#define BV_LOCAL_OBJS BSG_OBJ_LOCAL
 #define BSG_OBJ_CHILD 0x08
-#define BV_CHILD_OBJS BSG_OBJ_CHILD
 
 struct bsg_node_internal;
 struct bsg_node;
@@ -240,9 +209,7 @@ struct bsg_draw_intent;  /* Phase D2 (drawing_modernization): draw-intent metada
  * so cross-backend handle confusion can be caught.  More tags will be added as
  * additional backends adopt the contract (e.g. dm-obol). */
 #define BSG_BACKEND_NONE 0u   /* no backend state attached */
-#define BV_BACKEND_NONE  BSG_BACKEND_NONE
 #define BSG_BACKEND_GL   1u   /* OpenGL/GL-via-software-rasterizer (dm-gl, dm-swrast, dm-qtgl, dm-glx, dm-wgl) */
-#define BV_BACKEND_GL    BSG_BACKEND_GL
 
 /**
  * Phase 11 (drawing_stack_modernization): per-shape backend state.
@@ -272,204 +239,6 @@ struct bsg_backend {
     void (*free)(struct bsg_node *);        /**< @brief release backend resources and free this descriptor */
     void (*invalidate)(struct bsg_node *);  /**< @brief mark cached resource stale; may be NULL */
 };
-
-struct bsg_node  {
-    struct bu_list l;
-
-    /* Internal implementation storage */
-    struct bsg_node_internal *i;
-
-    /* View object name and type id */
-    unsigned long long s_type_flags;
-    struct bu_vls s_name;       /**< @brief object name (should be unique if view objects are to be addressed by name) */
-    void *s_path;       	/**< @brief alternative (app specific) encoding of s_name */
-    void *dp;       		/**< @brief app obj data */
-    mat_t s_mat;		/**< @brief mat to use for internal lookup and mesh LoD drawing */
-
-    /* Associated bv.  Note that scene objects are not assigned uniquely to
-     * one view.  This value may be changed by the application in a multi-view
-     * scenario as an object is edited from multiple different views, to supply
-     * the necessary view context for editing. If the object needs to retain
-     * knowledge of its original/creation view, it should save that info
-     * internally in its s_i_data container.
-     *
-     * DEPRECATED (Phase D7): do not use s_v for view-policy control flow;
-     * scene data should not drive rendering decisions.  Use BViewState::redraw()
-     * or bsg_view_get/set_* accessors instead. */
-    struct bsg_view *s_v;
-
-    /* Knowledge of how to create/update s_vlist and the other 3D geometry data, as well as
-     * manage any custom data specific to this object.
-     *
-     * Phase D1 (drawing_modernization): prefer the typed @c pl payload field
-     * below over raw s_i_data for new overlay/annotation shape nodes. */
-    void *s_i_data;  /**< @brief custom view data (bsg_label, bsg_axes, bsg_data_polygon_state, etc) */
-
-    /* DEPRECATED (scheduled Phase 10 removal): LoD and CSG adaptive-wireframe update callbacks are now
-     * driven by the BSG LoD node (bsg_lod_update via dm_draw_objs); this field
-     * is retained for non-LoD users such as polygon update callbacks.
-     */
-    int (*s_update_callback)(struct bsg_node *, struct bsg_view *, int);  /**< @brief custom update/generator for s_vlist */
-    void (*s_free_callback)(struct bsg_node *);  /**< @brief free any info stored in s_i_data, s_path and draw_data */
-
-    /* 3D vector list geometry data */
-    struct bu_list s_vlist;	/**< @brief  Pointer to unclipped vector list */
-    size_t s_vlen;			/**< @brief  Number of actual cmd[] entries in vlist */
-
-    /* Phase D1 (drawing_modernization): typed payload handle.
-     *
-     * Replaces the untyped s_i_data convention for overlay/annotation shapes.
-     * bsg_node_set_payload() attaches a bsg_payload; the node owns it and
-     * frees it on destruction.  Use bsg_payload_text_create(),
-     * bsg_payload_axes_create(), etc. from bsg/payload_typed.h to build
-     * typed payloads.  NULL for nodes that use the legacy s_i_data path.
-     *
-     * The revision counter (pl->pl_revision) should be bumped via
-     * bsg_payload_bump_revision() whenever the payload data changes, so that
-     * renderers and backend caches can detect stale state. */
-    struct bsg_payload *pl;
-
-    /* Phase D2 (drawing_modernization): explicit draw-intent metadata.
-     *
-     * Attached to scene groups by the draw command when a database path
-     * is drawn, and to synthetic overlay containers by
-     * bsg_ensure_overlay_group().  Records the source path, draw mode,
-     * LoD policy, and whether the group is an overlay container.
-     *
-     * NULL on shape nodes, unintentioned sub-groups, and nodes created
-     * before Phase D2 infrastructure was present.  Use
-     * bsg_node_get_draw_intent() / bsg_node_set_draw_intent() from
-     * bsg/draw_intent.h; do not access this field directly. */
-    struct bsg_draw_intent *di;
-
-    /* Phase 11 (drawing_stack_modernization): generic renderer-backend slot.
-     *
-     * One backend-owned pointer per scene object replaces the previous pattern
-     * of adding backend-specific fields directly on bsg_node.  The
-     * descriptor records:
-     *   - type_tag: identifies the owning backend (e.g. BSG_BACKEND_GL, future
-     *     BSG_BACKEND_OBOL) so cross-backend mistakes can be caught;
-     *   - handle:   backend-private per-shape state (compiled GL display list,
-     *     vertex buffer object, GPU resource handle, ...);
-     *   - free:     cleanup callback fired by bsg_scene_obj_release_backend()
-     *     when the shape is destroyed/recycled;
-     *   - invalidate: optional callback fired by
-     *     bsg_scene_obj_invalidate_backend() when the source data has changed
-     *     and any cached GPU resource must be recomputed.
-     *
-     * NULL if the active backend does not need per-shape state.  Backends are
-     * expected to allocate one bsg_backend per shape (typically lazily) and
-     * store it here; bsg_obj_reset() / bsg_obj_put() will fire the free callback
-     * and clear the slot.  See struct gl_backend_handle in libdm/dm-gl_lod.cpp
-     * for the GL family's per-shape state (display list index/mode/stale
-     * flag) — formerly the DEPRECATED (scheduled Phase 10 removal): s_dlist / s_dlist_mode /
-     * s_dlist_stale / s_dlist_free_callback fields, retired in Phase 13.
-     *
-     * Phase D5 (drawing_modernization) will formalize a full backend adapter
-     * interface (prepare/draw/invalidate/free/capabilities) over BSG payloads
-     * and render items. */
-    struct bsg_backend *s_backend;
-
-    /* 3D geometry metadata */
-    fastf_t s_size;		/**< @brief  Distance across solid, in model space */
-    fastf_t s_csize;		/**< @brief  Dist across clipped solid (model space) */
-    vect_t s_center;		/**< @brief  Center point of solid, in model space */
-    int s_displayobj;		/**< @brief  Vector list contains vertices in display context flag */
-    point_t bmin;
-    point_t bmax;
-    int have_bbox;
-    /* Phase 9.1 (drawing_stack_modernization B3 residual):
-     * For BSG_NODE_GROUP/ROOT nodes, indicates whether bmin/bmax currently
-     * holds a valid cached aggregate bbox of the subtree's non-overlay
-     * descendants.  Cleared on any structural mutation that could affect
-     * the aggregate via bsg_node_bbox_invalidate().  Set by bsg_subtree_bbox
-     * when it computes a fresh aggregate.  Unused on BSG_NODE_SHAPE leaves
-     * (their bbox is always derivable from s_center/s_size). */
-    int s_bbox_cached;
-
-    /* Display properties */
-    char s_flag;		/**< @brief  UP = object visible, DOWN = obj invis */
-    char s_iflag;	        /**< @brief  UP = illuminated, DOWN = regular */
-    int s_force_draw;           /**< @brief  1 = overrides s_flag and s_iflag - always draw (allows parents to force children to be visible) */
-    unsigned char s_color[3];	/**< @brief  color to draw as */
-    uint32_t s_color_rev;       /**< @brief  material-revision stamp; set to gd_mater_rev each time this shape's color is recalculated by bsg_view_obj_color_from_soltab (B4 infrastructure, Phase 7 Step 14) */
-    /* Phase 9.2 (drawing_stack_modernization): per-shape "drawn this frame"
-     * generation counter.  When the renderer paints the object during
-     * dm_draw_objs(), it stamps s_drawn_rev := bsg_view::gv_frame_rev.  Callers
-     * test whether a shape was actually drawn in the most recent frame by
-     * comparing s_drawn_rev to the bsg_view's current gv_frame_rev — replacing
-     * the legacy "set every shape's s_flag = DOWN at the start of a frame
-     * and UP only after rendering" sweep.  Initial value 0 is correct because
-     * gv_frame_rev is bumped before the first draw, so an undrawn shape
-     * will always disagree with the current frame. */
-    uint64_t s_drawn_rev;
-    int s_soldash;		/**< @brief  solid/dashed line flag: 0 = solid, 1 = dashed*/
-    int s_arrow;		/**< @brief  arrow flag for view object drawing routines */
-    int s_changed;		/**< @brief  changed flag - set by s_update_callback if a change occurred */
-    int current;
-
-    /* Adaptive plotting info.
-     *
-     * The adaptive wireframe flag is set if the wireframe was created while
-     * adaptive mode is on - this is to allow reversion to non-adaptive
-     * wireframes if the mode is switched off without the view scale changing.
-     *
-     * NOTE: We store the following NOT for controlling the drawing, but so we
-     * can determine if the vlist is current with respect to the parent view
-     * settings.  These values SHOULD NOT be directly manipulated by any user
-     * facing commands (such as view obj).
-     *
-     * DEPRECATED (scheduled Phase 10 removal): adaptive_wireframe,
-     * view_scale, bot_threshold, curve_scale, and point_scale are snapshot
-     * values used to detect when a redraw is needed.  The owning decision
-     * logic is being moved to BViewState::redraw().
-     * Phase 10 cleanup: these fields will move to bsg_node_internal after
-     * BViewState fully owns redraw trigger decisions. */
-    int     adaptive_wireframe;
-    int     csg_obj;
-    int     mesh_obj;
-    fastf_t view_scale;
-    size_t  bot_threshold;
-    fastf_t curve_scale;
-    fastf_t point_scale;
-
-    /* Scene object settings which also (potentially) have global defaults but
-     * may be overridden locally */
-    struct bsg_obj_settings *s_os;
-    struct bsg_obj_settings s_local_os;
-    int s_inherit_settings;           /**< @brief  Use current obj settings when drawing children instead of their settings */
-
-    /* Settings that may be less necessary... */
-    struct bsg_node_old_settings s_old;
-
-    /* Child objects of this object */
-    struct bu_ptbl children;
-
-    /* Parent object of this object */
-    struct bsg_node *parent;
-
-    /* Object level pointers to parent containers.  These are stored so
-     * that the object itself knows everything needed for data manipulation
-     * and it is unnecessary to explicitly pass other parameters. */
-
-    /* Reusable vlists */
-    struct bu_list *vlfree;
-
-    /* Container for reusing bsg_node allocations */
-    struct bsg_node *free_scene_obj;
-
-    /* View container containing this object */
-    struct bu_ptbl *otbl;
-
-    /* For more specialized routines not using vlists, we may need
-     * additional drawing data associated with a scene object */
-    void *draw_data;
-
-    /* User data to associate with this view object */
-    void *s_u_data;
-};
-
-
 
 /* bsg_scene_groups are BSG_NODE_GROUP nodes that record the user's draw-command
  * intent — which database path was drawn and how.  They sit one level above
@@ -540,15 +309,10 @@ struct bsg_mesh_lod {
 
 /* Flags to identify categories of objects to snap */
 #define BSG_SNAP_SHARED 0x1
-#define BV_SNAP_SHARED  BSG_SNAP_SHARED
 #define BSG_SNAP_LOCAL  0x2
-#define BV_SNAP_LOCAL   BSG_SNAP_LOCAL
 #define BSG_SNAP_DB     0x4
-#define BV_SNAP_DB      BSG_SNAP_DB
 #define BSG_SNAP_VIEW   0x8
-#define BV_SNAP_VIEW    BSG_SNAP_VIEW
 #define BSG_SNAP_TCL    0x10
-#define BV_SNAP_TCL     BSG_SNAP_TCL
 
 /* We encapsulate non-camera settings into a container mainly to allow for
  * easier reuse of the same settings between different views - if a common
@@ -891,7 +655,7 @@ struct bsg_view_set {
 #define BSG_NODE_VIEW_SCOPE  0x800000000ULL  /**< @brief view-scope container node */
 /**
  * Phase V2 (drawing_stack_modernization):
- * DEPRECATED (Phase V4): The temporary BV_VIEW_OBJS bridge has been removed.
+ * DEPRECATED (Phase V4): The temporary BSG_OBJ_VIEW bridge has been removed.
  * These defines are retained only for ABI compatibility; no new code should
  * reference BSG_NODE_VIEW_REF or BSG_NODE_VIEW_BRIDGE.
  */
@@ -922,6 +686,10 @@ struct bsg_view_set {
 
 typedef struct bsg_node bsg_node;
 typedef struct bsg_node bsg_shape;
+
+/* Phase D7 (drawing_modernization.txt): all BV_* compatibility aliases live in
+ * this single compatibility header and are controlled by
+ * BSG_ENABLE_LEGACY_BV_ALIASES. */
 
 __END_DECLS
 

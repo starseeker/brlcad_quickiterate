@@ -35,6 +35,7 @@
 /* Private headers */
 #include "../tclcad_private.h"
 #include "../view/view.h"
+#include "bsg/node_private.h"
 
 /* Phase T1 (drawing_stack_modernization): keep BSG VIEW_SCOPE label objects in
  * sync with the gv_tcl data-labels state so the modern BSG renderer draws

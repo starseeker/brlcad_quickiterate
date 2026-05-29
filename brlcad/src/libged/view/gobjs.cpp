@@ -46,6 +46,7 @@
 
 #include "../ged_private.h"
 #include "./ged_view.h"
+#include "bsg/node_private.h"
 
 static void
 gobjs_scene_free(struct bsg_node *s)
@@ -135,7 +136,7 @@ _gobjs_cmd_create(void *bs, int argc, const char **argv)
 
     // Set up drawing settings
     unsigned char wcolor[3] = {255,255,255};
-    struct bsg_obj_settings vs = BV_OBJ_SETTINGS_INIT;
+    struct bsg_obj_settings vs = BSG_OBJ_SETTINGS_INIT;
     bsg_obj_settings_sync(g->s_os, &vs);
 
     // We have a tree walk ahead to populate the wireframe - set up the client

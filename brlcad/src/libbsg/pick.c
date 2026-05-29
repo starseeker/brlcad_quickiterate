@@ -57,6 +57,7 @@
 #include "bsg/pick.h"
 #include "bsg/selection.h"
 #include "bsg/util.h"
+#include "bsg/node_private.h"
 
 
 /* -----------------------------------------------------------------------
