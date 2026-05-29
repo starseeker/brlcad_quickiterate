@@ -221,7 +221,8 @@ gcv_facetize_describe_options(struct bu_vls *description)
 	bu_vls_printf(description, "\n%s - %s\n", methods[i].name, methods[i].description);
 	for (j = 0; j < methods[i].option_count; j++) {
 	    const struct gcv_facetize_option_desc *opt = &methods[i].options[j];
-	    bu_vls_printf(description, "  %s (default %s): %s\n", opt->name, opt->default_value ? opt->default_value : "", opt->description);
+	    const char *default_value = opt->default_value ? opt->default_value : "(no default)";
+	    bu_vls_printf(description, "  %s (default %s): %s\n", opt->name, default_value, opt->description);
 	}
     }
 }
