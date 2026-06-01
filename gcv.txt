@@ -51,7 +51,179 @@ Current validation baseline:
 Design goals for the next work
 ------------------------------
 
-1. Keep the simple command simple.
+1. Redesign the plugin interface for libgcv to support feature publishing
+and registration at runtime.
+
+The first part of the facetize migration highlighted the core design problem:
+libgcv should not grow one public C API knob for every plugin feature.  Format
+importers, format exporters, tessellators, boolean evaluators, decimators,
+repair tools, and future optional integrations such as OpenCASCADE/FreeCAD will
+all need their own feature sets.  The improved design should make libgcv the
+registry, planner, option router, and execution engine, while plugins publish
+what they can do through a stable metadata and callback contract.
+
+Proposed architecture:
+
+- Treat plugins as providers of one or more capabilities, not just a flat list
+  of filters.  A plugin may provide reader capabilities, writer capabilities,
+  processing-stage capabilities, sub-capabilities used by higher-level stages,
+  or any combination of those.  For example, assetimport may publish many read
+  and write capabilities; STL may publish one reader and one writer; facetize
+  may publish a workflow stage plus separately selectable tessellation and
+  boolean-evaluation providers.
+- Keep libgcv ownership of the common concepts: plugin registration, capability
+  identity, format identity, data-shape identity, option descriptions, pipeline
+  planning, pipeline validation, candidate ranking, fallback policy, execution
+  reporting, and diagnostics.  Plugin code supplies metadata and implements the
+  callbacks; it should not decide global command grammar or global fallback
+  semantics.
+- Use an additive public ABI with versioned structs.  New registration structs
+  should include size/version fields and flags so older plugins can continue to
+  load and newer libgcv can safely ignore fields it does not understand.  The
+  current gcv_filter remains supported initially through compatibility adapters.
+- Support both built-in capabilities and dynamically loaded plugin libraries.
+  Built-ins are registered by libgcv at context initialization; dynamic plugins
+  are discovered from the existing plugin search path mechanism and registered
+  into the same registry.  Registration must reject duplicate stable IDs,
+  invalid scope names, malformed format declarations, and incompatible ABI
+  versions with actionable diagnostics rather than late conversion failures.
+
+Core metadata model:
+
+- Plugin metadata:
+  - stable plugin ID, for example stl, obj, assetimport, gdal, facetize
+  - human name, version, license/availability notes where useful
+  - short description and optional long help
+  - origin: built-in or dynamic library path
+  - priority defaults used only as tie-breakers after capability ranking
+- Capability metadata:
+  - stable capability ID unique within the plugin
+  - public scope name used by command options and help, for example in, out,
+    facetize, decimate, facetize.tessellate.nmg, facetize.boolean.manifold
+  - role: read, write, process, workflow, substage, probe, or support
+  - input and output data shapes, such as BRL-CAD database, CSG/implicit model,
+    mesh, point cloud, height field, image/volume, or external file
+  - supported file formats for I/O capabilities as a list, not a single
+    mime_type
+  - support quality per format and per data shape: native, good, lossy,
+    experimental, deprecated, read-only, write-only
+  - whether the capability is automatic by default, manually selectable only,
+    or an internal sub-capability selected by another stage
+  - compatibility flags for old gcv_filter behavior
+- Option metadata:
+  - stable option name, aliases, type, arity, default value, valid range or
+    enum values, repeatability, whether it is required, and whether it is
+    advanced/experimental/deprecated
+  - owning capability and scope
+  - parse and validate callback, preferably typed internally with an argv
+    adapter for existing bu_opt_desc users
+  - help text suitable for command help, JSON output, GUIs, and shell completion
+
+The capability registry should be queryable without creating execution state or
+opening input files.  It should answer: which plugins are loaded, which
+capabilities exist, which formats and data shapes each capability accepts and
+produces, which options are legal for each scope, which plugin owns an option,
+and which capabilities are eligible for automatic planning.
+
+Pipeline and planning model:
+
+- A conversion request becomes a graph search over capabilities.  The graph
+  edges are capabilities; the nodes are data shapes plus optional format/file
+  constraints.  The default path for gcv input.ext output.ext is still the
+  shortest valid reader -> zero or more processors -> writer pipeline.
+- The planner must distinguish file format from in-memory data shape.  A .g
+  reader produces a BRL-CAD database with implicit/CSG objects; an STL reader
+  produces mesh data; a mesh writer requires mesh data; therefore a .g -> .stl
+  conversion naturally inserts facetize, while .stl -> .obj should not.
+- Planning should produce an explicit immutable plan before execution.  Each
+  stage record contains the selected capability, scope name, role, input/output
+  shapes, resolved options, target path when applicable, fallback candidates,
+  and whether the stage was user-selected or automatically inserted.
+- Automatic planning must be deterministic.  Ranking should consider explicit
+  plugin pinning first, then exact format match, support quality, data probe
+  confidence, user preferences, built-in priority, and stable ID ordering as
+  the final tie-breaker.
+- Explicit selection narrows the graph instead of bypassing validation.  If the
+  user asks for format@plugin:path or --pipeline facetize,decimate, libgcv still
+  validates shape compatibility, required options, and unavailable plugins
+  before execution begins.
+- Fallback is a stage policy.  Unpinned automatic stages may try ranked
+  alternatives; pinned stages and --no-auto use only the selected capability.
+  All fallback attempts are captured in a structured execution report.
+
+Facetize as the first full processing-workflow example:
+
+- Register a facetize workflow capability with scope facetize.  It consumes
+  BRL-CAD database/implicit geometry and produces mesh-capable BRL-CAD database
+  content or an internal mesh representation suitable for mesh writers.
+- Register target-selection behavior as workflow options rather than separate
+  public C APIs: top-level objects versus regions, filtering, empty failed BoTs,
+  abort-on-error, in-place replacement, and region import behavior.
+- Register primitive tessellation providers as sub-capabilities under facetize,
+  for example facetize.tessellate.nmg, facetize.tessellate.cm, and future SPSR
+  or external-method providers.  These publish method-specific options and
+  quality/default metadata.  The facetize workflow selects them by option,
+  default policy, object type, and fallback rules.
+- Register boolean/evaluation providers as sub-capabilities, for example
+  facetize.boolean.nmg and facetize.boolean.manifold.  The workflow selects
+  them using the same registry and fallback machinery rather than hard-coding
+  private lists.
+- Keep the existing migrated gcv_facetize_* APIs as compatibility entry points
+  during the transition, but make their long-term implementation construct and
+  execute a facetize pipeline plan internally.
+
+Registration and metadata transport:
+
+- The native plugin contract should be C structs and callbacks, not JSON as the
+  execution ABI.  That keeps type checking, ownership, and function pointers
+  explicit and avoids a parser dependency in the hot path.
+- JSON should be an exported description format generated from the registry.
+  It is the right transport for command help, GUI discovery, test assertions,
+  shell completion, and external tooling.  It should be treated as a stable
+  introspection API with a documented schema version.
+- Optional dynamic plugins may ship sidecar JSON manifests for early discovery
+  or packaging information, but libgcv should still require native registration
+  before a capability can execute.
+- Option schemas should be translatable to and from bu_opt_desc so current
+  plugin option parsing can migrate incrementally.  New code should prefer typed
+  option storage; old code can receive argv-compatible option arrays from an
+  adapter until rewritten.
+
+Execution contract:
+
+- Separate planning, option validation, probing, and execution.  Probing may
+  inspect files or data to improve candidate confidence; it must be bounded,
+  side-effect-free, and report uncertainty distinctly from failure.
+- Execute all stages through one gcv_context, but make stage inputs and outputs
+  explicit enough that future non-db intermediates are possible.  The current
+  context->dbip behavior remains a compatibility path for existing readers and
+  writers.
+- Return structured results from planning and execution: resolved pipeline,
+  selected candidates, fallback attempts, warnings, errors, produced data
+  shape, and output paths.  The command can render this as terse text, verbose
+  text, or JSON; GUIs and tests can consume it directly.
+- Define ownership rules for all registry, plan, candidate-list, option, and
+  result objects.  Prefer libgcv-owned registry data for the context lifetime
+  and caller-owned/freeable plan and result objects.
+
+Compatibility and migration:
+
+- Phase in the new model without breaking existing plugins: wrap each current
+  gcv_filter as one compatibility capability using its name, filter_type,
+  mime_type, data_supported, create_opts_fn, free_opts_fn, and filter_fn.
+- Add multi-format capability metadata first, but keep the old single mime_type
+  field and find_filter wrapper until gcv and existing converters have moved to
+  candidate queries and pipeline execution.
+- Keep existing command behavior working: plain input/output paths,
+  format:path, -I/-O plugin options, and current simple conversions.  The new
+  scoped option grammar and JSON discovery become the documented path for new
+  work.
+- Treat libged as a useful pattern for command registration and help
+  organization, but keep the libgcv registry smaller and data-oriented:
+  capabilities are not commands, and their metadata must be usable by command,
+  GUI, batch, and library callers alike.
+
+2. Keep the simple command simple.
 
 - gcv input.ext output.ext should continue to work without explicit formats,
   plugins, stages, or options.
@@ -59,7 +231,7 @@ Design goals for the next work
 - Backward-compatible -I/-O option forms should remain available while the new
   scoped form becomes the documented form.
 
-2. Make conversions explicit internally.
+3. Make conversions explicit internally.
 
 - Represent conversion as an ordered pipeline: input reader, zero or more
   processing stages, and output writer.
@@ -67,7 +239,7 @@ Design goals for the next work
 - Let required stages be inserted automatically when possible, especially the
   facetize stage when writing a mesh format from CSG input.
 
-3. Make plugin/stage behavior discoverable.
+4. Make plugin/stage behavior discoverable.
 
 - Generate command help/listing output from libgcv metadata, not manually
   duplicated tables.
@@ -76,7 +248,7 @@ Design goals for the next work
   option name.
 - Provide machine-readable JSON for tests, GUIs, and shell completion.
 
-4. Support deterministic override and automatic fallback.
+5. Support deterministic override and automatic fallback.
 
 - Default auto mode should rank candidates and retry sensible alternatives when
   a reader or writer fails.
@@ -85,7 +257,7 @@ Design goals for the next work
 - Completion reporting should name the plugins/stages actually used and any
   fallbacks taken.
 
-5. Make regression tests prove the new user-facing behavior.
+6. Make regression tests prove the new user-facing behavior.
 
 - New options, help/list metadata, stage scopes, auto/fallback behavior, and
   facetize-stage insertion need direct tests.
@@ -167,86 +339,109 @@ effort, but regress/gcv is where high level functionality testing of the
 gcv command should live rather than in src/ unit tests.  (Lower level
 libgcv testing may live in src/libgcv/tests whenever appropriate.)
 
-Phase 1: libgcv filter and stage metadata
+Phase 1: libgcv capability registry and compatibility adapters
 
-Implement additive metadata so existing plugins keep compiling.
+Implement the new metadata model additively so existing plugins keep compiling
+and can be represented as capabilities before they are rewritten.
 
 Required API/data changes:
 
-- Add multi-format support to gcv_filter instead of relying on one mime_type.
-- Add filter/stage description fields:
-  - short description
-  - optional long help
-  - version string
-  - stable stage scope name for processing filters
-- Add support-quality metadata per format, for ranking candidates:
-  - native
-  - good
-  - lossy
-  - experimental
-- Add public option-introspection API that exposes bu_opt_desc data for help and
-  JSON output without creating execution state or causing side effects.
-- Keep compatibility accessors/wrappers for current single-format callers.
+- Add versioned registration structs for plugins, capabilities, formats,
+  data-shape contracts, support quality, options, and callbacks.
+- Add compatibility adapters that wrap each current gcv_filter as one registered
+  capability using the existing name, filter_type, mime_type, data_supported,
+  create_opts_fn, free_opts_fn, and filter_fn fields.
+- Add multi-format support in the capability metadata instead of relying on one
+  mime_type.  Keep the old field as compatibility data only.
+- Add public registry query APIs for plugins, capabilities, scopes, formats,
+  data shapes, options, and support quality.  These APIs must not create stage
+  execution state or inspect input files.
+- Add public option-introspection APIs that expose stable option schemas and can
+  be bridged to bu_opt_desc for current plugins.
+- Validate registration: duplicate plugin IDs, duplicate capability IDs,
+  duplicate public scopes, invalid role/shape combinations, missing callbacks,
+  and malformed option schemas should fail during registration.
 
 Regression coverage for Phase 1:
 
-- Unit tests for multi-format metadata enumeration.
+- Unit tests for plugin and capability registration, including duplicate and
+  malformed registration rejection.
+- Unit tests for multi-format metadata enumeration and compatibility wrapping of
+  current single-format filters.
 - Unit tests for stable scope names and duplicate-scope rejection/detection.
-- Unit tests for option-introspection on reader, writer, and filter plugins.
-- JSON metadata tests that assert known plugins expose expected names, formats,
-  scopes, descriptions, and representative options.
-- Compatibility tests proving existing single-format lookup still works.
+- Unit tests for option introspection on reader, writer, processing, workflow,
+  and compatibility-adapted capabilities.
+- JSON metadata tests that assert known plugins expose expected IDs, names,
+  formats, shapes, scopes, descriptions, support quality, and representative
+  options.
+- Compatibility tests proving existing single-format lookup still works through
+  wrappers.
 
 Phase 2: candidate lookup, ranking, and fallback APIs
 
-Replace first-match filter selection with ranked candidate lists.
+Replace first-match filter selection with ranked capability candidate lists.
 
 Required API/data changes:
 
-- Add gcv_filter_candidates(context, type, format, data) returning a ranked
-  bu_ptbl or equivalent owned result type.
-- Rank by explicit plugin pin, format support quality, data_supported()
-  confidence, and deterministic fallback order.
-- Keep existing single-filter lookup as a wrapper around candidate selection.
-- Represent fallback attempts and final selected plugin in a structured result.
+- Add gcv_capability_candidates or equivalent query returning an owned ranked
+  result for a requested role, format, input shape, output shape, plugin pin,
+  and optional probed data.
+- Add bounded probe callbacks that return confidence/quality information rather
+  than a simple yes/no.  Adapt current data_supported callbacks to a basic
+  supported/unsupported confidence result.
+- Rank by explicit plugin pin, role and shape compatibility, exact format match,
+  support quality, probe confidence, user preference, built-in/default priority,
+  and stable ID ordering.
+- Keep find_filter and any existing single-filter lookup as wrappers around
+  candidate selection until all callers migrate.
+- Represent selected candidates, skipped candidates, fallback attempts, probe
+  warnings, and final stage status in structured result objects.
 
 Regression coverage for Phase 2:
 
-- Candidate ranking tests with controlled fake/test filters.
+- Candidate ranking tests with controlled fake/test capabilities.
+- Probe confidence tests, including unknown/uncertain probe results.
 - Tests proving pinned plugins disable fallback for that stage.
 - Tests proving --no-auto fails after the selected candidate fails.
 - Tests proving auto mode retries the next candidate and reports fallback.
 - Tests for deterministic ordering when candidates have equal rank.
 
-Phase 3: pipeline model in libgcv
+Phase 3: pipeline planning and execution in libgcv
 
-Generalize conversion from fixed read/write execution into an ordered stage
-runner.
+Generalize conversion from fixed read/write execution into an explicit plan and
+stage runner.
 
 Required API/data changes:
 
-- Add a pipeline representation with stage records containing:
-  - scope name
-  - stage type: reader, processor, writer
-  - selected plugin/filter
-  - scoped argv/options
-  - fallback policy
-- Add parser-independent APIs to build/validate a pipeline.
+- Add request, plan, stage, option-map, candidate-list, execution-report, and
+  diagnostic object types with documented ownership and free functions.
+- Add a pipeline planner that searches capability shape/format contracts and
+  emits a validated immutable plan before execution begins.
+- Each stage record should contain scope name, role, selected capability,
+  candidate fallback list, input/output shapes, typed scoped options, argv
+  compatibility data where needed, target path if applicable, and fallback
+  policy.
+- Add parser-independent APIs to build/validate a plan from explicit caller
+  choices and inferred input/output formats.
 - Add a pipeline execution helper that runs read -> process stages -> write over
-  one gcv_context.
-- Add automatic stage insertion hooks, starting with facetize for CSG-to-mesh
-  conversion.
-- Preserve the simple two-file conversion path as the default pipeline builder.
+  one gcv_context and records selected capabilities, warnings, failures, and
+  fallback attempts.
+- Add automatic stage insertion through the same planner, starting with facetize
+  for CSG-to-mesh conversion.
+- Preserve the simple two-file conversion path as the default request builder.
 
 Regression coverage for Phase 3:
 
-- Unit tests for pipeline construction from inferred input/output formats.
-- Unit tests for explicit --pipeline ordering and invalid stage names.
-- Tests proving scoped options are routed only to their owning stage.
+- Unit tests for pipeline construction from inferred input/output formats and
+  shape contracts.
+- Unit tests for explicit --pipeline ordering, invalid stage names, unavailable
+  capabilities, and shape-incompatible explicit selections.
+- Tests proving scoped options are routed only to their owning stage and are
+  rejected for unknown scopes/options.
 - Tests proving automatic facetize insertion happens for CSG-to-mesh output.
 - Tests proving automatic facetize insertion does not happen for mesh-to-mesh or
   CSG-to-CSG paths that do not need it.
-- Tests for structured resolved-pipeline reporting.
+- Tests for structured resolved-pipeline and execution-report output.
 
 Phase 4: facetize processing stage
 
