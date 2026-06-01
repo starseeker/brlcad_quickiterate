@@ -160,6 +160,13 @@ Auto/fallback controls:
 Implementation phases
 ---------------------
 
+NOTE: The regress/gcv directory already contains a start for libgcv/gcv
+regression testing - be sure to utilize, modernize and extend it as
+appropriate.  It may be reworked however is advantageous to support this
+effort, but regress/gcv is where high level functionality testing of the
+gcv command should live rather than in src/ unit tests.  (Lower level
+libgcv testing may live in src/libgcv/tests whenever appropriate.)
+
 Phase 1: libgcv filter and stage metadata
 
 Implement additive metadata so existing plugins keep compiling.
