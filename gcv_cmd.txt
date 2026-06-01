@@ -1,0 +1,114 @@
+Proposed design for the gcv command and supporting libgcv API
+Design goals (mapped to the problem)
+(a) Simple default works: gcv in.ext out.ext must "just work" with zero ceremony.
+(b) Discoverable: users can enumerate formats, the plugins that handle each, and the options each plugin/stage exposes — including answering "which plugin offers option X?"
+(c) Multi-context options: distinct option scopes for input, output, and one or more intermediate processing stages.
+(d) Auto / fallback: when a chosen plugin can't handle the data, gcv can try the next-best candidate.
+The unifying idea is to make the conversion an explicit pipeline of stages (read → [process...] → write), give every stage a scope label, and have plugins publish rich self-description so the CLI is generated from data rather than hand-maintained.
+
+Part 1 — The conceptual model: a scoped pipeline
+Treat every run as an ordered pipeline. Each participant is a stage with a stable scope name:
+
+in — the reader stage
+out — the writer stage
+one or more processing stages, each with its own scope name (e.g. facetize, decimate). Default behavior inserts required processing automatically (e.g. auto-facetize when writing a mesh format from CSG), so simple invocations need not mention them.
+Every option on the command line belongs to exactly one scope. This replaces the current -I/-O/-B "consume until next known option" scanner — which is ambiguous and can't address a third context — with explicit, unambiguous scoping.
+
+Part 2 — CLI grammar
+2.1 Default (unchanged simple case)
+Code
+￼
+gcv input.stl output.g
+gcv model.g model.obj
+Format inferred from extension; reader/writer auto-selected. This path must remain the happy default.
+
+2.2 Explicit format / plugin selection
+Keep the existing path:format prefix capability, and add an optional plugin selector. Proposed token form for a file argument:
+
+Code
+￼
+[format[@plugin]:]path
+stl:model.dat — force the STL format on an oddly-named file (already supported).
+stl@assetimport:model.stl — force the STL format handled by the assetimport plugin specifically.
+@assetimport:model.stl — let the plugin infer format but pin the plugin.
+Equivalent long options for scripting clarity: --input-format, --input-plugin, --output-format, --output-plugin (the first two generalize the current --input-format/--output-format).
+
+2.3 Scoped options (the core of (c))
+Introduce a single, uniform, scope-prefixed option convention that works for any stage, present or future:
+
+Code
+￼
+--<scope>:<option>[=value]
+Examples:
+
+Code
+￼
+gcv part.g part.stl --out:binary --out:output-dir
+gcv part.g part.stl --facetize:abs-tol=0.1 --out:binary
+gcv a.step a.obj --in:max-threads=8 --process:decimate:feature-size=2.0
+Why this rather than -I ... -O ... blocks:
+
+Unambiguous: each option names its scope, so order independence and no "where does this block end?" parsing.
+Extensible: a third (or Nth) context costs nothing — a new processing plugin just gets its own scope name.
+Discoverable: the scope prefix is exactly what gcv --help <scope> documents (Part 3).
+Provide convenience aliases for the two dominant scopes so the common case stays terse, while keeping the general form available:
+
+-I opt / --input-opt opt → --in:opt
+-O opt / --output-opt opt → --out:opt
+Bare options with no recognized scope retain today's "applies to both reader and writer" behavior for backward compatibility, but the documented, recommended form is scoped.
+
+2.4 Explicit pipeline (power users)
+Allow an explicit ordered processing chain when the default insertion isn't what's wanted:
+
+Code
+￼
+gcv in.step out.stl --pipeline "facetize,decimate" \
+    --facetize:abs-tol=0.1 --decimate:feature-size=2.0
+If --pipeline is omitted, gcv composes the minimal required chain automatically (e.g., insert a facetize stage only when the writer needs a mesh and the model is implicit).
+
+Part 3 — Discoverability (the core of (b))
+Make help data-driven and layered, generated from plugin metadata (Part 5), replacing the #if 0 static table.
+
+gcv --list — formats matrix, built at runtime from registered filters:
+Code
+￼
+Format   Read (plugins)        Write (plugins)
+stl      stl, assetimport      stl, assetimport
+obj      obj, assetimport      obj
+step     assetimport           —
+...
+gcv --list-plugins — plugins with version, supported formats, and stage type (read/write/filter).
+gcv --help <scope> — options for a scope. gcv --help out shows writer options; if multiple writer plugins exist, it shows them grouped by plugin and notes which plugin is the default for the resolved output format.
+gcv --help <format> (e.g. gcv --help stl) — everything about a format: which plugins read/write it and the union of their options, each annotated with its owning plugin. This directly solves the "which plugin offers option X?" chicken-and-egg problem — the user does not need to pre-select a plugin to discover options; options are listed with their provenance.
+gcv --search-option <name> — reverse lookup: given an option name or substring, list every plugin/stage that exposes it. A second, explicit answer to the discoverability concern in the problem statement.
+Machine-readable mode: every listing/help command accepts --format=json (leveraging the existing bu_opt_describe JSON support) so GUIs, shell completion, and tests can consume the same metadata the human help is built from. This is the single source of truth — no duplicated static tables.
+Part 4 — Auto mode and fallback (the core of (d))
+Candidate ranking instead of first-match. Replace find_filter()'s "return first" with a function that returns an ordered candidate list for a (type, format, data) query, ranked by a published support-quality score (Part 5) and by data_supported() confidence.
+--auto (or default when no plugin is pinned): gcv tries candidates in rank order; if a reader/writer fails, it logs the failure and transparently retries with the next candidate before giving up. Today a single failure aborts (gcv.c:408-418).
+Determinism & override: pinning a plugin (@plugin or --input-plugin) disables fallback for that stage so scripted/reproducible runs stay predictable. --no-auto forces strict single-candidate behavior everywhere.
+Reporting: on completion gcv reports which plugins were actually used per stage (and any fallbacks taken), so "auto" behavior is never opaque.
+Part 5 — Required libgcv API extensions
+These are additive; existing plugins keep compiling (new fields default to zero/NULL). They let the CLI be fully generated and enable ranking/fallback.
+
+Multiple formats per filter. Replace the single mime_type with a NULL-terminated list of supported bu_mime_model_t values (resolving the One mime_type isn't going to cut it FIXME at libgcv/gcv.c:181 for GDAL/assetimport). Keep a thin compatibility accessor for the common single-format case.
+Self-description metadata on struct gcv_filter:
+description (one-line human summary) and optional long help.
+version string.
+A support-quality / priority hint per format (e.g. enum NATIVE > GOOD > LOSSY > EXPERIMENTAL) used for candidate ranking in Part 4.
+Public option introspection. Today create_opts_fn/free_opts_fn are marked PRIVATE. Add a public, non-destructive way to obtain a filter's bu_opt_desc array purely for description (no side effects, no allocation of run state), so --help/--list/JSON can enumerate options without executing anything. This is what powers Parts 3.3–3.6.
+Filter lookup/ranking API. Add gcv_filter_candidates(context, type, format, data) returning a ranked bu_ptbl of matching filters (supersedes single-result find_filter, which can be kept as a thin wrapper).
+Stage scope identity for processing filters. Give GCV_FILTER_FILTER plugins a stable scope name (e.g. facetize, decimate) so the CLI can route --<scope>:... options to them and document them. gcv_execute already accepts a gcv_filter + argv; the command layer just needs to assemble the right argv per scope from the parsed scoped options.
+Pipeline execution helper (optional, command-side acceptable too): a small libgcv helper to run an ordered list of (filter, argv) stages over one shared gcv_context, centralizing the read→process→write loop and fallback retries so other front-ends (GUI) get identical behavior.
+Part 6 — Implementation phasing (suggested order)
+API metadata first: add multi-format list, description/version/quality, and the public option-introspection accessor. Backfill existing plugins' metadata.
+Discoverability: implement --list, --list-plugins, --help <scope|format>, --search-option, and --format=json, all generated from the new metadata (delete the #if 0 table).
+Scoped option parser: replace the fmt_fun scanner with the --<scope>:opt model plus -I/-O aliases and backward-compatible bare-option behavior.
+Ranking + fallback: add gcv_filter_candidates and wire --auto/--no-auto and per-stage reporting into the conversion driver.
+Pipeline stages: generalize do_conversion from fixed read/write into an ordered stage runner; add automatic processing-stage insertion and explicit --pipeline.
+Docs/tests: update gcv.adoc; add tests that consume the JSON metadata so the help and behavior can't silently drift.
+Why this satisfies all four requirements
+User-friendly: the trivial case is untouched; complexity is opt-in.
+Flexible: any number of processing stages, each independently configurable.
+Powerful: explicit plugin pinning, explicit pipelines, and auto-fallback all available.
+Extensible: new formats/plugins/processing stages require zero changes to the gcv command — they self-publish formats, options, and a scope name, honoring the existing libgcv tenet (NOTES: "Each added geometry format should extend LIBGCV without requiring ANY change to the public API").
+Discoverable: one metadata source feeds human help, reverse option search, and machine-readable output, directly resolving the "which plugin offers this option?" problem without forcing a plugin choice first.

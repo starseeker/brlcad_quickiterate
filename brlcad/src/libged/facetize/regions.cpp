@@ -492,44 +492,38 @@ _validate_csg_vs_bot(struct db_i *csg_dbip, const char *obj_name, struct db_i *b
     return (sa_err > sa_tol_pct || vol_err > vol_tol_pct) ? 0 : 1;
 }
 
-int
-_ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv)
-{
-    int ret = BRLCAD_OK;
-    struct db_i *dbip = s->dbip;
-    struct bu_list *vlfree = &rt_vlfree;
-    int64_t region_start = bu_gettime();
 
-    /* Convert percentage thresholds (0–100) to fractions (0–1) once. */
-    const double perturb_sa_frac  = s->perturb_sa_tol  / 100.0;
-    const double perturb_vol_frac = s->perturb_vol_tol / 100.0;
-
-    /* Validation outcome counters — accumulated across all regions. */
-    int vcnt_skip         = 0; /* skipped: no perturbable leaf */
-    int vcnt_total        = 0; /* entered validation path */
-    int vcnt_naturally_empty = 0; /* Boolean eval itself produced an empty BoT (no geometry) */
-    int vcnt_p1_pass      = 0; /* P1 MATCH (within threshold) */
-    int vcnt_few_hit      = 0; /* P1: few Crofton hits — accepted with note (sub-mm geometry found) */
-    int vcnt_zero_hit     = 0; /* P1: zero Crofton hits — non-empty BoT is suspicious */
-    int vcnt_p1_trigger   = 0; /* P1 MISMATCH (triggered perturb retry) */
-    int vcnt_p2_pass      = 0; /* P2 MATCH after perturb */
-    int vcnt_p2_topoflip  = 0; /* P2: Crofton-zero/few after perturb (perturb shifted topology) */
-    int vcnt_p2_warn      = 0; /* P2 persistent validation mismatch */
-    int vcnt_unavail      = 0; /* validation unavailable (metric/prep failure) */
-    int vcnt_adjusted_instances = 0;
-    int vcnt_sub_variants = 0;
-    int vcnt_perturb_fallbacks = 0;
-    int vcnt_tess_failures = 0;
+struct ged_region_ctx {
+    struct _ged_facetize_state *s;
+    struct bu_list *vlfree;
+    int64_t region_start;
+    double perturb_sa_frac;
+    double perturb_vol_frac;
+    int vcnt_skip;
+    int vcnt_total;
+    int vcnt_naturally_empty;
+    int vcnt_p1_pass;
+    int vcnt_few_hit;
+    int vcnt_zero_hit;
+    int vcnt_p1_trigger;
+    int vcnt_p2_pass;
+    int vcnt_p2_topoflip;
+    int vcnt_p2_warn;
+    int vcnt_unavail;
+    int vcnt_adjusted_instances;
+    int vcnt_sub_variants;
+    int vcnt_perturb_fallbacks;
+    int vcnt_tess_failures;
     std::set<std::string> inspect_regions;
+};
 
-    /* Used the libged tolerances */
-    struct rt_wdb *wdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_DEFAULT);
-    s->tol = &(wdbp->wdb_ttol);
-
-    if (!argc) return BRLCAD_ERROR;
-
-    struct directory **dpa = (struct directory **)bu_calloc(argc, sizeof(struct directory *), "dp array");
-    int newobjcnt = _ged_sort_existing_objs(dbip, argc, argv, dpa);
+static int
+_ged_regions_validate_args_cb(void *ctx, int UNUSED(argc), const char **UNUSED(argv), int newobjcnt)
+{
+    struct ged_region_ctx *rctx = (struct ged_region_ctx *)ctx;
+    struct _ged_facetize_state *s = rctx ? rctx->s : NULL;
+    if (!s)
+	return BRLCAD_ERROR;
     if (newobjcnt != 1) {
 	if (!newobjcnt)
 	    bu_vls_printf(s->gedp->ged_result_str, "Need non-existent output comb name.");
@@ -537,726 +531,366 @@ _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv
 	    bu_vls_printf(s->gedp->ged_result_str, "More than one non-existent object specified in region processing mode, aborting.");
 	return BRLCAD_ERROR;
     }
+    return BRLCAD_OK;
+}
 
-    const char *oname = argv[argc-1];
-    argc--;
+static int
+_ged_regions_object_fallback_cb(void *ctx, int argc, const char **argv)
+{
+    struct ged_region_ctx *rctx = (struct ged_region_ctx *)ctx;
+    return _ged_facetize_objs(rctx->s, argc, argv);
+}
 
-    // Before we go any further, see if we actually have regions in the
-    // specified input(s).
-    const char *active_regions = "( -type r ! -below -type r )";
-    struct bu_ptbl *ar = NULL;
-    BU_ALLOC(ar, struct bu_ptbl);
-    if (db_search(ar, DB_SEARCH_RETURN_UNIQ_DP, active_regions, argc, dpa, dbip, NULL, NULL, NULL) < 0) {
-	if (s->verbosity >= 0) {
-	    bu_log("regions.cpp:%d Problem searching for active regions - aborting.\n", __LINE__);
-	}
-	bu_ptbl_free(ar);
-	bu_free(ar, "ar table");
-	bu_free(dpa, "free dpa");
-	return BRLCAD_OK;
-    }
-
-    // If we have none, just treat this as a normal facetize operation.
-    if (!BU_PTBL_LEN(ar)) {
-	bu_ptbl_free(ar);
-	bu_free(ar, "ar table");
-
-	/* If we're doing an NMG output, use the old-school libnmg booleval */
-	if (s->make_nmg) {
-	    if (!s->in_place) {
-		ret = _ged_facetize_nmgeval(s, argc, argv, oname);
-		bu_free(dpa, "dpa");
-		return ret;
-	    } else {
-		for (int i = 0; i < argc; i++) {
-		    const char *av[2];
-		    av[0] = argv[i];
-		    av[1] = NULL;
-		    ret = _ged_facetize_nmgeval(s, 1, av, argv[i]);
-		    if (ret == BRLCAD_ERROR) {
-			bu_free(dpa, "dpa");
-			return ret;
-		    }
-		}
-		bu_free(dpa, "dpa");
-		return ret;
-	    }
-	}
-
-	// If we're not doing NMG, use the Manifold booleval
-	if (!s->in_place) {
-	    ret = _ged_facetize_booleval(s, argc, dpa, oname, false, false);
-	} else {
-	    for (int i = 0; i < argc; i++) {
-		struct directory *idpa[2];
-		idpa[0] = dpa[i];
-		idpa[1] = NULL;
-		ret = _ged_facetize_booleval(s, 1, (struct directory **)idpa, argv[i], false, false);
-		if (ret == BRLCAD_ERROR) {
-		    bu_free(dpa, "dpa");
-		    return ret;
-		}
-	    }
-	}
-
-	// Report on the primitive processing
-	facetize_primitives_summary(s);
-
-	// After collecting info for summary, we can now clean up working files
-	bu_dirclear(s->wdir);
-
-	// Cleanup
-	bu_free(dpa, "dpa");
-	return ret;
-    }
-
-    // We've got something warranting region processiong. For the working file
-    // setup, we need to check the solids to see if any supporting files need
-    // to be copied
-    const char *active_solids = "! -type comb";
-    struct bu_ptbl *as = NULL;
-    BU_ALLOC(as, struct bu_ptbl);
-    if (db_search(as, DB_SEARCH_RETURN_UNIQ_DP, active_solids, argc, dpa, dbip, NULL, NULL, NULL) < 0) {
-	if (s->verbosity >= 0) {
-	    bu_log("regions.cpp:%d Problem searching for active solids - aborting.\n", __LINE__);
-	}
-	bu_ptbl_free(as);
-	bu_free(as, "as table");
-	bu_ptbl_free(ar);
-	bu_free(ar, "ar table");
-	bu_free(dpa, "free dpa");
-	return BRLCAD_OK;
-    }
-    if (!BU_PTBL_LEN(as)) {
-	/* No active solids (unlikely but technically possible), nothing to do */
-	bu_ptbl_free(as);
-	bu_free(as, "as table");
-	bu_ptbl_free(ar);
-	bu_free(ar, "ar table");
-	bu_free(dpa, "free dpa");
-	return BRLCAD_OK;
-    }
-
-    char kfname[MAXPATHLEN];
-    char tmpwfile[MAXPATHLEN];
-
-    /* Figure out the working .g filename */
-    struct bu_vls wfilename = BU_VLS_INIT_ZERO;
-    // Hash the path string and construct
-    unsigned long long hash_num = bu_data_hash((void *)bu_vls_cstr(s->bname), bu_vls_strlen(s->bname));
-    bu_vls_sprintf(&wfilename, "facetize_regions_%s_%llu", bu_vls_cstr(s->bname), hash_num);
-
-    // Have filename, get a location in the cache directory
-    bu_dir(tmpwfile, MAXPATHLEN, s->wdir, bu_vls_cstr(&wfilename), NULL);
-    bu_vls_sprintf(s->wfile, "%s", tmpwfile);
-    bu_vls_printf(&wfilename, "_keep");
-    bu_dir(kfname, MAXPATHLEN, s->wdir, bu_vls_cstr(&wfilename), NULL);
-    bu_vls_free(&wfilename);
-
-    // Set up working file.  We will reuse this for each region->bot conversion.
-    // We pass in the list of all active solids so any necessary supporting data
-    // files also get copied over.
-    if (_ged_facetize_working_file_setup(s, as) != BRLCAD_OK) {
-	if (s->verbosity >= 0) {
-	    bu_log("regions.cpp:%d Failed to set up working file - aborting.\n", __LINE__);
-	}
-	bu_ptbl_free(as);
-	bu_free(as, "as table");
-	bu_ptbl_free(ar);
-	bu_free(ar, "ar table");
-	bu_free(dpa, "free dpa");
+static int
+_ged_regions_set_working_file_cb(void *ctx, const char *working_file)
+{
+    struct ged_region_ctx *rctx = (struct ged_region_ctx *)ctx;
+    if (!rctx || !rctx->s || !working_file)
 	return BRLCAD_ERROR;
-    }
+    bu_vls_sprintf(rctx->s->wfile, "%s", working_file);
+    return BRLCAD_OK;
+}
 
-    // We need all the solids converted
-    if (!s->make_nmg && !s->nmg_booleval) {
-	if (_ged_facetize_leaves_tri(s, dbip, as)) {
-	    if (s->verbosity >= 0) {
-		bu_log("regions.cpp:%d Failed to tessellate all solids - aborting.\n", __LINE__);
-	    }
-	    if (s->variant_plan) {
-		delete (FacetizeVariantPlan *)s->variant_plan;
-		s->variant_plan = NULL;
-	    }
-	    bu_ptbl_free(as);
-	    bu_free(as, "as table");
-	    bu_ptbl_free(ar);
-	    bu_free(ar, "ar table");
-	    bu_free(dpa, "free dpa");
-	    return BRLCAD_ERROR;
-	}
-    }
+static int
+_ged_regions_working_file_setup_cb(void *ctx, struct bu_ptbl *leaf_dps)
+{
+    struct ged_region_ctx *rctx = (struct ged_region_ctx *)ctx;
+    return _ged_facetize_working_file_setup(rctx->s, leaf_dps);
+}
 
-    // Done with solids table
-    bu_ptbl_free(as);
-    bu_free(as, "as table");
+static int
+_ged_regions_primitive_tessellate_cb(void *ctx, struct db_i *dbip, struct bu_ptbl *leaf_dps)
+{
+    struct ged_region_ctx *rctx = (struct ged_region_ctx *)ctx;
+    return _ged_facetize_leaves_tri(rctx->s, dbip, leaf_dps);
+}
 
-    // If we're going to be doing NMG outputs or NMG booleans,
-    // we'll need to have a facetize_state container that has
-    // info for the working .g, rather than the parent.  Set
-    // up accordingly.
+static void
+_ged_regions_state_for_working_db(struct _ged_facetize_state *dst, struct _ged_facetize_state *src, struct db_i *wdbip)
+{
+    *dst = *src;
+    dst->dbip = wdbip;
+}
+
+static int
+_ged_regions_nmg_eval_cb(void *ctx, struct db_i *working_db, const char *root_name, const char *result_name)
+{
+    struct ged_region_ctx *rctx = (struct ged_region_ctx *)ctx;
     struct _ged_facetize_state nmg_wstate;
-    nmg_wstate.verbosity = s->verbosity;
-    nmg_wstate.no_empty = s->no_empty;
-    nmg_wstate.make_nmg = s->make_nmg;
-    nmg_wstate.nonovlp_brep = s->nonovlp_brep;
-    nmg_wstate.no_fixup= s->no_fixup;
-    nmg_wstate.no_perturb = s->no_perturb;
-    nmg_wstate.use_variant_plan = s->use_variant_plan;
-    nmg_wstate.wdir = s->wdir;
-    nmg_wstate.wfile = s->wfile;
-    nmg_wstate.bname = s->bname;
-    nmg_wstate.log_file = s->log_file;
-    nmg_wstate.lfile = s->lfile;
-    nmg_wstate.regions = s->regions;
-    nmg_wstate.resume = s->resume;
-    nmg_wstate.in_place = s->in_place;
-    nmg_wstate.nmg_booleval = s->nmg_booleval;
-    nmg_wstate.max_time = s->max_time;
-    nmg_wstate.max_pnts = s->max_pnts;
-    nmg_wstate.prefix = s->prefix;
-    nmg_wstate.suffix = s->suffix;
-    nmg_wstate.tol = s->tol;
-    nmg_wstate.nonovlp_threshold = s->nonovlp_threshold;
-    nmg_wstate.solid_suffix = s->solid_suffix;
-    nmg_wstate.dbip = NULL;
+    _ged_regions_state_for_working_db(&nmg_wstate, rctx->s, working_db);
+    const char *obj_name = root_name;
+    return _ged_facetize_nmgeval(&nmg_wstate, 1, &obj_name, result_name);
+}
 
-    // If we have any solids in the hierarchies with only combs above them,
-    // they are "implicit" regions and must be facetized individually.
-    const char *implicit_regions = "( ! -below -type r ! -type comb )";
-    struct bu_ptbl *ir = NULL;
-    BU_ALLOC(ir, struct bu_ptbl);
-    if (db_search(ir, DB_SEARCH_RETURN_UNIQ_DP, implicit_regions, argc, dpa, dbip, NULL, NULL, NULL) < 0) {
-	if (s->verbosity >= 0) {
-	    bu_log("Problem searching for implicit regions - aborting.\n");
-	}
-	bu_ptbl_free(ar);
-	bu_free(ar, "ar table");
-	bu_free(dpa, "free dpa");
-	if (nmg_wstate.dbip)
-	    db_close(nmg_wstate.dbip);
-	return BRLCAD_OK;
-    }
-    if (BU_PTBL_LEN(ir)) {
-	if (s->make_nmg || s->nmg_booleval) {
-	    for (size_t i = 0; i < BU_PTBL_LEN(ir); i++) {
-		struct directory *idp = (struct directory *)BU_PTBL_GET(ir, i);
-		char *obj_name = bu_strdup(idp->d_namep);
-		struct db_i *wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
-		db_dirbuild(wdbip);
-		db_update_nref(wdbip);
-		nmg_wstate.dbip = wdbip;
-		int nret = _ged_facetize_nmgeval(s, 1, (const char **)&obj_name, obj_name);
-		if (nret != BRLCAD_OK) {
-		    if (s->verbosity >= 0)
-			bu_log("regions.cpp:%d Failed to process %s.\n", __LINE__, obj_name);
-		    bu_ptbl_free(ir);
-		    bu_free(ir, "ir table");
-		    bu_ptbl_free(ar);
-		    bu_free(ar, "ar table");
-		    bu_free(obj_name, "obj_name");
-		    bu_free(dpa, "free dpa");
-		    return BRLCAD_ERROR;
+static int
+_ged_regions_manifold_eval_cb(void *ctx, struct db_i *working_db, struct rt_wdb *wdbp, const char *root_name, const char *result_name, size_t current, size_t total)
+{
+    struct ged_region_ctx *rctx = (struct ged_region_ctx *)ctx;
+    char *obj_name = bu_strdup(root_name);
+    int ret = _ged_facetize_booleval_tri(rctx->s, working_db, wdbp, 1, (const char **)&obj_name, result_name, rctx->vlfree, 1, (int)current, (int)total);
+    bu_free(obj_name, "obj_name");
+    return ret;
+}
+
+static int
+_ged_regions_validate_region_cb(void *ctx, const char *root_name, const char *result_name, struct db_i **working_db, struct rt_wdb **wdbp, size_t current, size_t UNUSED(total), int *eval_status)
+{
+    struct ged_region_ctx *rctx = (struct ged_region_ctx *)ctx;
+    struct _ged_facetize_state *s = rctx->s;
+    struct db_i *wdbip = *working_db;
+    int bret = *eval_status;
+
+    if (bret == BRLCAD_OK) {
+	struct directory *ebot_dp = db_lookup(wdbip, result_name, LOOKUP_QUIET);
+	if (ebot_dp != RT_DIR_NULL) {
+	    struct rt_db_internal einternal;
+	    RT_DB_INTERNAL_INIT(&einternal);
+	    if (rt_db_get_internal(&einternal, ebot_dp, wdbip, NULL) >= 0) {
+		if (einternal.idb_minor_type == DB5_MINORTYPE_BRLCAD_BOT) {
+		    struct rt_bot_internal *ebot = (struct rt_bot_internal *)einternal.idb_ptr;
+		    if (ebot->num_faces == 0)
+			rctx->vcnt_naturally_empty++;
 		}
-		bu_free(obj_name, "obj_name");
-		db_close(wdbip);
+		rt_db_free_internal(&einternal);
 	    }
 	}
     }
 
-    /* Build the list of roots to evaluate to BoTs:
-     *  - active regions
-     *  - implicit non-region solids when not in NMG mode */
-    struct bu_ptbl eval_roots = BU_PTBL_INIT_ZERO;
-    std::set<std::string> eval_names;
-    for (size_t i = 0; i < BU_PTBL_LEN(ar); i++) {
-	struct directory *dp = (struct directory *)BU_PTBL_GET(ar, i);
-	eval_names.insert(std::string(dp->d_namep));
-	bu_ptbl_ins(&eval_roots, (long *)dp);
+    bool can_validate = false;
+    if (!s->no_perturb) {
+	std::set<std::string> visited;
+	struct directory *rdp = db_lookup(s->dbip, root_name, LOOKUP_QUIET);
+	can_validate = _has_perturbable_leaf(s->dbip, rdp, visited);
     }
-    if (!s->make_nmg && !s->nmg_booleval) {
-	for (size_t i = 0; i < BU_PTBL_LEN(ir); i++) {
-	    struct directory *dp = (struct directory *)BU_PTBL_GET(ir, i);
-	    if (eval_names.find(std::string(dp->d_namep)) == eval_names.end()) {
-		eval_names.insert(std::string(dp->d_namep));
-		bu_ptbl_ins(&eval_roots, (long *)dp);
+    if (!s->no_perturb && !can_validate) {
+	rctx->vcnt_skip++;
+	if (s->verbosity > 0)
+	    bu_log("FACETIZE: %s has no ft_perturb-capable leaves; skipping raytrace validation\n", root_name);
+    }
+
+    if (bret == BRLCAD_OK && !s->no_perturb && can_validate) {
+	rctx->vcnt_total++;
+	double sa_err_pct = -1.0, vol_err_pct = -1.0;
+	int vret = _validate_csg_vs_bot(s->dbip, root_name, wdbip, result_name,
+		rctx->perturb_sa_frac, rctx->perturb_vol_frac,
+		&sa_err_pct, &vol_err_pct);
+	if (vret == 1) {
+	    rctx->vcnt_p1_pass++;
+	    facetize_log(s, 1, "FACETIZE: %s CSG vs BoT MATCH (SA_err=%.2f%% VOL_err=%.2f%%) - skipping perturb\n",
+		    root_name, sa_err_pct, vol_err_pct);
+	}
+	if (vret == 2) {
+	    rctx->vcnt_few_hit++;
+	    rctx->inspect_regions.insert(std::string(root_name) + " (few ray hits)");
+	    facetize_log(s, 1, "FACETIZE NOTE: %s Crofton found very few ray intersections with CSG geometry (sub-mm or near-degenerate); BoT accepted - verify modeling intent\n",
+		    root_name);
+	}
+	if (vret == 3) {
+	    rctx->vcnt_zero_hit++;
+	    rctx->inspect_regions.insert(std::string(root_name) + " (zero CSG ray hits)");
+	    facetize_log(s, 1, "FACETIZE: %s Crofton found zero ray intersections with CSG geometry; Boolean eval likely empty - replacing BoT with empty\n",
+		    root_name);
+	    if (!s->no_empty)
+		_write_empty_bot(wdbip, result_name, s->verbosity);
+	}
+	if (vret == 0) {
+	    rctx->vcnt_p1_trigger++;
+	    facetize_log(s, 1, "FACETIZE: %s CSG vs BoT MISMATCH (SA_err=%.2f%% VOL_err=%.2f%%) - triggering perturb\n",
+		    root_name, sa_err_pct, vol_err_pct);
+	    bool reopened_wdb = false;
+	    _clear_variant_plan(s);
+	    struct directory *rdp = db_lookup(s->dbip, root_name, LOOKUP_QUIET);
+	    struct directory *dpw[2] = {rdp, NULL};
+	    FacetizeVariantPlan *region_vplan = _ged_facetize_build_variant_plan(s, 1, dpw);
+	    if (region_vplan) {
+		s->variant_plan = (void *)region_vplan;
+		rctx->vcnt_adjusted_instances += region_vplan->n_adjusted_instances;
+		rctx->vcnt_sub_variants += region_vplan->n_sub_variants;
+		rctx->vcnt_perturb_fallbacks += region_vplan->n_perturb_fallbacks;
+		if (!region_vplan->variant_names.empty())
+		    _ged_facetize_tessellate_variant_names(s, region_vplan);
+		rctx->vcnt_tess_failures += region_vplan->n_variant_tess_failures;
+		reopened_wdb = true;
 	    }
-	}
-    }
-    size_t eval_total = BU_PTBL_LEN(&eval_roots);
-    if (s->verbosity == 0)
-	facetize_log(s, 0, "Evaluating %zu roots...\n", eval_total);
-
-    /* Region mode starts with the baseline BoT path and only enables/tessellates
-     * variants if Pass 1 validation says a perturb retry is needed. */
-    if (!s->make_nmg && !s->nmg_booleval && !s->no_perturb)
-	s->use_variant_plan = 0;
-
-    // For evaluated roots, reduce each CSG tree to a single BoT/NMG result and
-    // place that result back into the working hierarchy.
-    struct bu_vls bname = BU_VLS_INIT_ZERO;
-    for (size_t i = 0; i < BU_PTBL_LEN(&eval_roots); i++) {
-	struct directory *dpw[2] = {NULL};
-	dpw[0] = (struct directory *)BU_PTBL_GET(&eval_roots, i);
-
-	// Get a name for the region's output BoT
-	if (s->make_nmg) {
-	    bu_vls_sprintf(&bname, "%s.nmg", dpw[0]->d_namep);
-	} else {
-	    bu_vls_sprintf(&bname, "%s.bot", dpw[0]->d_namep);
-	}
-
-	struct db_i *wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
-	wdbip->dbi_read_only = 1;
-	db_dirbuild(wdbip);
-	db_update_nref(wdbip);
-	struct directory *dcheck = db_lookup(wdbip, bu_vls_cstr(&bname), LOOKUP_QUIET);
-	if (dcheck != RT_DIR_NULL)
-	    bu_vls_incr(&bname, NULL, NULL, &_db_uniq_test, (void *)wdbip);
-	wdbip->dbi_read_only = 0;
-	nmg_wstate.dbip = wdbip;
-
-	int bret = BRLCAD_OK;
-	if (s->make_nmg || s->nmg_booleval) {
-	    char *obj_name = bu_strdup(dpw[0]->d_namep);
-	    bret = _ged_facetize_nmgeval(&nmg_wstate, 1, (const char **)&obj_name, bu_vls_cstr(&bname));
-	    bu_free(obj_name, "obj_name");
-	    db_close(wdbip);
-	} else {
-	    // Need wdbp in the next two stages for tolerances
-	    struct rt_wdb *wwdbp = wdb_dbopen(wdbip, RT_WDB_TYPE_DB_DEFAULT);
-	    char *obj_name = bu_strdup(dpw[0]->d_namep);
-	    bret = _ged_facetize_booleval_tri(s, wdbip, wwdbp, 1, (const char **)&obj_name, bu_vls_cstr(&bname), vlfree, 1, i+1, eval_total);
-	    bu_free(obj_name, "obj_name");
-
-	    /* Track regions where the Boolean evaluation itself yielded no geometry.
-	     * These are distinct from zero-hit replacements: here the tessellator
-	     * wrote an empty BoT directly (e.g. a subtraction that removes all of
-	     * the base solid), without any suspicious non-empty intermediate.     */
-	    if (bret == BRLCAD_OK) {
-		struct directory *ebot_dp = db_lookup(wdbip, bu_vls_cstr(&bname), LOOKUP_QUIET);
-		if (ebot_dp != RT_DIR_NULL) {
-		    struct rt_db_internal einternal;
-		    RT_DB_INTERNAL_INIT(&einternal);
-		    if (rt_db_get_internal(&einternal, ebot_dp, wdbip, NULL) >= 0) {
-			if (einternal.idb_minor_type == DB5_MINORTYPE_BRLCAD_BOT) {
-			    struct rt_bot_internal *ebot = (struct rt_bot_internal *)einternal.idb_ptr;
-			    if (ebot->num_faces == 0)
-				vcnt_naturally_empty++;
-			}
-			rt_db_free_internal(&einternal);
+	    if (region_vplan) {
+		if (reopened_wdb) {
+		    db_close(wdbip);
+		    wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
+		    if (!wdbip) {
+			*eval_status = BRLCAD_ERROR;
+			return BRLCAD_ERROR;
 		    }
+		    db_dirbuild(wdbip);
+		    db_update_nref(wdbip);
+		    *wdbp = wdb_dbopen(wdbip, RT_WDB_TYPE_DB_DEFAULT);
+		    *working_db = wdbip;
 		}
-	    }
 
-	    bool can_validate = false;
-	    if (!s->no_perturb) {
-		std::set<std::string> visited;
-		can_validate = _has_perturbable_leaf(s->dbip, dpw[0], visited);
-	    }
-	    if (!s->no_perturb && !can_validate) {
-		vcnt_skip++;
-		if (s->verbosity > 0)
-		    bu_log("FACETIZE: %s has no ft_perturb-capable leaves; skipping raytrace validation\n", dpw[0]->d_namep);
-	    }
+		s->use_variant_plan = 1;
+		struct directory *od = db_lookup(wdbip, result_name, LOOKUP_QUIET);
+		if (od != RT_DIR_NULL) {
+		    db_delete(wdbip, od);
+		    db_dirdelete(wdbip, od);
+		}
+		char *obj_name_retry = bu_strdup(root_name);
+		bret = _ged_facetize_booleval_tri(s, wdbip, *wdbp, 1, (const char **)&obj_name_retry, result_name, rctx->vlfree, 1, (int)current, -1);
+		bu_free(obj_name_retry, "obj_name_retry");
+		s->use_variant_plan = 0;
 
-	    if (bret == BRLCAD_OK && !s->no_perturb && can_validate) {
-		vcnt_total++;
-		double sa_err_pct = -1.0, vol_err_pct = -1.0;
-		int vret = _validate_csg_vs_bot(s->dbip, dpw[0]->d_namep, wdbip, bu_vls_cstr(&bname),
-			perturb_sa_frac, perturb_vol_frac,
-			&sa_err_pct, &vol_err_pct);
-		if (vret == 1) {
-		    vcnt_p1_pass++;
-		    facetize_log(s, 1, "FACETIZE: %s CSG vs BoT MATCH (SA_err=%.2f%% VOL_err=%.2f%%) - skipping perturb\n",
-			    dpw[0]->d_namep, sa_err_pct, vol_err_pct);
-		}
-		/* Return code 2: Crofton found a few crossings (1 to
-		 * CROFTON_FEW_HIT_THRESHOLD-1) but not enough for a
-		 * statistically reliable SA estimate.  The geometry is real
-		 * but very small.  Accept the BoT and skip perturb retry.    */
-		if (vret == 2) {
-		    vcnt_few_hit++;
-		    inspect_regions.insert(std::string(dpw[0]->d_namep) + " (few ray hits)");
-		    facetize_log(s, 1, "FACETIZE NOTE: %s Crofton found very few ray intersections with CSG geometry (sub-mm or near-degenerate); BoT accepted - verify modeling intent\n",
-			    dpw[0]->d_namep);
-		}
-		/* Return code 3: Crofton found zero crossings for a non-empty
-		 * BoT.  With zero ray intersections the CSG Boolean evaluation
-		 * most likely produces nothing (e.g. a subtractor fully engulfs
-		 * the base).  Replace the suspect non-empty BoT with an empty
-		 * one to match the expected raytrace behavior.                   */
-		if (vret == 3) {
-		    vcnt_zero_hit++;
-		    inspect_regions.insert(std::string(dpw[0]->d_namep) + " (zero CSG ray hits)");
-		    facetize_log(s, 1, "FACETIZE: %s Crofton found zero ray intersections with CSG geometry; Boolean eval likely empty - replacing BoT with empty\n",
-			    dpw[0]->d_namep);
-		    if (!s->no_empty)
-			_write_empty_bot(wdbip, bu_vls_cstr(&bname), s->verbosity);
-		}
-		if (vret == 0) {
-		    vcnt_p1_trigger++;
-		    facetize_log(s, 1, "FACETIZE: %s CSG vs BoT MISMATCH (SA_err=%.2f%% VOL_err=%.2f%%) - triggering perturb\n",
-			    dpw[0]->d_namep, sa_err_pct, vol_err_pct);
-		    bool reopened_wdb = false;
-		    /* Region retries intentionally use a fresh plan scoped to the
-		     * failed root so passing regions do not create perturb variants. */
-		    _clear_variant_plan(s);
-		    FacetizeVariantPlan *region_vplan =
-			_ged_facetize_build_variant_plan(s, 1, dpw);
-		    if (region_vplan) {
-			s->variant_plan = (void *)region_vplan;
-			vcnt_adjusted_instances += region_vplan->n_adjusted_instances;
-			vcnt_sub_variants += region_vplan->n_sub_variants;
-			vcnt_perturb_fallbacks += region_vplan->n_perturb_fallbacks;
-			if (!region_vplan->variant_names.empty())
-			    _ged_facetize_tessellate_variant_names(s, region_vplan);
-			vcnt_tess_failures += region_vplan->n_variant_tess_failures;
-			reopened_wdb = true;
+		if (bret == BRLCAD_OK) {
+		    double sa_err2 = -1.0, vol_err2 = -1.0;
+		    struct db_i *perturb_dbip = _create_perturbed_csg_db(s->dbip, root_name, region_vplan);
+		    struct db_i *csg_ref_dbip = perturb_dbip ? perturb_dbip : s->dbip;
+		    int vret2 = _validate_csg_vs_bot(csg_ref_dbip, root_name, wdbip, result_name,
+			    rctx->perturb_sa_frac, rctx->perturb_vol_frac,
+			    &sa_err2, &vol_err2);
+		    if (perturb_dbip) db_close(perturb_dbip);
+		    if (vret2 == 1) {
+			rctx->vcnt_p2_pass++;
+			facetize_log(s, 1, "FACETIZE: %s perturbed CSG vs BoT MATCH (SA_err=%.2f%% VOL_err=%.2f%%) - perturb successful\n",
+				root_name, sa_err2, vol_err2);
 		    }
-		    if (region_vplan) {
-			if (reopened_wdb) {
-			    db_close(wdbip);
-			    wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
-			    if (!wdbip)
-				break;
-			    db_dirbuild(wdbip);
-			    db_update_nref(wdbip);
-			    wwdbp = wdb_dbopen(wdbip, RT_WDB_TYPE_DB_DEFAULT);
-			}
-
-			s->use_variant_plan = 1;
-			struct directory *od = db_lookup(wdbip, bu_vls_cstr(&bname), LOOKUP_QUIET);
-			if (od != RT_DIR_NULL) {
-			    db_delete(wdbip, od);
-			    db_dirdelete(wdbip, od);
-			}
-			char *obj_name_retry = bu_strdup(dpw[0]->d_namep);
-			bret = _ged_facetize_booleval_tri(s, wdbip, wwdbp, 1, (const char **)&obj_name_retry, bu_vls_cstr(&bname), vlfree, 1, i+1, -1);
-			bu_free(obj_name_retry, "obj_name_retry");
-			s->use_variant_plan = 0;
-
-			if (bret == BRLCAD_OK) {
-			    double sa_err2 = -1.0, vol_err2 = -1.0;
-			    /* Compare the perturbed BoT (exact bg_trimesh metrics)
-			     * against a Crofton raytrace of the perturbed CSG: build
-			     * a fresh in-memory db whose leaves are ft_perturb-
-			     * generated parametric CSG copies from s->dbip (the
-			     * exact same factor stored in region_vplan->variant_recs).
-			     * Fall back to the original-CSG reference if the db
-			     * cannot be built (e.g. no region_vplan or all primitives lack
-			     * ft_perturb support). */
-			    struct db_i *perturb_dbip = _create_perturbed_csg_db(
-				    s->dbip, dpw[0]->d_namep, region_vplan);
-			    struct db_i *csg_ref_dbip =
-				perturb_dbip ? perturb_dbip : s->dbip;
-			    int vret2 = _validate_csg_vs_bot(
-				    csg_ref_dbip, dpw[0]->d_namep,
-				    wdbip, bu_vls_cstr(&bname),
-				    perturb_sa_frac, perturb_vol_frac,
-				    &sa_err2, &vol_err2);
-			    if (perturb_dbip) db_close(perturb_dbip);
-			    if (vret2 == 1) {
-				vcnt_p2_pass++;
-				facetize_log(s, 1, "FACETIZE: %s perturbed CSG vs BoT MATCH (SA_err=%.2f%% VOL_err=%.2f%%) - perturb successful\n",
-					dpw[0]->d_namep, sa_err2, vol_err2);
-			    }
-			    /* Return code 2 at P2: few Crofton crossings for
-			     * perturbed CSG — too noisy to compare, but the sampler
-			     * found geometry.  Accept the perturbed BoT with a note
-			     * (topology may have shifted slightly).                 */
-			    if (vret2 == 2) {
-				vcnt_p2_topoflip++;
-				inspect_regions.insert(std::string(dpw[0]->d_namep) + " (few perturbed CSG crossings)");
-				facetize_log(s, 1, "FACETIZE NOTE: %s Crofton found very few crossings for perturbed CSG; perturb may have shifted geometry - check output\n",
-					dpw[0]->d_namep);
-			    }
-			    /* Return code 3 at P2: zero Crofton crossings for
-			     * perturbed CSG.  The perturb shifted the geometry so
-			     * the parametric CSG appears empty (subtractor likely
-			     * now fully engulfs the base).  Replace the perturbed
-			     * BoT with an empty one to match raytrace behaviour.   */
-			    if (vret2 == 3) {
-				vcnt_zero_hit++;
-				inspect_regions.insert(std::string(dpw[0]->d_namep) + " (zero perturbed CSG crossings)");
-				facetize_log(s, 1, "FACETIZE: %s Crofton found zero crossings for perturbed CSG; Boolean eval likely empty after perturb - replacing BoT with empty\n",
-					dpw[0]->d_namep);
-				if (!s->no_empty)
-				    _write_empty_bot(wdbip, bu_vls_cstr(&bname), s->verbosity);
-			    }
-			    if (vret2 == 0) {
-				vcnt_p2_warn++;
-				inspect_regions.insert(std::string(dpw[0]->d_namep) + " (persistent mismatch after perturb)");
-				facetize_log(s, 1, "FACETIZE WARNING: %s persistent validation mismatch after perturb retry (SA_err=%.2f%% VOL_err=%.2f%%) - check output geometry with 'lint'\n",
-					dpw[0]->d_namep, sa_err2, vol_err2);
-			    }
-			    if (vret2 < 0) {
-				vcnt_unavail++;
-				if (s->verbosity > 0)
-				    bu_log("FACETIZE: validation unavailable after perturb retry for %s\n", dpw[0]->d_namep);
-			    }
-			}
-		    } else {
-			vcnt_unavail++;
-			inspect_regions.insert(std::string(dpw[0]->d_namep) + " (perturb plan unavailable)");
+		    if (vret2 == 2) {
+			rctx->vcnt_p2_topoflip++;
+			rctx->inspect_regions.insert(std::string(root_name) + " (few perturbed CSG crossings)");
+			facetize_log(s, 1, "FACETIZE NOTE: %s Crofton found very few crossings for perturbed CSG; perturb may have shifted geometry - check output\n",
+				root_name);
+		    }
+		    if (vret2 == 3) {
+			rctx->vcnt_zero_hit++;
+			rctx->inspect_regions.insert(std::string(root_name) + " (zero perturbed CSG crossings)");
+			facetize_log(s, 1, "FACETIZE: %s Crofton found zero crossings for perturbed CSG; Boolean eval likely empty after perturb - replacing BoT with empty\n",
+				root_name);
+			if (!s->no_empty)
+			    _write_empty_bot(wdbip, result_name, s->verbosity);
+		    }
+		    if (vret2 == 0) {
+			rctx->vcnt_p2_warn++;
+			rctx->inspect_regions.insert(std::string(root_name) + " (persistent mismatch after perturb)");
+			facetize_log(s, 1, "FACETIZE WARNING: %s persistent validation mismatch after perturb retry (SA_err=%.2f%% VOL_err=%.2f%%) - check output geometry with 'lint'\n",
+				root_name, sa_err2, vol_err2);
+		    }
+		    if (vret2 < 0) {
+			rctx->vcnt_unavail++;
 			if (s->verbosity > 0)
-			    bu_log("FACETIZE: perturb plan unavailable for %s\n", dpw[0]->d_namep);
+			    bu_log("FACETIZE: validation unavailable after perturb retry for %s\n", root_name);
 		    }
-		    _clear_variant_plan(s);
 		}
-		if (vret < 0) {
-		    vcnt_unavail++;
-		    inspect_regions.insert(std::string(dpw[0]->d_namep) + " (validation unavailable)");
-		    if (s->verbosity > 0)
-			bu_log("FACETIZE: validation unavailable for %s (crofton/metric prep failure)\n", dpw[0]->d_namep);
-		}
+	    } else {
+		rctx->vcnt_unavail++;
+		rctx->inspect_regions.insert(std::string(root_name) + " (perturb plan unavailable)");
+		if (s->verbosity > 0)
+		    bu_log("FACETIZE: perturb plan unavailable for %s\n", root_name);
 	    }
-	    db_close(wdbip);
+	    _clear_variant_plan(s);
 	}
-
-	if (bret != BRLCAD_OK) {
-	    if (s->verbosity >= 0)
-		bu_log("regions.cpp:%d Failed to generate %s.\n", __LINE__, bu_vls_cstr(&bname));
-	    if (s->variant_plan) {
-		delete (FacetizeVariantPlan *)s->variant_plan;
-		s->variant_plan = NULL;
-	    }
-	    bu_ptbl_free(&eval_roots);
-	    bu_ptbl_free(ir);
-	    bu_free(ir, "ir table");
-	    bu_ptbl_free(ar);
-	    bu_free(ar, "ar table");
-	    bu_vls_free(&bname);
-	    bu_free(dpa, "free dpa");
-	    return BRLCAD_ERROR;
+	if (vret < 0) {
+	    rctx->vcnt_unavail++;
+	    rctx->inspect_regions.insert(std::string(root_name) + " (validation unavailable)");
+	    if (s->verbosity > 0)
+		bu_log("FACETIZE: validation unavailable for %s (crofton/metric prep failure)\n", root_name);
 	}
-
-	// Replace comb roots with their evaluated BoT/NMG or swap primitive roots.
-	wdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READWRITE);
-	db_dirbuild(wdbip);
-	db_update_nref(wdbip);
-	struct directory *wdp = db_lookup(wdbip, dpw[0]->d_namep, LOOKUP_QUIET);
-	if (wdp && (wdp->d_flags & RT_DIR_COMB)) {
-	    struct rt_db_internal intern;
-	    struct rt_comb_internal *comb;
-	    rt_db_get_internal(&intern, wdp, wdbip, NULL);
-	    comb = (struct rt_comb_internal *)(&intern)->idb_ptr;
-	    RT_CK_COMB(comb);
-	    db_free_tree(comb->tree);
-	    union tree *tp;
-	    struct rt_tree_array *tree_list;
-	    BU_GET(tree_list, struct rt_tree_array);
-	    tree_list[0].tl_op = OP_UNION;
-	    BU_GET(tp, union tree);
-	    RT_TREE_INIT(tp);
-	    tree_list[0].tl_tree = tp;
-	    tp->tr_l.tl_op = OP_DB_LEAF;
-	    tp->tr_l.tl_name = bu_strdup(bu_vls_cstr(&bname));
-	    tp->tr_l.tl_mat = NULL;
-	    comb->tree = (union tree *)db_mkgift_tree(tree_list, 1);
-	    struct rt_wdb *wwdbp = wdb_dbopen(wdbip, RT_WDB_TYPE_DB_DEFAULT);
-	    wdb_put_internal(wwdbp, wdp->d_namep, &intern, 1.0);
-	} else {
-	    struct directory *bot_dp = db_lookup(wdbip, bu_vls_cstr(&bname), LOOKUP_QUIET);
-	    if (!bot_dp || db_delete(wdbip, wdp) != 0 || db_dirdelete(wdbip, wdp) != 0 ||
-		    db_rename(wdbip, bot_dp, dpw[0]->d_namep) < 0) {
-		if (s->verbosity >= 0)
-		    bu_log("regions.cpp:%d Failed to replace implicit root %s.\n", __LINE__, dpw[0]->d_namep);
-		db_close(wdbip);
-		if (s->variant_plan) {
-		    delete (FacetizeVariantPlan *)s->variant_plan;
-		    s->variant_plan = NULL;
-		}
-		bu_ptbl_free(&eval_roots);
-		bu_ptbl_free(ir);
-		bu_free(ir, "ir table");
-		bu_ptbl_free(ar);
-		bu_free(ar, "ar table");
-		bu_vls_free(&bname);
-		bu_free(dpa, "free dpa");
-		return BRLCAD_ERROR;
-	    }
-	}
-	db_update_nref(wdbip);
-	db_close(wdbip);
     }
-    bu_vls_free(&bname);
-    bu_ptbl_free(&eval_roots);
-    bu_ptbl_free(ir);
-    bu_free(ir, "ir table");
-    s->use_variant_plan = 1;
 
-    /* Print a concise validation summary when any regions went through the check. */
-    if ((vcnt_total > 0 || vcnt_skip > 0) && !s->make_nmg && !s->nmg_booleval) {
-	double elapsed_s = (bu_gettime() - region_start) / FACETIZE_USEC_TO_SEC_DIVISOR;
+    *eval_status = bret;
+    return BRLCAD_OK;
+}
+
+static void
+_ged_regions_use_variant_plan_cb(void *ctx, int enabled)
+{
+    struct ged_region_ctx *rctx = (struct ged_region_ctx *)ctx;
+    rctx->s->use_variant_plan = enabled;
+}
+
+static void
+_ged_regions_primitive_summary_cb(void *ctx)
+{
+    struct ged_region_ctx *rctx = (struct ged_region_ctx *)ctx;
+    facetize_primitives_summary(rctx->s);
+}
+
+static void
+_ged_regions_region_summary_cb(void *ctx, size_t eval_total)
+{
+    struct ged_region_ctx *rctx = (struct ged_region_ctx *)ctx;
+    struct _ged_facetize_state *s = rctx->s;
+    if ((rctx->vcnt_total > 0 || rctx->vcnt_skip > 0) && !s->make_nmg && !s->nmg_booleval) {
+	double elapsed_s = (bu_gettime() - rctx->region_start) / FACETIZE_USEC_TO_SEC_DIVISOR;
 	facetize_log(s, 0, "\nFACETIZE summary:\n");
 	facetize_log(s, 0, "  %-45s %8zu\n", "Total roots evaluated", eval_total);
 	facetize_log(s, 0, "  %-45s %8.2f\n", "Runtime (sec)", elapsed_s);
-	facetize_log(s, 0, "  %-45s %8d\n", "Validation skipped (no perturbable leaves)", vcnt_skip);
-	facetize_log(s, 0, "  %-45s %8d\n", "Validation pass (P1)", vcnt_p1_pass);
-	facetize_log(s, 0, "  %-45s %8d\n", "Naturally empty BoTs (Boolean eval)", vcnt_naturally_empty);
-	facetize_log(s, 0, "  %-45s %8d\n", "Perturb retries triggered", vcnt_p1_trigger);
-	facetize_log(s, 0, "  %-45s %8d\n", "Perturb retries passed (P2)", vcnt_p2_pass);
-	facetize_log(s, 0, "  %-45s %8d\n", "Few-hit notes (pre-perturb)", vcnt_few_hit);
-	facetize_log(s, 0, "  %-45s %8d\n", "Few-hit notes (post-perturb)", vcnt_p2_topoflip);
-	facetize_log(s, 0, "  %-45s %8d\n", "No-ray-hit BoTs replaced with empty BoTs", vcnt_zero_hit);
-	facetize_log(s, 0, "  %-45s %8d\n", "Persistent mismatches", vcnt_p2_warn);
-	facetize_log(s, 0, "  %-45s %8d\n", "Validation unavailable", vcnt_unavail);
-	if (!inspect_regions.empty()) {
+	facetize_log(s, 0, "  %-45s %8d\n", "Validation skipped (no perturbable leaves)", rctx->vcnt_skip);
+	facetize_log(s, 0, "  %-45s %8d\n", "Validation pass (P1)", rctx->vcnt_p1_pass);
+	facetize_log(s, 0, "  %-45s %8d\n", "Naturally empty BoTs (Boolean eval)", rctx->vcnt_naturally_empty);
+	facetize_log(s, 0, "  %-45s %8d\n", "Perturb retries triggered", rctx->vcnt_p1_trigger);
+	facetize_log(s, 0, "  %-45s %8d\n", "Perturb retries passed (P2)", rctx->vcnt_p2_pass);
+	facetize_log(s, 0, "  %-45s %8d\n", "Few-hit notes (pre-perturb)", rctx->vcnt_few_hit);
+	facetize_log(s, 0, "  %-45s %8d\n", "Few-hit notes (post-perturb)", rctx->vcnt_p2_topoflip);
+	facetize_log(s, 0, "  %-45s %8d\n", "No-ray-hit BoTs replaced with empty BoTs", rctx->vcnt_zero_hit);
+	facetize_log(s, 0, "  %-45s %8d\n", "Persistent mismatches", rctx->vcnt_p2_warn);
+	facetize_log(s, 0, "  %-45s %8d\n", "Validation unavailable", rctx->vcnt_unavail);
+	if (!rctx->inspect_regions.empty()) {
 	    facetize_log(s, 0, "\n  Regions to inspect manually:\n");
-	    for (const auto &iname : inspect_regions)
+	    for (const auto &iname : rctx->inspect_regions)
 		facetize_log(s, 0, "    %s\n", iname.c_str());
 	}
     }
+}
 
-    // Report on the primitive processing
-    if (!s->make_nmg && !s->nmg_booleval)
-	facetize_primitives_summary(s);
-
-    // keep active regions into .g copy
-    struct ged *wgedp = ged_open("db", bu_vls_cstr(s->wfile), 1);
-    if (!wgedp) {
-	if (s->verbosity >= 0) {
-	    bu_log("regions.cpp:%d unable to retrieve working data - FAIL\n", __LINE__);
-	}
-	if (s->variant_plan) {
-	    delete (FacetizeVariantPlan *)s->variant_plan;
-	    s->variant_plan = NULL;
-	}
-	bu_ptbl_free(&eval_roots);
-	bu_ptbl_free(ir);
-	bu_free(ir, "ir table");
-	bu_ptbl_free(ar);
-	bu_free(ar, "ar table");
-	bu_free(dpa, "free dpa");
-	return BRLCAD_ERROR;
-    }
-    const char **av = (const char **)bu_calloc(argc+10, sizeof(const char *), "av");
-    av[0] = "keep";
-    av[1] = kfname;
-    for (int i = 0; i < argc; i++) {
-	av[i+2] = argv[i];
-    }
-    av[argc+2] = NULL;
-    ged_exec_keep(wgedp, argc+2, av);
-    ged_close(wgedp);
-
-    /* Capture the current tops list.  If we're not doing an in-place overwrite, we
-     * need to know what the new top level objects are for the assembly of the
-     * final comb. */
-    struct directory **tlist = NULL;
-    size_t tcnt = db_ls(dbip, DB_LS_TOPS, NULL, &tlist);
-    std::set<std::string> otops;
-    for (size_t i = 0; i < tcnt; i++) {
-	otops.insert(std::string(tlist[i]->d_namep));
-    }
-    bu_free(tlist, "tlist");
-    tlist = NULL;
-
-    /* The user may have specified a naming preference - if so, honor it */
-    struct bu_vls prefix_str = BU_VLS_INIT_ZERO;
-    struct bu_vls suffix_str = BU_VLS_INIT_ZERO;
-    const char *affix = NULL;
-    int use_prefix = 1;
-    if (bu_vls_strlen(s->prefix)) {
-	bu_vls_sprintf(&prefix_str, "%s", bu_vls_cstr(s->prefix));
-    } else {
-	bu_vls_sprintf(&prefix_str, "facetize_");
-    }
-
-    if (bu_vls_strlen(s->suffix)) {
-	bu_vls_sprintf(&suffix_str, "%s", bu_vls_cstr(s->suffix));
-	use_prefix = 0;
-    }
-    affix = (use_prefix) ? bu_vls_cstr(&prefix_str) : bu_vls_cstr(&suffix_str);
-
-    // dbconcat output .g into original .g - either using -O to overwrite
-    // or allowing dbconcat to suffix the names depending on whether we're
-    // in-place or not.
-    av[0] = "dbconcat";
-    av[1] = (s->in_place) ? "-O" : "-L";
-    av[2] = (use_prefix) ? "-p" : "-s";
-    av[3] = kfname;
-    av[4] = affix;
-    av[5] = NULL;
-    ged_exec_dbconcat(s->gedp, 5, av);
-    bu_free(av, "av");
-
-    bu_vls_free(&prefix_str);
-    bu_vls_free(&suffix_str);
-
-    /* Done importing stuff - update nref. */
-    db_update_nref(dbip);
-
-
-    /* Capture the new tops list. */
-    tcnt = db_ls(dbip, DB_LS_TOPS, NULL, &tlist);
-    std::set<std::string> ntops;
-    for (size_t i = 0; i < tcnt; i++) {
-	ntops.insert(std::string(tlist[i]->d_namep));
-    }
-    bu_free(tlist, "tlist");
-
-
-    /* Find the new top level objects from dbconcat */
-    std::set<std::string> new_tobjs;
-    std::set_difference(ntops.begin(), ntops.end(), otops.begin(), otops.end(), std::inserter(new_tobjs, new_tobjs.begin()));
-
-    /* Check to see if oname ended up being created in the
-     * dbconcat.  If it was, rename it. */
-    struct directory *cdp  = db_lookup(dbip, oname, LOOKUP_QUIET);
-    if (cdp != RT_DIR_NULL) {
-	// Find a new name
-	struct bu_vls nname = BU_VLS_INIT_ZERO;
-	bu_vls_sprintf(&nname, "%s_0", oname);
-	cdp  = db_lookup(dbip, bu_vls_cstr(&nname), LOOKUP_QUIET);
-	if (cdp != RT_DIR_NULL) {
-	    if (bu_vls_incr(&nname, NULL, NULL, &_db_uniq_test, (void *)dbip) < 0) {
-		if (s->verbosity >= 0) {
-		    bu_log("regions.cpp:%d unable to generate name - FAIL\n", __LINE__);
-		}
-		bu_vls_free(&nname);
-		return BRLCAD_ERROR;
-	    }
-	}
-	const char *mav[4];
-	mav[0] = "mvall";
-	mav[1] = oname;
-	mav[2] = bu_vls_cstr(&nname);
-	mav[3] = NULL;
-	ged_exec_mvall(s->gedp, 3, mav);
-	new_tobjs.erase(std::string(oname));
-	new_tobjs.insert(std::string(bu_vls_cstr(&nname)));
-	bu_vls_free(&nname);
-    }
-
-    /* Make a new comb to hold the output */
-    struct wmember wcomb;
-    BU_LIST_INIT(&wcomb.l);
-    struct rt_wdb *cwdbp = wdb_dbopen(dbip, RT_WDB_TYPE_DB_DEFAULT);
-    std::set<std::string>::iterator s_it;
-    for (s_it = new_tobjs.begin(); s_it != new_tobjs.end(); ++s_it) {
-	(void)mk_addmember(s_it->c_str(), &(wcomb.l), NULL, DB_OP_UNION);
-    }
-    mk_lcomb(cwdbp, oname, &wcomb, 0, NULL, NULL, NULL, 0);
-
-    /* Done importing stuff - update nref. */
-    db_update_nref(dbip);
-
-    /* Print aggregate variant-plan summary and clean up (Manifold path only). */
-    if (vcnt_adjusted_instances > 0) {
-	facetize_log(s, 0, "FACETIZE: variant summary: %d adjusted instance(s) "
+static void
+_ged_regions_variant_summary_cb(void *ctx)
+{
+    struct ged_region_ctx *rctx = (struct ged_region_ctx *)ctx;
+    if (rctx->vcnt_adjusted_instances > 0) {
+	facetize_log(rctx->s, 0, "FACETIZE: variant summary: %d adjusted instance(s) "
 		"(%d subtractive), %d fallback(s), %d tess failure(s)\n",
-		vcnt_adjusted_instances,
-		vcnt_sub_variants,
-		vcnt_perturb_fallbacks,
-		vcnt_tess_failures);
+		rctx->vcnt_adjusted_instances,
+		rctx->vcnt_sub_variants,
+		rctx->vcnt_perturb_fallbacks,
+		rctx->vcnt_tess_failures);
     }
+}
 
-    bu_ptbl_free(ar);
-    bu_free(ar, "ar table");
-    bu_free(dpa, "free dpa");
-    bu_dirclear(s->wdir);
+static void
+_ged_regions_cleanup_cb(void *ctx)
+{
+    struct ged_region_ctx *rctx = (struct ged_region_ctx *)ctx;
+    if (rctx && rctx->s && rctx->s->wdir)
+	bu_dirclear(rctx->s->wdir);
+}
+
+void *
+_ged_facetize_region_context_create(struct _ged_facetize_state *s)
+{
+    if (!s)
+	return NULL;
+
+    struct rt_wdb *wdbp = wdb_dbopen(s->dbip, RT_WDB_TYPE_DB_DEFAULT);
+    s->tol = &(wdbp->wdb_ttol);
+
+    struct ged_region_ctx *rctx = new ged_region_ctx();
+    rctx->s = s;
+    rctx->vlfree = &rt_vlfree;
+    rctx->region_start = bu_gettime();
+    rctx->perturb_sa_frac = s->perturb_sa_tol / 100.0;
+    rctx->perturb_vol_frac = s->perturb_vol_tol / 100.0;
+    return (void *)rctx;
+}
+
+void
+_ged_facetize_region_context_destroy(void *ctx)
+{
+    struct ged_region_ctx *rctx = (struct ged_region_ctx *)ctx;
+    delete rctx;
+}
+
+void
+_ged_facetize_region_callbacks_init(struct gcv_facetize_region_callbacks *callbacks)
+{
+    if (!callbacks)
+	return;
+
+    *callbacks = {};
+    callbacks->validate_args = _ged_regions_validate_args_cb;
+    callbacks->object_fallback = _ged_regions_object_fallback_cb;
+    callbacks->set_working_file = _ged_regions_set_working_file_cb;
+    callbacks->working_file_setup = _ged_regions_working_file_setup_cb;
+    callbacks->primitive_tessellate = _ged_regions_primitive_tessellate_cb;
+    callbacks->nmg_eval = _ged_regions_nmg_eval_cb;
+    callbacks->manifold_eval = _ged_regions_manifold_eval_cb;
+    callbacks->validate_region = _ged_regions_validate_region_cb;
+    callbacks->use_variant_plan = _ged_regions_use_variant_plan_cb;
+    callbacks->primitive_summary = _ged_regions_primitive_summary_cb;
+    callbacks->region_summary = _ged_regions_region_summary_cb;
+    callbacks->variant_summary = _ged_regions_variant_summary_cb;
+    callbacks->cleanup = _ged_regions_cleanup_cb;
+}
+
+int
+_ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv)
+{
+    void *rctx = _ged_facetize_region_context_create(s);
+    if (!rctx)
+	return BRLCAD_ERROR;
+
+    struct gcv_facetize_region_callbacks callbacks;
+    _ged_facetize_region_callbacks_init(&callbacks);
+    int ret = gcv_facetize_regions_to_db(s->dbip,
+	    argc,
+	    argv,
+	    s->wdir,
+	    bu_vls_cstr(s->bname),
+	    bu_vls_cstr(s->prefix),
+	    bu_vls_cstr(s->suffix),
+	    s->in_place,
+	    s->make_nmg,
+	    s->nmg_booleval,
+	    s->no_perturb,
+	    s->verbosity,
+	    &callbacks,
+	    rctx);
+    _ged_facetize_region_context_destroy(rctx);
     return ret;
 }
 

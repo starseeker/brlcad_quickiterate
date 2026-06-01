@@ -26,7 +26,6 @@
 #include "common.h"
 
 #include <charconv>
-#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -34,48 +33,32 @@
 #include "bu/app.h"
 #include "bu/path.h"
 #include "bu/opt.h"
+#include "gcv/facetize.h"
 #include "wdb.h"
 
 #include "../ged_private.h"
 
-#define TESS_OPTS_IMPLEMENTATION
-#include "./tess_opts.h"
 #include "./ged_facetize.h"
 
 void
 _facetize_methods_help(struct ged *gedp)
 {
-        // Build up the path to the ged_exec executable
-      char tess_exec[MAXPATHLEN];
-      bu_dir(tess_exec, MAXPATHLEN, BU_DIR_BIN, "ged_exec", BU_DIR_EXT, NULL);
+    const struct gcv_facetize_method_info *methods = NULL;
+    size_t method_cnt = gcv_facetize_methods(&methods);
+    struct bu_vls desc = BU_VLS_INIT_ZERO;
 
-      const char *tess_cmd[MAXPATHLEN] = {NULL};
-      tess_cmd[ 0] = tess_exec;
-      tess_cmd[ 1] = "facetize_process";
-      tess_cmd[ 2] = "--list-methods";
-      tess_cmd[ 3] = NULL;
+    bu_vls_printf(gedp->ged_result_str, "Available BoT tessellation methods:");
+    for (size_t i = 0; i < method_cnt; i++) {
+	bu_vls_printf(gedp->ged_result_str, "%s%s", (i == 0) ? " " : ", ", methods[i].name);
+    }
+    bu_vls_printf(gedp->ged_result_str, "\n");
 
-      struct bu_process* mp;
-      bu_process_create(&mp, tess_cmd, BU_PROCESS_HIDE_WINDOW);
-      char mraw[MAXPATHLEN] = {'\0'};
-      int read_res = bu_process_read_n(mp, BU_PROCESS_STDOUT, MAXPATHLEN, mraw);
-      if (bu_process_wait_n(&mp, 0) || (read_res <= 0))
-	  return;   // wait error or read error
-      std::string method_list(mraw);
-      bu_vls_printf(gedp->ged_result_str, "Available BoT tessellation methods: %s\n", method_list.c_str());
+    gcv_facetize_describe_options(&desc);
+    if (bu_vls_strlen(&desc)) {
+	bu_vls_printf(gedp->ged_result_str, "\nMethod specific options:\n\n%s\n", bu_vls_cstr(&desc));
+    }
 
-      tess_cmd[ 3] = "-h";
-      tess_cmd[ 4] = NULL;
-
-      struct bu_process* mop;
-      bu_process_create(&mop, tess_cmd, BU_PROCESS_HIDE_WINDOW);
-      char moraw[MAXPATHLEN*10] = {'\0'};
-      read_res = bu_process_read_n(mop, BU_PROCESS_STDOUT, MAXPATHLEN*10, moraw);
-      if (bu_process_wait_n(&mop, 0) || (read_res <= 0))
-	  return;   // wait error
-      std::string method_options(moraw);
-
-      bu_vls_printf(gedp->ged_result_str, "\nMethod specific options:\n\n%s\n", method_options.c_str());
+    bu_vls_free(&desc);
 }
 
 struct _ged_facetize_state *
@@ -183,73 +166,110 @@ void _ged_facetize_state_destroy(struct _ged_facetize_state *s)
     BU_PUT(s, struct _ged_facetize_state);
 }
 
+static int
+_ged_facetize_validate_objects_cb(void *ctx, int argc, const char **argv, int newobj_cnt)
+{
+    return _ged_validate_objs_list((struct _ged_facetize_state *)ctx, argc, argv, newobj_cnt);
+}
+
+static int
+_ged_facetize_nmg_eval_cb(void *ctx, int argc, const char **argv, const char *oname)
+{
+    return _ged_facetize_nmgeval((struct _ged_facetize_state *)ctx, argc, argv, oname);
+}
+
+static int
+_ged_facetize_manifold_eval_cb(void *ctx, int argc, struct directory **dpa, const char *oname, int output_to_working, int cleanup)
+{
+    return _ged_facetize_booleval((struct _ged_facetize_state *)ctx, argc, dpa, oname, output_to_working ? true : false, cleanup ? true : false);
+}
+
+static void
+_ged_facetize_summary_cb(void *ctx)
+{
+    facetize_primitives_summary((struct _ged_facetize_state *)ctx);
+}
+
+static void
+_ged_facetize_cleanup_cb(void *ctx)
+{
+    struct _ged_facetize_state *s = (struct _ged_facetize_state *)ctx;
+    if (s && s->wdir)
+        bu_dirclear(s->wdir);
+}
+
+static void
+_ged_facetize_object_callbacks_init(struct gcv_facetize_object_callbacks *callbacks)
+{
+    if (!callbacks)
+	return;
+
+    *callbacks = {};
+    callbacks->validate_objects = _ged_facetize_validate_objects_cb;
+    callbacks->nmg_eval = _ged_facetize_nmg_eval_cb;
+    callbacks->manifold_eval = _ged_facetize_manifold_eval_cb;
+    callbacks->primitive_summary = _ged_facetize_summary_cb;
+    callbacks->cleanup = _ged_facetize_cleanup_cb;
+}
+
 int
 _ged_facetize_objs(struct _ged_facetize_state *s, int argc, const char **argv)
 {
-    int ret = BRLCAD_ERROR;
-    int newobj_cnt, i;
-    const char *oname = NULL;
-    const char *av[2];
-    struct directory **dpa = NULL;
-    struct directory *idpa[2];
-    struct db_i *dbip = s->dbip;
+    if (!s || !s->dbip)
+        return BRLCAD_ERROR;
 
-    RT_CHECK_DBI(dbip);
+    RT_CHECK_DBI(s->dbip);
 
-    if (argc < 0) return BRLCAD_ERROR;
+    struct gcv_facetize_object_callbacks callbacks;
+    _ged_facetize_object_callbacks_init(&callbacks);
 
-    dpa = (struct directory **)bu_calloc(argc, sizeof(struct directory *), "dp array");
-    newobj_cnt = _ged_sort_existing_objs(dbip, argc, argv, dpa);
-    if (_ged_validate_objs_list(s, argc, argv, newobj_cnt) == BRLCAD_ERROR) {
-	bu_free(dpa, "dp array");
+    return gcv_facetize_objects_to_db(s->dbip,
+            argc,
+            argv,
+            s->in_place,
+            s->make_nmg,
+            s->nmg_booleval,
+            &callbacks,
+            (void *)s);
+}
+
+static int
+_ged_facetize_execute(struct _ged_facetize_state *s, int argc, const char **argv)
+{
+    if (!s || !s->dbip)
 	return BRLCAD_ERROR;
+
+    RT_CHECK_DBI(s->dbip);
+
+    struct gcv_facetize_db_opts opts;
+    gcv_facetize_db_opts_default(&opts);
+    opts.region_mode = s->regions;
+    opts.in_place = s->in_place;
+    opts.make_nmg = s->make_nmg;
+    opts.nmg_booleval = s->nmg_booleval;
+    opts.no_perturb = s->no_perturb;
+    opts.verbosity = s->verbosity;
+    opts.working_dir = s->wdir;
+    opts.base_name = bu_vls_cstr(s->bname);
+    opts.prefix = bu_vls_cstr(s->prefix);
+    opts.suffix = bu_vls_cstr(s->suffix);
+
+    struct gcv_facetize_db_callbacks callbacks = {};
+    _ged_facetize_object_callbacks_init(&callbacks.objects);
+    callbacks.object_data = (void *)s;
+
+    void *region_ctx = NULL;
+    if (s->regions) {
+	region_ctx = _ged_facetize_region_context_create(s);
+	if (!region_ctx)
+	    return BRLCAD_ERROR;
+	_ged_facetize_region_callbacks_init(&callbacks.regions);
+	callbacks.region_data = region_ctx;
     }
 
-    if (!s->in_place) {
-	oname = argv[argc-1];
-	argc--;
-    }
-
-    /* If we're doing an NMG output, or we have been instructed to, use the
-     * old-school libnmg booleval */
-    if (s->make_nmg || s->nmg_booleval) {
-	if (!s->in_place) {
-	    ret = _ged_facetize_nmgeval(s, argc, argv, oname);
-	    goto booleval_cleanup;
-	} else {
-	    for (i = 0; i < argc; i++) {
-		av[0] = argv[i];
-		av[1] = NULL;
-		ret = _ged_facetize_nmgeval(s, 1, av, av[0]);
-		if (ret == BRLCAD_ERROR)
-		    goto booleval_cleanup;
-	    }
-	    goto booleval_cleanup;
-	}
-    }
-
-    // If we're not doing NMG, use the Manifold booleval
-    if (!s->in_place) {
-	ret = _ged_facetize_booleval(s, argc, dpa, oname, false, false);
-    } else {
-	for (i = 0; i < argc; i++) {
-	    idpa[0] = dpa[i];
-	    idpa[1] = NULL;
-	    ret = _ged_facetize_booleval(s, 1, (struct directory **)idpa, argv[i], false, false);
-	    if (ret == BRLCAD_ERROR)
-		goto booleval_cleanup;
-	}
-    }
-
-    // Report on the primitive processing
-    facetize_primitives_summary(s);
-
-    // After collecting info for summary, we can now clean up working files
-    bu_dirclear(s->wdir);
-
-booleval_cleanup:
-    bu_free(dpa, "dp array");
-
+    int ret = gcv_facetize_to_db(s->dbip, argc, argv, &opts, &callbacks);
+    if (region_ctx)
+	_ged_facetize_region_context_destroy(region_ctx);
     return ret;
 }
 
@@ -264,12 +284,12 @@ ged_facetize_core(struct ged *gedp, int argc, const char *argv[])
     long verbosity = 0;
     int force_perturb = 0;
     int disable_perturb = 0;
-    method_options_t *method_options = new method_options_t;
-    std::map<std::string, std::map<std::string,std::string>>::iterator o_it;
+    struct gcv_facetize_method_opts_state method_options;
+    gcv_facetize_method_opts_state_init(&method_options);
     struct _ged_facetize_state *s = _ged_facetize_state_create();
     s->gedp = gedp;
     s->dbip = gedp->dbip;
-    s->method_opts = method_options;
+    s->method_opts = &method_options;
 
     /* General options */
     struct bu_opt_desc d[24];
@@ -284,8 +304,8 @@ ged_facetize_core(struct ged *gedp, int argc, const char *argv[])
     BU_OPT(d[ 8],  "", "max-time",                                 "#",           &bu_opt_int,        &(s->max_time), "Maximum time to spend per object (in seconds).  Default is method specific.  Note that specifying shorter times may cut off conversions (particularly using sampling methods) that could succeed with longer runtimes.  Per-method time limits can also be adjusted to allow longer runtimes on slower methods.");
     BU_OPT(d[ 9],  "", "max-pnts",                                 "#",           &bu_opt_int,        &(s->max_pnts), "Maximum number of pnts per object to use when applying ray sampling methods.");
     BU_OPT(d[10],  "", "resume",                                    "",                  NULL,          &(s->resume), "Resume an interrupted conversion");
-    BU_OPT(d[11],  "", "methods",                          "m1,m2,...", &_tess_active_methods,        method_options, "Specify methods to use when tessellating primitives into BoTs.");
-    BU_OPT(d[12],  "", "method-opts",    "METHOD opt1=val opt2=val...",    &_tess_method_opts,        method_options, "For the specified method, set the specified options.");
+    BU_OPT(d[11],  "", "methods",                          "m1,m2,...", &gcv_facetize_method_opts_opt_methods,        &method_options, "Specify methods to use when tessellating primitives into BoTs.");
+    BU_OPT(d[12],  "", "method-opts",    "METHOD opt1=val opt2=val...",    &gcv_facetize_method_opts_opt_options,        &method_options, "For the specified method, set the specified options.");
     BU_OPT(d[13],  "", "no-empty",                                  "",                  NULL,        &(s->no_empty), "Do not output empty BoT objects if the boolean evaluation results in an empty solid.");
     BU_OPT(d[14],  "", "log-file",                        "<filename>",           &bu_opt_vls,           s->log_file, "Specify a location to use for the log file.");
     BU_OPT(d[15],  "", "nmg-booleval",                               "",                  NULL,       &s->nmg_booleval, "Use libnmg Boolean evaluation algorithm, even if we're producing a BoT.  Less robust, but if it succeeds it may produce cleaner output for coplanar inputs.");
@@ -338,16 +358,28 @@ ged_facetize_core(struct ged *gedp, int argc, const char *argv[])
     s->verbosity = (int)verbosity;
 
     // If we got a max-time top level arg, override any times that aren't specifically set
-    // by method options
+    // by method options.
     if (s->max_time) {
-	for (o_it = method_options->options_map.begin(); o_it != method_options->options_map.end(); o_it++) {
-	    std::map<std::string,std::string>::iterator m_it = o_it->second.find(std::string("max_time"));
-	    if (m_it == o_it->second.end()) {
-		// max-time wasn't explicitly set by a method, and we have an option - override
-		method_options->max_time[o_it->first] = s->max_time;
-		o_it->second[std::string("max_time")] = std::to_string(s->max_time);
+	std::vector<const char *> methods;
+	struct bu_ptbl default_methods = BU_PTBL_INIT_ZERO;
+	if (gcv_facetize_method_opts_method_count(&method_options)) {
+	    for (size_t i = 0; i < gcv_facetize_method_opts_method_count(&method_options); i++) {
+		const char *method = gcv_facetize_method_opts_method_name(&method_options, i);
+		if (method)
+		    methods.push_back(method);
+	    }
+	} else if (gcv_facetize_default_method_names(&default_methods) == BRLCAD_OK) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(&default_methods); i++) {
+		const char *method = (const char *)BU_PTBL_GET(&default_methods, i);
+		if (method)
+		    methods.push_back(method);
 	    }
 	}
+	for (size_t i = 0; i < methods.size(); i++) {
+	    if (!gcv_facetize_method_opts_has_option(&method_options, methods[i], "max_time"))
+		gcv_facetize_method_opts_set_option(&method_options, methods[i], "max_time", std::to_string(s->max_time).c_str());
+	}
+	gcv_facetize_free_method_names(&default_methods);
     }
 
     /* Sync -q and -v options */
@@ -424,16 +456,11 @@ ged_facetize_core(struct ged *gedp, int argc, const char *argv[])
 	goto ged_facetize_memfree;
     }
 
-    /* Multi-region mode has a different processing logic */
-    if (s->regions) {
-	ret = _ged_facetize_regions(s, argc, argv);
-    } else {
-	ret = _ged_facetize_objs(s, argc, argv);
-    }
+    ret = _ged_facetize_execute(s, argc, argv);
 
 ged_facetize_memfree:
     _ged_facetize_state_destroy(s);
-    delete method_options;
+    gcv_facetize_method_opts_state_free(&method_options);
 
     return ret;
 }

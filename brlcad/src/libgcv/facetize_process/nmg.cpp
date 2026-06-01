@@ -17,7 +17,7 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file libged/facetize/tessellate/nmg.cpp
+/** @file libgcv/facetize_process/nmg.cpp
  *
  * Invoke the standard librt/libnmg routines to generate a mesh from
  * an implicit solid.
@@ -59,7 +59,7 @@ _nmg_tessellate(struct rt_bot_internal **nbot, struct rt_db_internal *intern, te
     struct nmgregion *r1 = (struct nmgregion *)NULL;
     // Try the NMG routines (primary means of CSG implicit -> explicit mesh conversion)
     if (!BU_SETJUMP) {
-	status = intern->idb_meth->ft_tessellate(&r1, m, intern, &s->nmg_options.ttol, &s->nmg_options.tol);
+	status = intern->idb_meth->ft_tessellate(&r1, m, intern, &s->runtime.nmg.ttol, &s->runtime.nmg.tol);
     } else {
 	BU_UNSETJUMP;
 	status = -1;
@@ -70,7 +70,7 @@ _nmg_tessellate(struct rt_bot_internal **nbot, struct rt_db_internal *intern, te
 
     // NMG reports success, now get a BoT
     if (!BU_SETJUMP) {
-	(*nbot) = (struct rt_bot_internal *)nmg_mdl_to_bot(m, vlfree, &s->nmg_options.tol);
+	(*nbot) = (struct rt_bot_internal *)nmg_mdl_to_bot(m, vlfree, &s->runtime.nmg.tol);
     } else {
 	BU_UNSETJUMP;
 	(*nbot) = NULL;

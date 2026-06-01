@@ -17,7 +17,7 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file libged/facetize/continuation.cpp
+/** @file libgcv/facetize_process/continuation.cpp
  *
  * The facetize command's Continuation Method implementation.
  */
@@ -29,7 +29,6 @@
 #include "bg/trimesh.h"
 #include "raytrace.h"
 #include "analyze/polygonize.h"
-#include "../../ged_private.h"
 #include "./tessellate.h"
 
 #define FACETIZE_MEMORY_THRESHOLD 150000000
@@ -106,7 +105,7 @@ _tess_pnts_sample(const char *oname, struct db_i *dbip, tess_opts *s)
 
     /* Shoot - we need both the avg thickness of the hit partitions and seed points */
     struct bn_tol btol = BN_TOL_INIT_TOL;
-    if (rt_gen_obj_pnts(pnts, &s->pnt_options.avg_thickness, dbip, oname, &btol, flags, s->pnt_options.max_pnts, s->pnt_options.max_sample_time, 1) || pnts->count <= 0) {
+    if (rt_gen_obj_pnts(pnts, &s->runtime.pnts.avg_thickness, dbip, oname, &btol, flags, s->runtime.pnts.max_pnts, s->runtime.pnts.max_sample_time, 1) || pnts->count <= 0) {
 	struct pnt_normal *rpnt = (struct pnt_normal *)pnts->point;
 	if (rpnt) {
 	    struct pnt_normal *entry;
@@ -129,9 +128,9 @@ _tess_pnts_sample(const char *oname, struct db_i *dbip, tess_opts *s)
 	VSETALL(p_min, INFINITY);
 	VSETALL(p_max, -INFINITY);
 	_rt_pnts_bbox(p_min, p_max, pnts);
-	s->pnt_options.pnts_bbox_vol = _bbox_vol(p_min, p_max);
-	s->pnt_options.obj_bbox_vol = _bbox_vol(rpp_min, rpp_max);
-	if (fabs(s->pnt_options.obj_bbox_vol - s->pnt_options.pnts_bbox_vol)/s->pnt_options.obj_bbox_vol > 1) {
+	s->runtime.pnts.pnts_bbox_vol = _bbox_vol(p_min, p_max);
+	s->runtime.pnts.obj_bbox_vol = _bbox_vol(rpp_min, rpp_max);
+	if (fabs(s->runtime.pnts.obj_bbox_vol - s->runtime.pnts.pnts_bbox_vol)/s->runtime.pnts.obj_bbox_vol > 1) {
 	    struct pnt_normal *rpnt = (struct pnt_normal *)pnts->point;
 	    if (rpnt) {
 		struct pnt_normal *entry;
@@ -151,17 +150,17 @@ _tess_pnts_sample(const char *oname, struct db_i *dbip, tess_opts *s)
      * size for the polygonizer and the decimation routine */
     double min_len = (xlen < ylen) ? xlen : ylen;
     min_len = (min_len < zlen) ? min_len : zlen;
-    min_len = (min_len < s->pnt_options.avg_thickness) ? min_len : s->pnt_options.avg_thickness;
+    min_len = (min_len < s->runtime.pnts.avg_thickness) ? min_len : s->runtime.pnts.avg_thickness;
 
-    if (s->pnt_options.feature_size > 0) {
-	s->pnt_options.target_feature_size = 0.5*s->pnt_options.feature_size;
+    if (s->runtime.pnts.feature_size > 0) {
+	s->runtime.pnts.target_feature_size = 0.5*s->runtime.pnts.feature_size;
     } else {
-	s->pnt_options.target_feature_size = min_len * s->pnt_options.feature_scale;
+	s->runtime.pnts.target_feature_size = min_len * s->runtime.pnts.feature_scale;
     }
 
-    bu_log("feature_size: %f\n", s->pnt_options.feature_size);
-    bu_log("feature_scale: %f\n", s->pnt_options.feature_scale);
-    bu_log("target_feature_size: %f\n", s->pnt_options.target_feature_size);
+    bu_log("feature_size: %f\n", s->runtime.pnts.feature_size);
+    bu_log("feature_scale: %f\n", s->runtime.pnts.feature_scale);
+    bu_log("target_feature_size: %f\n", s->runtime.pnts.target_feature_size);
 
     return pnts;
 }

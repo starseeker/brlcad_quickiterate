@@ -40,10 +40,11 @@
 #include "rt/geom.h"
 #include "raytrace.h"
 #include "ged/defines.h"
+#include "gcv/facetize.h"
 
 __BEGIN_DECLS
 
-#define FACETIZE_METHOD_ATTR "facetize_method"
+#define FACETIZE_METHOD_ATTR GCV_FACETIZE_METHOD_ATTR
 
 struct _ged_facetize_state {
 
@@ -106,8 +107,20 @@ _db_uniq_test(struct bu_vls *n, void *data);
 extern int
 _ged_validate_objs_list(struct _ged_facetize_state *s, int argc, const char *argv[], int newobj_cnt);
 
+extern void *
+_ged_facetize_region_context_create(struct _ged_facetize_state *s);
+
+extern void
+_ged_facetize_region_context_destroy(void *ctx);
+
+extern void
+_ged_facetize_region_callbacks_init(struct gcv_facetize_region_callbacks *callbacks);
+
 extern int
 _ged_facetize_regions(struct _ged_facetize_state *s, int argc, const char **argv);
+
+extern int
+_ged_facetize_objs(struct _ged_facetize_state *s, int argc, const char **argv);
 
 extern int
 _ged_facetize_nmgeval(struct _ged_facetize_state *s, int argc, const char **argv, const char *newname);
@@ -215,14 +228,6 @@ _ged_facetize_build_variant_plan(struct _ged_facetize_state *s,
 extern int
 _ged_facetize_tessellate_variant_names(struct _ged_facetize_state *s,
                                        FacetizeVariantPlan *plan);
-
-/** Forward declaration for use by plan.cpp */
-extern int
-tess_run(struct _ged_facetize_state *s,
-         const char **tess_cmd,
-         int tess_cmd_cnt,
-         fastf_t max_time,
-         int ocnt);
 
 #endif /* LIBGED_FACETIZE_GED_PRIVATE_H */
 

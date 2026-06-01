@@ -17,7 +17,7 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file libged/facetize/tessellate/brep_csg.cpp
+/** @file libgcv/facetize_process/brep_csg.cpp
  *
  * Try to break a brep solid down into a CSG implicit tree and/or
  * simpler B-Rep solids to see if we can achieve a more successful

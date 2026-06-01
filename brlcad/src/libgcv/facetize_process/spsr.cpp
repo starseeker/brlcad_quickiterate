@@ -17,7 +17,7 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file libged/facetize/tessellate/spsr.cpp
+/** @file libgcv/facetize_process/spsr.cpp
  *
  * Tessellation interface to the Screened Poisson surface reconstruction
  * algorithm.
@@ -31,7 +31,7 @@
 #include <vector>
 
 #include "bg/spsr.h"
-#include "../../ged_private.h"
+#include "bg/trimesh.h"
 #include "./tessellate.h"
 
 static int
@@ -55,7 +55,10 @@ spsr_mesh(struct rt_bot_internal **obot, struct db_i *dbip, struct rt_pnts_inter
     double avg_thickness = 0.0;
     int flags = 0;
     int i = 0;
-    struct bg_3d_spsr_opts *s_opts = &s->spsr_options.s_opts;
+    struct bg_3d_spsr_opts s_opts = BG_3D_SPSR_OPTS_DEFAULT;
+    s_opts.depth = s->runtime.spsr.depth;
+    s_opts.point_weight = s->runtime.spsr.interpolate;
+    s_opts.samples_per_node = s->runtime.spsr.samples_per_node;
     point_t *input_points_3d = NULL;
     vect_t *input_normals_3d = NULL;
     point_t rpp_min, rpp_max;
@@ -88,15 +91,15 @@ spsr_mesh(struct rt_bot_internal **obot, struct db_i *dbip, struct rt_pnts_inter
 		   (int *)&(bot->num_vertices),
 		   (const point_t *)input_points_3d,
 		   (const vect_t *)input_normals_3d,
-		   pnts->count, s_opts) ) {
+		   pnts->count, &s_opts) ) {
 	ret = BRLCAD_ERROR;
 	goto ged_facetize_spsr_memfree;
     }
 
     /* do decimation */
     {
-	double feature_size = (s->spsr_options.feature_size > 0) ? s->spsr_options.feature_size : 0.01*DIST_PNT_PNT(rpp_min, rpp_max);
-	double d_feature_size = (s->spsr_options.d_feature_size > 0) ? s->spsr_options.d_feature_size : 1.5 * feature_size;
+	double feature_size = (s->runtime.spsr.sample.feature_size > 0) ? s->runtime.spsr.sample.feature_size : 0.01*DIST_PNT_PNT(rpp_min, rpp_max);
+	double d_feature_size = (s->runtime.spsr.sample.d_feature_size > 0) ? s->runtime.spsr.sample.d_feature_size : 1.5 * feature_size;
 
 	*obot = bot;
 	bu_log("SPSR: decimating with feature size: %g\n", d_feature_size);
@@ -161,7 +164,7 @@ spsr_mesh(struct rt_bot_internal **obot, struct db_i *dbip, struct rt_pnts_inter
 	    goto ged_facetize_spsr_memfree;
 	}
 
-	if (rt_gen_obj_pnts(NULL, &navg_thickness, dbip, bu_vls_cstr(&tmpname), &btol, flags, s->spsr_options.max_pnts, s->spsr_options.max_time, 1)) {
+	if (rt_gen_obj_pnts(NULL, &navg_thickness, dbip, bu_vls_cstr(&tmpname), &btol, flags, s->runtime.spsr.sample.max_pnts, s->runtime.spsr.max_time, 1)) {
 	    bu_log("SPSR: could not raytrace temporary BoT %s\n", bu_vls_cstr(&tmpname));
 	    ret = BRLCAD_ERROR;
 	}

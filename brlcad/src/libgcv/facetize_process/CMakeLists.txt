@@ -1,8 +1,8 @@
 brlcad_find_package(manifold REQUIRED)
-set(TESS_LIBS libged manifold::manifold)
+set(TESS_LIBS libged libgcv manifold::manifold)
 
 set(
-  GED_TESS_SRCS
+  GCV_FACETIZE_PROCESS_SRCS
   brep_csg.cpp
   continuation.cpp
   sample.cpp
@@ -13,14 +13,15 @@ set(
 )
 
 ged_subprocess_library(facetize_process
-  ${GED_TESS_SRCS}
+  ${GCV_FACETIZE_PROCESS_SRCS}
+  INCLUDES ${BRLCAD_SOURCE_DIR}/src/libged/include
   LIBS ${TESS_LIBS}
 )
 
 cmakefiles(
   CMakeLists.txt
   tessellate.h
-  ${GED_TESS_SRCS}
+  ${GCV_FACETIZE_PROCESS_SRCS}
 )
 
 # Local Variables:

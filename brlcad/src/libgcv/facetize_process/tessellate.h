@@ -19,7 +19,7 @@
  */
 /** @file tessellate.h
  *
- * Private header for facetize subprocess ged_exec module.
+ * Private header for the libgcv facetize subprocess worker.
  *
  */
 
@@ -31,21 +31,27 @@
 #include "vmath.h"
 #include "bu/vls.h"
 #include "bn/tol.h"
-#include "bg/spsr.h"
 #include "raytrace.h"
-#include "../tess_opts.h"
+#include "gcv/facetize.h"
 
 __BEGIN_DECLS
 
 class tess_opts {
     public:
-	method_options_t method_opts;
-	nmg_opts nmg_options;
-	cm_opts cm_options;
-	spsr_opts spsr_options;
+	tess_opts()
+	{
+	    gcv_facetize_method_opts_state_init(&method_opts);
+	    gcv_facetize_process_opts_default(&runtime);
+	}
+	~tess_opts()
+	{
+	    gcv_facetize_method_opts_state_free(&method_opts);
+	}
+
+	struct gcv_facetize_method_opts_state method_opts;
+	struct gcv_facetize_process_opts runtime;
 
 	int overwrite_obj = 0;
-	sample_opts pnt_options; // Values used by sample.cpp
 };
 
 extern struct rt_bot_internal *

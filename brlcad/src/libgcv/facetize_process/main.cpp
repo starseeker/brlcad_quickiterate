@@ -17,7 +17,7 @@
  * License along with this file; see the file named COPYING for more
  * information.
  */
-/** @file libged/facetize/tessellate/main.cpp
+/** @file libgcv/facetize_process/main.cpp
  *
  * Because the process of turning implicit solids into manifold meshes
  * has a wide variety of difficulties associated with it, we run the
@@ -28,6 +28,8 @@
 #include "common.h"
 
 #include <algorithm>
+#include <map>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -36,10 +38,9 @@
 #include "bu/env.h"
 #include "bu/opt.h"
 #include "bg/trimesh.h"
+#include "gcv/facetize.h"
 #include "rt/primitives/bot.h"
 #include "ged.h"
-#define TESS_OPTS_IMPLEMENTATION
-#include "../tess_opts.h"
 #include "./tessellate.h"
 
 static void
@@ -63,28 +64,35 @@ method_setup(tess_opts *s)
     if (!s)
 	return;
 
-    std::vector<std::string> *methods = &s->method_opts.methods;
-    if (!methods->size()) {
-	methods->push_back(std::string("NMG"));
-	methods->push_back(std::string("CM"));
-	methods->push_back(std::string("SPSR"));
+    const char *known_methods[3] = {"NMG", "CM", "SPSR"};
+    for (size_t i = 0; i < 3; i++) {
+	struct gcv_facetize_kv *kv = NULL;
+	size_t kv_cnt = gcv_facetize_method_opts_method_options(&s->method_opts, known_methods[i], &kv);
+	gcv_facetize_process_opts_apply_method_options(&s->runtime, known_methods[i], kv, kv_cnt);
+	if (kv)
+	    bu_free(kv, "method option kv");
     }
 
-    // Now that we've set any default overrides for multiple types, get the
-    // method specific options for each method set up
-    s->nmg_options.sync(s->method_opts);
-    s->cm_options.sync(s->method_opts);
-    s->spsr_options.sync(s->method_opts);
-
-    // Set the sampling options.  If CM is active we will be using its settings
-    // to sample first, so default to those values.
-    bool sample_sync = false;
-    if (std::find(methods->begin(), methods->end(), std::string("CM")) != methods->end()) {
-	s->pnt_options.sync(s->cm_options);
+    // Set sampling options from the first active sampling-capable method.
+    std::vector<const char *> method_names;
+    if (gcv_facetize_method_opts_method_count(&s->method_opts)) {
+	for (size_t i = 0; i < gcv_facetize_method_opts_method_count(&s->method_opts); i++) {
+	    const char *method = gcv_facetize_method_opts_method_name(&s->method_opts, i);
+	    if (method)
+		method_names.push_back(method);
+	}
+    } else {
+	struct bu_ptbl defaults = BU_PTBL_INIT_ZERO;
+	if (gcv_facetize_default_method_names(&defaults) == BRLCAD_OK) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(&defaults); i++) {
+		const char *method = (const char *)BU_PTBL_GET(&defaults, i);
+		if (method)
+		    method_names.push_back(method);
+	    }
+	}
+	gcv_facetize_free_method_names(&defaults);
     }
-    if (!sample_sync && std::find(methods->begin(), methods->end(), std::string("SPSR")) != methods->end()) {
-	s->pnt_options.sync(s->spsr_options);
-    }
+    gcv_facetize_process_opts_select_sample_method(&s->runtime, method_names.data(), method_names.size());
 }
 
 static int
@@ -96,8 +104,22 @@ dp_tessellate(struct rt_bot_internal **obot, struct bu_vls *method_flag, struct 
     struct db_i *dbip = gedp->dbip;
 
     std::set<std::string> mset;
-    for (size_t i = 0; i < s->method_opts.methods.size(); i++) {
-	mset.insert(s->method_opts.methods[i]);
+    if (gcv_facetize_method_opts_method_count(&s->method_opts)) {
+	for (size_t i = 0; i < gcv_facetize_method_opts_method_count(&s->method_opts); i++) {
+	    const char *method = gcv_facetize_method_opts_method_name(&s->method_opts, i);
+	    if (method)
+		mset.insert(std::string(method));
+	}
+    } else {
+	struct bu_ptbl defaults = BU_PTBL_INIT_ZERO;
+	if (gcv_facetize_default_method_names(&defaults) == BRLCAD_OK) {
+	    for (size_t i = 0; i < BU_PTBL_LEN(&defaults); i++) {
+		const char *method = (const char *)BU_PTBL_GET(&defaults, i);
+		if (method)
+		    mset.insert(std::string(method));
+	    }
+	}
+	gcv_facetize_free_method_names(&defaults);
     }
 
     struct rt_db_internal intern;
@@ -222,7 +244,7 @@ dp_tessellate(struct rt_bot_internal **obot, struct bu_vls *method_flag, struct 
 	if (!pnts) {
 	    pnts = _tess_pnts_sample(dp->d_namep, dbip, s);
 	}
-	s->cm_options.sync(s->pnt_options);
+	gcv_facetize_sample_opts_copy(&s->runtime.cm.sample, &s->runtime.pnts);
 	struct pnt_normal *seed = BU_LIST_PNEXT(pnt_normal, (struct pnt_normal *)pnts->point);
 	ret = continuation_mesh(obot, dbip, dp->d_namep, s, seed->v);
 	if (ret == BRLCAD_OK) {
@@ -237,13 +259,13 @@ pnt_sampling_methods:
 	if (!pnts) {
 	    pnts = _tess_pnts_sample(dp->d_namep, dbip, s);
 	} else {
-	    if (!s->spsr_options.equals(s->pnt_options)) {
-		s->pnt_options.sync(s->spsr_options);
+	    if (!gcv_facetize_sample_opts_equal(&s->runtime.spsr.sample, &s->runtime.pnts)) {
+		gcv_facetize_sample_opts_copy(&s->runtime.pnts, &s->runtime.spsr.sample);
 		rt_pnts_free(pnts);
 		pnts = _tess_pnts_sample(dp->d_namep, dbip, s);
 	    }
 	}
-	s->spsr_options.sync(s->pnt_options);
+	gcv_facetize_sample_opts_copy(&s->runtime.spsr.sample, &s->runtime.pnts);
 	ret = spsr_mesh(obot, dbip, pnts, s);
 	if (ret == BRLCAD_OK) {
 	    bu_vls_sprintf(method_flag, "SPSR");
@@ -262,23 +284,21 @@ pnt_sampling_methods:
 void
 print_methods_info()
 {
-    nmg_opts nopts;
-    cm_opts cmopts;
-    spsr_opts spsropts;
-
-    std::string info;
-    info.append(nopts.print_options_help());
-    info.append(std::string("\n"));
-    info.append(cmopts.print_options_help());
-    info.append(std::string("\n"));
-    info.append(spsropts.print_options_help());
-    fprintf(stdout, "%s\n", info.c_str());
+    struct bu_vls desc = BU_VLS_INIT_ZERO;
+    gcv_facetize_describe_options(&desc);
+    if (bu_vls_strlen(&desc) > 0)
+	fprintf(stdout, "%s\n", bu_vls_cstr(&desc));
+    bu_vls_free(&desc);
 }
 
 void
 print_tess_methods()
 {
-    fprintf(stdout, "NMG CM SPSR");
+    const struct gcv_facetize_method_info *methods = NULL;
+    size_t method_cnt = gcv_facetize_methods(&methods);
+    for (size_t i = 0; i < method_cnt; i++) {
+	fprintf(stdout, "%s%s", (i > 0) ? " " : "", methods[i].name);
+    }
 }
 
 extern "C" int
@@ -305,8 +325,8 @@ facetize_process(int argc, const char **argv)
     BU_OPT(d[ 0],  "h",         "help",                         "",                  NULL,           &print_help, "Print help and exit");
     BU_OPT(d[ 1],   "", "list-methods",                         "",                  NULL,         &list_methods, "List available tessellation methods.  When used with -h, print an informational summary of each method.");
     BU_OPT(d[ 2],  "O",    "overwrite",                         "",                  NULL,    &(s.overwrite_obj), "Replace original object with BoT");
-    BU_OPT(d[ 3],   "",      "methods",                "m1 m2 ...", &_tess_active_methods,        &s.method_opts, "List of active methods to use for this tessellation attempt");
-    BU_OPT(d[ 4],   "",  "method-opts",  "M opt1=val opt2=val ...",    &_tess_method_opts,        &s.method_opts, "Set options for method M.  If specified just a method M and the -h option, print documentation about method options.");
+    BU_OPT(d[ 3],   "",      "methods",                "m1 m2 ...", &gcv_facetize_method_opts_opt_methods,        &s.method_opts, "List of active methods to use for this tessellation attempt");
+    BU_OPT(d[ 4],   "",  "method-opts",  "M opt1=val opt2=val ...",    &gcv_facetize_method_opts_opt_options,        &s.method_opts, "Set options for method M.  If specified just a method M and the -h option, print documentation about method options.");
     BU_OPT(d[ 5],   "",     "max-time",                        "#",           &bu_opt_int,             &max_time, "Maximum number of seconds to allow for runtime (not supported by all methods).");
     BU_OPT(d[ 6],   "",     "max-pnts",                        "#",           &bu_opt_int,             &max_pnts, "Maximum number of pnts to use when applying ray sampling methods.");
     BU_OPT(d[ 7],   "",     "cache-dir",                     "dir",           &bu_opt_vls,            &cache_dir, "Directory to use for cached outputs (default is libbu cache directory).");
@@ -430,7 +450,7 @@ facetize_process(int argc, const char **argv)
     return BRLCAD_OK;
 }
 
-#include "../../include/plugin.h"
+#include "plugin.h"
 extern "C" {
 struct ged_cmd_process_impl fp_impl = {
     facetize_process
@@ -453,4 +473,3 @@ COMPILER_DLLEXPORT const struct ged_process_plugin *ged_process_info(void)
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

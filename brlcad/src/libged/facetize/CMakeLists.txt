@@ -2,7 +2,7 @@ brlcad_find_package(manifold REQUIRED)
 
 set(FACETIZE_LIBS libged libbu manifold::manifold)
 
-add_subdirectory(subprocess)
+add_subdirectory(${BRLCAD_SOURCE_DIR}/src/libgcv/facetize_process ${CMAKE_BINARY_DIR}/src/libgcv/facetize_process)
 
 set(
   FACETIZE_SRCS
@@ -39,10 +39,8 @@ ged_plugin_library(ged-old_facetize
 
 cmakefiles(
   CMakeLists.txt
-  tess_opts.h
   ged_facetize.h
   old_facetize.h
-  subprocess.h
   TODO
 )
 
