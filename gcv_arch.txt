@@ -1,0 +1,992 @@
+libgcv capability architecture implementation plan
+==================================================
+
+Purpose
+-------
+
+This file translates the capability-based libgcv architecture into a concrete,
+ordered implementation plan.  The goal is to introduce a richer plugin model,
+planning layer, and pipeline execution path without breaking the current gcv
+command, existing gcv_filter plugins, or converter tools that call libgcv
+through today's APIs.
+
+The work should proceed additively.  At each checkpoint, existing conversions
+must continue to work, old plugins must still load, and new APIs should have
+focused unit coverage before the command is rewired to depend on them.
+
+Current constraints to preserve
+-------------------------------
+
+- Existing dynamic plugins export gcv_plugin_info_s with a NULL-terminated list
+  of gcv_filter pointers.
+- Existing filters use gcv_filter fields: name, filter_type, mime_type,
+  data_supported, create_opts_fn, free_opts_fn, and filter_fn.
+- Existing execution flows call gcv_execute(context, filter, opts, argc, argv,
+  target).
+- find_filter and gcv_list_filters are used by gcv and by some converter tools.
+- context->dbip is the current in-memory exchange mechanism between readers,
+  processing filters, and writers.
+- The migration must not require all plugins to be rewritten before the new
+  registry, planner, and command behavior can be tested.
+
+Target end state
+----------------
+
+- libgcv has a capability registry.  Plugins publish one or more capabilities:
+  readers, writers, processing stages, workflows, substages, probes, or support
+  services.
+- Capabilities declare stable IDs, public option scopes, input/output data
+  shapes, supported file formats, support quality, options, and callbacks.
+- Existing gcv_filter plugins are automatically represented as compatibility
+  capabilities.
+- The command and other callers build a conversion request.  libgcv plans a
+  deterministic pipeline from capability metadata, validates scoped options,
+  and executes the plan.
+- JSON metadata and JSON reports are generated from libgcv data, not duplicated
+  in command code.
+- Facetize becomes the first full workflow capability, with tessellation and
+  boolean methods represented as selectable sub-capabilities.
+
+Implementation sequence
+=======================
+
+Step 0: Establish names, files, and compatibility policy
+--------------------------------------------------------
+
+Deliverables:
+
+- Add a public header for the new model, preferably:
+  - include/gcv/capability.h
+- Add implementation files, preferably:
+  - src/libgcv/capability.c
+  - src/libgcv/registry.c
+  - src/libgcv/compat_filter.c
+- Keep include/gcv/api.h as the compatibility umbrella.  It may include the new
+  public header after the new API is stable enough for callers.
+- Add a small internal header if needed:
+  - src/libgcv/gcv_private.h or src/libgcv/registry_private.h
+- Document the temporary rule: current gcv_filter remains valid, but all new
+  discovery, planning, and command work should use capabilities.
+
+Concrete tasks:
+
+1. Define naming rules:
+   - plugin IDs: lowercase ASCII, digits, dash or underscore if needed
+   - capability IDs: unique within plugin, same character rules
+   - full capability IDs: plugin_id:capability_id
+   - public scopes: lowercase ASCII segments separated by dots
+   - reserved scopes: in, out
+2. Decide the first data-shape vocabulary and keep it intentionally small:
+   - GCV_SHAPE_UNKNOWN
+   - GCV_SHAPE_FILE
+   - GCV_SHAPE_BRLCAD_DB
+   - GCV_SHAPE_CSG
+   - GCV_SHAPE_MESH
+   - GCV_SHAPE_POINT_CLOUD
+   - GCV_SHAPE_HEIGHT_FIELD
+   - GCV_SHAPE_IMAGE
+   - GCV_SHAPE_VOLUME
+3. Decide first capability roles:
+   - GCV_CAP_READ
+   - GCV_CAP_WRITE
+   - GCV_CAP_PROCESS
+   - GCV_CAP_WORKFLOW
+   - GCV_CAP_SUBSTAGE
+   - GCV_CAP_PROBE
+   - GCV_CAP_SUPPORT
+4. Decide first support-quality enum:
+   - GCV_SUPPORT_NONE
+   - GCV_SUPPORT_EXPERIMENTAL
+   - GCV_SUPPORT_LOSSY
+   - GCV_SUPPORT_GOOD
+   - GCV_SUPPORT_NATIVE
+   - Optional flags: deprecated, manual-only, internal-only
+
+Checkpoint:
+
+- No behavior change.  Build still uses old gcv_filter path.
+
+Step 1: Define versioned public structs
+---------------------------------------
+
+Deliverables:
+
+- Public declarations in include/gcv/capability.h.
+- Structs must have size/version fields where they may cross plugin ABI
+  boundaries.
+
+Proposed public types:
+
+- enum gcv_capability_role
+- enum gcv_data_shape
+- enum gcv_support_quality
+- enum gcv_probe_confidence
+- enum gcv_option_type
+- struct gcv_plugin_info_v1
+- struct gcv_capability_desc_v1
+- struct gcv_format_support_v1
+- struct gcv_shape_contract_v1
+- struct gcv_option_desc_v1
+- struct gcv_probe_result
+- struct gcv_execution_result
+- opaque structs for registry-owned and caller-owned objects:
+  - struct gcv_registry
+  - struct gcv_capability
+  - struct gcv_candidate_list
+  - struct gcv_plan
+  - struct gcv_plan_stage
+  - struct gcv_option_map
+  - struct gcv_report
+
+First callback shape:
+
+- probe callback:
+  int (*probe)(struct gcv_context *c,
+               const struct gcv_capability *cap,
+               const char *target,
+               struct gcv_probe_result *result);
+
+- option create/free callbacks for typed options:
+  int (*opts_create)(const struct gcv_capability *cap, void **data);
+  void (*opts_free)(const struct gcv_capability *cap, void *data);
+
+- execution callback:
+  int (*execute)(struct gcv_context *c,
+                 const struct gcv_capability *cap,
+                 const struct gcv_opts *common_opts,
+                 const struct gcv_option_map *stage_opts,
+                 void *typed_opts,
+                 const char *target,
+                 struct gcv_execution_result *result);
+
+Implementation notes:
+
+- Do not expose registry internals.  Public callers should query by accessor.
+- Keep callbacks close to current gcv_filter execution so adapters are simple.
+- Keep target as a path for readers/writers initially.  Later stages can ignore
+  it or use explicit stage IO objects when non-db intermediates arrive.
+
+Checkpoint:
+
+- Header compiles in C and C++ translation units.
+- Add a compile-only test if existing test infrastructure has a pattern for it.
+
+Step 2: Implement the registry container
+----------------------------------------
+
+Deliverables:
+
+- A registry owned by gcv_context_internal.
+- Registration and query functions.
+- Validation and diagnostics.
+
+Concrete APIs to add:
+
+- int gcv_registry_register_plugin(struct gcv_context *c,
+  const struct gcv_plugin_info_v1 *plugin);
+- size_t gcv_registry_plugin_count(const struct gcv_context *c);
+- const struct gcv_plugin_info_v1 *gcv_registry_plugin(const struct gcv_context
+  *c, size_t idx);
+- size_t gcv_registry_capability_count(const struct gcv_context *c);
+- const struct gcv_capability *gcv_registry_capability(const struct gcv_context
+  *c, size_t idx);
+- const struct gcv_capability *gcv_registry_find_capability(const struct
+  gcv_context *c, const char *plugin_id, const char *capability_id);
+- const struct gcv_capability *gcv_registry_find_scope(const struct
+  gcv_context *c, const char *scope);
+
+Validation rules:
+
+- Reject NULL IDs, names, required callbacks, and required arrays.
+- Reject duplicate plugin IDs.
+- Reject duplicate full capability IDs.
+- Reject duplicate public scopes for public capabilities.
+- Reject use of reserved scopes by non-reader/non-writer compatibility code
+  unless explicitly allowed by libgcv.
+- Reject read/write capabilities without format support.
+- Reject process/workflow capabilities without shape contracts.
+- Reject option names with invalid characters or duplicate aliases within a
+  scope.
+
+Implementation notes:
+
+- Registry data should be copied into libgcv-owned storage or pinned to plugin
+  library lifetime.  Avoid borrowing stack-owned plugin declarations.
+- Dynamic plugin library handles are already retained in context internals;
+  registry entries from those plugins may reference static plugin data as long
+  as the handle stays loaded until gcv_context_destroy.
+- Store capabilities in deterministic order: built-ins first, then dynamic
+  plugin load order, then declaration order.  Ranking can use this only after
+  stronger criteria.
+
+Tests:
+
+- Register one valid fake plugin and query it.
+- Reject duplicate plugin IDs.
+- Reject duplicate scopes.
+- Reject missing execution callback.
+- Reject malformed option metadata.
+- Confirm deterministic enumeration order.
+
+Checkpoint:
+
+- gcv_context_init creates an empty registry and still registers/loads old
+  filters as before.
+- Existing gcv_list_filters and find_filter behavior is unchanged.
+
+Step 3: Adapt current gcv_filter plugins into capabilities
+----------------------------------------------------------
+
+Deliverables:
+
+- Compatibility adapter that converts each gcv_filter into one capability.
+- Built-in BRL-CAD reader/writer also become compatibility capabilities.
+
+Mapping:
+
+- plugin_id:
+  - For dynamic plugins, derive from plugin library name when no new metadata
+    exists.  Examples: stl, obj, assetimport, gdal.
+  - For built-ins, use brlcad.
+- capability_id:
+  - reader, writer, or filter if there is only one of each role.
+  - If multiple old filters collide, derive a sanitized suffix from filter->name.
+- scope:
+  - old readers: in only when selected as the request reader; otherwise an
+    internal generated scope such as plugin_id.read.
+  - old writers: out only when selected as the request writer; otherwise an
+    internal generated scope such as plugin_id.write.
+  - old processing filters: sanitized filter name, for example decimate.
+- role:
+  - GCV_FILTER_READ -> GCV_CAP_READ
+  - GCV_FILTER_WRITE -> GCV_CAP_WRITE
+  - GCV_FILTER_FILTER -> GCV_CAP_PROCESS
+- format support:
+  - mime_type becomes the first format support entry when not UNKNOWN/AUTO.
+  - UNKNOWN/AUTO capabilities rely on probe support.
+- shape contracts:
+  - readers produce BRL-CAD DB by default for current compatibility.
+  - writers consume BRL-CAD DB by default.
+  - processing filters consume and produce BRL-CAD DB by default.
+- options:
+  - If create_opts_fn exists, expose an option provider marked legacy-bu-opt.
+  - Initial introspection may report that option schema is legacy/opaque until
+    a bu_opt_desc bridge is implemented.
+- execute:
+  - Build argv from the stage option map or accept argv compatibility data.
+  - Call gcv_execute-compatible internals or call filter_fn with created opts.
+
+Concrete tasks:
+
+1. Add _gcv_register_filter_compat_capability(context, plugin_id, filter).
+2. During built-in filter registration, also register compatibility
+   capabilities.
+3. During dynamic plugin loading, after registering old filters, register their
+   compatibility capabilities.
+4. Add a public accessor from capability back to old gcv_filter only for
+   compatibility wrappers, not for new native capabilities.
+
+Tests:
+
+- Existing STL/OBJ/BRL-CAD filters appear both in gcv_list_filters and in the
+  capability registry.
+- Compatibility capability count matches expected fake plugin declarations.
+- Duplicate old filter names still fail as before.
+- Old find_filter returns the same filter it returned before.
+
+Checkpoint:
+
+- No command behavior change.
+- Registry now has useful data for every old plugin.
+
+Step 4: Add option schema and bu_opt_desc bridge
+------------------------------------------------
+
+Deliverables:
+
+- Typed option metadata for new capabilities.
+- Bridge from bu_opt_desc to option metadata where possible.
+- Stage option map object.
+
+Concrete APIs:
+
+- gcv_option_map_create/free
+- gcv_option_map_set_string(scope, name, value)
+- gcv_option_map_set_bool(scope, name, value)
+- gcv_option_map_set_int/double as needed
+- gcv_option_map_get_* accessors
+- gcv_capability_option_count(cap)
+- gcv_capability_option(cap, idx)
+- gcv_option_desc accessors for name, aliases, type, default, help, flags
+
+Implementation strategy:
+
+1. Start with metadata storage and validation for native gcv_option_desc_v1.
+2. Add a lossy bu_opt_desc introspection bridge:
+   - name, short option, long option, argument description, help text
+   - type may initially be string/bool/unknown when bu_opt_desc does not expose
+     enough type information
+3. Add argv adapter:
+   - Convert scoped option map entries for a compatibility capability back into
+     argc/argv for bu_opt_parse.
+   - Preserve repeated option order when options are repeatable.
+4. Do not require full typed conversion before using the planner.  Unknown
+   legacy options can remain argv-backed until their plugin is modernized.
+
+Tests:
+
+- Native option metadata validates and enumerates.
+- Invalid option names and duplicate aliases are rejected.
+- Scoped option map stores and retrieves values.
+- Compatibility argv adapter produces expected argv for a fake legacy option
+  parser.
+- Unknown scoped options are rejected before execution.
+
+Checkpoint:
+
+- gcv --help work can begin using registry option data, even if some legacy
+  options are marked as legacy/opaque.
+
+Step 5: Implement candidate queries and ranking
+-----------------------------------------------
+
+Deliverables:
+
+- Owned candidate-list API.
+- Deterministic ranking logic.
+- Probe result model.
+
+Concrete APIs:
+
+- struct gcv_candidate_request with:
+  - role
+  - input_shape
+  - output_shape
+  - format
+  - target path
+  - plugin pin
+  - capability pin
+  - allow_manual
+  - allow_internal
+- int gcv_capability_candidates(struct gcv_context *c,
+  const struct gcv_candidate_request *request,
+  struct gcv_candidate_list **out);
+- size_t gcv_candidate_count(const struct gcv_candidate_list *list);
+- const struct gcv_capability *gcv_candidate_capability(const struct
+  gcv_candidate_list *list, size_t idx);
+- accessors for rank score, support quality, probe confidence, and rejection
+  reason.
+- void gcv_candidate_list_free(struct gcv_candidate_list *list);
+
+Ranking order:
+
+1. Explicit plugin/capability pin match.
+2. Role match.
+3. Shape compatibility.
+4. Exact format match.
+5. Support quality.
+6. Probe confidence.
+7. User preference or configured default priority.
+8. Built-in priority.
+9. Stable full capability ID lexical ordering.
+
+Probe model:
+
+- Probes must be optional, bounded, and side-effect-free.
+- A probe returns one of: unsupported, uncertain, supported, strongly supported.
+- Current data_supported maps to supported or unsupported.
+- Probe failure is not execution failure; it is candidate evidence.
+
+Tests:
+
+- Ranking with fake capabilities covering each ranking dimension.
+- Plugin pin returns only matching plugin or a clear no-candidate result.
+- Equal candidates sort by stable ID.
+- data_supported adapter participates in ranking.
+- Probe uncertainty does not suppress otherwise valid candidates.
+
+Checkpoint:
+
+- find_filter can be reimplemented as the first compatible candidate while
+  preserving current behavior as much as possible.
+
+Step 6: Add request and plan objects
+------------------------------------
+
+Deliverables:
+
+- A parser-independent request object.
+- Immutable plan and stage objects.
+- Validation diagnostics before execution.
+
+Concrete request fields:
+
+- input path
+- output path
+- input format hint
+- output format hint
+- input plugin/capability pin
+- output plugin/capability pin
+- explicit pipeline stage scopes
+- scoped option map
+- common gcv_opts
+- auto/fallback policy
+- reporting policy
+
+Concrete APIs:
+
+- gcv_request_create/free
+- setters for paths, formats, pins, pipeline scopes, options, and policies
+- int gcv_plan_create(struct gcv_context *c, const struct gcv_request *request,
+  struct gcv_plan **plan, struct gcv_report **diagnostics)
+- gcv_plan_stage_count
+- gcv_plan_stage accessors
+- gcv_plan_free
+
+Plan-stage fields:
+
+- stage index
+- scope
+- role
+- selected capability
+- ranked fallback candidates
+- input shape
+- output shape
+- target path if applicable
+- typed/legacy option subset for that stage
+- selected automatically or explicitly
+- fallback policy
+
+Validation rules:
+
+- Unknown format hints fail before execution.
+- Unknown plugin/capability pins fail before execution.
+- Unknown scopes and options fail before execution.
+- Required options must be present or have defaults.
+- Explicit pipeline stages must be shape-compatible in order.
+- Pinned stages disable fallback for that stage unless a future explicit option
+  says otherwise.
+
+Tests:
+
+- Build a simple reader->writer plan from fake capabilities.
+- Build a reader->process->writer plan from shape requirements.
+- Reject unknown scope option.
+- Reject explicit incompatible stage order.
+- Verify pinned reader/writer disables fallback in stage metadata.
+- Verify diagnostics include actionable scope/plugin/format names.
+
+Checkpoint:
+
+- The planner can produce plans without changing gcv command execution yet.
+
+Step 7: Add automatic stage insertion
+-------------------------------------
+
+Deliverables:
+
+- Graph search planner over shape contracts.
+- Initial automatic facetize insertion rule represented as capability metadata,
+  not command special-casing.
+
+Implementation strategy:
+
+1. Start with a simple deterministic breadth-first search over capabilities.
+2. Limit search depth initially, for example reader + up to 3 processors +
+   writer, to avoid surprising plans.
+3. Nodes are data shapes plus format constraints.  Edges are capabilities.
+4. Prefer fewer stages, then higher support quality, then stable ranking.
+5. Let explicit --pipeline constrain the processor edge sequence.
+6. Add cycle detection by shape/scope path.
+
+First automatic rule:
+
+- BRL-CAD reader produces GCV_SHAPE_CSG or GCV_SHAPE_BRLCAD_DB_WITH_CSG.
+- Mesh writers consume GCV_SHAPE_MESH or GCV_SHAPE_BRLCAD_DB_WITH_MESH.
+- Facetize consumes CSG/implicit BRL-CAD DB and produces mesh-capable BRL-CAD
+  DB or mesh shape.
+- Therefore .g -> .stl resolves to in -> facetize -> out.
+
+If the exact shape vocabulary is not ready, implement this as an internal
+transitional shape flag on BRL-CAD DB capabilities:
+
+- contains_implicit_geometry
+- contains_mesh_geometry
+- requires_mesh_geometry
+
+Tests:
+
+- .g -> STL-like fake writer inserts facetize.
+- STL-like reader -> OBJ-like writer does not insert facetize.
+- .g -> .g does not insert facetize.
+- Explicit pipeline facetize,decimate is preserved and validated.
+- Planner reports which stages were automatic.
+
+Checkpoint:
+
+- Plan reporting is good enough to explain why facetize was inserted.
+
+Step 8: Execute plans through capability callbacks
+--------------------------------------------------
+
+Deliverables:
+
+- gcv_plan_execute.
+- Structured execution report.
+- Fallback attempt handling.
+
+Concrete APIs:
+
+- int gcv_plan_execute(struct gcv_context *c, const struct gcv_plan *plan,
+  struct gcv_report **report);
+- report accessors for:
+  - resolved stage list
+  - selected capability per stage
+  - fallback attempts
+  - warnings
+  - errors
+  - final output path
+  - final data shape
+
+Execution behavior:
+
+1. For each stage, execute the selected capability.
+2. If execution succeeds, record success and continue.
+3. If execution fails and fallback is allowed, restore required stage state if
+   possible, try the next candidate, and record the attempt.
+4. If execution fails and fallback is not allowed, stop and return failure.
+5. Writers should receive read-only dbip behavior equivalent to current
+   gcv_execute.
+6. Compatibility capabilities should use the existing option creation, parsing,
+   debug flag handling, object defaulting, and filter_fn behavior.
+
+State safety:
+
+- Reader fallback should start from an empty or reset context.
+- Processor fallback needs a defined rollback strategy.  Initially, only allow
+  automatic fallback for processors that declare they are rollback-safe or that
+  operate on copied/intermediate data.
+- Writer fallback should not leave partially written output silently.  Record
+  any partial output path and prefer temp-file writing where practical.
+
+Tests:
+
+- Execute fake reader->writer plan successfully.
+- Execute fake reader fallback: first reader fails, second succeeds.
+- Pinned reader failure does not fallback.
+- --no-auto equivalent policy fails after first failure.
+- Execution report records selected and failed capabilities.
+- Compatibility fake gcv_filter executes through plan path.
+
+Checkpoint:
+
+- The gcv command can be switched to plan execution behind a feature flag or
+  internal branch while preserving simple conversions.
+
+Step 9: Generate JSON metadata and reports
+------------------------------------------
+
+Deliverables:
+
+- Stable JSON schema for registry metadata.
+- Stable JSON schema for plan and execution reports.
+- Text output can remain command-owned, but JSON content should come from
+  libgcv data.
+
+Concrete APIs:
+
+- int gcv_registry_to_json(struct gcv_context *c, struct bu_vls *out,
+  unsigned flags);
+- int gcv_capability_help_to_json(...)
+- int gcv_plan_to_json(const struct gcv_plan *plan, struct bu_vls *out,
+  unsigned flags);
+- int gcv_report_to_json(const struct gcv_report *report, struct bu_vls *out,
+  unsigned flags);
+
+Schema guidance:
+
+- Include schema_version.
+- Use stable IDs, not display names, as primary keys.
+- Include plugin ID, capability ID, full ID, scope, role, formats, shapes,
+  support quality, options, defaults, aliases, and flags.
+- Avoid exposing raw pointer values, build paths except plugin origin where
+  useful, or incidental enumeration indexes as stable identity.
+
+Tests:
+
+- JSON parses successfully.
+- Known fake registry produces expected stable fields.
+- JSON option search can identify option provenance.
+- Plan JSON identifies automatic stages and fallback candidates.
+- Report JSON identifies selected capabilities and fallback attempts.
+
+Checkpoint:
+
+- gcv --list and --help can be driven from libgcv JSON or equivalent accessors.
+
+Step 10: Rewire gcv command parsing to requests
+-----------------------------------------------
+
+Deliverables:
+
+- gcv command parser creates gcv_request instead of directly choosing filters.
+- Existing command forms continue to work.
+
+Concrete command changes:
+
+1. Parse existing input/output paths as before.
+2. Parse format:path into format hints.
+3. Parse format@plugin:path and @plugin:path into format/plugin pins.
+4. Add long forms:
+   - --input-format
+   - --input-plugin
+   - --output-format
+   - --output-plugin
+5. Parse scoped options:
+   - --<scope>:<option>[=value]
+6. Map compatibility aliases:
+   - -I and --input-opt -> in scope
+   - -O and --output-opt -> out scope
+7. Add --pipeline.
+8. Add --auto and --no-auto.
+9. Use gcv_plan_create and gcv_plan_execute.
+10. Add verbose resolved-pipeline reporting.
+
+Migration strategy:
+
+- First add a hidden or build-time path that uses request/plan execution for a
+  few simple conversions.
+- Then switch default gcv execution to request/plan path once regression tests
+  cover current simple workflows.
+- Keep old direct read/write code temporarily behind a fallback compile-time or
+  debug option until the new path is stable.
+
+Tests in regress/gcv:
+
+- gcv input.stl output.g still works.
+- gcv model.g model.obj still works.
+- format:path compatibility still works.
+- -I/-O options still route to reader/writer compatibility options.
+- Scoped options route to the correct stage.
+- Unknown scope and unknown option fail before execution.
+- format@plugin:path pins plugin and disables fallback.
+- --no-auto disables fallback.
+- --pipeline controls processing stage order.
+
+Checkpoint:
+
+- The command no longer performs first-match filter selection itself.
+
+Step 11: Add discoverability commands
+-------------------------------------
+
+Deliverables:
+
+- Metadata-driven help/list/search command output.
+
+Concrete command features:
+
+- gcv --list
+  - formats, readers, writers, default support quality
+- gcv --list-plugins
+  - plugin IDs, names, versions, origin, capability count
+- gcv --help <scope>
+  - options for a stage scope
+- gcv --help <format>
+  - reader/writer capabilities for that format, grouped by plugin
+- gcv --search-option <name>
+  - option provenance by scope and capability
+- --format=json for all list/help/search commands
+
+Implementation notes:
+
+- Prefer libgcv accessors over parsing libgcv JSON inside gcv.
+- Keep display names human-readable, but always include stable IDs in verbose
+  and JSON output.
+- For legacy bu_opt_desc options whose type is unknown, mark type as legacy or
+  string rather than guessing.
+
+Tests:
+
+- JSON --list contains known formats and plugins.
+- --help facetize lists facetize options once facetize capability exists.
+- --help stl groups STL plugin and any assetimport support separately.
+- --search-option finds in/out/facetize options with owning capability IDs.
+- Text output smoke tests verify stable headings without overfitting layout.
+
+Checkpoint:
+
+- Manual help tables in gcv can be deleted or reduced to command syntax only.
+
+Step 12: Implement native facetize workflow capability
+------------------------------------------------------
+
+Deliverables:
+
+- Facetize registered as a native workflow/process capability.
+- Existing migrated facetize APIs become implementation helpers or wrappers
+  around the new plan path over time.
+
+Facetize capability:
+
+- plugin_id: facetize
+- capability_id: workflow or default
+- public scope: facetize
+- role: GCV_CAP_WORKFLOW or GCV_CAP_PROCESS
+- input shape: BRL-CAD DB with CSG/implicit geometry
+- output shape: mesh-capable BRL-CAD DB or mesh
+- automatic: yes, when writer requires mesh and input contains implicit/CSG
+
+Facetize workflow options:
+
+- methods
+- method-opts
+- max-time
+- max-pnts
+- nmg-output or output mode where meaningful
+- nmg-booleval
+- no-empty
+- disable-fixup
+- perturb/no-perturb
+- perturb-sa-tol
+- perturb-vol-tol
+- target object/region selection where meaningful for pipeline execution
+- abort-on-error versus continue with empty failed BoTs
+
+Sub-capabilities:
+
+- facetize.tessellate.nmg
+- facetize.tessellate.cm
+- future: facetize.tessellate.spsr
+- facetize.boolean.nmg
+- facetize.boolean.manifold
+
+Implementation order:
+
+1. Register the top-level facetize workflow using existing gcv_facetize_* code.
+2. Expose the current method list as sub-capability metadata where possible.
+3. Route --facetize:methods and --facetize:method-opts through option maps.
+4. Preserve current GED compatibility by keeping gcv_facetize_to_db and related
+   APIs stable.
+5. Once plan execution is reliable, consider implementing gcv_facetize_to_db by
+   building a facetize-only request internally.
+
+Tests:
+
+- Facetize capability appears in registry metadata.
+- Facetize options appear in option introspection and JSON.
+- gcv .g -> mesh writer inserts facetize.
+- --facetize:methods affects selected tessellation providers.
+- GED facetize wrapper and direct libgcv facetize plan produce comparable output
+  for representative fixtures.
+
+Checkpoint:
+
+- Facetize is no longer a special command concern; it is a libgcv planned stage.
+
+Step 13: Migrate selected plugins to native capabilities
+--------------------------------------------------------
+
+Deliverables:
+
+- Convert a small set of plugins from compatibility-only metadata to native
+  capability declarations.
+
+Suggested order:
+
+1. BRL-CAD built-in reader/writer.
+2. STL reader/writer.
+3. OBJ reader/writer.
+4. Decimate processing filter.
+5. Assetimport multi-format reader/writer.
+6. GDAL reader.
+
+Migration for each plugin:
+
+- Add plugin ID and version metadata.
+- Add native capability descriptors.
+- Replace single mime_type with explicit format support array.
+- Add shape contracts.
+- Add option descriptors.
+- Keep old gcv_filter declaration until all compatibility callers are migrated,
+  or generate old gcv_filter wrappers from native descriptors if practical.
+- Add plugin-specific metadata tests.
+
+Tests:
+
+- Native and compatibility metadata agree during transition.
+- Multi-format plugins enumerate all supported formats.
+- Native option descriptors match expected help/search output.
+- Existing conversions still pass.
+
+Checkpoint:
+
+- Native capabilities prove the model is not only an adapter over old filters.
+
+Step 14: Harden error handling, ownership, and ABI behavior
+-----------------------------------------------------------
+
+Deliverables:
+
+- Documented ownership rules.
+- Stable diagnostics.
+- ABI compatibility tests where feasible.
+
+Concrete tasks:
+
+- Every caller-owned object has a free function.
+- Every registry-owned pointer is documented as valid until gcv_context_destroy.
+- Registration failures include plugin ID, capability ID, and reason.
+- Planning failures include requested format/plugin/scope/option where relevant.
+- Execution failures include stage index, scope, selected capability, and target.
+- Version/size fields are validated defensively.
+- Unknown future struct fields are ignored only when safe.
+- Old plugins without new metadata still load.
+
+Tests:
+
+- Free NULL is safe for all free functions where project style allows it.
+- Double registration failure does not leak or corrupt registry state.
+- Bad ABI version fails cleanly.
+- Old fake plugin loads through compatibility path.
+- Diagnostics contain stable identifiers.
+
+Checkpoint:
+
+- The new API is ready for broader internal callers.
+
+Step 15: Retire direct old-path dependencies gradually
+------------------------------------------------------
+
+Deliverables:
+
+- gcv command and modern converter tools use request/plan APIs.
+- Old APIs remain as wrappers for external compatibility until there is a clear
+  deprecation policy.
+
+Concrete tasks:
+
+- Reimplement find_filter using candidate queries or document it as old-path
+  only until removal.
+- Reimplement gcv_execute for old filters through compatibility capability
+  execution if doing so does not change behavior.
+- Remove command-side first-match scanning of gcv_list_filters.
+- Remove command-side format/plugin tables duplicated from registry metadata.
+- Update docs to teach scopes, plugins, formats, auto fallback, and JSON.
+
+Tests:
+
+- Existing converter smoke tests pass.
+- regress/gcv covers old and new command forms.
+- libgcv unit tests cover registry, candidates, plans, options, JSON, and
+  execution reports.
+
+Checkpoint:
+
+- New development can target capabilities directly.
+
+Suggested branch checkpoints
+============================
+
+Checkpoint A: Registry exists, no behavior change
+-------------------------------------------------
+
+Includes steps 0-3.  Existing plugins load.  Capability metadata exists for old
+filters.  No command behavior changes.
+
+Checkpoint B: Metadata and candidate APIs are usable
+----------------------------------------------------
+
+Includes steps 4-5.  Tests can query options and ranked candidates.  find_filter
+can be backed by candidates.
+
+Checkpoint C: Planning works without command rewiring
+-----------------------------------------------------
+
+Includes steps 6-7.  Unit tests build plans and prove automatic stage insertion
+with fake capabilities.
+
+Checkpoint D: Plan execution works with compatibility filters
+------------------------------------------------------------
+
+Includes step 8.  Fake and simple real conversions can execute through plans.
+
+Checkpoint E: gcv command uses request/plan path
+------------------------------------------------
+
+Includes steps 9-11.  User-facing behavior and discoverability are metadata
+based, with compatibility forms preserved.
+
+Checkpoint F: Facetize is a native workflow capability
+------------------------------------------------------
+
+Includes step 12.  .g to mesh-format planning inserts facetize automatically.
+
+Checkpoint G: Native plugin migration begins
+--------------------------------------------
+
+Includes steps 13-15.  Selected plugins publish native capability metadata and
+old-path dependencies shrink.
+
+Minimum test matrix
+===================
+
+libgcv unit tests:
+
+- registry creation/destruction
+- plugin registration validation
+- capability registration validation
+- compatibility adapter coverage
+- option schema validation
+- scoped option map routing
+- candidate ranking and deterministic ties
+- probe confidence handling
+- plan construction
+- automatic stage insertion
+- plan execution and fallback reporting
+- JSON metadata/report validity
+- ownership/free-function behavior
+
+regress/gcv command tests:
+
+- simple input output conversion
+- format:path compatibility
+- format@plugin:path pinning
+- --input-format/--output-format
+- --input-plugin/--output-plugin
+- -I/-O compatibility routing
+- --in: and --out: scoped options
+- --facetize: scoped options
+- --pipeline
+- --auto and --no-auto
+- --list, --list-plugins, --help, --search-option
+- --format=json for metadata commands
+- failure diagnostics for unknown format/plugin/scope/option
+
+Facetize-specific tests:
+
+- facetize metadata and option introspection
+- automatic insertion for CSG to mesh
+- no insertion for mesh to mesh
+- method selection and method options
+- fallback behavior for method providers where deterministic fake providers can
+  be used
+- comparison between GED wrapper and direct libgcv plan output
+
+Implementation cautions
+=======================
+
+- Do not let command syntax leak into plugin callbacks.  The command creates a
+  request; libgcv routes options and plans stages.
+- Do not make JSON the execution ABI.  JSON is an introspection/export format.
+- Do not require full native plugin migration before using the registry.  The
+  compatibility adapter is the bridge that makes incremental work practical.
+- Do not rely on plugin display names for identity.  Stable IDs are required.
+- Do not allow fallback for stages that cannot roll back safely unless the stage
+  explicitly declares that behavior.
+- Do not let automatic planning become opaque.  Every automatic stage and every
+  fallback attempt must be reportable.
+- Keep the first data-shape vocabulary small.  Add shapes only when a real
+  plugin or planner decision needs them.
+- Keep old APIs working until the command, regressions, and key converter tools
+  are on the new path.
