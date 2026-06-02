@@ -227,9 +227,6 @@ add_test(NAME bu_binstr_to_hexstr_test4 COMMAND bu_test test_bitv 14 "00")
 # args: function number - tests macros
 add_test(NAME bu_bitv_macros COMMAND bu_test test_bitv 15)
 
-# args: function number - tests macros
-add_test(NAME bu_bitv_macros COMMAND bu_test bitv 15)
-
 # some tests are expected to fail:
 set_tests_properties(
   bu_binary_to_bitv_07

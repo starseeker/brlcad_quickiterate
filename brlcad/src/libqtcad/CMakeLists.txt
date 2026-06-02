@@ -77,7 +77,6 @@ endif(OPENGL_LIBS)
 set(QTCAD_HDR_DIR ${BRLCAD_SOURCE_DIR}/include/qtcad)
 set(
   qth_names
-  QgCanvasInput
   QgAccordion
   QgAppExecDialog
   QgAttributesModel
@@ -90,7 +89,6 @@ set(
   QgMeasureFilter
   QgModel
   QgPaletteController
-  QgPluginCommands
   QgPluginContext
   QgPluginManager
   QgPolyFilter
