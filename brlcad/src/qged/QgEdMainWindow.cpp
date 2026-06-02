@@ -542,6 +542,8 @@ QgEdMainWindow::do_dm_init()
 
     (void)ged_clbk_set(gedp, "dm", BU_CLBK_DURING, qged_dm_during_clbk, NULL);
 
+    (void)ged_clbk_set(gedp, "dm", BU_CLBK_DURING, qged_dm_during_clbk, NULL);
+
     ///////////////////////////////////////////////////////////////////////////
     // DEBUG - turn on some of the bells and whistles by default, since they
     // won't normally be tested in other ways.  We need fully set up views and

@@ -37,7 +37,7 @@
 #include "optical.h"
 #include "bsg/plot3.h"
 #include "optical/light.h"
-#include "photonmap.h"
+#include "optical/photonmap.h"
 
 
 

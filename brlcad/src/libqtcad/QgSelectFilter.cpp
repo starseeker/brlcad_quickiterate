@@ -389,7 +389,7 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
     ap->a_overlap = _ovlp_record;
     ap->a_logoverlap = nullptr;
 
-    struct rt_i *rtip = rt_new_rti(dbip);
+    struct rt_i *rtip = rt_i_create(dbip);
     struct resource *resp = nullptr;
     BU_GET(resp, struct resource);
     rt_init_resource(resp, 0, rtip);
@@ -402,7 +402,7 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
     }
     if (rt_gettrees_and_attrs(rtip, nullptr, (int)bsg_pick_result_count(candidates), objs, 1)) {
 	bu_free(objs, "objs");
-	rt_free_rti(rtip);
+	rt_i_destroy(rtip);
 	BU_PUT(resp, struct resource);
 	BU_PUT(ap, struct application);
 	bsg_pick_result_free(candidates);
@@ -435,7 +435,7 @@ QgSelectRayFilter::eventFilter(QObject *, QEvent *e)
 
     (void)rt_shootray(ap);
     bu_free(objs, "objs");
-    rt_free_rti(rtip);
+    rt_i_destroy(rtip);
     BU_PUT(resp, struct resource);
     BU_PUT(ap, struct application);
 
