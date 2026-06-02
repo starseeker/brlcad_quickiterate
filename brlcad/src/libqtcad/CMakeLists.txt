@@ -75,43 +75,12 @@ if(OPENGL_LIBS)
 endif(OPENGL_LIBS)
 
 set(QTCAD_HDR_DIR ${BRLCAD_SOURCE_DIR}/include/qtcad)
-set(
-  qth_names
-  QgAccordion
-  QgAppExecDialog
-  QgAttributesModel
-  QgColorRGB
-  QgConsole
-  QgConsoleListener
-  QgDockWidget
-  QgGeomImport
-  QgKeyVal
-  QgMeasureFilter
-  QgModel
-  QgPaletteController
-  QgPluginContext
-  QgPluginManager
-  QgPolyFilter
-  QgQuadView
-  QgSW
-  QgSelectFilter
-  QgSession
-  QgSketchFilter
-  QgToolBase
-  QgToolPalette
-  QgTreeSelectionModel
-  QgTreeView
-  QgView
-  QgViewFilter
-  QgViewCtrl
-)
-if(OPENGL_LIBS)
-  set(qth_names ${qth_names} QgGL)
-endif(OPENGL_LIBS)
-
-foreach(qh ${qth_names})
-  set(qtcad_moc_hdrs ${qtcad_moc_hdrs} ${QTCAD_HDR_DIR}/${qh}.h)
-endforeach(qh ${qth_names})
+foreach(qs ${qtcad_srcs})
+  get_filename_component(qbase ${qs} NAME_WE)
+  if(EXISTS "${QTCAD_HDR_DIR}/${qbase}.h")
+    set(qtcad_hdrs ${qtcad_hdrs} "${QTCAD_HDR_DIR}/${qbase}.h")
+  endif(EXISTS "${QTCAD_HDR_DIR}/${qbase}.h")
+endforeach(qs ${qtcad_srcs})
 
 # Note - libqtcad_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
 if(BRLCAD_ENABLE_QT)
@@ -120,29 +89,27 @@ if(BRLCAD_ENABLE_QT)
   set(QTCAD_PUBLIC_LIBS ${libqtcad_deps})
 
   if(Qt6Widgets_FOUND)
-    qt6_wrap_cpp(qtcad_moc_srcs ${qtcad_moc_hdrs})
     qt6_add_resources(qtcad_qrc qtcad_resources.qrc)
     set(QTCAD_PUBLIC_LIBS ${QTCAD_PUBLIC_LIBS} Qt6::Core Qt6::Widgets ${OPENGL_LIBS})
   else()
-    qt5_wrap_cpp(qtcad_moc_srcs ${qtcad_moc_hdrs})
     qt5_add_resources(qtcad_qrc qtcad_resources.qrc)
     set(QTCAD_PUBLIC_LIBS ${QTCAD_PUBLIC_LIBS} Qt5::Core Qt5::Widgets ${OPENGL_LIBS})
   endif(Qt6Widgets_FOUND)
-  set(QTCAD_SRCS ${QTCAD_SRCS} ${qtcad_moc_srcs} ${qtcad_qrc})
+  set(QTCAD_SRCS ${QTCAD_SRCS} ${qtcad_qrc} ${qtcad_hdrs})
 
   brlcad_addlib(libqtcad "${QTCAD_SRCS}" "" "${QG_DIRS}" SHARED
     PUBLIC_LIBS ${QTCAD_PUBLIC_LIBS}
   )
-  set_target_properties(libqtcad PROPERTIES VERSION 20.0.1 SOVERSION 20)
+  set_target_properties(libqtcad PROPERTIES VERSION 20.0.1 SOVERSION 20 AUTOMOC ON)
   if(OPENGL_LIBS)
     set_property(TARGET libqtcad APPEND PROPERTY COMPILE_DEFINITIONS "QT_SYSTEM_OPENGL")
   endif(OPENGL_LIBS)
 
   distclean(qtcad_resources.qrc.depends)
-  # Generate the cpp_parameters cleanup commands for the headers
-  foreach(qh ${qth_names})
-    distclean(${CMAKE_CURRENT_BINARY_DIR}/__/__/include/qtcad/moc_${qh}.cpp_parameters)
-  endforeach(qh ${qth_names})
+  foreach(qh ${qtcad_hdrs})
+    get_filename_component(qhbase ${qh} NAME_WE)
+    distclean(${CMAKE_CURRENT_BINARY_DIR}/__/__/include/qtcad/moc_${qhbase}.cpp_parameters)
+  endforeach(qh ${qtcad_hdrs})
 endif(BRLCAD_ENABLE_QT)
 
 add_subdirectory(tests)
@@ -152,7 +119,7 @@ set(
   CMakeLists.txt
   README
   ${qtcad_srcs}
-  ${qtcad_moc_hdrs}
+  ${qtcad_hdrs}
   bindings.h
   bindings.cpp
   QgCanvasInput.h
