@@ -18,6 +18,11 @@
  * information.
  */
 
+#include "common.h"
+
+#ifndef CUT_HLBVH_H
+#define CUT_HLBVH_H
+
 struct bvh_build_node {
     fastf_t bounds[6];
     struct bvh_build_node *children[2];
@@ -36,6 +41,8 @@ struct bvh_flat_node {
 
 #ifndef HLBVH_IMPLEMENTATION
 
+__BEGIN_DECLS
+
 extern struct bu_pool *
 hlbvh_init_pool(size_t n_primatives);
 
@@ -53,7 +60,16 @@ hlbvh_shot_raw(struct bvh_build_node* root, struct xray* rp, long** check_tris, 
 extern void
 hlbvh_shot_flat(struct bvh_flat_node* root, struct xray* rp, long** check_tris, size_t* num_check_tris);
 
-#endif // HLBVH_IMPLEMENTATION
+extern void
+hlbvh_shot_flat_reuse(struct bvh_flat_node *root, struct xray *rp,
+		      long **check_prims, size_t *num_check_prims,
+		      long **reuse_buf, size_t *reuse_len);
+
+__END_DECLS
+
+#endif /* HLBVH_IMPLEMENTATION */
+
+#endif /* CUT_HLBVH_H */
 
 
 /*

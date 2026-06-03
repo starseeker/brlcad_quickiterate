@@ -35,12 +35,14 @@
 #include "bio.h"
 
 #include "bu/parallel.h"
+#include "bu/malloc.h"
 #include "bu/sort.h"
 #include "bu/str.h"
 #include "vmath.h"
 #include "raytrace.h"
 #include "bg/plane.h"
 #include "bv/plot3.h"
+#include "cut_hlbvh.h"
 #include "cut_private.h"
 
 
@@ -58,6 +60,8 @@ rt_cut_method_name(int method)
 	    return "NUBSP";
 	case RT_PART_NULL:
 	    return "NULL";
+	case RT_PART_HLBVH:
+	    return "HLBVH";
 	default:
 	    return "unknown";
     }
@@ -92,6 +96,14 @@ rt_cut_select_from_env(struct rt_i *rtip)
 	BU_STR_EQUAL(method, "1"))
     {
 	rtip->rti_space_partition = RT_PART_NULL;
+	return;
+    }
+
+    if (BU_STR_EQUIV(method, "hlbvh") ||
+	BU_STR_EQUIV(method, "bvh") ||
+	BU_STR_EQUAL(method, "2"))
+    {
+	rtip->rti_space_partition = RT_PART_HLBVH;
 	return;
     }
 
@@ -139,6 +151,9 @@ rt_cut_it(register struct rt_i *rtip, int ncpu)
 	    break;
 	case RT_PART_NULL:
 	    rt_cut_null_build(rtip, finp, ncpu);
+	    break;
+	case RT_PART_HLBVH:
+	    rt_cut_hlbvh_build(rtip, finp, ncpu);
 	    break;
 	default:
 	    bu_bomb("rt_cut_it: unknown space partitioning method\n");
@@ -834,6 +849,469 @@ fill_out_bsp(struct rt_i *rtip, union cutter *cutp, struct resource *UNUSED(resp
     }
 
 }
+
+
+/*
+ * HLBVH scene acceleration build path.
+ *
+ * Build parameters
+ */
+#define RT_HLBVH_SPLIT_FRAC  0.25   /* spatial-split threshold as fraction of scene max-dim */
+#define RT_HLBVH_MAX_SPLITS  8      /* hard cap on sub-boxes per oversized primitive */
+
+/* Internal struct for sweep-and-prune overlap computation. */
+struct rt_bbox_entry {
+    fastf_t min[3];
+    fastf_t max[3];
+};
+
+static int
+rt_bbox_cmp_minx(const void *a, const void *b, void *UNUSED(context))
+{
+    const struct rt_bbox_entry *ba = (const struct rt_bbox_entry *)a;
+    const struct rt_bbox_entry *bb = (const struct rt_bbox_entry *)b;
+    if (ba->min[X] < bb->min[X]) return -1;
+    if (ba->min[X] > bb->min[X]) return  1;
+    return 0;
+}
+
+
+/*
+ * Compute sum(prim_volumes) / scene_volume — diagnostic only, logged when
+ * RT_DEBUG_CUT is set.
+ */
+static double
+rt_scene_vol_density(struct rt_i *rtip)
+{
+    struct soltab *stp;
+    double prim_vol_sum;
+    double scene_vol;
+    vect_t sdims;
+
+    RT_CK_RTI(rtip);
+
+    VSUB2(sdims, rtip->mdl_max, rtip->mdl_min);
+    scene_vol = sdims[X] * sdims[Y] * sdims[Z];
+    if (scene_vol <= 0.0)
+	return 0.0;
+
+    prim_vol_sum = 0.0;
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	vect_t pdims;
+	if (stp->st_aradius <= 0 || stp->st_aradius >= INFINITY) continue;
+	VSUB2(pdims, stp->st_max, stp->st_min);
+	prim_vol_sum += pdims[X] * pdims[Y] * pdims[Z];
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    {
+	double d_vol = prim_vol_sum / scene_vol;
+	if (RT_G_DEBUG & RT_DEBUG_CUT)
+	    bu_log("HLBVH density: d_vol=%.4f (prim_vol_sum=%.4g scene_vol=%.4g)\n",
+		   d_vol, prim_vol_sum, scene_vol);
+	return d_vol;
+    }
+}
+
+
+/*
+ * Compute pairwise bounding-box overlap volume / scene_volume via sweep-and-prune.
+ * D_overlap ~ 0: primitives are well-separated.
+ * D_overlap >> 1: many primitives share large overlapping bounding regions.
+ */
+static double
+rt_scene_bbox_overlap(struct rt_i *rtip)
+{
+    struct soltab *stp;
+    long n, i, j;
+    struct rt_bbox_entry *bboxes;
+    double overlap_vol_sum, scene_vol, d_overlap;
+    vect_t sdims;
+
+    RT_CK_RTI(rtip);
+
+    VSUB2(sdims, rtip->mdl_max, rtip->mdl_min);
+    scene_vol = sdims[X] * sdims[Y] * sdims[Z];
+    if (scene_vol <= 0.0)
+	return 0.0;
+
+    /* Count finite primitives */
+    n = 0;
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	if (stp->st_aradius <= 0 || stp->st_aradius >= INFINITY) continue;
+	n++;
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    if (n < 2)
+	return 0.0;
+
+    /* Collect bboxes */
+    bboxes = (struct rt_bbox_entry *)bu_calloc((size_t)n,
+					       sizeof(struct rt_bbox_entry),
+					       "bbox overlap entries");
+    i = 0;
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	if (stp->st_aradius <= 0 || stp->st_aradius >= INFINITY) continue;
+	VMOVE(bboxes[i].min, stp->st_min);
+	VMOVE(bboxes[i].max, stp->st_max);
+	i++;
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    /* Sort by min[X] to enable the sweep */
+    bu_sort(bboxes, (size_t)n, sizeof(struct rt_bbox_entry), rt_bbox_cmp_minx, NULL);
+
+    /* Sweep: for each i, advance j while j.min[X] < i.max[X]. */
+    overlap_vol_sum = 0.0;
+    for (i = 0; i < n; i++) {
+	for (j = i + 1; j < n; j++) {
+	    fastf_t ox, oy, oz;
+
+	    if (bboxes[j].min[X] >= bboxes[i].max[X])
+		break;
+
+	    oy = FMIN(bboxes[i].max[Y], bboxes[j].max[Y])
+		- FMAX(bboxes[i].min[Y], bboxes[j].min[Y]);
+	    if (oy <= 0.0) continue;
+
+	    oz = FMIN(bboxes[i].max[Z], bboxes[j].max[Z])
+		- FMAX(bboxes[i].min[Z], bboxes[j].min[Z]);
+	    if (oz <= 0.0) continue;
+
+	    ox = FMIN(bboxes[i].max[X], bboxes[j].max[X]) - bboxes[j].min[X];
+	    overlap_vol_sum += ox * oy * oz;
+	}
+    }
+
+    bu_free(bboxes, "bbox overlap entries");
+
+    d_overlap = overlap_vol_sum / scene_vol;
+    if (RT_G_DEBUG & RT_DEBUG_CUT)
+	bu_log("HLBVH overlap: d_overlap=%.4f (overlap_vol=%.4g scene_vol=%.4g n_prims=%ld)\n",
+	       d_overlap, overlap_vol_sum, scene_vol, n);
+
+    return d_overlap;
+}
+
+
+/*
+ * Build the flat HLBVH over all finite primitives in rtip.
+ * Returns the number of unique finite primitives.
+ * On success rtip->i->rti_hlbvh_root / _prims / _nprims / _nnodes are set.
+ * On failure all four are left as NULL/0.
+ */
+static long
+rt_hlbvh_prep(struct rt_i *rtip)
+{
+    struct soltab *stp;
+    long i;
+    long n_primitives;
+    long n_pieces;
+    struct soltab **all_prims;
+    fastf_t *centroids;
+    fastf_t *bounds;
+    long total_nodes = 0;
+    long *ordered_prims = NULL;
+    struct bu_pool *pool;
+    struct bvh_build_node *root;
+    struct bvh_flat_node *flat_root;
+    fastf_t split_thresh;
+
+    RT_CK_RTI(rtip);
+
+    /* Free any previous HLBVH data */
+    if (rtip->i->rti_hlbvh_root) {
+	bu_free(rtip->i->rti_hlbvh_root, "rti_hlbvh_root");
+	rtip->i->rti_hlbvh_root = NULL;
+    }
+    if (rtip->i->rti_hlbvh_prims) {
+	bu_free(rtip->i->rti_hlbvh_prims, "rti_hlbvh_prims");
+	rtip->i->rti_hlbvh_prims = NULL;
+    }
+    rtip->i->rti_hlbvh_nprims = 0;
+    rtip->i->rti_hlbvh_nnodes = 0;
+
+    /* Count finite, non-dead primitives */
+    n_primitives = 0;
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	if (stp->st_aradius <= 0) continue;
+	if (stp->st_aradius >= INFINITY) continue;
+	n_primitives++;
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    if (n_primitives == 0)
+	return 0;
+
+    /* Spatial split threshold: fraction of scene's longest axis */
+    {
+	vect_t sdims;
+	fastf_t scene_max_dim;
+	VSUB2(sdims, rtip->mdl_max, rtip->mdl_min);
+	scene_max_dim = FMAX(sdims[X], FMAX(sdims[Y], sdims[Z]));
+	split_thresh = scene_max_dim * RT_HLBVH_SPLIT_FRAC;
+	if (split_thresh <= 0.0)
+	    split_thresh = INFINITY;
+    }
+
+    /* Count total BVH input slots (>= n_primitives when some are split) */
+    n_pieces = 0;
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	vect_t pdims;
+	fastf_t max_dim;
+	double nsplit_d;
+	long nsplit;
+	if (stp->st_aradius <= 0) continue;
+	if (stp->st_aradius >= INFINITY) continue;
+	VSUB2(pdims, stp->st_max, stp->st_min);
+	max_dim = FMAX(pdims[X], FMAX(pdims[Y], pdims[Z]));
+	nsplit_d = (split_thresh < INFINITY && max_dim > split_thresh)
+	    ? ceil(max_dim / split_thresh) : 1.0;
+	nsplit = (long)nsplit_d;
+	if (nsplit > RT_HLBVH_MAX_SPLITS) nsplit = RT_HLBVH_MAX_SPLITS;
+	if (nsplit < 1) nsplit = 1;
+	n_pieces += nsplit;
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    all_prims = (struct soltab **)bu_calloc(n_pieces, sizeof(struct soltab *), "hlbvh all prims");
+    centroids = (fastf_t *)bu_calloc(n_pieces, sizeof(fastf_t) * 3, "hlbvh centroids");
+    bounds    = (fastf_t *)bu_calloc(n_pieces, sizeof(fastf_t) * 6, "hlbvh bounds");
+
+    i = 0;
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	vect_t pdims;
+	uint8_t axis;
+	fastf_t max_dim;
+	double nsplit_d;
+	long nsplit, k;
+
+	if (stp->st_aradius <= 0) continue;
+	if (stp->st_aradius >= INFINITY) continue;
+
+	VSUB2(pdims, stp->st_max, stp->st_min);
+	if (pdims[X] >= pdims[Y] && pdims[X] >= pdims[Z])
+	    axis = X;
+	else if (pdims[Y] >= pdims[Z])
+	    axis = Y;
+	else
+	    axis = Z;
+
+	max_dim = pdims[axis];
+	nsplit_d = (split_thresh < INFINITY && max_dim > split_thresh)
+	    ? ceil(max_dim / split_thresh) : 1.0;
+	nsplit = (long)nsplit_d;
+	if (nsplit > RT_HLBVH_MAX_SPLITS) nsplit = RT_HLBVH_MAX_SPLITS;
+	if (nsplit < 1) nsplit = 1;
+
+	for (k = 0; k < nsplit; k++) {
+	    fastf_t lo = stp->st_min[axis]
+		+ (stp->st_max[axis] - stp->st_min[axis]) * k / nsplit;
+	    fastf_t hi = stp->st_min[axis]
+		+ (stp->st_max[axis] - stp->st_min[axis]) * (k + 1) / nsplit;
+
+	    all_prims[i] = stp;
+	    VMOVE(&bounds[i * 6 + 0], stp->st_min);
+	    VMOVE(&bounds[i * 6 + 3], stp->st_max);
+	    bounds[i * 6 + axis]     = lo;
+	    bounds[i * 6 + 3 + axis] = hi;
+
+	    centroids[i * 3 + 0] = (bounds[i * 6 + 0] + bounds[i * 6 + 3]) * 0.5;
+	    centroids[i * 3 + 1] = (bounds[i * 6 + 1] + bounds[i * 6 + 4]) * 0.5;
+	    centroids[i * 3 + 2] = (bounds[i * 6 + 2] + bounds[i * 6 + 5]) * 0.5;
+	    i++;
+	}
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    pool = hlbvh_init_pool((size_t)n_pieces);
+    root = hlbvh_create(4, pool, centroids, bounds,
+			&total_nodes, n_pieces, &ordered_prims);
+    bu_free(bounds,    "hlbvh bounds");
+    bu_free(centroids, "hlbvh centroids");
+
+    if (!root) {
+	bu_pool_delete(pool);
+	bu_free(all_prims, "hlbvh all prims");
+	if (ordered_prims)
+	    bu_free(ordered_prims, "hlbvh ordered prims");
+	return 0;
+    }
+
+    flat_root = hlbvh_flatten(root, total_nodes);
+    bu_pool_delete(pool);
+
+    if (ordered_prims) {
+	struct soltab **ordered = (struct soltab **)bu_calloc(n_pieces,
+							      sizeof(struct soltab *),
+							      "hlbvh ordered prims");
+	for (i = 0; i < n_pieces; i++)
+	    ordered[i] = all_prims[ordered_prims[i]];
+	bu_free(ordered_prims, "hlbvh ordered prims");
+	bu_free(all_prims,     "hlbvh all prims");
+	all_prims = ordered;
+    }
+
+    if (RT_G_DEBUG & RT_DEBUG_CUT)
+	bu_log("HLBVH: %ld pieces (%ld unique primitives) in flat BVH (%ld nodes)\n",
+	       n_pieces, n_primitives, total_nodes);
+
+    rtip->i->rti_hlbvh_root   = (void *)flat_root;
+    rtip->i->rti_hlbvh_prims  = all_prims;
+    rtip->i->rti_hlbvh_nprims = n_pieces;
+    rtip->i->rti_hlbvh_nnodes = total_nodes;
+    return n_primitives;
+}
+
+
+/*
+ * Thresholds for HLBVH quality gating.
+ * See block comment in rt_hlbvh_is_good() for full calibration details.
+ */
+#define RT_HLBVH_SAH_THRESHOLD       0.060
+#define RT_HLBVH_MIN_PRIMS_FOR_SAH   30
+#define RT_HLBVH_DOVERLAP_NUBSP_LO   0.15
+#define RT_HLBVH_DOVERLAP_NUBSP_HI   0.30
+
+/*
+ * Inspect the already-built flat HLBVH to judge whether it is likely to
+ * outperform NUBSP for this scene.  Returns 1 (good) or 0 (degenerate /
+ * better served by NUBSP).
+ *
+ * Quality metric: SAH-normalized traversal cost.
+ *   cost = (sum over leaf nodes of sa(leaf)/sa(root) * n_prims) / n_total_prims
+ *
+ * A low cost means each leaf bbox is small relative to the scene — rays visit
+ * few candidates on average.  A high cost means leaf bboxes are large, so rays
+ * must test many candidates even in a tight BVH.  NUBSP handles the high-cost
+ * case better because it adaptively cuts exactly the crowded regions.
+ *
+ * Routing uses two successive filters:
+ *
+ * 1. Small-scene bypass: n_unique <= RT_HLBVH_MIN_PRIMS_FOR_SAH → keep HLBVH.
+ *    With very few unique primitives, the SAH metric is unreliable; HLBVH's
+ *    flat traversal consistently wins.
+ *
+ * 2. D_overlap band [LO, HI]: scenes with moderate pairwise bbox overlap
+ *    benefit from NUBSP's adaptive partitioning.  Specifically catches m35
+ *    (d_overlap ≈ 0.226) while leaving castle/havoc/GenericTwin untouched.
+ *
+ * 3. SAH threshold RT_HLBVH_SAH_THRESHOLD: normalized SAH >= threshold → NUBSP.
+ *    Catches bldg391 and ktank which the D_overlap filter cannot separate.
+ *
+ * Calibrated at -s512, Release build, bbox-overlap SAH-BVH (cut_hlbvh.c).
+ */
+static int
+rt_hlbvh_is_good(const struct rt_i *rtip, long n_unique_prims, double d_overlap)
+{
+    const struct bvh_flat_node *nodes;
+    long i;
+    double root_sa, sah_cost, normalized_sah;
+    double dx, dy, dz;
+
+    RT_CK_RTI(rtip);
+
+    nodes = (const struct bvh_flat_node *)rtip->i->rti_hlbvh_root;
+    if (!nodes || rtip->i->rti_hlbvh_nnodes == 0 || rtip->i->rti_hlbvh_nprims == 0)
+	return 0;
+
+    /* Small scenes: always use HLBVH */
+    if (n_unique_prims <= RT_HLBVH_MIN_PRIMS_FOR_SAH) {
+	if (RT_G_DEBUG & RT_DEBUG_CUT)
+	    bu_log("HLBVH quality: small scene (%ld unique prims <= %d), keeping HLBVH\n",
+		   n_unique_prims, RT_HLBVH_MIN_PRIMS_FOR_SAH);
+	return 1;
+    }
+
+    /* D_overlap band filter */
+    if (d_overlap >= RT_HLBVH_DOVERLAP_NUBSP_LO
+	&& d_overlap <= RT_HLBVH_DOVERLAP_NUBSP_HI) {
+	if (RT_G_DEBUG & RT_DEBUG_CUT)
+	    bu_log("HLBVH quality: d_overlap=%.4f in NUBSP band [%.2f, %.2f], deferring to NUBSP\n",
+		   d_overlap, RT_HLBVH_DOVERLAP_NUBSP_LO, RT_HLBVH_DOVERLAP_NUBSP_HI);
+	return 0;
+    }
+
+    /* Root node surface area */
+    dx = nodes[0].bounds[3] - nodes[0].bounds[0];
+    dy = nodes[0].bounds[4] - nodes[0].bounds[1];
+    dz = nodes[0].bounds[5] - nodes[0].bounds[2];
+    root_sa = 2.0 * (dx*dy + dy*dz + dz*dx);
+    if (root_sa <= 0.0)
+	return 0;
+
+    /* Accumulate SAH cost from leaf nodes */
+    sah_cost = 0.0;
+    for (i = 0; i < rtip->i->rti_hlbvh_nnodes; i++) {
+	if (nodes[i].n_primitives > 0) {
+	    dx = nodes[i].bounds[3] - nodes[i].bounds[0];
+	    dy = nodes[i].bounds[4] - nodes[i].bounds[1];
+	    dz = nodes[i].bounds[5] - nodes[i].bounds[2];
+	    sah_cost += (2.0 * (dx*dy + dy*dz + dz*dx) / root_sa)
+		        * nodes[i].n_primitives;
+	}
+    }
+    normalized_sah = sah_cost / (double)rtip->i->rti_hlbvh_nprims;
+
+    if (RT_G_DEBUG & RT_DEBUG_CUT)
+	bu_log("HLBVH quality: normalized_sah=%.4f nprims=%ld nnodes=%ld (threshold=%.4f)\n",
+	       normalized_sah, rtip->i->rti_hlbvh_nprims, rtip->i->rti_hlbvh_nnodes,
+	       RT_HLBVH_SAH_THRESHOLD);
+
+    return normalized_sah < RT_HLBVH_SAH_THRESHOLD;
+}
+
+
+/*
+ * HLBVH spatial partition build entry point called from rt_cut_it().
+ *
+ * Builds the flat SAH-BVH over all finite primitives.  Runs the quality
+ * check; if the BVH is degenerate for this scene, frees HLBVH data and
+ * falls back to NUBSP.  In HLBVH mode, rti_CutHead is left as a shallow
+ * copy of the input root boxnode so that rt_ct_measure() and
+ * rt_pr_cut_info() can run without crashing (the HLBVH shooter itself
+ * never reads rti_CutHead).
+ */
+void
+rt_cut_hlbvh_build(struct rt_i *rtip, const union cutter *finp, int ncpu)
+{
+    long n_unique;
+    double d_overlap;
+
+    RT_CK_RTI(rtip);
+    BU_ASSERT(finp->cut_type == CUT_BOXNODE);
+
+    /* Set rti_CutHead to a valid (shallow) boxnode so diagnostic routines
+     * that inspect it (rt_ct_measure, rt_pr_cut_info) never see cut_type==0.
+     */
+    rtip->i->rti_CutHead = *finp;
+    rtip->i->rti_cutlen   = rt_ct_piececount(&rtip->i->rti_CutHead);
+    rtip->i->rti_cutdepth = 0;
+
+    /* Diagnostic volume density (logged when RT_DEBUG_CUT is set). */
+    if (RT_G_DEBUG & RT_DEBUG_CUT)
+	rt_scene_vol_density(rtip);
+
+    /* Pairwise overlap metric: used by the quality gate. */
+    d_overlap = rt_scene_bbox_overlap(rtip);
+
+    n_unique = rt_hlbvh_prep(rtip);
+
+    if (!rt_hlbvh_is_good(rtip, n_unique, d_overlap) && !getenv("RT_FORCE_HLBVH")) {
+	if (RT_G_DEBUG & RT_DEBUG_CUT)
+	    bu_log("rt_cut_hlbvh_build: HLBVH degenerate, falling back to NUBSP\n");
+
+	if (rtip->i->rti_hlbvh_root) {
+	    bu_free(rtip->i->rti_hlbvh_root, "rti_hlbvh_root");
+	    rtip->i->rti_hlbvh_root = NULL;
+	}
+	if (rtip->i->rti_hlbvh_prims) {
+	    bu_free(rtip->i->rti_hlbvh_prims, "rti_hlbvh_prims");
+	    rtip->i->rti_hlbvh_prims = NULL;
+	}
+	rtip->i->rti_hlbvh_nprims = 0;
+	rtip->i->rti_hlbvh_nnodes = 0;
+
+	rtip->rti_space_partition = RT_PART_NUBSPT;
+	rt_cut_nubsp_build(rtip, finp, ncpu);
+    }
+}
+
 
 /*
  * Local Variables:

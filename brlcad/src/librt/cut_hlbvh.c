@@ -834,6 +834,58 @@ hlbvh_shot_flat(struct bvh_flat_node* root, struct xray* rp, long** check_prims,
     hlbvh_shot(root, rp, check_prims, num_check_prims, 1 /*true*/);
 }
 
+/*
+ * hlbvh_shot_flat_reuse - BVH flat-tree traversal with per-resource reuse buffer.
+ *
+ * Like hlbvh_shot_flat() but writes results into a caller-managed buffer
+ * (*reuse_buf / *reuse_len) that is grown with bu_realloc as needed.
+ * This eliminates the per-ray bu_calloc / bu_free in the hot path.
+ * On return, *check_prims points into *reuse_buf; the caller must NOT free it.
+ */
+void
+hlbvh_shot_flat_reuse(struct bvh_flat_node *root, struct xray *rp,
+		      long **check_prims, size_t *num_check_prims,
+		      long **reuse_buf, size_t *reuse_len)
+{
+    size_t prim_accum = 0;
+    size_t index = 0;
+    struct prim_list *leafs = NULL;
+    struct prim_list *entry;
+
+    BU_GET(leafs, struct prim_list);
+    BU_LIST_INIT(&(leafs->l));
+    leafs->first_prim_offset = -1;
+    leafs->n_primitives = -1;
+
+    while_populate_leaf_list_flat(root, rp, leafs, &prim_accum);
+
+    *num_check_prims = prim_accum;
+    *check_prims = NULL;
+
+    if (prim_accum == 0) {
+	BU_PUT(leafs, struct prim_list);
+	return;
+    }
+
+    /* Grow the reuse buffer if needed */
+    if (*reuse_len < prim_accum) {
+	*reuse_buf = (long *)bu_realloc(*reuse_buf, prim_accum * sizeof(long),
+					"hlbvh reuse prim indices");
+	*reuse_len = prim_accum;
+    }
+
+    while (BU_LIST_WHILE(entry, prim_list, &(leafs->l))) {
+	long i;
+	for (i = 0; i < entry->n_primitives; i++)
+	    (*reuse_buf)[index++] = entry->first_prim_offset + i;
+	BU_LIST_DEQUEUE(&(entry->l));
+	BU_PUT(entry, struct prim_list);
+    }
+    BU_PUT(leafs, struct prim_list);
+    BU_ASSERT(index == prim_accum);
+    *check_prims = *reuse_buf;
+}
+
 
 #ifdef USE_OPENCL
 static cl_int

@@ -36,6 +36,7 @@ void rt_cut_select_from_env(struct rt_i *rtip);
 
 void rt_cut_nubsp_build(struct rt_i *rtip, const union cutter *root, int ncpu);
 void rt_cut_null_build(struct rt_i *rtip, const union cutter *root, int ncpu);
+void rt_cut_hlbvh_build(struct rt_i *rtip, const union cutter *finp, int ncpu);
 
 union cutter *rt_ct_get(struct rt_i *rtip);
 void rt_ct_free(struct rt_i *rtip, union cutter *cutp);

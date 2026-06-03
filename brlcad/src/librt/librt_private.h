@@ -158,6 +158,12 @@ struct rt_i_internal {
     struct region **    Regions;        	/**< @brief  ptrs to regions [reg_bit] */
     struct bu_ptbl      delete_regs;    /**< @brief  list of region pointers to delete after light_init() */
 
+    /* HLBVH scene acceleration (RT_PART_HLBVH mode) */
+    void *              rti_hlbvh_root;   /**< @brief  flat HLBVH tree of finite solids; cast to struct bvh_flat_node* */
+    struct soltab **    rti_hlbvh_prims;  /**< @brief  ordered primitive array matching HLBVH leaf order */
+    long                rti_hlbvh_nprims; /**< @brief  number of entries in rti_hlbvh_prims */
+    long                rti_hlbvh_nnodes; /**< @brief  number of flat BVH nodes in rti_hlbvh_root array */
+
 };
 
 struct rt_i_internal * rt_i_internal_create(void);

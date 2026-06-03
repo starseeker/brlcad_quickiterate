@@ -1045,6 +1045,13 @@ rt_clean_resource_basic(struct rt_i *rtip, struct resource *resp)
 	resp->re_boolslen = 0;
     }
 
+    /* Release the HLBVH per-thread primitive index buffer */
+    if (resp->re_hlbvh_prims) {
+	bu_free(resp->re_hlbvh_prims, "re_hlbvh_prims");
+	resp->re_hlbvh_prims = NULL;
+	resp->re_hlbvh_prims_len = 0;
+    }
+
     /* Release the state variables for 'solid pieces' */
     _res_pieces_clean(resp, rtip);
 
@@ -1199,6 +1206,18 @@ rt_clean(struct rt_i *rtip)
 	memset((char *)&(rtip->i->rti_CutHead), 0, sizeof(union cutter));
 	rt_fr_cut(rtip, &(rtip->i->rti_inf_box));
 	memset((char *)&(rtip->i->rti_inf_box), 0, sizeof(union cutter));
+
+	/* Free HLBVH scene tree if present */
+	if (rtip->i->rti_hlbvh_root) {
+	    bu_free(rtip->i->rti_hlbvh_root, "rti_hlbvh_root");
+	    rtip->i->rti_hlbvh_root = NULL;
+	}
+	if (rtip->i->rti_hlbvh_prims) {
+	    bu_free(rtip->i->rti_hlbvh_prims, "rti_hlbvh_prims");
+	    rtip->i->rti_hlbvh_prims = NULL;
+	}
+	rtip->i->rti_hlbvh_nprims = 0;
+	rtip->i->rti_hlbvh_nnodes = 0;
     }
     rt_cut_clean(rtip);
 

@@ -29,6 +29,7 @@
 
 #include "raytrace.h"
 #include "bv/plot3.h"
+#include "cut_hlbvh.h"
 #include "librt_private.h"
 
 
@@ -527,6 +528,333 @@ rt_plot_cell(const union cutter *cutp, const struct rt_shootray_status *ssp, str
 }
 
 
+/*
+ * rt_shootray_hlbvh - HLBVH-only single-ray shooting path.
+ *
+ * Performance rationale: keeping HLBVH traversal in a separate function
+ * avoids polluting the NUBSP rt_shootray i-cache footprint with ~117 lines
+ * of dead code when running in NUBSP mode.
+ *
+ * Relative to rt_shootray this path omits:
+ *   - struct rt_shootray_status / cut-tree traversal
+ *   - solid-pieces infrastructure (backbits, re_pieces_pending, etc.)
+ */
+static int
+rt_shootray_hlbvh(register struct application *ap)
+{
+    struct seg new_segs;
+    struct seg waiting_segs;
+    struct seg finished_segs;
+    struct bu_bitv *solidbits;
+    struct bu_ptbl *regionbits;
+    char *status;
+    struct partition InitialPart;
+    struct partition FinalPart;
+    struct soltab **stpp;
+    struct resource *resp;
+    struct rt_i *rtip;
+    fastf_t inv_dir[3];
+    fastf_t last_bool_start;
+    const int debug_shoot = RT_G_DEBUG & RT_DEBUG_SHOOT;
+
+    RT_AP_CHECK(ap);
+    if (ap->a_magic) {
+	RT_CK_AP(ap);
+    } else {
+	ap->a_magic = RT_AP_MAGIC;
+    }
+    if (ap->a_ray.magic) {
+	RT_CK_RAY(&(ap->a_ray));
+    } else {
+	ap->a_ray.magic = RT_RAY_MAGIC;
+    }
+
+    if (ap->a_resource == RESOURCE_NULL) {
+	ap->a_resource = &rt_uniresource;
+	if (RT_G_DEBUG)
+	    bu_log("rt_shootray_hlbvh: defaulting a_resource to &rt_uniresource\n");
+    }
+    rtip = ap->a_rt_i;
+    RT_CK_RTI(rtip);
+    resp = ap->a_resource;
+    RT_CK_RESOURCE(resp);
+
+    if (RT_G_DEBUG) {
+	if (RT_G_DEBUG & (RT_DEBUG_ALLRAYS|RT_DEBUG_SHOOT|RT_DEBUG_PARTITION|RT_DEBUG_ALLHITS)) {
+	    bu_log_indent_delta(2);
+	    bu_log("\n**********shootray_hlbvh cpu=%d  %d, %d lvl=%d a_onehit=%d (%s)\n",
+		   resp->re_cpu,
+		   ap->a_x, ap->a_y,
+		   ap->a_level,
+		   ap->a_onehit,
+		   ap->a_purpose != (char *)0 ? ap->a_purpose : "?");
+	    bu_log("Pnt (%.20G, %.20G, %.20G)\nDir (%.20G, %.20G, %.20G)\n",
+		   V3ARGS(ap->a_ray.r_pt),
+		   V3ARGS(ap->a_ray.r_dir));
+	}
+    }
+
+    if (rtip->needprep)
+	rt_prep_parallel(rtip, 1);
+
+    InitialPart.pt_forw = InitialPart.pt_back = &InitialPart;
+    InitialPart.pt_magic = PT_HD_MAGIC;
+    FinalPart.pt_forw = FinalPart.pt_back = &FinalPart;
+    FinalPart.pt_magic = PT_HD_MAGIC;
+    ap->a_Final_Part_hdp = &FinalPart;
+
+    BU_LIST_INIT(&new_segs.l);
+    BU_LIST_INIT(&waiting_segs.l);
+    BU_LIST_INIT(&finished_segs.l);
+    ap->a_finished_segs_hdp = &finished_segs;
+
+    if (!BU_LIST_IS_INITIALIZED(&resp->re_parthead)) {
+	bu_log("rt_shootray_hlbvh() resp=%p uninitialized, fixing it\n", (void *)resp);
+	rt_init_resource(resp, resp->re_cpu, rtip);
+    }
+    if (resp != &rt_uniresource)
+	BU_ASSERT(BU_PTBL_GET(&rtip->rti_resources, resp->re_cpu) != NULL);
+
+    solidbits = rt_get_solidbitv(rtip->stats.nsolids, resp);
+
+    if (BU_LIST_IS_EMPTY(&resp->re_region_ptbl)) {
+	BU_ALLOC(regionbits, struct bu_ptbl);
+	bu_ptbl_init(regionbits, 7, "rt_shootray_hlbvh() regionbits ptbl");
+    } else {
+	regionbits = BU_LIST_FIRST(bu_ptbl, &resp->re_region_ptbl);
+	BU_LIST_DEQUEUE(&regionbits->l);
+	BU_CK_PTBL(regionbits);
+    }
+
+    if (RT_G_DEBUG) {
+	fastf_t f, diff;
+	f = MAGSQ(ap->a_ray.r_dir);
+	if (NEAR_ZERO(f, ap->a_rt_i->rti_tol.dist))
+	    bu_bomb("rt_shootray_hlbvh: zero length dir vector\n");
+	diff = f - 1;
+	if (!NEAR_ZERO(diff, ap->a_rt_i->rti_tol.dist)) {
+	    bu_log("rt_shootray_hlbvh: non-unit dir vect (x%d y%d lvl%d)\n",
+		   ap->a_x, ap->a_y, ap->a_level);
+	    f = 1/f;
+	    VSCALE(ap->a_ray.r_dir, ap->a_ray.r_dir, f);
+	}
+    }
+
+    resp->re_nshootray++;
+
+    /* Compute inverse direction cosines (same clamping as rt_shootray). */
+    if (ap->a_ray.r_dir[X] < -SQRT_SMALL_FASTF) {
+	inv_dir[X] = 1.0/ap->a_ray.r_dir[X];
+    } else if (ap->a_ray.r_dir[X] > SQRT_SMALL_FASTF) {
+	inv_dir[X] = 1.0/ap->a_ray.r_dir[X];
+    } else {
+	ap->a_ray.r_dir[X] = 0.0;
+	inv_dir[X] = INFINITY;
+    }
+    if (ap->a_ray.r_dir[Y] < -SQRT_SMALL_FASTF) {
+	inv_dir[Y] = 1.0/ap->a_ray.r_dir[Y];
+    } else if (ap->a_ray.r_dir[Y] > SQRT_SMALL_FASTF) {
+	inv_dir[Y] = 1.0/ap->a_ray.r_dir[Y];
+    } else {
+	ap->a_ray.r_dir[Y] = 0.0;
+	inv_dir[Y] = INFINITY;
+    }
+    if (ap->a_ray.r_dir[Z] < -SQRT_SMALL_FASTF) {
+	inv_dir[Z] = 1.0/ap->a_ray.r_dir[Z];
+    } else if (ap->a_ray.r_dir[Z] > SQRT_SMALL_FASTF) {
+	inv_dir[Z] = 1.0/ap->a_ray.r_dir[Z];
+    } else {
+	ap->a_ray.r_dir[Z] = 0.0;
+	inv_dir[Z] = INFINITY;
+    }
+    VMOVE(ap->a_inv_dir, inv_dir);
+
+    /* Quick model RPP check; sets r_min/r_max on the ray. */
+    if (!rt_in_rpp(&ap->a_ray, inv_dir, rtip->mdl_min, rtip->mdl_max) ||
+	ap->a_ray.r_max < 0.0) {
+	if (rtip->i->rti_inf_box.bn.bn_len <= 0) {
+	    resp->re_nmiss_model++;
+	    if (ap->a_miss)
+		ap->a_return = ap->a_miss(ap);
+	    else
+		ap->a_return = 0;
+	    status = "MISS model";
+	    goto out;
+	}
+    }
+
+    /*
+     * HLBVH BVH traversal: collect candidate primitive indices into the
+     * per-resource reuse buffer, then shoot each candidate.
+     */
+    {
+	struct bvh_flat_node *hlbvh_root = (struct bvh_flat_node *)rtip->i->rti_hlbvh_root;
+	long *check_prims = NULL;
+	size_t num_check_prims = 0;
+	size_t pi;
+
+	if (hlbvh_root) {
+	    hlbvh_shot_flat_reuse(hlbvh_root, &ap->a_ray, &check_prims, &num_check_prims,
+				  &resp->re_hlbvh_prims, &resp->re_hlbvh_prims_len);
+	} else if (rtip->i->rti_hlbvh_prims && rtip->i->rti_hlbvh_nprims > 0) {
+	    /* Degenerate case: no BVH tree; shoot all prims */
+	    num_check_prims = (size_t)rtip->i->rti_hlbvh_nprims;
+	    if (resp->re_hlbvh_prims_len < num_check_prims) {
+		resp->re_hlbvh_prims = (long *)bu_realloc(resp->re_hlbvh_prims,
+							  num_check_prims * sizeof(long),
+							  "hlbvh fallback prim indices");
+		resp->re_hlbvh_prims_len = num_check_prims;
+	    }
+	    check_prims = resp->re_hlbvh_prims;
+	    for (pi = 0; pi < num_check_prims; pi++)
+		check_prims[pi] = (long)pi;
+	}
+
+	last_bool_start = BACKING_DIST;
+
+	for (pi = 0; pi < num_check_prims; pi++) {
+	    struct soltab *stp = rtip->i->rti_hlbvh_prims[check_prims[pi]];
+	    int ret;
+
+	    if (BU_BITTEST(solidbits, stp->st_bit)) {
+		resp->re_ndup++;
+		continue;
+	    }
+	    BU_BITSET(solidbits, stp->st_bit);
+
+	    if (OBJ[stp->st_id].ft_use_rpp) {
+		if (!rt_in_rpp(&ap->a_ray, inv_dir, stp->st_min, stp->st_max) ||
+		    (ap->a_ray_length > 0.0 && ap->a_ray.r_min > ap->a_ray_length)) {
+		    resp->re_prune_solrpp++;
+		    continue;
+		}
+	    }
+
+	    if (debug_shoot) bu_log("HLBVH shooting %s\n", stp->st_name);
+	    resp->re_shots++;
+	    BU_LIST_INIT(&(new_segs.l));
+
+	    ret = -1;
+	    if (OBJ[stp->st_id].ft_shot)
+		ret = OBJ[stp->st_id].ft_shot(stp, &ap->a_ray, ap, &new_segs);
+	    if (ret <= 0) {
+		resp->re_shot_miss++;
+		continue;
+	    }
+
+	    {
+		register struct seg *s2;
+		while (BU_LIST_WHILE(s2, seg, &(new_segs.l))) {
+		    BU_LIST_DEQUEUE(&(s2->l));
+		    s2->seg_in.hit_rayp = s2->seg_out.hit_rayp = &ap->a_ray;
+		    BU_LIST_INSERT(&(waiting_segs.l), &(s2->l));
+		}
+	    }
+	    resp->re_shot_hit++;
+	}
+	/* check_prims points into resp->re_hlbvh_prims — do not free here */
+    }
+
+    /* Also shoot any infinite solids */
+    if (rtip->i->rti_inf_box.bn.bn_len > 0) {
+	stpp = &(rtip->i->rti_inf_box.bn.bn_list[rtip->i->rti_inf_box.bn.bn_len - 1]);
+	for (; stpp >= rtip->i->rti_inf_box.bn.bn_list; stpp--) {
+	    struct soltab *stp = *stpp;
+	    int ret;
+
+	    if (BU_BITTEST(solidbits, stp->st_bit)) {
+		resp->re_ndup++;
+		continue;
+	    }
+	    BU_BITSET(solidbits, stp->st_bit);
+
+	    resp->re_shots++;
+	    BU_LIST_INIT(&(new_segs.l));
+
+	    ret = -1;
+	    if (OBJ[stp->st_id].ft_shot)
+		ret = OBJ[stp->st_id].ft_shot(stp, &ap->a_ray, ap, &new_segs);
+	    if (ret <= 0) {
+		resp->re_shot_miss++;
+		continue;
+	    }
+
+	    {
+		register struct seg *s2;
+		while (BU_LIST_WHILE(s2, seg, &(new_segs.l))) {
+		    BU_LIST_DEQUEUE(&(s2->l));
+		    s2->seg_in.hit_rayp = s2->seg_out.hit_rayp = &ap->a_ray;
+		    BU_LIST_INSERT(&(waiting_segs.l), &(s2->l));
+		}
+	    }
+	    resp->re_shot_hit++;
+	}
+    }
+
+    /* Weave any remaining segments into partitions and evaluate boolean CSG. */
+    if (BU_LIST_NON_EMPTY(&(waiting_segs.l)))
+	rt_boolweave(&finished_segs, &waiting_segs, &InitialPart, ap);
+
+    if (BU_LIST_IS_EMPTY(&(finished_segs.l))) {
+	if (ap->a_miss)
+	    ap->a_return = ap->a_miss(ap);
+	else
+	    ap->a_return = 0;
+	status = "MISS primitives";
+	goto out;
+    }
+
+    (void)rt_boolfinal(&InitialPart, &FinalPart, last_bool_start, INFINITY,
+		       regionbits, ap, solidbits);
+
+    if (FinalPart.pt_forw == &FinalPart) {
+	if (ap->a_miss)
+	    ap->a_return = ap->a_miss(ap);
+	else
+	    ap->a_return = 0;
+	status = "MISS bool";
+	RT_FREE_PT_LIST(&InitialPart, resp);
+	RT_FREE_SEG_LIST(&finished_segs, resp);
+	goto out;
+    }
+
+    if (debug_shoot) rt_pr_partitions(rtip, &FinalPart, "a_hit()");
+
+    RT_FREE_PT_LIST(&InitialPart, resp);
+
+    if (RT_G_DEBUG&RT_DEBUG_ALLHITS)
+	rt_pr_partitions(rtip, &FinalPart, "Partition list passed to a_hit() routine");
+
+    if (ap->a_hit) {
+	ap->a_return = ap->a_hit(ap, &FinalPart, &finished_segs);
+	status = "HIT";
+    } else {
+	ap->a_return = 0;
+	status = "MISS (unexpected)";
+    }
+
+    RT_FREE_SEG_LIST(&finished_segs, resp);
+    RT_FREE_PT_LIST(&FinalPart, resp);
+
+out:
+    BU_CK_BITV(solidbits);
+    BU_LIST_APPEND(&resp->re_solid_bitv, &solidbits->l);
+    BU_CK_PTBL(regionbits);
+    BU_LIST_APPEND(&resp->re_region_ptbl, &regionbits->l);
+
+    if (RT_G_DEBUG&(RT_DEBUG_ALLRAYS|RT_DEBUG_SHOOT|RT_DEBUG_PARTITION|RT_DEBUG_ALLHITS)) {
+	bu_log_indent_delta(-2);
+	bu_log("----------shootray_hlbvh cpu=%d  %d, %d lvl=%d (%s) %s ret=%d\n",
+	       resp->re_cpu,
+	       ap->a_x, ap->a_y,
+	       ap->a_level,
+	       ap->a_purpose != (char *)0 ? ap->a_purpose : "?",
+	       status, ap->a_return);
+    }
+    return ap->a_return;
+}
+
+
 _BU_ATTR_FLATTEN int
 rt_shootray(register struct application *ap)
 {
@@ -553,6 +881,15 @@ rt_shootray(register struct application *ap)
     } else {
 	ap->a_magic = RT_AP_MAGIC;
     }
+
+    /*
+     * Dispatch to the HLBVH-specific path before any NUBSP setup.
+     * Keeping these two paths separate preserves the NUBSP i-cache
+     * footprint (see rt_shootray_hlbvh for the full performance rationale).
+     */
+    if (ap->a_rt_i->rti_space_partition == RT_PART_HLBVH)
+	return rt_shootray_hlbvh(ap);
+
     if (ap->a_ray.magic) {
 	RT_CK_RAY(&(ap->a_ray));
     } else {
