@@ -18,13 +18,6 @@ tasks as they are completed.
 THESE TASKS SHOULD HAPPEN BEFORE THE NEXT RELEASE
 -------------------------------------------------
 
-* Add APIs to create/destroy both struct rt_i and struct resource from librt
-  and document in CHANGES that code will need to use those to initialize
-  non-public parts of the structs.   Note all but a couple resource struct
-  entries (re_cpu, re_randptr, whatever the bigE code is using) as scheduled
-  to become private.  As much as possible we want resource to become an
-  implementation detail.
-
 * verify MGED exit behavior on Windows - reports of non-zero exit
   being returned.
 
@@ -38,12 +31,6 @@ THESE TASKS SHOULD HAPPEN BEFORE THE NEXT RELEASE
   expressions from the functional descriptions, 6) publish an
   auto-update script that warns about deprecated use and/or applies
   minimally impacting changes to a given file.
-
-* document rt_db_get_internal() and any others like that in CHANGES.
-  will required careful consideration whether it's minimally-impacting
-  (or if we need to restore arg as a no-op to not break builds).
-
-* settle on sane gist quality defaults and/or implement quality knob
 
 THESE TASKS SHOULD HAPPEN WITHIN TWO RELEASE ITERATIONS
 -------------------------------------------------------
