@@ -693,7 +693,6 @@ brlcad_add_test(NAME bu_opt_3_vect_01  COMMAND bu_test test_opt 3 V 1)
 brlcad_add_test(NAME bu_opt_3_vect_02  COMMAND bu_test test_opt 3 V 2)
 brlcad_add_test(NAME bu_opt_3_vect_03  COMMAND bu_test test_opt 3 V 3)
 brlcad_add_test(NAME bu_opt_3_vect_04  COMMAND bu_test test_opt 3 V 4)
-
 brlcad_add_test(NAME bu_opt_4_json_schema       COMMAND bu_test opt 4 schema 0)
 brlcad_add_test(NAME bu_opt_4_validate_valid    COMMAND bu_test opt 4 schema 1)
 brlcad_add_test(NAME bu_opt_4_validate_bad_opt  COMMAND bu_test opt 4 schema 2)

@@ -41,7 +41,7 @@
 
 #include "bu.h"
 #include "../bitv.h"
-#include "../bitv_private.h"
+
 
 
 
