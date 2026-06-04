@@ -55,7 +55,7 @@
 //DebugPlot *dplot = NULL;
 
 // Whether to output the debug messages about b-rep booleans.
-#define DEBUG_BREP_BOOLEAN 0
+#define DEBUG_BREP_BOOLEAN 1
 
 
 struct IntersectPoint {
@@ -741,7 +741,8 @@ is_loop_valid(const ON_SimpleArray<ON_Curve *> &loop, double tolerance, ON_PolyC
 	    if (loop[i] && loop[i - 1] && loop[i]->PointAtStart().DistanceTo(loop[i - 1]->PointAtEnd()) < ON_ZERO_TOLERANCE) {
 		append_to_polycurve(loop[i]->Duplicate(), *polycurve);
 	    } else {
-		bu_log("The input loop is not continuous.\n");
+		double gap = (loop[i] && loop[i-1]) ? loop[i]->PointAtStart().DistanceTo(loop[i-1]->PointAtEnd()) : -1.0;
+		bu_log("The input loop is not continuous (seg %d→%d gap=%g loop.Count=%d).\n", i-1, i, gap, loop.Count());
 		ret = false;
 	    }
 	}
@@ -1555,12 +1556,40 @@ get_subcurves_inside_faces(
 	     * meet at a single point in 3-D even though they have a finite
 	     * intersection arc in the UV domain of each surface.  The
 	     * degenerate 2-D subcurves produced from these intervals cannot
-	     * be assembled into valid loop trims by add_elements. */
+	     * be assembled into valid loop trims by add_elements.
+	     *
+	     * Exception: a closed 3-D curve (e.g. a full circle) whose
+	     * domain exactly covers the full period has PointAt(min) ==
+	     * PointAt(max) by construction, but is geometrically valid.
+	     * Only reject an interval when it is a strict sub-interval of
+	     * the 3-D curve domain OR the 3-D curve is not closed.
+	     *
+	     * Additional check for degenerate closed curves: even a
+	     * full-period closed curve is discarded when its 3-D bounding
+	     * box diagonal is smaller than INTERSECTION_TOL.  Such curves
+	     * arise at corner junctions where an ARB face barely touches a
+	     * curved surface — the SSI returns a tiny closed NURBS circle
+	     * of near-zero radius that, if kept, becomes an unmatched
+	     * naked edge in the assembled brep. */
 	    {
-		ON_3dPoint p3s = event->m_curve3d->PointAt(intervals_3d[j].Min());
-		ON_3dPoint p3e = event->m_curve3d->PointAt(intervals_3d[j].Max());
-		if (p3s.DistanceTo(p3e) < INTERSECTION_TOL)
-		    continue;
+		ON_Interval c3d_dom = event->m_curve3d->Domain();
+		bool full_domain =
+		    ON_NearZero(intervals_3d[j].Min() - c3d_dom.Min(), ON_ZERO_TOLERANCE) &&
+		    ON_NearZero(intervals_3d[j].Max() - c3d_dom.Max(), ON_ZERO_TOLERANCE);
+		if (!(full_domain && event->m_curve3d->IsClosed())) {
+		    ON_3dPoint p3s = event->m_curve3d->PointAt(intervals_3d[j].Min());
+		    ON_3dPoint p3e = event->m_curve3d->PointAt(intervals_3d[j].Max());
+		    if (p3s.DistanceTo(p3e) < INTERSECTION_TOL)
+			continue;
+		} else {
+		    /* Closed full-domain curve: check the 3-D bounding-box
+		     * diagonal.  A tiny circle (radius ≪ 1) is degenerate. */
+		    ON_BoundingBox bb;
+		    if (event->m_curve3d->GetBoundingBox(bb)) {
+			if (bb.Diagonal().Length() < INTERSECTION_TOL)
+			    continue;
+		    }
+		}
 	    }
 	    ON_Interval interval_on2 = interval_3d_to_2d(intervals_3d[j],
 							 event->m_curveB, event->m_curve3d, &brep2->m_F[face_i2]);
@@ -1625,12 +1654,26 @@ get_subcurves_inside_faces(
 					 event->m_curve3d, &brep2->m_F[face_i2]);
 
 	for (size_t j = 0; j < intervals_3d.size(); ++j) {
-	    /* Skip degenerate 3-D sub-intervals (same check as above). */
+	    /* Skip degenerate 3-D sub-intervals (same check as above, with
+	     * the same exception for full closed curves and the same
+	     * degenerate-bounding-box check for tiny closed circles). */
 	    {
-		ON_3dPoint p3s = event->m_curve3d->PointAt(intervals_3d[j].Min());
-		ON_3dPoint p3e = event->m_curve3d->PointAt(intervals_3d[j].Max());
-		if (p3s.DistanceTo(p3e) < INTERSECTION_TOL)
-		    continue;
+		ON_Interval c3d_dom = event->m_curve3d->Domain();
+		bool full_domain =
+		    ON_NearZero(intervals_3d[j].Min() - c3d_dom.Min(), ON_ZERO_TOLERANCE) &&
+		    ON_NearZero(intervals_3d[j].Max() - c3d_dom.Max(), ON_ZERO_TOLERANCE);
+		if (!(full_domain && event->m_curve3d->IsClosed())) {
+		    ON_3dPoint p3s = event->m_curve3d->PointAt(intervals_3d[j].Min());
+		    ON_3dPoint p3e = event->m_curve3d->PointAt(intervals_3d[j].Max());
+		    if (p3s.DistanceTo(p3e) < INTERSECTION_TOL)
+			continue;
+		} else {
+		    ON_BoundingBox bb;
+		    if (event->m_curve3d->GetBoundingBox(bb)) {
+			if (bb.Diagonal().Length() < INTERSECTION_TOL)
+			    continue;
+		    }
+		}
 	    }
 	    ON_Interval interval_on1 = interval_3d_to_2d(intervals_3d[j],
 							 event->m_curveA, event->m_curve3d, &brep1->m_F[face_i1]);
@@ -1684,6 +1727,19 @@ get_subcurves_inside_faces(
 	const ON_Surface *surf1 = brep1->m_S[brep1->m_F[face_i1].m_si];
 	ON_Interval vdom2 = surf2->Domain(1);
 
+	/* Inner-circle injection is only needed for non-planar (curved)
+	 * surfaces such as TGC cylinders and cones.  When both surfaces
+	 * are planar the "boundary arc" interpretation is meaningless, and
+	 * the at_south/at_north test can fire spuriously (the SSI curve in
+	 * a planar face's UV can land near v≈1 simply because the
+	 * intersection is close to one trim edge).  Skip the injection when
+	 * surf2 is planar to avoid replacing a valid open split curve with a
+	 * degenerate closed polyline that collapses the face split. */
+	ON_Plane dummy_plane;
+	if (surf2->IsPlanar(&dummy_plane, INTERSECTION_TOL * 100.0)) goto skip_inner_circle;
+	(void)dummy_plane;
+
+	{
 	ON_2dPoint cB_s = event->m_curveB->PointAtStart();
 	ON_2dPoint cB_e = event->m_curveB->PointAtEnd();
 
@@ -1775,6 +1831,8 @@ get_subcurves_inside_faces(
 		bu_log("  inner-circle: only %d pts (need >=4), not added\n", uvpts.Count());
 	    }
 	}
+	} /* end non-planar surf2 block */
+	skip_inner_circle: ;
     }
 }
 
@@ -3478,6 +3536,36 @@ split_face_into_loops(
 	}
     }
 
+    /* Second deduplication: merge intersection events that land at nearly
+     * the same UV position on the outer loop even when their SSI curve
+     * parameters differ.  This occurs when two adjacent faces of a
+     * subtracted solid (e.g. adjacent ARB8 faces sharing an edge) each
+     * produce an SSI curve that crosses the TGC outer loop at essentially
+     * the same UV point.  The arc of the outer loop between the two
+     * crossing points is then nearly zero (≪ ON_ZERO_TOLERANCE in UV
+     * space).  That near-zero arc survives the loop-pairing step and
+     * becomes a degenerate trim in the assembled brep — a naked edge
+     * that makes the brep non-solid.
+     *
+     * Fix: after sorting by SSI curve parameter, remove any clx_point
+     * whose UV position on the outer loop (m_pt) is within INTERSECTION_TOL
+     * of the PREVIOUS point's UV position.  This collapses the near-zero
+     * outer arc to a single crossing event, eliminating the degenerate
+     * trim without creating a UV gap in subsequent brep face loops. */
+    {
+	for (int i = clx_points.Count() - 1; i >= 1; i--) {
+	    const IntersectPoint &prev = clx_points[i - 1];
+	    const IntersectPoint &curr = clx_points[i];
+	    if (curr.m_pt.DistanceTo(prev.m_pt) < INTERSECTION_TOL) {
+		clx_points.Remove(i);
+	    }
+	}
+	/* Re-assign curve_pos after deduplication. */
+	for (int i = 0; i < clx_points.Count(); i++) {
+	    clx_points[i].m_curve_pos = i;
+	}
+    }
+
     // classify intersection points
     ON_SimpleArray<IntersectPoint> new_pts;
     double curve_min_t = linked_curve.Domain().Min();
@@ -3881,7 +3969,13 @@ loop_is_degenerate(const ON_SimpleArray<ON_Curve *> &loop)
     if (pt1.DistanceTo(pt2) < INTERSECTION_TOL) {
 	return true;
     }
-    if (bbox_diag > INTERSECTION_TOL && area / (bbox_diag * bbox_diag) < 1e-3) {
+    /* Use a tight threshold so only genuine floating-point noise from
+     * there-and-back paths (area ≈ 1e-18) is caught, not valid narrow
+     * slivers (area ≈ 0.0006).  There-and-back shoelace area is exactly
+     * zero in theory; the residual is at most ~n * eps * coord² ≈ 1e-15.
+     * A valid narrow face piece has area proportional to its width which
+     * is always >> 1e-10 for any geometrically meaningful face. */
+    if (bbox_diag > INTERSECTION_TOL && area / (bbox_diag * bbox_diag) < 1e-10) {
 	return true;
     }
     return false;
@@ -3945,6 +4039,14 @@ split_trimmed_face(
     }
     delete face_outerloop;
 
+    /* 0.001% relative tolerance for the coextension area comparison.
+     * This tight threshold ensures the guard fires only for genuine
+     * there-and-back degenerate complements where ssx_area == orig_face_area
+     * within floating-point precision (difference ≈ 1e-18), while NOT
+     * firing for valid narrow sliver complements where the difference
+     * can be 0.05% or more of the original face area. */
+    static const double COEXT_AREA_TOL = 1e-5;
+
     for (int i = 0; i < ssx_curves.Count(); ++i) {
 	std::vector<ON_SimpleArray<ON_Curve *> > ssx_loops;
 
@@ -3966,6 +4068,20 @@ split_trimmed_face(
 	    }
 	}
 
+	/* Pre-compute original face area for the coextension guard below.
+	 * split_face_into_loops always partitions the ORIGINAL face's UV
+	 * domain, so both the "complement" and "direct" ssx_loops are
+	 * expressed relative to the full original face.  Comparing ssx_loop
+	 * area against orig_face_area (not out[k] area) ensures the guard
+	 * fires only when an ssx_loop covers the ENTIRE original face—the
+	 * hallmark of a there-and-back degenerate complement.  Comparing
+	 * against out[k]->m_outerloop area would produce false matches when
+	 * two different sub-regions coincidentally share the same area (e.g.
+	 * when a periodic surface is cut at 1/4 and 3/4 of its v-range,
+	 * producing a 3/4-area ssx_loop that numerically equals the 3/4-area
+	 * sub-face from the first cut). */
+	double orig_face_area = loop_shoelace_area(orig_face->m_outerloop);
+
 	// combine each intersection loop with the original face (or
 	// the previous iteration of split faces) to create new split
 	// faces
@@ -3981,27 +4097,30 @@ split_trimmed_face(
 
 		/* Coextension guard: when ssx_loops[j] is the complement of a
 		 * there-and-back degenerate loop (ssx_loop[0] had zero area),
-		 * it is geometrically identical to out[k]->m_outerloop.  The
-		 * coextension check inside loop_boolean can fail in this case
-		 * because the SSI sub-curve in ssx_loops[j] is a NURBS curve
-		 * while the matching outer-loop segment is linear;
+		 * it is geometrically identical to the original face's outer
+		 * loop.  The coextension check inside loop_boolean can fail in
+		 * this case because the SSI sub-curve in ssx_loops[j] is a NURBS
+		 * curve while the matching outer-loop segment is linear;
 		 * ON_Intersect(linear, NURBS) does not produce a ccx_overlap
 		 * event, so the 90%-coverage threshold is not reached.
 		 *
 		 * Detection: if the shoelace area of ssx_loops[j] matches the
-		 * shoelace area of the face outer loop to within 1%, the two
-		 * loops enclose the same region.  For a non-closed SSX curve
-		 * split, ssx_loops arise from the original face, so this
-		 * equality can only occur when ssx_loops[j] is the whole face
-		 * (complement of a zero-area loop).  INTERSECT(face, face) =
-		 * face, so we keep out[k] unchanged. */
+		 * area of the ORIGINAL face (not out[k]) to within 1%, then
+		 * ssx_loops[j] covers the entire original face domain and is
+		 * the complement of a zero-area (degenerate) loop.
+		 * INTERSECT(sub_face, orig_face) = sub_face, so we keep
+		 * out[k] unchanged.
+		 *
+		 * Important: we compare against orig_face_area, not
+		 * out[k]->m_outerloop area.  When a face is split by a first
+		 * curve, the resulting sub-face may have the same area as an
+		 * ssx_loop from a second curve (purely by coincidence), which
+		 * would incorrectly trigger the guard and prevent the second
+		 * cut from being applied. */
 		if (!ssx_curves[i].IsClosed()) {
-		    /* 1% relative tolerance for area matching */
-		    static const double COEXT_AREA_TOL = 0.01;
-		    double face_area = loop_shoelace_area(out[k]->m_outerloop);
-		    double ssx_area  = loop_shoelace_area(ssx_loops[j]);
-		    if (face_area > INTERSECTION_TOL * INTERSECTION_TOL &&
-			fabs(ssx_area - face_area) < face_area * COEXT_AREA_TOL)
+		    double ssx_area = loop_shoelace_area(ssx_loops[j]);
+		    if (orig_face_area > INTERSECTION_TOL * INTERSECTION_TOL &&
+			fabs(ssx_area - orig_face_area) < orig_face_area * COEXT_AREA_TOL)
 		    {
 			next_out.Append(out[k]->Duplicate());
 			continue;
@@ -5916,6 +6035,19 @@ get_evaluated_faces(const ON_Brep *brep1, const ON_Brep *brep2, op_type operatio
 	}
 
 	ON_ClassArray<LinkedCurve> linked_curves = link_curves(curves_array[i]);
+
+	if (DEBUG_BREP_BOOLEAN) {
+	    bu_log("split_trimmed_face: i=%d curves_array_count=%d linked_curves=%d\n",
+		   i, curves_array[i].Count(), linked_curves.Count());
+	    for (int dbg = 0; dbg < curves_array[i].Count(); dbg++) {
+		if (!curves_array[i][dbg].m_curve) continue;
+		ON_3dPoint ps = curves_array[i][dbg].m_curve->PointAtStart();
+		ON_3dPoint pe = curves_array[i][dbg].m_curve->PointAtEnd();
+		bu_log("  carray[%d]: start=(%g,%g) end=(%g,%g) closed=%d\n",
+		       dbg, ps.x, ps.y, pe.x, pe.y,
+		       (int)curves_array[i][dbg].m_curve->IsClosed());
+	    }
+	}
 
 	ON_SimpleArray<TrimmedFace *> splitted = split_trimmed_face(first, linked_curves);
 	trimmed_faces.Append(splitted);

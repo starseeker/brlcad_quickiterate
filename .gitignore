@@ -1,5 +1,6 @@
 # Common build directories used in the source tree
 /*build*
+brlcad_build/
 /*.build*
 /**_build*
 /*/*-build*
@@ -38,8 +39,6 @@ CMakeLists.txt.user
 
 # Misc
 .clang-format
-
-
 mged-*-bomb.log
 # gqa volume plot output files
 *.plot3
