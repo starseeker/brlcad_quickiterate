@@ -147,7 +147,7 @@ run_ged_async(struct mged_state *s, std::function<int()> func)
      * timer installed by mged_start_log_drain_timer() fires during these
      * Tcl_DoOneEvent calls, streaming intermediate bu_log output to the
      * command prompt as it arrives. */
-    while (!done.load(std::memory_order_acquire)) {
+    while (!done.load(std::memory_order_acquire) && !mged_shutting_down(s)) {
 	Tcl_DoOneEvent(TCL_ALL_EVENTS | TCL_DONT_WAIT);
 	mged_pr_output(s->interp);
 	bu_snooze(10000); /* 10 ms — keeps CPU low while staying responsive */
@@ -168,8 +168,6 @@ extern "C" {
  * Initialise the dedicated MGED log-buffer semaphore.
  *
  * Must be called once, early in mged_setup(), before any parallel code runs.
- * Uses bu_semaphore_register() (the correct BRL-CAD application semaphore API)
- * rather than bu/tc.h primitives.
  */
 void
 mged_sem_log_init(void)
@@ -188,6 +186,10 @@ log_drain_callback(ClientData clientData)
 {
     struct mged_state *s = (struct mged_state *)clientData;
     MGED_CK_STATE(s);
+    /* Defensive guard for a timer already dispatched before shutdown
+     * quiescence deletes the pending timer token. */
+    if (mged_shutting_down(s))
+	return;
     mged_pr_output(s->interp);
     /* Reschedule: 50 ms gives good responsiveness without unnecessary CPU use. */
     s->log_drain_timer = Tcl_CreateTimerHandler(50, log_drain_callback, clientData);
@@ -643,7 +645,10 @@ cmd_ged_edit_wrapper(ClientData clientData, Tcl_Interp *interpreter, int argc, c
 
 
 /**
- * Wrapper for the Mged simulate command : draws argv[argc-1] after execution
+ * Wrapper for the Mged simulate command : draws argv[argc-1] after execution.
+ * When an output file is specified (--output/-o) and no explicit view
+ * orientation has been given, the current MGED view is injected so that
+ * the rendered animation reflects what the user sees on screen.
  *
  */
 int
@@ -658,9 +663,75 @@ cmd_ged_simulate_wrapper(ClientData clientData, Tcl_Interp *interpreter, int arg
     if (s->gedp == GED_NULL)
 	return TCL_OK;
 
+    /* ---------------------------------------------------------------- */
+    /* Inject current MGED view when animation is requested but the     */
+    /* user has not already supplied a view orientation.                 */
+    /* ---------------------------------------------------------------- */
+    int   has_output  = 0; /* --output/-o present in argv */
+    int   has_view    = 0; /* --view-quat, --view-ae, or --view-eye present */
+    int   new_argc    = argc;
+    const char **new_argv = argv;
+    char **injected_argv = NULL;   /* heap-allocated extended argv */
+    /* Extra string buffers for injected arguments */
+    char  quat_buf[128]   = {'\0'};
+    char  eye_buf[128]    = {'\0'};
+    char  size_buf[64]    = {'\0'};
 
-    ret = run_ged_async(s, [&]() -> int { return (*ctp->ged_func)(s->gedp, argc, (const char **)argv); });
+    for (int i = 1; i < argc; ++i) {
+	if (BU_STR_EQUIV(argv[i], "--output") || BU_STR_EQUIV(argv[i], "-o")
+	    || (!bu_strncmp(argv[i], "--output=", 9))
+	    || (!bu_strncmp(argv[i], "-o", 2) && argv[i][2] != '\0'))
+	    has_output = 1;
+	if (BU_STR_EQUIV(argv[i], "--view-quat")
+	    || BU_STR_EQUIV(argv[i], "--view-ae")
+	    || BU_STR_EQUIV(argv[i], "--view-eye")
+	    || (!bu_strncmp(argv[i], "--view-quat=", 12))
+	    || (!bu_strncmp(argv[i], "--view-ae=",  10))
+	    || (!bu_strncmp(argv[i], "--view-eye=", 11)))
+	    has_view = 1;
+    }
+
+    if (has_output && !has_view && s->gedp && s->gedp->ged_gvp) {
+	struct bview *bv = s->gedp->ged_gvp;
+	quat_t quat;
+	quat_mat2quat(quat, bv->gv_rotation);
+
+	/* Build "--view-quat=x,y,z,w" argument */
+	snprintf(quat_buf, sizeof(quat_buf),
+		 "--view-quat=%.10g,%.10g,%.10g,%.10g",
+		 quat[0], quat[1], quat[2], quat[3]);
+
+	/* Build "--view-eye=x,y,z" argument from gv_eye_pos */
+	snprintf(eye_buf, sizeof(eye_buf),
+		 "--view-eye=%.6g,%.6g,%.6g",
+		 bv->gv_eye_pos[0], bv->gv_eye_pos[1], bv->gv_eye_pos[2]);
+
+	/* Build "--view-size=S" argument */
+	snprintf(size_buf, sizeof(size_buf), "--view-size=%.6g", bv->gv_size);
+
+	new_argc = argc + 3; /* three extra arguments */
+	injected_argv = (char **)bu_calloc((size_t)(new_argc + 1),
+					   sizeof(char *), "sim injected argv");
+	/* argv[0] = command name */
+	injected_argv[0] = (char *)argv[0];
+	/* Insert the three view arguments after argv[0] */
+	injected_argv[1] = quat_buf;
+	injected_argv[2] = eye_buf;
+	injected_argv[3] = size_buf;
+	for (int i = 1; i < argc; ++i)
+	    injected_argv[i + 3] = (char *)argv[i];
+	injected_argv[new_argc] = NULL;
+
+	new_argv = (const char **)injected_argv;
+    }
+
+    ret = run_ged_async(s, [&]() -> int { return (*ctp->ged_func)(s->gedp, new_argc, (const char **)new_argv); });
     GED_OUTPUT;
+
+    if (injected_argv) {
+	bu_free(injected_argv, "sim injected argv");
+	injected_argv = NULL;
+    }
 
     if (ret & GED_HELP)
 	return TCL_OK;
@@ -1557,17 +1628,16 @@ cmd_set_more_default(ClientData UNUSED(clientData), Tcl_Interp *interpreter, int
 int
 cmdline(struct mged_state *s, struct bu_vls *vp, int record)
 {
-    int status;
     struct bu_vls globbed = BU_VLS_INIT_ZERO;
     struct bu_vls tmp_vls = BU_VLS_INIT_ZERO;
     struct bu_vls save_vp = BU_VLS_INIT_ZERO;
-    int64_t start;
-    int64_t finish;
     size_t len;
     const char *cp;
-    const char *result = "";
 
     BU_CK_VLS(vp);
+
+    if (mged_shutting_down(s))
+	return CMD_OK;
 
     if (bu_vls_strlen(vp) <= 0)
 	return CMD_OK;
@@ -1610,10 +1680,10 @@ cmdline(struct mged_state *s, struct bu_vls *vp, int record)
 	bu_vls_vlscat(&globbed, vp);
     }
 
-    start = bu_gettime();
-    status = Tcl_Eval(s->interp, bu_vls_addr(&globbed));
-    finish = bu_gettime();
-    result = Tcl_GetStringResult(s->interp);
+    int64_t start = bu_gettime();
+    int status = Tcl_Eval(s->interp, bu_vls_addr(&globbed));
+    int64_t finish = bu_gettime();
+    const char *result = Tcl_GetStringResult(s->interp);
 
     /* Contemplate the result reported by the Tcl interpreter. */
 
@@ -2117,7 +2187,7 @@ wdb_deleteProc_rt(void *clientData)
     rtip = ap->a_rt_i;
     RT_CK_RTI(rtip);
 
-    rt_free_rti(rtip);
+    rt_i_destroy(rtip);
     ap->a_rt_i = (struct rt_i *)NULL;
 
     bu_free((void *)ap, "struct application");
@@ -2150,7 +2220,7 @@ cmd_rt_gettrees(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc
         return TCL_ERROR;
     }
 
-    rtip = rt_new_rti(s->wdbp->dbip);
+    rtip = rt_i_create(s->wdbp->dbip);
     newprocname = argv[1];
 
     /* Delete previous proc (if any) to release all that memory, first */
@@ -2181,7 +2251,7 @@ cmd_rt_gettrees(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc
     if (rt_gettrees(rtip, argc-2, (const char **)&argv[2], 1) < 0) {
         Tcl_AppendResult((Tcl_Interp *)s->wdbp->wdb_interp,
                          "rt_gettrees() returned error", (char *)NULL);
-        rt_free_rti(rtip);
+        rt_i_destroy(rtip);
         return TCL_ERROR;
     }
 
@@ -2194,7 +2264,7 @@ cmd_rt_gettrees(ClientData clientData, Tcl_Interp *UNUSED(interpreter), int argc
      * because the bit vector lengths depend on # of solids.
      * And the "overwrite" sequence in Tcl is to create the new
      * proc before running the Tcl_CmdDeleteProc on the old one,
-     * which in this case would trash rt_uniresource.
+     * which in this case would trash rt_uniresource. (TODO - is this still true?)
      * Once on the rti_resources list, rt_clean() will clean 'em up.
      */
     BU_ALLOC(resp, struct resource);

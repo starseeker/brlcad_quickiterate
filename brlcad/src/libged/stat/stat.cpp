@@ -129,7 +129,7 @@ type_str(struct bu_vls *n, struct directory *dp, struct db_i *dbip)
 	    return;
 	}
     } else {
-	if (rt_db_get_internal(&intern, dp, dbip, (fastf_t *)NULL, &rt_uniresource) < 0 || intern.idb_major_type != DB5_MAJORTYPE_BRLCAD) {
+	if (rt_db_get_internal(&intern, dp, dbip, (fastf_t *)NULL) < 0 || intern.idb_major_type != DB5_MAJORTYPE_BRLCAD) {
 	    rt_db_free_internal(&intern);
 	    bu_vls_sprintf(n, " ");
 	    return;
@@ -556,7 +556,7 @@ ged_stat_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_ERROR;
     }
 #endif
-    db_update_nref(dbip, &rt_uniresource);
+    db_update_nref(dbip);
 
     // Combine verbosity and quiet flags
     verbosity = verbosity - quiet;

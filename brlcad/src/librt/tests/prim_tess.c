@@ -1057,9 +1057,8 @@ run_tess(const char *label,
 	    tmp_intern.idb_type       = ip->idb_minor_type;
 	    tmp_intern.idb_ptr        = ip->idb_ptr;
 	    tmp_intern.idb_meth       = &OBJ[ip->idb_minor_type];
-	    if (rt_db_cvt_to_external5(&ext, prim_name, &tmp_intern, 1.0,
-				       g_wdb->dbip, &rt_uniresource,
-				       ip->idb_major_type) == 0) {
+	    if (rt_db_cvt_to_ext5(&ext, prim_name, &tmp_intern, 1.0,
+				       g_wdb->dbip, ip->idb_major_type) == 0) {
 		int flags = db_flags_internal(&tmp_intern);
 		(void)wdb_export_external(g_wdb, &ext, prim_name,
 					  flags, ip->idb_type);
@@ -3858,13 +3857,13 @@ test_metaball(void)
 	VSET(p1.coord, -3, 0, 0);
 	VSET(p1.coord2, 0, 0, 0);
 	p1.type = WDB_METABALLPT_TYPE_POINT;
-	p1.fldstr = 2.0; p1.sweat = 1.0;
+	p1.field_strength = 2.0; p1.blobbiness = 1.0;
 
 	p2.l.magic = WDB_METABALLPT_MAGIC;
 	VSET(p2.coord,  3, 0, 0);
 	VSET(p2.coord2, 0, 0, 0);
 	p2.type = WDB_METABALLPT_TYPE_POINT;
-	p2.fldstr = 2.0; p2.sweat = 1.0;
+	p2.field_strength = 2.0; p2.blobbiness = 1.0;
 
 	BU_LIST_INSERT(&mip.metaball_ctrl_head, &p1.l);
 	BU_LIST_INSERT(&mip.metaball_ctrl_head, &p2.l);
@@ -3886,19 +3885,19 @@ test_metaball(void)
 	VSET(p1.coord, -4, 0, 0);
 	VSET(p1.coord2, 0, 0, 0);
 	p1.type = WDB_METABALLPT_TYPE_POINT;
-	p1.fldstr = 2.0; p1.sweat = 0.5;
+	p1.field_strength = 2.0; p1.blobbiness = 0.5;
 
 	p2.l.magic = WDB_METABALLPT_MAGIC;
 	VSET(p2.coord,  0, 0, 0);
 	VSET(p2.coord2, 0, 0, 0);
 	p2.type = WDB_METABALLPT_TYPE_POINT;
-	p2.fldstr = 3.0; p2.sweat = 0.5;
+	p2.field_strength = 3.0; p2.blobbiness = 0.5;
 
 	p3.l.magic = WDB_METABALLPT_MAGIC;
 	VSET(p3.coord,  4, 0, 0);
 	VSET(p3.coord2, 0, 0, 0);
 	p3.type = WDB_METABALLPT_TYPE_POINT;
-	p3.fldstr = 2.0; p3.sweat = 0.5;
+	p3.field_strength = 2.0; p3.blobbiness = 0.5;
 
 	BU_LIST_INSERT(&mip.metaball_ctrl_head, &p1.l);
 	BU_LIST_INSERT(&mip.metaball_ctrl_head, &p2.l);
@@ -3928,9 +3927,9 @@ test_metaball(void)
 	(void)run_tess("metaball no-pts (degenerate, success with 0 faces)", &ip, &ttol, &tol, 0);
     }
 
-    /* ---- METABALL single point with fldstr < threshold (ISOPOTENTIAL) ---
-     * For ISOPOTENTIAL: field at distance d = fldstr/d.  Surface is where
-     * field = threshold = 1.0 → d = fldstr/threshold = 0.5/1.0 = 0.5 mm.
+    /* ---- METABALL single point with field_strength < threshold (ISOPOTENTIAL) ---
+     * For ISOPOTENTIAL: field at distance d = field_strength/d.  Surface is where
+     * field = threshold = 1.0 → d = field_strength/threshold = 0.5/1.0 = 0.5 mm.
      * This IS a valid surface — a sphere of radius 0.5 mm. */
     {
 	struct wdb_metaball_pnt pt1;
@@ -3938,15 +3937,15 @@ test_metaball(void)
 	VSET(pt1.coord, 0, 0, 0);
 	VSET(pt1.coord2, 0, 0, 0);
 	pt1.type   = WDB_METABALLPT_TYPE_POINT;
-	pt1.fldstr = 0.5;
-	pt1.sweat  = 1.0;
+	pt1.field_strength = 0.5;
+	pt1.blobbiness  = 1.0;
 
 	BU_LIST_INSERT(&mip.metaball_ctrl_head, &pt1.l);
 	mip.method    = METABALL_ISOPOTENTIAL;
 	mip.threshold = 1.0;
 
 	init_tols(&ttol, &tol, 0.5, 0.0, 0.0);
-	if (!run_tess("metaball single-pt ISOPOTENTIAL (fldstr=0.5 threshold=1.0)", &ip, &ttol, &tol, 0)) failures++;
+	if (!run_tess("metaball single-pt ISOPOTENTIAL (field_strength=0.5 threshold=1.0)", &ip, &ttol, &tol, 0)) failures++;
 
 	BU_LIST_DEQUEUE(&pt1.l);
     }
@@ -4033,7 +4032,7 @@ scan_input_g(const char *g_path, const char *g_root)
 
 	struct rt_db_internal intern;
 	RT_DB_INTERNAL_INIT(&intern);
-	int id = rt_db_get_internal(&intern, dp, dbip, NULL, &rt_uniresource);
+	int id = rt_db_get_internal(&intern, dp, dbip, NULL);
 	if (id < 0) {
 	    fprintf(stderr, "  SKIP %-32s  (rt_db_get_internal failed)\n", dp->d_namep);
 	    n_skip++;
@@ -4265,7 +4264,7 @@ scan_input_g(const char *g_path, const char *g_root)
 	 * Uses rt_crofton_shoot directly (no libanalyze dependency).        */
 	if (ok && !g_no_crofton) {
 	    double csa = 0.0, cv = 0.0;
-	    struct rt_i *cr_rtip = rt_new_rti(dbip);
+	    struct rt_i *cr_rtip = rt_i_create(dbip);
 	    int cr = -1;
 	    if (cr_rtip) {
 		if (rt_gettree(cr_rtip, dp->d_namep) == 0) {
@@ -4273,7 +4272,7 @@ scan_input_g(const char *g_path, const char *g_root)
 		    struct rt_crofton_params crp = { 2000u, 0.0, 0.0 };
 		    cr = rt_crofton_shoot(cr_rtip, &crp, &csa, &cv);
 		}
-		rt_free_rti(cr_rtip);
+		rt_i_destroy(cr_rtip);
 	    }
 	    if (cr >= 0) {
 		fprintf(stderr,

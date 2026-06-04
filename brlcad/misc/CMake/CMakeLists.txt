@@ -18,6 +18,7 @@ set(
   BRLCAD_Test_Wrappers.cmake
   BRLCAD_User_Options.cmake
   BRLCAD_Util.cmake
+  BRLCADConfig.cmake.in
   CMakeLists.txt
   CheckCInline.cmake
   CheckCSourceRuns.cmake
@@ -29,10 +30,8 @@ set(
   FindAdaptagrams.cmake
   FindAppleseed.cmake
   FindBlosc.cmake
-  FindBRLCAD.cmake
   FindBSON.cmake
   FindGECODE.cmake
-  FindGeogram.cmake
   FindGTE.cmake
   FindIlmBase.cmake
   FindLEMON.cmake
@@ -71,6 +70,7 @@ set(
   RPath_Setup.cmake
   ResetCache.cmake
   TrackFiles.cmake
+  static_link_test_main.cpp
   compat/README
   compat/README.compat
   compat/README.compat.c99

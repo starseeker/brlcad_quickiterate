@@ -74,6 +74,12 @@ add_subdirectory(nirt)
 # NURBS Regression Tests
 add_subdirectory(nurbs)
 
+# fbserv Token-Isolation Stress Tests
+add_subdirectory(fbserv)
+
+# fbs_open_ipc / libtclcad IPC Data-Path Regression Tests
+add_subdirectory(ipc)
+
 # libpkg Regression Tests
 add_subdirectory(pkg)
 
@@ -82,6 +88,9 @@ add_subdirectory(red)
 
 # Repository check
 add_subdirectory(repository)
+
+# remrt Network Distributed RT Regression Tests
+add_subdirectory(remrt)
 
 # rtedge Regression Tests
 add_subdirectory(rtedge)
@@ -103,6 +112,9 @@ add_subdirectory(shaders)
 
 # rtweight command tests
 add_subdirectory(weight)
+
+# ttcp tests
+add_subdirectory(ttcp)
 
 if(SH_EXEC)
   brlcad_add_test(NAME regress-usage COMMAND ${SH_EXEC} "${CMAKE_SOURCE_DIR}/regress/usage.sh" ${CMAKE_SOURCE_DIR})

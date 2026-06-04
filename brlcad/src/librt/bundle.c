@@ -29,6 +29,7 @@
 #include "bn.h"
 #include "raytrace.h"
 
+#include "cut_hlbvh.h"
 #include "librt_private.h"
 #include "cut_hlbvh.h"
 
@@ -122,7 +123,7 @@ rt_shootray_bundle_hlbvh(struct application *ap, struct xray *rays, int nrays)
 	BU_ASSERT(BU_PTBL_GET(&rtip->rti_resources, resp->re_cpu) != NULL);
     }
 
-    solidbits = rt_get_solidbitv(rtip->nsolids, resp);
+    solidbits = rt_get_solidbitv(rtip->stats.nsolids, resp);
 
     if (BU_LIST_IS_EMPTY(&resp->re_region_ptbl)) {
 	BU_ALLOC(regionbits, struct bu_ptbl);
@@ -176,7 +177,7 @@ rt_shootray_bundle_hlbvh(struct application *ap, struct xray *rays, int nrays)
     /* Quick model RPP check; sets r_min/r_max on ap->a_ray */
     if (!rt_in_rpp(&ap->a_ray, inv_dir, rtip->mdl_min, rtip->mdl_max) ||
 	ap->a_ray.r_max < 0.0) {
-	if (rtip->rti_inf_box.bn.bn_len <= 0) {
+	if (rtip->i->rti_inf_box.bn.bn_len <= 0) {
 	    resp->re_nmiss_model++;
 	    if (ap->a_miss)
 		ap->a_return = ap->a_miss(ap);
@@ -192,7 +193,7 @@ rt_shootray_bundle_hlbvh(struct application *ap, struct xray *rays, int nrays)
      * dist_corr is always 0.0 at this call level (no recursive adjustment).
      */
     {
-	struct bvh_flat_node *hlbvh_root = (struct bvh_flat_node *)rtip->rti_hlbvh_root;
+	struct bvh_flat_node *hlbvh_root = (struct bvh_flat_node *)rtip->i->rti_hlbvh_root;
 	long *check_prims = NULL;
 	size_t num_check_prims = 0;
 	size_t pi;
@@ -201,8 +202,8 @@ rt_shootray_bundle_hlbvh(struct application *ap, struct xray *rays, int nrays)
 	if (hlbvh_root) {
 	    hlbvh_shot_flat_reuse(hlbvh_root, &ap->a_ray, &check_prims, &num_check_prims,
 				  &resp->re_hlbvh_prims, &resp->re_hlbvh_prims_len);
-	} else if (rtip->rti_hlbvh_prims && rtip->rti_hlbvh_nprims > 0) {
-	    num_check_prims = (size_t)rtip->rti_hlbvh_nprims;
+	} else if (rtip->i->rti_hlbvh_prims && rtip->i->rti_hlbvh_nprims > 0) {
+	    num_check_prims = (size_t)rtip->i->rti_hlbvh_nprims;
 	    if (resp->re_hlbvh_prims_len < num_check_prims) {
 		resp->re_hlbvh_prims = (long *)bu_realloc(resp->re_hlbvh_prims,
 							  num_check_prims * sizeof(long),
@@ -215,7 +216,7 @@ rt_shootray_bundle_hlbvh(struct application *ap, struct xray *rays, int nrays)
 	}
 
 	for (pi = 0; pi < num_check_prims; pi++) {
-	    struct soltab *stp = rtip->rti_hlbvh_prims[check_prims[pi]];
+	    struct soltab *stp = rtip->i->rti_hlbvh_prims[check_prims[pi]];
 
 	    if (BU_BITTEST(solidbits, stp->st_bit)) {
 		resp->re_ndup++;
@@ -269,9 +270,9 @@ rt_shootray_bundle_hlbvh(struct application *ap, struct xray *rays, int nrays)
     }
 
     /* Also shoot any infinite solids */
-    if (rtip->rti_inf_box.bn.bn_len > 0) {
-	stpp = &(rtip->rti_inf_box.bn.bn_list[rtip->rti_inf_box.bn.bn_len - 1]);
-	for (; stpp >= rtip->rti_inf_box.bn.bn_list; stpp--) {
+    if (rtip->i->rti_inf_box.bn.bn_len > 0) {
+	stpp = &(rtip->i->rti_inf_box.bn.bn_list[rtip->i->rti_inf_box.bn.bn_len - 1]);
+	for (; stpp >= rtip->i->rti_inf_box.bn.bn_list; stpp--) {
 	    register struct soltab *stp = *stpp;
 	    int ray;
 
@@ -454,7 +455,6 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
     RT_CK_RTI(rtip);
     resp = ap->a_resource;
     RT_CK_RESOURCE(resp);
-    ss.resp = resp;
 
     if (RT_G_DEBUG&(RT_DEBUG_ALLRAYS|RT_DEBUG_SHOOT|RT_DEBUG_PARTITION|RT_DEBUG_ALLHITS)) {
 	bu_log_indent_delta(2);
@@ -499,7 +499,7 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
 	BU_ASSERT(BU_PTBL_GET(&rtip->rti_resources, resp->re_cpu) != NULL);
     }
 
-    solidbits = rt_get_solidbitv(rtip->nsolids, resp);
+    solidbits = rt_get_solidbitv(rtip->stats.nsolids, resp);
 
     if (BU_LIST_IS_EMPTY(&resp->re_region_ptbl)) {
 	BU_ALLOC(regionbits, struct bu_ptbl);
@@ -603,7 +603,7 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
 
     ss.lastcut = CUTTER_NULL;
     ss.old_status = (struct rt_shootray_status *)NULL;
-    ss.curcut = &ap->a_rt_i->rti_CutHead;
+    ss.curcut = &ap->a_rt_i->i->rti_CutHead;
 
     if (ss.curcut->cut_type == CUT_CUTNODE || ss.curcut->cut_type == CUT_BOXNODE) {
 	ss.lastcell = ss.curcut;

@@ -34,11 +34,12 @@
 #include "bu/avs.h"
 #include "bn/mat.h"
 #include "rt/defines.h"
-#include "rt/resource.h"
 
 __BEGIN_DECLS
 
-struct rt_functab; /* forward declaration */
+struct rt_functab;    /* forward declaration */
+struct db_i;          /* forward declaration */
+struct directory;     /* forward declaration */
 
 /**
  * A handle on the internal format of a BRL-CAD database object.
@@ -84,8 +85,7 @@ struct rt_db_internal {
 RT_EXPORT extern int rt_db_get_internal(struct rt_db_internal   *ip,
 					const struct directory  *dp,
 					const struct db_i       *dbip,
-					const mat_t             mat,
-					struct resource         *resp);
+					const mat_t             mat);
 
 /**
  * Convert the internal representation of a solid to the external one,
@@ -98,8 +98,7 @@ RT_EXPORT extern int rt_db_get_internal(struct rt_db_internal   *ip,
  */
 RT_EXPORT extern int rt_db_put_internal(struct directory        *dp,
 					struct db_i             *dbip,
-					struct rt_db_internal   *ip,
-					struct resource         *resp);
+					struct rt_db_internal   *ip);
 
 /**
  * Put an object in internal format out onto a file in external
@@ -132,8 +131,8 @@ RT_EXPORT extern int rt_db_lookup_internal(struct db_i *dbip,
 					   const char *obj_name,
 					   struct directory **dpp,
 					   struct rt_db_internal *ip,
-					   int noisy,
-					   struct resource *resp);
+					   int noisy);
+
 
 
 __END_DECLS

@@ -541,7 +541,7 @@ rt_revolve_shot(struct soltab *stp, struct xray *rp, struct application *ap, str
 		hitp->hit_vpriv[Y] = angle;
 		if (i+1 < rev->skt->vert_count && rev->ends[i+1] != -1 &&
 		    NEAR_EQUAL(rev->skt->verts[rev->ends[i]][Y],
-			       rev->skt->verts[rev->ends[i+1]][Y], SMALL)) {
+			       rev->skt->verts[rev->ends[i+1]][Y], SQRT_SMALL_FASTF)) {
 		    hitp->hit_vpriv[Z] = rev->skt->verts[rev->ends[i+1]][X];
 		    i++;
 		    if (fabs(hit2d[X]) < fabs(hitp->hit_vpriv[Z])) {
@@ -1559,7 +1559,7 @@ rt_revolve_import5(struct rt_db_internal *ip, const struct bu_external *ep, cons
 	       sketch_name);
 	rip->skt = (struct rt_sketch_internal *)NULL;
     } else {
-	if (rt_db_get_internal(&tmp_ip, dp, dbip, bn_mat_identity, &rt_uniresource) != ID_SKETCH) {
+	if (rt_db_get_internal(&tmp_ip, dp, dbip, bn_mat_identity) != ID_SKETCH) {
 	    bu_log("ERROR: Cannot import sketch (%s) for extrusion\n",
 		   sketch_name);
 	    bu_free(ip->idb_ptr, "extrusion");

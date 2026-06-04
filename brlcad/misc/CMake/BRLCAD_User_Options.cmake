@@ -47,10 +47,10 @@ mark_as_advanced(BUILD_SHARED_LIBS)
 # Build static libs by default.
 option(BUILD_STATIC_LIBS "Build static libraries" ON)
 
-# Turn off the brlcad.dll build.
-# It's an expert's setting at the moment.
-option(BRLCAD_ENABLE_BRLCAD_LIBRARY "Build the brlcad.dll" OFF)
-mark_as_advanced(BRLCAD_ENABLE_BRLCAD_LIBRARY)
+# Link static-library validation executables when the platform supports the
+# linker options needed to force archive member resolution.
+option(BRLCAD_VALIDATE_STATIC_LINKS "Validate static library dependency closure with link tests" ON)
+mark_as_advanced(BRLCAD_VALIDATE_STATIC_LINKS)
 
 # Global third party controls - these options enable and disable ALL bext
 # copies of libraries.
@@ -180,7 +180,7 @@ if(BRLCAD_ENABLE_AQUA)
 endif(BRLCAD_ENABLE_AQUA)
 
 # Enable features requiring Bullet Physics SDK
-option(BRLCAD_ENABLE_BULLET "Enable features requiring the Bullet Physics Library" OFF)
+option(BRLCAD_ENABLE_BULLET "Enable features requiring the Bullet Physics Library" ON)
 mark_as_advanced(BRLCAD_ENABLE_BULLET)
 
 # Enable features requiring GDAL geospatial library

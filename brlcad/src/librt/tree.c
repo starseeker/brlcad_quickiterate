@@ -110,13 +110,12 @@ _rt_gettree_region_start(struct db_tree_state *tsp, const struct db_full_path *p
 {
     if (tsp) {
 	RT_CK_RTI(tsp->ts_rtip);
-	RT_CK_RESOURCE(tsp->ts_resp);
 	if (pathp) RT_CK_FULL_PATH(pathp);
 	if (combp) RT_CHECK_COMB(combp);
 
 	/* Ignore "air" regions unless wanted */
 	if (tsp->ts_rtip->useair == 0 &&  tsp->ts_aircode != 0) {
-	    tsp->ts_rtip->rti_air_discards++;
+	    tsp->ts_rtip->i->rti_air_discards++;
 	    return -1;	/* drop this region */
 	}
     }
@@ -156,7 +155,6 @@ _rt_gettree_region_end(struct db_tree_state *tsp, const struct db_full_path *pat
     RT_CK_TREE(curtree);
     rtip =  tsp->ts_rtip;
     RT_CK_RTI(rtip);
-    RT_CK_RESOURCE(tsp->ts_resp);
 
     if (curtree->tr_op == OP_NOP) {
 	/* Ignore empty regions */
@@ -221,7 +219,7 @@ _rt_gettree_region_end(struct db_tree_state *tsp, const struct db_full_path *pat
     BU_LIST_INSERT(&(rtip->HeadRegion), &rp->l);
 
     /* Assign bit vector pos. */
-    rp->reg_bit = rtip->nregions++;
+    rp->reg_bit = rtip->stats.nregions++;
 
     /* leave critical section */
     bu_semaphore_release(RT_SEM_RESULTS);
@@ -392,7 +390,7 @@ _rt_find_identical_solid(const matp_t mat, struct directory *dp, struct rt_i *rt
 
     /* Add to the appropriate soltab list head */
     /* PARALLEL NOTE:  Uses critical section on rt_solidheads element */
-    BU_LIST_INSERT(&(rtip->rti_solidheads[hash]), &(stp->l));
+    BU_LIST_INSERT(&(rtip->i->rti_solidheads[hash]), &(stp->l));
 
     /* Also add to the directory structure list head */
     /* PARALLEL NOTE:  Uses critical section on this 'dp' */
@@ -407,7 +405,7 @@ _rt_find_identical_solid(const matp_t mat, struct directory *dp, struct rt_i *rt
      * nsolids++ needs to be locked to a SINGLE thread
      */
     bu_semaphore_acquire(BU_SEM_GENERAL);
-    stp->st_bit = rtip->nsolids++;
+    stp->st_bit = rtip->stats.nsolids++;
     bu_semaphore_release(BU_SEM_GENERAL);
 
     /*
@@ -443,7 +441,6 @@ _rt_gettree_leaf(struct db_tree_state *tsp, const struct db_full_path *pathp, st
     RT_CK_DB_INTERNAL(ip);
     rtip = tsp->ts_rtip;
     RT_CK_RTI(rtip);
-    RT_CK_RESOURCE(tsp->ts_resp);
     dp = DB_FULL_PATH_CUR_DIR(pathp);
 
     data = (struct gettree_data *)client_data;
@@ -484,8 +481,8 @@ _rt_gettree_leaf(struct db_tree_state *tsp, const struct db_full_path *pathp, st
 	goto found_it;
     }
 
-    if (rtip->rti_add_to_new_solids_list) {
-	bu_ptbl_ins(&rtip->rti_new_solids, (long *)stp);
+    if (rtip->i->rti_add_to_new_solids_list) {
+	bu_ptbl_ins(&rtip->i->rti_new_solids, (long *)stp);
     }
 
     stp->st_id = ip->idb_type;
@@ -692,6 +689,201 @@ _rt_tree_kill_dead_solid_refs(union tree *tp)
 }
 
 
+/**
+ * Prune a subtractor (right-hand side of OP_SUBTRACT) tree by
+ * eliminating branches whose AABB is entirely outside the constraint
+ * box [cmin, cmax].
+ *
+ * Descends into OP_UNION and OP_XOR nodes to prune individual members.
+ * All other operators (OP_SUBTRACT, OP_INTERSECT, etc.) are treated
+ * opaquely: if the whole subtree bbox is disjoint it is pruned in one
+ * shot, otherwise it is left unchanged (conservative).
+ *
+ * Returns the pruned tree pointer, or TREE_NULL when the entire
+ * subtree has been freed.  The caller MUST store the return value back
+ * into the parent's child slot.
+ *
+ * Memory contract: pruned nodes are freed via db_free_tree() which
+ * also decrements soltab use-counts; un-pruned nodes are returned
+ * unchanged.
+ */
+static union tree *
+rt_tree_prune_subtractor(union tree *tp,
+			 const vect_t cmin, const vect_t cmax)
+{
+    vect_t tp_min, tp_max;
+
+    if (!tp)
+	return TREE_NULL;
+    RT_CK_TREE(tp);
+
+    /* Compute the bounding box of this subtree.
+     * Initialise with reversed infinities – the standard BRL-CAD VMIN/VMAX
+     * accumulation pattern used by rt_bound_tree throughout bbox.c. */
+    VSETALL(tp_min, INFINITY);
+    VSETALL(tp_max, -INFINITY);
+    if (rt_bound_tree(tp, tp_min, tp_max) < 0)
+	return tp;		/* bound failed – be conservative */
+
+    /* Never prune subtrees with infinite bounds (halfspaces, etc.). */
+    if (tp_max[X] >= INFINITY || tp_max[Y] >= INFINITY || tp_max[Z] >= INFINITY)
+	return tp;
+
+    /* If this subtree bbox is entirely outside the constraint box,
+     * the subtractor cannot contribute anything here – prune it. */
+    if (tp_min[X] >= cmax[X] || tp_max[X] <= cmin[X] ||
+	tp_min[Y] >= cmax[Y] || tp_max[Y] <= cmin[Y] ||
+	tp_min[Z] >= cmax[Z] || tp_max[Z] <= cmin[Z]) {
+	if (RT_G_DEBUG & RT_DEBUG_TREEWALK)
+	    bu_log("rt_tree_prune_subtractor: pruned disjoint subtractor branch\n");
+	db_free_tree(tp);
+	return TREE_NULL;
+    }
+
+    /* Subtree bbox overlaps constraint; descend into UNION/XOR to find
+     * individual members that can still be pruned. */
+    switch (tp->tr_op) {
+
+	case OP_SOLID:
+	case OP_NOP:
+	    return tp;		/* leaf that overlaps – keep it */
+
+	case OP_UNION:
+	case OP_XOR: {
+	    union tree *left, *right;
+	    left  = rt_tree_prune_subtractor(tp->tr_b.tb_left,  cmin, cmax);
+	    right = rt_tree_prune_subtractor(tp->tr_b.tb_right, cmin, cmax);
+	    if (!left && !right) {
+		BU_PUT(tp, union tree);
+		return TREE_NULL;
+	    } else if (!left) {
+		BU_PUT(tp, union tree);
+		return right;
+	    } else if (!right) {
+		BU_PUT(tp, union tree);
+		return left;
+	    }
+	    tp->tr_b.tb_left  = left;
+	    tp->tr_b.tb_right = right;
+	    return tp;
+	}
+
+	default:
+	    /* OP_SUBTRACT, OP_INTERSECT, OP_NOT, etc. inside a subtractor:
+	     * the whole-subtree bbox check above already handles the
+	     * completely-disjoint case; leave complex sub-expressions alone. */
+	    return tp;
+    }
+}
+
+
+/**
+ * Prep-time CSG tree shaker.
+ *
+ * Walks the boolean tree and, for each OP_SUBTRACT node, computes the
+ * bounding box of the minuend (left child) and prunes subtractor (right
+ * child) branches that are provably outside that box via AABB disjointness.
+ *
+ * The pass is conservative:
+ *  - Minuend bboxes that are infinite or degenerate (min > max) are
+ *    skipped entirely.
+ *  - Only subtractor branches that are AABB-disjoint from the minuend
+ *    are removed; uncertain cases are left unchanged.
+ *  - When an entire subtractor is pruned, the OP_SUBTRACT node is
+ *    replaced in-place by its left child (SUBTRACT(L, 0) == L).
+ *
+ * Returns the (possibly simplified) tree pointer that the caller MUST
+ * store back into the parent's child slot or into regp->reg_treetop.
+ */
+static union tree *
+rt_tree_shake_subs(union tree *tp)
+{
+    vect_t left_min, left_max;
+    union tree *pruned;
+
+    if (!tp)
+	return TREE_NULL;
+    RT_CK_TREE(tp);
+
+    switch (tp->tr_op) {
+
+	case OP_SOLID:
+	case OP_NOP:
+	    return tp;
+
+	case OP_SUBTRACT:
+	    /* Recursively shake children first. */
+	    if (tp->tr_b.tb_left)
+		tp->tr_b.tb_left  = rt_tree_shake_subs(tp->tr_b.tb_left);
+	    if (tp->tr_b.tb_right)
+		tp->tr_b.tb_right = rt_tree_shake_subs(tp->tr_b.tb_right);
+
+	    if (!tp->tr_b.tb_left) {
+		/* Left side vanished – whole subtraction is empty. */
+		if (tp->tr_b.tb_right)
+		    db_free_tree(tp->tr_b.tb_right);
+		BU_PUT(tp, union tree);
+		return TREE_NULL;
+	    }
+	    if (!tp->tr_b.tb_right) {
+		/* Right side vanished: SUBTRACT(L, 0) = L. */
+		union tree *keep = tp->tr_b.tb_left;
+		BU_PUT(tp, union tree);
+		return keep;
+	    }
+
+	    /* Compute the minuend (left child) bounding box.
+	     * Reversed-infinity initialisation – standard BRL-CAD VMIN/VMAX
+	     * accumulation pattern; a return of (min > max) means empty. */
+	    VSETALL(left_min, INFINITY);
+	    VSETALL(left_max, -INFINITY);
+	    if (rt_bound_tree(tp->tr_b.tb_left, left_min, left_max) < 0)
+		return tp;	/* bound failed – be conservative */
+
+	    /* Skip if the minuend has infinite or degenerate bounds. */
+	    if (left_max[X] >= INFINITY || left_max[Y] >= INFINITY || left_max[Z] >= INFINITY)
+		return tp;
+	    if (left_min[X] > left_max[X])
+		return tp;	/* degenerate / empty minuend */
+
+	    /* Prune the subtractor using the minuend bbox as constraint. */
+	    pruned = rt_tree_prune_subtractor(
+		tp->tr_b.tb_right, left_min, left_max);
+
+	    if (!pruned) {
+		/* Entire subtractor eliminated: SUBTRACT(L, 0) = L. */
+		union tree *keep = tp->tr_b.tb_left;
+		BU_PUT(tp, union tree);
+		if (RT_G_DEBUG & RT_DEBUG_TREEWALK)
+		    bu_log("rt_tree_shake_subs: subtractor fully pruned\n");
+		return keep;
+	    }
+	    tp->tr_b.tb_right = pruned;
+	    return tp;
+
+	case OP_UNION:
+	case OP_INTERSECT:
+	case OP_XOR:
+	    if (tp->tr_b.tb_left)
+		tp->tr_b.tb_left  = rt_tree_shake_subs(tp->tr_b.tb_left);
+	    if (tp->tr_b.tb_right)
+		tp->tr_b.tb_right = rt_tree_shake_subs(tp->tr_b.tb_right);
+	    return tp;
+
+	case OP_NOT:
+	case OP_GUARD:
+	case OP_XNOP:
+	    /* Unary operators. */
+	    if (tp->tr_b.tb_left)
+		tp->tr_b.tb_left  = rt_tree_shake_subs(tp->tr_b.tb_left);
+	    return tp;
+
+	default:
+	    return tp;
+    }
+}
+
+
 int
 rt_gettrees_and_attrs(struct rt_i *rtip, const char **attrs, int argc, const char **argv, int ncpus)
 {
@@ -714,7 +906,7 @@ rt_gettrees_and_attrs(struct rt_i *rtip, const char **attrs, int argc, const cha
     if (argc <= 0)
 	return -1;	/* FAIL */
 
-    prev_sol_count = rtip->nsolids;
+    prev_sol_count = rtip->stats.nsolids;
 
     {
 	struct gettree_data data;
@@ -723,7 +915,6 @@ rt_gettrees_and_attrs(struct rt_i *rtip, const char **attrs, int argc, const cha
 	RT_DBTS_INIT(&tree_state);
 	tree_state.ts_dbip = rtip->rti_dbip;
 	tree_state.ts_rtip = rtip;
-	tree_state.ts_resp = NULL;	/* sanity.  Needs to be updated */
 
 	if (attrs) {
 	    if (db_version(rtip->rti_dbip) < 5) {
@@ -762,7 +953,7 @@ rt_gettrees_and_attrs(struct rt_i *rtip, const char **attrs, int argc, const cha
 		struct db_full_path ifp;
 		db_full_path_init(&ifp);
 		db_string_to_path(&ifp, rtip->rti_dbip, argv[i]);
-		if (db_fp_op(&ifp, rtip->rti_dbip, 0, &rt_uniresource) == OP_UNION) {
+		if (db_fp_op(&ifp, rtip->rti_dbip, 0) == OP_UNION) {
 		    bu_ptbl_ins(&pos_paths, (long *)argv[i]);
 		}
 		db_free_full_path(&ifp);
@@ -809,7 +1000,7 @@ rt_gettrees_and_attrs(struct rt_i *rtip, const char **attrs, int argc, const cha
     for (BU_LIST_FOR(regp, region, &(rtip->HeadRegion))) {
 	RT_CK_REGION(regp);
 	_rt_tree_kill_dead_solid_refs(regp->reg_treetop);
-	(void)rt_tree_elim_nops(regp->reg_treetop, &rt_uniresource);
+	(void)rt_tree_elim_nops(regp->reg_treetop);
     }
 again:
     RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
@@ -818,7 +1009,7 @@ again:
 	    bu_log("rt_gettrees() cleaning up dead solid '%s'\n",
 		   stp->st_dp->d_namep);
 	    rt_free_soltab(stp);
-	    /* Can't do rtip->nsolids--, that doubles as max bit number! */
+	    /* Can't do rtip->stats.nsolids--, that doubles as max bit number! */
 	    /* The macro makes it hard to regain place, punt */
 	    goto again;
 	}
@@ -835,17 +1026,40 @@ again:
 	     */
 	    VMINMAX(rtip->mdl_min, rtip->mdl_max, stp->st_min);
 	    VMINMAX(rtip->mdl_min, rtip->mdl_max, stp->st_max);
-	    stp->st_piecestate_num = rtip->rti_nsolids_with_pieces++;
+	    stp->st_piecestate_num = rtip->i->rti_nsolids_with_pieces++;
 	}
 	if (RT_G_DEBUG&RT_DEBUG_SOLIDS)
 	    rt_pr_soltab(stp);
     } RT_VISIT_ALL_SOLTABS_END;
+
+    /*
+     * Tree shaker: for each region, eliminate OP_SUBTRACT branches
+     * whose subtractor bounding box is provably AABB-disjoint from
+     * the minuend bounding box.  Runs in the serial section after
+     * dead-solid cleanup (so all soltab bboxes are valid) and before
+     * the region-assign / bounds pass (so the reduced trees are used
+     * for computing model extents).
+     */
+    for (BU_LIST_FOR(regp, region, &(rtip->HeadRegion))) {
+	RT_CK_REGION(regp);
+	if (!regp->reg_treetop)
+	    continue;
+	/* Always store the result: if the shaker returns TREE_NULL
+	 * (entire tree pruned, which shouldn't happen for well-formed
+	 * regions but is handled defensively), we must update
+	 * reg_treetop rather than leaving a dangling pointer. */
+	regp->reg_treetop = rt_tree_shake_subs(regp->reg_treetop);
+    }
 
     /* Handle finishing touches on the trees that needed soltab
      * structs that the parallel code couldn't look at yet.
      */
     for (BU_LIST_FOR(regp, region, &(rtip->HeadRegion))) {
 	RT_CK_REGION(regp);
+
+	/* Skip regions whose tree was entirely pruned (defensive). */
+	if (!regp->reg_treetop)
+	    continue;
 
 	/* The region and the entire tree are cross-referenced */
 	_rt_tree_region_assign(regp->reg_treetop, regp);
@@ -878,7 +1092,7 @@ again:
     if (ret < 0)
 	return ret;
 
-    if (rtip->nsolids <= prev_sol_count)
+    if (rtip->stats.nsolids <= prev_sol_count)
 	bu_log("rt_gettrees(%s) warning:  no primitives found\n", argv[0]);
     return ret;	/* OK */
 }
@@ -917,11 +1131,10 @@ rt_gettrees(struct rt_i *rtip, int argc, const char **argv, int ncpus)
 
 
 int
-rt_tree_elim_nops(union tree *tp, struct resource *resp)
+rt_tree_elim_nops(union tree *tp)
 {
     union tree *left, *right;
 
-    RT_CK_RESOURCE(resp);
 top:
     RT_CK_TREE(tp);
 
@@ -940,13 +1153,13 @@ top:
 	    /* BINARY type -- rewrite tp as surviving side */
 	    left = tp->tr_b.tb_left;
 	    right = tp->tr_b.tb_right;
-	    if (rt_tree_elim_nops(left, resp) < 0) {
+	    if (rt_tree_elim_nops(left) < 0) {
 		*tp = *right;	/* struct copy */
 		BU_PUT(left, union tree);
 		BU_PUT(right, union tree);
 		goto top;
 	    }
-	    if (rt_tree_elim_nops(right, resp) < 0) {
+	    if (rt_tree_elim_nops(right) < 0) {
 		*tp = *left;	/* struct copy */
 		BU_PUT(left, union tree);
 		BU_PUT(right, union tree);
@@ -957,10 +1170,10 @@ top:
 	    /* BINARY type -- if either side fails, nuke subtree */
 	    left = tp->tr_b.tb_left;
 	    right = tp->tr_b.tb_right;
-	    if (rt_tree_elim_nops(left, resp) < 0 ||
-		rt_tree_elim_nops(right, resp) < 0) {
-		db_free_tree(left, resp);
-		db_free_tree(right, resp);
+	    if (rt_tree_elim_nops(left) < 0 ||
+		rt_tree_elim_nops(right) < 0) {
+		db_free_tree(left);
+		db_free_tree(right);
 		tp->tr_op = OP_NOP;
 		return -1;	/* eliminate reference to tp */
 	    }
@@ -971,13 +1184,13 @@ top:
 	     */
 	    left = tp->tr_b.tb_left;
 	    right = tp->tr_b.tb_right;
-	    if (rt_tree_elim_nops(left, resp) < 0) {
-		db_free_tree(left, resp);
-		db_free_tree(right, resp);
+	    if (rt_tree_elim_nops(left) < 0) {
+		db_free_tree(left);
+		db_free_tree(right);
 		tp->tr_op = OP_NOP;
 		return -1;	/* eliminate reference to tp */
 	    }
-	    if (rt_tree_elim_nops(right, resp) < 0) {
+	    if (rt_tree_elim_nops(right) < 0) {
 		*tp = *left;	/* struct copy */
 		BU_PUT(left, union tree);
 		BU_PUT(right, union tree);
@@ -989,7 +1202,7 @@ top:
 	case OP_XNOP:
 	    /* UNARY tree -- for completeness only, should never be seen */
 	    left = tp->tr_b.tb_left;
-	    if (rt_tree_elim_nops(left, resp) < 0) {
+	    if (rt_tree_elim_nops(left) < 0) {
 		BU_PUT(left, union tree);
 		tp->tr_op = OP_NOP;
 		return -1;	/* Kill ref to unary op, too */
@@ -1033,7 +1246,7 @@ rt_optim_tree(union tree *tp, struct resource *resp)
 
     RT_CK_TREE(tp);
     while ((sp = resp->re_boolstack) == (union tree **)0)
-	rt_bool_growstack(resp);
+	_bool_growstack(resp);
     stackend = &(resp->re_boolstack[resp->re_boolslen-1]);
     *sp++ = TREE_NULL;
     *sp++ = tp;
@@ -1059,7 +1272,7 @@ rt_optim_tree(union tree *tp, struct resource *resp)
 		*sp++ = tp->tr_b.tb_left;
 		if (sp >= stackend) {
 		    int off = sp - resp->re_boolstack;
-		    rt_bool_growstack(resp);
+		    _bool_growstack(resp);
 		    sp = &(resp->re_boolstack[off]);
 		    stackend = &(resp->re_boolstack[resp->re_boolslen-1]);
 		}
@@ -1073,7 +1286,7 @@ rt_optim_tree(union tree *tp, struct resource *resp)
 		*sp++ = tp->tr_b.tb_left;
 		if (sp >= stackend) {
 		    int off = sp - resp->re_boolstack;
-		    rt_bool_growstack(resp);
+		    _bool_growstack(resp);
 		    sp = &(resp->re_boolstack[off]);
 		    stackend = &(resp->re_boolstack[resp->re_boolslen-1]);
 		}

@@ -308,7 +308,7 @@ db_fullpath_to_vls(struct bu_vls *vls, const struct db_full_path *full_path, con
 
 	if ((fp_flags & DB_FP_PRINT_TYPE) && dbip) {
 	    struct rt_db_internal intern;
-	    if (!(rt_db_get_internal(&intern, full_path->fp_names[i], dbip, NULL, &rt_uniresource) < 0)) {
+	    if (!(rt_db_get_internal(&intern, full_path->fp_names[i], dbip, NULL) < 0)) {
 		    bu_vls_putc(vls, '(');
 		    switch (intern.idb_minor_type) {
 			case DB5_MINORTYPE_BRLCAD_ARB8:
@@ -428,7 +428,7 @@ db_comb_has_instance(int *bval, const struct db_i *dbip, struct directory *cdp, 
 
     struct rt_db_internal in;
     struct rt_comb_internal *comb;
-    if (rt_db_get_internal(&in, cdp, dbip, NULL, &rt_uniresource) < 0)
+    if (rt_db_get_internal(&in, cdp, dbip, NULL) < 0)
 	return 0;
     comb = (struct rt_comb_internal *)in.idb_ptr;
     RT_CK_COMB(comb);
@@ -827,7 +827,7 @@ db_full_path_cyclic(const struct db_full_path *fp, const char *lname, int full_c
  * to walk the comb tree to get to that specific matrix.  Reuse
  * the _db_comb_instance logic. */
 static int
-_comb_instance_matrix(matp_t m, const struct db_i *dbip, struct directory *cdp, struct directory *dp, struct resource *resp, int itarget)
+_comb_instance_matrix(matp_t m, const struct db_i *dbip, struct directory *cdp, struct directory *dp, int itarget)
 {
     RT_CK_DBI(dbip);
 
@@ -836,7 +836,7 @@ _comb_instance_matrix(matp_t m, const struct db_i *dbip, struct directory *cdp, 
 
     struct rt_db_internal in;
     struct rt_comb_internal *comb;
-    if (rt_db_get_internal(&in, cdp, dbip, NULL, resp) < 0)
+    if (rt_db_get_internal(&in, cdp, dbip, NULL) < 0)
 	return 0;
     comb = (struct rt_comb_internal *)in.idb_ptr;
     RT_CK_COMB(comb);
@@ -853,10 +853,10 @@ db_path_to_mat(
 	struct db_i *dbip,
 	struct db_full_path *pathp,
 	mat_t mat,          /* result */
-	int depth,          /* number of arcs */
-	struct resource *resp)
+	int depth           /* number of arcs */
+	)
 {
-    if (!pathp || !dbip || depth < 0 || !resp)
+    if (!pathp || !dbip || depth < 0)
 	return 0;
 
     mat_t all_m = MAT_INIT_IDN;
@@ -869,7 +869,7 @@ db_path_to_mat(
 	struct directory *dp = pathp->fp_names[i];
 	if (!cdp || !dp)
 	    return 0;
-	if (!_comb_instance_matrix(cur_m, dbip, cdp, dp, resp, pathp->fp_cinst[i]))
+	if (!_comb_instance_matrix(cur_m, dbip, cdp, dp, pathp->fp_cinst[i]))
 	    return 0;
 	bn_mat_mul(mtmp, all_m, cur_m);
 	MAT_COPY(all_m, mtmp);
@@ -883,7 +883,7 @@ db_path_to_mat(
  * to walk the comb tree to get to that specific matrix.  Reuse
  * the _db_comb_instance logic. */
 static int
-_comb_instance_bool_op(int *bval, const struct db_i *dbip, struct directory *cdp, struct directory *dp, struct resource *resp, int itarget)
+_comb_instance_bool_op(int *bval, const struct db_i *dbip, struct directory *cdp, struct directory *dp, int itarget)
 {
     RT_CK_DBI(dbip);
 
@@ -892,7 +892,7 @@ _comb_instance_bool_op(int *bval, const struct db_i *dbip, struct directory *cdp
 
     struct rt_db_internal in;
     struct rt_comb_internal *comb;
-    if (rt_db_get_internal(&in, cdp, dbip, NULL, resp) < 0)
+    if (rt_db_get_internal(&in, cdp, dbip, NULL) < 0)
 	return 0;
     comb = (struct rt_comb_internal *)in.idb_ptr;
     RT_CK_COMB(comb);
@@ -910,10 +910,9 @@ _comb_instance_bool_op(int *bval, const struct db_i *dbip, struct directory *cdp
 int
 db_fp_op(const struct db_full_path *pp,
 	struct db_i *dbip,
-	int depth,
-	struct resource *resp)
+	int depth)
 {
-    if (!pp || !dbip || depth < 0 || !resp)
+    if (!pp || !dbip || depth < 0)
 	return OP_NOP;
 
     int r_op = OP_UNION;
@@ -926,7 +925,7 @@ db_fp_op(const struct db_full_path *pp,
 	    return OP_NOP;
 	int c_op = OP_NOP;
 	if (UNLIKELY(dbip->i->dbi_use_comb_instance_ids)) {
-	    if (!_comb_instance_bool_op(&c_op, dbip, cdp, dp, resp, pp->fp_cinst[i]))
+	    if (!_comb_instance_bool_op(&c_op, dbip, cdp, dp, pp->fp_cinst[i]))
 		return OP_NOP;
 	}
 	if (c_op == OP_INTERSECT && r_op != OP_SUBTRACT)
@@ -950,8 +949,7 @@ void
 db_full_path_color(
 	struct bu_color *c,
 	struct db_full_path *pathp,
-	struct db_i *dbip,
-	struct resource *UNUSED(resp))
+	struct db_i *dbip)
 {
     RT_CHECK_DBI(dbip);
     RT_CK_FULL_PATH(pathp);

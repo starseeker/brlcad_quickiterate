@@ -294,7 +294,7 @@ init_defaults(void)
     option("Advanced", "-U #", "Turn on air region rendering (default: 0 - off)", 100);
     option("Advanced", "-V #", "View (pixel) aspect ratio (width/height)", 100);
     option("Advanced", "-j xmin, xmax, ymin, ymax", "Only render pixels within the specified sub-rectangle", 100);
-    option("Advanced", "-k xdir, ydir, zdir, dist", "Specify a cutting plane for the entire render scene", 100);
+    option("Advanced", "-k xdir,ydir,zdir,dist | x,y,z,nx,ny,nz", "Specify a cutting plane for the entire render scene", 100);
 
     option("Developer", "-v [#]", "Specify or increase RT verbosity", 100);
     option("Developer", "-X #", "Specify RT debugging flags", 100);
@@ -404,7 +404,7 @@ register_region(struct db_tree_state* tsp,
     struct rt_db_internal intern;
     struct rt_material_internal* material_ip;
     if (dp1 != RT_DIR_NULL) {
-	if (rt_db_get_internal(&intern, dp1, tsp->ts_dbip, NULL, &rt_uniresource) >= 0) {
+	if (rt_db_get_internal(&intern, dp1, tsp->ts_dbip, NULL) >= 0) {
 	    if (intern.idb_minor_type == DB5_MINORTYPE_BRLCAD_MATERIAL) {
 		material_ip = (struct rt_material_internal*)intern.idb_ptr;
 		bu_vls_printf(&m, "%s", bu_avs_get(&material_ip->opticalProperties, "OSL"));
@@ -583,10 +583,10 @@ do_ae(double azim, double elev)
     if (rtip == NULL)
 	return;
 
-    if (rtip->nsolids <= 0)
+    if (rtip->stats.nsolids <= 0)
 	bu_exit(EXIT_FAILURE, "ERROR: no primitives active\n");
 
-    if (rtip->nregions <= 0)
+    if (rtip->stats.nregions <= 0)
 	bu_exit(EXIT_FAILURE, "ERROR: no regions active\n");
 
     if (rtip->mdl_max[X] >= INFINITY) {
@@ -700,7 +700,6 @@ build_project(const char* file, const char* UNUSED(objects))
     RT_DBTS_INIT(&state);
     struct db_i* dbip = db_open(file, DB_OPEN_READONLY);
     state.ts_dbip = dbip;
-    state.ts_resp = resources;
 
     if (objc) {
 	db_walk_tree(APP.a_rt_i->rti_dbip, objc, (const char**)objv, 1, &state, register_region, NULL, NULL, reinterpret_cast<void*>(scene.get()));

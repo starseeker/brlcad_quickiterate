@@ -190,8 +190,9 @@
 /* FIXME: this is a dubious define that should be removed */
 #define RT_MAXLINE              10240
 
-#define RT_PART_NUBSPT  0
-#define RT_PART_HLBVH   1       /**< @brief  Hierarchical LBVH scene acceleration (CPU) */
+#define RT_PART_NUBSPT  0       /**< @brief Non-uniform binary space partitioning tree */
+#define RT_PART_NULL    1       /**< @brief No-op spatial partitioning: one model-sized leaf */
+#define RT_PART_HLBVH   2       /**< @brief Hierarchical LBVH scene acceleration (CPU) */
 
 #endif /* RT_DEFINES_H */
 

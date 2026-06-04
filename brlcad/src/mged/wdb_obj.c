@@ -232,8 +232,7 @@ wdb_find_cmd(struct rt_wdb *wdbp,
 	if (rt_db_get_internal(&intern,
 			       dp,
 			       wdbp->dbip,
-			       (fastf_t *)NULL,
-			       &rt_uniresource) < 0) {
+			       (fastf_t *)NULL) < 0) {
 	    Tcl_AppendResult((Tcl_Interp *)wdbp->wdb_interp, "Database read error, aborting", (char *)NULL);
 	    return TCL_ERROR;
 	}
@@ -373,7 +372,7 @@ wdb_make_bb_cmd(struct rt_wdb *wdbp,
 	return TCL_ERROR;
     }
 
-    if (rt_db_put_internal(dp, wdbp->dbip, &new_intern, wdbp->wdb_resp) < 0) {
+    if (rt_db_put_internal(dp, wdbp->dbip, &new_intern) < 0) {
 	rt_db_free_internal(&new_intern);
 	Tcl_AppendResult((Tcl_Interp *)wdbp->wdb_interp, "Database write error, aborting.\n", (char *)NULL);
 
@@ -772,7 +771,7 @@ wdb_nmg_collapse_cmd(struct rt_wdb *wdbp,
 	return TCL_ERROR;
     }
 
-    if (rt_db_get_internal(&intern, dp, wdbp->dbip, (matp_t)NULL, &rt_uniresource) < 0) {
+    if (rt_db_get_internal(&intern, dp, wdbp->dbip, (matp_t)NULL) < 0) {
 	Tcl_AppendResult((Tcl_Interp *)wdbp->wdb_interp, "Failed to get internal form of ", argv[1], "!!!!\n", (char *)NULL);
 	return TCL_ERROR;
     }
@@ -825,7 +824,7 @@ wdb_nmg_collapse_cmd(struct rt_wdb *wdbp,
 	return TCL_ERROR;
     }
 
-    if (rt_db_put_internal(dp, wdbp->dbip, &intern, &rt_uniresource) < 0) {
+    if (rt_db_put_internal(dp, wdbp->dbip, &intern) < 0) {
 	rt_db_free_internal(&intern);
 	Tcl_AppendResult((Tcl_Interp *)wdbp->wdb_interp, "Database write error, aborting.\n", (char *)NULL);
 	Tcl_AppendResult((Tcl_Interp *)wdbp->wdb_interp, ERROR_RECOVERY_SUGGESTION, (char *)NULL);
@@ -997,7 +996,7 @@ wdb_rmap_cmd(struct rt_wdb *wdbp,
 	    (dp->d_flags & RT_DIR_HIDDEN))
 	    continue;
 
-	if (rt_db_get_internal(&intern, dp, wdbp->dbip, (fastf_t *)NULL, &rt_uniresource) < 0) {
+	if (rt_db_get_internal(&intern, dp, wdbp->dbip, (fastf_t *)NULL) < 0) {
 	    bu_vls_init(&vls);
 	    bu_vls_strcat(&vls, "Database read error, aborting");
 	    Tcl_SetResult((Tcl_Interp *)wdbp->wdb_interp, bu_vls_addr(&vls), TCL_VOLATILE);
@@ -1302,7 +1301,7 @@ wdb_deleteProc_rt(void *clientData)
     rtip = ap->a_rt_i;
     RT_CK_RTI(rtip);
 
-    rt_free_rti(rtip);
+    rt_i_destroy(rtip);
     ap->a_rt_i = (struct rt_i *)NULL;
 
     bu_free((void *)ap, "struct application");
@@ -1331,7 +1330,7 @@ wdb_rt_gettrees_cmd(struct rt_wdb *wdbp,
 	return TCL_ERROR;
     }
 
-    rtip = rt_new_rti(wdbp->dbip);
+    rtip = rt_i_create(wdbp->dbip);
     newprocname = argv[1];
 
     /* Delete previous proc (if any) to release all that memory, first */
@@ -1362,7 +1361,7 @@ wdb_rt_gettrees_cmd(struct rt_wdb *wdbp,
     if (rt_gettrees(rtip, argc-2, (const char **)&argv[2], 1) < 0) {
 	Tcl_AppendResult((Tcl_Interp *)wdbp->wdb_interp,
 			 "rt_gettrees() returned error", (char *)NULL);
-	rt_free_rti(rtip);
+	rt_i_destroy(rtip);
 	return TCL_ERROR;
     }
 
@@ -1373,9 +1372,11 @@ wdb_rt_gettrees_cmd(struct rt_wdb *wdbp,
      * In case of multiple instances of the library, make sure that
      * each instance has a separate resource structure,
      * because the bit vector lengths depend on # of solids.
+     *
      * And the "overwrite" sequence in Tcl is to create the new
      * proc before running the Tcl_CmdDeleteProc on the old one,
-     * which in this case would trash rt_uniresource.
+     * which in this case would trash rt_uniresource. (TODO - is rt_uniresource still involved here?)
+     *
      * Once on the rti_resources list, rt_clean() will clean 'em up.
      */
     rt_init_resource(&resp, 0, rtip);

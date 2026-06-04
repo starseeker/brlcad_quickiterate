@@ -147,16 +147,23 @@ function(ged_plugin_library name)
   foreach(sf ${plugin_sources})
     set(wsf ${sf})
     if(NOT EXISTS ${wsf})
-      set(wsf ${CMAKE_CURRENT_SOURCE_DIR}/${sf})
+      if(NOT IS_ABSOLUTE "${wsf}")
+	set(wsf ${CMAKE_CURRENT_SOURCE_DIR}/${sf})
+	file(REAL_PATH ${wsf} wsfr)
+	set(wsf ${wsfr})
+      endif()
     endif()
     if (EXISTS ${wsf})
       # Only files that exist at configure time can define libged commands for
       # the purposes of static inclusion or API definition.  Anything
       # dynamically generated will be limited to dynamic loading.
       if(DO_STATIC)
-	_libged_accumulate_global(GED_COMMAND_STATIC_SRCS ${plugin_sources})
+	_libged_accumulate_global(GED_COMMAND_STATIC_SRCS "${wsf}")
       endif()
-      _libged_accumulate_global(GED_COMMAND_ALL_SRCS ${plugin_sources})
+      _libged_accumulate_global(GED_COMMAND_ALL_SRCS "${wsf}")
+
+      # If it exists, tell CMake about it
+      cmakefiles(${sf})
     endif()
   endforeach()
 
@@ -172,6 +179,7 @@ function(ged_plugin_library name)
     if(GEDPL_SYSTEM_INCLUDES)
       target_include_directories(libged_plugin_deps SYSTEM INTERFACE ${GEDPL_SYSTEM_INCLUDES})
     endif()
+    list(APPEND GEDPL_LIBS ${DL_LIBRARY})
     if(GEDPL_LIBS)
       list(REMOVE_ITEM GEDPL_LIBS libged)
       target_link_libraries(libged_plugin_deps INTERFACE ${GEDPL_LIBS})
@@ -207,6 +215,7 @@ function(ged_plugin_library name)
     if(GEDPL_SYSTEM_INCLUDES)
       brlcad_include_dirs(${name} GEDPL_SYSTEM_INCLUDES PRIVATE)
     endif()
+    list(APPEND GEDPL_LIBS ${DL_LIBRARY})
     if(GEDPL_LIBS)
       target_link_libraries(${name} ${GEDPL_LIBS})
     endif()
@@ -301,6 +310,7 @@ set(
   LIBGED_SOURCES
   ${GED_CMD_SRC}
   ${GED_STATIC_REGISTRATION_CPP}
+  edit_buf.cpp
   exec.cpp
   ged_init.cpp
   columns.c
@@ -334,14 +344,15 @@ set_property(
 )
 
 # Note - libged_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
+set(GED_PUBLIC_LIBS ${libged_deps})
 set(
-  GED_LIBS
-  ${libged_deps}
-  ${PNG_LIBRARIES}
-  ${LMDB_LIBRARIES}
-  ${REGEX_LIBRARIES}
+  GED_PRIVATE_LIBS
+  PNG::PNG
+  LMDB::LMDB
+  REGEX::REGEX
   ${WINSOCK_LIB}
   ${M_LIBRARY}
+  ${DL_LIBRARY}
 )
 
 # Local include directories
@@ -356,8 +367,13 @@ set(
   ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-brlcad_addlib(libged "${LIBGED_SOURCES}" "${GED_LIBS}" "" "${GED_LOCAL_INCLUDE_DIRS}"
+brlcad_addlib(libged "${LIBGED_SOURCES}" "" "${GED_LOCAL_INCLUDE_DIRS}"
+  PUBLIC_LIBS ${GED_PUBLIC_LIBS}
+  PRIVATE_LIBS ${GED_PRIVATE_LIBS}
   UNITY_BUILD_SKIP ged_init.cpp
+  # The full static library link is too large for some testing environments -
+  # disable this test
+  NO_STATIC_LINK_TEST
 )
 set_target_properties(libged PROPERTIES VERSION 20.0.1 SOVERSION 20)
 if (LIBGED_STATIC_CORE)
@@ -550,6 +566,7 @@ add_subdirectory(red)
 add_subdirectory(regdef)
 add_subdirectory(region)
 add_subdirectory(remove)
+add_subdirectory(rm)
 add_subdirectory(rfarb)
 add_subdirectory(rmap)
 add_subdirectory(rmat)

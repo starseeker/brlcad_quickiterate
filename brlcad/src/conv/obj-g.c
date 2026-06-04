@@ -3202,7 +3202,7 @@ main(int argc, char **argv)
 
     /* the raytracer tolerance values (rtip->rti_tol) need to match
      * these otherwise raytrace errors will result. the defaults for
-     * the rti_tol are set in the function rt_new_rti.  either use
+     * the rti_tol are set in the function rt_i_create.  either use
      * here the rti_tol defaults or when raytracing change the
      * raytracer values to these.
      */
@@ -3842,7 +3842,6 @@ main(int argc, char **argv)
     }
 
     db_close(fd_out->dbip);
-    rt_clean_resource_complete(NULL, &rt_uniresource);
 
     (void)time(&overall_end_time);
     overall_elapsed_time = overall_end_time - overall_start_time;

@@ -57,7 +57,7 @@ add_brep_sph(struct db_i *dbip, const char *name, point_t *v, double r, long int
 	rt_db_free_internal(&intern);
 	bu_exit(1, "Test %ld: cannot add %s to directory\n", test_num, name);
     }
-    if (rt_db_put_internal(dp, dbip, &intern, &rt_uniresource) < 0) {
+    if (rt_db_put_internal(dp, dbip, &intern) < 0) {
 	rt_db_free_internal(&intern);
 	bu_exit(1, "Test %ld: database write error, aborting\n", test_num);
     }
@@ -119,13 +119,13 @@ add_comb(struct db_i *dbip, const char *name, int obj_argc, const char **obj_arg
 	tp->tr_l.tl_mat = (matp_t)NULL;
 
     }
-    comb->tree = (union tree *)db_mkgift_tree(tree_list, obj_argc, &rt_uniresource);
+    comb->tree = (union tree *)db_mkgift_tree(tree_list, obj_argc);
     dp = db_diradd(dbip, name, RT_DIR_PHONY_ADDR, 0, RT_DIR_COMB, (void *)&intern.idb_type);
     if (dp == RT_DIR_NULL) {
 	rt_db_free_internal(&intern);
 	bu_exit(1, "Test %ld: cannot add %s to directory\n", test_num, name);
     }
-    if (rt_db_put_internal(dp, dbip, &intern, &rt_uniresource) < 0) {
+    if (rt_db_put_internal(dp, dbip, &intern) < 0) {
 	rt_db_free_internal(&intern);
 	bu_exit(1, "Test %ld: Database write error creating comb, aborting\n", test_num);
     }
@@ -252,7 +252,7 @@ build_rtip(long int test_num, const char *gfile, const char *objname, int stage_
 	if (rt_gettrees(rtip, 1, (const char **)&objname, ncpus) < 0) {
 	    bu_exit(1, "Test %ld: rt_getrees in stage %d failed\n", test_num, stage_num);
 	}
-	/* We're doing parallel prep, so we can't use rt_uniresource */
+	/* We're doing parallel prep, need one resource per thread */
 	for (int i = 0; i < ncpus; i++) {
 	    rt_init_resource(&resp[i], i, rtip);
 	}
@@ -297,12 +297,12 @@ test_subprocess(int ac, char *av[])
     }
 
     rt_clean(rtip_stage_1);
-    rt_free_rti(rtip_stage_1);
+    rt_i_destroy(rtip_stage_1);
 
     /*** Now, do it again with the cache definitely in place */
     rtip_stage_2 = build_rtip(test_num, gfile, cname, process_num*1000 + 2, 1, (int)ncpus, resp);
     rt_clean(rtip_stage_2);
-    rt_free_rti(rtip_stage_2);
+    rt_i_destroy(rtip_stage_2);
 
     bu_log("Test %ld(process %ld): PASSED\n", test_num, process_num);
 
@@ -474,12 +474,12 @@ test_cache(char *rp, long int test_num, long int obj_cnt, int do_parallel, int d
 	}
 
 	rt_clean(rtip_stage_1);
-	rt_free_rti(rtip_stage_1);
+	rt_i_destroy(rtip_stage_1);
 
 	/*** Now, do it again with the cache in place */
 	rtip_stage_2 = build_rtip(test_num, bu_vls_cstr(&gfile), bu_vls_cstr(&cname), 2, do_parallel, (int)ncpus, resp);
 	rt_clean(rtip_stage_2);
-	rt_free_rti(rtip_stage_2);
+	rt_i_destroy(rtip_stage_2);
 	bu_free(resp, "resp");
     } else {
 	long int expected = (different_content) ? obj_cnt : 1;

@@ -21,17 +21,9 @@
 /** @{ */
 /** @file librt/cut.c
  *
- * Cut space into lots of small boxes (RPPs actually).
- *
- * Call tree for default path through the code:
- *	rt_cut_it()
- *		rt_cut_extend() for all solids in model
- *		rt_ct_optim()
- *			rt_ct_old_assess()
- *			rt_ct_box()
- *				rt_ct_populate_box()
- *					rt_ck_overlap()
- *
+ * Shared spatial partitioning setup, dispatch, and CUT_BOXNODE /
+ * CUT_CUTNODE support routines.  Individual partitioning methods live in
+ * separate cut_*.c files.
  */
 /** @} */
 
@@ -43,178 +35,89 @@
 #include "bio.h"
 
 #include "bu/parallel.h"
+#include "bu/malloc.h"
 #include "bu/sort.h"
+#include "bu/str.h"
 #include "vmath.h"
 #include "raytrace.h"
 #include "bg/plane.h"
 #include "bv/plot3.h"
+#include "cut_hlbvh.h"
+#include "cut_private.h"
 
-
-static int rt_ck_overlap(const vect_t min, const vect_t max, const struct soltab *stp, const struct rt_i *rtip);
-static int rt_ct_box(struct rt_i *rtip, union cutter *cutp, int axis, double where, int force);
-static void rt_ct_optim(struct rt_i *rtip, union cutter *cutp, size_t depth);
-static void rt_ct_free(struct rt_i *rtip, union cutter *cutp);
-static void rt_ct_release_storage(union cutter *cutp);
 
 static void rt_ct_measure(struct rt_i *rtip, union cutter *cutp, size_t depth);
-static union cutter *rt_ct_get(struct rt_i *rtip);
 static void rt_plot_cut(FILE *fp, struct rt_i *rtip, union cutter *cutp, int lvl);
-
-extern void rt_pr_cut_info(const struct rt_i *rtip, const char *str);
-static int rt_ct_old_assess(register union cutter *, register int, double *, double *);
 
 #define AXIS(depth)	((depth)%3)	/* cuts: X, Y, Z, repeat */
 
 
-/**
- * Process all the nodes in the global array rtip->rti_cuts_waiting,
- * until none remain.  This routine is run in parallel.
- */
-void
-rt_cut_optimize_parallel(int cpu, void *arg)
+const char *
+rt_cut_method_name(int method)
 {
-    struct rt_i *rtip = (struct rt_i *)arg;
-    union cutter *cp;
-    int i;
+    switch (method) {
+	case RT_PART_NUBSPT:
+	    return "NUBSP";
+	case RT_PART_NULL:
+	    return "NULL";
+	case RT_PART_HLBVH:
+	    return "HLBVH";
+	default:
+	    return "unknown";
+    }
+}
 
-    if (!arg && RT_G_DEBUG&RT_DEBUG_CUT)
-	bu_log("rt_cut_optimized_parallel(%d): NULL rtip\n", cpu);
+
+void
+rt_cut_select_from_env(struct rt_i *rtip)
+{
+    const char *method;
 
     RT_CK_RTI(rtip);
-    for (;;) {
 
-	bu_semaphore_acquire(RT_SEM_WORKER);
-	i = rtip->rti_cuts_waiting.end--;	/* get first free index */
-	bu_semaphore_release(RT_SEM_WORKER);
-	i -= 1;				/* change to last used index */
+    /* Prep-time only: never consult the environment from the ray hot path. */
+    method = getenv("LIBRT_SPACE_PARTITION");
+    if (!method || !method[0])
+	return;
 
-	if (i < 0) break;
-
-	cp = (union cutter *)BU_PTBL_GET(&rtip->rti_cuts_waiting, i);
-
-	rt_ct_optim(rtip, cp, Z);
-    }
-}
-
-
-static size_t
-split_mostly_empty_cells(struct rt_i *rtip, union cutter *cutp)
-{
-    point_t max, min;
-    struct soltab *stp;
-    struct rt_piecelist pl;
-    fastf_t range[3], empty[3], tmp;
-    int upper_or_lower[3];
-    fastf_t max_empty;
-    int max_empty_dir;
-    size_t i;
-    size_t num_splits=0;
-
-    switch (cutp->cut_type) {
-	case CUT_CUTNODE:
-	    num_splits += split_mostly_empty_cells(rtip, cutp->cn.cn_l);
-	    num_splits += split_mostly_empty_cells(rtip, cutp->cn.cn_r);
-	    break;
-	case CUT_BOXNODE:
-	    /* find the actual bounds of stuff in this cell */
-	    if (cutp->bn.bn_len == 0 && cutp->bn.bn_piecelen == 0) {
-		break;
-	    }
-	    VSETALL(min, MAX_FASTF);
-	    VREVERSE(max, min);
-
-	    for (i=0; i<cutp->bn.bn_len; i++) {
-		stp = cutp->bn.bn_list[i];
-		VMIN(min, stp->st_min);
-		VMAX(max, stp->st_max);
-	    }
-
-	    for (i=0; i<cutp->bn.bn_piecelen; i++) {
-		size_t j;
-
-		pl = cutp->bn.bn_piecelist[i];
-		for (j=0; j<pl.npieces; j++) {
-		    int piecenum;
-
-		    piecenum = pl.pieces[j];
-		    VMIN(min, pl.stp->st_piece_rpps[piecenum].min);
-		    VMAX(max, pl.stp->st_piece_rpps[piecenum].max);
-		}
-	    }
-
-	    /* clip min and max to the bounds of this cell */
-	    for (i=X; i<=Z; i++) {
-		if (min[i] < cutp->bn.bn_min[i]) {
-		    min[i] = cutp->bn.bn_min[i];
-		}
-		if (max[i] > cutp->bn.bn_max[i]) {
-		    max[i] = cutp->bn.bn_max[i];
-		}
-	    }
-
-	    /* min and max now have the real bounds of data in this cell */
-	    VSUB2(range, cutp->bn.bn_max, cutp->bn.bn_min);
-	    for (i=X; i<=Z; i++) {
-		empty[i] = cutp->bn.bn_max[i] - max[i];
-		upper_or_lower[i] = 1; /* upper section is empty */
-		tmp = min[i] - cutp->bn.bn_min[i];
-		if (tmp > empty[i]) {
-		    empty[i] = tmp;
-		    upper_or_lower[i] = 0;	/* lower section is empty */
-		}
-	    }
-	    max_empty = empty[X];
-	    max_empty_dir = X;
-	    if (empty[Y] > max_empty) {
-		max_empty = empty[Y];
-		max_empty_dir = Y;
-	    }
-	    if (empty[Z] > max_empty) {
-		max_empty = empty[Z];
-		max_empty_dir = Z;
-	    }
-	    if (max_empty / range[max_empty_dir] > 0.5) {
-		/* this cell is over 50% empty in this direction, split it */
-
-		fastf_t where;
-
-		/* select cutting plane, but move it slightly off any geometry */
-		if (upper_or_lower[max_empty_dir]) {
-		    where = max[max_empty_dir] + rtip->rti_tol.dist;
-		    if (where >= cutp->bn.bn_max[max_empty_dir]) {
-			return num_splits;
-		    }
-		} else {
-		    where = min[max_empty_dir] - rtip->rti_tol.dist;
-		    if (where <= cutp->bn.bn_min[max_empty_dir]) {
-			return num_splits;
-		    }
-		}
-		if (where - cutp->bn.bn_min[max_empty_dir] < 2.0 ||
-		    cutp->bn.bn_max[max_empty_dir] - where < 2.0) {
-		    /* will make a box too small */
-		    return num_splits;
-		}
-		if (rt_ct_box(rtip, cutp, max_empty_dir, where, 1)) {
-		    num_splits++;
-		    num_splits += split_mostly_empty_cells(rtip, cutp->cn.cn_l);
-		    num_splits += split_mostly_empty_cells(rtip, cutp->cn.cn_r);
-		}
-	    }
-	    break;
+    if (BU_STR_EQUIV(method, "default") ||
+	BU_STR_EQUIV(method, "nubsp") ||
+	BU_STR_EQUIV(method, "bsp") ||
+	BU_STR_EQUAL(method, "0"))
+    {
+	rtip->rti_space_partition = RT_PART_NUBSPT;
+	return;
     }
 
-    return num_splits;
+    if (BU_STR_EQUIV(method, "null") ||
+	BU_STR_EQUIV(method, "none") ||
+	BU_STR_EQUIV(method, "noop") ||
+	BU_STR_EQUIV(method, "no-op") ||
+	BU_STR_EQUAL(method, "1"))
+    {
+	rtip->rti_space_partition = RT_PART_NULL;
+	return;
+    }
+
+    if (BU_STR_EQUIV(method, "hlbvh") ||
+	BU_STR_EQUIV(method, "bvh") ||
+	BU_STR_EQUAL(method, "2"))
+    {
+	rtip->rti_space_partition = RT_PART_HLBVH;
+	return;
+    }
+
+    bu_log("WARNING: unknown LIBRT_SPACE_PARTITION value '%s', using %s\n",
+	   method, rt_cut_method_name(rtip->rti_space_partition));
 }
 
 
 void
-rt_cut_it(register struct rt_i *rtip, int UNUSED(ncpu))
+rt_cut_it(register struct rt_i *rtip, int ncpu)
 {
     register struct soltab *stp;
     union cutter *finp;	/* holds the finite solids */
     FILE *plotfp;
-    size_t num_splits = 0;
 
     /* Make a list of all solids into one special boxnode, then refine. */
     BU_ALLOC(finp, union cutter);
@@ -222,12 +125,12 @@ rt_cut_it(register struct rt_i *rtip, int UNUSED(ncpu))
     VMOVE(finp->bn.bn_min, rtip->mdl_min);
     VMOVE(finp->bn.bn_max, rtip->mdl_max);
     finp->bn.bn_len = 0;
-    finp->bn.bn_maxlen = rtip->nsolids+1;
+    finp->bn.bn_maxlen = rtip->stats.nsolids+1;
     finp->bn.bn_list = (struct soltab **)bu_calloc(
 	finp->bn.bn_maxlen, sizeof(struct soltab *),
 	"rt_cut_it: initial list alloc");
 
-    rtip->rti_inf_box.cut_type = CUT_BOXNODE;
+    rtip->i->rti_inf_box.cut_type = CUT_BOXNODE;
 
     RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
 	/* Ignore "dead" solids in the list.  (They failed prep) */
@@ -238,35 +141,35 @@ rt_cut_it(register struct rt_i *rtip, int UNUSED(ncpu))
 
 	if (stp->st_aradius >= INFINITY) {
 	    /* Also add infinite solids to a special BOXNODE */
-	    rt_cut_extend(&rtip->rti_inf_box, stp, rtip);
+	    rt_cut_extend(&rtip->i->rti_inf_box, stp, rtip);
 	}
     } RT_VISIT_ALL_SOLTABS_END;
 
     /* Dynamic decisions on tree limits.  Note that there will be
-     * (2**rtip->rti_cutdepth)*rtip->rti_cutlen potential leaf slots.
+     * (2**rtip->i->rti_cutdepth)*rtip->i->rti_cutlen potential leaf slots.
      * Also note that solids will typically span several leaves.
      */
-    rtip->rti_cutlen = lrint(floor(log((double)(rtip->nsolids+1))));  /* ln ~= log2, nsolids+1 to avoid log(0) */
-    rtip->rti_cutdepth = 2 * rtip->rti_cutlen;
-    if (rtip->rti_cutlen < 3) rtip->rti_cutlen = 3;
-    if (rtip->rti_cutdepth < 12) rtip->rti_cutdepth = 12;
-    if (rtip->rti_cutdepth > 24) rtip->rti_cutdepth = 24;     /* !! */
+    rtip->i->rti_cutlen = lrint(floor(log((double)(rtip->stats.nsolids+1))));  /* ln ~= log2, nsolids+1 to avoid log(0) */
+    rtip->i->rti_cutdepth = 2 * rtip->i->rti_cutlen;
+    if (rtip->i->rti_cutlen < 3) rtip->i->rti_cutlen = 3;
+    if (rtip->i->rti_cutdepth < 12) rtip->i->rti_cutdepth = 12;
+    if (rtip->i->rti_cutdepth > 24) rtip->i->rti_cutdepth = 24;     /* !! */
     if (RT_G_DEBUG&RT_DEBUG_CUT)
 	bu_log("Before Space Partitioning: Max Tree Depth=%zu, Cutoff primitive count=%zu\n",
-	       rtip->rti_cutdepth, rtip->rti_cutlen);
+	       rtip->i->rti_cutdepth, rtip->i->rti_cutlen);
 
-    bu_ptbl_init(&rtip->rti_cuts_waiting, rtip->nsolids,
+    bu_ptbl_init(&rtip->i->rti_cuts_waiting, rtip->stats.nsolids,
 		 "rti_cuts_waiting ptbl");
 
     if (rtip->rti_hasty_prep)
-	rtip->rti_cutdepth = 6;
+	rtip->i->rti_cutdepth = 6;
 
     switch (rtip->rti_space_partition) {
 	case RT_PART_NUBSPT: {
-	    rtip->rti_CutHead = *finp;	/* union copy */
-	    rt_ct_optim(rtip, &rtip->rti_CutHead, 0);
+	    rtip->i->rti_CutHead = *finp;	/* union copy */
+	    rt_ct_optim(rtip, &rtip->i->rti_CutHead, 0);
 	    /* one more pass to find cells that are mostly empty */
-	    num_splits = split_mostly_empty_cells(rtip,  &rtip->rti_CutHead);
+	    num_splits = split_mostly_empty_cells(rtip,  &rtip->i->rti_CutHead);
 
 	    if (RT_G_DEBUG&RT_DEBUG_CUT) {
 		bu_log("split_mostly_empty_cells(): split %zu cells\n", num_splits);
@@ -289,21 +192,21 @@ rt_cut_it(register struct rt_i *rtip, int UNUSED(ncpu))
 
     /* Measure the depth of tree, find max # of RPPs in a cut node */
 
-    bu_hist_init(&rtip->rti_hist_cellsize, 0.0, 400.0, 400);
-    bu_hist_init(&rtip->rti_hist_cell_pieces, 0.0, 400.0, 400);
-    bu_hist_init(&rtip->rti_hist_cutdepth, 0.0,
-		 (fastf_t)rtip->rti_cutdepth+1, rtip->rti_cutdepth+1);
-    memset(rtip->rti_ncut_by_type, 0, sizeof(rtip->rti_ncut_by_type));
-    if (rtip->rti_CutHead.cut_type != 0)
-	rt_ct_measure(rtip, &rtip->rti_CutHead, 0);
+    bu_hist_init(&rtip->i->rti_hist_cellsize, 0.0, 400.0, 400);
+    bu_hist_init(&rtip->i->rti_hist_cell_pieces, 0.0, 400.0, 400);
+    bu_hist_init(&rtip->i->rti_hist_cutdepth, 0.0,
+		 (fastf_t)rtip->i->rti_cutdepth+1, rtip->i->rti_cutdepth+1);
+    memset(rtip->stats.rti_ncut_by_type, 0, sizeof(rtip->stats.rti_ncut_by_type));
+    if (rtip->i->rti_CutHead.cut_type != 0)
+	rt_ct_measure(rtip, &rtip->i->rti_CutHead, 0);
     if (RT_G_DEBUG&RT_DEBUG_CUT) {
 	rt_pr_cut_info(rtip, "Cut");
     }
 
     if (RT_G_DEBUG&RT_DEBUG_CUTDETAIL) {
 	/* Produce a voluminous listing of the cut tree */
-	if (rtip->rti_CutHead.cut_type != 0)
-	    rt_pr_cut(&rtip->rti_CutHead, 0);
+	if (rtip->i->rti_CutHead.cut_type != 0)
+	    rt_pr_cut(&rtip->i->rti_CutHead, 0);
     }
 
     if (RT_G_DEBUG&RT_DEBUG_PL_BOX) {
@@ -311,7 +214,7 @@ rt_cut_it(register struct rt_i *rtip, int UNUSED(ncpu))
 	if ((plotfp=fopen("rtcut.plot3", "wb"))!=NULL) {
 	    pdv_3space(plotfp, rtip->rti_pmin, rtip->rti_pmax);
 	    /* Plot all the cutting boxes */
-	    rt_plot_cut(plotfp, rtip, &rtip->rti_CutHead, 0);
+	    rt_plot_cut(plotfp, rtip, &rtip->i->rti_CutHead, 0);
 	    (void)fclose(plotfp);
 	}
     }
@@ -337,12 +240,12 @@ rt_cut_extend(register union cutter *cutp, struct soltab *stp, const struct rt_i
 
 	if (cutp->bn.bn_piecelist == NULL) {
 	    /* Allocate enough piecelist's to hold all solids */
-	    BU_ASSERT(rtip->nsolids > 0);
+	    BU_ASSERT(rtip->stats.nsolids > 0);
 	    cutp->bn.bn_piecelist = (struct rt_piecelist *) bu_calloc(
-		sizeof(struct rt_piecelist), (rtip->nsolids + 2),
+		sizeof(struct rt_piecelist), (rtip->stats.nsolids + 2),
 		"rt_ct_box bn_piecelist (root node)");
 	    cutp->bn.bn_piecelen = 0;	/* sanity */
-	    cutp->bn.bn_maxpiecelen = rtip->nsolids + 2;
+	    cutp->bn.bn_maxpiecelen = rtip->stats.nsolids + 2;
 	}
 	plp = &cutp->bn.bn_piecelist[cutp->bn.bn_piecelen++];
 	plp->magic = RT_PIECELIST_MAGIC;
@@ -362,10 +265,10 @@ rt_cut_extend(register union cutter *cutp, struct soltab *stp, const struct rt_i
 	/* Need to get more space in list.  */
 	if (cutp->bn.bn_maxlen <= 0) {
 	    /* Initial allocation */
-	    if (rtip->rti_cutlen > rtip->nsolids)
-		cutp->bn.bn_maxlen = rtip->rti_cutlen;
+	    if (rtip->i->rti_cutlen > rtip->stats.nsolids)
+		cutp->bn.bn_maxlen = rtip->i->rti_cutlen;
 	    else
-		cutp->bn.bn_maxlen = rtip->nsolids + 2;
+		cutp->bn.bn_maxlen = rtip->stats.nsolids + 2;
 	    cutp->bn.bn_list = (struct soltab **)bu_calloc(
 		cutp->bn.bn_maxlen, sizeof(struct soltab *),
 		"rt_cut_extend: initial list alloc");
@@ -381,240 +284,10 @@ rt_cut_extend(register union cutter *cutp, struct soltab *stp, const struct rt_i
 }
 
 
-#define PIECE_BLOCK 512
-
-
-/**
- * Given that 'outp' has been given a bounding box smaller than that
- * of 'inp', copy over everything which still fits in the smaller box.
- *
- * Returns -
- * 0 if outp has the same number of items as inp
- * 1 if outp has fewer items than inp
- */
-static int
-rt_ct_populate_box(union cutter *outp, const union cutter *inp, struct rt_i *rtip)
-{
-    register int i;
-    int success = 0;
-    const struct bn_tol *tol = &rtip->rti_tol;
-
-    /* Examine the solids */
-    outp->bn.bn_len = 0;
-    outp->bn.bn_maxlen = inp->bn.bn_len;
-    if (outp->bn.bn_maxlen > 0) {
-	outp->bn.bn_list = (struct soltab **) bu_calloc(
-	    outp->bn.bn_maxlen, sizeof(struct soltab *),
-	    "bn_list");
-	for (i = inp->bn.bn_len-1; i >= 0; i--) {
-	    struct soltab *stp = inp->bn.bn_list[i];
-	    if (!rt_ck_overlap(outp->bn.bn_min, outp->bn.bn_max,
-			       stp, rtip))
-		continue;
-	    outp->bn.bn_list[outp->bn.bn_len++] = stp;
-	}
-	if (outp->bn.bn_len < inp->bn.bn_len) success = 1;
-    } else {
-	outp->bn.bn_list = (struct soltab **)NULL;
-    }
-
-    /* Examine the solid pieces */
-    outp->bn.bn_piecelen = 0;
-    if (inp->bn.bn_piecelen <= 0) {
-	outp->bn.bn_piecelist = (struct rt_piecelist *)NULL;
-	outp->bn.bn_maxpiecelen = 0;
-	return success;
-    }
-
-    outp->bn.bn_piecelist = (struct rt_piecelist *) bu_calloc(inp->bn.bn_piecelen, sizeof(struct rt_piecelist), "rt_piecelist");
-    outp->bn.bn_maxpiecelen = inp->bn.bn_piecelen;
-
-    for (i = inp->bn.bn_piecelen-1; i >= 0; i--) {
-	struct rt_piecelist *plp = &inp->bn.bn_piecelist[i];	/* input */
-	struct soltab *stp = plp->stp;
-	struct rt_piecelist *olp = &outp->bn.bn_piecelist[outp->bn.bn_piecelen]; /* output */
-	int j, k;
-	long piece_list[PIECE_BLOCK];	/* array of pieces */
-	long piece_count=0;		/* count of used slots in above array */
-	long *more_pieces=NULL;		/* dynamically allocated array for overflow of above array */
-	long more_piece_count=0;	/* number of slots used in dynamic array */
-	long more_piece_len=0;		/* allocated length of dynamic array */
-
-	RT_CK_PIECELIST(plp);
-	RT_CK_SOLTAB(stp);
-
-	/* Loop for every piece of this solid */
-	for (j = plp->npieces-1; j >= 0; j--) {
-	    long indx = plp->pieces[j];
-	    struct bound_rpp *rpp = &stp->st_piece_rpps[indx];
-	    if (!V3RPP_OVERLAP_TOL(outp->bn.bn_min, outp->bn.bn_max, rpp->min, rpp->max, tol->dist))
-		continue;
-	    if (piece_count < PIECE_BLOCK) {
-		piece_list[piece_count++] = indx;
-	    } else if (more_piece_count >= more_piece_len) {
-		/* this should be an extremely rare occurrence */
-		more_piece_len += PIECE_BLOCK;
-		more_pieces = (long *)bu_realloc(more_pieces, more_piece_len * sizeof(long),
-						 "more_pieces");
-		more_pieces[more_piece_count++] = indx;
-	    } else {
-		more_pieces[more_piece_count++] = indx;
-	    }
-	}
-	olp->npieces = piece_count + more_piece_count;
-	if (olp->npieces > 0) {
-	    /* This solid contributed pieces to the output box */
-	    olp->magic = RT_PIECELIST_MAGIC;
-	    olp->stp = stp;
-	    outp->bn.bn_piecelen++;
-	    olp->pieces = (long *)bu_calloc(olp->npieces, sizeof(long), "olp->pieces[]");
-	    for (j=0; j<piece_count; j++) {
-		olp->pieces[j] = piece_list[j];
-	    }
-	    k = piece_count;
-	    for (j=0; j<more_piece_count; j++) {
-		olp->pieces[k++] = more_pieces[j];
-	    }
-	    if (more_pieces) {
-		bu_free((char *)more_pieces, "more_pieces");
-	    }
-	    if (olp->npieces < plp->npieces) success = 1;
-	} else {
-	    olp->pieces = NULL;
-	    /* if (plp->npieces > 0) success = 1; */
-	}
-    }
-
-    return success;
-}
-
-
-/**
- * Cut the given box node with a plane along the given axis, at the
- * specified distance "where".  Convert the caller's box node into a
- * cut node, allocating two additional box nodes for the new leaves.
- *
- * If, according to the classifier, both sides have the same number of
- * solids, then nothing is changed, and an error is returned.
- *
- * The storage strategy used is to make the maximum length of each of
- * the two child boxnodes be the current length of the source node.
- *
- * Returns -
- * 0 failure
- * 1 success
- */
-static int
-rt_ct_box(struct rt_i *rtip, register union cutter *cutp, register int axis, double where, int force)
-{
-    register union cutter *rhs, *lhs;
-    int success = 0;
-
-    RT_CK_RTI(rtip);
-    if (RT_G_DEBUG&RT_DEBUG_CUTDETAIL) {
-	bu_log("rt_ct_box(%p, %c) %g .. %g .. %g\n",
-	       (void *)cutp, "XYZ345"[axis],
-	       cutp->bn.bn_min[axis],
-	       where,
-	       cutp->bn.bn_max[axis]);
-    }
-
-    /* LEFT side */
-    lhs = rt_ct_get(rtip);
-    lhs->bn.bn_type = CUT_BOXNODE;
-    VMOVE(lhs->bn.bn_min, cutp->bn.bn_min);
-    VMOVE(lhs->bn.bn_max, cutp->bn.bn_max);
-    lhs->bn.bn_max[axis] = where;
-
-    success = rt_ct_populate_box(lhs, cutp, rtip);
-
-    /* RIGHT side */
-    rhs = rt_ct_get(rtip);
-    rhs->bn.bn_type = CUT_BOXNODE;
-    VMOVE(rhs->bn.bn_min, cutp->bn.bn_min);
-    VMOVE(rhs->bn.bn_max, cutp->bn.bn_max);
-    rhs->bn.bn_min[axis] = where;
-
-    success += rt_ct_populate_box(rhs, cutp, rtip);
-
-    /* Check to see if complexity didn't decrease */
-    if (success == 0 && !force) {
-	/*
-	 * This cut operation did no good, release storage,
-	 * and let caller attempt something else.
-	 */
-	if (RT_G_DEBUG&RT_DEBUG_CUTDETAIL) {
-	    static char axis_str[] = "XYZw";
-	    bu_log("rt_ct_box:  no luck, len=%zu, axis=%c\n",
-		   cutp->bn.bn_len, axis_str[axis]);
-	}
-	rt_ct_free(rtip, rhs);
-	rt_ct_free(rtip, lhs);
-	return 0;		/* fail */
-    }
-
-    /* Success, convert callers box node into a cut node */
-    rt_ct_release_storage(cutp);
-
-    cutp->cut_type = CUT_CUTNODE;
-    cutp->cn.cn_axis = axis;
-    cutp->cn.cn_point = where;
-    cutp->cn.cn_l = lhs;
-    cutp->cn.cn_r = rhs;
-    return 1;			/* success */
-}
-
-
-/**
- * See if any part of the solid is contained within the bounding box
- * (RPP).
- *
- * If the solid RPP at least partly overlaps the bounding RPP, invoke
- * the per-solid "classifier" method to perform a more rigorous check.
- *
- * Returns -
- * !0 if object overlaps box.
- *  0 if no overlap.
- */
-static int
-rt_ck_overlap(const vect_t min, const vect_t max, const struct soltab *stp, const struct rt_i *rtip)
-{
-    RT_CHECK_SOLTAB(stp);
-
-    if (RT_G_DEBUG&RT_DEBUG_BOXING) {
-	bu_log("rt_ck_overlap(%s)\n", stp->st_name);
-	VPRINT(" box min", min);
-	VPRINT(" sol min", stp->st_min);
-	VPRINT(" box max", max);
-	VPRINT(" sol max", stp->st_max);
-    }
-
-    /* Ignore "dead" solids in the list.  (They failed prep) */
-    if (stp->st_aradius <= 0)
-	return 0;
-
-    /* If the object fits in a box (i.e., it's not infinite), and that
-     * box doesn't overlap with the bounding RPP, we know it's a miss.
-     */
-    if (stp->st_aradius < INFINITY) {
-	if (V3RPP_DISJOINT(stp->st_min, stp->st_max, min, max))
-	    return 0;
-    }
-
-    /* RPP overlaps, invoke per-solid method for detailed check */
-    if (OBJ[stp->st_id].ft_classify &&
-	OBJ[stp->st_id].ft_classify(stp, min, max, &rtip->rti_tol) == BG_CLASSIFY_OUTSIDE)
-	return 0;
-
-    /* don't know, check it */
-    return 1;
-}
-
-
 /**
  * Returns the total number of solids and solid "pieces" in a boxnode.
  */
-static size_t
+size_t
 rt_ct_piececount(const union cutter *cutp)
 {
     long i;
@@ -635,245 +308,35 @@ rt_ct_piececount(const union cutter *cutp)
 
 
 /*
- * Optimize a cut tree.  Work on nodes which are over the pre-set
- * limits, subdividing until either the limit on tree depth runs out,
- * or until subdivision no longer gives different results, which could
- * easily be the case when several solids involved in a CSG operation
- * overlap in space.
- */
-static void
-rt_ct_optim(struct rt_i *rtip, register union cutter *cutp, size_t depth)
-{
-    size_t oldlen;
-
-    if (cutp->cut_type == CUT_CUTNODE) {
-	rt_ct_optim(rtip, cutp->cn.cn_l, depth+1);
-	rt_ct_optim(rtip, cutp->cn.cn_r, depth+1);
-	return;
-    }
-    if (cutp->cut_type != CUT_BOXNODE) {
-	bu_log("rt_ct_optim: bad node [%d]\n", cutp->cut_type);
-	return;
-    }
-
-    oldlen = rt_ct_piececount(cutp);	/* save before rt_ct_box() */
-    if (RT_G_DEBUG&RT_DEBUG_CUTDETAIL)
-	bu_log("rt_ct_optim(cutp=%p, depth=%zu) piececount=%zu\n", (void *)cutp, depth, oldlen);
-
-    /*
-     * BOXNODE (leaf)
-     */
-    if (oldlen <= 1)
-	return;		/* this box is already optimal */
-    if (depth > rtip->rti_cutdepth) return;		/* too deep */
-
-    /* Attempt to subdivide finer than rtip->rti_cutlen near treetop */
-    /**** XXX This test can be improved ****/
-    if (depth >= 6 && oldlen <= rtip->rti_cutlen)
-	return;				/* Fine enough */
-
-    /* Old (Release 3.7) way */
-    {
-	int did_a_cut;
-	int i;
-	int axis;
-	double where, offcenter;
-	/*
-	 * In general, keep subdividing until things don't get any
-	 * better.  Really we might want to proceed for 2-3 levels.
-	 *
-	 * First, make certain this is a worthwhile cut.  In absolute
-	 * terms, each box must be at least 1mm wide after cut.
-	 */
-	axis = AXIS(depth);
-	did_a_cut = 0;
-	for (i=0; i<3; i++, axis += 1) {
-	    if (axis > Z) {
-		axis = X;
-	    }
-	    if (cutp->bn.bn_max[axis]-cutp->bn.bn_min[axis] < 2.0) {
-		continue;
-	    }
-	    if (rt_ct_old_assess(cutp, axis, &where, &offcenter) <= 0) {
-		continue;
-	    }
-	    if (rt_ct_box(rtip, cutp, axis, where, 0) == 0) {
-		continue;
-	    } else {
-		did_a_cut = 1;
-		break;
-	    }
-	}
-
-	if (!did_a_cut) {
-	    return;
-	}
-	if (rt_ct_piececount(cutp->cn.cn_l) >= oldlen &&
-	    rt_ct_piececount(cutp->cn.cn_r) >= oldlen) {
-	    if (RT_G_DEBUG&RT_DEBUG_CUTDETAIL)
-		bu_log("rt_ct_optim(cutp=%p, depth=%zu) oldlen=%zu, lhs=%zu, rhs=%zu, hopeless\n",
-		       (void *)cutp, depth, oldlen,
-		       rt_ct_piececount(cutp->cn.cn_l),
-		       rt_ct_piececount(cutp->cn.cn_r));
-	    return; /* hopeless */
-	}
-    }
-
-    /* Box node is now a cut node, recurse */
-    rt_ct_optim(rtip, cutp->cn.cn_l, depth+1);
-    rt_ct_optim(rtip, cutp->cn.cn_r, depth+1);
-}
-
-
-/**
- * NOTE: Changing from rt_ct_assess() to this seems to result in a
- * *massive* change in cut tree size.
- *
- * This version results in nbins=22, maxlen=3, avg=1.09, while new
- * version results in nbins=42, maxlen=3, avg=1.667 (on moss.g).
- */
-static int
-rt_ct_old_assess(register union cutter *cutp, register int axis, double *where_p, double *offcenter_p)
-{
-    double val;
-    double offcenter;		/* Closest distance from midpoint */
-    double where;		/* Point closest to midpoint */
-    double middle;		/* midpoint */
-    double d;
-    fastf_t max, min;
-    register size_t i;
-    long il;
-    register double left, right;
-
-    if (RT_G_DEBUG&RT_DEBUG_CUTDETAIL)
-	bu_log("rt_ct_old_assess(%p, %c)\n", (void *)cutp, "XYZ345"[axis]);
-
-    /* In absolute terms, each box must be at least 1mm wide after cut. */
-    if ((right=cutp->bn.bn_max[axis])-(left=cutp->bn.bn_min[axis]) < 2.0)
-	return 0;
-
-    /*
-     * Split distance between min and max in half.  Find the closest
-     * edge of a solid's bounding RPP to the mid-point, and split
-     * there.  This should ordinarily guarantee that at least one side
-     * of the cut has one less item in it.
-     */
-    min = MAX_FASTF;
-    max = -min;
-    where = left;
-    middle = (left + right) * 0.5;
-    offcenter = middle - where;	/* how far off 'middle', 'where' is */
-    for (i=0; i < cutp->bn.bn_len; i++) {
-	val = cutp->bn.bn_list[i]->st_min[axis];
-	if (val < min) min = val;
-	if (val > max) max = val;
-	d = val - middle;
-	if (d < 0) d = (-d);
-	if (d < offcenter) {
-	    offcenter = d;
-	    where = val-0.1;
-	}
-	val = cutp->bn.bn_list[i]->st_max[axis];
-	if (val < min) min = val;
-	if (val > max) max = val;
-	d = val - middle;
-	if (d < 0) d = (-d);
-	if (d < offcenter) {
-	    offcenter = d;
-	    where = val+0.1;
-	}
-    }
-
-    /* Loop over all the solid pieces */
-    for (il = cutp->bn.bn_piecelen-1; il >= 0; il--) {
-	struct rt_piecelist *plp = &cutp->bn.bn_piecelist[il];
-	struct soltab *stp = plp->stp;
-	int j;
-
-	RT_CK_PIECELIST(plp);
-	for (j = plp->npieces-1; j >= 0; j--) {
-	    int indx = plp->pieces[j];
-	    struct bound_rpp *rpp = &stp->st_piece_rpps[indx];
-
-	    val = rpp->min[axis];
-	    if (val < min) min = val;
-	    if (val > max) max = val;
-	    d = val - middle;
-	    if (d < 0) d = (-d);
-	    if (d < offcenter) {
-		offcenter = d;
-		where = val-0.1;
-	    }
-	    val = rpp->max[axis];
-	    if (val < min) min = val;
-	    if (val > max) max = val;
-	    d = val - middle;
-	    if (d < 0) d = (-d);
-	    if (d < offcenter) {
-		offcenter = d;
-		where = val+0.1;
-	    }
-	}
-    }
-
-    if (RT_G_DEBUG&RT_DEBUG_CUTDETAIL)bu_log("rt_ct_old_assess() left=%g, where=%g, right=%g, offcenter=%g\n",
-
-					  left, where, right, offcenter);
-
-    if (where < min || where > max) {
-	/* this will make an empty cell.  try splitting the range
-	 * instead
-	 */
-	where = (max + min) / 2.0;
-	offcenter = where - middle;
-	if (offcenter < 0) {
-	    offcenter = -offcenter;
-	}
-    }
-
-    if (where <= left || where >= right)
-	return 0;	/* not reasonable */
-
-    if (where - left <= 1.0 || right - where <= 1.0)
-	return 0;	/* cut will be too small */
-
-    /* We are going to cut */
-    *where_p = where;
-    *offcenter_p = offcenter;
-    return 1;
-}
-
-
-/*
  * This routine must run in parallel
  */
-static union cutter *
+union cutter *
 rt_ct_get(struct rt_i *rtip)
 {
     register union cutter *cutp;
 
     RT_CK_RTI(rtip);
     bu_semaphore_acquire(RT_SEM_MODEL);
-    if (!rtip->rti_busy_cutter_nodes.l.magic)
-	bu_ptbl_init(&rtip->rti_busy_cutter_nodes, 128, "rti_busy_cutter_nodes");
+    if (!rtip->i->rti_busy_cutter_nodes.l.magic)
+	bu_ptbl_init(&rtip->i->rti_busy_cutter_nodes, 128, "rti_busy_cutter_nodes");
 
-    if (rtip->rti_CutFree == CUTTER_NULL) {
+    if (rtip->i->rti_CutFree == CUTTER_NULL) {
 	size_t bytes;
 
 	//bytes = (size_t)bu_malloc_len_roundup(64*sizeof(union cutter));
 	bytes = sizeof(union cutter);
 	cutp = (union cutter *)bu_calloc(1, bytes, " rt_ct_get");
 	/* Remember this allocation for later */
-	bu_ptbl_ins(&rtip->rti_busy_cutter_nodes, (long *)cutp);
+	bu_ptbl_ins(&rtip->i->rti_busy_cutter_nodes, (long *)cutp);
 	/* Now, dice it up */
 	while (bytes >= sizeof(union cutter)) {
-	    cutp->cut_forw = rtip->rti_CutFree;
-	    rtip->rti_CutFree = cutp++;
+	    cutp->cut_forw = rtip->i->rti_CutFree;
+	    rtip->i->rti_CutFree = cutp++;
 	    bytes -= sizeof(union cutter);
 	}
     }
-    cutp = rtip->rti_CutFree;
-    rtip->rti_CutFree = cutp->cut_forw;
+    cutp = rtip->i->rti_CutFree;
+    rtip->i->rti_CutFree = cutp->cut_forw;
     bu_semaphore_release(RT_SEM_MODEL);
 
     cutp->cut_forw = CUTTER_NULL;
@@ -884,7 +347,7 @@ rt_ct_get(struct rt_i *rtip)
 /*
  * Release subordinate storage
  */
-static void
+void
 rt_ct_release_storage(register union cutter *cutp)
 {
     size_t i;
@@ -926,7 +389,7 @@ rt_ct_release_storage(register union cutter *cutp)
 /*
  * This routine must run in parallel
  */
-static void
+void
 rt_ct_free(struct rt_i *rtip, register union cutter *cutp)
 {
     RT_CK_RTI(rtip);
@@ -935,8 +398,8 @@ rt_ct_free(struct rt_i *rtip, register union cutter *cutp)
 
     /* Put on global free list */
     bu_semaphore_acquire(RT_SEM_MODEL);
-    cutp->cut_forw = rtip->rti_CutFree;
-    rtip->rti_CutFree = cutp;
+    cutp->cut_forw = rtip->i->rti_CutFree;
+    rtip->i->rti_CutFree = cutp;
     bu_semaphore_release(RT_SEM_MODEL);
 }
 
@@ -1093,24 +556,24 @@ rt_ct_measure(register struct rt_i *rtip, register union cutter *cutp, size_t de
     RT_CK_RTI(rtip);
     switch (cutp->cut_type) {
 	case CUT_CUTNODE:
-	    rtip->rti_ncut_by_type[CUT_CUTNODE]++;
+	    rtip->stats.rti_ncut_by_type[CUT_CUTNODE]++;
 	    rt_ct_measure(rtip, cutp->cn.cn_l, len = (depth+1));
 	    rt_ct_measure(rtip, cutp->cn.cn_r, len);
 	    return;
 	case CUT_BOXNODE:
-	    rtip->rti_ncut_by_type[CUT_BOXNODE]++;
+	    rtip->stats.rti_ncut_by_type[CUT_BOXNODE]++;
 	    len = cutp->bn.bn_len;
-	    rtip->rti_cut_totobj += len;
-	    if (rtip->rti_cut_maxlen < len)
-		rtip->rti_cut_maxlen = len;
-	    if (rtip->rti_cut_maxdepth < depth)
-		rtip->rti_cut_maxdepth = depth;
-	    BU_HIST_TALLY(&rtip->rti_hist_cellsize, len);
+	    rtip->stats.rti_cut_totobj += len;
+	    if (rtip->stats.rti_cut_maxlen < len)
+		rtip->stats.rti_cut_maxlen = len;
+	    if (rtip->stats.rti_cut_maxdepth < depth)
+		rtip->stats.rti_cut_maxdepth = depth;
+	    BU_HIST_TALLY(&rtip->i->rti_hist_cellsize, len);
 	    len = rt_ct_piececount(cutp) - len;
-	    BU_HIST_TALLY(&rtip->rti_hist_cell_pieces, len);
-	    BU_HIST_TALLY(&rtip->rti_hist_cutdepth, depth);
+	    BU_HIST_TALLY(&rtip->i->rti_hist_cell_pieces, len);
+	    BU_HIST_TALLY(&rtip->i->rti_hist_cutdepth, depth);
 	    if (len == 0) {
-		rtip->nempty_cells++;
+		rtip->stats.nempty_cells++;
 	    }
 	    return;
 	default:
@@ -1127,20 +590,20 @@ rt_cut_clean(struct rt_i *rtip)
 
     RT_CK_RTI(rtip);
 
-    if (rtip->rti_cuts_waiting.l.magic)
-	bu_ptbl_free(&rtip->rti_cuts_waiting);
+    if (rtip->i->rti_cuts_waiting.l.magic)
+	bu_ptbl_free(&rtip->i->rti_cuts_waiting);
 
     /* Abandon the linked list of diced-up structures */
-    rtip->rti_CutFree = CUTTER_NULL;
+    rtip->i->rti_CutFree = CUTTER_NULL;
 
-    if (!BU_LIST_IS_INITIALIZED(&rtip->rti_busy_cutter_nodes.l))
+    if (!BU_LIST_IS_INITIALIZED(&rtip->i->rti_busy_cutter_nodes.l))
 	return;
 
     /* Release the blocks we got from bu_calloc() */
-    for (BU_PTBL_FOR(p, (void **), &rtip->rti_busy_cutter_nodes)) {
+    for (BU_PTBL_FOR(p, (void **), &rtip->i->rti_busy_cutter_nodes)) {
 	bu_free(*p, "rt_ct_get");
     }
-    bu_ptbl_free(&rtip->rti_busy_cutter_nodes);
+    bu_ptbl_free(&rtip->i->rti_busy_cutter_nodes);
 }
 
 
@@ -1151,22 +614,22 @@ rt_pr_cut_info(const struct rt_i *rtip, const char *str)
 
     bu_log("%s %s: %zu cut, %zu box (%zu empty)\n",
 	   str,
-	   rtip->rti_space_partition == RT_PART_NUBSPT ? "NUBSP" :
-	   (rtip->rti_space_partition == RT_PART_HLBVH ? "HLBVH" : "unknown"),
-	   rtip->rti_ncut_by_type[CUT_CUTNODE],
-	   rtip->rti_ncut_by_type[CUT_BOXNODE],
-	   rtip->nempty_cells);
+	   rt_cut_method_name(rtip->rti_space_partition),
+	   rtip->stats.rti_ncut_by_type[CUT_CUTNODE],
+	   rtip->stats.rti_ncut_by_type[CUT_BOXNODE],
+	   rtip->stats.nempty_cells);
     bu_log("Cut: maxdepth=%zu, nbins=%zu, maxlen=%zu, avg=%g\n",
-	   rtip->rti_cut_maxdepth,
-	   rtip->rti_ncut_by_type[CUT_BOXNODE],
-	   rtip->rti_cut_maxlen,
-	   ((double)rtip->rti_cut_totobj) /
-	   rtip->rti_ncut_by_type[CUT_BOXNODE]);
-    bu_hist_pr(&rtip->rti_hist_cellsize,
+	   rtip->stats.rti_cut_maxdepth,
+	   rtip->stats.rti_ncut_by_type[CUT_BOXNODE],
+	   rtip->stats.rti_cut_maxlen,
+	   rtip->stats.rti_ncut_by_type[CUT_BOXNODE] ?
+	   ((double)rtip->stats.rti_cut_totobj) /
+	   rtip->stats.rti_ncut_by_type[CUT_BOXNODE] : 0.0);
+    bu_hist_pr(&rtip->i->rti_hist_cellsize,
 	       "cut_tree: Number of primitives per leaf cell");
-    bu_hist_pr(&rtip->rti_hist_cell_pieces,
+    bu_hist_pr(&rtip->i->rti_hist_cell_pieces,
 	       "cut_tree: Number of primitive pieces per leaf cell");
-    bu_hist_pr(&rtip->rti_hist_cutdepth,
+    bu_hist_pr(&rtip->i->rti_hist_cutdepth,
 	       "cut_tree: Depth (height)");
 }
 
@@ -1347,7 +810,7 @@ insert_in_bsp(struct soltab *stp, union cutter *cutp)
 }
 
 void
-fill_out_bsp(struct rt_i *rtip, union cutter *cutp, struct resource *resp, fastf_t bb[6])
+nfill_out_bsp(struct rt_i *rtip, union cutter *cutp, fastf_t bb[6])
 {
     fastf_t bb2[6];
     int i, j;
@@ -1371,9 +834,45 @@ fill_out_bsp(struct rt_i *rtip, union cutter *cutp, struct resource *resp, fastf
 	    VMOVE(bb2, bb);
 	    VMOVE(&bb2[3], &bb[3]);
 	    bb[cutp->cn.cn_axis] = cutp->cn.cn_point;
-	    fill_out_bsp(rtip, cutp->cn.cn_r, resp, bb);
+	    nfill_out_bsp(rtip, cutp->cn.cn_r, bb);
 	    bb2[cutp->cn.cn_axis + 3] = cutp->cn.cn_point;
-	    fill_out_bsp(rtip, cutp->cn.cn_l, resp, bb2);
+	    nfill_out_bsp(rtip, cutp->cn.cn_l, bb2);
+	    break;
+	default:
+	    bu_log("nfill_out_bsp(): unrecognized cut type (%d) in BSP!\n", cutp->cut_type);
+	    bu_bomb("nfill_out_bsp(): unrecognized cut type in BSP!\n");
+    }
+
+}
+
+void
+fill_out_bsp(struct rt_i *rtip, union cutter *cutp, struct resource *UNUSED(resp), fastf_t bb[6])
+{
+    fastf_t bb2[6];
+    int i, j;
+
+    switch (cutp->cut_type) {
+	case CUT_BOXNODE:
+	    j = 3;
+	    for (i=0; i<3; i++) {
+		if (bb[i] >= INFINITY) {
+		    /* this node is at the edge of the model BB, make it fill the BB */
+		    cutp->bn.bn_min[i] = rtip->mdl_min[i];
+		}
+		if (bb[j] <= -INFINITY) {
+		    /* this node is at the edge of the model BB, make it fill the BB */
+		    cutp->bn.bn_max[i] = rtip->mdl_max[i];
+		}
+		j++;
+	    }
+	    break;
+	case CUT_CUTNODE:
+	    VMOVE(bb2, bb);
+	    VMOVE(&bb2[3], &bb[3]);
+	    bb[cutp->cn.cn_axis] = cutp->cn.cn_point;
+	    nfill_out_bsp(rtip, cutp->cn.cn_r, bb);
+	    bb2[cutp->cn.cn_axis + 3] = cutp->cn.cn_point;
+	    nfill_out_bsp(rtip, cutp->cn.cn_l, bb2);
 	    break;
 	default:
 	    bu_log("fill_out_bsp(): unrecognized cut type (%d) in BSP!\n", cutp->cut_type);
@@ -1381,6 +880,469 @@ fill_out_bsp(struct rt_i *rtip, union cutter *cutp, struct resource *resp, fastf
     }
 
 }
+
+
+/*
+ * HLBVH scene acceleration build path.
+ *
+ * Build parameters
+ */
+#define RT_HLBVH_SPLIT_FRAC  0.25   /* spatial-split threshold as fraction of scene max-dim */
+#define RT_HLBVH_MAX_SPLITS  8      /* hard cap on sub-boxes per oversized primitive */
+
+/* Internal struct for sweep-and-prune overlap computation. */
+struct rt_bbox_entry {
+    fastf_t min[3];
+    fastf_t max[3];
+};
+
+static int
+rt_bbox_cmp_minx(const void *a, const void *b, void *UNUSED(context))
+{
+    const struct rt_bbox_entry *ba = (const struct rt_bbox_entry *)a;
+    const struct rt_bbox_entry *bb = (const struct rt_bbox_entry *)b;
+    if (ba->min[X] < bb->min[X]) return -1;
+    if (ba->min[X] > bb->min[X]) return  1;
+    return 0;
+}
+
+
+/*
+ * Compute sum(prim_volumes) / scene_volume — diagnostic only, logged when
+ * RT_DEBUG_CUT is set.
+ */
+static double
+rt_scene_vol_density(struct rt_i *rtip)
+{
+    struct soltab *stp;
+    double prim_vol_sum;
+    double scene_vol;
+    vect_t sdims;
+
+    RT_CK_RTI(rtip);
+
+    VSUB2(sdims, rtip->mdl_max, rtip->mdl_min);
+    scene_vol = sdims[X] * sdims[Y] * sdims[Z];
+    if (scene_vol <= 0.0)
+	return 0.0;
+
+    prim_vol_sum = 0.0;
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	vect_t pdims;
+	if (stp->st_aradius <= 0 || stp->st_aradius >= INFINITY) continue;
+	VSUB2(pdims, stp->st_max, stp->st_min);
+	prim_vol_sum += pdims[X] * pdims[Y] * pdims[Z];
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    {
+	double d_vol = prim_vol_sum / scene_vol;
+	if (RT_G_DEBUG & RT_DEBUG_CUT)
+	    bu_log("HLBVH density: d_vol=%.4f (prim_vol_sum=%.4g scene_vol=%.4g)\n",
+		   d_vol, prim_vol_sum, scene_vol);
+	return d_vol;
+    }
+}
+
+
+/*
+ * Compute pairwise bounding-box overlap volume / scene_volume via sweep-and-prune.
+ * D_overlap ~ 0: primitives are well-separated.
+ * D_overlap >> 1: many primitives share large overlapping bounding regions.
+ */
+static double
+rt_scene_bbox_overlap(struct rt_i *rtip)
+{
+    struct soltab *stp;
+    long n, i, j;
+    struct rt_bbox_entry *bboxes;
+    double overlap_vol_sum, scene_vol, d_overlap;
+    vect_t sdims;
+
+    RT_CK_RTI(rtip);
+
+    VSUB2(sdims, rtip->mdl_max, rtip->mdl_min);
+    scene_vol = sdims[X] * sdims[Y] * sdims[Z];
+    if (scene_vol <= 0.0)
+	return 0.0;
+
+    /* Count finite primitives */
+    n = 0;
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	if (stp->st_aradius <= 0 || stp->st_aradius >= INFINITY) continue;
+	n++;
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    if (n < 2)
+	return 0.0;
+
+    /* Collect bboxes */
+    bboxes = (struct rt_bbox_entry *)bu_calloc((size_t)n,
+					       sizeof(struct rt_bbox_entry),
+					       "bbox overlap entries");
+    i = 0;
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	if (stp->st_aradius <= 0 || stp->st_aradius >= INFINITY) continue;
+	VMOVE(bboxes[i].min, stp->st_min);
+	VMOVE(bboxes[i].max, stp->st_max);
+	i++;
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    /* Sort by min[X] to enable the sweep */
+    bu_sort(bboxes, (size_t)n, sizeof(struct rt_bbox_entry), rt_bbox_cmp_minx, NULL);
+
+    /* Sweep: for each i, advance j while j.min[X] < i.max[X]. */
+    overlap_vol_sum = 0.0;
+    for (i = 0; i < n; i++) {
+	for (j = i + 1; j < n; j++) {
+	    fastf_t ox, oy, oz;
+
+	    if (bboxes[j].min[X] >= bboxes[i].max[X])
+		break;
+
+	    oy = FMIN(bboxes[i].max[Y], bboxes[j].max[Y])
+		- FMAX(bboxes[i].min[Y], bboxes[j].min[Y]);
+	    if (oy <= 0.0) continue;
+
+	    oz = FMIN(bboxes[i].max[Z], bboxes[j].max[Z])
+		- FMAX(bboxes[i].min[Z], bboxes[j].min[Z]);
+	    if (oz <= 0.0) continue;
+
+	    ox = FMIN(bboxes[i].max[X], bboxes[j].max[X]) - bboxes[j].min[X];
+	    overlap_vol_sum += ox * oy * oz;
+	}
+    }
+
+    bu_free(bboxes, "bbox overlap entries");
+
+    d_overlap = overlap_vol_sum / scene_vol;
+    if (RT_G_DEBUG & RT_DEBUG_CUT)
+	bu_log("HLBVH overlap: d_overlap=%.4f (overlap_vol=%.4g scene_vol=%.4g n_prims=%ld)\n",
+	       d_overlap, overlap_vol_sum, scene_vol, n);
+
+    return d_overlap;
+}
+
+
+/*
+ * Build the flat HLBVH over all finite primitives in rtip.
+ * Returns the number of unique finite primitives.
+ * On success rtip->i->rti_hlbvh_root / _prims / _nprims / _nnodes are set.
+ * On failure all four are left as NULL/0.
+ */
+static long
+rt_hlbvh_prep(struct rt_i *rtip)
+{
+    struct soltab *stp;
+    long i;
+    long n_primitives;
+    long n_pieces;
+    struct soltab **all_prims;
+    fastf_t *centroids;
+    fastf_t *bounds;
+    long total_nodes = 0;
+    long *ordered_prims = NULL;
+    struct bu_pool *pool;
+    struct bvh_build_node *root;
+    struct bvh_flat_node *flat_root;
+    fastf_t split_thresh;
+
+    RT_CK_RTI(rtip);
+
+    /* Free any previous HLBVH data */
+    if (rtip->i->rti_hlbvh_root) {
+	bu_free(rtip->i->rti_hlbvh_root, "rti_hlbvh_root");
+	rtip->i->rti_hlbvh_root = NULL;
+    }
+    if (rtip->i->rti_hlbvh_prims) {
+	bu_free(rtip->i->rti_hlbvh_prims, "rti_hlbvh_prims");
+	rtip->i->rti_hlbvh_prims = NULL;
+    }
+    rtip->i->rti_hlbvh_nprims = 0;
+    rtip->i->rti_hlbvh_nnodes = 0;
+
+    /* Count finite, non-dead primitives */
+    n_primitives = 0;
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	if (stp->st_aradius <= 0) continue;
+	if (stp->st_aradius >= INFINITY) continue;
+	n_primitives++;
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    if (n_primitives == 0)
+	return 0;
+
+    /* Spatial split threshold: fraction of scene's longest axis */
+    {
+	vect_t sdims;
+	fastf_t scene_max_dim;
+	VSUB2(sdims, rtip->mdl_max, rtip->mdl_min);
+	scene_max_dim = FMAX(sdims[X], FMAX(sdims[Y], sdims[Z]));
+	split_thresh = scene_max_dim * RT_HLBVH_SPLIT_FRAC;
+	if (split_thresh <= 0.0)
+	    split_thresh = INFINITY;
+    }
+
+    /* Count total BVH input slots (>= n_primitives when some are split) */
+    n_pieces = 0;
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	vect_t pdims;
+	fastf_t max_dim;
+	double nsplit_d;
+	long nsplit;
+	if (stp->st_aradius <= 0) continue;
+	if (stp->st_aradius >= INFINITY) continue;
+	VSUB2(pdims, stp->st_max, stp->st_min);
+	max_dim = FMAX(pdims[X], FMAX(pdims[Y], pdims[Z]));
+	nsplit_d = (split_thresh < INFINITY && max_dim > split_thresh)
+	    ? ceil(max_dim / split_thresh) : 1.0;
+	nsplit = (long)nsplit_d;
+	if (nsplit > RT_HLBVH_MAX_SPLITS) nsplit = RT_HLBVH_MAX_SPLITS;
+	if (nsplit < 1) nsplit = 1;
+	n_pieces += nsplit;
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    all_prims = (struct soltab **)bu_calloc(n_pieces, sizeof(struct soltab *), "hlbvh all prims");
+    centroids = (fastf_t *)bu_calloc(n_pieces, sizeof(fastf_t) * 3, "hlbvh centroids");
+    bounds    = (fastf_t *)bu_calloc(n_pieces, sizeof(fastf_t) * 6, "hlbvh bounds");
+
+    i = 0;
+    RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
+	vect_t pdims;
+	uint8_t axis;
+	fastf_t max_dim;
+	double nsplit_d;
+	long nsplit, k;
+
+	if (stp->st_aradius <= 0) continue;
+	if (stp->st_aradius >= INFINITY) continue;
+
+	VSUB2(pdims, stp->st_max, stp->st_min);
+	if (pdims[X] >= pdims[Y] && pdims[X] >= pdims[Z])
+	    axis = X;
+	else if (pdims[Y] >= pdims[Z])
+	    axis = Y;
+	else
+	    axis = Z;
+
+	max_dim = pdims[axis];
+	nsplit_d = (split_thresh < INFINITY && max_dim > split_thresh)
+	    ? ceil(max_dim / split_thresh) : 1.0;
+	nsplit = (long)nsplit_d;
+	if (nsplit > RT_HLBVH_MAX_SPLITS) nsplit = RT_HLBVH_MAX_SPLITS;
+	if (nsplit < 1) nsplit = 1;
+
+	for (k = 0; k < nsplit; k++) {
+	    fastf_t lo = stp->st_min[axis]
+		+ (stp->st_max[axis] - stp->st_min[axis]) * k / nsplit;
+	    fastf_t hi = stp->st_min[axis]
+		+ (stp->st_max[axis] - stp->st_min[axis]) * (k + 1) / nsplit;
+
+	    all_prims[i] = stp;
+	    VMOVE(&bounds[i * 6 + 0], stp->st_min);
+	    VMOVE(&bounds[i * 6 + 3], stp->st_max);
+	    bounds[i * 6 + axis]     = lo;
+	    bounds[i * 6 + 3 + axis] = hi;
+
+	    centroids[i * 3 + 0] = (bounds[i * 6 + 0] + bounds[i * 6 + 3]) * 0.5;
+	    centroids[i * 3 + 1] = (bounds[i * 6 + 1] + bounds[i * 6 + 4]) * 0.5;
+	    centroids[i * 3 + 2] = (bounds[i * 6 + 2] + bounds[i * 6 + 5]) * 0.5;
+	    i++;
+	}
+    } RT_VISIT_ALL_SOLTABS_END;
+
+    pool = hlbvh_init_pool((size_t)n_pieces);
+    root = hlbvh_create(4, pool, centroids, bounds,
+			&total_nodes, n_pieces, &ordered_prims);
+    bu_free(bounds,    "hlbvh bounds");
+    bu_free(centroids, "hlbvh centroids");
+
+    if (!root) {
+	bu_pool_delete(pool);
+	bu_free(all_prims, "hlbvh all prims");
+	if (ordered_prims)
+	    bu_free(ordered_prims, "hlbvh ordered prims");
+	return 0;
+    }
+
+    flat_root = hlbvh_flatten(root, total_nodes);
+    bu_pool_delete(pool);
+
+    if (ordered_prims) {
+	struct soltab **ordered = (struct soltab **)bu_calloc(n_pieces,
+							      sizeof(struct soltab *),
+							      "hlbvh ordered prims");
+	for (i = 0; i < n_pieces; i++)
+	    ordered[i] = all_prims[ordered_prims[i]];
+	bu_free(ordered_prims, "hlbvh ordered prims");
+	bu_free(all_prims,     "hlbvh all prims");
+	all_prims = ordered;
+    }
+
+    if (RT_G_DEBUG & RT_DEBUG_CUT)
+	bu_log("HLBVH: %ld pieces (%ld unique primitives) in flat BVH (%ld nodes)\n",
+	       n_pieces, n_primitives, total_nodes);
+
+    rtip->i->rti_hlbvh_root   = (void *)flat_root;
+    rtip->i->rti_hlbvh_prims  = all_prims;
+    rtip->i->rti_hlbvh_nprims = n_pieces;
+    rtip->i->rti_hlbvh_nnodes = total_nodes;
+    return n_primitives;
+}
+
+
+/*
+ * Thresholds for HLBVH quality gating.
+ * See block comment in rt_hlbvh_is_good() for full calibration details.
+ */
+#define RT_HLBVH_SAH_THRESHOLD       0.060
+#define RT_HLBVH_MIN_PRIMS_FOR_SAH   30
+#define RT_HLBVH_DOVERLAP_NUBSP_LO   0.15
+#define RT_HLBVH_DOVERLAP_NUBSP_HI   0.30
+
+/*
+ * Inspect the already-built flat HLBVH to judge whether it is likely to
+ * outperform NUBSP for this scene.  Returns 1 (good) or 0 (degenerate /
+ * better served by NUBSP).
+ *
+ * Quality metric: SAH-normalized traversal cost.
+ *   cost = (sum over leaf nodes of sa(leaf)/sa(root) * n_prims) / n_total_prims
+ *
+ * A low cost means each leaf bbox is small relative to the scene — rays visit
+ * few candidates on average.  A high cost means leaf bboxes are large, so rays
+ * must test many candidates even in a tight BVH.  NUBSP handles the high-cost
+ * case better because it adaptively cuts exactly the crowded regions.
+ *
+ * Routing uses two successive filters:
+ *
+ * 1. Small-scene bypass: n_unique <= RT_HLBVH_MIN_PRIMS_FOR_SAH → keep HLBVH.
+ *    With very few unique primitives, the SAH metric is unreliable; HLBVH's
+ *    flat traversal consistently wins.
+ *
+ * 2. D_overlap band [LO, HI]: scenes with moderate pairwise bbox overlap
+ *    benefit from NUBSP's adaptive partitioning.  Specifically catches m35
+ *    (d_overlap ≈ 0.226) while leaving castle/havoc/GenericTwin untouched.
+ *
+ * 3. SAH threshold RT_HLBVH_SAH_THRESHOLD: normalized SAH >= threshold → NUBSP.
+ *    Catches bldg391 and ktank which the D_overlap filter cannot separate.
+ *
+ * Calibrated at -s512, Release build, bbox-overlap SAH-BVH (cut_hlbvh.c).
+ */
+static int
+rt_hlbvh_is_good(const struct rt_i *rtip, long n_unique_prims, double d_overlap)
+{
+    const struct bvh_flat_node *nodes;
+    long i;
+    double root_sa, sah_cost, normalized_sah;
+    double dx, dy, dz;
+
+    RT_CK_RTI(rtip);
+
+    nodes = (const struct bvh_flat_node *)rtip->i->rti_hlbvh_root;
+    if (!nodes || rtip->i->rti_hlbvh_nnodes == 0 || rtip->i->rti_hlbvh_nprims == 0)
+	return 0;
+
+    /* Small scenes: always use HLBVH */
+    if (n_unique_prims <= RT_HLBVH_MIN_PRIMS_FOR_SAH) {
+	if (RT_G_DEBUG & RT_DEBUG_CUT)
+	    bu_log("HLBVH quality: small scene (%ld unique prims <= %d), keeping HLBVH\n",
+		   n_unique_prims, RT_HLBVH_MIN_PRIMS_FOR_SAH);
+	return 1;
+    }
+
+    /* D_overlap band filter */
+    if (d_overlap >= RT_HLBVH_DOVERLAP_NUBSP_LO
+	&& d_overlap <= RT_HLBVH_DOVERLAP_NUBSP_HI) {
+	if (RT_G_DEBUG & RT_DEBUG_CUT)
+	    bu_log("HLBVH quality: d_overlap=%.4f in NUBSP band [%.2f, %.2f], deferring to NUBSP\n",
+		   d_overlap, RT_HLBVH_DOVERLAP_NUBSP_LO, RT_HLBVH_DOVERLAP_NUBSP_HI);
+	return 0;
+    }
+
+    /* Root node surface area */
+    dx = nodes[0].bounds[3] - nodes[0].bounds[0];
+    dy = nodes[0].bounds[4] - nodes[0].bounds[1];
+    dz = nodes[0].bounds[5] - nodes[0].bounds[2];
+    root_sa = 2.0 * (dx*dy + dy*dz + dz*dx);
+    if (root_sa <= 0.0)
+	return 0;
+
+    /* Accumulate SAH cost from leaf nodes */
+    sah_cost = 0.0;
+    for (i = 0; i < rtip->i->rti_hlbvh_nnodes; i++) {
+	if (nodes[i].n_primitives > 0) {
+	    dx = nodes[i].bounds[3] - nodes[i].bounds[0];
+	    dy = nodes[i].bounds[4] - nodes[i].bounds[1];
+	    dz = nodes[i].bounds[5] - nodes[i].bounds[2];
+	    sah_cost += (2.0 * (dx*dy + dy*dz + dz*dx) / root_sa)
+		        * nodes[i].n_primitives;
+	}
+    }
+    normalized_sah = sah_cost / (double)rtip->i->rti_hlbvh_nprims;
+
+    if (RT_G_DEBUG & RT_DEBUG_CUT)
+	bu_log("HLBVH quality: normalized_sah=%.4f nprims=%ld nnodes=%ld (threshold=%.4f)\n",
+	       normalized_sah, rtip->i->rti_hlbvh_nprims, rtip->i->rti_hlbvh_nnodes,
+	       RT_HLBVH_SAH_THRESHOLD);
+
+    return normalized_sah < RT_HLBVH_SAH_THRESHOLD;
+}
+
+
+/*
+ * HLBVH spatial partition build entry point called from rt_cut_it().
+ *
+ * Builds the flat SAH-BVH over all finite primitives.  Runs the quality
+ * check; if the BVH is degenerate for this scene, frees HLBVH data and
+ * falls back to NUBSP.  In HLBVH mode, rti_CutHead is left as a shallow
+ * copy of the input root boxnode so that rt_ct_measure() and
+ * rt_pr_cut_info() can run without crashing (the HLBVH shooter itself
+ * never reads rti_CutHead).
+ */
+void
+rt_cut_hlbvh_build(struct rt_i *rtip, const union cutter *finp, int ncpu)
+{
+    long n_unique;
+    double d_overlap;
+
+    RT_CK_RTI(rtip);
+    BU_ASSERT(finp->cut_type == CUT_BOXNODE);
+
+    /* Set rti_CutHead to a valid (shallow) boxnode so diagnostic routines
+     * that inspect it (rt_ct_measure, rt_pr_cut_info) never see cut_type==0.
+     */
+    rtip->i->rti_CutHead = *finp;
+    rtip->i->rti_cutlen   = rt_ct_piececount(&rtip->i->rti_CutHead);
+    rtip->i->rti_cutdepth = 0;
+
+    /* Diagnostic volume density (logged when RT_DEBUG_CUT is set). */
+    if (RT_G_DEBUG & RT_DEBUG_CUT)
+	rt_scene_vol_density(rtip);
+
+    /* Pairwise overlap metric: used by the quality gate. */
+    d_overlap = rt_scene_bbox_overlap(rtip);
+
+    n_unique = rt_hlbvh_prep(rtip);
+
+    if (!rt_hlbvh_is_good(rtip, n_unique, d_overlap) && !getenv("RT_FORCE_HLBVH")) {
+	if (RT_G_DEBUG & RT_DEBUG_CUT)
+	    bu_log("rt_cut_hlbvh_build: HLBVH degenerate, falling back to NUBSP\n");
+
+	if (rtip->i->rti_hlbvh_root) {
+	    bu_free(rtip->i->rti_hlbvh_root, "rti_hlbvh_root");
+	    rtip->i->rti_hlbvh_root = NULL;
+	}
+	if (rtip->i->rti_hlbvh_prims) {
+	    bu_free(rtip->i->rti_hlbvh_prims, "rti_hlbvh_prims");
+	    rtip->i->rti_hlbvh_prims = NULL;
+	}
+	rtip->i->rti_hlbvh_nprims = 0;
+	rtip->i->rti_hlbvh_nnodes = 0;
+
+	rtip->rti_space_partition = RT_PART_NUBSPT;
+	rt_cut_nubsp_build(rtip, finp, ncpu);
+    }
+}
+
 
 /*
  * Local Variables:

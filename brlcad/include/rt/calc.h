@@ -37,6 +37,8 @@
 #include "bu/vls.h"
 #include "bn/poly.h"
 #include "rt/defines.h"
+#include "rt/db_instance.h"
+#include "rt/rt_instance.h"
 
 __BEGIN_DECLS
 
@@ -48,7 +50,7 @@ __BEGIN_DECLS
  *
  * returns zero if matrix transform was applied, non-zero on failure.
  */
-RT_EXPORT extern int rt_matrix_transform(struct rt_db_internal *output, const mat_t matrix, struct rt_db_internal *input, int free_input, struct db_i *dbip, struct resource *resource);
+RT_EXPORT extern int rt_matrix_transform(struct rt_db_internal *output, const mat_t matrix, struct rt_db_internal *input, int free_input, struct db_i *dbip);
 
 /* find RPP of one region */
 
@@ -128,8 +130,7 @@ rt_bound_instance(point_t *bmin, point_t *bmax,
 	struct db_i *dbip,
 	const struct bg_tess_tol *ttol,
 	const struct bn_tol *tol,
-	mat_t *s_mat,
-	struct resource *res
+	mat_t *s_mat
 	);
 
 /**
@@ -162,22 +163,18 @@ RT_EXPORT extern int rt_shader_mat(mat_t                        model_to_shader,
 				   const struct rt_i    *rtip,
 				   const struct region  *rp,
 				   point_t                      p_min,  /* input/output: shader/region min point */
-				   point_t                      p_max,  /* input/output: shader/region max point */
-				   struct resource              *resp);
+				   point_t                      p_max); /* input/output: shader/region max point */
 
 /* mirror.c */
 RT_EXPORT extern struct rt_db_internal *rt_mirror(struct db_i *dpip,
 						  struct rt_db_internal *ip,
 						  point_t mirror_pt,
-						  vect_t mirror_dir,
-						  struct resource *resp);
+						  vect_t mirror_dir);
 
 
 RT_EXPORT extern void rt_plot_all_bboxes(FILE *fp,
 					 struct rt_i *rtip);
-RT_EXPORT extern void rt_plot_all_solids(FILE           *fp,
-					 struct rt_i    *rtip,
-					 struct resource        *resp);
+RT_EXPORT extern void rt_plot_all_solids(FILE *fp, struct rt_i *rtip);
 
 
 /* pr.c */

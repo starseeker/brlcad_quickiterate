@@ -520,12 +520,30 @@ function(brlcad_bext_process)
   # detect if the latter has changed and we need to redo the process.
   set(TP_INVENTORY "${CMAKE_BINARY_DIR}/CMakeFiles/thirdparty.txt")
   set(TP_INVENTORY_BINARIES "${CMAKE_BINARY_DIR}/CMakeFiles/thirdparty_binaries.txt")
+  set(BRLCAD_EXT_BUILD_CACHE "${CMAKE_CURRENT_BINARY_DIR}/bext_build/CMakeCache.txt")
 
   # If we are using git, do some checks
   bext_sha1_checks()
 
-  if(NOT EXISTS "${BRLCAD_EXT_INSTALL_DIR}" OR NOT EXISTS "${BRLCAD_EXT_NOINSTALL_DIR}")
+  set(BEXT_REFRESH_NEEDED FALSE)
+  if(
+    "${BRLCAD_BUNDLED_LIBS}" STREQUAL "BUNDLED"
+    AND EXISTS "${BRLCAD_EXT_BUILD_CACHE}"
+  )
+    file(STRINGS "${BRLCAD_EXT_BUILD_CACHE}" BEXT_EIGEN_ENABLED REGEX "^ENABLE_EIGEN:BOOL=ON$")
+    file(STRINGS "${BRLCAD_EXT_BUILD_CACHE}" BEXT_OPENCV_ENABLED REGEX "^ENABLE_OPENCV:BOOL=ON$")
+    file(STRINGS "${BRLCAD_EXT_BUILD_CACHE}" BEXT_ZLIB_ENABLED REGEX "^ENABLE_ZLIB:BOOL=ON$")
+    if(NOT BEXT_EIGEN_ENABLED OR NOT BEXT_OPENCV_ENABLED OR NOT BEXT_ZLIB_ENABLED)
+      set(BEXT_REFRESH_NEEDED TRUE)
+    endif(NOT BEXT_EIGEN_ENABLED OR NOT BEXT_OPENCV_ENABLED OR NOT BEXT_ZLIB_ENABLED)
+  endif()
+
+  if(NOT EXISTS "${BRLCAD_EXT_INSTALL_DIR}" OR NOT EXISTS "${BRLCAD_EXT_NOINSTALL_DIR}" OR BEXT_REFRESH_NEEDED)
     message("Attempting to prepare our own version of the bext dependencies\n")
+    if(BEXT_REFRESH_NEEDED)
+      message("Refreshing bext configuration to enforce bundled Eigen, OpenCV, and Zlib.\n")
+      file(REMOVE_RECURSE "${CMAKE_CURRENT_BINARY_DIR}/bext_build" "${CMAKE_CURRENT_BINARY_DIR}/bext_output")
+    endif(BEXT_REFRESH_NEEDED)
     brlcad_ext_setup()
   endif()
 
@@ -949,9 +967,6 @@ endfunction(brlcad_bext_process)
 # Not all packages will define all of these, but it shouldn't matter -
 # an unset of an unused variable shouldn't be harmful
 function(find_package_reset pname trigger_var)
-  if(NOT ${trigger_var})
-    return()
-  endif(NOT ${trigger_var})
   unset(${pname}_DIR CACHE)
   unset(${pname}_CONFIG CACHE)
   unset(${pname}_DEFINITIONS CACHE)
@@ -979,17 +994,25 @@ macro(find_package_zlib)
   find_package_reset(ZLIB RESET_TP)
   unset(Z_PREFIX CACHE)
   unset(Z_PREFIX_STR CACHE)
+  unset(ZLIB_STATUS CACHE)
   set(ZLIB_ROOT "${CMAKE_BINARY_DIR}")
   if(NOT BRLCAD_COMPONENTS OR F_REQUIRED)
     find_package(ZLIB REQUIRED)
   else()
     find_package(ZLIB)
   endif()
-  list(GET ZLIB_LIBRARIES 0 ZLIB_FILE)
-  is_subpath("${CMAKE_BINARY_DIR}" "${ZLIB_FILE}" ZLIB_LOCAL_TEST)
-  if(ZLIB_LOCAL_TEST)
-    set(Z_PREFIX_STR "brl_" CACHE STRING "Using local zlib" FORCE)
-  endif(ZLIB_LOCAL_TEST)
+  if(ZLIB_FOUND AND ZLIB_LIBRARIES)
+    list(GET ZLIB_LIBRARIES 0 ZLIB_FILE)
+    is_subpath("${CMAKE_BINARY_DIR}" "${ZLIB_FILE}" ZLIB_LOCAL_TEST)
+    if(ZLIB_LOCAL_TEST)
+      set(Z_PREFIX_STR "brl_" CACHE STRING "Using local zlib" FORCE)
+      set(ZLIB_STATUS "Bundled" CACHE STRING "Zlib bundled status" FORCE)
+    else()
+      set(ZLIB_STATUS "System" CACHE STRING "Zlib bundled status" FORCE)
+    endif(ZLIB_LOCAL_TEST)
+  else()
+    set(ZLIB_STATUS "NotFound" CACHE STRING "Zlib bundled status" FORCE)
+  endif()
 endmacro(find_package_zlib)
 
 # Eigen - linear algebra library
@@ -997,7 +1020,8 @@ macro(find_package_eigen)
   cmake_parse_arguments(F "REQUIRED" "" "" ${ARGN})
 
   find_package_reset(Eigen3 RESET_TP)
-  set(Eigen3_ROOT "${BRLCAD_EXT_NOINSTALL_DIR}/share/eigen3/cmake")
+  unset(EIGEN3_STATUS CACHE)
+  set(Eigen3_ROOT "${BRLCAD_EXT_NOINSTALL_DIR}")
   if(F_REQUIRED)
     find_package(Eigen3 NO_MODULE REQUIRED)
   else()
@@ -1007,8 +1031,36 @@ macro(find_package_eigen)
   list(REMOVE_DUPLICATES SYS_INCLUDE_PATTERNS)
   set(SYS_INCLUDE_PATTERNS ${SYS_INCLUDE_PATTERNS} Eigen CACHE STRING "Bundled system include dirs" FORCE)
 
-  # Let the cache know for BRLCAD_Summary.cmake
-  set(EIGEN3_INCLUDE_DIR "${EIGEN3_INCLUDE_DIR}" CACHE PATH "Eigen include directory" FORCE)
+  set(_EIGEN3_INCLUDE_DIR "")
+  if(TARGET Eigen3::Eigen)
+    get_target_property(_EIGEN3_INCLUDE_DIRS Eigen3::Eigen INTERFACE_INCLUDE_DIRECTORIES)
+    if(_EIGEN3_INCLUDE_DIRS)
+      list(GET _EIGEN3_INCLUDE_DIRS 0 _EIGEN3_INCLUDE_DIR)
+    endif()
+  endif()
+  if(NOT _EIGEN3_INCLUDE_DIR AND EIGEN3_INCLUDE_DIR)
+    set(_EIGEN3_INCLUDE_DIR "${EIGEN3_INCLUDE_DIR}")
+  endif()
+  if(NOT _EIGEN3_INCLUDE_DIR AND EIGEN3_INCLUDE_DIRS)
+    list(GET EIGEN3_INCLUDE_DIRS 0 _EIGEN3_INCLUDE_DIR)
+  endif()
+  if(NOT _EIGEN3_INCLUDE_DIR AND Eigen3_INCLUDE_DIRS)
+    list(GET Eigen3_INCLUDE_DIRS 0 _EIGEN3_INCLUDE_DIR)
+  endif()
+
+  # Let the cache know for downstream consumers and BRLCAD_Summary.cmake
+  set(EIGEN3_INCLUDE_DIR "${_EIGEN3_INCLUDE_DIR}" CACHE PATH "Eigen include directory" FORCE)
+  if(NOT Eigen3_FOUND)
+    set(EIGEN3_STATUS "NotFound" CACHE STRING "Eigen bundled status" FORCE)
+  else()
+    is_subpath("${CMAKE_BINARY_DIR}" "${EIGEN3_INCLUDE_DIR}" EIGEN_LOCAL_TEST)
+    is_subpath("${BRLCAD_EXT_NOINSTALL_DIR}" "${EIGEN3_INCLUDE_DIR}" EIGEN_EXT_TEST)
+    if(EIGEN_LOCAL_TEST OR EIGEN_EXT_TEST)
+      set(EIGEN3_STATUS "Bundled" CACHE STRING "Eigen bundled status" FORCE)
+    else()
+      set(EIGEN3_STATUS "System" CACHE STRING "Eigen bundled status" FORCE)
+    endif()
+  endif()
 endmacro(find_package_eigen)
 
 # GeometricTools - geometry library
@@ -1083,6 +1135,53 @@ macro(find_package_opencv)
   endif(NOT OpenCV_FOUND)
 endmacro(find_package_opencv)
 
+# Helper: ensure a shared library has a SONAME embedded.  Without a
+# SONAME, CMake passes the full build-tree path to the linker which
+# records a relative DT_NEEDED entry; at runtime the dynamic loader
+# tries to resolve that relative path from CWD rather than via RUNPATH,
+# causing load failures.
+#
+# Prefer plief (P_RPATH_EXECUTABLE) since it is already used for RPATH
+# management and now supports --print-soname / --set-soname.  Fall back
+# to patchelf if plief is not available.
+function(_brlcad_ensure_soname lib_path)
+  if(NOT lib_path OR NOT EXISTS "${lib_path}")
+    return()
+  endif()
+  # Only shared libraries (.so / .dylib) need a SONAME.
+  if(NOT lib_path MATCHES "\\.so(\\.[0-9]+)*$" AND NOT lib_path MATCHES "\\.dylib$")
+    return()
+  endif()
+  # Determine the expected SONAME: just the bare filename.
+  get_filename_component(_soname "${lib_path}" NAME)
+  # Prefer the already-located P_RPATH_EXECUTABLE (plief); fall back to patchelf.
+  set(_soname_tool "${P_RPATH_EXECUTABLE}")
+  if(NOT _soname_tool)
+    find_program(_soname_tool NAMES patchelf
+      HINTS "${BRLCAD_EXT_NOINSTALL_DIR}/${BIN_DIR}" /usr/bin /usr/local/bin)
+  endif()
+  if(NOT _soname_tool)
+    return()
+  endif()
+  # Read the existing SONAME (empty output = no SONAME).
+  execute_process(
+    COMMAND "${_soname_tool}" --print-soname "${lib_path}"
+    OUTPUT_VARIABLE _existing_soname
+    ERROR_QUIET
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  if(_existing_soname STREQUAL "")
+    message(STATUS "Setting SONAME ${_soname} on ${lib_path}")
+    execute_process(
+      COMMAND "${_soname_tool}" --set-soname "${_soname}" "${lib_path}"
+      RESULT_VARIABLE _soname_result
+    )
+    if(_soname_result)
+      message(WARNING "${_soname_tool} --set-soname failed for ${lib_path}")
+    endif()
+  endif()
+endfunction()
+
 # TCL - scripting language.  For Tcl/Tk builds we want static lib
 # building on so we get the stub libraries.
 macro(find_package_tcl)
@@ -1106,6 +1205,16 @@ macro(find_package_tcl)
     find_package(TCL REQUIRED)
   else()
     find_package(TCL)
+  endif()
+
+  # Ensure the bundled Tcl/Tk shared libraries have a SONAME.  Without
+  # one the linker records a relative DT_NEEDED path, which the dynamic
+  # loader cannot resolve at runtime via RUNPATH.
+  if(TCL_FOUND AND TCL_LIBRARY)
+    _brlcad_ensure_soname("${TCL_LIBRARY}")
+  endif()
+  if(TK_LIBRARY)
+    _brlcad_ensure_soname("${TK_LIBRARY}")
   endif()
 endmacro(find_package_tcl)
 
@@ -1182,6 +1291,70 @@ macro(find_package_qt)
   mark_as_advanced(Qt5Core_DIR)
   mark_as_advanced(Qt5Gui_DIR)
 endmacro(find_package_qt)
+
+# Bullet - physics library
+macro(find_package_bullet)
+  cmake_parse_arguments(F "REQUIRED" "" "" ${ARGN})
+
+  find_package_reset(Bullet RESET_TP)
+  find_package_reset(BULLET RESET_TP)
+  unset(BULLET_DYNAMICS_LIBRARY CACHE)
+  unset(BULLET_DYNAMICS_LIBRARY_DEBUG CACHE)
+  unset(BULLET_COLLISION_LIBRARY CACHE)
+  unset(BULLET_COLLISION_LIBRARY_DEBUG CACHE)
+  unset(BULLET_MATH_LIBRARY CACHE)
+  unset(BULLET_MATH_LIBRARY_DEBUG CACHE)
+  unset(BULLET_SOFTBODY_LIBRARY CACHE)
+  unset(BULLET_SOFTBODY_LIBRARY_DEBUG CACHE)
+  unset(BULLET_STATUS CACHE)
+  unset(BULLET_BT_USE_DOUBLE_PRECISION CACHE)
+
+  # Bullet is staged from bext's install tree into the build directory,
+  # so prefer that location rather than noinstall.
+  set(Bullet_ROOT "${CMAKE_BINARY_DIR}")
+  if(F_REQUIRED)
+    find_package(Bullet REQUIRED)
+  else()
+    find_package(Bullet)
+  endif()
+
+  if(BULLET_LIBRARIES)
+    list(GET BULLET_LIBRARIES 0 _bullet_lib0)
+
+    is_subpath("${CMAKE_BINARY_DIR}" "${_bullet_lib0}" BULLET_LOCAL_TEST)
+    is_subpath("${BRLCAD_EXT_INSTALL_DIR}" "${_bullet_lib0}" BULLET_EXT_INSTALL_TEST)
+    is_subpath("${BRLCAD_EXT_NOINSTALL_DIR}" "${_bullet_lib0}" BULLET_EXT_TEST)
+    if(BULLET_LOCAL_TEST OR BULLET_EXT_INSTALL_TEST OR BULLET_EXT_TEST)
+      set(BULLET_STATUS "Bundled" CACHE STRING "Bullet bundled status" FORCE)
+    else()
+      set(BULLET_STATUS "System" CACHE STRING "Bullet bundled status" FORCE)
+    endif()
+
+    set(_bullet_double ON)
+
+    if(BULLET_STATUS STREQUAL "System")
+      if("${BULLET_DEFINITIONS}" MATCHES "BT_USE_DOUBLE_PRECISION")
+        set(_bullet_double ON)
+      else()
+        # if system Bullet does not explicitly define double, we'll
+        # default to OFF as many/most system packages default to float
+        # and/or install the double version adjacent in ad hoc ways.
+        set(_bullet_double OFF)
+      endif()
+    endif()
+
+    if(_bullet_double)
+      set(BULLET_BT_USE_DOUBLE_PRECISION ON CACHE BOOL "Bullet btScalar is double" FORCE)
+    else()
+      set(BULLET_BT_USE_DOUBLE_PRECISION OFF CACHE BOOL "Bullet btScalar is double" FORCE)
+    endif()
+  elseif(Bullet_FOUND)
+    set(BULLET_STATUS "System" CACHE STRING "Bullet bundled status" FORCE)
+    set(BULLET_BT_USE_DOUBLE_PRECISION ON CACHE BOOL "Bullet btScalar is double" FORCE)
+  else()
+    set(BULLET_STATUS "NotFound" CACHE STRING "Bullet bundled status" FORCE)
+  endif()
+endmacro(find_package_bullet)
 
 # Local Variables:
 # tab-width: 8

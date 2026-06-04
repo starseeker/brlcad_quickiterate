@@ -106,6 +106,8 @@ struct client {
     Tcl_Channel         c_chan;
     Tcl_FileProc        *c_handler;
     struct pkg_conn	*c_pkg;
+    int			c_auth_ok;         /**< @brief !0 if client sent a valid MSG_FBAUTH */
+    int			c_pending_drop;    /**< @brief !0 = drop after pkg_process() returns */
 };
 
 
@@ -349,6 +351,8 @@ struct mged_dm {
     int			dm_netfd;			/* socket used to listen for connections */
     Tcl_Channel		dm_netchan;
     struct client	dm_clients[MAX_CLIENTS];
+    char		dm_session_token[65];		/* fbserv auth token (64 hex + NUL); empty = no auth */
+    int			dm_require_auth;		/* !0 = reject unauthenticated fb clients */
     int			dm_dirty;			/* true if received an expose or configuration event */
     int			dm_mapped;
     int			dm_owner;			/* true if owner of the view info */
@@ -534,6 +538,7 @@ extern void dm_var_init(struct mged_state *s, struct mged_dm *target_dm);
 
 /* defined in dm-generic.c */
 extern int common_dm(struct mged_state *s, int argc, const char *argv[]);
+extern int mged_dm_motion(struct mged_state *s, int x, int y);
 extern void view_state_flag_hook(const struct bu_structparse *, const char *, void *,const char *, void *);
 extern void dirty_hook(const struct bu_structparse *, const char *, void *,const char *, void *);
 extern void zclip_hook(const struct bu_structparse *, const char *, void *,const char *, void *);

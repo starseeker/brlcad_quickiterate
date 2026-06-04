@@ -299,8 +299,8 @@ do_one_iteration(struct application *ap_template,
  * raytrace instance @p rtip, using the stopping criteria in @p params.
  *
  * The caller is responsible for creating, preparing (rt_prep_parallel),
- * and freeing (rt_free_rti) @p rtip.  This function does NOT call
- * rt_free_rti.
+ * and freeing (rt_i_destroy) @p rtip.  This function does NOT call
+ * rt_i_destroy.
  *
  * @param rtip         Prepared raytrace instance (rt_prep_parallel must
  *                     have been called before this function).
@@ -519,14 +519,14 @@ rt_crofton_shoot(struct rt_i                      *rtip,
     if (out_volume)    *out_volume    = curr_est_v;
 
     /* Clean each resource and NULL out its slot in rtip->rti_resources.
-     * This is necessary because crofton_from_ip calls rt_free_rti(rtip)
-     * after we return.  rt_free_rti → rt_clean iterates rti_resources and
+     * This is necessary because crofton_from_ip calls rt_i_destroy(rtip)
+     * after we return.  rt_i_destroy → rt_clean iterates rti_resources and
      * calls rt_clean_resource (which calls rt_init_resource) on every
      * non-NULL entry.  If we free the resources array first, those entries
      * become dangling pointers and rt_init_resource reads garbage re_cpu
      * values that may exceed MAX_PSW, triggering a BU_ASSERT.
      *
-     * By setting the slot to NULL we let rt_free_rti's cleanup skip it,
+     * By setting the slot to NULL we let rt_i_destroy's cleanup skip it,
      * and then we can safely bu_free the resources array.                */
     for (int i = 0; i < MAX_PSW; i++) {
 	if (resources[i].re_magic == RESOURCE_MAGIC) {
@@ -580,7 +580,7 @@ crofton_from_ip_n(const struct rt_db_internal    *ip,
 
     /* ---- Serialize ip to bu_external without freeing the caller's data.
      *
-     * Build a shallow wrapper around ip so that rt_db_cvt_to_external5
+     * Build a shallow wrapper around ip so that rt_db_cvt_to_ext5
      * can serialize the primitive data without requiring a full deep copy.
      * We must NOT call rt_db_free_internal on this wrapper because idb_ptr
      * is owned by the caller.                                             */
@@ -600,9 +600,8 @@ crofton_from_ip_n(const struct rt_db_internal    *ip,
 	    struct rt_db_internal *bip = dsp_ip->dsp_bip;
 	    struct bu_external bip_ext;
 	    BU_EXTERNAL_INIT(&bip_ext);
-	    if (rt_db_cvt_to_external5(&bip_ext, data_name, bip, 1.0,
-				       dbip, &rt_uniresource,
-				       bip->idb_major_type) == 0) {
+	    if (rt_db_cvt_to_ext5(&bip_ext, data_name, bip, 1.0,
+				       dbip, bip->idb_major_type) == 0) {
 		int bip_flags = db_flags_internal(bip);
 		if (wdb_export_external(wdbp, &bip_ext, data_name,
 					bip_flags,
@@ -635,10 +634,9 @@ crofton_from_ip_n(const struct rt_db_internal    *ip,
     struct bu_external ext;
     BU_EXTERNAL_INIT(&ext);
 
-    if (rt_db_cvt_to_external5(&ext, scratch, &tmp_intern, 1.0,
-				dbip, &rt_uniresource,
-				ip->idb_major_type) < 0) {
-	bu_log("rt_crofton: rt_db_cvt_to_external5() failed\n");
+    if (rt_db_cvt_to_ext5(&ext, scratch, &tmp_intern, 1.0,
+				dbip, ip->idb_major_type) < 0) {
+	bu_log("rt_crofton: rt_db_cvt_to_ext5() failed\n");
 	bu_free_external(&ext);
 	db_close(dbip);
 	return -1;
@@ -657,19 +655,19 @@ crofton_from_ip_n(const struct rt_db_internal    *ip,
     /* In the INMEM path ext_buf is stolen; this is safe to call regardless */
     bu_free_external(&ext);
 
-    db_update_nref(dbip, &rt_uniresource);
+    db_update_nref(dbip);
 
     /* ---- Build raytrace instance ---- */
-    struct rt_i *rtip = rt_new_rti(dbip);
+    struct rt_i *rtip = rt_i_create(dbip);
     if (!rtip) {
-	bu_log("rt_crofton: rt_new_rti() failed\n");
+	bu_log("rt_crofton: rt_i_create() failed\n");
 	db_close(dbip);
 	return -1;
     }
 
     if (rt_gettree(rtip, scratch) < 0) {
 	bu_log("rt_crofton: rt_gettree() failed for '%s'\n", scratch);
-	rt_free_rti(rtip);
+	rt_i_destroy(rtip);
 	db_close(dbip);
 	return -1;
     }
@@ -685,7 +683,7 @@ crofton_from_ip_n(const struct rt_db_internal    *ip,
     if (out_vol) *out_vol = vol;
 
     /* ---- Clean up ---- */
-    rt_free_rti(rtip);
+    rt_i_destroy(rtip);
     /* wdb_dbopen for INMEM returns an embedded pointer inside dbip;
      * do NOT call wdb_close() here, as that would double-free dbip. */
     db_close(dbip);

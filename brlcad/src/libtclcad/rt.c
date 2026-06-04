@@ -484,15 +484,15 @@ tclcad_rt_prep(ClientData clientData, Tcl_Interp *interp, int argc, const char *
     bu_vls_printf(&str, " space_partition_type %s n_cutnode %zu n_boxnode %zu n_empty %zu",
 		  rtip->rti_space_partition == RT_PART_NUBSPT ? "NUBSP" :
 		  (rtip->rti_space_partition == RT_PART_HLBVH ? "HLBVH" : "unknown"),
-		  rtip->rti_ncut_by_type[CUT_CUTNODE],
-		  rtip->rti_ncut_by_type[CUT_BOXNODE],
-		  rtip->nempty_cells);
+		  rtip->stats.rti_ncut_by_type[CUT_CUTNODE],
+		  rtip->stats.rti_ncut_by_type[CUT_BOXNODE],
+		  rtip->stats.nempty_cells);
     bu_vls_printf(&str, " maxdepth %zu maxlen %zu",
-		  rtip->rti_cut_maxdepth,
-		  rtip->rti_cut_maxlen);
-    if (rtip->rti_ncut_by_type[CUT_BOXNODE]) bu_vls_printf(&str, " avglen %g",
-							   ((double)rtip->rti_cut_totobj) /
-							   rtip->rti_ncut_by_type[CUT_BOXNODE]);
+		  rtip->stats.rti_cut_maxdepth,
+		  rtip->stats.rti_cut_maxlen);
+    if (rtip->stats.rti_ncut_by_type[CUT_BOXNODE]) bu_vls_printf(&str, " avglen %g",
+							   ((double)rtip->stats.rti_cut_totobj) /
+							   rtip->stats.rti_ncut_by_type[CUT_BOXNODE]);
 
     Tcl_AppendResult(interp, bu_vls_addr(&str), (char *)NULL);
     bu_vls_free(&str);
@@ -644,7 +644,7 @@ tclcad_rt_import_from_path(Tcl_Interp *interp, struct rt_db_internal *ip, const 
 	struct directory *dp_curr;
 	int ret;
 
-	db_init_db_tree_state(&ts, dbip, &rt_uniresource);
+	db_init_db_tree_state(&ts, dbip);
 	db_full_path_init(&old_path);
 	db_full_path_init(&new_path);
 

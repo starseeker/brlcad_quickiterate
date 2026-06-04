@@ -13,11 +13,14 @@ changes made.  See document footer for additional details.
 --- 20XX-XX-XX  Release 7.44.0                                     ---
 ----------------------------------------------------------------------
 
-Private members of the db_i struct that were exposed in the
-include/rt/db_instance.h header have now been made properly private,
-and an obsolete entry was removed from the rt_bot_internal struct -
-these are ABI breaking changes.
-
+* fixed mged instability/crash after mged help command - Sean Morrison
+* new mged 'near' command to find proximity objects - Sean Morrison
+* fixed sketch/view polygon coordinate offsets - Cliff Yapp
+* added new manual pages for over 110 GED commands - Sean Morrison
+* improved facetize tolerance and coplanar face handling - Cliff Yapp
+* added support for alternate plane forms to rt -k option - Cliff Yapp
+* added loadview manual page - Sean Morrison
+* improved ~85 manual page synopses, docs, & examples - Sean Morrison
 * fixed bug in gqa material object lookup - Cliff Yapp
 * fixed bug in rtweight material object lookup - Cliff Yapp
 * added support for writing out .jpg files to libicv/rt - Cliff Yapp

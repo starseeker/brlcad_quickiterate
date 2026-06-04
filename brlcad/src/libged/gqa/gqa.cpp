@@ -1456,7 +1456,7 @@ allocate_per_region_data(struct ged *gedp, struct cstate *state, int start, int 
 	return;
     }
 
-    if (rtip->nregions == 0) {
+    if (rtip->stats.nregions == 0) {
 	/* dammit! */
 	bu_log("WARNING: No regions remaining.\n");
 	return;
@@ -1487,7 +1487,7 @@ allocate_per_region_data(struct ged *gedp, struct cstate *state, int start, int 
     }
 
     /* build objects for each region */
-    reg_tbl = (struct per_region_data *)bu_calloc(rtip->nregions, sizeof(struct per_region_data), "per_region_data");
+    reg_tbl = (struct per_region_data *)bu_calloc(rtip->stats.nregions, sizeof(struct per_region_data), "per_region_data");
 
 
     for (i = 0, BU_LIST_FOR (regp, region, &(rtip->HeadRegion)), i++) {
@@ -1570,7 +1570,7 @@ options_prep(struct ged *gedp, struct rt_i *UNUSED(rtip), vect_t span)
 	    FOR_ALL_DIRECTORY_START(dp, gedp->dbip)
 		struct rt_db_internal intern;
 		struct rt_material_internal *material_ip;
-		if (rt_db_get_internal(&intern, dp, gedp->dbip, NULL, &rt_uniresource) >= 0) {
+		if (rt_db_get_internal(&intern, dp, gedp->dbip, NULL) >= 0) {
 		    if (intern.idb_minor_type == DB5_MINORTYPE_BRLCAD_MATERIAL) {
 			// if the material has an id and density, add it to the density table
 			material_ip = (struct rt_material_internal *)intern.idb_ptr;
@@ -1759,7 +1759,7 @@ densities_prep(struct ged *gedp, struct rt_i *rtip)
 		struct rt_db_internal intern;
 		struct rt_material_internal *material_ip;
 		if (dp->d_major_type == DB5_MAJORTYPE_BRLCAD) {
-		    if (rt_db_get_internal(&intern, dp, rtip->rti_dbip, NULL, &rt_uniresource) >= 0) {
+		    if (rt_db_get_internal(&intern, dp, rtip->rti_dbip, NULL) >= 0) {
 			if (intern.idb_minor_type == DB5_MINORTYPE_BRLCAD_MATERIAL) {
 			    // if the material has a density, add it to the density table
 			    material_ip = (struct rt_material_internal *) intern.idb_ptr;
@@ -1822,7 +1822,7 @@ densities_prep(struct ged *gedp, struct rt_i *rtip)
 			    if (material_dp != NULL) {
 				struct rt_db_internal material_intern;
 				struct rt_material_internal *material_ip;
-				if (rt_db_get_internal(&material_intern, material_dp, rtip->rti_dbip, NULL, &rt_uniresource) >= 0) {
+				if (rt_db_get_internal(&material_intern, material_dp, rtip->rti_dbip, NULL) >= 0) {
 				    if (material_intern.idb_minor_type == DB5_MINORTYPE_BRLCAD_MATERIAL) {
 					// the material_ip->name field is the name in the density table
 					// not just the material_name (they could be different)
@@ -2566,7 +2566,7 @@ ged_gqa_core(struct ged *gedp, int argc, const char *argv[])
 	ged_gqa_plot.vhead = bv_vlblock_find(ged_gqa_plot.vbp, 0xFF, 0xFF, 0x00);
     }
 
-    rtip = rt_new_rti(gedp->dbip);
+    rtip = rt_i_create(gedp->dbip);
     rtip->useair = use_air;
 
     start_objs = arg_count;
@@ -2794,7 +2794,7 @@ aborted:
 	_gd_densities_source = NULL;
     }
 
-    rt_free_rti(rtip);
+    rt_i_destroy(rtip);
 
     return BRLCAD_OK;
 }

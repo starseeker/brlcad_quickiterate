@@ -47,7 +47,6 @@
 #include "rt/edit.h"
 #include "rt/hit.h"
 #include "rt/misc.h"
-#include "rt/resource.h"
 #include "rt/rt_instance.h"
 #include "rt/seg.h"
 #include "rt/soltab.h"
@@ -60,6 +59,8 @@
 
 
 __BEGIN_DECLS
+
+struct rt_piecestate; /* forward declaration for ft_piece_shot / ft_piece_hitsegs */
 
 /**
  * This needs to be at the end of the raytrace.h header file, so that
@@ -167,30 +168,26 @@ struct rt_functab {
     int (*ft_import5)(struct rt_db_internal * /*ip*/,
 		      const struct bu_external * /*ep*/,
 		      const mat_t /*mat*/,
-		      const struct db_i * /*dbip*/,
-		      struct resource * /*resp*/);
-#define RTFUNCTAB_FUNC_IMPORT5_CAST(_func) ((int (*)(struct rt_db_internal *, const struct bu_external *, const mat_t, const struct db_i *, struct resource *))((void (*)(void))_func))
+		      const struct db_i * /*dbip*/);
+#define RTFUNCTAB_FUNC_IMPORT5_CAST(_func) ((int (*)(struct rt_db_internal *, const struct bu_external *, const mat_t, const struct db_i *))((void (*)(void))_func))
 
     int (*ft_export5)(struct bu_external * /*ep*/,
 		      const struct rt_db_internal * /*ip*/,
 		      double /*local2mm*/,
-		      const struct db_i * /*dbip*/,
-		      struct resource * /*resp*/);
-#define RTFUNCTAB_FUNC_EXPORT5_CAST(_func) ((int (*)(struct bu_external *, const struct rt_db_internal *, double, const struct db_i *, struct resource *))((void (*)(void))_func))
+		      const struct db_i * /*dbip*/);
+#define RTFUNCTAB_FUNC_EXPORT5_CAST(_func) ((int (*)(struct bu_external *, const struct rt_db_internal *, double, const struct db_i *))((void (*)(void))_func))
 
     int (*ft_import4)(struct rt_db_internal * /*ip*/,
 		      const struct bu_external * /*ep*/,
 		      const mat_t /*mat*/,
-		      const struct db_i * /*dbip*/,
-		      struct resource * /*resp*/);
-#define RTFUNCTAB_FUNC_IMPORT4_CAST(_func) ((int (*)(struct rt_db_internal *, const struct bu_external *, const mat_t, const struct db_i *, struct resource *))((void (*)(void))_func))
+		      const struct db_i * /*dbip*/);
+#define RTFUNCTAB_FUNC_IMPORT4_CAST(_func) ((int (*)(struct rt_db_internal *, const struct bu_external *, const mat_t, const struct db_i *))((void (*)(void))_func))
 
     int (*ft_export4)(struct bu_external * /*ep*/,
 		      const struct rt_db_internal * /*ip*/,
 		      double /*local2mm*/,
-		      const struct db_i * /*dbip*/,
-		      struct resource * /*resp*/);
-#define RTFUNCTAB_FUNC_EXPORT4_CAST(_func) ((int (*)(struct bu_external *, const struct rt_db_internal *, double, const struct db_i *, struct resource *))((void (*)(void))_func))
+		      const struct db_i * /*dbip*/);
+#define RTFUNCTAB_FUNC_EXPORT4_CAST(_func) ((int (*)(struct bu_external *, const struct rt_db_internal *, double, const struct db_i *))((void (*)(void))_func))
 
     void (*ft_ifree)(struct rt_db_internal * /*ip*/);
 #define RTFUNCTAB_FUNC_IFREE_CAST(_func) ((void (*)(struct rt_db_internal *))((void (*)(void))_func))

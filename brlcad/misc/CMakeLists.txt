@@ -1,7 +1,3 @@
-if(BUILD_STATIC_LIBS AND BRLCAD_ENABLE_BRLCAD_LIBRARY)
-  add_subdirectory(win32-msvc)
-endif(BUILD_STATIC_LIBS AND BRLCAD_ENABLE_BRLCAD_LIBRARY)
-
 set(prefix "${CMAKE_INSTALL_PREFIX}")
 set(exec_prefix "\${prefix}")
 set(libdir "\${exec_prefix}/lib")
@@ -14,16 +10,6 @@ if(NOT BRLCAD_COMPONENTS)
   add_subdirectory(perl)
 
   add_subdirectory(opencl-raytracer-tests)
-
-  configure_file(brlcad-config.in ${CMAKE_BINARY_DIR}/misc/brlcad-config @ONLY)
-  file(
-    COPY ${CMAKE_BINARY_DIR}/misc/brlcad-config
-    DESTINATION ${CMAKE_BINARY_DIR}/${BIN_DIR}
-    FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
-  )
-  distclean(${CMAKE_BINARY_DIR}/${BIN_DIR}/brlcad-config)
-  file(REMOVE ${CMAKE_BINARY_DIR}/misc/brlcad-config)
-  install(PROGRAMS ${CMAKE_BINARY_DIR}/bin/brlcad-config DESTINATION ${BIN_DIR})
 
   brlcad_adddata(fortran_example.f sample_applications)
 endif(NOT BRLCAD_COMPONENTS)
@@ -89,7 +75,6 @@ set(
   auto-man-page/README.auto-man-page-handling
   auto-man-page/auto-man-progs.txt
   batch-indent-region.el
-  brlcad-config.in
   brlcad.spec.in
   bugs/CMakeLists.txt
   check/adj_air.sh
@@ -112,6 +97,8 @@ set(
   docker/dev/Dockerfile
   docker/dev/README.md
   docker/dev/startup
+  example/cmake_consumer/CMakeLists.txt
+  example/cmake_consumer/main.c
   flawfinder
   hawaii_islands.sh
   jove.emacs
@@ -137,14 +124,6 @@ set(
   profont/profont_IIx_readme.pdf
   profont/readme.txt
   uncpowerplant2g.sh
-  win32-msvc/CMakeLists.txt
-  win32-msvc/Dll/BrlcadCore.def
-  win32-msvc/Dll/BrlcadCore.rc
-  win32-msvc/Dll/CMakeLists.txt
-  win32-msvc/Dll/TclDummies.c
-  win32-msvc/Dll/brlcad.def
-  win32-msvc/Dll/brlcad.rc
-  win32-msvc/bootstrap.cpp
   wix/License.rtf
   wix/brlcad_banner.bmp
   wix/brlcad_dialog.bmp

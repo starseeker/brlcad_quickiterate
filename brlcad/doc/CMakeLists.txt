@@ -231,6 +231,7 @@ cmakefiles(
   git/merging.txt
   git/mime_types.txt
   git/usability.txt
+  inventory.adoc
   notes/bsd_semaphore_bug.txt
   notes/cmake_paths/CMakeLists.txt
   notes/cmake_paths/README.txt
@@ -240,6 +241,7 @@ cmakefiles(
   notes/csv_to_comgeom.txt
   notes/implicit_constraints.txt
   notes/lcov.txt
+  notes/struct_resource_removal.txt
   pad_file.xml.in
 )
 

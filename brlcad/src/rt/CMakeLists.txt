@@ -7,14 +7,18 @@ set(
   do.c
   grid.c
   heatgraph.c
-  main.c
   opt.c
   scanline.c
   usage.cpp
   worker.c
 )
 
-brlcad_addlib(librtuif "${LIBRTUIF_SOURCES}" "librt;${M_LIBRARY}" "" "${CMAKE_CURRENT_SOURCE_DIR}" STATIC NO_INSTALL)
+brlcad_addlib(librtuif "${LIBRTUIF_SOURCES}" "" "${CMAKE_CURRENT_SOURCE_DIR}"
+  STATIC NO_INSTALL NO_STATIC_LINK_TEST
+  PRIVATE_LIBS librt ${M_LIBRARY}
+)
+
+list(APPEND LIBRTUIF_SOURCES main.c)
 
 if(BRLCAD_ENABLE_OPENCL)
   set(OPENCL_LIBS ${OPENCL_LIBRARIES})
@@ -106,6 +110,37 @@ set(
   viewdummy.c
 )
 cmakefiles(${rt_ignore_files})
+
+# -------------------------------------------------------------------
+# Regression tests for opt.c / get_args()
+#
+# We compile all LIBRTUIF_SOURCES except main.c, plus viewcheck.c as
+# a minimal view stub, plus the test driver.  This avoids duplicating
+# main() while still exercising get_args() directly so that gcov/lcov
+# can measure branch coverage of opt.c.
+# -------------------------------------------------------------------
+
+set(
+  RT_OPT_TEST_SRCS
+  do.c
+  grid.c
+  heatgraph.c
+  opt.c
+  scanline.c
+  usage.cpp
+  worker.c
+  viewcheck.c
+  tests/test_rt_opt.c
+)
+
+brlcad_addexec(test_rt_opt "${RT_OPT_TEST_SRCS}" "${RT_STD_LIBS}" TEST)
+target_include_directories(test_rt_opt BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+set_property(
+  TARGET test_rt_opt
+  APPEND PROPERTY COMPILE_DEFINITIONS "RT_TXT_OUTPUT"
+)
+
+add_subdirectory(tests)
 
 # Local Variables:
 # tab-width: 8

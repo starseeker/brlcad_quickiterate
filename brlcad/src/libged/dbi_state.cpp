@@ -157,6 +157,10 @@ dbi_cache_open(const char *name)
 	if (disk_format_version != CACHE_CURRENT_FORMAT) {
 	    bu_log("Old GED drawing info cache (%zd) found - clearing\n", disk_format_version);
 	    dbi_cache_clear(c);
+	    /* Delete the stale format file before recursing.  Without this
+	     * the recursive call reads the same wrong version and recurses
+	     * indefinitely, causing a stack overflow / segfault. */
+	    bu_file_delete(dir);
 	    mdb_env_close(c->env);
 	    bu_vls_free(&fname);
 	    bu_vls_free(c->fname);
@@ -477,7 +481,7 @@ DbiState::populate_maps(struct directory *dp, unsigned long long phash, int rese
 	    pv_it->second.clear();
 	}
 	struct rt_db_internal in;
-	if (rt_db_get_internal(&in, dp, dbip, NULL, res) < 0)
+	if (rt_db_get_internal(&in, dp, dbip, NULL) < 0)
 	    return;
 	struct rt_comb_internal *comb = (struct rt_comb_internal *)in.idb_ptr;
 	if (!comb->tree)
@@ -1299,7 +1303,7 @@ DbiState::get_bbox(point_t *bbmin, point_t *bbmax, matp_t curr_mat, unsigned lon
 	struct bn_tol tol = BN_TOL_INIT_TOL;
 	mat_t m;
 	MAT_IDN(m);
-	int bret = rt_bound_instance(&bmin, &bmax, dp, dbip, &ttol, &tol, &m, res);
+	int bret = rt_bound_instance(&bmin, &bmax, dp, dbip, &ttol, &tol, &m);
 	if (bret != -1) {
 	    have_bbox = true;
 
@@ -1489,7 +1493,7 @@ DbiState::tops(bool show_cyclic)
     std::vector<unsigned long long> ret;
     // First, get the standard tops results
     struct directory **all_paths = NULL;
-    db_update_nref(gedp->dbip, &rt_uniresource);
+    db_update_nref(gedp->dbip);
     int tops_cnt = db_ls(gedp->dbip, DB_LS_TOPS, NULL, &all_paths);
     if (all_paths) {
 	bu_sort(all_paths, tops_cnt, sizeof(struct directory *), alphanum_sort, NULL);
@@ -1539,7 +1543,7 @@ DbiState::update()
     std::unordered_set<struct directory *>::iterator g_it;
 
     if (need_update_nref) {
-	db_update_nref(dbip, res);
+	db_update_nref(dbip);
 	need_update_nref = false;
     }
 
@@ -2317,7 +2321,6 @@ BViewState::scene_obj(
     ud->dbip = dbis->gedp->dbip;
     ud->tol = &wdbp->wdb_tol;
     ud->ttol = &wdbp->wdb_ttol;
-    ud->res = &rt_uniresource; // TODO - at some point this may be from the app or view... local_res is temporary, don't use it here
     ud->mesh_c = dbis->gedp->ged_lod;
     sp->dp = dp;
     sp->s_i_data = (void *)ud;

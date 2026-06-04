@@ -95,7 +95,7 @@ ged_copyeval_core(struct ged *gedp, int argc, const char *argv[])
 
     gtd.gtd_objpos = endpos - 1;
 
-    GED_DB_GET_INTERNAL(gedp, &internal, gtd.gtd_obj[endpos - 1], bn_mat_identity, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_GET_INTERN(gedp, &internal, gtd.gtd_obj[endpos - 1], bn_mat_identity, BRLCAD_ERROR);
 
     if (endpos > 1) {
 	/* Make sure that final component in path is a solid */
@@ -149,7 +149,7 @@ ged_copyeval_core(struct ged *gedp, int argc, const char *argv[])
     /* should call GED_DB_DIRADD() but need to deal with freeing the
      * internals on failure.
      */
-    if (rt_db_put_internal(dp, gedp->dbip, ip, &rt_uniresource) < 0) {
+    if (rt_db_put_internal(dp, gedp->dbip, ip) < 0) {
 	/* if (ip == &new_int) then new_int gets freed by the rt_db_put_internal above
 	 * regardless of whether it succeeds or not. At this point only internal needs
 	 * to be freed. On the other hand if (ip == &internal), the internal gets freed

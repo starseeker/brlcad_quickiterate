@@ -92,6 +92,7 @@ rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, 
     BU_GET(s->m, struct rt_edit_map);
     s->m->i = new RT_Edit_Map_Internal;
 
+    s->dbip = dbip;
     RT_DB_INTERNAL_INIT(&s->es_int);
 
     bu_ptbl_init(&s->comb_insts, 8, "comb inst tbl");
@@ -143,6 +144,7 @@ rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, 
     s->update_views = 0;
     s->vlfree = NULL;
     s->vp = v;
+    s->dbip = NULL;
 
     BU_GET(s->log_str, struct bu_vls);
     bu_vls_init(s->log_str);
@@ -160,8 +162,9 @@ rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, 
 
     s->local2base = dbip->dbi_local2base;
     s->base2local = dbip->dbi_base2local;
+    s->dbip = dbip;
 
-    if (rt_db_get_internal(&s->es_int, DB_FULL_PATH_CUR_DIR(dfp), dbip, NULL, &rt_uniresource) < 0) {
+    if (rt_db_get_internal(&s->es_int, DB_FULL_PATH_CUR_DIR(dfp), dbip, NULL) < 0) {
 	rt_edit_destroy(s);
 	return NULL;                         /* FAIL */
     }
@@ -172,7 +175,7 @@ rt_edit_create(struct db_full_path *dfp, struct db_i *dbip, struct bn_tol *tol, 
 	s->ipe_ptr = (*EDOBJ[DB_FULL_PATH_CUR_DIR(dfp)->d_minor_type].ft_prim_edit_create)(s);
 
     /* Save aggregate path matrix */
-    (void)db_path_to_mat(dbip, dfp, s->e_mat, dfp->fp_len-1, &rt_uniresource);
+    (void)db_path_to_mat(dbip, dfp, s->e_mat, dfp->fp_len-1);
 
     /* get the inverse matrix */
     bn_mat_inv(s->e_invmat, s->e_mat);
@@ -192,9 +195,11 @@ rt_edit_destroy(struct rt_edit *s)
 
     struct rt_db_internal *ip = &s->es_int;
 
-    if (s->ipe_ptr && EDOBJ[ip->idb_type].ft_prim_edit_destroy) {
-	 (*EDOBJ[ip->idb_type].ft_prim_edit_destroy)(s->ipe_ptr);
-	 s->ipe_ptr = NULL;
+    if (s->ipe_ptr) {
+	if (ip->idb_type > 0 && EDOBJ[ip->idb_type].magic == RT_FUNCTAB_MAGIC &&
+		EDOBJ[ip->idb_type].ft_prim_edit_destroy)
+	    (*EDOBJ[ip->idb_type].ft_prim_edit_destroy)(s->ipe_ptr);
+	s->ipe_ptr = NULL;
     }
 
     bu_ptbl_free(&s->comb_insts);
@@ -314,8 +319,9 @@ rt_edit_reinit(struct rt_edit *s, struct db_full_path *dfp, struct db_i *dbip,
 
     s->local2base = dbip->dbi_local2base;
     s->base2local = dbip->dbi_base2local;
+    s->dbip = dbip;
 
-    if (rt_db_get_internal(&s->es_int, DB_FULL_PATH_CUR_DIR(dfp), dbip, NULL, &rt_uniresource) < 0)
+    if (rt_db_get_internal(&s->es_int, DB_FULL_PATH_CUR_DIR(dfp), dbip, NULL) < 0)
 	return BRLCAD_ERROR;
 
     RT_CK_DB_INTERNAL(&s->es_int);
@@ -325,7 +331,7 @@ rt_edit_reinit(struct rt_edit *s, struct db_full_path *dfp, struct db_i *dbip,
 	s->ipe_ptr = (*EDOBJ[DB_FULL_PATH_CUR_DIR(dfp)->d_minor_type].ft_prim_edit_create)(s);
 
     /* Compute aggregate path matrix and its inverse */
-    (void)db_path_to_mat(dbip, dfp, s->e_mat, dfp->fp_len - 1, &rt_uniresource);
+    (void)db_path_to_mat(dbip, dfp, s->e_mat, dfp->fp_len - 1);
     bn_mat_inv(s->e_invmat, s->e_mat);
 
     /* Establish initial keypoint */
@@ -1185,7 +1191,7 @@ rt_edit_checkpoint(struct rt_edit *s)
     bu_free_external(&s->es_ckpt);
     BU_EXTERNAL_INIT(&s->es_ckpt);
 
-    if (rt_obj_export(&s->es_ckpt, &s->es_int, 1.0, NULL, &rt_uniresource) < 0) {
+    if (rt_obj_export(&s->es_ckpt, &s->es_int, 1.0, s->dbip) < 0) {
 	bu_vls_printf(s->log_str, "rt_edit_checkpoint: export failed\n");
 	return BRLCAD_ERROR;
     }
@@ -1211,9 +1217,13 @@ rt_edit_revert(struct rt_edit *s)
     rt_db_free_internal(&s->es_int);
     RT_DB_INTERNAL_INIT(&s->es_int);
 
+    /* rt_obj_import dispatches on ip->idb_minor_type, which RT_DB_INTERNAL_INIT
+     * resets to -1.  Restore the saved type so the right ft_importN is called. */
+    s->es_int.idb_minor_type = type;
+
     mat_t identity;
     MAT_IDN(identity);
-    if (rt_obj_import(&s->es_int, &s->es_ckpt, identity, NULL, &rt_uniresource) < 0) {
+    if (rt_obj_import(&s->es_int, &s->es_ckpt, identity, s->dbip) < 0) {
 	bu_vls_printf(s->log_str, "rt_edit_revert: import failed\n");
 	return BRLCAD_ERROR;
     }
@@ -1250,6 +1260,21 @@ edit_param_type_str(int type)
 	case RT_EDIT_PARAM_MATRIX:  return "matrix";
 	default:                    return "unknown";
     }
+}
+
+static std::string
+edit_cmd_slug(const char *label)
+{
+    std::string slug;
+    for (const char *p = label; p && *p; p++) {
+	if (isalnum((unsigned char)*p))
+	    slug += (char)tolower((unsigned char)*p);
+	else if (!slug.empty() && slug.back() != '_')
+	    slug += '_';
+    }
+    while (!slug.empty() && slug.back() == '_')
+	slug.pop_back();
+    return slug;
 }
 
 /* Emit a fastf_t value as JSON number or "null" for NO_LIMIT */
@@ -1308,6 +1333,21 @@ rt_edit_prim_desc_to_json(struct bu_vls *out,
 	const struct rt_edit_cmd_desc *cmd = &desc->cmds[ci];
 	bu_vls_strcat(out, "    {\n");
 	bu_vls_printf(out, "      \"cmd_id\": %d,\n", cmd->cmd_id);
+	std::string cname = edit_cmd_slug(cmd->label);
+	bu_vls_strcat(out, "      \"canonical_name\": ");
+	emit_json_str(out, cname.c_str());
+	bu_vls_strcat(out, ",\n");
+	bu_vls_strcat(out, "      \"aliases\": [");
+	bool first_alias = true;
+	if (cmd->nparam == 1 && cmd->params && cmd->params[0].name) {
+	    const char *a = cmd->params[0].name;
+	    if (a && !BU_STR_EQUAL(a, cname.c_str())) {
+		emit_json_str(out, a);
+		first_alias = false;
+	    }
+	}
+	(void)first_alias;
+	bu_vls_strcat(out, "],\n");
 	bu_vls_strcat(out, "      \"label\": ");
 	emit_json_str(out, cmd->label);
 	bu_vls_strcat(out, ",\n");

@@ -34,7 +34,7 @@
 
 #include "../ged_private.h"
 
-struct tmp_v {
+struct makev_tmp_v {
     point_t pt;
     struct vertex *v;
 };
@@ -48,7 +48,7 @@ ged_nmg_make_v_core(struct ged *gedp, int argc, const char *argv[])
     const char* name;
     struct nmgregion* r;
     struct shell* s;
-    struct tmp_v* verts;
+    struct makev_tmp_v* verts;
     struct bn_tol tol;
     int idx;
     int num_verts;
@@ -76,7 +76,7 @@ ged_nmg_make_v_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     if (rt_db_get_internal(&internal, dp, gedp->dbip,
-       bn_mat_identity, &rt_uniresource) < 0) {
+       bn_mat_identity) < 0) {
        bu_vls_printf(gedp->ged_result_str, "rt_db_get_internal() error\n");
        return BRLCAD_ERROR;
     }
@@ -101,8 +101,8 @@ ged_nmg_make_v_core(struct ged *gedp, int argc, const char *argv[])
     NMG_CK_REGION(r);
     NMG_CK_SHELL(s);
 
-    verts = (struct tmp_v *)NULL;
-    verts = (struct tmp_v *)bu_calloc(num_verts, sizeof(struct tmp_v), "verts");
+    verts = (struct makev_tmp_v *)NULL;
+    verts = (struct makev_tmp_v *)bu_calloc(num_verts, sizeof(struct makev_tmp_v), "verts");
 
     for (idx=0; idx < num_verts; idx++){
 	struct shell* ns = nmg_msv(r);
