@@ -1,0 +1,53 @@
+= PICKET_FENCE(1)
+:doctype: manpage
+:mansource: BRL-CAD
+:manmanual: BRL-CAD User Commands
+
+== NAME
+picket_fence - Creates a BRL-CAD .g file containing picket fences.
+
+== SYNOPSIS
+
+[source]
+----
+picket_fence [filename] [prefix] [height] [spacing] [-r] [x0] [y0] [z0] ... [xn] [yn] [zn]
+----
+
+
+[[description]]
+== DESCRIPTION
+
+*picket_fence* generates a BRL-CAD database containing a picket fence. All dimensions are in millimeters. The fence is constructed by specifying two or more 3D coordinate waypoints. The program generates fence sections connecting these waypoints. Fence geometry is initially constructed at the origin—with backing boards in the negative x halfspace and pickets in the positive x halfspace—before being rotated and translated into the specified positions. To create a closed boundary with pickets facing outward, waypoints must be specified in counter-clockwise order.
+
+The generated geometry parts are named using the provided _prefix_. The _spacing_ parameter controls the gap between individual pickets in millimeters. The optional *-r* flag generates fence posts (round cylinders) at the waypoints.
+
+
+[[examples]]
+== EXAMPLES
+
+.*picket_fence* Example
+[example]
+====
+**picket_fence fence.g Imy 2000 15 0 0 0 100 6000 0**
+
+====
+
+Creates an example fence two meters high and six meters long with fifteen millimeter spaces between the pickets. "Imy" will be used as a name prefix for the *mged* objects. The fence will be started at the origin and be stretched out to (100,6000,0).
+
+
+[[author]]
+== AUTHOR
+
+BRL-CAD Team
+
+
+[[copyright]]
+== COPYRIGHT
+
+This software is Copyright (c) 2005-2026 United States Government as represented by the U.S. Army Research Laboratory.
+
+
+[[bug_reports]]
+== BUG REPORTS
+
+Reports of bugs or problems should be submitted via electronic mail to devs@brlcad.org

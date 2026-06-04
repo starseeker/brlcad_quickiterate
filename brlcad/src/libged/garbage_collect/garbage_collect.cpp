@@ -1,7 +1,7 @@
 /*               G A R B A G E _ C O L L E C T . C P P
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -143,7 +143,7 @@ ged_garbage_collect_core(struct ged *gedp, int argc, const char *argv[])
     bu_vls_sprintf(&fpath, "%s", gedp->dbip->dbi_filename);
 
     /* For validation purposes, save the list of tops object names */
-    db_update_nref(gedp->dbip, &rt_uniresource);
+    db_update_nref(gedp->dbip);
     path_cnt = db_ls(gedp->dbip, DB_LS_TOPS, NULL, &paths);
     for (int i = 0; i < path_cnt; i++) {
 	old_top_objs.insert(std::string(paths[i]->d_namep));
@@ -203,8 +203,7 @@ ged_garbage_collect_core(struct ged *gedp, int argc, const char *argv[])
     bu_avs_free(&avs);
 
     // Copy objects
-    for (int i = 0; i < RT_DBNHASH; i++) {
-	for (dp = old_dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+    FOR_ALL_DIRECTORY_START(dp, old_dbip)
 	    struct bu_external ext = BU_EXTERNAL_INIT_ZERO;
 	    if (db_get_external(&ext, dp, old_dbip) < 0)
 		continue;
@@ -226,8 +225,7 @@ ged_garbage_collect_core(struct ged *gedp, int argc, const char *argv[])
 	    }
 	    int flags = (dp->d_flags & RT_DIR_COMB) ? ((dp->d_flags & RT_DIR_REGION) ? RT_DIR_COMB | RT_DIR_REGION : RT_DIR_COMB) : RT_DIR_SOLID;
 	    wdb_export_external(gc_wdbp, &ext, dp->d_namep, flags, id);
-	}
-    }
+    FOR_ALL_DIRECTORY_END;
     db_close(gc_wdbp->dbip);
 
 
@@ -246,7 +244,7 @@ ged_garbage_collect_core(struct ged *gedp, int argc, const char *argv[])
     }
 
     // See what we've got for tops objects in the new file
-    db_update_nref(gedp->dbip, &rt_uniresource);
+    db_update_nref(gedp->dbip);
     path_cnt = db_ls(gedp->dbip, DB_LS_TOPS, NULL, &paths);
     for (int i = 0; i < path_cnt; i++) {
 	new_top_objs.insert(std::string(paths[i]->d_namep));

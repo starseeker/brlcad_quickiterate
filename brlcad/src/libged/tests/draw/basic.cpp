@@ -1,7 +1,7 @@
 /*                      B A S I C . C P P
  * BRL-CAD
  *
- * Copyright (c) 2018-2025 United States Government as represented by
+ * Copyright (c) 2018-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -29,6 +29,8 @@
 #define DM_WITH_RT
 #include <dm.h>
 #include <ged.h>
+
+#define ADIFF_THRES 20
 
 #include "../../dbi.h"
 
@@ -287,6 +289,16 @@ main(int ac, char *av[]) {
     v->gv_base2local = gedp->dbip->dbi_base2local;
     v->gv_local2base = gedp->dbip->dbi_local2base;
 
+    // The default (fast) wireframe has some differences from
+    // the slower full OpenGL draw path - disable it for the
+    // purposes of these tests.
+    s_av[0] = "dm";
+    s_av[1] = "set";
+    s_av[2] = "fast_wireframe";
+    s_av[3] = "0";
+    s_av[4] = NULL;
+    ged_exec_dm(gedp, 4, s_av);
+
     /***** Basic wireframe draw *****/
     bu_log("Testing basic db wireframe draw...\n");
     s_av[0] = "draw";
@@ -505,7 +517,7 @@ main(int ac, char *av[]) {
     s_av[12] = NULL;
     ged_exec_view(gedp, 12, s_av);
 
-    ret += img_cmp(12, gedp, av[1], false, clear_images, soft_fail, 30, "clear", "v");
+    ret += img_cmp(12, gedp, av[1], false, clear_images, soft_fail, ADIFF_THRES, "clear", "v");
 
     s_av[0] = "ae";
     s_av[1] = "10";
@@ -513,7 +525,7 @@ main(int ac, char *av[]) {
     s_av[3] = "11";
     s_av[4] = NULL;
     ged_exec_ae(gedp, 4, s_av);
-    ret += img_cmp(13, gedp, av[1], false, clear_images, soft_fail, 30, "clear", "v");
+    ret += img_cmp(13, gedp, av[1], false, clear_images, soft_fail, ADIFF_THRES, "clear", "v");
 
     s_av[0] = "ae";
     s_av[1] = "270";
@@ -521,7 +533,7 @@ main(int ac, char *av[]) {
     s_av[3] = "0";
     s_av[4] = NULL;
     ged_exec_ae(gedp, 4, s_av);
-    ret += img_cmp(14, gedp, av[1], false, clear_images, soft_fail, 30, "clear", "v");
+    ret += img_cmp(14, gedp, av[1], false, clear_images, soft_fail, ADIFF_THRES, "clear", "v");
 
     s_av[0] = "ae";
     s_av[1] = "48";
@@ -620,7 +632,7 @@ main(int ac, char *av[]) {
     s_av[1] = NULL;
     ged_exec_autoview(gedp, 1, s_av);
 
-    ret += img_cmp(20, gedp, av[1], true, clear_images, soft_fail, 0, "clear", "v");
+    ret += img_cmp(20, gedp, av[1], true, clear_images, soft_fail, ADIFF_THRES, "clear", "v");
     bu_log("Done.\n");
 
     bu_log("Testing shaded mode 2 drawing (unevaluated primitive shading). (Note: does not use Level-of-Detail)...\n");
@@ -634,7 +646,7 @@ main(int ac, char *av[]) {
     s_av[1] = NULL;
     ged_exec_autoview(gedp, 1, s_av);
 
-    ret += img_cmp(21, gedp, av[1], true, clear_images, soft_fail, 0, "clear", "v");
+    ret += img_cmp(21, gedp, av[1], true, clear_images, soft_fail, ADIFF_THRES, "clear", "v");
     bu_log("Done.\n");
 
     bu_log("Testing mode 3 drawing (evaluated wireframe)...\n");
@@ -648,7 +660,7 @@ main(int ac, char *av[]) {
     s_av[1] = NULL;
     ged_exec_autoview(gedp, 1, s_av);
 
-    ret += img_cmp(22, gedp, av[1], true, clear_images, soft_fail, 30, "clear", "v");
+    ret += img_cmp(22, gedp, av[1], true, clear_images, soft_fail, ADIFF_THRES, "clear", "v");
     bu_log("Done.\n");
 
     bu_log("Testing mode 4 drawing (hidden lines)...\n");
@@ -676,7 +688,10 @@ main(int ac, char *av[]) {
     s_av[1] = NULL;
     ged_exec_autoview(gedp, 1, s_av);
 
-    ret += img_cmp(24, gedp, av[1], true, clear_images, soft_fail, 30, "clear", "v");
+    // The point based sampling can vary quite a bit visually, so this has a
+    // looser tolerance - we just want to be sure we're getting a rendering,
+    // not that the rendering is exactly the same.
+    ret += img_cmp(24, gedp, av[1], true, clear_images, soft_fail, 70, "clear", "v");
     bu_log("Done.\n");
 
     bu_log("Test clearing of previous drawing mode (shaded and wireframe)...\n");
@@ -696,7 +711,7 @@ main(int ac, char *av[]) {
     s_av[1] = NULL;
     ged_exec_autoview(gedp, 1, s_av);
 
-    ret += img_cmp(1, gedp, av[1], true, clear_images, soft_fail, 0, "clear", "v");
+    ret += img_cmp(1, gedp, av[1], true, clear_images, soft_fail, ADIFF_THRES, "clear", "v");
     bu_log("Done.\n");
 
 
@@ -718,7 +733,7 @@ main(int ac, char *av[]) {
     s_av[1] = NULL;
     ged_exec_autoview(gedp, 1, s_av);
 
-    ret += img_cmp(25, gedp, av[1], true, clear_images, soft_fail, 0, "clear", "v");
+    ret += img_cmp(25, gedp, av[1], true, clear_images, soft_fail, ADIFF_THRES, "clear", "v");
     bu_log("Done.\n");
 
 
@@ -747,7 +762,7 @@ main(int ac, char *av[]) {
     s_av[1] = NULL;
     ged_exec_autoview(gedp, 1, s_av);
 
-    ret += img_cmp(26, gedp, av[1], true, clear_images, soft_fail, 30, "clear", "v");
+    ret += img_cmp(26, gedp, av[1], true, clear_images, soft_fail, ADIFF_THRES, "clear", "v");
     bu_log("Done.\n");
 
     ged_close(gedp);

@@ -1,7 +1,7 @@
 /*                         S O L I D S _ O N _ R A Y . C
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -130,13 +130,12 @@ skewer_solids(struct ged *gedp, int argc, const char **argv, fastf_t *ray_orig, 
     }
 
     /* .inmem rt_gettrees .rt -i -u [who] */
-    rtip = rt_new_rti(gedp->dbip);
+    rtip = rt_i_create(gedp->dbip);
     rtip->useair = 1;
     rtip->rti_dont_instance = 1;	/* full paths to solids, too. */
     if (rt_gettrees(rtip, argc, argv, 1) == -1) {
 	bu_vls_printf(gedp->ged_result_str, "rt_gettrees() failed\n");
-	rt_clean(rtip);
-	bu_free((void *)rtip, "struct rt_i");
+	rt_i_destroy(rtip);
 	return (char **) 0;
     }
 
@@ -167,8 +166,7 @@ skewer_solids(struct ged *gedp, int argc, const char **argv, fastf_t *ray_orig, 
 
     (void) rt_shootray(&ap);
 
-    rt_clean(rtip);
-    bu_free((void *)rtip, "struct rt_i");
+    rt_i_destroy(rtip);
 
     return (char **) ap.a_uptr;
 }

@@ -1,7 +1,7 @@
 /*                     P R O C E S S . C
  * BRL-CAD
  *
- * Copyright (c) 2019-2025 United States Government as represented by
+ * Copyright (c) 2019-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -70,8 +70,12 @@ _ged_process_list(struct ged *gedp)
 	rrp = (struct ged_subprocess *)BU_PTBL_GET(&gedp->ged_subp, i);
 	struct bu_vls pline = BU_VLS_INIT_ZERO;
 	struct bu_vls cmdroot = BU_VLS_INIT_ZERO;
-	const char * const *argv;
+	const char * const *argv = NULL;
 	int argc = bu_process_args_n(rrp->p, NULL, &argv);
+	if (!argc || !argv) {
+	    bu_log("Warning: no arguments for process!\n");
+	    continue;
+	}
 	int pid = bu_process_pid(rrp->p);
 	(void)bu_path_component(&cmdroot, argv[0], BU_PATH_BASENAME_EXTLESS);
 	bu_vls_sprintf(&pline, "%*d %s", longest_pid, pid, bu_vls_cstr(&cmdroot));

@@ -1,7 +1,7 @@
 /*                I N V A L I D _ S H A P E . C P P
  * BRL-CAD
  *
- * Copyright (c) 2014-2025 United States Government as represented by
+ * Copyright (c) 2014-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -45,7 +45,7 @@ _ged_invalid_prim_check(lint_data *ldata, struct directory *dp)
     if (dp->d_flags & RT_DIR_HIDDEN) return;
     if (dp->d_addr == RT_DIR_PHONY_ADDR) return;
 
-    if (rt_db_get_internal(&intern, dp, ldata->gedp->dbip, (fastf_t *)NULL, &rt_uniresource) < 0) return;
+    if (rt_db_get_internal(&intern, dp, ldata->gedp->dbip, (fastf_t *)NULL) < 0) return;
     if (intern.idb_major_type != DB5_MAJORTYPE_BRLCAD) {
 	rt_db_free_internal(&intern);
 	return;
@@ -74,7 +74,19 @@ _ged_invalid_prim_check(lint_data *ldata, struct directory *dp)
 	case DB5_MINORTYPE_BRLCAD_ARB8:
 	    if (imt.size() && imt.find(std::string("arb")) == imt.end())
 		return;
-	    // TODO - check for twisted arbs.
+	    {
+		struct rt_arb_internal *arb = (struct rt_arb_internal *)intern.idb_ptr;
+		RT_ARB_CK_MAGIC(arb);
+		fastf_t td = ldata->ftol;
+		fastf_t td_sq = td * td;
+		if (rt_arb_nonstandard_encoding(arb, td_sq)) {
+		    nlohmann::json aerr;
+		    aerr["problem_type"] = "non_standard_ordering";
+		    aerr["object_type"] = "arb";
+		    aerr["object_name"] = dp->d_namep;
+		    ldata->j.push_back(aerr);
+		}
+	    }
 	    break;
 	case DB5_MINORTYPE_BRLCAD_DSP:
 	    if (imt.size() && imt.find(std::string("dsp")) == imt.end())
@@ -126,4 +138,3 @@ _ged_invalid_shape_check(lint_data *ldata)
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

@@ -1,7 +1,7 @@
 /*                        E D P I P E . C
  * BRL-CAD
  *
- * Copyright (c) 1995-2025 United States Government as represented by
+ * Copyright (c) 1995-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -55,6 +55,31 @@
 #define ECMD_PIPE_SCALE_ID	15068
 #define ECMD_PIPE_PT_RADIUS	15073
 #define ECMD_PIPE_SCALE_RADIUS	15074
+
+static enum rt_constraint_edit_policy
+pipe_edit_policy(void)
+{
+    return RT_CONSTRAINT_EDIT_SNAP;
+}
+
+static int
+pipe_apply_cedit(struct rt_edit *s, const struct rt_constraint_edit_op *op)
+{
+    struct rt_constraint_edit_ctx ctx;
+    struct rt_constraint_edit_result res;
+    int ret;
+
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.policy = pipe_edit_policy();
+    rt_constraint_edit_result_init(&res);
+    ret = rt_pipe_project_apply(&res, &s->es_int, op, &ctx);
+    if (ret != BRLCAD_OK) {
+        if (bu_vls_strlen(&res.summary) > 0)
+            bu_vls_printf(s->log_str, "%s\n", bu_vls_addr(&res.summary));
+    }
+    rt_constraint_edit_result_free(&res);
+    return ret;
+}
 
 void *
 rt_edit_pipe_prim_edit_create(struct rt_edit *UNUSED(s))
@@ -112,7 +137,7 @@ rt_edit_pipe_set_edit_mode(struct rt_edit *s, int mode)
 	    p->es_pipe_pnt = next;
 	    rt_pipe_pnt_print(p->es_pipe_pnt, s->base2local);
 	    rt_edit_set_edflag(s, RT_EDIT_IDLE);
-	    // TODO - should we really be calling this here?
+	    /* Advance to the next pipe point; trigger immediate display update. */
 	    rt_edit_process(s);
 	    break;
 	case ECMD_PIPE_PREV_PT:
@@ -128,7 +153,7 @@ rt_edit_pipe_set_edit_mode(struct rt_edit *s, int mode)
 	    p->es_pipe_pnt = prev;
 	    rt_pipe_pnt_print(p->es_pipe_pnt, s->base2local);
 	    rt_edit_set_edflag(s, RT_EDIT_IDLE);
-	    // TODO - should we really be calling this here?
+	    /* Step to the previous pipe point; trigger immediate display update. */
 	    rt_edit_process(s);
 	    break;
 	case ECMD_PIPE_PT_MOVE:
@@ -161,7 +186,7 @@ rt_edit_pipe_set_edit_mode(struct rt_edit *s, int mode)
 	    s->edit_mode = RT_PARAMS_EDIT_TRANS;
 	    break;
 	case ECMD_PIPE_PT_DEL:
-	    // TODO - should we really be calling this here?
+	    /* Deletion is handled inside ft_edit; trigger it immediately. */
 	    rt_edit_process(s);
 	    break;
     }
@@ -204,11 +229,247 @@ rt_edit_pipe_menu_item(const struct bn_tol *UNUSED(tol))
     return pipe_menu;
 }
 
+/* ------------------------------------------------------------------ */
+/* ft_edit_desc descriptor for the Pipe primitive                     */
+/* ------------------------------------------------------------------ */
 
-void
-pipe_split_pnt(struct bu_list *UNUSED(pipe_hd), struct wdb_pipe_pnt *UNUSED(ps), point_t UNUSED(new_pt))
+static const struct rt_edit_param_desc pipe_pt_od_params[] = {
+    {
+	"od",                 /* name         */
+	"Outer Diameter",     /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	0.0,                  /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc pipe_pt_id_params[] = {
+    {
+	"id",                 /* name         */
+	"Inner Diameter",     /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	0.0,                  /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_param_desc pipe_pt_radius_params[] = {
+    {
+	"bend_radius",        /* name         */
+	"Bend Radius",        /* label        */
+	RT_EDIT_PARAM_SCALAR, /* type         */
+	0,                    /* index        */
+	0.0,                  /* range_min    */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+/* POINT parameter used by ops that take a 3D location: SELECT, PT_MOVE,
+ * PT_ADD, PT_INS, and SPLIT all supply the target world-space coordinate. */
+static const struct rt_edit_param_desc pipe_point_params[] = {
+    {
+	"pt",                 /* name         */
+	"Point X Y Z",        /* label        */
+	RT_EDIT_PARAM_POINT,  /* type         */
+	0,                    /* index        */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_min  */
+	RT_EDIT_PARAM_NO_LIMIT, /* range_max  */
+	"length",             /* units        */
+	0, NULL, NULL,        /* enum (unused) */
+	NULL                  /* prim_field   */
+    }
+};
+
+static const struct rt_edit_cmd_desc pipe_cmds[] = {
+    /* --- point selection / navigation -------------------------------- */
+    {
+	ECMD_PIPE_SELECT,     /* cmd_id       */
+	"Select Point",       /* label        */
+	"select",             /* category     */
+	1,                    /* nparam       */
+	pipe_point_params,    /* params       */
+	1,                    /* interactive  */
+	5                     /* display_order */
+    },
+    {
+	ECMD_PIPE_NEXT_PT,    /* cmd_id       */
+	"Next Point",         /* label        */
+	"select",             /* category     */
+	0,                    /* nparam       */
+	NULL,                 /* params       */
+	0,                    /* interactive  */
+	6                     /* display_order */
+    },
+    {
+	ECMD_PIPE_PREV_PT,    /* cmd_id       */
+	"Previous Point",     /* label        */
+	"select",             /* category     */
+	0,                    /* nparam       */
+	NULL,                 /* params       */
+	0,                    /* interactive  */
+	7                     /* display_order */
+    },
+    /* --- point geometry manipulation --------------------------------- */
+    {
+	ECMD_PIPE_PT_MOVE,    /* cmd_id       */
+	"Move Point",         /* label        */
+	"point",              /* category     */
+	1,                    /* nparam       */
+	pipe_point_params,    /* params       */
+	1,                    /* interactive  */
+	8                     /* display_order */
+    },
+    {
+	ECMD_PIPE_PT_DEL,     /* cmd_id       */
+	"Delete Point",       /* label        */
+	"point",              /* category     */
+	0,                    /* nparam       */
+	NULL,                 /* params       */
+	0,                    /* interactive  */
+	9                     /* display_order */
+    },
+    {
+	ECMD_PIPE_PT_ADD,     /* cmd_id       */
+	"Append Point",       /* label        */
+	"point",              /* category     */
+	1,                    /* nparam       */
+	pipe_point_params,    /* params       */
+	1,                    /* interactive  */
+	10                    /* display_order */
+    },
+    {
+	ECMD_PIPE_PT_INS,     /* cmd_id       */
+	"Prepend Point",      /* label        */
+	"point",              /* category     */
+	1,                    /* nparam       */
+	pipe_point_params,    /* params       */
+	1,                    /* interactive  */
+	11                    /* display_order */
+    },
+    {
+	ECMD_PIPE_SPLIT,      /* cmd_id       */
+	"Split Segment",      /* label        */
+	"point",              /* category     */
+	1,                    /* nparam       */
+	pipe_point_params,    /* params       */
+	1,                    /* interactive  */
+	12                    /* display_order */
+    },
+    /* --- per-point cross-section dimensions -------------------------- */
+    {
+	ECMD_PIPE_PT_OD,      /* cmd_id       */
+	"Set Point OD",       /* label        */
+	"point",              /* category     */
+	1,                    /* nparam       */
+	pipe_pt_od_params,    /* params       */
+	1,                    /* interactive  */
+	20                    /* display_order */
+    },
+    {
+	ECMD_PIPE_PT_ID,      /* cmd_id       */
+	"Set Point ID",       /* label        */
+	"point",              /* category     */
+	1,                    /* nparam       */
+	pipe_pt_id_params,    /* params       */
+	1,                    /* interactive  */
+	30                    /* display_order */
+    },
+    {
+	ECMD_PIPE_PT_RADIUS,  /* cmd_id       */
+	"Set Point Bend",     /* label        */
+	"point",              /* category     */
+	1,                    /* nparam       */
+	pipe_pt_radius_params, /* params      */
+	1,                    /* interactive  */
+	40                    /* display_order */
+    },
+    /* --- whole-pipe cross-section dimensions ------------------------- */
+    {
+	ECMD_PIPE_SCALE_OD,   /* cmd_id       */
+	"Set Pipe OD",        /* label        */
+	"pipe",               /* category     */
+	1,                    /* nparam       */
+	pipe_pt_od_params,    /* params       */
+	1,                    /* interactive  */
+	50                    /* display_order */
+    },
+    {
+	ECMD_PIPE_SCALE_ID,   /* cmd_id       */
+	"Set Pipe ID",        /* label        */
+	"pipe",               /* category     */
+	1,                    /* nparam       */
+	pipe_pt_id_params,    /* params       */
+	1,                    /* interactive  */
+	60                    /* display_order */
+    },
+    {
+	ECMD_PIPE_SCALE_RADIUS, /* cmd_id     */
+	"Set Pipe Bend",      /* label        */
+	"pipe",               /* category     */
+	1,                    /* nparam       */
+	pipe_pt_radius_params, /* params      */
+	1,                    /* interactive  */
+	70                    /* display_order */
+    }
+};
+
+static const struct rt_edit_prim_desc pipe_prim_desc = {
+    "pipe",               /* prim_type    */
+    "Pipe",               /* prim_label   */
+    14,                   /* ncmd         */
+    pipe_cmds             /* cmds         */
+};
+
+const struct rt_edit_prim_desc *
+rt_edit_pipe_edit_desc(void)
 {
-    bu_log("WARNING: pipe splitting unimplemented\n");
+    return &pipe_prim_desc;
+}
+
+
+static void
+pipe_split_pnt(struct bu_list *pipe_hd, struct wdb_pipe_pnt *ps, point_t new_pt)
+{
+    struct wdb_pipe_pnt *next;
+    struct wdb_pipe_pnt *new_ps;
+
+    BU_CKMAG(ps, WDB_PIPESEG_MAGIC, "pipe point");
+
+    next = BU_LIST_NEXT(wdb_pipe_pnt, &ps->l);
+    if (next->l.magic == BU_LIST_HEAD_MAGIC) {
+	bu_log("pipe_split_pnt: cannot split after the last point\n");
+	return;
+    }
+
+    /* Allocate and initialise a new point between ps and next. */
+    BU_ALLOC(new_ps, struct wdb_pipe_pnt);
+    new_ps->l.magic = WDB_PIPESEG_MAGIC;
+    VMOVE(new_ps->pp_coord, new_pt);
+    /* Interpolate cross-section parameters from the two neighbours */
+    new_ps->pp_od          = (ps->pp_od          + next->pp_od)          * 0.5;
+    new_ps->pp_id          = (ps->pp_id          + next->pp_id)          * 0.5;
+    new_ps->pp_bendradius  = (ps->pp_bendradius  + next->pp_bendradius)  * 0.5;
+
+    /* Insert the new point after ps (i.e. between ps and next) */
+    BU_LIST_APPEND(&ps->l, &new_ps->l);
+
+    /* Validate the modified pipe; remove the new point if it makes an
+     * invalid configuration. */
+    if (rt_pipe_ck(pipe_hd)) {
+	BU_LIST_DEQUEUE(&new_ps->l);
+	bu_free(new_ps, "pipe_split_pnt: new_ps");
+    }
 }
 
 
@@ -701,6 +962,8 @@ int
 ecmd_pipe_pt_od(struct rt_edit *s)
 {
     struct rt_pipe_edit *p = (struct rt_pipe_edit *)s->ipe_ptr;
+    struct rt_constraint_edit_op op;
+    int seg_i;
 
     if (s->e_para[0] < 0.0) {
 	bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR < 0\n");
@@ -720,9 +983,12 @@ ecmd_pipe_pt_od(struct rt_edit *s)
 	else
 	    s->es_scale = (-s->e_para[0] * s->e_mat[15]);
     }
-    pipe_seg_scale_od(s, p->es_pipe_pnt, s->es_scale);
-
-    return 0;
+    seg_i = rt_pipe_get_i_seg((struct rt_pipe_internal *)s->es_int.idb_ptr, p->es_pipe_pnt);
+    memset(&op, 0, sizeof(op));
+    op.kind = RT_CONSTRAINT_EDIT_OP_SET_OD;
+    op.point_index = seg_i;
+    op.proposed_scalar = p->es_pipe_pnt->pp_od * s->es_scale;
+    return pipe_apply_cedit(s, &op);
 }
 
 /* scale ID of one pipe segment */
@@ -730,6 +996,8 @@ int
 ecmd_pipe_pt_id(struct rt_edit *s)
 {
     struct rt_pipe_edit *p = (struct rt_pipe_edit *)s->ipe_ptr;
+    struct rt_constraint_edit_op op;
+    int seg_i;
 
     if (s->e_para[0] < 0.0) {
 	bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR < 0\n");
@@ -750,9 +1018,12 @@ ecmd_pipe_pt_id(struct rt_edit *s)
 	    s->es_scale = (-s->e_para[0] * s->e_mat[15]);
     }
 
-    pipe_seg_scale_id(s, p->es_pipe_pnt, s->es_scale);
-
-    return 0;
+    seg_i = rt_pipe_get_i_seg((struct rt_pipe_internal *)s->es_int.idb_ptr, p->es_pipe_pnt);
+    memset(&op, 0, sizeof(op));
+    op.kind = RT_CONSTRAINT_EDIT_OP_SET_ID;
+    op.point_index = seg_i;
+    op.proposed_scalar = p->es_pipe_pnt->pp_id * s->es_scale;
+    return pipe_apply_cedit(s, &op);
 }
 
 /* scale bend radius at selected point */
@@ -760,6 +1031,8 @@ int
 ecmd_pipe_pt_radius(struct rt_edit *s)
 {
     struct rt_pipe_edit *p = (struct rt_pipe_edit *)s->ipe_ptr;
+    struct rt_constraint_edit_op op;
+    int seg_i;
 
     if (s->e_para[0] <= 0.0) {
 	bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR <= 0\n");
@@ -780,15 +1053,19 @@ ecmd_pipe_pt_radius(struct rt_edit *s)
 	    s->es_scale = (-s->e_para[0] * s->e_mat[15]);
     }
 
-    pipe_seg_scale_radius(s, p->es_pipe_pnt, s->es_scale);
-
-    return 0;
+    seg_i = rt_pipe_get_i_seg((struct rt_pipe_internal *)s->es_int.idb_ptr, p->es_pipe_pnt);
+    memset(&op, 0, sizeof(op));
+    op.kind = RT_CONSTRAINT_EDIT_OP_SET_BEND;
+    op.point_index = seg_i;
+    op.proposed_scalar = p->es_pipe_pnt->pp_bendradius * s->es_scale;
+    return pipe_apply_cedit(s, &op);
 }
 
 /* scale entire pipe OD */
 int
 ecmd_pipe_scale_od(struct rt_edit *s)
 {
+    struct rt_constraint_edit_op op;
     if (s->e_para[0] <= 0.0) {
 	bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR <= 0\n");
 	s->e_inpara = 0;
@@ -820,15 +1097,18 @@ ecmd_pipe_scale_od(struct rt_edit *s)
 	}
     }
 
-    pipe_scale_od(s, &s->es_int, s->es_scale);
-
-    return 0;
+    memset(&op, 0, sizeof(op));
+    op.kind = RT_CONSTRAINT_EDIT_OP_SCALE_OD;
+    op.point_index = -1;
+    op.proposed_scalar = s->es_scale;
+    return pipe_apply_cedit(s, &op);
 }
 
 /* scale entire pipe ID */
 int
 ecmd_pipe_scale_id(struct rt_edit *s)
 {
+    struct rt_constraint_edit_op op;
     if (s->e_para[0] < 0.0) {
 	bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR < 0\n");
 	s->e_inpara = 0;
@@ -858,15 +1138,18 @@ ecmd_pipe_scale_id(struct rt_edit *s)
 		s->es_scale = s->e_para[0] * s->e_mat[15]/ps->pp_id;
 	}
     }
-    pipe_scale_id(s, &s->es_int, s->es_scale);
-
-    return 0;
+    memset(&op, 0, sizeof(op));
+    op.kind = RT_CONSTRAINT_EDIT_OP_SCALE_ID;
+    op.point_index = -1;
+    op.proposed_scalar = s->es_scale;
+    return pipe_apply_cedit(s, &op);
 }
 
 /* scale entire pipe bend radius */
 int
 ecmd_pipe_scale_radius(struct rt_edit *s)
 {
+    struct rt_constraint_edit_op op;
     if (s->e_para[0] <= 0.0) {
 	bu_vls_printf(s->log_str, "ERROR: SCALE FACTOR <= 0\n");
 	s->e_inpara = 0;
@@ -897,9 +1180,11 @@ ecmd_pipe_scale_radius(struct rt_edit *s)
 	}
     }
 
-    pipe_scale_radius(s, &s->es_int, s->es_scale);
-
-    return 0;
+    memset(&op, 0, sizeof(op));
+    op.kind = RT_CONSTRAINT_EDIT_OP_SCALE_BEND;
+    op.point_index = -1;
+    op.proposed_scalar = s->es_scale;
+    return pipe_apply_cedit(s, &op);
 }
 
 void ecmd_pipe_pick(struct rt_edit *s)
@@ -1033,7 +1318,14 @@ void ecmd_pipe_pt_move(struct rt_edit *s)
 	return;
     }
 
-    pipe_move_pnt(s, pipeip, p->es_pipe_pnt, new_pt);
+    {
+	struct rt_constraint_edit_op op;
+	memset(&op, 0, sizeof(op));
+	op.kind = RT_CONSTRAINT_EDIT_OP_MOVE_POINT;
+	op.point_index = rt_pipe_get_i_seg(pipeip, p->es_pipe_pnt);
+	VMOVE(op.proposed_coord, new_pt);
+	(void)pipe_apply_cedit(s, &op);
+    }
 }
 
 void ecmd_pipe_pt_add(struct rt_edit *s)
@@ -1181,6 +1473,50 @@ rt_edit_pipe_edit(struct rt_edit *s)
 	case ECMD_PIPE_SELECT:
 	    ecmd_pipe_pick(s);
 	    break;
+	case ECMD_PIPE_NEXT_PT:
+	{
+	    bu_clbk_t f = NULL;
+	    void *d = NULL;
+	    if (!p->es_pipe_pnt) {
+		bu_vls_printf(s->log_str, "No Pipe Segment selected\n");
+		rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
+		if (f) (*f)(0, NULL, d, NULL);
+		return BRLCAD_ERROR;
+	    }
+	    {
+		struct wdb_pipe_pnt *next = BU_LIST_NEXT(wdb_pipe_pnt, &p->es_pipe_pnt->l);
+		if (next->l.magic == BU_LIST_HEAD_MAGIC) {
+		    bu_vls_printf(s->log_str, "Current segment is the last\n");
+		    rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
+		    if (f) (*f)(0, NULL, d, NULL);
+		    return BRLCAD_ERROR;
+		}
+		p->es_pipe_pnt = next;
+	    }
+	    break;
+	}
+	case ECMD_PIPE_PREV_PT:
+	{
+	    bu_clbk_t f = NULL;
+	    void *d = NULL;
+	    if (!p->es_pipe_pnt) {
+		bu_vls_printf(s->log_str, "No Pipe Segment selected\n");
+		rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
+		if (f) (*f)(0, NULL, d, NULL);
+		return BRLCAD_ERROR;
+	    }
+	    {
+		struct wdb_pipe_pnt *prev = BU_LIST_PREV(wdb_pipe_pnt, &p->es_pipe_pnt->l);
+		if (prev->l.magic == BU_LIST_HEAD_MAGIC) {
+		    bu_vls_printf(s->log_str, "Current segment is the first\n");
+		    rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
+		    if (f) (*f)(0, NULL, d, NULL);
+		    return BRLCAD_ERROR;
+		}
+		p->es_pipe_pnt = prev;
+	    }
+	    break;
+	}
 	case ECMD_PIPE_SPLIT:
 	    ecmd_pipe_split(s);
 	    break;
@@ -1196,8 +1532,15 @@ rt_edit_pipe_edit(struct rt_edit *s)
 	case ECMD_PIPE_PT_DEL:
 	    ecmd_pipe_pt_del(s);
 	    break;
-    	default:
+	case ECMD_PIPE_PT_OD:
+	case ECMD_PIPE_PT_ID:
+	case ECMD_PIPE_PT_RADIUS:
+	case ECMD_PIPE_SCALE_OD:
+	case ECMD_PIPE_SCALE_ID:
+	case ECMD_PIPE_SCALE_RADIUS:
 	    return rt_edit_pipe_pscale(s);
+	default:
+	    return edit_generic(s);
     }
 
     return 0;
@@ -1211,9 +1554,6 @@ rt_edit_pipe_edit_xy(
 {
     vect_t pos_view = VINIT_ZERO;       /* Unrotated view space pos */
     vect_t temp = VINIT_ZERO;
-    struct rt_db_internal *ip = &s->es_int;
-    bu_clbk_t f = NULL;
-    void *d = NULL;
 
     switch (s->edit_flag) {
 	case RT_PARAMS_EDIT_SCALE:
@@ -1243,18 +1583,8 @@ rt_edit_pipe_edit_xy(
 	    MAT4X3PNT(s->e_mparam, s->e_invmat, temp);
 	    s->e_mvalid = 1;
 	    break;
-        case RT_PARAMS_EDIT_ROT:
-            bu_vls_printf(s->log_str, "RT_PARAMS_EDIT_ROT XY editing setup unimplemented in %s_edit_xy callback\n", EDOBJ[ip->idb_type].ft_label);
-            rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
-            if (f)
-                (*f)(0, NULL, d, NULL);
-            return BRLCAD_ERROR;
 	default:
-	    bu_vls_printf(s->log_str, "%s: XY edit undefined in solid edit mode %d\n", EDOBJ[ip->idb_type].ft_label, s->edit_flag);
-	    rt_edit_map_clbk_get(&f, &d, s->m, ECMD_PRINT_RESULTS, BU_CLBK_DURING);
-	    if (f)
-		(*f)(0, NULL, d, NULL);
-	    return BRLCAD_ERROR;
+	    return edit_generic_xy(s, mousevec);
     }
 
     edit_abs_tra(s, pos_view);

@@ -1,4 +1,4 @@
-prefix="/home/cyapp/bext_output/noinstall"
+prefix="/home/cyapp/brlcad_quickiterate/bext_output/noinstall"
 exec_prefix="${prefix}"
 libdir="${prefix}/lib"
 includedir="${prefix}/include"

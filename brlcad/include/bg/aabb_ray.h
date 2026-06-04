@@ -1,7 +1,7 @@
 /*                      A A B B _ R A Y . H
  * BRL-CAD
  *
- * Copyright (c) 2004-2025 United States Government as represented by
+ * Copyright (c) 2004-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -47,7 +47,7 @@ BG_EXPORT extern int
 bg_isect_aabb_ray(
 	fastf_t *r_min, // first hit point
 	fastf_t *r_max, // second hit point
-	point_t opt,    // ray origin
+	const point_t opt,    // ray origin
 	const fastf_t *invdir, // inverses of dir[]
 	const fastf_t *aabb_min, // AABB first point
 	const fastf_t *aabb_max  // AABB second point

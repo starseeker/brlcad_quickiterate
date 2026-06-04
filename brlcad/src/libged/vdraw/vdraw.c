@@ -1,7 +1,7 @@
 /*                         V D R A W . C
  * BRL-CAD
  *
- * Copyright (c) 2004-2025 United States Government as represented by
+ * Copyright (c) 2004-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -99,9 +99,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <signal.h>
 
 #include "bu/cmd.h"
+#include "bu/interrupt.h"
 #include "bn.h"
 #include "vmath.h"
 #include "raytrace.h"

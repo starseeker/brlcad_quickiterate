@@ -1,7 +1,7 @@
 /*                        I F _ O G L . C
  * BRL-CAD
  *
- * Copyright (c) 2004-2025 United States Government as represented by
+ * Copyright (c) 2004-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -45,7 +45,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include <signal.h>
 #include <errno.h>
 
 /* glx.h on Mac OS X (and perhaps elsewhere) defines a slew of
@@ -78,6 +77,7 @@
 #include "bresource.h"
 
 #include "bu/color.h"
+#include "bu/interrupt.h"
 #include "bu/malloc.h"
 #include "bu/parallel.h"
 #include "bu/snooze.h"

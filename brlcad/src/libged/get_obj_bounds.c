@@ -1,7 +1,7 @@
 /*                         G E T _ O B J _ B O U N D S . C
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -134,12 +134,12 @@ _ged_get_obj_bounds2(struct ged *gedp,
 	return BRLCAD_ERROR;
 
     dp = gtdp->gtd_obj[gtdp->gtd_objpos-1];
-    GED_DB_GET_INTERNAL(gedp, &intern, dp, gtdp->gtd_xform, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_GET_INTERN(gedp, &intern, dp, gtdp->gtd_xform, BRLCAD_ERROR);
 
     /* Make a new rt_i instance from the existing db_i structure */
-    rtip = rt_new_rti(gedp->dbip);
+    rtip = rt_i_create(gedp->dbip);
     if (rtip == RTI_NULL) {
-	bu_vls_printf(gedp->ged_result_str, "rt_new_rti failure for %s", gedp->dbip->dbi_filename);
+	bu_vls_printf(gedp->ged_result_str, "rt_i_create failure for %s", gedp->dbip->dbi_filename);
 	return BRLCAD_ERROR;
     }
 
@@ -160,7 +160,7 @@ _ged_get_obj_bounds2(struct ged *gedp,
     VMOVE(rpp_min, st.st_min);
     VMOVE(rpp_max, st.st_max);
 
-    rt_free_rti(rtip);
+    rt_i_destroy(rtip);
     rt_db_free_internal(&intern);
 
     return BRLCAD_OK;

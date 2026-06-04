@@ -1,7 +1,7 @@
 /*                        P R E P . C P P
  * BRL-CAD
  *
- * Copyright (c) 1990-2025 United States Government as represented by
+ * Copyright (c) 1990-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -46,6 +46,7 @@
 
 #include "optical.h"
 #include "optical/plastic.h"
+#include "librt_private.h"
 
 
 extern void rt_ck(struct rt_i *rtip);
@@ -65,27 +66,71 @@ int RT_SEM_TREE3 = 0;
 /* XXX Need rt_init_rtg(), rt_clean_rtg() */
 
 /**
- * Given a db_i database instance, create an rt_i instance.  If caller
- * just called db_open, they need to do a db_close(), because we have
- * cloned our own instance of the db_i.
+ * Allocate and zero-initialize the private internal state for an rt_i.
  */
-struct rt_i *
-rt_new_rti(struct db_i *dbip)
+struct rt_i_internal *
+rt_i_internal_create(void)
 {
-    struct rt_i *rtip;
-    int i;
+    struct rt_i_internal *ip;
+    BU_GET(ip, struct rt_i_internal);
+    memset(ip, 0, sizeof(struct rt_i_internal));
 
+    for (int i=0; i < RT_DBNHASH; i++) {
+	BU_LIST_INIT(&(ip->rti_solidheads[i]));
+    }
+
+    /* list of invisible light regions to be deleted after light_init() */
+    bu_ptbl_init(&ip->delete_regs, 8, "rt_i delete regions list");
+
+    VSETALL(ip->rti_inf_box.bn.bn_min, -0.1);
+    VSETALL(ip->rti_inf_box.bn.bn_max,  0.1);
+    ip->rti_inf_box.bn.bn_type = CUT_BOXNODE;
+
+    return ip;
+}
+
+/**
+ * Release the private internal state for an rt_i.  All dynamic fields
+ * inside rt_i_internal must have been freed by rt_clean() before this
+ * is called (rt_i_destroy() guarantees that ordering).
+ */
+void
+rt_i_internal_destroy(struct rt_i_internal *i)
+{
+    if (!i)
+	return;
+
+    bu_ptbl_free(&i->delete_regs);
+
+    BU_PUT(i, struct rt_i_internal);
+}
+
+/**
+ * Return a pointer to the idx-th active-solid list head in rtip.
+ * Used by RT_VISIT_ALL_SOLTABS_START and any caller that needs to
+ * iterate over prepared solids without accessing rt_i_internal directly.
+ */
+struct bu_list *
+rt_solidhead_ptr(struct rt_i *rtip, int idx)
+{
+    RT_CK_RTI(rtip);
+    return &(rtip->i->rti_solidheads[idx]);
+}
+
+void
+rt_i_init(struct rt_i *rtip, struct db_i *dbip)
+{
     RT_CK_DBI(dbip);
 
-    BU_ALLOC(rtip, struct rt_i);
     rtip->rti_magic = RTI_MAGIC;
-    for (i=0; i < RT_DBNHASH; i++) {
-	BU_LIST_INIT(&(rtip->rti_solidheads[i]));
-    }
-    rtip->rti_dbip = db_clone_dbi(dbip, (long *)rtip);
-    rtip->needprep = 1;
+
+    /* Allocate private internal state */
+    rtip->i = rt_i_internal_create();
 
     BU_LIST_INIT(&rtip->HeadRegion);
+
+    rtip->rti_dbip = db_clone_dbi(dbip, (long *)rtip);
+    rtip->needprep = 1;
 
     /* This table is used for discovering the per-cpu resource structures */
     bu_ptbl_init(&rtip->rti_resources, MAX_PSW, "rti_resources ptbl");
@@ -97,14 +142,8 @@ rt_new_rti(struct db_i *dbip)
     rtip->rti_gettrees_clbk = NULL;
     rtip->rti_udata = NULL;
 
-    /* list of invisible light regions to be deleted after light_init() */
-    bu_ptbl_init(&rtip->delete_regs, 8, "rt_i delete regions list");
-
     VSETALL(rtip->mdl_min,  INFINITY);
     VSETALL(rtip->mdl_max, -INFINITY);
-    VSETALL(rtip->rti_inf_box.bn.bn_min, -0.1);
-    VSETALL(rtip->rti_inf_box.bn.bn_max,  0.1);
-    rtip->rti_inf_box.bn.bn_type = CUT_BOXNODE;
 
     /* XXX These defaults need to be improved */
     rtip->rti_tol.magic = BN_TOL_MAGIC;
@@ -119,9 +158,7 @@ rt_new_rti(struct db_i *dbip)
     rtip->rti_ttol.norm = 0;
 
     /* This sets the space partitioning algorithm to Mike's original
-     * non-uniform binary space partitioning tree.  If you change this
-     * to anything else, you must also modify "rt_find_backing_dist()"
-     * (in shoot.c), to handle the different algorithm -JRA
+     * non-uniform binary space partitioning tree.
      */
     rtip->rti_space_partition = RT_PART_NUBSPT;
 
@@ -135,17 +172,34 @@ rt_new_rti(struct db_i *dbip)
      * called on another rtip of the same dbip before this rtip is
      * done with all its treewalking.
      */
-    for (i=0; i < RT_DBNHASH; i++) {
+    {
 	struct directory *dp;
-
-	dp = rtip->rti_dbip->dbi_Head[i];
-	for (; dp != RT_DIR_NULL; dp = dp->d_forw)
+	FOR_ALL_DIRECTORY_START(dp, rtip->rti_dbip)
 	    dp->d_uses = 0;
+	FOR_ALL_DIRECTORY_END;
     }
+}
 
+/**
+ * Given a db_i database instance, create an rt_i instance.  If caller
+ * just called db_open, they need to do a db_close(), because we have
+ * cloned our own instance of the db_i.
+ */
+struct rt_i *
+rt_i_create(struct db_i *dbip)
+{
+    RT_CK_DBI(dbip);
+    struct rt_i *rtip = NULL;
+    BU_ALLOC(rtip, struct rt_i);
+    rt_i_init(rtip, dbip);
     return rtip;
 }
 
+struct rt_i *
+rt_new_rti(struct db_i *dbip)
+{
+    return rt_i_create(dbip);
+}
 
 /**
  * Release all the dynamic storage acquired by rt_dirbuild() and any
@@ -155,41 +209,34 @@ rt_new_rti(struct db_i *dbip)
  * that the rt_g structure needs to be cleaned separately.
  */
 void
-rt_free_rti(struct rt_i *rtip)
+rt_i_clear(struct rt_i *rtip)
 {
     RT_CK_RTI(rtip);
 
     rt_clean(rtip);
-
-#if 0
-    /* XXX These can't be freed here either, because we allocated
-     * them all on rt_uniresource, which doesn't discriminate
-     * on which db_i they go with.
-     */
-
-    /* The 'struct directory' guys are malloc()ed in big blocks */
-    resp->re_directory_hd = NULL;	/* abandon list */
-    if (BU_LIST_IS_INITIALIZED(&resp->re_directory_blocks.l)) {
-	struct directory **dpp;
-	BU_CK_PTBL(&resp->re_directory_blocks);
-	for (BU_PTBL_FOR(dpp, (struct directory **), &resp->re_directory_blocks)) {
-	    RT_CK_DIR(*dpp);	/* Head of block will be a valid seg */
-	    bu_free((void *)(*dpp), "struct directory block");
-	}
-	bu_ptbl_free(&resp->re_directory_blocks);
-    }
-#endif
 
     db_close_client(rtip->rti_dbip, (long *)rtip);
     rtip->rti_dbip = (struct db_i *)NULL;
 
     /* Freeing the actual resource structures' memory is the app's job */
     bu_ptbl_free(&rtip->rti_resources);
-    bu_ptbl_free(&rtip->delete_regs);
 
+    rt_i_internal_destroy(rtip->i);
+    rtip->i = NULL;
+}
+
+void
+rt_i_destroy(struct rt_i *rtip)
+{
+    rt_i_clear(rtip);
     bu_free((char *)rtip, "struct rt_i");
 }
 
+void
+rt_free_rti(struct rt_i *rtip)
+{
+    rt_i_destroy(rtip);
+}
 
 /**
  * This routine should be called just before the first call to
@@ -205,45 +252,32 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
     struct region *regp;
     struct soltab *stp;
     int i;
-    struct resource *resp;
+    struct resource prep_res = RT_RESOURCE_INIT_ZERO;
+    struct resource *resp = &prep_res;
     vect_t diag;
 
     RT_CK_RTI(rtip);
 
     if (RT_G_DEBUG&RT_DEBUG_REGIONS) bu_log("rt_prep_parallel(%s, %d, ncpu=%d) START\n",
 					 rtip->rti_dbip->dbi_filename,
-					 rtip->rti_dbip->dbi_uses, ncpu);
+					 rtip->rti_dbip->i->dbi_uses, ncpu);
 
     bu_semaphore_acquire(RT_SEM_RESULTS);	/* start critical section */
-
-    /*
-     * Check if we're going to try using rt_uniresource.  If we're also asking
-     * for more than one CPU, that's not gonna fly.
-     */
-    resp = (struct resource *)BU_PTBL_GET(&rtip->rti_resources, 0);
-    if (!resp)
-	resp = &rt_uniresource;
-
-    if (ncpu > 1 && resp == &rt_uniresource) {
-	bu_log("ERROR: attempting a parallel prep, but the resource being used is rt_uniresource.  Caller will need to allocate their own resource structures for parallel raytracing.\n");
-	bu_semaphore_release(RT_SEM_RESULTS);
-	return;
-    }
 
     if (!rtip->needprep) {
 	bu_log("WARNING: rt_prep_parallel(%s, %d) invoked a second time, ignored",
 	       rtip->rti_dbip->dbi_filename,
-	       rtip->rti_dbip->dbi_uses);
+	       rtip->rti_dbip->i->dbi_uses);
 	bu_semaphore_release(RT_SEM_RESULTS);
 	return;
     }
 
-    if (rtip->nsolids <= 0) {
-	if (rtip->rti_air_discards > 0) {
+    if (rtip->stats.nsolids <= 0) {
+	if (rtip->i->rti_air_discards > 0) {
 	    bu_log("rt_prep_parallel(%s, %d): %zu primitives discarded due to air regions\n",
 		   rtip->rti_dbip->dbi_filename,
-		   rtip->rti_dbip->dbi_uses,
-		   rtip->rti_air_discards);
+		   rtip->rti_dbip->i->dbi_uses,
+		   rtip->i->rti_air_discards);
 	}
 	bu_log("rt_prep_parallel:  no primitives left to prep\n");
 	rtip->needprep = 0;		/* rt_gettrees left us nothing */
@@ -251,7 +285,7 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
 	return;
     }
 
-    if (rtip->nregions <= 0) {
+    if (rtip->stats.nregions <= 0) {
 	bu_log("rt_prep_parallel:  no regions left to prep\n");
 	rtip->needprep = 0;		/* rt_gettrees left us nothing */
 	bu_semaphore_release(RT_SEM_RESULTS);
@@ -283,24 +317,25 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
     VSUB2(diag, rtip->mdl_max, rtip->mdl_min);
     rtip->rti_radius = 0.5 * MAGNITUDE(diag);
 
-    /* Check our resource struct. */
+    /* Init and check our resource struct. */
+    rt_init_resource(resp, 0, NULL);
     RT_CK_RESOURCE(resp);
 
     /* Build array of region pointers indexed by reg_bit.  Optimize
      * each region's expression tree.  Set this region's bit in the
      * bit vector of every solid contained in the subtree.
      */
-    rtip->Regions = (struct region **)bu_calloc(rtip->nregions, sizeof(struct region *), "rtip->Regions[]");
+    rtip->i->Regions = (struct region **)bu_calloc(rtip->stats.nregions, sizeof(struct region *), "rtip->i->Regions[]");
 
     if (RT_G_DEBUG&RT_DEBUG_REGIONS)
 	bu_log("rt_prep_parallel(%s, %d) about to optimize regions\n",
 	       rtip->rti_dbip->dbi_filename,
-	       rtip->rti_dbip->dbi_uses);
+	       rtip->rti_dbip->i->dbi_uses);
 
     for (BU_LIST_FOR(regp, region, &(rtip->HeadRegion))) {
 	/* Ensure bit numbers are unique */
-	BU_ASSERT(rtip->Regions[regp->reg_bit] == REGION_NULL);
-	rtip->Regions[regp->reg_bit] = regp;
+	BU_ASSERT(rtip->i->Regions[regp->reg_bit] == REGION_NULL);
+	rtip->i->Regions[regp->reg_bit] = regp;
 	rt_optim_tree(regp->reg_treetop, resp);
 	rt_solid_bitfinder(regp->reg_treetop, regp, resp);
 
@@ -322,10 +357,10 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
      * Include enough extra space for an extra bitv_t's worth of bits,
      * to handle round-up.
      */
-    rtip->rti_Solids =
-	(struct soltab **)bu_calloc(rtip->nsolids + (1<<BU_BITV_SHIFT),
+    rtip->i->rti_Solids =
+	(struct soltab **)bu_calloc(rtip->stats.nsolids + (1<<BU_BITV_SHIFT),
 				    sizeof(struct soltab *),
-				    "rtip->rti_Solids[]");
+				    "rtip->i->rti_Solids[]");
     /*
      * Build array of solid table pointers indexed by solid ID.  Last
      * element for each kind will be found in
@@ -333,7 +368,7 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
      */
     RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
 	/* Ensure bit numbers are unique */
-	struct soltab **ssp = &rtip->rti_Solids[stp->st_bit];
+	struct soltab **ssp = &rtip->i->rti_Solids[stp->st_bit];
 	if (*ssp != SOLTAB_NULL) {
 	    bu_log("rti_Solids[%ld] is non-empty! rtip=%p\n", stp->st_bit, (void *)rtip);
 	    bu_log("Existing entry is (st_rtip=%p):\n", (void *)(*ssp)->st_rtip);
@@ -343,35 +378,35 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
 	}
 	BU_ASSERT(*ssp == SOLTAB_NULL);
 	*ssp = stp;
-	rtip->rti_nsol_by_type[stp->st_id]++;
+	rtip->i->rti_nsol_by_type[stp->st_id]++;
     } RT_VISIT_ALL_SOLTABS_END;
 
     /* Find solid type with maximum length (for rt_shootray) */
-    rtip->rti_maxsol_by_type = 0;
+    rtip->i->rti_maxsol_by_type = 0;
     for (i=0; i <= ID_MAX_SOLID; i++) {
-	if (rtip->rti_nsol_by_type[i] > rtip->rti_maxsol_by_type) {
-	    rtip->rti_maxsol_by_type = rtip->rti_nsol_by_type[i];
+	if (rtip->i->rti_nsol_by_type[i] > rtip->i->rti_maxsol_by_type) {
+	    rtip->i->rti_maxsol_by_type = rtip->i->rti_nsol_by_type[i];
 	}
     }
     /* Malloc the storage and zero the counts */
     for (i=0; i <= ID_MAX_SOLID; i++) {
-	if (rtip->rti_nsol_by_type[i] <= 0)
+	if (rtip->i->rti_nsol_by_type[i] <= 0)
 	    continue;
-	rtip->rti_sol_by_type[i] = (struct soltab **)bu_calloc(rtip->rti_nsol_by_type[i], sizeof(struct soltab *), "rti_sol_by_type[]");
-	rtip->rti_nsol_by_type[i] = 0;
+	rtip->i->rti_sol_by_type[i] = (struct soltab **)bu_calloc(rtip->i->rti_nsol_by_type[i], sizeof(struct soltab *), "rti_sol_by_type[]");
+	rtip->i->rti_nsol_by_type[i] = 0;
     }
     /* Fill in the array and rebuild the count (aka index) */
     RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
 	int id;
 	id = stp->st_id;
-	rtip->rti_sol_by_type[id][rtip->rti_nsol_by_type[id]++] = stp;
+	rtip->i->rti_sol_by_type[id][rtip->i->rti_nsol_by_type[id]++] = stp;
     } RT_VISIT_ALL_SOLTABS_END;
     if (RT_G_DEBUG & (RT_DEBUG_DB|RT_DEBUG_SOLIDS)) {
 	bu_log("rt_prep_parallel(%s, %d) printing number of primitives by type\n",
 	       rtip->rti_dbip->dbi_filename,
-	       rtip->rti_dbip->dbi_uses);
+	       rtip->rti_dbip->i->dbi_uses);
 	for (i=1; i <= ID_MAX_SOLID; i++) {
-	    bu_log("%5zu %s (%d)\n", rtip->rti_nsol_by_type[i], OBJ[i].ft_name, i);
+	    bu_log("%5zu %s (%d)\n", rtip->i->rti_nsol_by_type[i], OBJ[i].ft_name, i);
 	}
     }
 
@@ -410,7 +445,7 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
      *
      * Multiple CPUs can be used here.
      */
-    for (i=1; i<=CUT_MAXIMUM; i++) rtip->rti_ncut_by_type[i] = 0;
+    for (i=1; i<=CUT_MAXIMUM; i++) rtip->stats.rti_ncut_by_type[i] = 0;
     rt_cut_it(rtip, ncpu);
 
     /* Release storage used for bounding RPPs of solid "pieces" */
@@ -440,17 +475,18 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
 
 	plotfp = fopen("rtsolids.plot3", "wb");
 	if (plotfp != NULL) {
-	    rt_plot_all_solids(plotfp, rtip, resp);
+	    rt_plot_all_solids(plotfp, rtip);
 	    (void)fclose(plotfp);
 	}
     }
     rtip->needprep = 0;		/* prep is done */
+    rt_clean_resource_basic(NULL, resp);
     bu_semaphore_release(RT_SEM_RESULTS);	/* end critical section */
 
     if (RT_G_DEBUG&RT_DEBUG_REGIONS) {
 	bu_log("rt_prep_parallel(%s, %d, ncpu=%d) FINISH\n",
 	       rtip->rti_dbip->dbi_filename,
-	       rtip->rti_dbip->dbi_uses, ncpu);
+	       rtip->rti_dbip->i->dbi_uses, ncpu);
     }
 }
 
@@ -482,7 +518,7 @@ rt_btree_translate(struct rt_i *rtip, struct soltab **primitives, struct bit_tre
 	    st_bit = btp[i].val >> 3;
 	    for (j = 0; j < n_primitives; j++) {
 		if (st_bit == primitives[j]->st_bit) {
-		    btp[i].val = (rtip->rti_Solids[j]->st_bit << 3) | UOP_SOLID;
+		    btp[i].val = (rtip->i->rti_Solids[j]->st_bit << 3) | UOP_SOLID;
 		    break;
 		}
 	    }
@@ -523,7 +559,7 @@ clt_prep(struct rt_i *rtip)
 
     RT_CK_RTI(rtip);
 
-    n_primitives = rtip->nsolids+1;
+    n_primitives = rtip->stats.nsolids+1;
     primitives = (struct soltab **)bu_calloc(n_primitives,
 					     sizeof(struct soltab *), "primitives");
 
@@ -588,7 +624,7 @@ clt_prep(struct rt_i *rtip)
 
 	clt_db_store(n_primitives, primitives);
 
-	n_regions = rtip->nregions;
+	n_regions = rtip->stats.nregions;
 
 	if (n_regions != 0) {
 	    /* Build boolean regions */
@@ -716,8 +752,7 @@ rt_plot_all_bboxes(FILE *fp, struct rt_i *rtip)
 void
 rt_plot_all_solids(
     FILE *fp,
-    struct rt_i *rtip,
-    struct resource *resp)
+    struct rt_i *rtip)
 {
     struct soltab *stp;
 
@@ -734,7 +769,7 @@ rt_plot_all_solids(
 	if (stp->st_aradius >= INFINITY)
 	    continue;
 
-	(void)rt_plot_solid(fp, rtip, stp, resp);
+	(void)rt_plot_solid(fp, rtip, stp);
     } RT_VISIT_ALL_SOLTABS_END;
 }
 
@@ -752,12 +787,12 @@ rt_vlist_solid(
     struct bu_list *vhead,
     struct rt_i *rtip,
     const struct soltab *stp,
-    struct resource *resp)
+    struct resource *UNUSED(resp))
 {
     struct rt_db_internal intern;
     int ret;
 
-    if (rt_db_get_internal(&intern, stp->st_dp, rtip->rti_dbip, stp->st_matp, resp) < 0) {
+    if (rt_db_get_internal(&intern, stp->st_dp, rtip->rti_dbip, stp->st_matp) < 0) {
 	bu_log("rt_vlist_solid(%s): rt_db_get_internal() failed\n", stp->st_name);
 	return -1;			/* FAIL */
     }
@@ -791,8 +826,7 @@ int
 rt_plot_solid(
     FILE *fp,
     struct rt_i *rtip,
-    const struct soltab *stp,
-    struct resource *resp)
+    const struct soltab *stp)
 {
     struct bu_list vhead;
     struct region *regp;
@@ -803,7 +837,7 @@ rt_plot_solid(
 
     BU_LIST_INIT(&vhead);
 
-    if (rt_vlist_solid(&vhead, rtip, stp, resp) < 0) {
+    if (rt_vlist_solid(&vhead, rtip, stp, &rt_uniresource) < 0) {
 	bu_log("rt_plot_solid(%s): rt_vlist_solid() failed\n", stp->st_name);
 	return -1; /* FAIL */
     }
@@ -859,7 +893,7 @@ rt_init_resource(struct resource *resp, int cpu_num, struct rt_i *rtip)
     if (resp == &rt_uniresource) {
 	cpu_num = 0;
     } else {
-	if (rtip != NULL && rtip->rti_treetop) {
+	if (rtip != NULL && rtip->i->rti_treetop) {
 	    /* this is a submodel */
 	    BU_ASSERT(cpu_num < (long)rtip->rti_resources.blen);
 	}
@@ -876,9 +910,6 @@ rt_init_resource(struct resource *resp, int cpu_num, struct rt_i *rtip)
 
     if (!BU_LIST_IS_INITIALIZED(&resp->re_seg_blocks.l))
 	bu_ptbl_init(&resp->re_seg_blocks, 64, "re_seg_blocks ptbl");
-
-    if (!BU_LIST_IS_INITIALIZED(&resp->re_directory_blocks.l))
-	bu_ptbl_init(&resp->re_directory_blocks, 64, "re_directory_blocks ptbl");
 
     if (!BU_LIST_IS_INITIALIZED(&resp->re_parthead))
 	BU_LIST_INIT(&resp->re_parthead);
@@ -1015,7 +1046,7 @@ rt_clean_resource_basic(struct rt_i *rtip, struct resource *resp)
     }
 
     /* Release the state variables for 'solid pieces' */
-    rt_res_pieces_clean(resp, rtip);
+    _res_pieces_clean(resp, rtip);
 
     /* invalidate the resource */
     if (resp != &rt_uniresource)
@@ -1024,8 +1055,7 @@ rt_clean_resource_basic(struct rt_i *rtip, struct resource *resp)
 
 
 /**
- * This method performs the basic resource clean, and also frees all
- * the directory entry blocks. The resource structure is not
+ * This method performs the basic resource clean. The resource structure is not
  * re-initialized.
  *
  * DO NOT CALL THIS METHOD IF YOU ARE STILL USING THE RT_I OR DB_I
@@ -1034,18 +1064,6 @@ rt_clean_resource_basic(struct rt_i *rtip, struct resource *resp)
 void
 rt_clean_resource_complete(struct rt_i *rtip, struct resource *resp)
 {
-    if (BU_LIST_IS_INITIALIZED(&resp->re_directory_blocks.l)) {
-	struct directory **dpp;
-	BU_CK_PTBL(&resp->re_directory_blocks);
-	for (BU_PTBL_FOR(dpp, (struct directory **), &resp->re_directory_blocks)) {
-	    RT_CK_DIR(*dpp);	/* Head of block will be a valid seg */
-	    bu_free((void *)(*dpp), "struct directory block");
-	}
-	bu_ptbl_free(&resp->re_directory_blocks);
-	resp->re_directory_blocks.l.forw = BU_LIST_NULL;
-	resp->re_directory_hd = NULL;
-    }
-
     /* invalidates the resource */
     rt_clean_resource_basic(rtip, resp);
 }
@@ -1067,11 +1085,6 @@ rt_clean_resource_complete(struct rt_i *rtip, struct resource *resp)
  * Note that the resource struct's storage is not freed (it may be
  * static or otherwise allocated by a LIBRT application) but any
  * dynamic memory pointed to by it is freed.
- *
- * One exception to this is that the re_directory_hd and
- * re_directory_blocks are not touched unless there is no raytrace
- * instance, because the "directory" structures (which are really part
- * of the db_i) continue to be in use.
  */
 void
 rt_clean_resource(struct rt_i *rtip, struct resource *resp)
@@ -1151,7 +1164,7 @@ rt_clean(struct rt_i *rtip)
     while (BU_LIST_WHILE(regp, region, &rtip->HeadRegion)) {
 	RT_CK_REGION(regp);
 	BU_LIST_DEQUEUE(&(regp->l));
-	db_free_tree(regp->reg_treetop, NULL);
+	db_free_tree(regp->reg_treetop);
 	bu_free((void *)regp->reg_name, "region name str");
 	regp->reg_name = (char *)0;
 	if (regp->reg_mater.ma_shader) {
@@ -1161,31 +1174,31 @@ rt_clean(struct rt_i *rtip)
 	bu_avs_free(&(regp->attr_values));
 	bu_free((void *)regp, "struct region");
     }
-    rtip->nregions = 0;
+    rtip->stats.nregions = 0;
 
     /*
      * Clear out the solid table, AFTER doing the region table.  Can't
      * use RT_VISIT_ALL_SOLTABS_START here
      */
-    head = &(rtip->rti_solidheads[0]);
-    for (; head < &(rtip->rti_solidheads[RT_DBNHASH]); head++) {
+    head = &(rtip->i->rti_solidheads[0]);
+    for (; head < &(rtip->i->rti_solidheads[RT_DBNHASH]); head++) {
 	while (BU_LIST_WHILE(stp, soltab, head)) {
 	    RT_CHECK_SOLTAB(stp);
 	    rt_free_soltab(stp);
 	}
     }
-    rtip->nsolids = 0;
+    rtip->stats.nsolids = 0;
 
     /* Clean out the array of pointers to regions, if any */
-    if (rtip->Regions) {
-	bu_free((char *)rtip->Regions, "rtip->Regions[]");
-	rtip->Regions = (struct region **)0;
+    if (rtip->i->Regions) {
+	bu_free((char *)rtip->i->Regions, "rtip->i->Regions[]");
+	rtip->i->Regions = (struct region **)0;
 
 	/* Free space partitions */
-	rt_fr_cut(rtip, &(rtip->rti_CutHead));
-	memset((char *)&(rtip->rti_CutHead), 0, sizeof(union cutter));
-	rt_fr_cut(rtip, &(rtip->rti_inf_box));
-	memset((char *)&(rtip->rti_inf_box), 0, sizeof(union cutter));
+	rt_fr_cut(rtip, &(rtip->i->rti_CutHead));
+	memset((char *)&(rtip->i->rti_CutHead), 0, sizeof(union cutter));
+	rt_fr_cut(rtip, &(rtip->i->rti_inf_box));
+	memset((char *)&(rtip->i->rti_inf_box), 0, sizeof(union cutter));
     }
     rt_cut_clean(rtip);
 
@@ -1196,17 +1209,17 @@ rt_clean(struct rt_i *rtip)
 
     /* Free array of solid table pointers indexed by solid ID */
     for (i=0; i <= ID_MAX_SOLID; i++) {
-	if (rtip->rti_nsol_by_type[i] <= 0)
+	if (rtip->i->rti_nsol_by_type[i] <= 0)
 	    continue;
-	if (rtip->rti_sol_by_type[i]) {
-	    bu_free((char *)rtip->rti_sol_by_type[i], "sol_by_type");
+	if (rtip->i->rti_sol_by_type[i]) {
+	    bu_free((char *)rtip->i->rti_sol_by_type[i], "sol_by_type");
 	}
-	rtip->rti_sol_by_type[i] = (struct soltab **)0;
-	rtip->rti_nsol_by_type[i] = 0;
+	rtip->i->rti_sol_by_type[i] = (struct soltab **)0;
+	rtip->i->rti_nsol_by_type[i] = 0;
     }
-    if (rtip->rti_Solids) {
-	bu_free((char *)rtip->rti_Solids, "rtip->rti_Solids[]");
-	rtip->rti_Solids = (struct soltab **)0;
+    if (rtip->i->rti_Solids) {
+	bu_free((char *)rtip->i->rti_Solids, "rtip->i->rti_Solids[]");
+	rtip->i->rti_Solids = (struct soltab **)0;
     }
 
     /*
@@ -1244,18 +1257,18 @@ rt_clean(struct rt_i *rtip)
 
     /*
      * Re-initialize everything important.
-     * This duplicates the code in rt_new_rti().
+     * This duplicates the code in rt_i_create().
      */
 
-    rtip->rti_inf_box.bn.bn_type = CUT_BOXNODE;
-    VMOVE(rtip->rti_inf_box.bn.bn_min, rtip->mdl_min);
-    VMOVE(rtip->rti_inf_box.bn.bn_max, rtip->mdl_max);
+    rtip->i->rti_inf_box.bn.bn_type = CUT_BOXNODE;
+    VMOVE(rtip->i->rti_inf_box.bn.bn_min, rtip->mdl_min);
+    VMOVE(rtip->i->rti_inf_box.bn.bn_max, rtip->mdl_max);
     VSETALL(rtip->mdl_min,  INFINITY);
     VSETALL(rtip->mdl_max, -INFINITY);
 
-    bu_hist_free(&rtip->rti_hist_cellsize);
-    bu_hist_free(&rtip->rti_hist_cutdepth);
-    bu_hist_free(&rtip->rti_hist_cell_pieces);
+    bu_hist_free(&rtip->i->rti_hist_cellsize);
+    bu_hist_free(&rtip->i->rti_hist_cutdepth);
+    bu_hist_free(&rtip->i->rti_hist_cell_pieces);
 
     if (rtip->rti_dbip) {
 	/*
@@ -1272,16 +1285,13 @@ rt_clean(struct rt_i *rtip)
 	 * rt_find_identical_solid() working properly as d_uses goes
 	 * up.
 	 */
-	for (i=0; i < RT_DBNHASH; i++) {
-	    struct directory *dp;
-
-	    dp = rtip->rti_dbip->dbi_Head[i];
-	    for (; dp != RT_DIR_NULL; dp = dp->d_forw)
-		dp->d_uses = 0;
-	}
+	struct directory *dp;
+	FOR_ALL_DIRECTORY_START(dp, rtip->rti_dbip)
+	    dp->d_uses = 0;
+	FOR_ALL_DIRECTORY_END;
     }
 
-    bu_ptbl_reset(&rtip->delete_regs);
+    bu_ptbl_reset(&rtip->i->delete_regs);
 
     rtip->rti_magic = RTI_MAGIC;
     rtip->needprep = 1;
@@ -1298,11 +1308,10 @@ rt_clean(struct rt_i *rtip)
  * 0 success
  */
 int
-rt_del_regtree(struct rt_i *rtip, struct region *delregp, struct resource *resp)
+rt_del_regtree(struct rt_i *rtip, struct region *delregp)
 {
     if (rtip)
 	RT_CK_RTI(rtip);
-    RT_CK_RESOURCE(resp);
     RT_CK_REGION(delregp);
 
     if (RT_G_DEBUG & RT_DEBUG_REGIONS)
@@ -1310,7 +1319,7 @@ rt_del_regtree(struct rt_i *rtip, struct region *delregp, struct resource *resp)
 
     BU_LIST_DEQUEUE(&(delregp->l));
 
-    db_free_tree(delregp->reg_treetop, resp);
+    db_free_tree(delregp->reg_treetop);
     delregp->reg_treetop = TREE_NULL;
     bu_free((char *)delregp->reg_name, "region name str");
     delregp->reg_name = (char *)0;
@@ -1337,7 +1346,7 @@ rt_solid_bitfinder(union tree *treep, struct region *regp, struct resource *resp
     RT_CK_RESOURCE(resp);
 
     while ((sp = resp->re_boolstack) == (union tree **)0)
-	rt_bool_growstack(resp);
+	_bool_growstack(resp);
     stackend = &(resp->re_boolstack[resp->re_boolslen-1]);
 
     *sp++ = TREE_NULL;
@@ -1361,7 +1370,7 @@ rt_solid_bitfinder(union tree *treep, struct region *regp, struct resource *resp
 		*sp++ = treep->tr_b.tb_left;
 		if (sp >= stackend) {
 		    int off = sp - resp->re_boolstack;
-		    rt_bool_growstack(resp);
+		    _bool_growstack(resp);
 		    sp = &(resp->re_boolstack[off]);
 		    stackend = &(resp->re_boolstack[resp->re_boolslen-1]);
 		}
@@ -1425,7 +1434,7 @@ rt_find_path(struct db_i *dbip,
 
     switch (tp->tr_op) {
 	case OP_DB_LEAF:
-	    if (UNLIKELY(dbip->dbi_use_comb_instance_ids && c_inst_map))
+	    if (UNLIKELY(dbip->i->dbi_use_comb_instance_ids && c_inst_map))
 		(*c_inst_map)[std::string(tp->tr_l.tl_name)]++;
 	    dp = db_lookup(dbip, tp->tr_l.tl_name, 1);
 	    if (dp == RT_DIR_NULL) {
@@ -1433,7 +1442,7 @@ rt_find_path(struct db_i *dbip,
 		return;
 	    }
 	    db_add_node_to_full_path(*curr_path, dp);
-	    if (UNLIKELY(dbip->dbi_use_comb_instance_ids && c_inst_map))
+	    if (UNLIKELY(dbip->i->dbi_use_comb_instance_ids && c_inst_map))
 		DB_FULL_PATH_SET_CUR_COMB_INST(*curr_path, (*c_inst_map)[std::string(tp->tr_l.tl_name)]-1);
 	    if (dp == end) {
 		bu_ptbl_ins(paths, (long *)(*curr_path));
@@ -1443,7 +1452,7 @@ rt_find_path(struct db_i *dbip,
 		db_dup_full_path(newpath, (*curr_path));
 		(*curr_path) = newpath;
 	    } else if ((dp->d_flags & RT_DIR_COMB) && !(dp->d_flags & RT_DIR_REGION)) {
-		if (rt_db_get_internal(&intern, dp, dbip, NULL, resp) < 0) {
+		if (rt_db_get_internal(&intern, dp, dbip, NULL) < 0) {
 		    bu_log("Unable to load [%s]\nAborting.\n", tp->tr_l.tl_name);
 		    return;
 		}
@@ -1505,7 +1514,7 @@ rt_find_paths(struct db_i *dbip,
 	return 1;
     }
 
-    if (rt_db_get_internal(&intern, start, dbip, NULL, resp) < 0) {
+    if (rt_db_get_internal(&intern, start, dbip, NULL) < 0) {
 	db_free_full_path(path);
 	bu_free((char *)path, "path");
 	return 1;
@@ -1569,7 +1578,6 @@ unprep_reg_start(struct db_tree_state *tsp,
 {
     if (tsp) {
 	RT_CK_RTI(tsp->ts_rtip);
-	RT_CK_RESOURCE(tsp->ts_resp);
     }
     if (pathp) RT_CK_FULL_PATH(pathp);
     if (comb) RT_CK_COMB(comb);
@@ -1577,7 +1585,7 @@ unprep_reg_start(struct db_tree_state *tsp,
     /* Ignore "air" regions unless wanted */
     if (tsp) {
 	if (tsp->ts_rtip->useair == 0 &&  tsp->ts_aircode != 0) {
-	    tsp->ts_rtip->rti_air_discards++;
+	    tsp->ts_rtip->i->rti_air_discards++;
 	    return -1;	/* drop this region */
 	}
     }
@@ -1593,7 +1601,6 @@ unprep_reg_end(struct db_tree_state *tsp,
 {
     if (tsp) {
 	RT_CK_RTI(tsp->ts_rtip);
-	RT_CK_RESOURCE(tsp->ts_resp);
     }
     if (pathp)
 	RT_CK_FULL_PATH(pathp);
@@ -1623,7 +1630,6 @@ unprep_leaf(struct db_tree_state *tsp,
     RT_CK_DB_INTERNAL(ip);
     rtip = tsp->ts_rtip;
     RT_CK_RTI(rtip);
-    RT_CK_RESOURCE(tsp->ts_resp);
     dp = DB_FULL_PATH_CUR_DIR(pathp);
 
     if (!dp)
@@ -1675,9 +1681,9 @@ unprep_leaf(struct db_tree_state *tsp,
 		}
 		if (stp->st_uses <= 1) {
 		    /* soltab structure will actually be freed */
-		    remove_from_bsp(stp, &rtip->rti_inf_box, &rtip->rti_tol);
-		    remove_from_bsp(stp, &rtip->rti_CutHead, &rtip->rti_tol);
-		    rtip->rti_Solids[bit] = (struct soltab *)NULL;
+		    remove_from_bsp(stp, &rtip->i->rti_inf_box, &rtip->rti_tol);
+		    remove_from_bsp(stp, &rtip->i->rti_CutHead, &rtip->rti_tol);
+		    rtip->i->rti_Solids[bit] = (struct soltab *)NULL;
 		}
 		rt_free_soltab(stp);
 		return (union tree *)NULL;
@@ -1701,7 +1707,7 @@ rt_unprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
     struct db_full_path *path;
     size_t i, j, k;
 
-    rt_res_pieces_clean(resp, rtip);
+    _res_pieces_clean(resp, rtip);
 
     /* find all paths from top objects to objects being unprepped */
     bu_ptbl_init(&objs->paths, 5, "paths");
@@ -1753,7 +1759,6 @@ rt_unprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 
 	RT_DBTS_INIT(tree_state);
 	tree_state->ts_dbip = rtip->rti_dbip;
-	tree_state->ts_resp = resp;
 	tree_state->ts_rtip = rtip;
 	tree_state->ts_tol = &rtip->rti_tol;
 	objs->tsp[i] = tree_state;
@@ -1828,9 +1833,9 @@ rt_unprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 
 	rp = (struct region *)BU_PTBL_GET(&objs->unprep_regions, i);
 	BU_LIST_DEQUEUE(&rp->l);
-	rtip->Regions[rp->reg_bit] = (struct region *)NULL;
+	rtip->i->Regions[rp->reg_bit] = (struct region *)NULL;
 
-	/* XXX db_free_tree(rp->reg_treetop, resp); */
+	/* XXX db_free_tree(rp->reg_treetop); */
 	bu_free((void *)rp->reg_name, "region name str");
 	rp->reg_name = (char *)0;
 	if (rp->reg_mater.ma_shader) {
@@ -1842,22 +1847,22 @@ rt_unprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
     }
 
     /* eliminate NULL region structures */
-    objs->old_nregions = rtip->nregions;
+    objs->old_nregions = rtip->stats.nregions;
     i = 0;
-    while (i < rtip->nregions) {
+    while (i < rtip->stats.nregions) {
 	int nulls=0;
 
-	while (i < rtip->nregions && !rtip->Regions[i]) {
+	while (i < rtip->stats.nregions && !rtip->i->Regions[i]) {
 	    i++;
 	    nulls++;
 	}
 
 	if (nulls) {
-	    rtip->nregions -= nulls;
-	    for (j=i-nulls; j<rtip->nregions; j++) {
-		rtip->Regions[j] = rtip->Regions[j+nulls];
-		if (rtip->Regions[j]) {
-		    rtip->Regions[j]->reg_bit = j;
+	    rtip->stats.nregions -= nulls;
+	    for (j=i-nulls; j<rtip->stats.nregions; j++) {
+		rtip->i->Regions[j] = rtip->i->Regions[j+nulls];
+		if (rtip->i->Regions[j]) {
+		    rtip->i->Regions[j]->reg_bit = j;
 		}
 	    }
 	} else {
@@ -1866,25 +1871,25 @@ rt_unprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
     }
 
     /* eliminate NULL soltabs */
-    objs->old_nsolids = rtip->nsolids;
+    objs->old_nsolids = rtip->stats.nsolids;
     objs->nsolids_unprepped = 0;
     i = 0;
-    while (i < rtip->nsolids) {
+    while (i < rtip->stats.nsolids) {
 	int nulls=0;
 
-	while (i < rtip->nsolids && !rtip->rti_Solids[i]) {
+	while (i < rtip->stats.nsolids && !rtip->i->rti_Solids[i]) {
 	    objs->nsolids_unprepped++;
 	    i++;
 	    nulls++;
 	}
 	if (nulls) {
-	    for (j=i-nulls; j+nulls<rtip->nsolids; j++) {
-		rtip->rti_Solids[j] = rtip->rti_Solids[j+nulls];
-		if (rtip->rti_Solids[j]) {
-		    rtip->rti_Solids[j]->st_bit = j;
+	    for (j=i-nulls; j+nulls<rtip->stats.nsolids; j++) {
+		rtip->i->rti_Solids[j] = rtip->i->rti_Solids[j+nulls];
+		if (rtip->i->rti_Solids[j]) {
+		    rtip->i->rti_Solids[j]->st_bit = j;
 		}
 	    }
-	    rtip->nsolids -= nulls;
+	    rtip->stats.nsolids -= nulls;
 	    i -= nulls;
 	} else {
 	    i++;
@@ -1920,12 +1925,12 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 	argv[i] = db_path_to_string((const struct db_full_path *)BU_PTBL_GET(&(objs->paths), i));
     }
 
-    rtip->rti_add_to_new_solids_list = 1;
-    bu_ptbl_init(&rtip->rti_new_solids, 128, "rti_new_solids");
+    rtip->i->rti_add_to_new_solids_list = 1;
+    bu_ptbl_init(&rtip->i->rti_new_solids, 128, "rti_new_solids");
     if (rt_gettrees(rtip, BU_PTBL_LEN(&(objs->paths)), (const char **)argv, 1)) {
 	return 1;
     }
-    rtip->rti_add_to_new_solids_list = 0;
+    rtip->i->rti_add_to_new_solids_list = 0;
 
     for (i=0; i<BU_PTBL_LEN(&(objs->paths)); i++) {
 	bu_free(argv[i], "argv[i]");
@@ -1934,17 +1939,17 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 
     rtip->needprep = 0;
 
-    if (rtip->nregions > objs->old_nregions) {
-	rtip->Regions = (struct region **)bu_realloc(rtip->Regions,
-						     rtip->nregions * sizeof(struct region *), "rtip->Regions");
-	memset(rtip->Regions, 0, rtip->nregions);
+    if (rtip->stats.nregions > objs->old_nregions) {
+	rtip->i->Regions = (struct region **)bu_realloc(rtip->i->Regions,
+						     rtip->stats.nregions * sizeof(struct region *), "rtip->i->Regions");
+	memset(rtip->i->Regions, 0, rtip->stats.nregions);
     }
 
 
     bitno = 0;
     for (BU_LIST_FOR(rp, region, &(rtip->HeadRegion))) {
 	rp->reg_bit = bitno;
-	rtip->Regions[bitno] = rp;
+	rtip->i->Regions[bitno] = rp;
 	if (bitno >= objs->old_nregions - objs->nregions_unprepped) {
 	    point_t region_min, region_max;
 
@@ -1963,31 +1968,31 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 	bitno++;
     }
 
-    if (rtip->nsolids > objs->old_nsolids) {
-	rtip->rti_Solids = (struct soltab **)bu_realloc(rtip->rti_Solids,
-							rtip->nsolids * sizeof(struct soltab *),
-							"rtip->rti_Solids");
-	memset(rtip->rti_Solids, 0, rtip->nsolids * sizeof(struct soltab *));
+    if (rtip->stats.nsolids > objs->old_nsolids) {
+	rtip->i->rti_Solids = (struct soltab **)bu_realloc(rtip->i->rti_Solids,
+							rtip->stats.nsolids * sizeof(struct soltab *),
+							"rtip->i->rti_Solids");
+	memset(rtip->i->rti_Solids, 0, rtip->stats.nsolids * sizeof(struct soltab *));
     }
 
     bitno = 0;
     RT_VISIT_ALL_SOLTABS_START(stp, rtip) {
 	stp->st_bit = bitno;
-	rtip->rti_Solids[bitno] = stp;
+	rtip->i->rti_Solids[bitno] = stp;
 	bitno++;
 
     } RT_VISIT_ALL_SOLTABS_END;
 
-    for (i=0; i<BU_PTBL_LEN(&rtip->rti_new_solids); i++) {
-	stp = (struct soltab *)BU_PTBL_GET(&rtip->rti_new_solids, i);
+    for (i=0; i<BU_PTBL_LEN(&rtip->i->rti_new_solids); i++) {
+	stp = (struct soltab *)BU_PTBL_GET(&rtip->i->rti_new_solids, i);
 	if (stp->st_aradius >= INFINITY) {
-	    insert_in_bsp(stp, &rtip->rti_inf_box);
+	    insert_in_bsp(stp, &rtip->i->rti_inf_box);
 	} else {
-	    insert_in_bsp(stp, &rtip->rti_CutHead);
+	    insert_in_bsp(stp, &rtip->i->rti_CutHead);
 	}
     }
 
-    bu_ptbl_free(&rtip->rti_new_solids);
+    bu_ptbl_free(&rtip->i->rti_new_solids);
 
     if (!VNEAR_EQUAL(rtip->mdl_min, old_min, SMALL_FASTF)
 	|| !VNEAR_EQUAL(rtip->mdl_max, old_max, SMALL_FASTF))
@@ -1997,19 +2002,7 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 
 	VSETALL(bb, INFINITY);
 	VSETALL(&bb[3], -INFINITY);
-	fill_out_bsp(rtip, &rtip->rti_CutHead, resp, bb);
-    }
-
-    if (BU_PTBL_LEN(&rtip->rti_resources)) {
-	for (i=0; i<BU_PTBL_LEN(&rtip->rti_resources); i++) {
-	    struct resource *re;
-
-	    re = (struct resource *)BU_PTBL_GET(&rtip->rti_resources, i);
-	    if (re && rtip->rti_nsolids_with_pieces)
-		rt_res_pieces_init(re, rtip);
-	}
-    } else if (rtip->rti_nsolids_with_pieces) {
-	rt_res_pieces_init(&rt_uniresource, rtip);
+	nfill_out_bsp(rtip, &rtip->i->rti_CutHead, bb);
     }
 
     return 0;
@@ -2018,6 +2011,62 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 
 /** @} */
 
+
+void
+rt_iterate_regions(struct rt_i *rtip, rt_region_callback_t callback, void *udata)
+{
+    struct region *regp;
+
+    RT_CK_RTI(rtip);
+
+    for (BU_LIST_FOR(regp, region, &(rtip->HeadRegion))) {
+	if (callback(regp, udata) != 0)
+	    return;
+    }
+}
+
+
+void
+rt_mark_region_deleted(struct rt_i *rtip, struct region *regp)
+{
+    RT_CK_RTI(rtip);
+    RT_CK_REGION(regp);
+
+    bu_ptbl_ins(&rtip->i->delete_regs, (long *)regp);
+}
+
+size_t
+rt_deleted_regions_cnt(struct rt_i *rtip)
+{
+    if (!rtip)
+	return 0;
+    return BU_PTBL_LEN(&rtip->i->delete_regs);
+}
+
+struct region *
+rt_deleted_region_get(struct rt_i *rtip, size_t n)
+{
+    if (!rtip || n > BU_PTBL_LEN(&rtip->i->delete_regs) - 1)
+	return NULL;
+    struct region *rp = (struct region *)BU_PTBL_GET(&rtip->i->delete_regs, n);
+    return rp;
+}
+
+void
+rt_dynamic_add_solid(struct rt_i *rtip, struct soltab *stp)
+{
+    RT_CK_RTI(rtip);
+    RT_CHECK_SOLTAB(stp);
+
+    /* Grow the rti_Solids array to accommodate the new entry. */
+    rtip->i->rti_Solids = (struct soltab **)bu_realloc(rtip->i->rti_Solids,
+						    rtip->stats.nsolids * sizeof(struct soltab *),
+						    "rti_Solids");
+    rtip->i->rti_Solids[stp->st_bit] = stp;
+
+    /* Insert into the existing space-partitioning tree. */
+    insert_in_bsp(stp, &rtip->i->rti_CutHead);
+}
 
 
 // Local Variables:

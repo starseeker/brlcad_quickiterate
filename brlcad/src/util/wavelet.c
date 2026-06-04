@@ -1,7 +1,7 @@
 /*                       W A V E L E T . C
  * BRL-CAD
  *
- * Copyright (c) 1998-2025 United States Government as represented by
+ * Copyright (c) 1998-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -430,6 +430,18 @@ main(int ac, char **av)
     return -1;
 }
 
+
+/* Undefine all local macros in case this file is ever incorporated into
+ * Unity/jumbo builds.  CHAR, SHORT, INT, LONG, FLOAT, and DOUBLE conflict with
+ * Windows SDK type names in winnt.h and must be cleaned up. */
+#undef CHAR
+#undef SHORT
+#undef INT
+#undef LONG
+#undef FLOAT
+#undef DOUBLE
+#undef DECOMPOSE
+#undef RECONSTRUCT
 
 /*
  * Local Variables:

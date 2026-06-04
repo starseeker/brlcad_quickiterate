@@ -1,7 +1,7 @@
 /*                       P I X - P P M . C
  * BRL-CAD
  *
- * Copyright (c) 2004-2025 United States Government as represented by
+ * Copyright (c) 2004-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -188,6 +188,9 @@ main(int argc, char *argv[])
     if (!get_args(argc, argv, &file_width, &file_height)) {
 	bu_exit (1, "%s\n", usage);
     }
+
+    if (!infp)
+	bu_exit (1, "pix-ppm: null infp\n");
 
     size = file_width * file_height * pixbytes;
 

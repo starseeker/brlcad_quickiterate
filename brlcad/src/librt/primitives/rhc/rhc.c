@@ -1,7 +1,7 @@
 /*                           R H C . C
  * BRL-CAD
  *
- * Copyright (c) 1990-2025 United States Government as represented by
+ * Copyright (c) 1990-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -1020,7 +1020,7 @@ rt_rhc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 {
     int i, n;
     fastf_t b, c, *back, *front, rh;
-    fastf_t dtol, ntol;
+    fastf_t dtol, ntol, min_abs;
     vect_t Bu, Hu, Ru;
     mat_t R;
     mat_t invR;
@@ -1062,12 +1062,18 @@ rt_rhc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     }
 
     /* To ensure normal tolerance, remain below this angle */
-    if (ttol->norm > 0.0) {
+    if (ttol->norm > 0.0)
 	ntol = ttol->norm;
-    } else {
+    else
 	/* tolerate everything */
 	ntol = M_PI;
+
+    /* Clamp to prevent excessively dense meshes. */
+    {
+	fastf_t bbox_diag = 2.0 * (rh > b ? rh : b);
+	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
     }
+    min_abs = prim_min_abs_tol();
 
     /* initial hyperbola approximation is a single segment */
     BU_ALLOC(pts, struct rt_pnt_node);
@@ -1079,7 +1085,7 @@ rt_rhc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     /* 2 endpoints in 1st approximation */
     n = 2;
     /* recursively break segment 'til within error tolerances */
-    n += rt_mk_hyperbola(pts, rh, b, c, dtol, ntol);
+    n += _rt_mk_hyperbola(pts, rh, b, c, dtol, ntol, min_abs);
 
     /* get mem for arrays */
     front = (fastf_t *)bu_malloc(3 * n * sizeof(fastf_t), "fast_t");
@@ -1135,9 +1141,12 @@ rt_rhc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
   r: rectangular halfwidth
   b: breadth
   c: distance to asymptote origin
+
+  Internal version: takes an explicit min_abs floor so the caller can
+  read the env-var override once and propagate it through all recursion.
 */
 int
-rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_t dtol, fastf_t ntol)
+_rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_t dtol, fastf_t ntol, fastf_t min_abs)
 {
     fastf_t A, B, C, discr, dist, intr, j, k, m, theta0, theta1, z0;
     int n;
@@ -1185,6 +1194,19 @@ rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_
 	mpt[Y] = -mpt[Y];
     }
 
+    /* Guard: if mpt[Y] is not-finite (NaN/Inf from sqrt of negative when the
+     * RHC formula places z0 outside the valid hyperbola range) or if mpt[Y]
+     * falls outside the interval [min(p0Y,p1Y), max(p0Y,p1Y)] (formula gives
+     * a "midpoint" coincident with an endpoint → infinite recursion), stop
+     * subdividing.  The chord approximation is already as tight as this
+     * formula can achieve. */
+    {
+	fastf_t ylo = p0[Y] < p1[Y] ? p0[Y] : p1[Y];
+	fastf_t yhi = p0[Y] < p1[Y] ? p1[Y] : p0[Y];
+	if (!isfinite(mpt[Y]) || mpt[Y] <= ylo || mpt[Y] >= yhi)
+	    return 0;
+    }
+
     /* max distance between that point and line */
     dist = fabs(m * mpt[Y] - mpt[Z] + intr) / sqrt(m * m + 1);
     /* angles between normal of line and of hyperbola at line endpoints */
@@ -1199,6 +1221,24 @@ rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_
 
     /* split segment at widest point if not within error tolerances */
     if (dist > dtol || theta0 > ntol || theta1 > ntol) {
+	/* Stop subdividing when the segment Y-span is much smaller than both
+	 * the dtol floor and the ntol-equivalent floor.  For the hyperbola
+	 * the maximum curvature (at the apex) is approximately b*(b+2c)/(r^2*c),
+	 * so the ntol-equivalent minimum span is ntol*r^2*c/(b*(b+2c)).  Clamp
+	 * to PRIM_MIN_ABS_TOL for consistency with the dtol floor.
+	 * Use min(dtol, ntol_equiv)*0.1 so we stop only when the segment is
+	 * already much smaller than the tightest applicable tolerance. */
+	fastf_t span = fabs(p1[Y] - p0[Y]);
+	{
+	    fastf_t ntol_equiv = (ntol < M_PI)
+		? ntol * r * r * c / (b * (b + 2.0 * c))
+		: dtol;
+	    if (ntol_equiv < min_abs) ntol_equiv = min_abs;
+	    fastf_t span_floor = (ntol_equiv < dtol ? ntol_equiv : dtol) * 0.1;
+	    if (span < span_floor)
+		return 0;
+	}
+
 	/* split segment */
 	BU_ALLOC(newpt, struct rt_pnt_node);
 	VMOVE(newpt->p, mpt);
@@ -1207,14 +1247,59 @@ rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_
 	/* keep track of number of pts added */
 	n = 1;
 	/* recurse on first new segment */
-	n += rt_mk_hyperbola(pts, r, b, c, dtol, ntol);
+	n += _rt_mk_hyperbola(pts, r, b, c, dtol, ntol, min_abs);
 	/* recurse on second new segment */
-	n += rt_mk_hyperbola(newpt, r, b, c, dtol, ntol);
+	n += _rt_mk_hyperbola(newpt, r, b, c, dtol, ntol, min_abs);
     } else {
 	n  = 0;
     }
 
     return n;
+}
+
+
+/**
+ * Deprecated compatibility wrapper for _rt_mk_hyperbola.  Uses SMALL_FASTF as
+ * the minimum absolute subdivision span, preserving the original behavior of
+ * unconditionally honoring whatever dtol/ntol the caller passes (no sanity
+ * floor).  New code should call rt_mk_hyperbola() with an explicit min_abs.
+ *
+ * @deprecated use rt_mk_hyperbola() with an explicit min_abs argument.
+ */
+int
+rt_mk_hyperbola_old(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_t dtol, fastf_t ntol)
+{
+    return _rt_mk_hyperbola(pts, r, b, c, dtol, ntol, SMALL_FASTF);
+}
+
+
+/**
+ * Approximate a hyperbola with line segments, with caller-controlled minimum
+ * subdivision span.
+ *
+ * @param pts   Linked list of points; must have at least two nodes on entry.
+ * @param r     Rectangular half-width of the hyperbola.
+ * @param b     Breadth (half-height) of the hyperbola.
+ * @param c     Distance from the apex to the asymptote origin.
+ * @param dtol  Maximum allowable chord-to-curve distance (mm).
+ * @param ntol  Maximum allowable normal-deviation angle (radians); pass M_PI
+ *              to ignore normal tolerance.
+ * @param min_abs  Minimum absolute span (mm) below which subdivision stops,
+ *              preventing runaway recursion.  Recommended values:
+ *              - 0.05 mm is the librt default and suits typical CAD geometry.
+ *              - Smaller values (e.g., 0.005 mm) produce finer curves but can
+ *                increase polygon counts dramatically near tight radii.
+ *              - SMALL_FASTF (~1e-37) disables the floor entirely, matching
+ *                the original rt_mk_hyperbola_old() behavior; use only when
+ *                you know the geometry cannot trigger unbounded recursion.
+ *              Decreasing min_abs below dtol has no effect until dtol itself
+ *              drives subdivision to spans smaller than min_abs.
+ * @return Number of additional points inserted.
+ */
+int
+rt_mk_hyperbola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t c, fastf_t dtol, fastf_t ntol, fastf_t min_abs)
+{
+    return _rt_mk_hyperbola(pts, r, b, c, dtol, ntol, min_abs);
 }
 
 
@@ -1228,7 +1313,7 @@ rt_rhc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 {
     int i, j, n;
     fastf_t b, c, *back, *front, rh;
-    fastf_t dtol, ntol;
+    fastf_t dtol, ntol, min_abs;
     vect_t Bu, Hu, Ru;
     mat_t R;
     mat_t invR;
@@ -1279,13 +1364,19 @@ rt_rhc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     }
 
     /* To ensure normal tolerance, remain below this angle */
-    if (ttol->norm > 0.0) {
+    if (ttol->norm > 0.0)
 	ntol = ttol->norm;
-    } else {
+    else
 	/* tolerate everything */
 	ntol = M_PI;
+
+    /* Clamp to prevent excessively dense meshes. */
+    {
+	fastf_t bbox_diag = 2.0 * (rh > b ? rh : b);
+	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
     }
 
+    min_abs = prim_min_abs_tol();
     /* initial hyperbola approximation is a single segment */
     BU_ALLOC(pts, struct rt_pnt_node);
     BU_ALLOC(pts->next, struct rt_pnt_node);
@@ -1296,7 +1387,33 @@ rt_rhc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* 2 endpoints in 1st approximation */
     n = 2;
     /* recursively break segment 'til within error tolerances */
-    n += rt_mk_hyperbola(pts, rh, b, c, dtol, ntol);
+    n += _rt_mk_hyperbola(pts, rh, b, c, dtol, ntol, min_abs);
+
+    /* Post-process: remove profile points too close (in 3D) to their predecessor.
+     * With tight normal tolerances the hyperbola subdivision can produce many
+     * closely-spaced points near the apex (y=0) where dZ/dY → 0.  Adjacent
+     * profile points within 2*tol->dist of each other create degenerate
+     * rectangular side faces that cause nmg_fu_planeeqn to fail with
+     * "Cannot find three distinct vertices". */
+    {
+	fastf_t min_sep_sq = 4.0 * tol->dist * tol->dist;
+	struct rt_pnt_node *prev_kept = pts;
+	struct rt_pnt_node *cur = pts->next;
+	while (cur) {
+	    fastf_t dY = cur->p[Y] - prev_kept->p[Y];
+	    fastf_t dZ = cur->p[Z] - prev_kept->p[Z];
+	    if (dY*dY + dZ*dZ < min_sep_sq) {
+		struct rt_pnt_node *to_free = cur;
+		prev_kept->next = cur->next;
+		cur = cur->next;
+		bu_free(to_free, "rt_pnt_node");
+		n--;
+	    } else {
+		prev_kept = cur;
+		cur = cur->next;
+	    }
+	}
+    }
 
     /* get mem for arrays */
     front = (fastf_t *)bu_malloc(3 * n * sizeof(fastf_t), "fastf_t");
@@ -1511,7 +1628,7 @@ rt_rhc_import4(struct rt_db_internal *ip, const struct bu_external *ep, const fa
 	mat = bn_mat_identity;
     }
 
-    if (dbip && dbip->dbi_version < 0) {
+    if (dbip && dbip->i->dbi_version < 0) {
 	flip_fastf_float(v1, &rp->s.s_values[0 * 3], 1, 1);
 	flip_fastf_float(v2, &rp->s.s_values[1 * 3], 1, 1);
 	flip_fastf_float(v3, &rp->s.s_values[2 * 3], 1, 1);
@@ -1525,7 +1642,7 @@ rt_rhc_import4(struct rt_db_internal *ip, const struct bu_external *ep, const fa
     MAT4X3VEC(xip->rhc_H, mat, v2);
     MAT4X3VEC(xip->rhc_B, mat, v3);
 
-    if (dbip && dbip->dbi_version < 0) {
+    if (dbip && dbip->i->dbi_version < 0) {
 	v1[X] = flip_dbfloat(rp->s.s_values[3 * 3 + 0]);
 	v1[Y] = flip_dbfloat(rp->s.s_values[3 * 3 + 1]);
     } else {
@@ -2063,6 +2180,64 @@ rhc_kpt_end:
     MAT4X3PNT(*pt, mat, mpt);
 
     return k;
+}
+
+
+int
+rt_rhc_perturb(struct rt_db_internal **oip, const struct rt_db_internal *ip, int planar_only, fastf_t val)
+{
+    if (NEAR_ZERO(val, SMALL_FASTF))
+	return BRLCAD_OK;
+
+    if (!oip || !ip)
+	return BRLCAD_ERROR;
+
+    struct rt_rhc_internal *orhc = (struct rt_rhc_internal *)ip->idb_ptr;
+    RT_RHC_CK_MAGIC(orhc);
+
+    struct rt_db_internal *nip;
+    BU_GET(nip, struct rt_db_internal);
+    RT_DB_INTERNAL_INIT(nip);
+    nip->idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    nip->idb_type = ID_RHC;
+    nip->idb_meth = &OBJ[ID_RHC];
+    struct rt_rhc_internal *rhc = NULL;
+    BU_ALLOC(rhc, struct rt_rhc_internal);
+    nip->idb_ptr = rhc;
+    rhc->rhc_magic = RT_RHC_INTERNAL_MAGIC;
+    VMOVE(rhc->rhc_V, orhc->rhc_V);
+    VMOVE(rhc->rhc_H, orhc->rhc_H);
+    VMOVE(rhc->rhc_B, orhc->rhc_B);
+    rhc->rhc_r = orhc->rhc_r;
+    rhc->rhc_c = orhc->rhc_c;
+
+    /* Extend H (and move V back) to push the flat rectangular faces apart. */
+    vect_t hvec, hback;
+    VMOVE(hvec, rhc->rhc_H);
+    VUNITIZE(hvec);
+    VREVERSE(hback, hvec);
+    VSCALE(hback, hback, val);
+    VADD2(rhc->rhc_V, rhc->rhc_V, hback);
+    vect_t hext;
+    VSCALE(hext, hvec, 2.0 * val);
+    VADD2(rhc->rhc_H, rhc->rhc_H, hext);
+
+    if (planar_only) {
+	*oip = nip;
+	return BRLCAD_OK;
+    }
+
+    /* Also expand the breadth vector, half-width, and asymptote distance. */
+    vect_t bvec;
+    VMOVE(bvec, rhc->rhc_B);
+    VUNITIZE(bvec);
+    VSCALE(bvec, bvec, val);
+    VADD2(rhc->rhc_B, rhc->rhc_B, bvec);
+    rhc->rhc_r += val;
+    rhc->rhc_c += val;
+
+    *oip = nip;
+    return BRLCAD_OK;
 }
 
 

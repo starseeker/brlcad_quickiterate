@@ -1,7 +1,7 @@
 /*                    V I E W W E I G H T . C
  * BRL-CAD
  *
- * Copyright (c) 1988-2025 United States Government as represented by
+ * Copyright (c) 1988-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -150,7 +150,7 @@ densities_prep(struct rt_i * rtip, int minus_o)
 	    struct rt_db_internal intern = RT_DB_INTERNAL_INIT_ZERO;
 	    struct rt_binunif_internal *bip = NULL;
 	    struct bu_vls msgs = BU_VLS_INIT_ZERO;
-	    if (rt_db_get_internal(&intern, dp, rtip->rti_dbip, NULL, &rt_uniresource) < 0) {
+	    if (rt_db_get_internal(&intern, dp, rtip->rti_dbip, NULL) < 0) {
 		bu_log("Could not import %s\n", dp->d_namep);
 		goto densities_prep_rtweight_fail;
 	    }
@@ -210,13 +210,13 @@ densities_prep(struct rt_i * rtip, int minus_o)
 
     // iterate through the db and find all materials
     int next_available_id = MAX_MATERIAL_ID - 1;
-    for (int i = 0; i < RT_DBNHASH; i++) {
-	struct directory *dp = rtip->rti_dbip->dbi_Head[i];
-	if (dp != NULL) {
+    {
+	struct directory *dp;
+	FOR_ALL_DIRECTORY_START(dp, rtip->rti_dbip)
 	    struct rt_db_internal intern;
 	    struct rt_material_internal *material_ip;
 	    if (dp->d_major_type == DB5_MAJORTYPE_BRLCAD) {
-		if (rt_db_get_internal(&intern, dp, rtip->rti_dbip, NULL, &rt_uniresource) >= 0) {
+		if (rt_db_get_internal(&intern, dp, rtip->rti_dbip, NULL) >= 0) {
 		    if (intern.idb_minor_type == DB5_MINORTYPE_BRLCAD_MATERIAL) {
 			// if the material has a density, add it to
 			// the density table
@@ -255,7 +255,7 @@ densities_prep(struct rt_i * rtip, int minus_o)
 		    }
 		}
 	    }
-	}
+	FOR_ALL_DIRECTORY_END;
     }
 
     if (!found_densities) {
@@ -264,9 +264,9 @@ densities_prep(struct rt_i * rtip, int minus_o)
     }
 
     // look for objects with material_name set and set the material_id
-    for (int i = 0; i < RT_DBNHASH; i++) {
-	struct directory *dp = rtip->rti_dbip->dbi_Head[i];
-	if (dp != NULL) {
+    {
+	struct directory *dp;
+	FOR_ALL_DIRECTORY_START(dp, rtip->rti_dbip)
 	    if (dp->d_major_type == DB5_MAJORTYPE_BRLCAD) {
 		struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
 
@@ -279,7 +279,7 @@ densities_prep(struct rt_i * rtip, int minus_o)
 			if (material_dp != NULL) {
 			    struct rt_db_internal material_intern;
 			    struct rt_material_internal *material_ip;
-			    if (rt_db_get_internal(&material_intern, material_dp, rtip->rti_dbip, NULL, &rt_uniresource) >= 0) {
+			    if (rt_db_get_internal(&material_intern, material_dp, rtip->rti_dbip, NULL) >= 0) {
 				if (material_intern.idb_minor_type == DB5_MINORTYPE_BRLCAD_MATERIAL) {
 				    // the material_ip->name field is
 				    // the name in the density table
@@ -337,7 +337,7 @@ densities_prep(struct rt_i * rtip, int minus_o)
 		    goto densities_prep_rtweight_fail;
 		}
 	    }
-	}
+	FOR_ALL_DIRECTORY_END;
     }
 
     bu_vls_free(&pbuff_msgs);

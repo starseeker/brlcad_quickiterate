@@ -1,7 +1,7 @@
 /*                           R P C . C
  * BRL-CAD
  *
- * Copyright (c) 1990-2025 United States Government as represented by
+ * Copyright (c) 1990-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -938,6 +938,7 @@ rt_rpc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     fastf_t *front;
     fastf_t *back;
     fastf_t b, dtol, ntol, rh;
+    fastf_t min_abs;
     int i, n;
     struct rt_pnt_node *old, *pos, *pts;
     vect_t Bu, Hu, Ru, B, R;
@@ -975,6 +976,13 @@ rt_rpc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
 	/* tolerate everything */
 	ntol = M_PI;
 
+    /* Clamp to prevent excessively dense meshes. */
+    {
+	fastf_t bbox_diag = 2.0 * (rh > b ? rh : b);
+	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
+    }
+    min_abs = prim_min_abs_tol();
+
     /* initial parabola approximation is a single segment */
     BU_ALLOC(pts, struct rt_pnt_node);
     BU_ALLOC(pts->next, struct rt_pnt_node);
@@ -985,7 +993,7 @@ rt_rpc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
     /* 2 endpoints in 1st approximation */
     n = 2;
     /* recursively break segment 'til within error tolerances */
-    n += rt_mk_parabola(pts, rh, b, dtol, ntol);
+    n += _rt_mk_parabola(pts, rh, b, dtol, ntol, min_abs);
 
     /* get mem for arrays */
     front = (fastf_t *)bu_malloc(3*n * sizeof(fastf_t), "fastf_t");
@@ -1045,9 +1053,13 @@ rt_rpc_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_te
  * that point is not already within the distance and normal error
  * tolerances.  The two resulting segments are passed recursively
  * to this routine until each segment is within tolerance.
+ *
+ * Internal version: takes an explicit min_abs floor so the caller can
+ * read the env-var override once and propagate it through all recursion
+ * without repeated getenv() calls.
  */
 int
-rt_mk_parabola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t dtol, fastf_t ntol)
+_rt_mk_parabola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t dtol, fastf_t ntol, fastf_t min_abs)
 {
     fastf_t dist, intr, m, theta0, theta1;
     int n;
@@ -1083,6 +1095,23 @@ rt_mk_parabola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t dtol, fast
     theta1 = fabs(acos(VDOT(norm_line, norm_parab)));
     /* split segment at widest point if not within error tolerances */
     if (dist > dtol || theta0 > ntol || theta1 > ntol) {
+	/* Stop subdividing when the segment Y-span is much smaller than both
+	 * the dtol floor and the ntol-equivalent floor.  For a parabola the
+	 * normal angle change over a span s is approximately s*(2b/r^2) (the
+	 * maximum curvature at the apex), so the ntol-equivalent minimum span
+	 * is ntol*r^2/(2b).  Clamp that to min_abs so the floor stays
+	 * consistent with the dtol floor used by primitive_clamp_tess_tol.
+	 * Use min(dtol, ntol_equiv)*0.1 so we stop only when the segment is
+	 * already much smaller than the tightest applicable tolerance. */
+	fastf_t span = fabs(p1[Y] - p0[Y]);
+	{
+	    fastf_t ntol_equiv = (ntol < M_PI) ? ntol * r * r / (2.0 * b) : dtol;
+	    if (ntol_equiv < min_abs) ntol_equiv = min_abs;
+	    fastf_t span_floor = (ntol_equiv < dtol ? ntol_equiv : dtol) * 0.1;
+	    if (span < span_floor)
+		return 0;
+	}
+
 	/* split segment */
 	BU_ALLOC(newpt, struct rt_pnt_node);
 	VMOVE(newpt->p, mpt);
@@ -1091,12 +1120,56 @@ rt_mk_parabola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t dtol, fast
 	/* keep track of number of pts added */
 	n = 1;
 	/* recurse on first new segment */
-	n += rt_mk_parabola(pts, r, b, dtol, ntol);
+	n += _rt_mk_parabola(pts, r, b, dtol, ntol, min_abs);
 	/* recurse on second new segment */
-	n += rt_mk_parabola(newpt, r, b, dtol, ntol);
+	n += _rt_mk_parabola(newpt, r, b, dtol, ntol, min_abs);
     } else
 	n  = 0;
     return n;
+}
+
+
+/**
+ * Deprecated compatibility wrapper for _rt_mk_parabola.  Uses SMALL_FASTF as
+ * the minimum absolute subdivision span, preserving the original behavior of
+ * unconditionally honoring whatever dtol/ntol the caller passes (no sanity
+ * floor).  New code should call rt_mk_parabola() with an explicit min_abs.
+ *
+ * @deprecated use rt_mk_parabola() with an explicit min_abs argument.
+ */
+int
+rt_mk_parabola_old(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t dtol, fastf_t ntol)
+{
+    return _rt_mk_parabola(pts, r, b, dtol, ntol, SMALL_FASTF);
+}
+
+
+/**
+ * Approximate a parabola with line segments, with caller-controlled minimum
+ * subdivision span.
+ *
+ * @param pts   Linked list of points; must have at least two nodes on entry.
+ * @param r     Rectangular half-width of the parabola.
+ * @param b     Breadth (half-height) of the parabola.
+ * @param dtol  Maximum allowable chord-to-curve distance (mm).
+ * @param ntol  Maximum allowable normal-deviation angle (radians); pass M_PI
+ *              to ignore normal tolerance.
+ * @param min_abs  Minimum absolute span (mm) below which subdivision stops,
+ *              preventing runaway recursion.  Recommended values:
+ *              - 0.05 mm is the librt default and suits typical CAD geometry.
+ *              - Smaller values (e.g., 0.005 mm) produce finer curves but can
+ *                increase polygon counts dramatically near tight radii.
+ *              - SMALL_FASTF (~1e-37) disables the floor entirely, matching
+ *                the original rt_mk_parabola_old() behavior; use only when
+ *                you know the geometry cannot trigger unbounded recursion.
+ *              Decreasing min_abs below dtol has no effect until dtol itself
+ *              drives subdivision to spans smaller than min_abs.
+ * @return Number of additional points inserted.
+ */
+int
+rt_mk_parabola(struct rt_pnt_node *pts, fastf_t r, fastf_t b, fastf_t dtol, fastf_t ntol, fastf_t min_abs)
+{
+    return _rt_mk_parabola(pts, r, b, dtol, ntol, min_abs);
 }
 
 
@@ -1110,7 +1183,7 @@ rt_rpc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 {
     int i, j, n;
     fastf_t b, *back, *front, rh;
-    fastf_t dtol, ntol;
+    fastf_t dtol, ntol, min_abs;
     vect_t Bu, Hu, Ru;
     mat_t R;
     mat_t invR;
@@ -1165,6 +1238,13 @@ rt_rpc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	/* tolerate everything */
 	ntol = M_PI;
 
+    /* Clamp to prevent excessively dense meshes. */
+    {
+	fastf_t bbox_diag = 2.0 * (rh > b ? rh : b);
+	primitive_clamp_tess_tol(&dtol, &ntol, bbox_diag);
+    }
+    min_abs = prim_min_abs_tol();
+
     /* initial parabola approximation is a single segment */
     BU_ALLOC(pts, struct rt_pnt_node);
     BU_ALLOC(pts->next, struct rt_pnt_node);
@@ -1175,7 +1255,7 @@ rt_rpc_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* 2 endpoints in 1st approximation */
     n = 2;
     /* recursively break segment 'til within error tolerances */
-    n += rt_mk_parabola(pts, rh, b, dtol, ntol);
+    n += _rt_mk_parabola(pts, rh, b, dtol, ntol, min_abs);
 
     /* get mem for arrays */
     front = (fastf_t *)bu_malloc(3*n * sizeof(fastf_t), "fastf_t");
@@ -1369,7 +1449,7 @@ rt_rpc_import4(struct rt_db_internal *ip, const struct bu_external *ep, const fa
     /* Warning:  type conversion */
     if (mat == NULL) mat = bn_mat_identity;
 
-    if (dbip && dbip->dbi_version < 0) {
+    if (dbip && dbip->i->dbi_version < 0) {
 	flip_fastf_float(v1, &rp->s.s_values[0*3], 1, 1);
 	flip_fastf_float(v2, &rp->s.s_values[1*3], 1, 1);
 	flip_fastf_float(v3, &rp->s.s_values[2*3], 1, 1);
@@ -1383,7 +1463,7 @@ rt_rpc_import4(struct rt_db_internal *ip, const struct bu_external *ep, const fa
     MAT4X3VEC(xip->rpc_H, mat, v2);
     MAT4X3VEC(xip->rpc_B, mat, v3);
 
-    if (dbip && dbip->dbi_version < 0) {
+    if (dbip && dbip->i->dbi_version < 0) {
 	v1[X] = flip_dbfloat(rp->s.s_values[3*3+0]);
     } else {
 	v1[X] = rp->s.s_values[3*3+0];
@@ -1726,7 +1806,7 @@ rt_rpc_surf_area(fastf_t *area, const struct rt_db_internal *ip)
 
     area_shell = 0.5 * sqrt(magsq_r + 4.0 * magsq_b) + 0.25 * magsq_r /
 	mag_b * asinh(2.0 * mag_b / mag_r);
-    area_shell *= 2.0;
+    area_shell *= 2.0 * mag_h;
 
     area_rect = 2.0 * mag_r * mag_h;
 
@@ -1830,6 +1910,62 @@ rpc_kpt_end:
     MAT4X3PNT(*pt, mat, mpt);
 
     return k;
+}
+
+
+int
+rt_rpc_perturb(struct rt_db_internal **oip, const struct rt_db_internal *ip, int planar_only, fastf_t val)
+{
+    if (NEAR_ZERO(val, SMALL_FASTF))
+	return BRLCAD_OK;
+
+    if (!oip || !ip)
+	return BRLCAD_ERROR;
+
+    struct rt_rpc_internal *orpc = (struct rt_rpc_internal *)ip->idb_ptr;
+    RT_RPC_CK_MAGIC(orpc);
+
+    struct rt_db_internal *nip;
+    BU_GET(nip, struct rt_db_internal);
+    RT_DB_INTERNAL_INIT(nip);
+    nip->idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    nip->idb_type = ID_RPC;
+    nip->idb_meth = &OBJ[ID_RPC];
+    struct rt_rpc_internal *rpc = NULL;
+    BU_ALLOC(rpc, struct rt_rpc_internal);
+    nip->idb_ptr = rpc;
+    rpc->rpc_magic = RT_RPC_INTERNAL_MAGIC;
+    VMOVE(rpc->rpc_V, orpc->rpc_V);
+    VMOVE(rpc->rpc_H, orpc->rpc_H);
+    VMOVE(rpc->rpc_B, orpc->rpc_B);
+    rpc->rpc_r = orpc->rpc_r;
+
+    /* Extend H (and move V back) to push the flat rectangular faces apart. */
+    vect_t hvec, hback;
+    VMOVE(hvec, rpc->rpc_H);
+    VUNITIZE(hvec);
+    VREVERSE(hback, hvec);
+    VSCALE(hback, hback, val);
+    VADD2(rpc->rpc_V, rpc->rpc_V, hback);
+    vect_t hext;
+    VSCALE(hext, hvec, 2.0 * val);
+    VADD2(rpc->rpc_H, rpc->rpc_H, hext);
+
+    if (planar_only) {
+	*oip = nip;
+	return BRLCAD_OK;
+    }
+
+    /* Also expand the breadth vector and half-width. */
+    vect_t bvec;
+    VMOVE(bvec, rpc->rpc_B);
+    VUNITIZE(bvec);
+    VSCALE(bvec, bvec, val);
+    VADD2(rpc->rpc_B, rpc->rpc_B, bvec);
+    rpc->rpc_r += val;
+
+    *oip = nip;
+    return BRLCAD_OK;
 }
 
 

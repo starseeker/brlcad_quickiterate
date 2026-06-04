@@ -1,7 +1,7 @@
 /*                          J O I N T . C
  * BRL-CAD
  *
- * Copyright (c) 1985-2025 United States Government as represented by
+ * Copyright (c) 1985-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -295,6 +295,31 @@ rt_joint_export4(struct bu_external *ep, const struct rt_db_internal *ip, double
     return -1;
 }
 
+const char *
+rt_joint_keypoint(point_t *pt, const char *keystr, const mat_t mat,
+		  const struct rt_db_internal *ip, const struct bn_tol *UNUSED(tol))
+{
+    if (!pt || !ip)
+	return NULL;
+
+    struct rt_joint_internal *jip = (struct rt_joint_internal *)ip->idb_ptr;
+    RT_JOINT_CK_MAGIC(jip);
+
+    static const char *default_keystr = "V";
+    const char *k = (keystr) ? keystr : default_keystr;
+
+    /* The joint location is the natural keypoint */
+    if (BU_STR_EQUAL(k, default_keystr)) {
+	point_t mpt;
+	VMOVE(mpt, jip->location);
+	MAT4X3PNT(*pt, mat, mpt);
+	return k;
+    }
+
+    return NULL;
+}
+
+
 int
 rt_joint_mat(struct rt_db_internal *rop, const mat_t mat, const struct rt_db_internal *ip)
 {
@@ -313,7 +338,7 @@ rt_joint_mat(struct rt_db_internal *rop, const mat_t mat, const struct rt_db_int
 
     /* Verify that vector1 has unit length */
     double f = MAGNITUDE(jv1);
-    if (f <= SMALL) {
+    if (f <= SQRT_SMALL_FASTF) {
 	bu_log("rt_joint_mat:  bad vector1, len=%g\n", f);
 	return -1;		/* BAD */
     }
@@ -325,7 +350,7 @@ rt_joint_mat(struct rt_db_internal *rop, const mat_t mat, const struct rt_db_int
     }
     /* Verify that vector2 has unit length */
     f = MAGNITUDE(jv2);
-    if (f <= SMALL) {
+    if (f <= SQRT_SMALL_FASTF) {
 	bu_log("rt_joint_mat:  bad vector2, len=%g\n", f);
 	return -1;		/* BAD */
     }
@@ -686,7 +711,7 @@ db_path_to_inverse_mat(struct db_i *dbip, const struct db_full_path *fpath, mat_
 	mat_t sub_mat, new_mat, new_mat_inv, comp;
 
 	sub_path.fp_len = i;
-	db_path_to_mat(dbip, &sub_path, sub_mat, 0, NULL);
+	db_path_to_mat(dbip, &sub_path, sub_mat, 0);
 
 	/* isolate to just the mat of the leaf directory */
 	bn_mat_mul(new_mat, inverse_mat, sub_mat);
@@ -792,7 +817,7 @@ rt_joint_process_selection(
 	union tree *comb_tree, *member;
 	mat_t combined_mat;
 
-	rt_db_get_internal(&path_ip, dp, dbip, NULL, NULL);
+	rt_db_get_internal(&path_ip, dp, dbip, NULL);
 	comb_ip = (struct rt_comb_internal *)path_ip.idb_ptr;
 	comb_tree = comb_ip->tree;
 
@@ -813,11 +838,11 @@ rt_joint_process_selection(
 	bn_mat_mul(combined_mat, member->tr_l.tl_mat, rmat);
 	MAT_COPY(member->tr_l.tl_mat, combined_mat);
     } else {
-	rt_db_get_internal(&path_ip, dp, dbip, rmat, NULL);
+	rt_db_get_internal(&path_ip, dp, dbip, rmat);
     }
 
     /* write changes */
-    rt_db_put_internal(dp, dbip, &path_ip, NULL);
+    rt_db_put_internal(dp, dbip, &path_ip);
 
     VMOVE(js->start, end);
     db_free_full_path(&fpath);

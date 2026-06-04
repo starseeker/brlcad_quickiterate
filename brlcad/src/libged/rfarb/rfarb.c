@@ -1,7 +1,7 @@
 /*                         R F A R B . C
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -231,7 +231,7 @@ ged_rfarb_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_ERROR;
     }
 
-    if (rt_db_put_internal(dp, gedp->dbip, &internal, &rt_uniresource) < 0) {
+    if (rt_db_put_internal(dp, gedp->dbip, &internal) < 0) {
 	rt_db_free_internal(&internal);
 	bu_vls_printf(gedp->ged_result_str, "%s: Database write error, aborting.\n", argv[0]);
     }

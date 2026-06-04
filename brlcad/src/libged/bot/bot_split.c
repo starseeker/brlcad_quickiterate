@@ -1,7 +1,7 @@
 /*                         B O T _ S P L I T . C
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -77,7 +77,7 @@ ged_bot_split_core(struct ged *gedp, int argc, const char *argv[])
 	    continue;
 	}
 
-	GED_DB_GET_INTERNAL(gedp, &intern, dp, bn_mat_identity, &rt_uniresource, BRLCAD_ERROR);
+	GED_DB_GET_INTERN(gedp, &intern, dp, bn_mat_identity, BRLCAD_ERROR);
 
 	if (intern.idb_major_type != DB5_MAJORTYPE_BRLCAD || intern.idb_minor_type != DB5_MINORTYPE_BRLCAD_BOT) {
 	    rt_db_free_internal(&intern);
@@ -122,7 +122,7 @@ ged_bot_split_core(struct ged *gedp, int argc, const char *argv[])
 		    rt_bot_list_free(headRblp, 0);
 		    rt_db_free_internal(&intern);
 		} else {
-		  if (rt_db_put_internal(dp, gedp->dbip, &bot_intern, &rt_uniresource) < 0) {
+		  if (rt_db_put_internal(dp, gedp->dbip, &bot_intern) < 0) {
 		    bu_vls_printf(&error_str, " failed to be added to the database.\n");
 		    rt_bot_list_free(headRblp, 0);
 		    rt_db_free_internal(&intern);

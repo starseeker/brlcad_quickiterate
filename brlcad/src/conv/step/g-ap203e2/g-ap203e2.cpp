@@ -1,7 +1,7 @@
 /*                    G -  A P 2 0 3 E 2 . C P P
  * BRL-CAD
  *
- * Copyright (c) 2013-2025 United States Government as represented by
+ * Copyright (c) 2013-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -121,7 +121,7 @@ main(int argc, char *argv[])
 
     if (convert_tops_list) {
 	/* Need db_update_nref for DB_LS_TOPS to work */
-	db_update_nref(dbip, &rt_uniresource);
+	db_update_nref(dbip);
 	path_cnt = db_ls(dbip, DB_LS_TOPS, NULL, &paths);
 	if (!path_cnt) {
 	    std::cerr << "ERROR: no objects found in .g file" << "\n" << std::endl;
@@ -214,7 +214,7 @@ main(int argc, char *argv[])
 	/* Now, add actual DATA */
 	struct directory *dp = paths[i];
 	struct rt_db_internal intern;
-	rt_db_get_internal(&intern, dp, dbip, bn_mat_identity, &rt_uniresource);
+	rt_db_get_internal(&intern, dp, dbip, bn_mat_identity);
 	RT_CK_DB_INTERNAL(&intern);
 	Object_To_STEP(dp, &intern, wdbp, sc);
 	rt_db_free_internal(&intern);

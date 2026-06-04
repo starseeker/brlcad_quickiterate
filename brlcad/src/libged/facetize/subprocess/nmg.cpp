@@ -1,7 +1,7 @@
 /*                        N M G . C P P
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -78,6 +78,16 @@ _nmg_tessellate(struct rt_bot_internal **nbot, struct rt_db_internal *intern, te
 
     if (!(*nbot))
 	return BRLCAD_ERROR;
+
+    // An empty BoT (zero faces) means the primitive is a zero-volume degenerate
+    // (e.g. a torus whose tube radius is below calculational tolerance).  Return
+    // success with a NULL BoT so the caller treats this as a no-op.
+    if ((*nbot)->num_faces == 0) {
+	bu_log("rt tessellation produced an empty mesh (zero-volume primitive); treating as no-op\n");
+	BU_FREE((*nbot), struct rt_bot_internal);
+	(*nbot) = NULL;
+	return BRLCAD_OK;
+    }
 
     if (!bot_is_manifold(*nbot)) {
 	bu_log("We got an NMG mesh, but it's no good for a Manifold(!?)\n");

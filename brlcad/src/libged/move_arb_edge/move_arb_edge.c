@@ -1,7 +1,7 @@
 /*                         M O V E _ A R B _ E D G E . C
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -227,7 +227,7 @@ bad_edge:
 	    VMOVE(arb->pt[i], arb_pt);
 	}
 
-	GED_DB_PUT_INTERNAL(gedp, dp, &intern, &rt_uniresource, BRLCAD_ERROR);
+	GED_DB_PUT_INTERN(gedp, dp, &intern, BRLCAD_ERROR);
     }
 
     return BRLCAD_OK;

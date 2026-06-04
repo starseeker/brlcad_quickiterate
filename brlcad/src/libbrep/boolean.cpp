@@ -1,7 +1,7 @@
 /*                  B O O L E A N . C P P
  * BRL-CAD
  *
- * Copyright (c) 2013-2025 United States Government as represented by
+ * Copyright (c) 2013-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -283,12 +283,6 @@ public:
  * collinear).  Chosen as a small fraction of floating-point machine epsilon
  * so that nearly-parallel segments are treated as non-crossing. */
 static const double POLY_CROSS_TOL = 1e-14;
-
-/* Number of uniform samples used to compute the shoelace area of a closed
- * NURBS curve (e.g. a full circle).  32 steps give a chord approximation
- * error of 1 - cos(π/32) ≈ 0.48% for a circle, well within the 1%
- * relative tolerance used by the coextension guard. */
-static const int CLOSED_CURVE_SAMPLE_COUNT = 32;
 
 
 /* Inlined 2D point-in-polygon (ray-casting).  Equivalent to bg_pnt_in_polygon
@@ -3920,38 +3914,9 @@ shoelace_accumulate(const ON_Curve *c, ON_3dPoint &prev, double &shoelace)
 	}
 	return;
     }
-    /* For NURBS curves, the shoelace contribution depends on whether
-     * the curve is closed or open:
-     *
-     * CLOSED (IsClosed() == true, start == end):
-     *   Must sample at multiple points.  PointAtEnd() == PointAtStart(),
-     *   so using only the endpoint gives zero contribution, which would
-     *   make a genuine full circle look like a degenerate (zero-area)
-     *   loop and incorrectly filter it out.  N=32 samples give <0.5%
-     *   area error for a circle (chord approximation).
-     *
-     * OPEN (IsClosed() == false, start != end):
-     *   Use endpoint only (PointAtEnd()).  This gives the correct
-     *   piecewise-linear (polygon) shoelace contribution for the chord
-     *   from prev to PointAtEnd().  For "there-and-back" degenerate
-     *   loops — where one open arc goes A→B and another retraces B→A —
-     *   the contributions cancel exactly (same as the polygon approach).
-     *   Sampling an open arc at N points does NOT cancel, because the
-     *   two arcs may not be perfectly numerically identical, producing a
-     *   spurious small-but-nonzero area that would incorrectly classify
-     *   the degenerate loop as non-degenerate. */
-    if (c->IsClosed()) {
-	ON_Interval dom = c->Domain();
-	for (int k = 1; k <= CLOSED_CURVE_SAMPLE_COUNT; k++) {
-	    ON_3dPoint curr = c->PointAt(dom.ParameterAt((double)k / CLOSED_CURVE_SAMPLE_COUNT));
-	    shoelace += prev.x * curr.y - curr.x * prev.y;
-	    prev = curr;
-	}
-    } else {
-	ON_3dPoint curr = c->PointAtEnd();
-	shoelace += prev.x * curr.y - curr.x * prev.y;
-	prev = curr;
-    }
+    ON_3dPoint curr = c->PointAtEnd();
+    shoelace += prev.x * curr.y - curr.x * prev.y;
+    prev = curr;
 }
 
 static double
@@ -4760,16 +4725,59 @@ add_elements(ON_Brep *brep, ON_BrepFace &face, const ON_SimpleArray<ON_Curve *> 
 	     * trims have boundary iso and (b) m_iso == IsIsoparametric result,
 	     * which are contradictory for interior-position degenerate trims.
 	     *
-	     * Skip the trim entirely.  The outer-loop deduplication in
-	     * split_face_into_loops now prevents near-zero arcs between
-	     * adjacent SSI entry points from reaching this code path.  Any
-	     * residual near-zero trims that do reach here (e.g. from
-	     * floating-point rounding) are degenerate and produce naked edges
-	     * if kept; skipping them is safe because the next trim's start
-	     * vertex is inherited from the previous trim's end vertex via
-	     * m_T.Last()->m_vi[1], preserving loop continuity. */
-	    delete c3d;
-	    continue;
+	     * Create a regular edge using the actual (near-zero-length) 3D
+	     * pushup curve.  Force separate start/end vertices by evaluating
+	     * the end UV point directly rather than relying on IsClosed().
+	     * The main vertex-merge pass at ON_Boolean level respects these
+	     * degenerate edges and will NOT merge their endpoints (the merge
+	     * is blocked when both endpoints are connected by a near-zero
+	     * non-closed edge). */
+	    {
+		ON_2dPoint s2d = loop[k]->PointAtStart();
+		ON_2dPoint e2d = loop[k]->PointAtEnd();
+		/* Start vertex: reuse previous trim's end vertex when k>0. */
+		int svi;
+		if (k > 0 && brep->m_T.Count() > 0) {
+		    svi = brep->m_T.Last()->m_vi[1];
+		} else {
+		    ON_3dPoint svtx = face.SurfaceOf()->PointAt(s2d.x, s2d.y);
+		    svi = brep->m_V.Count();
+		    for (int vi = brep->m_V.Count() - 1; vi >= 0; vi--) {
+			if (brep->m_V[vi].Point().DistanceTo(svtx) < ON_ZERO_TOLERANCE) {
+			    svi = vi; break;
+			}
+		    }
+		    if (svi == brep->m_V.Count())
+			brep->NewVertex(svtx, 0.0);
+		}
+		/* End vertex: always evaluate from UV end (ignore IsClosed).
+		 * This guarantees m_vi[0] != m_vi[1] so the edge is not
+		 * treated as "closed" by OpenNURBS. */
+		ON_3dPoint evtx = face.SurfaceOf()->PointAt(e2d.x, e2d.y);
+		int evi = brep->m_V.Count();
+		for (int vi = brep->m_V.Count() - 1; vi >= 0; vi--) {
+		    if (brep->m_V[vi].Point().DistanceTo(evtx) < ON_ZERO_TOLERANCE) {
+			evi = vi; break;
+		    }
+		}
+		if (evi == brep->m_V.Count())
+		    brep->NewVertex(evtx, 0.0);
+		/* If start and end landed on the same existing vertex, nudge
+		 * the end to a fresh vertex to avoid m_vi[0]==m_vi[1] with
+		 * a non-closed curve (which OpenNURBS rejects). */
+		if (evi == svi) {
+		    evi = brep->m_V.Count();
+		    brep->NewVertex(evtx, 0.0);
+		}
+		brep->AddEdgeCurve(c3d);
+		int ti = brep->AddTrimCurve(loop[k]);
+		ON_BrepEdge &edge = brep->NewEdge(brep->m_V[svi], brep->m_V[evi],
+						  brep->m_C3.Count() - 1,
+						  (const ON_Interval *)0, MAX_FASTF);
+		ON_BrepTrim &trim = brep->NewTrim(edge, 0, breploop, ti);
+		trim.m_tolerance[0] = trim.m_tolerance[1] = MAX_FASTF;
+		continue;
+	    }
 	}
 
 	ON_2dPoint start = loop[k]->PointAtStart(), end = loop[k]->PointAtEnd();

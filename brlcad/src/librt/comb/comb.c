@@ -1,7 +1,7 @@
 /*                          C O M B . C
  * BRL-CAD
  *
- * Copyright (c) 2004-2025 United States Government as represented by
+ * Copyright (c) 2004-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -283,8 +283,7 @@ rt_comb_export5(
     struct bu_external *ep,
     const struct rt_db_internal *ip,
     double UNUSED(local2mm),
-    const struct db_i *dbip,
-    struct resource *resp)
+    const struct db_i *dbip)
 {
     struct rt_comb_internal *comb;
     struct db_tree_counter_state tcs;
@@ -301,7 +300,6 @@ rt_comb_export5(
     /* check inputs */
     RT_CK_DB_INTERNAL(ip);
     if (dbip) RT_CK_DBI(dbip);
-    if (resp) RT_CK_RESOURCE(resp);
 
     /* validate it's a comb */
     if (ip->idb_type != ID_COMBINATION) bu_bomb("rt_comb_export5() type not ID_COMBINATION");
@@ -544,7 +542,7 @@ rt_comb_mat(struct rt_db_internal *rop, const mat_t mat, const struct rt_db_inte
 
 int
 rt_comb_import5(struct rt_db_internal *ip, const struct bu_external *ep,
-		const mat_t mat, const struct db_i *dbip, struct resource *resp)
+		const mat_t mat, const struct db_i *dbip)
 {
     struct rt_comb_internal *comb = NULL;
     unsigned char *cp = NULL;
@@ -567,7 +565,6 @@ rt_comb_import5(struct rt_db_internal *ip, const struct bu_external *ep,
     RT_CK_DB_INTERNAL(ip);
     BU_CK_EXTERNAL(ep);
     RT_CK_DBI(dbip);
-    RT_CK_RESOURCE(resp);
 
     ip->idb_major_type = DB5_MAJORTYPE_BRLCAD;
     ip->idb_type = ID_COMBINATION;
@@ -1119,15 +1116,15 @@ rt_comb_adjust(struct bu_vls *logstr, struct rt_db_internal *intern, int argc, c
 	    union tree *newtree;
 
 	    if (*argv[1] == '\0' || BU_STR_EQUIV(argv[1], "none")) {
-		db_free_tree(comb->tree, &rt_uniresource);
+		db_free_tree(comb->tree);
 		comb->tree = TREE_NULL;
 	    } else {
-		newtree = db_tree_parse(logstr, argv[1], &rt_uniresource);
+		newtree = db_tree_parse(logstr, argv[1]);
 		if (newtree == TREE_NULL) {
 		    bu_vls_printf(logstr, "db adjust tree: bad tree '%s'\n", argv[1]);
 		    return BRLCAD_ERROR;
 		}
-		db_free_tree(comb->tree, &rt_uniresource);
+		db_free_tree(comb->tree);
 		comb->tree = newtree;
 	    }
 	} else {
@@ -1250,7 +1247,7 @@ rt_comb_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, c
     int failed = 0;
     union tree *facetize_tree = (union tree *)0;
     struct db_tree_state init_state;
-    db_init_db_tree_state(&init_state, (struct db_i *)comb->src_dbip, &rt_uniresource);
+    db_init_db_tree_state(&init_state, (struct db_i *)comb->src_dbip);
 
     /* Establish tolerances */
     init_state.ts_ttol = ttol;
@@ -1285,7 +1282,7 @@ rt_comb_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, c
     if (facetize_tree) {
         if (!BU_SETJUMP) {
             /* try */
-            failed = nmg_boolean(facetize_tree, m, vlfree, tol, &rt_uniresource);
+            failed = nmg_boolean(facetize_tree, m, vlfree, tol);
         } else {
             /* catch */
             BU_UNSETJUMP;
@@ -1302,11 +1299,91 @@ rt_comb_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, c
     }
 
     if (facetize_tree) {
-        db_free_tree(facetize_tree, &rt_uniresource);
+        db_free_tree(facetize_tree);
     }
 
     return (failed) ? BRLCAD_ERROR : BRLCAD_OK;
 }
+
+
+/**
+ * Shared helper: use Cauchy-Crofton ray sampling to estimate the surface
+ * area and/or volume of a combination object.
+ *
+ * Follows the same approach as rt_comb_tess(): the combination's source
+ * database pointer (comb->src_dbip) and object name (comb->src_objname)
+ * are used to build a temporary raytracing instance without copying the
+ * tree or its children into a new database.
+ *
+ * Returns 0 on success, -1 on failure.
+ */
+static int
+comb_crofton_sample(const struct rt_db_internal *ip, double *out_sa, double *out_vol)
+{
+    if (!ip || (!out_sa && !out_vol))
+	return -1;
+
+    if (ip->idb_type != ID_COMBINATION)
+	return -1;
+
+    struct rt_comb_internal *comb = (struct rt_comb_internal *)ip->idb_ptr;
+    RT_CK_COMB(comb);
+
+    if (!comb->src_dbip || !comb->src_objname) {
+	bu_log("rt_comb_volume/surf_area: src_dbip or src_objname not set, cannot raytrace combination\n");
+	return -1;
+    }
+
+    RT_CK_DBI(comb->src_dbip);
+
+    struct rt_i *rtip = rt_i_create((struct db_i *)comb->src_dbip);
+    if (!rtip) {
+	bu_log("rt_comb_volume/surf_area: rt_i_create() failed\n");
+	return -1;
+    }
+
+    if (rt_gettree(rtip, comb->src_objname) < 0) {
+	bu_log("rt_comb_volume/surf_area: rt_gettree() failed for '%s'\n", comb->src_objname);
+	rt_i_destroy(rtip);
+	return -1;
+    }
+
+    rt_prep_parallel(rtip, 1);
+
+    double sa  = 0.0;
+    double vol = 0.0;
+    /* Use default params (NULL → 2 000-ray convergence loop) */
+    (void)rt_crofton_shoot(rtip, NULL, &sa, &vol);
+
+    if (out_sa)  *out_sa  = sa;
+    if (out_vol) *out_vol = vol;
+
+    rt_i_destroy(rtip);
+    return 0;
+}
+
+
+void
+rt_comb_surf_area(fastf_t *area, const struct rt_db_internal *ip)
+{
+    if (!area || !ip)
+	return;
+    double sa = 0.0;
+    if (comb_crofton_sample(ip, &sa, NULL) == 0)
+	*area = (fastf_t)sa;
+}
+
+
+void
+rt_comb_volume(fastf_t *vol, const struct rt_db_internal *ip)
+{
+    if (!vol || !ip)
+	return;
+    double v = 0.0;
+    if (comb_crofton_sample(ip, NULL, &v) == 0)
+	*vol = (fastf_t)v;
+}
+
 
 /*
  * Local Variables:

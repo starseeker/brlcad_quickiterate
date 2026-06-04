@@ -1,7 +1,7 @@
 /*                    F A C E P L A T E . C P P
  * BRL-CAD
  *
- * Copyright (c) 2018-2025 United States Government as represented by
+ * Copyright (c) 2018-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -73,6 +73,13 @@ main(int ac, char *av[]) {
     /* Enable all the experimental logic */
     bu_setenv("LIBRT_USE_COMB_INSTANCE_SPECIFIERS", "1", 1);
 
+    /* Use a local working-directory cache so we do not pollute the user's
+     * real BRL-CAD cache and so the test is fully self-contained. */
+    char lcache[MAXPATHLEN] = {0};
+    bu_dir(lcache, MAXPATHLEN, BU_DIR_CURR, "ged_fp_test_cache", NULL);
+    bu_mkdir(lcache);
+    bu_setenv("BU_DIR_CACHE", lcache, 1);
+
     if (!bu_file_exists(av[1], NULL)) {
 	printf("ERROR: [%s] does not exist, expecting .g file\n", av[1]);
 	return 2;
@@ -115,6 +122,16 @@ main(int ac, char *av[]) {
     v->gv_height = dm_get_height(dmp);
     v->gv_base2local = gedp->dbip->dbi_base2local;
     v->gv_local2base = gedp->dbip->dbi_local2base;
+
+    // The default (fast) wireframe has some differences from
+    // the slower full OpenGL draw path - disable it for the
+    // purposes of these tests.
+    s_av[0] = "dm";
+    s_av[1] = "set";
+    s_av[2] = "fast_wireframe";
+    s_av[3] = "0";
+    s_av[4] = NULL;
+    ged_exec_dm(gedp, 4, s_av);
 
     /***** Sanity - basic wireframe draw *****/
     bu_log("Testing basic db wireframe draw...\n");

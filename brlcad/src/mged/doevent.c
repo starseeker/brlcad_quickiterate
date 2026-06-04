@@ -1,7 +1,7 @@
 /*                       D O E V E N T . C
  * BRL-CAD
  *
- * Copyright (c) 2004-2025 United States Government as represented by
+ * Copyright (c) 2004-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -27,6 +27,7 @@
 
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 
 #ifdef HAVE_GL_DEVICE_H
 #  include <gl/device.h>
@@ -60,6 +61,25 @@ extern int doMotion;			/* defined in buttons.c */
 #ifdef HAVE_X11_TYPES
 static void motion_event_handler(struct mged_state *, XMotionEvent *);
 #endif
+
+int
+mged_dm_motion(struct mged_state *s, int x, int y)
+{
+#ifdef HAVE_X11_TYPES
+    XMotionEvent xmotion;
+    memset(&xmotion, 0, sizeof(XMotionEvent));
+    xmotion.x = x;
+    xmotion.y = y;
+    motion_event_handler(s, &xmotion);
+    dm_set_dirty(DMP, 1);
+    return TCL_RETURN;
+#else
+    (void)s;
+    (void)x;
+    (void)y;
+    return TCL_OK;
+#endif
+}
 
 #ifdef HAVE_X11_TYPES
 int

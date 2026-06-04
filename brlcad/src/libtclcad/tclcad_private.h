@@ -1,7 +1,7 @@
 /*                T C L C A D _ P R I V A T E . H
  * BRL-CAD
  *
- * Copyright (c) 2012-2025 United States Government as represented by
+ * Copyright (c) 2012-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -475,6 +475,8 @@ extern void
 tclcad_open_client_handler(struct fbserv_obj *fbsp, int i, void *data);
 extern void
 tclcad_close_client_handler(struct fbserv_obj *fbsp, int sub);
+extern int
+tclcad_listen_ipc(struct fbserv_obj *fbsp, Tcl_Interp *interp);
 
 __END_DECLS
 

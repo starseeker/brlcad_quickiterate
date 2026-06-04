@@ -1,7 +1,7 @@
 /*                        B O T . H
  * BRL-CAD
  *
- * Copyright (c) 1993-2025 United States Government as represented by
+ * Copyright (c) 1993-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -190,6 +190,11 @@ struct rt_bot_repair_info {
     fastf_t max_hole_area;
     fastf_t max_hole_area_percent;
     int strict;
+
+    // Info about generated output
+    int output_nonmanifold;
+    int output_lint_fail;
+    fastf_t output_volume;
 };
 
 /* For now the default upper hole size limit will be 5 percent of the mesh
@@ -200,7 +205,7 @@ struct rt_bot_repair_info {
  * tests.  This isn't always desirable - sometimes manifold is enough even if
  * the mesh is not otherwise well behaved - so it is an user settable param.
  */
-#define RT_BOT_REPAIR_INFO_INIT {0.0, 5.0, 1};
+#define RT_BOT_REPAIR_INFO_INIT {0.0, 5.0, 1, 0, 0, 0.0};
 
 /* Function to attempt repairing a non-manifold BoT.  Returns 1 if ibot was
  * already manifold (obot will contain NULL), 0 if a manifold BoT was created
@@ -227,6 +232,25 @@ RT_EXPORT extern int rt_bot_inside_out(struct rt_bot_internal *bot);
  * Returns 1 if a problem is found, else 0.  If ofaces is non-NULL, store the
  * indices of the specific faces found to be problematic. */
 RT_EXPORT extern int rt_bot_thin_check(struct bu_ptbl *ofaces, struct rt_bot_internal *bot, struct rt_i *rtip, fastf_t tol, int verbose);
+
+/* Test whether a solid BoT has faces that produce raytrace segments with
+ * thickness in the range [VUNITIZE_TOL, BN_TOL_DIST).  Such segments are
+ * returned by the BoT raytracer but would be discarded by the CSG boolweave
+ * tolerance filter, indicating a potential divergence between the BoT and
+ * the original CSG description (the CSG raytracer would report MISS while
+ * the BoT solid reports HIT).
+ *
+ * The typical cause is a subtractor primitive that protrudes just a sub-
+ * tolerance distance past a base face, creating a phantom thin cap in the
+ * facetized mesh that is too thin to survive the CSG boolweave.
+ *
+ * Faces already flagged by rt_bot_thin_check (segment thickness < VUNITIZE_TOL,
+ * i.e. true mesh degeneracies) are in a disjoint thickness range and are not
+ * reported here.
+ *
+ * Returns 1 if a problem is found, else 0.  If ofaces is non-NULL, store the
+ * indices of the specific faces found to be problematic. */
+RT_EXPORT extern int rt_bot_csg_miss_check(struct bu_ptbl *ofaces, struct rt_bot_internal *bot, struct rt_i *rtip, int verbose);
 
 /* Function to remove a set of faces from a BoT and produce a new BoT */
 RT_EXPORT struct rt_bot_internal *

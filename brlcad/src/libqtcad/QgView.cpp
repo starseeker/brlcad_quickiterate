@@ -1,7 +1,7 @@
 /*                      Q G V I E W . C P P
  * BRL-CAD
  *
- * Copyright (c) 2021-2025 United States Government as represented by
+ * Copyright (c) 2021-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -125,6 +125,22 @@ QgView::view_type()
 void
 QgView::save_image(int UNUSED(quad))
 {
+}
+
+void
+QgView::render_to_file(const QString &filename)
+{
+    if (canvas_sw)
+	canvas_sw->render_to_file(filename);
+}
+
+void
+QgView::get_viewport_image(QImage &img)
+{
+    if (canvas_sw)
+	canvas_sw->get_viewport_image(img);
+    else
+	img = QImage();
 }
 
 void

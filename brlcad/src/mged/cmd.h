@@ -1,7 +1,7 @@
 /*                           C M D . H
  * BRL-CAD
  *
- * Copyright (c) 2004-2025 United States Government as represented by
+ * Copyright (c) 2004-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -28,7 +28,12 @@
 
 #include "mged.h"
 
+__BEGIN_DECLS
+
 extern int mged_db_search_callback(int, const char **, void *, void*);
+extern int mged_search_pre_clbk(int, const char **, void *, void*);
+extern int mged_search_post_clbk(int, const char **, void *, void*);
+extern int mged_clone_during_callback(int, const char **, void *, void*);
 
 
 /* Commands */
@@ -57,7 +62,6 @@ extern int cmd_get_more_default(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_has_embedded_fb(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_hist(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_kill(ClientData, Tcl_Interp *, int, const char *[]);
-extern int cmd_list(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_lm(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_ls(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_mmenu_get(ClientData, Tcl_Interp *, int, const char *[]);
@@ -91,6 +95,8 @@ extern int cmd_view(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_vrot(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_zap(ClientData, Tcl_Interp *, int, const char *[]);
 extern int cmd_zoom(ClientData, Tcl_Interp *, int, const char *[]);
+
+__END_DECLS
 
 #endif /* MGED_CMD_H */
 

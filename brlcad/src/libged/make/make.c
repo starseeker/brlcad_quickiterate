@@ -1,7 +1,7 @@
 /*                         M A K E . C
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -25,12 +25,12 @@
 
 #include "common.h"
 
-#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 
 
 #include "bu/getopt.h"
+#include "bu/interrupt.h"
 #include "rt/geom.h"
 #include "wdb.h"
 
@@ -835,14 +835,14 @@ ged_make_core(struct ged *gedp, int argc, const char *argv[])
 	BU_LIST_INIT(&metaball_ip->metaball_ctrl_head);
 
 	mbpt = (struct wdb_metaball_pnt *)malloc(sizeof(struct wdb_metaball_pnt));
-	mbpt->fldstr = 1.0;
-	mbpt->sweat = 1.0;
+	mbpt->field_strength = 1.0;
+	mbpt->blobbiness = 1.0;
 	VSET(mbpt->coord, origin[X] - 1.0, origin[Y], origin[Z]);
 	BU_LIST_INSERT(&metaball_ip->metaball_ctrl_head, &mbpt->l);
 
 	mbpt = (struct wdb_metaball_pnt *)malloc(sizeof(struct wdb_metaball_pnt));
-	mbpt->fldstr = 1.0;
-	mbpt->sweat = 1.0;
+	mbpt->field_strength = 1.0;
+	mbpt->blobbiness = 1.0;
 	VSET(mbpt->coord, origin[X] + 1.0, origin[Y], origin[Z]);
 	BU_LIST_INSERT(&metaball_ip->metaball_ctrl_head, &mbpt->l);
 
@@ -933,7 +933,7 @@ ged_make_core(struct ged *gedp, int argc, const char *argv[])
     (void)signal(SIGINT, SIG_IGN);
 
     GED_DB_DIRADD(gedp, dp, argv[save_bu_optind], RT_DIR_PHONY_ADDR, 0, RT_DIR_SOLID, (void *)&internal.idb_type, BRLCAD_ERROR);
-    GED_DB_PUT_INTERNAL(gedp, dp, &internal, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_PUT_INTERN(gedp, dp, &internal, BRLCAD_ERROR);
 
     return BRLCAD_OK;
 }

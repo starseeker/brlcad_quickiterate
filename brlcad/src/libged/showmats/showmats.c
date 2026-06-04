@@ -1,7 +1,7 @@
 /*                         S H O W M A T S . C
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -104,7 +104,7 @@ Run_showmats(struct ged *gedp, const char *path, int aflag)
 	    break;
 	}
 
-	if (rt_db_get_internal(&intern, dp, gedp->dbip, (fastf_t *)NULL, &rt_uniresource) < 0) {
+	if (rt_db_get_internal(&intern, dp, gedp->dbip, (fastf_t *)NULL) < 0) {
 	    bu_vls_printf(gedp->ged_result_str, "Database read error, aborting.\n");
 	    return BRLCAD_ERROR;
 	}

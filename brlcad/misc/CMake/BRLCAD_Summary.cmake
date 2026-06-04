@@ -1,7 +1,7 @@
 #            B R L C A D _ S U M M A R Y . C M A K E
 # BRL-CAD
 #
-# Copyright (c) 2012-2025 United States Government as represented by
+# Copyright (c) 2012-2026 United States Government as represented by
 # the U.S. Army Research Laboratory.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -252,13 +252,11 @@ function(BRLCAD_Summary)
 
   ext_report("Asset Import Library" ASSIMP_STATUS REQUIRED_VARS "BRLCAD_ENABLE_ASSETIMPORT")
   ext_report("Eigen" EIGEN3_INCLUDE_DIR)
-  ext_report("Geogram" GEOGRAM_STATUS)
   ext_report("Geospatial Data Abstraction Library" GDAL_STATUS REQUIRED_VARS "BRLCAD_ENABLE_GDAL")
   ext_report("Lightning Memory-Mapped Database" LMDB_STATUS)
   ext_report("Manifold" MANIFOLD_STATUS)
   ext_report("Netpbm" NETPBM_STATUS)
   ext_report("OpenCV" OPENCV_STATUS)
-  ext_report("OpenMesh" OPENMESH_STATUS REQUIRED_VARS "BRLCAD_ENABLE_OPENMESH")
   ext_report("OpenNURBS" OPENNURBS_STATUS)
   ext_report("OSMesa" OSMESA_STATUS)
   ext_report("Portable Network Graphics" PNG_STATUS)
@@ -278,7 +276,7 @@ function(BRLCAD_Summary)
   ext_report("STEPcode" STEPCODE_STATUS REQUIRED_VARS "BRLCAD_ENABLE_STEP")
   ext_report("Tcl" TCL_LIBRARY REQUIRED_VARS "BRLCAD_ENABLE_TCL")
   ext_report("Tk" TK_LIBRARY REQUIRED_VARS "BRLCAD_ENABLE_TCL")
-  ext_report("Zlib" ZLIB_LIBRARY)
+  ext_report("Zlib" ZLIB_STATUS)
 
   # Find the maximum label length
   set(LABEL_LENGTH 0)
@@ -374,7 +372,7 @@ function(BRLCAD_Summary)
   set(BRLCAD_WARNINGS_LABEL "Print verbose compilation warnings ")
   set(BRLCAD_VERBOSE_LABEL "Print verbose compilation progress ")
   set(BRLCAD_INSTALL_EXAMPLE_GEOMETRY_LABEL "Install example geometry models ")
-  set(BRLCAD_DOCBOOK_BUILD_LABEL "Generate extra docs ")
+  set(BRLCAD_EXTRADOCS_BUILD_LABEL "Generate AsciiDoc docs ")
   set(ENABLE_STRICT_COMPILER_STANDARD_COMPLIANCE_LABEL "Build with strict ISO C compliance checking ")
   set(ENABLE_POSIX_COMPLIANCE_LABEL "Build with strict POSIX compliance checking ")
   set(ENABLE_ALL_CXX_COMPILE_LABEL "Build all C and C++ files with a C++ compiler ")
@@ -391,7 +389,7 @@ function(BRLCAD_Summary)
     BUILD_STATIC_LIBS
     BUILD_SHARED_LIBS
     BRLCAD_INSTALL_EXAMPLE_GEOMETRY
-    BRLCAD_DOCBOOK_BUILD
+    BRLCAD_EXTRADOCS_BUILD
   )
 
   if(BRLCAD_SUMMARIZE_DEV_SETTINGS)
@@ -467,33 +465,11 @@ function(BRLCAD_Summary)
   #                                                 #
   ###################################################
 
-  # Flesh out the extradocs reporting with format information
-  set(DOCBOOK_FORMATS "")
+  # Set the displayed value for BRLCAD_EXTRADOCS_BUILD
   if(BRLCAD_EXTRADOCS)
-    if(BRLCAD_EXTRADOCS_HTML)
-      set(DOCBOOK_FORMATS ${DOCBOOK_FORMATS} html)
-    endif(BRLCAD_EXTRADOCS_HTML)
-    if(BRLCAD_EXTRADOCS_PHP)
-      set(DOCBOOK_FORMATS ${DOCBOOK_FORMATS} php)
-    endif(BRLCAD_EXTRADOCS_PHP)
-    if(BRLCAD_EXTRADOCS_PPT)
-      set(DOCBOOK_FORMATS ${DOCBOOK_FORMATS} html)
-    endif(BRLCAD_EXTRADOCS_PPT)
-    if(BRLCAD_EXTRADOCS_MAN)
-      set(DOCBOOK_FORMATS ${DOCBOOK_FORMATS} man)
-    endif(BRLCAD_EXTRADOCS_MAN)
-    if(BRLCAD_EXTRADOCS_PDF)
-      set(DOCBOOK_FORMATS ${DOCBOOK_FORMATS} pdf)
-    endif(BRLCAD_EXTRADOCS_PDF)
-    if(DOCBOOK_FORMATS)
-      list(REMOVE_DUPLICATES DOCBOOK_FORMATS)
-      string(REPLACE ";" "/" DOCBOOK_FORMATS "${DOCBOOK_FORMATS}")
-      set(BRLCAD_DOCBOOK_BUILD "ON (${DOCBOOK_FORMATS})")
-    else(DOCBOOK_FORMATS)
-      set(BRLCAD_DOCBOOK_BUILD "ON (All formats disabled)")
-    endif(DOCBOOK_FORMATS)
+    set(BRLCAD_EXTRADOCS_BUILD "ON")
   else(BRLCAD_EXTRADOCS)
-    set(BRLCAD_DOCBOOK_BUILD "OFF")
+    set(BRLCAD_EXTRADOCS_BUILD "OFF")
   endif(BRLCAD_EXTRADOCS)
 
   foreach(item ${OTHER_REPORT_ITEMS})

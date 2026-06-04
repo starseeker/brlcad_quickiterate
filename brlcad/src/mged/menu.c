@@ -1,7 +1,7 @@
 /*                          M E N U . C
  * BRL-CAD
  *
- * Copyright (c) 1985-2025 United States Government as represented by
+ * Copyright (c) 1985-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -1323,8 +1323,8 @@ struct menu_item metaball_menu[] = {
     { "Next Point", metaball_ed, MENU_METABALL_NEXT_PT },
     { "Previous Point", metaball_ed, MENU_METABALL_PREV_PT },
     { "Move Point", metaball_ed, MENU_METABALL_MOV_PT },
-    { "Scale Point fldstr", metaball_ed, MENU_METABALL_PT_FLDSTR },
-    { "Scale Point \"goo\" value", metaball_ed, MENU_METABALL_PT_SET_GOO },
+    { "Scale Point Field Strength", metaball_ed, MENU_METABALL_PT_FLDSTR },
+    { "Scale Point Blobbiness", metaball_ed, MENU_METABALL_PT_SET_GOO },
     { "Delete Point", metaball_ed, MENU_METABALL_DEL_PT },
     { "Add Point", metaball_ed, MENU_METABALL_ADD_PT },
     { "", NULL, 0 }

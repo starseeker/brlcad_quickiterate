@@ -1,7 +1,7 @@
 /*                        V E C T O R . C
  * BRL-CAD
  *
- * Copyright (c) 2004-2025 United States Government as represented by
+ * Copyright (c) 2004-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -60,7 +60,7 @@ tp_3vector(FILE *plotfp, point_t from, point_t to, double fromheadfract, double 
     /* "pen" is left at "to" position */
 
     VSUB2(diff, to, from);
-    if ((len = MAGNITUDE(diff)) < SMALL)  return;
+    if ((len = MAGNITUDE(diff)) < SQRT_SMALL_FASTF)  return;
     VSCALE(diff, diff, 1/len);
     bn_vec_ortho(c1, diff);
     VCROSS(c2, c1, diff);

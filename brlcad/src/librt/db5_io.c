@@ -1,7 +1,7 @@
 /*                        D B 5 _ I O . C
  * BRL-CAD
  *
- * Copyright (c) 2004-2025 United States Government as represented by
+ * Copyright (c) 2004-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -624,15 +624,13 @@ db5_make_free_object(struct bu_external *ep, size_t length)
     *cp = DB5HDR_MAGIC2;
 }
 
-
 int
-rt_db_cvt_to_external5(
+rt_db_cvt_to_ext5(
     struct bu_external *ext,
     const char *name,
     const struct rt_db_internal *ip,
     double conv2mm,
     struct db_i *dbip,
-    struct resource *resp,
     const int major)
 {
     struct bu_external attributes;
@@ -648,13 +646,6 @@ rt_db_cvt_to_external5(
     RT_CK_DB_INTERNAL(ip);
     if (dbip) RT_CK_DBI(dbip);	/* may be null */
 
-    if (resp) {
-	RT_CK_RESOURCE(resp);
-    } else {
-	/* needed for call into functab */
-	resp = &rt_uniresource;
-    }
-
     /* prepare output */
     BU_EXTERNAL_INIT(ext);
     BU_EXTERNAL_INIT(&body);
@@ -665,11 +656,10 @@ rt_db_cvt_to_external5(
     /* Scale change on export is 1.0 -- no change */
     ret = -1;
     if (ip->idb_meth && ip->idb_meth->ft_export5) {
-	ret = ip->idb_meth->ft_export5(&body, ip, conv2mm, dbip, resp);
+	ret = ip->idb_meth->ft_export5(&body, ip, conv2mm, dbip);
     }
     if (ret < 0) {
-	bu_log("rt_db_cvt_to_external5(%s):  ft_export5 failure\n",
-	       name);
+	bu_log("rt_db_cvt_to_external5(%s):  ft_export5 failure\n", name);
 	bu_free_external(&body);
 	return -1;		/* FAIL */
     }
@@ -695,6 +685,18 @@ rt_db_cvt_to_external5(
     return 0;		/* OK */
 }
 
+int
+rt_db_cvt_to_external5(
+    struct bu_external *ext,
+    const char *name,
+    const struct rt_db_internal *ip,
+    double conv2mm,
+    struct db_i *dbip,
+    struct resource *UNUSED(resp),
+    const int major)
+{
+    return rt_db_cvt_to_ext5(ext, name, ip, conv2mm, dbip, major);
+}
 
 int
 db_wrap_v5_external(struct bu_external *ep, const char *name)
@@ -755,7 +757,7 @@ db_put_external5(struct bu_external *ep, struct directory *dp, struct db_i *dbip
 	return -1;
     }
 
-    BU_ASSERT(dbip->dbi_version == 5);
+    BU_ASSERT(dbip->i->dbi_version == 5);
 
     /* First, change the name. */
     if (db_wrap_v5_external(ep, dp->d_namep) < 0) {
@@ -783,9 +785,9 @@ db_put_external5(struct bu_external *ep, struct directory *dp, struct db_i *dbip
     }
 
     /* Made a change for real - do callback */
-    if (BU_PTBL_IS_INITIALIZED(&dbip->dbi_changed_clbks)) {
-	for (size_t i = 0; i < BU_PTBL_LEN(&dbip->dbi_changed_clbks); i++) {
-	    struct dbi_changed_clbk *cb = (struct dbi_changed_clbk *)BU_PTBL_GET(&dbip->dbi_changed_clbks, i);
+    if (BU_PTBL_IS_INITIALIZED(&dbip->i->dbi_changed_clbks)) {
+	for (size_t i = 0; i < BU_PTBL_LEN(&dbip->i->dbi_changed_clbks); i++) {
+	    struct dbi_changed_clbk *cb = (struct dbi_changed_clbk *)BU_PTBL_GET(&dbip->i->dbi_changed_clbks, i);
 	    (*cb->f)(dbip, dp, 0, cb->u_data);
 	}
     }
@@ -795,11 +797,10 @@ db_put_external5(struct bu_external *ep, struct directory *dp, struct db_i *dbip
 
 
 int
-rt_db_put_internal5(
+rt_db_put_internal_v5(
     struct directory *dp,
     struct db_i *dbip,
     struct rt_db_internal *ip,
-    struct resource *resp,
     const int major)
 {
     struct bu_external ext;
@@ -807,13 +808,10 @@ rt_db_put_internal5(
     RT_CK_DIR(dp);
     RT_CK_DBI(dbip);
     RT_CK_DB_INTERNAL(ip);
-    BU_ASSERT(dbip->dbi_version == 5);
-
-    if (resp)
-	RT_CK_RESOURCE(resp);
+    BU_ASSERT(dbip->i->dbi_version == 5);
 
     BU_EXTERNAL_INIT(&ext);
-    if (rt_db_cvt_to_external5(&ext, dp->d_namep, ip, 1.0, dbip, resp, major) < 0) {
+    if (rt_db_cvt_to_ext5(&ext, dp->d_namep, ip, 1.0, dbip, major) < 0) {
 	bu_log("rt_db_put_internal5(%s):  export failure\n",
 	       dp->d_namep);
 	goto fail;
@@ -838,9 +836,9 @@ rt_db_put_internal5(
     }
 
     /* Made a change for real - do callback */
-    if (BU_PTBL_IS_INITIALIZED(&dbip->dbi_changed_clbks)) {
-	for (size_t i = 0; i < BU_PTBL_LEN(&dbip->dbi_changed_clbks); i++) {
-	    struct dbi_changed_clbk *cb = (struct dbi_changed_clbk *)BU_PTBL_GET(&dbip->dbi_changed_clbks, i);
+    if (BU_PTBL_IS_INITIALIZED(&dbip->i->dbi_changed_clbks)) {
+	for (size_t i = 0; i < BU_PTBL_LEN(&dbip->i->dbi_changed_clbks); i++) {
+	    struct dbi_changed_clbk *cb = (struct dbi_changed_clbk *)BU_PTBL_GET(&dbip->i->dbi_changed_clbks, i);
 	    (*cb->f)(dbip, dp, 0, cb->u_data);
 	}
     }
@@ -856,6 +854,16 @@ fail:
     return -2;		/* FAIL */
 }
 
+int
+rt_db_put_internal5(
+    struct directory *dp,
+    struct db_i *dbip,
+    struct rt_db_internal *ip,
+    struct resource *UNUSED(resp),
+    const int major)
+{
+    return rt_db_put_internal_v5(dp, dbip, ip, major);
+}
 
 /**
  * Given an object in external form, convert it to internal form.  The
@@ -871,8 +879,7 @@ rt_db_external5_to_internal5(
     const struct bu_external *ep,
     const char *name,
     const struct db_i *dbip,
-    const mat_t mat,
-    struct resource *resp)
+    const mat_t mat)
 {
     register int id;
     struct db5_raw_internal raw;
@@ -882,14 +889,7 @@ rt_db_external5_to_internal5(
     RT_CK_DB_INTERNAL(ip);
     RT_CK_DBI(dbip);
 
-    if (resp) {
-	RT_CK_RESOURCE(resp);
-    } else {
-	/* needed for call into functab */
-	resp = &rt_uniresource;
-    }
-
-    BU_ASSERT(dbip->dbi_version == 5);
+    BU_ASSERT(dbip->i->dbi_version == 5);
 
     if (db5_get_raw_internal_ptr(&raw, ep->ext_buf) == NULL) {
 	bu_log("rt_db_external5_to_internal5(%s):  import failure\n",
@@ -953,13 +953,12 @@ rt_db_external5_to_internal5(
 	 * this isn't needed, but breaks compatibility.  slate for
 	 * v6.
 	 */
-	ret = rt_binunif_import5_minor_type(ip, &raw.body, mat, dbip, resp, raw.minor_type);
+	ret = rt_binunif_import5_minor_type(ip, &raw.body, mat, dbip, NULL, raw.minor_type);
     } else if (OBJ[id].ft_import5) {
-	ret = OBJ[id].ft_import5(ip, &raw.body, mat, dbip, resp);
+	ret = OBJ[id].ft_import5(ip, &raw.body, mat, dbip);
     }
     if (ret < 0) {
-	bu_log("rt_db_external5_to_internal5(%s):  import failure\n",
-	       name);
+	bu_log("rt_db_external5_to_internal5(%s):  import failure\n", name);
 	rt_db_free_internal(ip);
 	return -1;		/* FAIL */
     }
@@ -987,23 +986,19 @@ rt_db_get_internal5(
     struct rt_db_internal *ip,
     const struct directory *dp,
     const struct db_i *dbip,
-    const mat_t mat,
-    struct resource *resp)
+    const mat_t mat)
 {
     struct bu_external ext = BU_EXTERNAL_INIT_ZERO;
     int ret;
 
     RT_DB_INTERNAL_INIT(ip);
-    if (resp) {
-	RT_CK_RESOURCE(resp);
-    }
 
-    BU_ASSERT(dbip->dbi_version == 5);
+    BU_ASSERT(dbip->i->dbi_version == 5);
 
     if (db_get_external(&ext, dp, dbip) < 0)
 	return -2;		/* FAIL */
 
-    ret = rt_db_external5_to_internal5(ip, &ext, dp->d_namep, dbip, mat, resp);
+    ret = rt_db_external5_to_internal5(ip, &ext, dp->d_namep, dbip, mat);
     bu_free_external(&ext);
     return ret;
 }
@@ -1014,20 +1009,21 @@ db5_export_color_table(struct bu_vls *ostr, struct db_i *dbip)
 {
     BU_CK_VLS(ostr);
     RT_CK_DBI(dbip);
-    rt_vls_color_map(ostr);
+    db_mater_to_vls(ostr, dbip);
 }
 
 
 void
-db5_import_color_table(char *cp)
+db5_import_color_table(struct db_i *dbip, char *cp)
 {
     char *sp = cp;
     int low, high, r, g, b;
 
+    RT_CK_DBI(dbip);
     while ((sp = strchr(sp, '{')) != NULL) {
 	sp++;
 	if (sscanf(sp, "%d %d %d %d %d", &low, &high, &r, &g, &b) != 5) break;
-	rt_color_addrec(low, high, r, g, b, MATER_NO_ADDR);
+	db_mater_add(dbip, low, high, r, g, b, MATER_NO_ADDR);
     }
 }
 
@@ -1039,7 +1035,7 @@ db5_put_color_table(struct db_i *dbip)
     int ret;
 
     RT_CK_DBI(dbip);
-    BU_ASSERT(dbip->dbi_version == 5);
+    BU_ASSERT(dbip->i->dbi_version == 5);
 
     db5_export_color_table(&str, dbip);
 
@@ -1059,7 +1055,7 @@ db5_get_attributes(const struct db_i *dbip, struct bu_attribute_value_set *avs, 
 
     RT_CK_DBI(dbip);
 
-    if (dbip->dbi_version < 5)
+    if (dbip->i->dbi_version < 5)
 	return 0;	/* not an error, just no attributes */
 
     RT_CK_DIR(dp);

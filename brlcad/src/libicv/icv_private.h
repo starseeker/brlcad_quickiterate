@@ -1,7 +1,7 @@
 /*                  I C V _ P R I V A T E . H
  * BRL-CAD
  *
- * Copyright (c) 2007-2025 United States Government as represented by
+ * Copyright (c) 2007-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -26,6 +26,8 @@
 #ifndef ICV_PRIVATE_H
 #define ICV_PRIVATE_H
 
+__BEGIN_DECLS
+
 /* defined in bw.c */
 extern icv_image_t *bw_read(FILE *fp, size_t width, size_t height);
 extern int bw_write(icv_image_t *bif, FILE *fp);
@@ -38,7 +40,11 @@ extern int pix_write(icv_image_t *bif, FILE *fp);
 extern icv_image_t *dpix_read(FILE *fp, size_t width, size_t height);
 extern int dpix_write(icv_image_t *bif, FILE *fp);
 
-/* defined in png.c */
+/* defined in jpeg.c */
+extern icv_image_t *jpeg_read(FILE *fp);
+extern int jpeg_write(icv_image_t *bif, FILE *fp, int quality);
+
+/* defined in png.cpp */
 extern icv_image_t* png_read(FILE *fp);
 extern int png_write(icv_image_t *bif, FILE *fp);
 
@@ -49,6 +55,8 @@ extern int ppm_write(icv_image_t *bif, FILE *fp);
 /* defined in rle.cpp */
 ICV_EXPORT extern icv_image_t* rle_read(FILE *fp);
 ICV_EXPORT extern int rle_write(icv_image_t *bif, FILE *fp);
+
+__END_DECLS
 
 #endif /* ICV_PRIVATE_H */
 

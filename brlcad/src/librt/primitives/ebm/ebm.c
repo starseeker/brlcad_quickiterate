@@ -1,7 +1,7 @@
 /*                           E B M . C
  * BRL-CAD
  *
- * Copyright (c) 1988-2025 United States Government as represented by
+ * Copyright (c) 1988-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -598,6 +598,10 @@ get_file_data(struct rt_ebm_internal *eip, const struct db_i *dbip)
 {
     struct bu_mapped_file *mp;
     int nbytes;
+
+    /* bu_open_mapped_file_with_path doesn't handle a NULL filepath gracefully - check */
+    if (!dbip || !dbip->dbi_filepath || !eip)
+	return -1;
 
     /* get file */
     mp = bu_open_mapped_file_with_path(dbip->dbi_filepath, eip->name, "ebm");
@@ -1961,7 +1965,7 @@ void
 rt_ebm_surf_area(fastf_t *area, const struct rt_db_internal *ip)
 {
     struct rt_ebm_internal *eip;
-    unsigned int x, y;
+    size_t x, y;
     point_t x0, x1, x2, x3, x4, x5, x6, x7;
     point_t _x0, _x1, _x2, _x3, _x4, _x5, _x6, _x7;
     vect_t d3_0, d2_1, d7_4, d6_5;

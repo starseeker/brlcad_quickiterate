@@ -1,7 +1,7 @@
 /*                          H E A L . C
  * BRL-CAD
  *
- * Copyright (c) 2016-2025 United States Government as represented by
+ * Copyright (c) 2016-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -66,7 +66,7 @@ ged_heal_core(struct ged *gedp, int argc, const char *argv[])
 
     /* get bot */
     GED_DB_LOOKUP(gedp, bot_dp, primitive, LOOKUP_NOISY, BRLCAD_ERROR & GED_QUIET);
-    GED_DB_GET_INTERNAL(gedp, &intern, bot_dp, bn_mat_identity, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_GET_INTERN(gedp, &intern, bot_dp, bn_mat_identity, BRLCAD_ERROR);
 
     if (intern.idb_major_type != DB5_MAJORTYPE_BRLCAD || intern.idb_minor_type != DB5_MINORTYPE_BRLCAD_BOT) {
 	bu_vls_printf(gedp->ged_result_str, "%s: %s is not a BOT solid!", cmd, primitive);
@@ -77,7 +77,7 @@ ged_heal_core(struct ged *gedp, int argc, const char *argv[])
     RT_BOT_CK_MAGIC(bot);
 
     analyze_heal_bot(bot, zipper_tol);
-    rt_db_put_internal(bot_dp, gedp->dbip, &intern, &rt_uniresource);
+    rt_db_put_internal(bot_dp, gedp->dbip, &intern);
 
     bu_vls_printf(gedp->ged_result_str, "Healed Mesh!");
 

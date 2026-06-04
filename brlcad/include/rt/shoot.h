@@ -1,7 +1,7 @@
 /*                        S H O O T . H
  * BRL-CAD
  *
- * Copyright (c) 1993-2025 United States Government as represented by
+ * Copyright (c) 1993-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -156,16 +156,28 @@ RT_EXPORT extern void rt_add_res_stats(struct rt_i *rtip,
 RT_EXPORT extern void rt_zero_res_stats(struct resource *resp);
 
 
-RT_EXPORT extern void rt_res_pieces_clean(struct resource *resp,
+/**
+ * Release the per-processor state variables needed to support
+ * rt_shootray()'s use of 'solid pieces'.
+ *
+ * Deprecated as a public facing API - this should be an implementation
+ * detail in librt.
+ */
+DEPRECATED RT_EXPORT extern void rt_res_pieces_clean(struct resource *resp,
 					  struct rt_i *rtip);
-
 
 /**
  * Allocate the per-processor state variables needed to support
  * rt_shootray()'s use of 'solid pieces'.
+ *
+ * Deprecated as a public facing API - this should be an implementation
+ * detail in librt.
  */
-RT_EXPORT extern void rt_res_pieces_init(struct resource *resp,
+DEPRECATED RT_EXPORT extern void rt_res_pieces_init(struct resource *resp,
 					 struct rt_i *rtip);
+
+
+
 RT_EXPORT extern void rt_vstub(struct soltab *stp[],
 			       struct xray *rp[],
 			       struct seg segp[],

@@ -2,11 +2,12 @@ set(PLUGIN_LIBS libged libbu)
 
 set(
   LINT_SRCS
-  bot.cpp
   cyclic.cpp
   invalid_shape.cpp
   lint.cpp
+  lint_bot.cpp
   missing.cpp
+  raytrace.cpp
 )
 
 ged_plugin_library(ged-lint
@@ -17,9 +18,7 @@ ged_plugin_library(ged-lint
 
 cmakefiles(
   CMakeLists.txt
-  ${LINT_SRCS}
   ged_lint.h
-  json.hpp
 )
 
 # Local Variables:

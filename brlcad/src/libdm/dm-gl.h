@@ -1,7 +1,7 @@
 /*                          D M - G L . H
  * BRL-CAD
  *
- * Copyright (c) 1993-2025 United States Government as represented by
+ * Copyright (c) 1993-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -114,6 +114,8 @@ struct gl_vars {
     int zclipping_on;
     int zbuffer_on;
     int lighting_on;
+    int fast_wireframe;
+    int fast_wireframe_active;
     int transparency_on;
     int fastfog;
     double fogdensity;
@@ -124,6 +126,10 @@ struct gl_vars {
     struct bu_vls log;
     double bound;
     int boundFlag;
+    int adaptive_zclip;
+    double adaptive_zclip_factor;
+    double adaptive_zclip_min;
+    double adaptive_zclip_max;
     struct gl_internal_vars i;
 };
 

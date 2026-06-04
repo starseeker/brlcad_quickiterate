@@ -1,7 +1,7 @@
 /*			M G E D _ D M . H
  * BRL-CAD
  *
- * Copyright (c) 1985-2025 United States Government as represented by
+ * Copyright (c) 1985-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -103,11 +103,11 @@ struct trail {
 
 struct client {
     int			c_fd;
-#ifdef USE_TCL_CHAN
     Tcl_Channel         c_chan;
     Tcl_FileProc        *c_handler;
-#endif
     struct pkg_conn	*c_pkg;
+    int			c_auth_ok;         /**< @brief !0 if client sent a valid MSG_FBAUTH */
+    int			c_pending_drop;    /**< @brief !0 = drop after pkg_process() returns */
 };
 
 
@@ -349,10 +349,10 @@ struct mged_dm {
     struct dm		*dm_dmp;
     struct fb		*dm_fbp;
     int			dm_netfd;			/* socket used to listen for connections */
-#ifdef USE_TCL_CHAN
     Tcl_Channel		dm_netchan;
-#endif
     struct client	dm_clients[MAX_CLIENTS];
+    char		dm_session_token[65];		/* fbserv auth token (64 hex + NUL); empty = no auth */
+    int			dm_require_auth;		/* !0 = reject unauthenticated fb clients */
     int			dm_dirty;			/* true if received an expose or configuration event */
     int			dm_mapped;
     int			dm_owner;			/* true if owner of the view info */
@@ -406,7 +406,9 @@ struct mged_dm {
 
 /* If we're changing the active DM, use this function so
  * libged also gets the word. */
+__BEGIN_DECLS
 extern void set_curr_dm(struct mged_state *s, struct mged_dm *nl);
+__END_DECLS
 
 #define MGED_DM_NULL ((struct mged_dm *)NULL)
 #define DMP s->mged_curr_dm->dm_dmp
@@ -536,6 +538,7 @@ extern void dm_var_init(struct mged_state *s, struct mged_dm *target_dm);
 
 /* defined in dm-generic.c */
 extern int common_dm(struct mged_state *s, int argc, const char *argv[]);
+extern int mged_dm_motion(struct mged_state *s, int x, int y);
 extern void view_state_flag_hook(const struct bu_structparse *, const char *, void *,const char *, void *);
 extern void dirty_hook(const struct bu_structparse *, const char *, void *,const char *, void *);
 extern void zclip_hook(const struct bu_structparse *, const char *, void *,const char *, void *);

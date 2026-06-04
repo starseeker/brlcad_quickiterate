@@ -1,7 +1,7 @@
 /*                         E D I T _ M E T A B A L L . C
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -184,8 +184,8 @@ _ged_metaball_add_pnt(struct rt_metaball_internal *mbip, struct wdb_metaball_pnt
 	if (last->l.magic == BU_LIST_HEAD_MAGIC) {
 	    BU_GET(newmbp, struct wdb_metaball_pnt);
 	    newmbp->l.magic = WDB_METABALLPT_MAGIC;
-	    newmbp->fldstr = 1.0;
-	    newmbp->sweat = 1.0;
+	    newmbp->field_strength = 1.0;
+	    newmbp->blobbiness = 1.0;
 	    VMOVE(newmbp->coord, new_pt);
 	    BU_LIST_INSERT(&mbip->metaball_ctrl_head, &newmbp->l);
 	    return newmbp;
@@ -195,8 +195,8 @@ _ged_metaball_add_pnt(struct rt_metaball_internal *mbip, struct wdb_metaball_pnt
     /* build new point */
     BU_GET(newmbp, struct wdb_metaball_pnt);
     newmbp->l.magic = WDB_METABALLPT_MAGIC;
-    newmbp->fldstr = 1.0;
-    newmbp->sweat = 1.0;
+    newmbp->field_strength = 1.0;
+    newmbp->blobbiness = 1.0;
     VMOVE(newmbp->coord, new_pt);
 
     if (mbp) {
@@ -306,7 +306,7 @@ ged_metaball_add_pnt_core(struct ged *gedp, int argc, const char *argv[])
 	    VMOVE(curr_mbp->coord, curr_pt);
 	}
 
-	GED_DB_PUT_INTERNAL(gedp, dp, &intern, &rt_uniresource, BRLCAD_ERROR);
+	GED_DB_PUT_INTERN(gedp, dp, &intern, BRLCAD_ERROR);
     }
 
     rt_db_free_internal(&intern);
@@ -401,7 +401,7 @@ ged_metaball_delete_pnt_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_ERROR;
     }
 
-    if (rt_db_get_internal(&intern, dp, gedp->dbip, (fastf_t *)NULL, &rt_uniresource) < 0) {
+    if (rt_db_get_internal(&intern, dp, gedp->dbip, (fastf_t *)NULL) < 0) {
 	bu_vls_printf(gedp->ged_result_str, "%s: failed to get internal for %s", argv[0], argv[1]);
 	return BRLCAD_ERROR;
     }
@@ -427,7 +427,7 @@ ged_metaball_delete_pnt_core(struct ged *gedp, int argc, const char *argv[])
 	return BRLCAD_ERROR;
     }
 
-    GED_DB_PUT_INTERNAL(gedp, dp, &intern, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_PUT_INTERN(gedp, dp, &intern, BRLCAD_ERROR);
 
     rt_db_free_internal(&intern);
     return BRLCAD_OK;
@@ -541,7 +541,7 @@ ged_metaball_move_pnt_core(struct ged *gedp, int argc, const char *argv[])
 	    VMOVE(curr_mbp->coord, curr_pt);
 	}
 
-	GED_DB_PUT_INTERNAL(gedp, dp, &intern, &rt_uniresource, BRLCAD_ERROR);
+	GED_DB_PUT_INTERN(gedp, dp, &intern, BRLCAD_ERROR);
     }
 
     rt_db_free_internal(&intern);

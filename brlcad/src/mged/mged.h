@@ -1,7 +1,7 @@
 /*                           M G E D . H
  * BRL-CAD
  *
- * Copyright (c) 1985-2025 United States Government as represented by
+ * Copyright (c) 1985-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -62,6 +62,9 @@
 #endif
 #include <time.h>
 
+// For signal.h
+#include "bu/interrupt.h"
+
 #include "tcl.h"
 #ifdef HAVE_TK
 #  include "tk.h"
@@ -93,8 +96,16 @@
 #define MGED_STATE_MAGIC 0x4D474553 /**< MGEDS*/
 #define MGED_CK_STATE(_bp) BU_CKMAG(_bp, MGED_STATE_MAGIC , "mged_state")
 
-/* Forward declaration */
+/* Forward declarations */
 struct mged_state;
+struct stdio_data;
+
+enum mged_shutdown_state {
+    MGED_SHUTDOWN_RUNNING = 0,
+    MGED_SHUTDOWN_REQUESTED,
+    MGED_SHUTDOWN_IN_PROGRESS,
+    MGED_SHUTDOWN_FINALIZED
+};
 
 /* Tolerances */
 struct mged_tol {
@@ -235,9 +246,43 @@ struct mged_state {
     /* called by numerous functions to indicate truthfully whether the
      * views need to be redrawn. */
     int update_views;
+
+    /* Asynchronous ged_exec state (cmd.cpp).
+     * cmd_running is set to 1 while ged_exec runs in a worker thread so
+     * that re-entrant command dispatch (e.g. from stdin_input) is blocked.
+     * log_drain_timer is the recurring Tcl timer token used to flush
+     * accumulated bu_log output to the Tcl command prompt. */
+    int cmd_running;
+    Tcl_TimerToken log_drain_timer;
+
+    /* Staged shutdown state.  Tcl callbacks request shutdown and return; the
+     * outer MGED event loop performs final teardown after Tcl has unwound. */
+    int shutdown_state;
+    int shutdown_exitcode;
+    Tcl_Channel stdin_chan;
+    Tcl_Channel stdout_chan;
+    Tcl_Channel stderr_chan;
+    struct stdio_data *stdin_data;
+
+    /* When non-zero, a machine-readable "MGED_CMD_DONE <status>" sentinel
+     * line is written to stdout after every command completes in the
+     * non-interactive (piped) stdin path.  Enabled by the -p flag so that
+     * a parent process driving MGED via stdin/stdout can detect command
+     * completion even for commands that produce no output.
+     * Status codes: CMD_OK (919), CMD_BAD (920), CMD_MORE (921). */
+    int pipe_mode;
+
+    /* Secondary Tcl interpreter used exclusively for search -exec evaluation.
+     * Created by mged_search_pre_clbk at the start of each search command,
+     * reused for all -exec callbacks during that search, and destroyed by
+     * mged_search_post_clbk when the search finishes.  NULL at all other
+     * times.  Must not be persisted across search invocations because the
+     * user environment (procs, variables) may change between searches. */
+    Tcl_Interp *search_interp;
 };
 extern struct mged_state *MGED_STATE;
 
+__BEGIN_DECLS
 
 
 /* defined in mged.c */
@@ -251,8 +296,11 @@ extern jmp_buf jmp_env;
 
 extern void mged_setup(struct mged_state *s);
 extern void mged_global_variable_teardown(struct mged_state *s); /* cmd.c */
+extern void mged_variable_teardown(struct mged_state *s); /* set.c */
 extern void dozoom(struct mged_state *s, int which_eye);
 extern void mged_finish(struct mged_state *s, int exitcode);
+extern void mged_request_shutdown(struct mged_state *s, int exitcode);
+extern int mged_shutting_down(struct mged_state *s);
 extern void slewview(struct mged_state *s, vect_t view_pos);
 extern void moveHinstance(struct mged_state *s, struct directory *cdp, struct directory *dp, matp_t xlate);
 extern void moveHobj(struct mged_state *s, struct directory *dp, matp_t xlate);
@@ -396,11 +444,15 @@ void solid_list_callback(struct mged_state *s);
 extern void view_ring_init(struct _view_state *vsp1, struct _view_state *vsp2); /* defined in chgview.c */
 extern void view_ring_destroy(struct mged_dm *dlp);
 
-/* cmd.c */
+/* cmd.c / cmd.cpp */
 int cmdline(struct mged_state *s, struct bu_vls *vp, int record);
 void mged_print_result(struct mged_state *s, int status);
 int gui_output(void *clientData, void *str);
 void mged_pr_output(Tcl_Interp *interp);
+void mged_sem_log_init(void);
+void mged_start_log_drain_timer(struct mged_state *s);
+void mged_stop_log_drain_timer(struct mged_state *s);
+int mged_ged_exec_async(struct mged_state *s, int argc, const char *argv[]);
 
 /* columns.c */
 void vls_col_item(struct bu_vls *str, const char *cp);
@@ -561,6 +613,8 @@ void mged_color_soltab(struct mged_state *s);
 int Wdb_Init(Tcl_Interp *interp);
 int wdb_cmd(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv[]);
 void wdb_deleteProc(ClientData clientData);
+
+__END_DECLS
 
 #endif  /* MGED_MGED_H */
 

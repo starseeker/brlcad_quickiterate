@@ -1,7 +1,7 @@
 /*                       B I N U N I F . C
  * BRL-CAD
  *
- * Copyright (c) 2001-2025 United States Government as represented by
+ * Copyright (c) 2001-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -49,6 +49,7 @@
 #include "rt/geom.h"
 #include "raytrace.h"
 #include "wdb.h"
+#include "librt_private.h"
 
 
 int
@@ -118,7 +119,7 @@ rt_mk_binunif(struct rt_wdb *wdbp, const char *obj_name, const char *file_name, 
     /* create body portion of external form */
     ret = -1;
     if (intern.idb_meth->ft_export5) {
-	ret = intern.idb_meth->ft_export5(&body, &intern, 1.0, wdbp->dbip, wdbp->wdb_resp);
+	ret = intern.idb_meth->ft_export5(&body, &intern, 1.0, wdbp->dbip);
     }
     if (ret != 0) {
 	bu_log("Error while attempting to export %s\n", obj_name);
@@ -136,7 +137,7 @@ rt_mk_binunif(struct rt_wdb *wdbp, const char *obj_name, const char *file_name, 
     bu_free_external(&body);
 
     /* make sure the database directory is initialized */
-    if (wdbp->dbip->dbi_eof == RT_DIR_PHONY_ADDR) {
+    if (wdbp->dbip->i->dbi_eof == RT_DIR_PHONY_ADDR) {
 	ret = db_dirbuild(wdbp->dbip);
 	if (ret) {
 	    return -1;

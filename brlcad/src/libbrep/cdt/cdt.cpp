@@ -1,7 +1,7 @@
 /*                        C D T . C P P
  * BRL-CAD
  *
- * Copyright (c) 2007-2025 United States Government as represented by
+ * Copyright (c) 2007-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -171,6 +171,7 @@ do_triangulation(struct ON_Brep_CDT_State *s_cdt, int fi)
     fmesh->m_bRev = face.m_bRev;
 
     if (!fmesh->cdt()) {
+	bu_log("Face %d: initial CDT (fmesh->cdt) FAILED\n", face.m_face_index);
 	return false;
     }
 

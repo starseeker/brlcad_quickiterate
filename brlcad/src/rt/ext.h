@@ -1,7 +1,7 @@
 /*                           E X T . H
  * BRL-CAD
  *
- * Copyright (c) 1989-2025 United States Government as represented by
+ * Copyright (c) 1989-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -103,6 +103,7 @@ extern int save_overlaps;		/* flag for setting rti_save_overlaps */
 extern struct application APP;
 extern struct icv_image *bif;
 extern int rtg_parallel;		/* flag for parallel raytracing */
+extern int embed_icv_metadata;		/* !0 = embed render metadata in output PNG */
 
 /***** variables shared with worker() ******/
 extern unsigned char *scanbuf;		/* pixels for REMRT */

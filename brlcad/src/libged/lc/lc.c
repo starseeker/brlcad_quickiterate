@@ -1,7 +1,7 @@
 /*                         L C . C
  * BRL-CAD
  *
- * Copyright (c) 2014-2025 United States Government as represented by
+ * Copyright (c) 2014-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -302,7 +302,7 @@ ged_lc_core(struct ged *gedp, int argc, const char *argv[])
 
     /* Update references once before we start all of this - db_search
      * needs nref to be current to work correctly. */
-    db_update_nref(gedp->dbip, &rt_uniresource);
+    db_update_nref(gedp->dbip);
 
     group_name = argv[1];
 

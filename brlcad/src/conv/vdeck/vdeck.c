@@ -1,7 +1,7 @@
 /*                         V D E C K . C
  * BRL-CAD
  *
- * Copyright (c) 1990-2025 United States Government as represented by
+ * Copyright (c) 1990-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -57,7 +57,6 @@
 #include "common.h"
 
 #include <stdlib.h>
-#include <signal.h>
 #include <math.h>
 #include <string.h>
 #ifdef HAVE_SYS_TYPES_H
@@ -66,6 +65,7 @@
 #include "bio.h"
 
 #include "bu/app.h"
+#include "bu/interrupt.h"
 #include "bu/parallel.h"
 #include "bu/sort.h"
 #include "bu/units.h"
@@ -506,7 +506,7 @@ region_end(struct db_tree_state *tsp, const struct db_full_path *pathp, union tr
 	bu_vls_strcat(&flat, "");
     } else {
 	/* Rewrite tree so that all unions are at tree top */
-	db_non_union_push(curtree, &rt_uniresource);
+	db_non_union_push(curtree);
 	flatten_tree(&flat, curtree, "  ", 0);
     }
 

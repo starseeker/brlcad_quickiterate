@@ -1,7 +1,7 @@
 /*                  P O L Y _ S C A L E . C
  * BRL-CAD
  *
- * Copyright (c) 2013-2025 United States Government as represented by
+ * Copyright (c) 2013-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -25,7 +25,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-#include <signal.h>
 
 #include "bu.h"
 #include "vmath.h"

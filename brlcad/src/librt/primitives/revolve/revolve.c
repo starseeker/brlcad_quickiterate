@@ -1,7 +1,7 @@
 /*                           R E V O L V E . C
  * BRL-CAD
  *
- * Copyright (c) 1990-2025 United States Government as represented by
+ * Copyright (c) 1990-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -541,7 +541,7 @@ rt_revolve_shot(struct soltab *stp, struct xray *rp, struct application *ap, str
 		hitp->hit_vpriv[Y] = angle;
 		if (i+1 < rev->skt->vert_count && rev->ends[i+1] != -1 &&
 		    NEAR_EQUAL(rev->skt->verts[rev->ends[i]][Y],
-			       rev->skt->verts[rev->ends[i+1]][Y], SMALL)) {
+			       rev->skt->verts[rev->ends[i+1]][Y], SQRT_SMALL_FASTF)) {
 		    hitp->hit_vpriv[Z] = rev->skt->verts[rev->ends[i+1]][X];
 		    i++;
 		    if (fabs(hit2d[X]) < fabs(hitp->hit_vpriv[Z])) {
@@ -1464,6 +1464,31 @@ rt_revolve_tess(struct nmgregion **UNUSED(r), struct model *UNUSED(m), struct rt
     return -1;
 }
 
+const char *
+rt_revolve_keypoint(point_t *pt, const char *keystr, const mat_t mat,
+		    const struct rt_db_internal *ip, const struct bn_tol *UNUSED(tol))
+{
+    if (!pt || !ip)
+	return NULL;
+
+    struct rt_revolve_internal *rip = (struct rt_revolve_internal *)ip->idb_ptr;
+    RT_REVOLVE_CK_MAGIC(rip);
+
+    static const char *default_keystr = "V";
+    const char *k = (keystr) ? keystr : default_keystr;
+
+    /* The vertex in 3-D space is the natural keypoint */
+    if (BU_STR_EQUAL(k, default_keystr)) {
+	point_t mpt;
+	VMOVE(mpt, rip->v3d);
+	MAT4X3PNT(*pt, mat, mpt);
+	return k;
+    }
+
+    return NULL;
+}
+
+
 int
 rt_revolve_mat(struct rt_db_internal *rop, const mat_t mat, const struct rt_db_internal *ip)
 {
@@ -1534,7 +1559,7 @@ rt_revolve_import5(struct rt_db_internal *ip, const struct bu_external *ep, cons
 	       sketch_name);
 	rip->skt = (struct rt_sketch_internal *)NULL;
     } else {
-	if (rt_db_get_internal(&tmp_ip, dp, dbip, bn_mat_identity, &rt_uniresource) != ID_SKETCH) {
+	if (rt_db_get_internal(&tmp_ip, dp, dbip, bn_mat_identity) != ID_SKETCH) {
 	    bu_log("ERROR: Cannot import sketch (%s) for extrusion\n",
 		   sketch_name);
 	    bu_free(ip->idb_ptr, "extrusion");

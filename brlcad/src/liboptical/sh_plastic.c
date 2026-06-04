@@ -1,7 +1,7 @@
 /*                    S H _ P L A S T I C . C
  * BRL-CAD
  *
- * Copyright (c) 1998-2025 United States Government as represented by
+ * Copyright (c) 1998-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -36,7 +36,7 @@
 #include "optical.h"
 #include "optical/light.h"
 #include "optical/plastic.h"
-#include "photonmap.h"
+#include "optical/photonmap.h"
 
 
 

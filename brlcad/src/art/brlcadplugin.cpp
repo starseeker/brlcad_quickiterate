@@ -1,7 +1,7 @@
 /*                     A R T P L U G I N . C P P
  * BRL-CAD
  *
- * Copyright (c) 2004-2025 United States Government as represented by
+ * Copyright (c) 2004-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -201,7 +201,7 @@ BrlcadObject:: BrlcadObject(
     VSET(max, m_params.get_required<double>("maxX"), m_params.get_required<double>("maxY"), m_params.get_required<double>("maxZ"));
 
     std::string db_file = m_params.get_required<std::string>("database_path");
-    this->rtip = rt_new_rti(p_ap->a_rt_i->rti_dbip);
+    this->rtip = rt_i_create(p_ap->a_rt_i->rti_dbip);
     if (this->rtip == RTI_NULL) {
         RENDERER_LOG_INFO("building the database directory for [%s] FAILED\n", db_file.c_str());
         bu_exit(BRLCAD_ERROR, "building the database directory for [%s] FAILED\n", db_file.c_str());

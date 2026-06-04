@@ -1,7 +1,7 @@
 /*                          H A L F . C
  * BRL-CAD
  *
- * Copyright (c) 1985-2025 United States Government as represented by
+ * Copyright (c) 1985-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -501,7 +501,7 @@ rt_hlf_xform(
 
     /* Now some safety.  Verify that the normal has unit length */
     f = MAGNITUDE(hop->eqn);
-    if (f <= SMALL) {
+    if (f <= SQRT_SMALL_FASTF) {
 	bu_log("rt_half_xform: bad normal, len = %g\n", f);
 	return -1;
     }
@@ -549,7 +549,7 @@ rt_hlf_import4(struct rt_db_internal *ip, const struct bu_external *ep, const fa
     hip = (struct rt_half_internal *)ip->idb_ptr;
     hip->magic = RT_HALF_INTERNAL_MAGIC;
 
-    flip_fastf_float(orig_eqn, rp->s.s_values, 2, (dbip && dbip->dbi_version < 0) ? 1 : 0);	/* 2 floats too many */
+    flip_fastf_float(orig_eqn, rp->s.s_values, 2, (dbip && dbip->i->dbi_version < 0) ? 1 : 0);	/* 2 floats too many */
 
     /* Pick a point on the original halfspace */
     VSCALE(orig_pt, orig_eqn, orig_eqn[1*ELEMENTS_PER_VECT]);
@@ -566,7 +566,7 @@ rt_hlf_import4(struct rt_db_internal *ip, const struct bu_external *ep, const fa
 
     /* Verify that normal has unit length */
     f = MAGNITUDE(hip->eqn);
-    if (f <= SMALL) {
+    if (f <= SQRT_SMALL_FASTF) {
 	bu_log("rt_hlf_import4:  bad normal, len=%g\n", f);
 	return -1;		/* BAD */
     }
@@ -638,7 +638,7 @@ rt_hlf_mat(struct rt_db_internal *rop, const mat_t mat, const struct rt_db_inter
 
     /* Verify that normal has unit length */
     double f = MAGNITUDE(top->eqn);
-    if (f <= SMALL) {
+    if (f <= SQRT_SMALL_FASTF) {
 	bu_log("rt_hlf_mat:  bad normal, len=%g\n", f);
 	return -1;		/* BAD */
     }
@@ -812,6 +812,39 @@ hlf_kpt_end:
     MAT4X3PNT(*pt, mat, mpt);
 
     return k;
+}
+
+
+int
+rt_hlf_perturb(struct rt_db_internal **oip, const struct rt_db_internal *ip, int UNUSED(planar_only), fastf_t val)
+{
+    if (NEAR_ZERO(val, SMALL_FASTF))
+	return BRLCAD_OK;
+
+    if (!oip || !ip)
+	return BRLCAD_ERROR;
+
+    struct rt_half_internal *ohalf = (struct rt_half_internal *)ip->idb_ptr;
+    RT_HALF_CK_MAGIC(ohalf);
+
+    struct rt_db_internal *nip;
+    BU_GET(nip, struct rt_db_internal);
+    RT_DB_INTERNAL_INIT(nip);
+    nip->idb_major_type = DB5_MAJORTYPE_BRLCAD;
+    nip->idb_type = ID_HALF;
+    nip->idb_meth = &OBJ[ID_HALF];
+    struct rt_half_internal *half = NULL;
+    BU_ALLOC(half, struct rt_half_internal);
+    nip->idb_ptr = half;
+    half->magic = RT_HALF_INTERNAL_MAGIC;
+    HMOVE(half->eqn, ohalf->eqn);
+
+    /* Shift the plane outward (increase d) so the halfspace boundary moves
+     * away from adjacent coplanar faces by val. */
+    half->eqn[W] += val;
+
+    *oip = nip;
+    return BRLCAD_OK;
 }
 
 

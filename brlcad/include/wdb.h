@@ -1,7 +1,7 @@
 /*                           W D B . H
  * BRL-CAD
  *
- * Copyright (c) 1988-2025 United States Government as represented by
+ * Copyright (c) 1988-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -328,7 +328,7 @@ WDB_EXPORT int mk_metaball(
     const size_t nctlpt,	/* number of control points */
     const int method,		/* metaball rendering method */
     const fastf_t threshold,
-    const fastf_t *verts[5]);	/* X, Y, Z, fldstr, goo/Beta */
+    const fastf_t *verts[5]);	/* X, Y, Z, field_strength, blobbiness */
 
 /**
  * Caller is responsible for freeing eqn[]
@@ -675,7 +675,7 @@ WDB_EXPORT extern int mk_submodel(struct rt_wdb *fp, const char *name, const cha
 /**
  * Interface for writing region-id-based color tables to the database.
  * Given that the color table has been built up by successive calls to
- * rt_color_addrec(), write it into the database.
+ * db_mater_add(), write it into the database.
  *
  */
 WDB_EXPORT int mk_write_color_table(struct rt_wdb *ofp);

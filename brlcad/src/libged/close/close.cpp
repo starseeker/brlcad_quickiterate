@@ -1,7 +1,7 @@
 /*                     C L O S E . C P P
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -43,8 +43,6 @@ ged_close_core(struct ged *gedp, int UNUSED(argc), const char **UNUSED(argv))
 
     /* set result while we still have the info */
     bu_vls_sprintf(gedp->ged_result_str, "closed %s", gedp->dbip->dbi_filename);
-
-    rt_new_material_head(MATER_NULL);
 
     /* Clear any geometry displayed in application views.
      * TODO - properly speaking, we should only be zapping geometry data here

@@ -1,7 +1,7 @@
 /*                            P O L Y . C
  * BRL-CAD
  *
- * Copyright (c) 1985-2025 United States Government as represented by
+ * Copyright (c) 1985-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -697,7 +697,7 @@ rt_pg_import4(struct rt_db_internal *ip, const struct bu_external *ep, const fas
 	    point_t pnt;
 	    vect_t vec;
 
-	    if (dbip && dbip->dbi_version < 0) {
+	    if (dbip && dbip->i->dbi_version < 0) {
 		flip_fastf_float(pnt, rp[rno].q.q_verts[i], 1, 1);
 		flip_fastf_float(vec, rp[rno].q.q_norms[i], 1, 1);
 	    } else {
@@ -890,6 +890,79 @@ rt_pg_ifree(struct rt_db_internal *ip)
     bu_free((char *)pgp, "pg ifree");
     ip->idb_ptr = ((void *)0);	/* sanity */
 }
+/**
+ * Computes the volume of a polysolid using fan-triangulation and the
+ * divergence theorem.  Each polygon face is decomposed into triangles
+ * anchored at its first vertex, and the signed tetrahedral contribution
+ * a · (b × c) / 6 is accumulated.
+ */
+void
+rt_pg_volume(fastf_t *volume, const struct rt_db_internal *ip)
+{
+    struct rt_pg_internal *pgp;
+    size_t i, j;
+    double vol = 0.0;
+
+    RT_CK_DB_INTERNAL(ip);
+    pgp = (struct rt_pg_internal *)ip->idb_ptr;
+    RT_PG_CK_MAGIC(pgp);
+
+    /* Fan-triangulate each polygon face and accumulate the signed
+     * tetrahedral volume contribution using the divergence theorem.
+     *
+     * For a triangle (a, b, c) the signed volume of the tetrahedron
+     * formed with the origin is a · (b × c) / 6.
+     */
+    for (i = 0; i < pgp->npoly; i++) {
+	struct rt_pg_face_internal *pp = &pgp->poly[i];
+	for (j = 1; j + 1 < pp->npts; j++) {
+	    vect_t a, b, c, cross_bc;
+	    VMOVE(a, &pp->verts[0 * 3]);
+	    VMOVE(b, &pp->verts[j * 3]);
+	    VMOVE(c, &pp->verts[(j + 1) * 3]);
+	    VCROSS(cross_bc, b, c);
+	    vol += VDOT(a, cross_bc);
+	}
+    }
+
+    *volume = fabs(vol) / 6.0;
+}
+
+
+/**
+ * Computes the surface area of a polysolid by summing the areas of all
+ * polygon faces.  Each face is decomposed into triangles via fan-
+ * triangulation, and each triangle's area is half the magnitude of the
+ * cross product of its two edge vectors.
+ */
+void
+rt_pg_surf_area(fastf_t *area, const struct rt_db_internal *ip)
+{
+    struct rt_pg_internal *pgp;
+    size_t i, j;
+
+    RT_CK_DB_INTERNAL(ip);
+    pgp = (struct rt_pg_internal *)ip->idb_ptr;
+    RT_PG_CK_MAGIC(pgp);
+
+    /* Sum the area of every polygon face by fan-triangulation. */
+    *area = 0.0;
+    for (i = 0; i < pgp->npoly; i++) {
+	struct rt_pg_face_internal *pp = &pgp->poly[i];
+	for (j = 1; j + 1 < pp->npts; j++) {
+	    vect_t a, b, c, e1, e2, cross;
+	    VMOVE(a, &pp->verts[0 * 3]);
+	    VMOVE(b, &pp->verts[j * 3]);
+	    VMOVE(c, &pp->verts[(j + 1) * 3]);
+	    VSUB2(e1, b, a);
+	    VSUB2(e2, c, a);
+	    VCROSS(cross, e1, e2);
+	    *area += 0.5 * MAGNITUDE(cross);
+	}
+    }
+}
+
+
 int
 rt_pg_params(struct pc_pc_set *UNUSED(ps), const struct rt_db_internal *ip)
 {
@@ -910,7 +983,7 @@ rt_pg_params(struct pc_pc_set *UNUSED(ps), const struct rt_db_internal *ip)
  * 0 OK
  */
 int
-rt_pg_to_bot(struct rt_db_internal *ip, const struct bn_tol *tol, struct resource *resp)
+rt_pg_to_bot(struct rt_db_internal *ip, const struct bn_tol *tol)
 {
     struct rt_pg_internal *ip_pg;
     struct rt_bot_internal *ip_bot;
@@ -921,7 +994,6 @@ rt_pg_to_bot(struct rt_db_internal *ip, const struct bn_tol *tol, struct resourc
 
     RT_CK_DB_INTERNAL(ip);
     BN_CK_TOL(tol);
-    RT_CK_RESOURCE(resp);
 
     if (ip->idb_type != ID_POLY) {
 	bu_log("ERROR: rt_pt_to_bot() called with a non-polysolid!!!\n");

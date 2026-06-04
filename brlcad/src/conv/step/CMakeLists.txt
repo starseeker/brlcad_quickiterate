@@ -1,5 +1,9 @@
 if(BRLCAD_ENABLE_STEP)
-  brlcad_find_package(STEPCODE REQUIRED)
+  brlcad_find_package(STEPCODE)
+  if (NOT STEPCODE_FOUND)
+    message("BRLCAD_ENABLE_STEP is on, but STEPCODE not found - disabling.")
+    set(BRLCAD_ENABLE_STEP OFF)
+  endif()
 endif(BRLCAD_ENABLE_STEP)
 
 # Because the exp2cxx outputs are used by both step-g and g-step,
@@ -17,8 +21,6 @@ check_cxx_flag("wd4800") # implicit conversions to bool
 
 # Also quell a GCC warning for similar reasons.
 check_cxx_flag("Wno-ignored-qualifiers")
-
-find_package(STEPCODE)
 
 macro(GENERATE_SCHEMA_INPUTS SCHEMA_FILE TARGET_SUFFIX)
   if(BRLCAD_ENABLE_STEP)
@@ -63,8 +65,10 @@ macro(GENERATE_SCHEMA_INPUTS SCHEMA_FILE TARGET_SUFFIX)
     # We want to precompile the generated headers, since they will be reused a
     # great deal in the build.  However, for CMake's target_precompile_headers
     # function we need a file that exists at configure time to act as the
-    # target.
-    set(PRECOMPILE_HEADER ${SCHEMA_OUT_DIR}/precompile_${TARGET_SUFFIX}.h)
+    # target.  Keep that header outside the exp2cxx output directory: the
+    # generator can clear or overwrite files in SCHEMA_OUT_DIR, which leaves
+    # the later PCH compile trying to include a header that no longer exists.
+    set(PRECOMPILE_HEADER ${CMAKE_CURRENT_BINARY_DIR}/precompile_${SCHEMA_NAME}_${TARGET_SUFFIX}.h)
     file(WRITE "${PRECOMPILE_HEADER}" "// Precompiled header for STEPcode generated files\n")
     foreach(header ${express_hdrs})
       # Use relative include for portability
@@ -76,7 +80,6 @@ macro(GENERATE_SCHEMA_INPUTS SCHEMA_FILE TARGET_SUFFIX)
       EXPRESS_OUTPUT
       ${express_srcs}
       ${express_hdrs}
-      ${PRECOMPILE_HEADER}
     )
 
     add_custom_command(
@@ -99,6 +102,7 @@ macro(GENERATE_SCHEMA_INPUTS SCHEMA_FILE TARGET_SUFFIX)
     set(
       clean_files
       ${EXPRESS_OUTPUT}
+      ${PRECOMPILE_HEADER}
       ${SCHEMA_OUT_DIR}/step_express_${SCHEMA_NAME}.done
       ${SCHEMA_OUT_DIR}/step_express_${SCHEMA_NAME}.log
     )

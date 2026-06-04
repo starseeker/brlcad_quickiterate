@@ -1,7 +1,7 @@
 /*                        U T I L . C P P
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -136,7 +136,7 @@ _ged_facetize_write_bot(struct db_i *dbip, struct rt_bot_internal *bot, const ch
 	return BRLCAD_ERROR;
     }
 
-    if (rt_db_put_internal(dp, dbip, &intern, &rt_uniresource) < 0) {
+    if (rt_db_put_internal(dp, dbip, &intern) < 0) {
 	if (verbosity >= 0)
 	    bu_log("Failed to write %s to database\n", name);
 	rt_db_free_internal(&intern);
@@ -259,7 +259,7 @@ _ged_facetize_working_file_setup(struct _ged_facetize_state *s, struct bu_ptbl *
 
 		if (ldp->d_minor_type == ID_DSP) {
 		    struct rt_db_internal intern;
-		    if (rt_db_get_internal(&intern, ldp, dbip, NULL, &rt_uniresource) < 0)
+		    if (rt_db_get_internal(&intern, ldp, dbip, NULL) < 0)
 			continue;
 		    dsp_data_cpy(dbip, (struct rt_dsp_internal *)intern.idb_ptr, s->wdir);
 		    rt_db_free_internal(&intern);
@@ -309,8 +309,7 @@ method_scan(std::map<std::string, std::set<std::string>> *method_sets, struct db
 	return BRLCAD_ERROR;
 
     struct directory *dp;
-    for (int i = 0; i < RT_DBNHASH; i++) {
-	for (dp = dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
+    FOR_ALL_DIRECTORY_START(dp, dbip)
 	    struct bu_attribute_value_set avs = BU_AVS_INIT_ZERO;
 	    if (db5_get_attributes(dbip, &avs, dp))
 		continue;
@@ -321,8 +320,7 @@ method_scan(std::map<std::string, std::set<std::string>> *method_sets, struct db
 	    }
 	    (*method_sets)[std::string(method)].insert(std::string(dp->d_namep));
 	    bu_avs_free(&avs);
-	}
-    }
+    FOR_ALL_DIRECTORY_END;
 
     return BRLCAD_OK;
 }
@@ -337,7 +335,7 @@ bot_fixup(struct _ged_facetize_state *s, struct db_i *wdbip, struct directory *b
 
     struct rt_db_internal bot_intern;
     RT_DB_INTERNAL_INIT(&bot_intern);
-    if (rt_db_get_internal(&bot_intern, bot_dp, wdbip, NULL, &rt_uniresource) < 0) {
+    if (rt_db_get_internal(&bot_intern, bot_dp, wdbip, NULL) < 0) {
 	return NULL;
     }
 
@@ -348,12 +346,12 @@ bot_fixup(struct _ged_facetize_state *s, struct db_i *wdbip, struct directory *b
     }
 
     // Have faces, test with raytracer
-    struct rt_i *rtip = rt_new_rti(wdbip);
+    struct rt_i *rtip = rt_i_create(wdbip);
     rt_gettree(rtip, bname);
     rt_prep(rtip);
     struct bu_ptbl tfaces = BU_PTBL_INIT_ZERO;
     int have_thin_faces = rt_bot_thin_check(&tfaces, bot, rtip, VUNITIZE_TOL, 0);
-    rt_free_rti(rtip);
+    rt_i_destroy(rtip);
 
     // No problematic faces reported, nothing to do
     if (!have_thin_faces) {
@@ -379,14 +377,18 @@ bot_fixup(struct _ged_facetize_state *s, struct db_i *wdbip, struct directory *b
     // Return an empty bot, if that's what was created (can happen legitimately
     // when all the faces are thin - i.e. a degenerate volume.)
     if (!nbot->num_faces) {
+	rt_bot_internal_free(nbot);
+	BU_PUT(nbot, struct rt_bot_internal);
 	bu_ptbl_free(&tfaces);
-	return nbot;
+	facetize_log(s, 2, "\t%s: all %zd faces flagged as thin; retaining original manifold result.\n", bname, removed_face_cnt);
+	return NULL;
     }
 
     // If we took away manifoldness removing faces (very likely) we need to try
     // and rebuild it.
     struct rt_bot_internal *rbot = NULL;
     struct rt_bot_repair_info rs = RT_BOT_REPAIR_INFO_INIT;
+    rs.strict = 0;
     int repair_result = rt_bot_repair(&rbot, nbot, &rs);
     if (repair_result < 0) {
 	// If a conservative repair fails, try being a little
@@ -442,12 +444,12 @@ bot_fixup(struct _ged_facetize_state *s, struct db_i *wdbip, struct directory *b
 	return NULL;
     }
 
-    struct rt_i *crtip = rt_new_rti(wdbip);
+    struct rt_i *crtip = rt_i_create(wdbip);
     rt_gettree(crtip, test_name);
     rt_prep(crtip);
     bu_ptbl_reset(&tfaces);
     have_thin_faces = rt_bot_thin_check(&tfaces, rbot, crtip, VUNITIZE_TOL, 0);
-    rt_free_rti(crtip);
+    rt_i_destroy(crtip);
     // Win or lose, delete the test obj
     odp = db_lookup(wdbip, test_name, LOOKUP_QUIET);
     if (odp) {
@@ -465,7 +467,7 @@ bot_fixup(struct _ged_facetize_state *s, struct db_i *wdbip, struct directory *b
     }
 
     // Successfully produced a new, clean mesh
-    facetize_log(s, 0, "\t%s removed %zd thin faces, new manifold BoT created.\n", bname, removed_face_cnt);
+    facetize_log(s, 1, "\t%s removed %zd thin faces, new manifold BoT created.\n", bname, removed_face_cnt);
     bu_ptbl_free(&tfaces);
     return rbot;
 }
@@ -478,36 +480,48 @@ facetize_primitives_summary(struct _ged_facetize_state *s)
 
     struct db_i *dbip = s->dbip;
 
-    bu_log("\nPrimitive tessellation summary:\n\n");
+    facetize_log(s, 0, "\nPrimitive tessellation summary:\n");
     std::map<std::string, std::set<std::string>> method_sets;
     std::map<std::string, std::set<std::string>>::iterator m_it;
     std::set<std::string>::iterator s_it;
     struct db_i *cdbip = db_open(bu_vls_cstr(s->wfile), DB_OPEN_READONLY);
     if (cdbip) {
 	db_dirbuild(cdbip);
-	db_update_nref(cdbip, &rt_uniresource);
+	db_update_nref(cdbip);
 	method_scan(&method_sets, cdbip);
+	size_t total = 0;
+	size_t fail_cnt = 0;
+	size_t repair_cnt = 0;
+	size_t plate_cnt = 0;
+	for (m_it = method_sets.begin(); m_it != method_sets.end(); ++m_it) {
+	    total += m_it->second.size();
+	    if (m_it->first == std::string("FAIL")) fail_cnt += m_it->second.size();
+	    if (m_it->first == std::string("REPAIR")) repair_cnt += m_it->second.size();
+	    if (m_it->first == std::string("PLATE")) plate_cnt += m_it->second.size();
+	}
+	facetize_log(s, 0, "  %-33s %8zu\n", "Total solids evaluated", total);
+	facetize_log(s, 0, "  %-33s %8zu\n", "Failed tessellation", fail_cnt);
+	facetize_log(s, 0, "  %-33s %8zu\n", "Plate extrusions", plate_cnt);
+	facetize_log(s, 0, "  %-33s %8zu\n", "BoT repair closures", repair_cnt);
+	facetize_log(s, 0, "\n  Method breakdown:\n");
 	for (m_it = method_sets.begin(); m_it != method_sets.end(); ++m_it) {
 	    if (m_it->first == std::string("REPAIR")) {
-		bu_log("%zd BoT(s) closed to form manifolds using 'bot repair'%s\n",
-			m_it->second.size(), (s->verbosity > 0) ? ":" : ".");
+		facetize_log(s, 0, "    %-28s %8zu\n", "bot repair", m_it->second.size());
 	    } else if (m_it->first == std::string("PLATE")) {
-		bu_log("%zd plate mode BoT(s) extruded to form manifold volumes%s\n",
-			m_it->second.size(), (s->verbosity > 0) ? ":" : ".");
+		facetize_log(s, 0, "    %-28s %8zu\n", "plate extrusion", m_it->second.size());
 	    } else if (m_it->first == std::string("FAIL")) {
-		bu_log("%zd object(s) failed%s\n",
-			m_it->second.size(), (s->verbosity > 0) ? ":" : ".");
+		facetize_log(s, 0, "    %-28s %8zu\n", "failed", m_it->second.size());
 	    } else {
-		bu_log("%zd object(s) succeeded using the %s method%s\n",
-			m_it->second.size(), m_it->first.c_str(), (s->verbosity > 0 && m_it->first != std::string("NMG")) ? ":" : ".");
+		std::string mlabel = std::string("success: ") + m_it->first;
+		facetize_log(s, 0, "    %-28s %8zu\n", mlabel.c_str(), m_it->second.size());
 	    }
-	    if (s->verbosity > 0) {
+	    if (s->verbosity > 1) {
 		// If we used NMG to facetize, that's considered normal - don't
 		// bother listing those primitives
 		if (m_it->first == std::string("NMG"))
 		    continue;
 		for (s_it = m_it->second.begin(); s_it != m_it->second.end(); ++s_it) {
-		    bu_log("\t%s\n", (*s_it).c_str());
+		    facetize_log(s, 1, "\t%s\n", (*s_it).c_str());
 		}
 	    }
 	}
@@ -542,4 +556,3 @@ facetize_primitives_summary(struct _ged_facetize_state *s)
 // c-file-style: "stroustrup"
 // End:
 // ex: shiftwidth=4 tabstop=8
-

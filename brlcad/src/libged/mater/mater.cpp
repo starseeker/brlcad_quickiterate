@@ -1,7 +1,7 @@
 /*                       M A T E R . C P P
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -38,6 +38,7 @@
 #include "../ged_private.h"
 
 #include <string.h>
+#include "../../librt/librt_private.h"
 
 
 static const char *mater_usage = "Usage: mater [-s] object_name shader r [g b] inherit\n"
@@ -81,7 +82,7 @@ mater_shader(struct ged *gedp, size_t argc, const char *argv[])
 
     GED_DB_LOOKUP(gedp, dp, argv[1], LOOKUP_NOISY, BRLCAD_ERROR);
     GED_CHECK_COMB(gedp, dp, BRLCAD_ERROR);
-    GED_DB_GET_INTERNAL(gedp, &intern, dp, (fastf_t *)NULL, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_GET_INTERN(gedp, &intern, dp, (fastf_t *)NULL, BRLCAD_ERROR);
 
     comb = (struct rt_comb_internal *)intern.idb_ptr;
     RT_CK_COMB(comb);
@@ -241,7 +242,7 @@ mater_shader(struct ged *gedp, size_t argc, const char *argv[])
     }
     db5_sync_comb_to_attr(&avs, comb);
 
-    GED_DB_PUT_INTERNAL(gedp, dp, &intern, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_PUT_INTERN(gedp, dp, &intern, BRLCAD_ERROR);
 
     if (db5_update_attributes(dp, &avs, gedp->dbip)) {
 	bu_vls_printf(gedp->ged_result_str, "ERROR: failed to update attributes\n");
@@ -303,7 +304,7 @@ mater_clear(struct ged *gedp)
 	    bu_vls_printf(gedp->ged_result_str, "Error removing density information from database.");
 	    return BRLCAD_ERROR;
 	}
-	db_update_nref(gedp->dbip, &rt_uniresource);
+	db_update_nref(gedp->dbip);
     }
     return BRLCAD_OK;
 }
@@ -415,7 +416,7 @@ mater_audit(struct ged *gedp, size_t argc, const char *argv[])
     struct bu_ptbl id_objs = BU_PTBL_INIT_ZERO;
     std::set<struct directory *> mns, ids;
     std::set<struct directory *>::iterator dp_it;
-    db_update_nref(gedp->dbip, &rt_uniresource);
+    db_update_nref(gedp->dbip);
     const char *mname_search = "-attr material_name";
     const char *mid_search = "-attr material_id";
     (void)db_search(&mn_objs, DB_SEARCH_TREE|DB_SEARCH_RETURN_UNIQ_DP, mname_search, 0, NULL, gedp->dbip, NULL, NULL, NULL);
@@ -728,7 +729,7 @@ mater_export(struct ged *gedp, size_t argc, const char *argv[])
 	return BRLCAD_ERROR;
     }
 
-    if (rt_db_get_internal(&intern, dp, gedp->dbip, NULL, &rt_uniresource) < 0) {
+    if (rt_db_get_internal(&intern, dp, gedp->dbip, NULL) < 0) {
 	bu_vls_printf(gedp->ged_result_str, "error reading %s from database", dp->d_namep);
 	fclose(fp);
 	return BRLCAD_ERROR;
@@ -938,7 +939,7 @@ mater_get(struct ged *gedp, size_t argc, const char *argv[])
 	}
     }
 
-    if (rt_db_get_internal(&intern, dp, gedp->dbip, NULL, &rt_uniresource) < 0) {
+    if (rt_db_get_internal(&intern, dp, gedp->dbip, NULL) < 0) {
 	bu_vls_printf(gedp->ged_result_str, "error reading %s from database", dp->d_namep);
 	goto ged_mater_get_fail;
     }
@@ -1063,7 +1064,6 @@ mater_set(struct ged *gedp, size_t argc, const char *argv[])
 {
     struct directory *dp;
     struct analyze_densities *a = NULL;
-    struct rt_wdb *wdbp = wdb_dbopen(gedp->dbip, RT_WDB_TYPE_DB_DEFAULT);
 
     if (argc < 2) {
 	bu_vls_printf(gedp->ged_result_str, "%s", mater_usage);
@@ -1083,7 +1083,7 @@ mater_set(struct ged *gedp, size_t argc, const char *argv[])
     /* Parse argv density arguments */
     std::regex d_reg("([0-9]+)[\\s, ]+([-+]?[0-9]*[\\.]?[0-9eE+-]*)[\\s, ]+(.*)");
     for (size_t i = 1; i < argc; i++) {
-	long int id;
+	long int id = 0;
 	fastf_t density;
 	std::smatch sm;
 	std::string dstr(argv[i]);
@@ -1159,7 +1159,7 @@ mater_set(struct ged *gedp, size_t argc, const char *argv[])
     struct bu_external bin_ext;
     int ret = -1;
     if (intern.idb_meth->ft_export5) {
-	ret = intern.idb_meth->ft_export5(&body, &intern, 1.0, gedp->dbip, wdbp->wdb_resp);
+	ret = intern.idb_meth->ft_export5(&body, &intern, 1.0, gedp->dbip);
     }
     if (ret != 0) {
 	bu_vls_printf(gedp->ged_result_str, "Error while attempting to export %s\n", GED_DB_DENSITY_OBJECT);
@@ -1177,7 +1177,7 @@ mater_set(struct ged *gedp, size_t argc, const char *argv[])
     bu_free_external(&body);
 
     /* make sure the database directory is initialized */
-    if (gedp->dbip->dbi_eof == RT_DIR_PHONY_ADDR) {
+    if (gedp->dbip->i->dbi_eof == RT_DIR_PHONY_ADDR) {
 	if (db_dirbuild(gedp->dbip)) {
 	    return BRLCAD_ERROR;
 	}
@@ -1480,7 +1480,7 @@ mater_mat_id(struct ged *gedp, size_t argc, const char *argv[])
     }
 
     // Find the objects we need to work with (if any)
-    db_update_nref(gedp->dbip, &rt_uniresource);
+    db_update_nref(gedp->dbip);
     (void)db_search(&mn_objs, DB_SEARCH_TREE|DB_SEARCH_RETURN_UNIQ_DP, mname_search, 0, NULL, gedp->dbip, NULL, NULL, NULL);
     (void)db_search(&id_objs, DB_SEARCH_TREE|DB_SEARCH_RETURN_UNIQ_DP, mid_search, 0, NULL, gedp->dbip, NULL, NULL, NULL);
     for(size_t i = 0; i < BU_PTBL_LEN(&mn_objs); i++) {

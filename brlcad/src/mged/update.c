@@ -1,7 +1,7 @@
 /*                        U P D A T E . C
  * BRL-CAD
  *
- * Copyright (c) 1995-2025 United States Government as represented by
+ * Copyright (c) 1995-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -43,8 +43,13 @@ extern int event_check(struct mged_state *s, int non_blocking);
 void
 mged_update(struct mged_state *s, int non_blocking)
 {
+    if (mged_shutting_down(s))
+	return;
+
     if (non_blocking >= 0)
 	event_check(s, non_blocking);
+    if (mged_shutting_down(s))
+	return;
     refresh(s);
 }
 
@@ -172,7 +177,7 @@ f_wait(ClientData clientData,	/* Main window associated with interpreter. */
 
 	/* Tcl sets 'done' to non-zero */
 	done = 0;
-	while (!done) {
+	while (!done && !mged_shutting_down(s)) {
 	    mged_update(s, 0);
 	}
 
@@ -195,7 +200,7 @@ f_wait(ClientData clientData,	/* Main window associated with interpreter. */
 
 	/* Tcl sets 'done' to non-zero */
 	done = 0;
-	while (!done) {
+	while (!done && !mged_shutting_down(s)) {
 	    mged_update(s, 0);
 	}
 	if (done != 1) {
@@ -228,7 +233,7 @@ f_wait(ClientData clientData,	/* Main window associated with interpreter. */
 
 	/* Tcl sets 'done' to non-zero */
 	done = 0;
-	while (!done) {
+	while (!done && !mged_shutting_down(s)) {
 	    mged_update(s, 0);
 	}
 	/*

@@ -1,7 +1,7 @@
 /*                          B O O L . C
  * BRL-CAD
  *
- * Copyright (c) 1985-2025 United States Government as represented by
+ * Copyright (c) 1985-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -38,6 +38,8 @@
 
 #include <string.h>
 #include "bio.h"
+
+#include "./librt_private.h"
 
 #include "bu/defines.h"
 #include "bu/parallel.h"
@@ -196,7 +198,7 @@ rt_boolweave(struct seg *out_hd, struct seg *in_hd, struct partition *PartHdp, s
 	if (stp)
 	    RT_CK_SOLTAB(stp);
 
-	if (stp && (size_t)stp->st_bit >= rtip->nsolids)
+	if (stp && (size_t)stp->st_bit >= rtip->stats.nsolids)
 	    bu_bomb("rt_boolweave: st_bit greater than nsolids");
 
 	BU_LIST_DEQUEUE(&(segp->l));
@@ -1237,7 +1239,7 @@ bool_partition_eligible(register const struct bu_ptbl *regiontable, register con
 
 
 void
-rt_bool_growstack(register struct resource *resp)
+_bool_growstack(register struct resource *resp)
 {
     if (resp->re_boolstack == (union tree **)0 || resp->re_boolslen <= 0) {
 	resp->re_boolslen = 128;	/* default len */
@@ -1248,6 +1250,11 @@ rt_bool_growstack(register struct resource *resp)
     }
 }
 
+void
+rt_bool_growstack(register struct resource *resp)
+{
+    _bool_growstack(resp);
+}
 
 /**
  * Using a stack to recall state, evaluate a boolean expression
@@ -1279,7 +1286,7 @@ bool_eval(register union tree *treep, struct partition *partp, struct resource *
     RT_CK_RESOURCE(resp);
 
     while ((sp = resp->re_boolstack) == (union tree **)0)
-	rt_bool_growstack(resp);
+	_bool_growstack(resp);
     stackend = &(resp->re_boolstack[resp->re_boolslen]);
     *sp++ = TREE_NULL;
 stack:
@@ -1307,7 +1314,7 @@ stack:
 	    *sp++ = treep;
 	    if (sp >= stackend) {
 		register int off = sp - resp->re_boolstack;
-		rt_bool_growstack(resp);
+		_bool_growstack(resp);
 		sp = &(resp->re_boolstack[off]);
 		stackend = &(resp->re_boolstack[resp->re_boolslen]);
 	    }

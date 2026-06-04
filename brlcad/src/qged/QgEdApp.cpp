@@ -1,7 +1,7 @@
 /*                      Q G E D A P P . C P P
  * BRL-CAD
  *
- * Copyright (c) 2014-2025 United States Government as represented by
+ * Copyright (c) 2014-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -200,13 +200,16 @@ QgEdApp::QgEdApp(int &argc, char *argv[], int swrast_mode, int quad_mode) :QAppl
     int type = w->CurrentDisplay()->view_type();
 #ifdef BRLCAD_OPENGL
     if (type == QgView_GL) {
-	gedp->ged_fbs->fbs_open_client_handler = &qdm_open_client_handler;
+	gedp->ged_fbs->fbs_open_client_handler     = &qdm_open_client_handler;
+	gedp->ged_fbs->fbs_open_ipc_client_handler = &qdm_open_ipc_client_handler;
     }
 #endif
     if (type == QgView_SW) {
-	gedp->ged_fbs->fbs_open_client_handler = &qdm_open_sw_client_handler;
+	gedp->ged_fbs->fbs_open_client_handler     = &qdm_open_sw_client_handler;
+	gedp->ged_fbs->fbs_open_ipc_client_handler = &qdm_open_ipc_sw_client_handler;
     }
-    gedp->ged_fbs->fbs_close_client_handler = &qdm_close_client_handler;
+    gedp->ged_fbs->fbs_close_client_handler     = &qdm_close_client_handler;
+    gedp->ged_fbs->fbs_close_ipc_client_handler = &qdm_close_ipc_client_handler;
 
     // Read the saved window size, if any
     QSettings settings("BRL-CAD", "QGED");

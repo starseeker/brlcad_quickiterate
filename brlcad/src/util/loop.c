@@ -1,7 +1,7 @@
 /*                          L O O P . C
  * BRL-CAD
  *
- * Copyright (c) 2004-2025 United States Government as represented by
+ * Copyright (c) 2004-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -274,6 +274,13 @@ main(int argc, char *argv[])
     return 0;
 }
 
+
+/* Undefine all local macros to prevent leakage in case this file is ever
+ * incorporated into Unity/jumbo builds.  CHAR conflicts with Windows SDK type
+ * names. */
+#undef INTEGER
+#undef REAL
+#undef CHAR
 
 /*
  * Local Variables:

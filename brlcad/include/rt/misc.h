@@ -1,7 +1,7 @@
 /*                      M I S C . H
  * BRL-CAD
  *
- * Copyright (c) 1993-2025 United States Government as represented by
+ * Copyright (c) 1993-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -32,14 +32,9 @@
 
 __BEGIN_DECLS
 
-RT_EXPORT extern int rt_find_paths(struct db_i *dbip,
-				   struct directory *start,
-				   struct directory *end,
-				   struct bu_ptbl *paths,
-				   struct resource *resp);
+RT_EXPORT extern int rt_find_paths(struct db_i *dbip, struct directory *start, struct directory *end);
 
-RT_EXPORT extern struct bu_bitv *rt_get_solidbitv(size_t nbits,
-						  struct resource *resp);
+RT_EXPORT extern struct bu_bitv *rt_get_solidbitv(size_t nbits, struct resource *resp);
 
 /* table.c */
 RT_EXPORT extern int rt_id_solid(struct bu_external *ep);

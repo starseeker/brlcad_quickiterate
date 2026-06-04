@@ -1,7 +1,7 @@
 /*                          G R I P . C
  * BRL-CAD
  *
- * Copyright (c) 1993-2025 United States Government as represented by
+ * Copyright (c) 1993-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -277,7 +277,7 @@ rt_grp_import4(struct rt_db_internal *ip, const struct bu_external *ep, const fa
     gip = (struct rt_grip_internal *)ip->idb_ptr;
     gip->magic = RT_GRIP_INTERNAL_MAGIC;
 
-    flip_fastf_float(orig_eqn, rp->s.s_values, 3, (dbip && dbip->dbi_version < 0) ? 1 : 0);	/* 2 floats to many */
+    flip_fastf_float(orig_eqn, rp->s.s_values, 3, (dbip && dbip->i->dbi_version < 0) ? 1 : 0);	/* 2 floats to many */
 
     /* Transform the point, and the normal */
     if (mat == NULL) mat = bn_mat_identity;
@@ -290,7 +290,7 @@ rt_grp_import4(struct rt_db_internal *ip, const struct bu_external *ep, const fa
 
     /* Verify that normal has unit length */
     f = MAGNITUDE(gip->normal);
-    if (f <= SMALL) {
+    if (f <= SQRT_SMALL_FASTF) {
 	bu_log("rt_grp_import4:  bad normal, len=%g\n", f);
 	return -1;		/* BAD */
     }
@@ -359,7 +359,7 @@ rt_grp_mat(struct rt_db_internal *rop, const mat_t mat, const struct rt_db_inter
 
     /* Verify that normal has unit length */
     double f = MAGNITUDE(top->normal);
-    if (f <= SMALL) {
+    if (f <= SQRT_SMALL_FASTF) {
 	bu_log("rt_grp_mat:  bad normal, len=%g\n", f);
 	return -1;		/* BAD */
     }

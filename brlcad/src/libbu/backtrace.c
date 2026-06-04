@@ -1,7 +1,7 @@
 /*                     B A C K T R A C E . C
  * BRL-CAD
  *
- * Copyright (c) 2007-2025 United States Government as represented by
+ * Copyright (c) 2007-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -21,7 +21,6 @@
 #include "common.h"
 
 /* system headers */
-#include <signal.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <time.h>
@@ -47,6 +46,7 @@
 /* common headers */
 #include "bu/app.h"
 #include "bu/debug.h"
+#include "bu/interrupt.h"
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "bu/process.h"

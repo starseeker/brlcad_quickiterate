@@ -1,7 +1,7 @@
 /*                        U T I L . C P P
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -113,7 +113,7 @@ _tess_facetize_write_bot(struct db_i *dbip, struct rt_bot_internal *bot, const c
 	return BRLCAD_ERROR;
     }
 
-    if (rt_db_put_internal(dp, dbip, &intern, &rt_uniresource) < 0) {
+    if (rt_db_put_internal(dp, dbip, &intern) < 0) {
 	bu_log("Failed to write %s to database\n", name);
 	rt_db_free_internal(&intern);
 	return BRLCAD_ERROR;

@@ -1,7 +1,7 @@
 /*                     N M G _ C O N V . H
  * BRL-CAD
  *
- * Copyright (c) 1993-2025 United States Government as represented by
+ * Copyright (c) 1993-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -167,13 +167,11 @@ RT_EXPORT extern union tree *nmg_booltree_leaf_tnurb(struct db_tree_state *tsp,
 RT_EXPORT extern int nmg_bool_eval_silent;      /* quell output from nmg_booltree_evaluate */
 RT_EXPORT extern union tree *nmg_booltree_evaluate(union tree *tp,
 						   struct bu_list *vlfree,
-						   const struct bn_tol *tol,
-						   struct resource *resp);
+						   const struct bn_tol *tol);
 RT_EXPORT extern int nmg_boolean(union tree *tp,
 				 struct model *m,
 				 struct bu_list *vlfree,
-				 const struct bn_tol *tol,
-				 struct resource *resp);
+				 const struct bn_tol *tol);
 
 
 

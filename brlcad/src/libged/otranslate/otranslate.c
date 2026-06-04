@@ -1,7 +1,7 @@
 /*                         O T R A N S L A T E . C
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -95,9 +95,9 @@ ged_otranslate_core(struct ged *gedp, int argc, const char *argv[])
     bn_mat_mul(tmpMat, invXform, dmat);
     bn_mat_mul(emat, tmpMat, gtd.gtd_xform);
 
-    GED_DB_GET_INTERNAL(gedp, &intern, dp, emat, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_GET_INTERN(gedp, &intern, dp, emat, BRLCAD_ERROR);
     RT_CK_DB_INTERNAL(&intern);
-    GED_DB_PUT_INTERNAL(gedp, dp, &intern, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_PUT_INTERN(gedp, dp, &intern, BRLCAD_ERROR);
 
     return BRLCAD_OK;
 }

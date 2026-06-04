@@ -5,6 +5,7 @@ set(
   bn_test_srcs
   complex.c
   mat.c
+  noise.c
   poly_add.c
   poly_multiply.c
   poly_scale.c
@@ -33,7 +34,7 @@ endforeach(srcfile ${bn_test_srcs})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../..)
 configure_file(bn_test.c.in "${CMAKE_CURRENT_BINARY_DIR}/bn_test.c" @ONLY)
 distclean("${CMAKE_CURRENT_BINARY_DIR}/bn_test.c")
-brlcad_addexec(bn_test "${CMAKE_CURRENT_BINARY_DIR}/bn_test.c" libbn TEST)
+brlcad_addexec(bn_test "${CMAKE_CURRENT_BINARY_DIR}/bn_test.c" "libbn;${M_LIBRARY}" TEST)
 
 # Housekeeping for included source files
 cmakefiles(${bn_test_srcs})
@@ -957,6 +958,14 @@ cmakefiles(
   poly_cubic_roots.c
   poly_quartic_roots.c
 )
+
+# ************ noise.c tests *************
+# 1 = large-coordinate single-thread (exercises the filter_args fix)
+# 2 = concurrent multi-thread (exercises the find_spec_wgt race fix)
+# 3 = basic perlin sanity (regression guard)
+brlcad_add_test(NAME bn_noise_large_coords   COMMAND bn_test noise 1)
+brlcad_add_test(NAME bn_noise_concurrent     COMMAND bn_test noise 2)
+brlcad_add_test(NAME bn_noise_perlin_basic   COMMAND bn_test noise 3)
 
 # Local Variables:
 # tab-width: 8

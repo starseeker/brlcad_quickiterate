@@ -1,7 +1,7 @@
 /*                          M A I N . C
  * BRL-CAD
  *
- * Copyright (c) 1985-2025 United States Government as represented by
+ * Copyright (c) 1985-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -35,7 +35,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <signal.h>
 #include <math.h>
 
 #ifdef MPI_ENABLED
@@ -49,6 +48,7 @@
 #include "bu/debug.h"
 #include "bu/endian.h"
 #include "bu/getopt.h"
+#include "bu/interrupt.h"
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "bu/parallel.h"
@@ -708,7 +708,7 @@ rt_cleanup:
     }
 
     /* Release the ray-tracer instance */
-    rt_free_rti(APP.a_rt_i);
+    rt_i_destroy(APP.a_rt_i);
     APP.a_rt_i = NULL;
 
     return ret;

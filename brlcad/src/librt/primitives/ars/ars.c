@@ -1,7 +1,7 @@
 /*                           A R S . C
  * BRL-CAD
  *
- * Copyright (c) 1985-2025 United States Government as represented by
+ * Copyright (c) 1985-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -142,7 +142,7 @@ rt_ars_import4(struct rt_db_internal *ip, const struct bu_external *ep, const fa
     ari = (struct rt_ars_internal *)ip->idb_ptr;
     ari->magic = RT_ARS_INTERNAL_MAGIC;
 
-    if (dbip && dbip->dbi_version < 0) {
+    if (dbip && dbip->i->dbi_version < 0) {
 	ari->ncurves = flip_short(rp[0].a.a_m);
 	ari->pts_per_curve = flip_short(rp[0].a.a_n);
     } else {
@@ -157,7 +157,7 @@ rt_ars_import4(struct rt_db_internal *ip, const struct bu_external *ep, const fa
 	(ari->ncurves+1) * sizeof(fastf_t *), "ars curve ptrs");
 
     currec = 1;
-    int cflag = (dbip && dbip->dbi_version < 0) ? 1 : 0;
+    int cflag = (dbip && dbip->i->dbi_version < 0) ? 1 : 0;
     for (i = 0; i < ari->ncurves; i++) {
 	ari->curves[i] = ars_rd_curve(&rp[currec], (ssize_t)ari->pts_per_curve, cflag);
 	currec += (ari->pts_per_curve+7)/8;
@@ -494,6 +494,7 @@ rt_ars_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     struct faceuse *fu;
     struct bu_ptbl kill_fus;
     int bad_ars = 0;
+    int open_seam_ars = 0;
     struct bu_list *vlfree = &rt_vlfree;
 
     RT_CK_DB_INTERNAL(ip);
@@ -522,11 +523,44 @@ rt_ars_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		j++;
 	    }
 	}
+
+	/* Check that each ring curve closes in 3D (first point == last data
+	 * point at index pts_per_curve-1, the closing copy).  If the curve
+	 * is closed in XY but has a Z discontinuity at the seam (e.g.,
+	 * real-world terrain rings that do not return to the same elevation),
+	 * the tessellation will produce open edges because the seam-closing
+	 * quad (j == pts_per_curve-2) will have mismatched endpoints.  This
+	 * is not a bug in the tessellation algorithm — the source data is
+	 * inherently non-manifold and cannot be closed without modifying it.
+	 *
+	 * A single degenerate apex curve (all points identical) is exempt
+	 * from this check since it has no meaningful "seam".                 */
+	{
+	    fastf_t *first_pt = arip->curves[i];
+	    fastf_t *last_pt  = &arip->curves[i][(arip->pts_per_curve - 1) *
+						 ELEMENTS_PER_VECT];
+	    if (!VNEAR_EQUAL(first_pt, last_pt, tol->dist)) {
+		bu_log("ARS: curve #%zu is not closed in 3D "
+		       "(first=(%g %g %g) last=(%g %g %g) dist=%g > tol=%g).\n",
+		       i,
+		       V3ARGS(first_pt), V3ARGS(last_pt),
+		       DIST_PNT_PNT(first_pt, last_pt), tol->dist);
+		open_seam_ars = 1;
+	    }
+	}
     }
 
     if (bad_ars) {
-	bu_log("TESSELLATION FAILURE: This ARS solid has not been tessellated.\n\tAny result you may obtain is incorrect.\n");
+	bu_log("ARS tessellation skipped: solid has non-manifold geometry "
+	       "(backtracking curve).\n"
+	       "\tThis ARS solid cannot produce a valid closed mesh and will "
+	       "not be tessellated.\n");
 	return -1;
+    }
+    if (open_seam_ars) {
+	bu_log("WARNING: This ARS solid has non-closed 3D ring seams.\n"
+		"\tTessellation will be attempted, but the result may not be a "
+		"closed manifold mesh (and incorrect).\n");
     }
 
     bu_ptbl_init(&kill_fus, 64, " &kill_fus");
@@ -556,7 +590,14 @@ rt_ars_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	    double_ended = 0;
 	}
 
-	for (j = 0; j < arip->pts_per_curve; j++) {
+	/* The curve has pts_per_curve-1 unique points followed by a closing
+	 * copy of the first point at index pts_per_curve-1.  Stop at index
+	 * pts_per_curve-2: the last quad (j==pts_per_curve-2) already uses
+	 * the closing copy as its j+1 vertex, sealing the ring.  Processing
+	 * j==pts_per_curve-1 would access curves[i][(pts_per_curve)*3], which
+	 * is one element past the allocated array, and would create a spurious
+	 * duplicate (or garbage) triangle that leaves open boundary edges.   */
+	for (j = 0; j < arip->pts_per_curve - 1; j++) {
 	    struct vertex **corners[3];
 
 
@@ -584,15 +625,15 @@ rt_ars_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		if ((fu = nmg_cmface(s, corners, 3)) == (struct faceuse *)0) {
 		    bu_log("rt_ars_tess() nmg_cmface failed, skipping face a[%zu][%zu]\n",
 			   i, j);
-		}
-
-		/* Associate vertex geometry, if new */
-		ASSOC_GEOM(0, 0, 0);
-		ASSOC_GEOM(1, 0, 1);
-		ASSOC_GEOM(2, 1, 1);
-		if (nmg_calc_face_g(fu, vlfree)) {
-		    bu_log("Degenerate face created, will kill it later\n");
-		    bu_ptbl_ins(&kill_fus, (long *)fu);
+		} else {
+		    /* Associate vertex geometry, if new */
+		    ASSOC_GEOM(0, 0, 0);
+		    ASSOC_GEOM(1, 0, 1);
+		    ASSOC_GEOM(2, 1, 1);
+		    if (nmg_calc_face_g(fu, vlfree)) {
+			bu_log("Degenerate face created, will kill it later\n");
+			bu_ptbl_ins(&kill_fus, (long *)fu);
+		    }
 		}
 	    }
 
@@ -615,15 +656,15 @@ rt_ars_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 		if ((fu = nmg_cmface(s, corners, 3)) == (struct faceuse *)0) {
 		    bu_log("rt_ars_tess() nmg_cmface failed, skipping face b[%zu][%zu]\n",
 			   i, j);
-		}
-
-		/* Associate vertex geometry, if new */
-		ASSOC_GEOM(0, 1, 0);
-		ASSOC_GEOM(1, 0, 0);
-		ASSOC_GEOM(2, 1, 1);
-		if (nmg_calc_face_g(fu, vlfree)) {
-		    bu_log("Degenerate face created, will kill it later\n");
-		    bu_ptbl_ins(&kill_fus, (long *)fu);
+		} else {
+		    /* Associate vertex geometry, if new */
+		    ASSOC_GEOM(0, 1, 0);
+		    ASSOC_GEOM(1, 0, 0);
+		    ASSOC_GEOM(2, 1, 1);
+		    if (nmg_calc_face_g(fu, vlfree)) {
+			bu_log("Degenerate face created, will kill it later\n");
+			bu_ptbl_ins(&kill_fus, (long *)fu);
+		    }
 		}
 	    }
 	}
@@ -638,6 +679,9 @@ rt_ars_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
 	(void)nmg_kfu(fu);
     }
 
+    /* cleanup memory */
+    bu_ptbl_free(&kill_fus);
+
     /* ARS solids are often built with incorrect face normals.  Don't
      * depend on them to be correct.
      */
@@ -649,8 +693,14 @@ rt_ars_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
     /* Compute "geometry" for region and shell */
     nmg_region_a(*r, tol);
 
-    nmg_shell_coplanar_face_merge(s, tol, 0, vlfree);
-    nmg_simplify_shell(s, vlfree);
+    /* NOTE: nmg_shell_coplanar_face_merge() and nmg_simplify_shell()
+     * are intentionally omitted here.  Merging coplanar triangles into
+     * polygons and then running nmg_kill_snakes() on a large, complex
+     * ARS (e.g. many-point curves) can leave the NMG model in an
+     * inconsistent state, causing nmg_mdl_to_bot() to fail.  The
+     * all-triangular mesh produced without these steps is valid and
+     * can be converted cleanly via the fast nmg_to_bot_all_tri() path.
+     */
 
     return 0;
 }

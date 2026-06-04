@@ -1,13 +1,12 @@
 set(PLUGIN_LIBS libged libbu)
 
 ged_plugin_library(ged-clone
-  clone.c
+  clone.cpp
   LIBS ${PLUGIN_LIBS}
 )
 
 cmakefiles(
   CMakeLists.txt
-  clone.c
 )
 
 # Local Variables:

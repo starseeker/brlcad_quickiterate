@@ -1,7 +1,7 @@
 /*                         K I L L R E F S . C
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -78,7 +78,7 @@ ged_killrefs_core(struct ged *gedp, int argc, const char *argv[])
 	if (!(dp->d_flags & RT_DIR_COMB))
 	    continue;
 
-	if (rt_db_get_internal(&intern, dp, gedp->dbip, (fastf_t *)NULL, &rt_uniresource) < 0) {
+	if (rt_db_get_internal(&intern, dp, gedp->dbip, (fastf_t *)NULL) < 0) {
 	    bu_vls_printf(gedp->ged_result_str, "rt_db_get_internal(%s) failure", dp->d_namep);
 	    ret = BRLCAD_ERROR;
 	    continue;
@@ -89,7 +89,7 @@ ged_killrefs_core(struct ged *gedp, int argc, const char *argv[])
 	for (k = 1; k < argc; k++) {
 	    int code;
 
-	    code = db_tree_del_dbleaf(&(comb->tree), argv[k], &rt_uniresource, nflag);
+	    code = db_tree_rm_dbleaf(&(comb->tree), argv[k], nflag);
 	    if (code == -1)
 		continue;	/* not found */
 	    if (code == -2)
@@ -105,7 +105,7 @@ ged_killrefs_core(struct ged *gedp, int argc, const char *argv[])
 	    }
 	}
 
-	if (rt_db_put_internal(dp, gedp->dbip, &intern, &rt_uniresource) < 0) {
+	if (rt_db_put_internal(dp, gedp->dbip, &intern) < 0) {
 	    bu_vls_printf(gedp->ged_result_str, "ERROR: Unable to write new combination into database.\n");
 	    ret = BRLCAD_ERROR;
 	    continue;
@@ -113,7 +113,7 @@ ged_killrefs_core(struct ged *gedp, int argc, const char *argv[])
     } FOR_ALL_DIRECTORY_END;
 
     /* Update references. */
-    db_update_nref(gedp->dbip, &rt_uniresource);
+    db_update_nref(gedp->dbip);
 
     return ret;
 }

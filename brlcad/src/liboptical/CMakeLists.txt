@@ -100,7 +100,9 @@ if(BRLCAD_ENABLE_OSL)
     ${OPENIMAGEIO_INCLUDES}
   )
 
-  brlcad_addlib(liboslrend "${OSLRT_SOURCES}" "${OSLRT_LIBS}" "" "${OSL_LOCAL_INCLUDE_DIRS}")
+  brlcad_addlib(liboslrend "${OSLRT_SOURCES}" "" "${OSL_LOCAL_INCLUDE_DIRS}"
+    PRIVATE_LIBS ${OSLRT_LIBS}
+  )
 
   ##########################################
   # Build OSL Shader
@@ -111,24 +113,18 @@ if(BRLCAD_ENABLE_OSL)
 endif(BRLCAD_ENABLE_OSL)
 
 # Note - liboptical_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
-set(olibs "${liboptical_deps}")
+set(olibs_public ${liboptical_deps})
+set(olibs_private ${M_LIBRARY})
 if(TARGET liboslrend)
-  set(olibs "${olibs};liboslrend")
+  set(olibs_private ${olibs_private} liboslrend)
 endif(TARGET liboslrend)
 if(BRLCAD_ENABLE_TCL)
-  set(olibs "${olibs};${TCL_LIBRARY}")
+  set(olibs_private ${olibs_private} ${TCL_LIBRARY})
 endif(BRLCAD_ENABLE_TCL)
 
-brlcad_addlib(liboptical "${LIBOPTICAL_SOURCES}" "${olibs}" "" "${LOCAL_OPTICAL_INCLUDE_DIRS}"
-  # Every sh_*.c shader file defines its own SHDR_NULL and SHDR_O macros
-  # (pointing at shader-specific struct types).  Batching them into the
-  # same unity TU causes -Werror macro-redefinition errors.
-  UNITY_BUILD_SKIP
-    sh_air.c sh_billboard.c sh_brdf.c sh_camo.c sh_cloud.c sh_cook.c
-    sh_fbm.c sh_fire.c sh_flat.c sh_gauss.c sh_grass.c sh_light.c
-    sh_noise.c sh_null.c sh_osl.cpp sh_plastic.c sh_points.c sh_prj.c
-    sh_rtrans.c sh_scloud.c sh_spm.c sh_stack.c sh_stxt.c sh_tcl.c
-    sh_text.c sh_toon.c sh_toyota.c sh_treetherm.c sh_wood.c sh_xxx.c
+brlcad_addlib(liboptical "${LIBOPTICAL_SOURCES}" "" "${LOCAL_OPTICAL_INCLUDE_DIRS}"
+  PUBLIC_LIBS ${olibs_public}
+  PRIVATE_LIBS ${olibs_private}
 )
 
 cmakefiles(

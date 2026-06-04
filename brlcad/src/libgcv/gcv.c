@@ -1,7 +1,7 @@
 /*                           G C V . C
  * BRL-CAD
  *
- * Copyright (c) 2015-2025 United States Government as represented by
+ * Copyright (c) 2015-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -559,7 +559,7 @@ gcv_execute(struct gcv_context *context, const struct gcv_filter *filter,
 	size_t num_objects;
 	struct directory **toplevel_dirs;
 
-	db_update_nref(context->dbip, &rt_uniresource);
+	db_update_nref(context->dbip);
 	num_objects = db_ls(context->dbip, DB_LS_TOPS, NULL, &toplevel_dirs);
 
 	if (num_objects) {

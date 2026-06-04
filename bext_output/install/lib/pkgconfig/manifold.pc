@@ -1,7 +1,7 @@
-prefix=/home/cyapp/bext_output/install
+prefix=/home/cyapp/brlcad_quickiterate/bext_output/install
 exec_prefix=${prefix}
-libdir=/home/cyapp/bext_output/install/lib
-includedir=/home/cyapp/bext_output/install/include
+libdir=/home/cyapp/brlcad_quickiterate/bext_output/install/lib
+includedir=/home/cyapp/brlcad_quickiterate/bext_output/install/include
 
 Name: manifold
 Description: Geometry library for topological robustness

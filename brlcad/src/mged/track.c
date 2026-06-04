@@ -1,7 +1,7 @@
 /*                         T R A C K . C
  * BRL-CAD
  *
- * Copyright (c) 1994-2025 United States Government as represented by
+ * Copyright (c) 1994-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -26,7 +26,6 @@
 #include "common.h"
 
 #include <stdlib.h>
-#include <signal.h>
 #include <math.h>
 #include <string.h>
 
@@ -642,7 +641,7 @@ wrobj(struct mged_state *s, char name[], int flags)
 	return -1;
     }
 
-    if (rt_db_put_internal(tdp, s->dbip, &intern, &rt_uniresource) < 0) {
+    if (rt_db_put_internal(tdp, s->dbip, &intern) < 0) {
 	rt_db_free_internal(&intern);
 	Tcl_AppendResult(s->interp, "wrobj(", name, "):  write error\n", (char *)NULL);
 	Tcl_AppendResult(s->interp, ERROR_RECOVERY_SUGGESTION, (char *)NULL);

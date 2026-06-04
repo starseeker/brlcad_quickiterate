@@ -20,6 +20,15 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/mime.cmake)
 set_source_files_properties("${BU_MIME_TYPES_H_FILE}" PROPERTIES GENERATED TRUE)
 build_cfg_hdr("${BU_MIME_TYPES_H_FILE}" ${INCLUDE_DIR}/brlcad/bu)
 
+# brledit - console editor that works on various platforms  - intended to be
+# used as a last-resort fallback if there are no other console options present
+# in the OS environment.
+#
+# bu_editor depends on this being present to reliably work, so it has to be a
+# dependency of libbu or bu_editor callers may be surprised by an editor
+# failure if it hasn't been built yet.
+add_subdirectory(brledit)
+
 set(
   LIBBU_SOURCES
   affinity.c
@@ -122,7 +131,7 @@ endif(NOT CMAKE_CXX_STANDARD EQUAL 98)
 
 # Note - libbu_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
 set(
-  BU_LIBS
+  BU_PRIVATE_LIBS
   ${Foundation_LIBRARIES}
   Threads::Threads
   ${libbu_deps}
@@ -130,7 +139,7 @@ set(
   ${WINSOCK_LIB}
   ${PSAPI_LIB}
   ${BSON_LIBRARIES}
-  ${LMDB_LIBRARIES}
+  LMDB::LMDB
   ${UUID_LIBRARIES}
   ${M_LIBRARY}
 )
@@ -141,8 +150,22 @@ set(BU_INCLUDE_DIRS ${BRLCAD_BINARY_DIR}/include ${BRLCAD_SOURCE_DIR}/include)
 # locally used but not needed by users of the library
 set(BU_LOCAL_INCLUDE_DIRS ${BSON_INCLUDE_DIR} ${LMDB_INCLUDE_DIR} ${UUID_INCLUDE_DIR})
 
-brlcad_addlib(libbu "${LIBBU_SOURCES}" "${BU_LIBS}" "${BU_INCLUDE_DIRS}" "${BU_LOCAL_INCLUDE_DIRS}"
-  UNITY_BUILD_SKIP backtrace.c crashreport.c
+brlcad_addlib(libbu "${LIBBU_SOURCES}" "${BU_INCLUDE_DIRS}" "${BU_LOCAL_INCLUDE_DIRS}"
+  PRIVATE_LIBS ${BU_PRIVATE_LIBS}
+  UNITY_BUILD_SKIP
+  backtrace.c
+  bu_init.cpp
+  crashreport.c
+  dylib.c
+  globals.c
+  parallel.c
+  progname.c
+  semaphore.c
+  semaphore_register.cpp
+  tc.c
+  thread.cpp
+  whereami.c
+  whereis.c
 )
 set_target_properties(libbu PROPERTIES VERSION 20.0.1 SOVERSION 20)
 
@@ -151,6 +174,8 @@ set(bu_targets libbu-obj libbu libbu-static)
 foreach(bt ${bu_targets})
   if(TARGET ${bt})
     list(APPEND bu_atgts ${bt})
+    # libbu depends on brledit
+    add_dependencies(${bt} brledit)
   endif()
 endforeach()
 
@@ -177,7 +202,9 @@ endforeach(bt ${bu_atgts})
 if(${BRLCAD_OPTIMIZED} MATCHES "ON")
   check_c_compiler_flag(-Wno-stringop-overflow HAVE_NO_STRINGOP_OVERFLOW)
   if(HAVE_NO_STRINGOP_OVERFLOW)
-    target_link_options(libbu PRIVATE -Wno-stringop-overflow)
+    foreach(bt ${bu_atgts})
+      target_link_options(${bt} PRIVATE -Wno-stringop-overflow)
+    endforeach()
   endif(HAVE_NO_STRINGOP_OVERFLOW)
 endif(${BRLCAD_OPTIMIZED} MATCHES "ON")
 
@@ -194,11 +221,11 @@ set(
   charclass.h
   date.h
   fort.h
+  json.hpp
   mime.cmake
   parallel.h
   parallel_cpp11thread.cpp
   process.h
-  tests/semchk.cpp
   sha1.h
   vfont.h
   vls_vprintf.h

@@ -1,7 +1,7 @@
 /*                       C H G T R E E . C
  * BRL-CAD
  *
- * Copyright (c) 1985-2025 United States Government as represented by
+ * Copyright (c) 1985-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -26,7 +26,6 @@
 
 #include "common.h"
 
-#include <signal.h>
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
@@ -83,7 +82,7 @@ f_copy_inv(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 	return TCL_ERROR;
     }
 
-    if ((id = rt_db_get_internal(&internal, proto, s->dbip, (fastf_t *)NULL, &rt_uniresource)) < 0) {
+    if ((id = rt_db_get_internal(&internal, proto, s->dbip, (fastf_t *)NULL)) < 0) {
 	Tcl_AppendResult(s->interp, "Database read error, aborting\n", (char *)NULL);
 	return TCL_ERROR;
     }
@@ -108,7 +107,7 @@ f_copy_inv(ClientData clientData, Tcl_Interp *interp, int argc, const char *argv
 	return TCL_ERROR;
     }
 
-    if (rt_db_put_internal(dp, s->dbip, &internal, &rt_uniresource) < 0) {
+    if (rt_db_put_internal(dp, s->dbip, &internal) < 0) {
 	Tcl_AppendResult(s->interp, "Database write error, aborting.\n", (char *)NULL);
 	Tcl_AppendResult(s->interp, ERROR_RECOVERY_SUGGESTION, (char *)NULL);
 	return TCL_ERROR;

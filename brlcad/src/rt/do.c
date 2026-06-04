@@ -1,7 +1,7 @@
 /*                            D O . C
  * BRL-CAD
  *
- * Copyright (c) 1987-2025 United States Government as represented by
+ * Copyright (c) 1987-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -477,10 +477,7 @@ int cm_clean(const int UNUSED(argc), const char **UNUSED(argv))
  */
 int cm_closedb(const int UNUSED(argc), const char **UNUSED(argv))
 {
-    db_close(APP.a_rt_i->rti_dbip);
-    APP.a_rt_i->rti_dbip = DBI_NULL;
-
-    bu_free((void *)APP.a_rt_i, "struct rt_i");
+    rt_i_destroy(APP.a_rt_i);
     APP.a_rt_i = RTI_NULL;
 
     bu_exit(0, "After _closedb");
@@ -501,18 +498,23 @@ parse_deprecated(const struct bu_structparse *UNUSED(sp), const char *name, void
 extern struct bu_structparse view_parse[];
 static int rt_bot_minpieces_deprecated = 0;
 
+/* Per-application CLINE beam radius override.  Negative means "no override".
+ * Propagated to rtip->rti_max_beam_radius before rt_gettrees() is called.
+ */
+static fastf_t rt_app_cline_radius = (fastf_t)-1.0;
+
 
 struct bu_structparse set_parse[] = {
-    {"%d",	1, "width",			bu_byteoffset(width),			BU_STRUCTPARSE_FUNC_NULL, NULL, NULL },
-    {"%d",	1, "height",			bu_byteoffset(height),			BU_STRUCTPARSE_FUNC_NULL, NULL, NULL },
-    {"%d",	1, "save_overlaps",		bu_byteoffset(save_overlaps),		BU_STRUCTPARSE_FUNC_NULL, NULL, NULL },
-    {"%f",	1, "perspective",		bu_byteoffset(rt_perspective),		BU_STRUCTPARSE_FUNC_NULL, NULL, NULL },
-    {"%f",	1, "angle",			bu_byteoffset(rt_perspective),		BU_STRUCTPARSE_FUNC_NULL, NULL, NULL },
-    {"%d",	1, "rt_bot_minpieces", bu_byteoffset(rt_bot_minpieces_deprecated),	parse_deprecated, NULL, NULL },
-    {"%f",	1, "rt_cline_radius", 0 /* must be set manually since from lib */, 	BU_STRUCTPARSE_FUNC_NULL, NULL, NULL },
+    {"%d",	1, "width",			bu_byteoffset(width),				BU_STRUCTPARSE_FUNC_NULL, NULL, NULL },
+    {"%d",	1, "height",			bu_byteoffset(height),				BU_STRUCTPARSE_FUNC_NULL, NULL, NULL },
+    {"%d",	1, "save_overlaps",		bu_byteoffset(save_overlaps),			BU_STRUCTPARSE_FUNC_NULL, NULL, NULL },
+    {"%f",	1, "perspective",		bu_byteoffset(rt_perspective),			BU_STRUCTPARSE_FUNC_NULL, NULL, NULL },
+    {"%f",	1, "angle",			bu_byteoffset(rt_perspective),			BU_STRUCTPARSE_FUNC_NULL, NULL, NULL },
+    {"%d",	1, "rt_bot_minpieces",		bu_byteoffset(rt_bot_minpieces_deprecated),	parse_deprecated, NULL, NULL },
+    {"%f",	1, "rt_cline_radius",		bu_byteoffset(rt_app_cline_radius),		BU_STRUCTPARSE_FUNC_NULL, NULL, NULL },
     /* daisy-chain to additional app-specific parameters */
-    {"%p",	1, "Application-Specific Parameters", bu_byteoffset(view_parse[0]),	BU_STRUCTPARSE_FUNC_NULL, NULL, NULL },
-    {"",	0, (char *)0,		0,						BU_STRUCTPARSE_FUNC_NULL, NULL, NULL }
+    {"%p",	1, "Application-Specific Parameters", bu_byteoffset(view_parse[0]),		BU_STRUCTPARSE_FUNC_NULL, NULL, NULL },
+    {"",	0, (char *)0,			0,						BU_STRUCTPARSE_FUNC_NULL, NULL, NULL }
 };
 
 
@@ -522,15 +524,6 @@ struct bu_structparse set_parse[] = {
 int cm_set(const int argc, const char **argv)
 {
     struct bu_vls str = BU_VLS_INIT_ZERO;
-
-    /* FIXME: this init should happen elsewhere but neither set_parse
-     * is not exposed externally and app init is only external.
-     * rt_cline_radius must be handled separately because it's
-     * imported from librt with an address not known until runtime.
-     */
-    if (!set_parse[6].sp_offset && BU_STR_EQUAL(set_parse[6].sp_name, "rt_cline_radius")) {
-	set_parse[6].sp_offset = bu_byteoffset(rt_cline_radius);
-    }
 
     if (argc <= 1) {
 	bu_struct_print("Generic and Application-Specific Parameter Values",
@@ -583,6 +576,9 @@ def_tree(register struct rt_i *rtip)
     struct bu_vls times = BU_VLS_INIT_ZERO;
 
     RT_CK_RTI(rtip);
+
+    /* propagate any app-level CLINE beam radius override to this rtip */
+    rtip->rti_max_beam_radius = rt_app_cline_radius;
 
     rt_prep_timer();
     if (rt_gettrees(rtip, objc, (const char **)objv, (size_t)npsw) < 0) {
@@ -776,10 +772,12 @@ do_prep(struct rt_i *rtip)
     if (rt_verbosity & VERBOSE_STATS) {
 	bu_log("%s: %zu cut, %zu box (%zu empty)\n",
 	       rtip->rti_space_partition == RT_PART_NUBSPT ?
-	       "NUBSP" : "unknown",
-	       rtip->rti_ncut_by_type[CUT_CUTNODE],
-	       rtip->rti_ncut_by_type[CUT_BOXNODE],
-	       rtip->nempty_cells);
+	       "NUBSP" :
+	       rtip->rti_space_partition == RT_PART_NULL ?
+	       "NULL" : "unknown",
+	       rtip->stats.rti_ncut_by_type[CUT_CUTNODE],
+	       rtip->stats.rti_ncut_by_type[CUT_BOXNODE],
+	       rtip->stats.nempty_cells);
     }
 }
 
@@ -791,11 +789,11 @@ validate_raytrace(struct rt_i *rtip)
 	bu_log("ERROR: No raytracing instance.\n");
 	return 1;
     }
-    if (rtip->nsolids <= 0) {
+    if (rtip->stats.nsolids <= 0) {
 	bu_log("ERROR: No primitives remaining.\n");
 	return 2;
     }
-    if (rtip->nregions <= 0) {
+    if (rtip->stats.nregions <= 0) {
 	bu_log("ERROR: No regions remaining.\n");
 	return 3;
     }
@@ -829,7 +827,7 @@ do_frame(int framenumber)
     do_prep(rtip);
 
     if (rt_verbosity & VERBOSE_VIEWDETAIL)
-	bu_log("Tree: %zu solids in %zu regions\n", rtip->nsolids, rtip->nregions);
+	bu_log("Tree: %zu solids in %zu regions\n", rtip->stats.nsolids, rtip->stats.nregions);
 
     if (Query_one_pixel) {
 	query_optical_debug = OPTICAL_DEBUG;
@@ -1059,13 +1057,13 @@ do_frame(int framenumber)
     }
 #endif
 
-    rtip->nshots = 0;
-    rtip->nmiss_model = 0;
-    rtip->nmiss_tree = 0;
-    rtip->nmiss_solid = 0;
-    rtip->nmiss = 0;
-    rtip->nhits = 0;
-    rtip->rti_nrays = 0;
+    rtip->stats.nshots = 0;
+    rtip->stats.nmiss_model = 0;
+    rtip->stats.nmiss_tree = 0;
+    rtip->stats.nmiss_solid = 0;
+    rtip->stats.nmiss = 0;
+    rtip->stats.nhits = 0;
+    rtip->stats.rti_nrays = 0;
 
     if (rt_verbosity & (VERBOSE_LIGHTINFO|VERBOSE_STATS))
 	bu_log("\n");
@@ -1157,25 +1155,68 @@ do_frame(int framenumber)
     memory_summary();
     if (rt_verbosity & VERBOSE_STATS) {
 	bu_log("%zu solid/ray intersections: %zu hits + %zu miss\n",
-	       rtip->nshots, rtip->nhits, rtip->nmiss);
+	       rtip->stats.nshots, rtip->stats.nhits, rtip->stats.nmiss);
 	bu_log("pruned %.1f%%:  %zu model RPP, %zu dups skipped, %zu solid RPP\n",
-	       rtip->nshots > 0 ? ((double)rtip->nhits*100.0)/rtip->nshots : 100.0,
-	       rtip->nmiss_model, rtip->ndup, rtip->nmiss_solid);
+	       rtip->stats.nshots > 0 ? ((double)rtip->stats.nhits*100.0)/rtip->stats.nshots : 100.0,
+	       rtip->stats.nmiss_model, rtip->stats.ndup, rtip->stats.nmiss_solid);
 	bu_log("Frame %2d: %10zu pixels in %9.2f sec = %12.2f pixels/sec\n",
 	       framenumber,
 	       width*height, nutime, ((double)(width*height))/nutime);
 	bu_log("Frame %2d: %10zu rays   in %9.2f sec = %12.2f rays/sec (RTFM)\n",
 	       framenumber,
-	       rtip->rti_nrays, nutime, ((double)(rtip->rti_nrays))/nutime);
+	       rtip->stats.rti_nrays, nutime, ((double)(rtip->stats.rti_nrays))/nutime);
 	bu_log("Frame %2d: %10zu rays   in %9.2f sec = %12.2f rays/CPU_sec\n",
 	       framenumber,
-	       rtip->rti_nrays, utime, ((double)(rtip->rti_nrays))/utime);
+	       rtip->stats.rti_nrays, utime, ((double)(rtip->stats.rti_nrays))/utime);
 	bu_log("Frame %2d: %10zu rays   in %9.2f sec = %12.2f rays/sec (wallclock)\n",
 	       framenumber,
-	       rtip->rti_nrays,
-	       wallclock, ((double)(rtip->rti_nrays))/wallclock);
+	       rtip->stats.rti_nrays,
+	       wallclock, ((double)(rtip->stats.rti_nrays))/wallclock);
     }
     if (bif != NULL) {
+	/* Optionally embed render metadata into image output
+	 * (currently only effective for PNG output).
+	 * Enable with: -c 'set embed_icv_metadata=1'
+	 */
+	if (embed_icv_metadata) {
+	    struct icv_render_info *ri = icv_render_info_create();
+
+	    /* Database filename */
+	    if (rtip->rti_dbip && rtip->rti_dbip->dbi_filename)
+		ri->db_filename = bu_strdup(rtip->rti_dbip->dbi_filename);
+
+	    /* Object list: prefer cmd_objs (dynamic draw list), fall back to objv */
+	    {
+		struct bu_vls objs_str = BU_VLS_INIT_ZERO;
+		if (cmd_objs && BU_PTBL_LEN(cmd_objs) > 0) {
+		    size_t j;
+		    for (j = 0; j < BU_PTBL_LEN(cmd_objs); j++) {
+			const char *o = (const char *)BU_PTBL_GET(cmd_objs, j);
+			if (j) bu_vls_putc(&objs_str, ' ');
+			bu_vls_strcat(&objs_str, o);
+		    }
+		} else if (objv && objc > 0) {
+		    int j;
+		    for (j = 0; j < objc; j++) {
+			if (j) bu_vls_putc(&objs_str, ' ');
+			bu_vls_strcat(&objs_str, objv[j]);
+		    }
+		}
+		if (bu_vls_strlen(&objs_str))
+		    ri->objects = bu_strdup(bu_vls_cstr(&objs_str));
+		bu_vls_free(&objs_str);
+	    }
+
+	    /* Camera: grab from current rt globals */
+	    MAT_COPY(ri->viewrotscale, Viewrotscale);
+	    VMOVE(ri->eye_model, eye_model);
+	    ri->viewsize    = viewsize;
+	    ri->aspect      = aspect;
+	    ri->perspective = rt_perspective;
+
+	    icv_image_set_render_info(bif, ri);
+	}
+
 	icv_write(bif, framename, BU_MIME_IMAGE_AUTO);
 	icv_destroy(bif);
 	bif = NULL;
@@ -1257,7 +1298,12 @@ do_ae(double azim, double elev)
 	VSETALL(rtip->mdl_min, -1);
     }
     if (rtip->mdl_max[X] <= -INFINITY) {
-	bu_log("do_ae: infinite model bounds? setting a unit maximum\n");
+	/* Model not yet loaded (librt initial state: mdl_min=+INF, mdl_max=-INF).
+	 * Reset both bounds to a unit box so that autoviewsize() does not
+	 * propagate +INFINITY through mdl_min into cell_width (which causes a
+	 * bu_bomb("bad cell size") crash when work is dispatched). */
+	bu_log("do_ae: infinite model bounds? setting unit bounds\n");
+	VSETALL(rtip->mdl_min, -1);
 	VSETALL(rtip->mdl_max, 1);
     }
 

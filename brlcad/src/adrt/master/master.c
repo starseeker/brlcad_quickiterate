@@ -1,7 +1,7 @@
 /*                        M A S T E R . C
  * BRL-CAD / ADRT
  *
- * Copyright (c) 2007-2025 United States Government as represented by
+ * Copyright (c) 2007-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -28,7 +28,6 @@
 
 /* system headers */
 #include <stdlib.h>
-#include <signal.h>
 #include <string.h>
 #ifdef HAVE_SYS_TIME_H
 #  include <sys/time.h>
@@ -42,6 +41,7 @@
 
 /* public api headers */
 #include "bu/app.h"
+#include "bu/interrupt.h"
 #include "bu/log.h"
 #include "bu/malloc.h"
 #include "bu/debug.h"

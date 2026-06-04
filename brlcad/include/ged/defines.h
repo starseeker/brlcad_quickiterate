@@ -1,7 +1,7 @@
 /*                        D E F I N E S . H
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -209,6 +209,11 @@ struct ged {
      * be stored before the call.
      */
     int 			ged_internal_call;
+
+    /* When non-zero, ged_exec will skip running per-command PRE/POST callbacks.
+     * Increment before calling ged_exec in contexts where callbacks must not
+     * fire (e.g. inside a search -exec callback), then decrement afterwards. */
+    int			ged_skip_clbks;
 
 
     /* TODO: hide all callback related symbols, callback typedefs

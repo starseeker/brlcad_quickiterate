@@ -1,7 +1,7 @@
 /*                     R E P A I R . C P P
  * BRL-CAD
  *
- * Copyright (c) 2020-2025 United States Government as represented by
+ * Copyright (c) 2020-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -172,7 +172,7 @@ _bot_cmd_repair(void *bs, int argc, const char **argv)
 	gb->solid_name = std::string(argv[i]);
 
 	BU_GET(gb->intern, struct rt_db_internal);
-	GED_DB_GET_INTERNAL(gb->gedp, gb->intern, gb->dp, bn_mat_identity, &rt_uniresource, BRLCAD_ERROR);
+	GED_DB_GET_INTERN(gb->gedp, gb->intern, gb->dp, bn_mat_identity, BRLCAD_ERROR);
 	RT_CK_DB_INTERNAL(gb->intern);
 
 	struct rt_bot_internal *bot = (struct rt_bot_internal *)(gb->intern->idb_ptr);
@@ -229,7 +229,7 @@ _bot_cmd_repair(void *bs, int argc, const char **argv)
 	    }
 	}
 
-	if (rt_db_put_internal(dp, gb->gedp->dbip, &intern, &rt_uniresource) < 0) {
+	if (rt_db_put_internal(dp, gb->gedp->dbip, &intern) < 0) {
 	    bu_vls_printf(gb->gedp->ged_result_str, "Failed to write out new BoT %s\n", rname);
 	    rt_db_free_internal(gb->intern);
 	    BU_PUT(gb->intern, struct rt_db_internal);

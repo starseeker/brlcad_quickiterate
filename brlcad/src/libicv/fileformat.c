@@ -1,7 +1,7 @@
 /*                      F I L E F O R M A T . C
  * BRL-CAD
  *
- * Copyright (c) 2007-2025 United States Government as represented by
+ * Copyright (c) 2007-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -55,6 +55,7 @@ icv_guess_file_format(const char *filename, struct bu_vls *trimmedname)
 #define CMP(name) if (!bu_strncmp(filename, #name":", strlen(#name))) {if (trimmedname) bu_vls_sprintf(trimmedname, "%s", filename+strlen(#name)+1); return BU_MIME_IMAGE_##name; }
     CMP(PIX);
     CMP(PNG);
+    CMP(JPEG);
     CMP(PPM);
     CMP(BMP);
     CMP(BW);
@@ -74,6 +75,10 @@ icv_guess_file_format(const char *filename, struct bu_vls *trimmedname)
     CMP(BW, bw);
     CMP(DPIX, dpix);
 #undef CMP
+#define CMP2(name, ext1, ext2) if (!bu_strncmp(filename+strlen(filename)-strlen(#ext1)-1, "."#ext1, strlen(#ext1)+1) || \
+	!bu_strncmp(filename+strlen(filename)-strlen(#ext2)-1, "."#ext2, strlen(#ext2)+1)) return BU_MIME_IMAGE_##name;
+    CMP2(JPEG, jpg, jpeg);
+#undef CMP2
     /* defaulting to PIX */
     return BU_MIME_IMAGE_PIX;
 }
@@ -113,6 +118,9 @@ icv_read(const char *filename, bu_mime_image_t format, size_t width, size_t heig
 	    break;
 	case BU_MIME_IMAGE_RLE :
 	    oimg = rle_read(fp);
+	    break;
+	case BU_MIME_IMAGE_JPEG :
+	    oimg = jpeg_read(fp);
 	    break;
 	default:
 	    bu_log("icv_read not implemented for this format\n");
@@ -169,6 +177,13 @@ icv_write(icv_image_t *bif, const char *filename, bu_mime_image_t format)
 	case BU_MIME_IMAGE_RLE :
 	    ret = rle_write(bif, fp);
 	    break;
+	case BU_MIME_IMAGE_JPEG :
+	    // The icv write function doesn't expose a quality setting - we
+	    // try to make a good trade-off between file size and quality.
+	    // There is little point in 100% quality, since JPEG is inherently
+	    // lossy - it gives us larger file sizes for little in return.
+	    ret = jpeg_write(bif, fp, 90);
+	    break;
 	default:
 	    ret = pix_write(bif, fp);
     }
@@ -193,7 +208,7 @@ icv_writeline(icv_image_t *bif, size_t y, void *data, ICV_DATA type)
 
     ICV_IMAGE_VAL_INT(bif);
 
-    if (y > bif->height)
+    if (y >= bif->height)
         return -1;
 
     width_size = (size_t) bif->width*bif->channels;
@@ -221,10 +236,10 @@ icv_writepixel(icv_image_t *bif, size_t x, size_t y, double *data)
 
     ICV_IMAGE_VAL_INT(bif);
 
-    if (x > bif->width)
+    if (x >= bif->width)
         return -1;
 
-    if (y > bif->height)
+    if (y >= bif->height)
         return -1;
 
     if (data == NULL)
@@ -289,8 +304,64 @@ icv_destroy(icv_image_t *bif)
     ICV_IMAGE_VAL_INT(bif);
 
     bu_free(bif->data, "Image Data");
+    if (bif->render_info)
+	icv_render_info_free(bif->render_info);
     bu_free(bif, "ICV IMAGE Structure");
     return 0;
+}
+
+
+struct icv_render_info *
+icv_render_info_create(void)
+{
+    struct icv_render_info *info;
+    BU_ALLOC(info, struct icv_render_info);
+    info->db_filename = NULL;
+    info->objects = NULL;
+    /* zero all numeric fields */
+    {
+	int i;
+	for (i = 0; i < 16; i++)
+	    info->viewrotscale[i] = 0.0;
+    }
+    info->eye_model[0] = info->eye_model[1] = info->eye_model[2] = 0.0;
+    info->viewsize = 0.0;
+    info->aspect = 1.0;
+    info->perspective = 0.0;
+    return info;
+}
+
+
+void
+icv_render_info_free(struct icv_render_info *info)
+{
+    if (!info)
+	return;
+    if (info->db_filename)
+	bu_free(info->db_filename, "render_info db_filename");
+    if (info->objects)
+	bu_free(info->objects, "render_info objects");
+    bu_free(info, "icv_render_info");
+}
+
+
+void
+icv_image_set_render_info(icv_image_t *img, struct icv_render_info *info)
+{
+    if (!img)
+	return;
+    if (img->render_info)
+	icv_render_info_free(img->render_info);
+    img->render_info = info;
+}
+
+
+struct icv_render_info *
+icv_image_get_render_info(const icv_image_t *img)
+{
+    if (!img)
+	return NULL;
+    return img->render_info;
 }
 
 /*

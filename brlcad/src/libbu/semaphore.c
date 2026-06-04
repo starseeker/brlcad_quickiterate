@@ -1,7 +1,7 @@
 /*                     S E M A P H O R E . C
  * BRL-CAD
  *
- * Copyright (c) 2004-2025 United States Government as represented by
+ * Copyright (c) 2004-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -150,7 +150,8 @@ bu_semaphore_init(unsigned int nsemaphores)
 	    bu_bomb("fatal semaphore acquisition failure");
 	}
     }
-    bu_nsemaphores = nsemaphores;
+    if (nsemaphores > bu_nsemaphores)
+	bu_nsemaphores = nsemaphores;
     if (mutex_unlock(&bu_init_lock)) {
 	fprintf(stderr, "bu_semaphore_acquire(): mutex_unlock() failed on init lock\n");
 	bu_bomb("fatal semaphore acquisition failure");
@@ -171,7 +172,8 @@ bu_semaphore_init(unsigned int nsemaphores)
 	    sem_bomb(ret);
 	}
     }
-    bu_nsemaphores = nsemaphores;
+    if (nsemaphores > bu_nsemaphores)
+	bu_nsemaphores = nsemaphores;
     ret = pthread_mutex_unlock(&bu_init_lock);
     if (ret) {
 	fprintf(stderr, "bu_semaphore_acquire(): pthread_mutex_unlock() failed on init lock\n");
@@ -188,7 +190,8 @@ bu_semaphore_init(unsigned int nsemaphores)
 	bu_semaphores[i].magic = SEMAPHORE_MAGIC;
 	InitializeCriticalSection(&bu_semaphores[i].mu);
     }
-    bu_nsemaphores = nsemaphores;
+    if (nsemaphores > bu_nsemaphores)
+	bu_nsemaphores = nsemaphores;
     /* release lock */
     InterlockedExchange(&bu_init_lock, 0);
 #  endif

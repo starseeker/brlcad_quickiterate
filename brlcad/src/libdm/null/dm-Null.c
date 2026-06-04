@@ -1,7 +1,7 @@
 /*                       D M - N U L L . C
  * BRL-CAD
  *
- * Copyright (c) 2004-2025 United States Government as represented by
+ * Copyright (c) 2004-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -523,7 +523,8 @@ struct dm_impl dm_null_impl = {
     FB_NULL,
     0,				/* Tcl interpreter */
     NULL,                       /* Drawing context */
-    NULL                        /* App data */
+    NULL,                       /* App data */
+    NULL                        /* dlist sensors */
 };
 
 struct dm dm_null = { DM_MAGIC, &dm_null_impl, 0 };

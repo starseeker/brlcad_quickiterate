@@ -1,7 +1,7 @@
 /*             S U R F A C E I N T E R S E C T . C P P
  * BRL-CAD
  *
- * Copyright (c) 2009-2025 United States Government as represented by
+ * Copyright (c) 2009-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -629,6 +629,8 @@ WalkIntersection(
     ON_BezierCurve *bezier2 = new ON_BezierCurve((ON_2dPointArray) intersectionPoints2);
     out1 = ON_NurbsCurve::New(*bezier1);
     out2 = ON_NurbsCurve::New(*bezier2);
+    delete bezier1;
+    delete bezier2;
 }
 
 

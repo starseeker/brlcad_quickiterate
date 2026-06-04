@@ -1,7 +1,7 @@
 /*                           T E M P . C
  * BRL-CAD
  *
- * Copyright (c) 2001-2025 United States Government as represented by
+ * Copyright (c) 2001-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -210,7 +210,7 @@ mkstemp(char *file_template)
 	for (i=(int)start; i>=(int)end; i--) {
 	    file_template[i] = replace[(int)(replacelen * ((double)rand() / (double)RAND_MAX))];
 	}
-	fd = open(file_template, O_CREAT | O_EXCL | O_TRUNC | O_RDWR | O_TEMPORARY, S_IRUSR | S_IWUSR);
+	fd = open(file_template, O_CREAT | O_EXCL | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR);
     } while ((fd == -1) && (counter++ < 1000));
 
     return fd;

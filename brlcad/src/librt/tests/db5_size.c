@@ -1,7 +1,7 @@
 /*                      D B 5 _ S I Z E . C
  * BRL-CAD
  *
- * Copyright (c) 2013-2025 United States Government as represented by
+ * Copyright (c) 2013-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -49,15 +49,12 @@ main(int argc, char *argv[])
     start = bu_gettime();
 
     dbip = db_open(argv[1], DB_OPEN_READWRITE);
-    if (dbip == DBI_NULL) {
+    if (dbip == DBI_NULL)
 	bu_exit(1, "ERROR: Unable to read from %s\n", argv[1]);
-    }
 
-    if (db_dirbuild(dbip) < 0) {
+    if (db_dirbuild(dbip) < 0)
 	bu_exit(1, "ERROR: Unable to read from %s\n", argv[1]);
-    }
 
-    db_update_nref(dbip, &rt_uniresource);
 
     dp = db_lookup(dbip, argv[2], LOOKUP_QUIET);
     if (dp == RT_DIR_NULL) {

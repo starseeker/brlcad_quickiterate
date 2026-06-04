@@ -1,7 +1,7 @@
 /*                     P O L Y G O N . C
  * BRL-CAD
  *
- * Copyright (c) 2013-2025 United States Government as represented by
+ * Copyright (c) 2013-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -25,7 +25,9 @@
 #include "bu/malloc.h"
 #include "bu/sort.h"
 #include "bg/plane.h"
-#define PLOT_PREFIX_STR bg_plot3_
+#ifndef PLOT_PREFIX_STR
+#  define PLOT_PREFIX_STR bg_plot3_
+#endif
 #include "bv/plot3.h"
 #include "bn/tol.h"
 #include "bg/polygon.h"
@@ -250,9 +252,31 @@ sort_ccw_3d(const void *x, const void *y, void *cmp)
 int
 bg_3d_polygon_sort_ccw(size_t npts, point_t *pts, plane_t cmp)
 {
+    size_t i;
+    point_t centroid;
+
     if (!pts || npts < 3)
 	return 1;
+
+    /* Compute the centroid of all points.  The sort_ccw_3d comparator
+     * measures angles using cross products of the raw position vectors,
+     * which is equivalent to sorting by angle around the *origin*.  For
+     * faces not centred at the origin the resulting order can be wrong
+     * (self-intersecting polygon), so translate all points to be centred
+     * at the origin before sorting and translate back afterwards.        */
+    VSETALL(centroid, 0.0);
+    for (i = 0; i < npts; i++)
+	VADD2(centroid, centroid, pts[i]);
+    VSCALE(centroid, centroid, 1.0 / (double)npts);
+
+    for (i = 0; i < npts; i++)
+	VSUB2(pts[i], pts[i], centroid);
+
     bu_sort(pts, npts, sizeof(point_t), sort_ccw_3d, &cmp);
+
+    for (i = 0; i < npts; i++)
+	VADD2(pts[i], pts[i], centroid);
+
     return 0;
 }
 

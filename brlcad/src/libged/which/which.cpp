@@ -1,7 +1,7 @@
 /*                         W H I C H . C P P
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -164,7 +164,7 @@ ged_which_core(struct ged *gedp, int argc, const char *argv[])
 	for(size_t i = 0; i < BU_PTBL_LEN(&comb_objs); i++) {
 	    dp = (struct directory *)BU_PTBL_GET(&comb_objs, i);
 
-	    if (rt_db_get_internal(&intern, dp, gedp->dbip, (fastf_t *)NULL, &rt_uniresource) < 0) {
+	    if (rt_db_get_internal(&intern, dp, gedp->dbip, (fastf_t *)NULL) < 0) {
 		bu_vls_printf(gedp->ged_result_str, "Database read error, aborting");
 		bu_vls_free(&root);
 		return BRLCAD_ERROR;
@@ -180,26 +180,24 @@ ged_which_core(struct ged *gedp, int argc, const char *argv[])
 	}
 	db_search_free(&comb_objs);
     } else {
-	for (int i = 0; i < RT_DBNHASH; i++) {
-	    for (dp = gedp->dbip->dbi_Head[i]; dp != RT_DIR_NULL; dp = dp->d_forw) {
-		if (!(dp->d_flags & RT_DIR_REGION))
-		    continue;
+	FOR_ALL_DIRECTORY_START(dp, gedp->dbip)
+	    if (!(dp->d_flags & RT_DIR_REGION))
+		continue;
 
-		if (rt_db_get_internal(&intern, dp, gedp->dbip, (fastf_t *)NULL, &rt_uniresource) < 0) {
-		    bu_vls_printf(gedp->ged_result_str, "Database read error, aborting");
-		    bu_vls_free(&root);
-		    return BRLCAD_ERROR;
-		}
-		comb = (struct rt_comb_internal *)intern.idb_ptr;
-		/* check to see if the region id or air code matches one in our list */
-		int id = (isAir) ? comb->aircode : comb->region_id;
-		if (ids.find(id) != ids.end()) {
-		    id2names[id].insert(std::string(dp->d_namep));
-		}
-
-		rt_db_free_internal(&intern);
+	    if (rt_db_get_internal(&intern, dp, gedp->dbip, (fastf_t *)NULL) < 0) {
+		bu_vls_printf(gedp->ged_result_str, "Database read error, aborting");
+		bu_vls_free(&root);
+		return BRLCAD_ERROR;
 	    }
-	}
+	    comb = (struct rt_comb_internal *)intern.idb_ptr;
+	    /* check to see if the region id or air code matches one in our list */
+	    int id = (isAir) ? comb->aircode : comb->region_id;
+	    if (ids.find(id) != ids.end()) {
+		id2names[id].insert(std::string(dp->d_namep));
+	    }
+
+	    rt_db_free_internal(&intern);
+	FOR_ALL_DIRECTORY_END;
     }
 
     /* report results */

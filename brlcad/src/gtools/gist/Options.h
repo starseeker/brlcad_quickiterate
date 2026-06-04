@@ -1,7 +1,7 @@
 /*                       O P T I O N S . H
  * BRL-CAD
  *
- * Copyright (c) 2023-2025 United States Government as represented by
+ * Copyright (c) 2023-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -62,6 +62,7 @@ public:
     void setUnitLength(std::string l);
     void setUnitMass(std::string m);
     void setNCPU(int ncpu);
+    void setDensityFile(std::string filename);
 
 
     //Getter functions
@@ -90,6 +91,7 @@ public:
     std::string getUnitLength();
     std::string getUnitMass();
     size_t getNCPU();
+    std::string getDensityFile();
 
     bool isOriginalUnitsLength();
     bool isOriginalUnitsMass();
@@ -148,6 +150,9 @@ private:
 
     // max number of CPUs to use
     int ncpu;
+
+    // string path to density file (lexically normalized)
+    std::string densityFile;
 
     // print verbose status messages
     int verbosePrint;

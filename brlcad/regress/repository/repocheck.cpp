@@ -1,7 +1,7 @@
 /*                   R E P O C H E C K . C P P
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by the U.S.
+ * Copyright (c) 2008-2026 United States Government as represented by the U.S.
  * Army Research Laboratory.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -491,7 +491,7 @@ init_repo_config(RepoConfig &cfg)
 	    cfg.api.exemptions.emplace_back(std::make_pair(std::regex(pattern), std::string(fname)));
 	};
 	add_func_ex(".*/bomb[.]c$", "abort");
-	add_func_ex(".*/tests/dirname[.]c$", "dirname");
+	add_func_ex(".*/tests/test_dirname[.]c$", "dirname");
 	add_func_ex(".*/file[.]c$", "remove");
 	add_func_ex(".*/libtermio[.]h$", "strncmp");
 
@@ -530,6 +530,8 @@ init_repo_config(RepoConfig &cfg)
     /* setprogname test */
     {
 	const char *sp_exempt[] = {
+	    "brledit.cpp",
+	    "check_mann_docs.cpp",
 	    "debug2c.cpp",
 	    "env2c.cpp",
 	    "embedded_check.cpp",
@@ -540,7 +542,7 @@ init_repo_config(RepoConfig &cfg)
 	    "misc/",
 	    "mt19937ar.c",
 	    "other_check.cpp",
-	    "perm_test.cpp",
+	    "test_perm.cpp",
 	    "rt_ecmd_scanner.cpp",
 	    "sha1.c",
 	    "stb_truetype.h",

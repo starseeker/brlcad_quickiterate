@@ -1,7 +1,7 @@
 /*                         B O T . C P P
  * BRL-CAD
  *
- * Copyright (c) 2020-2025 United States Government as represented by
+ * Copyright (c) 2020-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -40,13 +40,10 @@
 #include <string>
 #include <vector>
 
-extern "C" {
-#include "fort.h"
-}
-
 #include "bu/cmd.h"
 #include "bu/color.h"
 #include "bu/opt.h"
+#include "bu/tbl.h"
 #include "bg/chull.h"
 #include "bg/pca.h"
 #include "bg/trimesh.h"
@@ -58,7 +55,7 @@ extern "C" {
 
 // TODO - I think this may be the same for brep and bot, which suggests it should be
 // a common libged utility function of some sort...
-static int
+int
 _bot_face_specifiers(std::set<int> &elements, struct bu_vls *vls, int argc, const char **argv) {
     for (int i = 0; i < argc; i++) {
 	std::string s1(argv[i]);
@@ -158,7 +155,7 @@ _bot_obj_setup(struct _ged_bot_info *gb, const char *name)
 
     BU_GET(gb->intern, struct rt_db_internal);
 
-    GED_DB_GET_INTERNAL(gb->gedp, gb->intern, gb->dp, bn_mat_identity, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_GET_INTERN(gb->gedp, gb->intern, gb->dp, bn_mat_identity, BRLCAD_ERROR);
     RT_CK_DB_INTERNAL(gb->intern);
 
     if (gb->intern->idb_minor_type != DB5_MINORTYPE_BRLCAD_BOT) {
@@ -439,7 +436,7 @@ _bot_cmd_set(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    if (rt_db_put_internal(gb->dp, gedp->dbip, gb->intern, &rt_uniresource) < 0) {
+    if (rt_db_put_internal(gb->dp, gedp->dbip, gb->intern) < 0) {
 	bu_vls_printf(gedp->ged_result_str, "Failed to update BoT");
 	return BRLCAD_ERROR;
     }
@@ -560,7 +557,7 @@ _bot_cmd_flip(void *bs, int argc, const char **argv)
 
     rt_bot_flip(bot);
 
-    if (rt_db_put_internal(gb->dp, gb->gedp->dbip, gb->intern, &rt_uniresource) < 0) {
+    if (rt_db_put_internal(gb->dp, gb->gedp->dbip, gb->intern) < 0) {
 	bu_vls_printf(gb->gedp->ged_result_str, "Failed to update BoT");
 	return BRLCAD_ERROR;
     }
@@ -596,7 +593,7 @@ _bot_cmd_isect(void *bs, int argc, const char **argv)
     struct directory *bot_dp_2;
     struct rt_db_internal intern_2;
     GED_DB_LOOKUP(gb->gedp, bot_dp_2, argv[1], LOOKUP_NOISY, BRLCAD_ERROR & GED_QUIET);
-    GED_DB_GET_INTERNAL(gb->gedp, &intern_2, bot_dp_2, bn_mat_identity, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_GET_INTERN(gb->gedp, &intern_2, bot_dp_2, bn_mat_identity, BRLCAD_ERROR);
     if (intern_2.idb_major_type != DB5_MAJORTYPE_BRLCAD || intern_2.idb_minor_type != DB5_MINORTYPE_BRLCAD_BOT) {
 	bu_vls_printf(gb->gedp->ged_result_str, ": object %s is not of type bot\n", argv[1]);
 	rt_db_free_internal(&intern_2);
@@ -650,7 +647,7 @@ _bot_cmd_sync(void *bs, int argc, const char **argv)
 	return BRLCAD_ERROR;
     }
 
-    if (rt_db_put_internal(gb->dp, gb->gedp->dbip, gb->intern, &rt_uniresource) < 0) {
+    if (rt_db_put_internal(gb->dp, gb->gedp->dbip, gb->intern) < 0) {
 	bu_vls_printf(gb->gedp->ged_result_str, "Failed to update BoT");
 	return BRLCAD_ERROR;
     }
@@ -815,7 +812,7 @@ _bot_cmd_pca(void *bs, int argc, const char **argv)
 	rt_db_free_internal(&intern);
 	return BRLCAD_ERROR;
     }
-    if (rt_db_put_internal(dp, gb->gedp->dbip, &intern, &rt_uniresource) < 0) {
+    if (rt_db_put_internal(dp, gb->gedp->dbip, &intern) < 0) {
 	bu_vls_printf(gb->gedp->ged_result_str, "Failed to write %s to database\n", argv[0]);
 	rt_bot_internal_free(moved_bot);
 	BU_PUT(moved_bot, struct rt_bot_internal);
@@ -911,7 +908,7 @@ _bot_cmd_split(void *bs, int argc, const char **argv)
 	    goto bot_split_done;
 	}
 
-	if (rt_db_put_internal(dp, gb->gedp->dbip, &intern, &rt_uniresource) < 0) {
+	if (rt_db_put_internal(dp, gb->gedp->dbip, &intern) < 0) {
 	    bu_vls_printf(gb->gedp->ged_result_str, "Failed to write %s to database\n", bu_vls_cstr(&bname));
 	    rt_db_free_internal(&intern);
 	    ret = BRLCAD_ERROR;
@@ -966,12 +963,12 @@ _bot_cmd_strip(void *bs, int argc, const char **argv)
     }
 
     struct rt_bot_internal *bot = (struct rt_bot_internal *)(gb->intern->idb_ptr);
-    struct rt_i *rtip = rt_new_rti(gb->gedp->dbip);
+    struct rt_i *rtip = rt_i_create(gb->gedp->dbip);
     rt_gettree(rtip, argv[0]);
     rt_prep(rtip);
     struct bu_ptbl tfaces = BU_PTBL_INIT_ZERO;
     int have_thin_faces = rt_bot_thin_check(&tfaces, bot, rtip, VUNITIZE_TOL, gb->verbosity);
-    rt_free_rti(rtip);
+    rt_i_destroy(rtip);
     if (have_thin_faces) {
 	struct rt_bot_internal *nbot = rt_bot_remove_faces(&tfaces, bot);
 	struct rt_db_internal intern;
@@ -989,7 +986,7 @@ _bot_cmd_strip(void *bs, int argc, const char **argv)
 	    goto bot_strip_done;
 	}
 
-	if (rt_db_put_internal(dp, gb->gedp->dbip, &intern, &rt_uniresource) < 0) {
+	if (rt_db_put_internal(dp, gb->gedp->dbip, &intern) < 0) {
 	    bu_vls_printf(gb->gedp->ged_result_str, "Failed to write %s to database\n", argv[1]);
 	    rt_db_free_internal(&intern);
 	    ret = BRLCAD_ERROR;
@@ -1003,7 +1000,7 @@ bot_strip_done:
 }
 
 static void
-bot_output(ft_table_t *table, struct db_i *dbip, struct directory *dp)
+bot_output(struct bu_tbl *table, struct db_i *dbip, struct directory *dp)
 {
     if (!table)
 	return;
@@ -1012,10 +1009,9 @@ bot_output(ft_table_t *table, struct db_i *dbip, struct directory *dp)
     struct rt_db_internal intern;
     struct bu_external ext = BU_EXTERNAL_INIT_ZERO;
     RT_DB_INTERNAL_INIT(&intern);
-    RT_CK_RESOURCE(&rt_uniresource);
     if (db_get_external(&ext, dp, dbip) < 0)
 	return;
-    if (rt_db_external5_to_internal5(&intern, &ext, dp->d_namep, dbip, NULL, &rt_uniresource) < 0) {
+    if (rt_db_external5_to_internal5(&intern, &ext, dp->d_namep, dbip, NULL) < 0) {
 	bu_free_external(&ext);
 	return;
     }
@@ -1029,27 +1025,27 @@ bot_output(ft_table_t *table, struct db_i *dbip, struct directory *dp)
 
     // Object Path
     //db_path_to_vls(&str, fp);
-    ft_write(table, dp->d_namep);
+    bu_tbl_write(table, dp->d_namep);
 
     // Disk Size
     bu_vls_sprintf(&str, "%zd", dp->d_len);
-    ft_write(table, bu_vls_cstr(&str));
+    bu_tbl_write(table, bu_vls_cstr(&str));
 
     // Number of vertices
     bu_vls_sprintf(&str, "%zd", bot->num_vertices);
-    ft_write(table, bu_vls_cstr(&str));
+    bu_tbl_write(table, bu_vls_cstr(&str));
 
     // Number of faces
     bu_vls_sprintf(&str, "%zd", bot->num_faces);
-    ft_write(table, bu_vls_cstr(&str));
+    bu_tbl_write(table, bu_vls_cstr(&str));
 
     // Number of face normals
     bu_vls_sprintf(&str, "%zd", bot->num_face_normals);
-    ft_write(table, bu_vls_cstr(&str));
+    bu_tbl_write(table, bu_vls_cstr(&str));
 
     // Number of unit surface normals
     bu_vls_sprintf(&str, "%zd", bot->num_normals);
-    ft_write(table, bu_vls_cstr(&str));
+    bu_tbl_write(table, bu_vls_cstr(&str));
 
     // Orientation
     switch (bot->orientation) {
@@ -1062,7 +1058,7 @@ bot_output(ft_table_t *table, struct db_i *dbip, struct directory *dp)
 	default:
 	    bu_vls_sprintf(&str, "NONE");
     }
-    ft_write(table, bu_vls_cstr(&str));
+    bu_tbl_write(table, bu_vls_cstr(&str));
 
     // Mode
     switch (bot->mode) {
@@ -1081,15 +1077,15 @@ bot_output(ft_table_t *table, struct db_i *dbip, struct directory *dp)
 	default:
 	    bu_vls_trunc(&str, 0);
     }
-    ft_write(table, bu_vls_cstr(&str));
+    bu_tbl_write(table, bu_vls_cstr(&str));
 
     // UV Vert Cnt
     bu_vls_sprintf(&str, "%zd", bot->num_uvs);
-    ft_write(table, bu_vls_cstr(&str));
+    bu_tbl_write(table, bu_vls_cstr(&str));
 
     // UV Face Cnt
     bu_vls_sprintf(&str, "%zd", bot->num_face_uvs);
-    ft_write(table, bu_vls_cstr(&str));
+    bu_tbl_write(table, bu_vls_cstr(&str));
 
     // Attribute size
     struct db5_raw_internal raw;
@@ -1098,9 +1094,9 @@ bot_output(ft_table_t *table, struct db_i *dbip, struct directory *dp)
     } else {
 	bu_vls_trunc(&str, 0);
     }
-    ft_write(table, bu_vls_cstr(&str));
+    bu_tbl_write(table, bu_vls_cstr(&str));
 
-    ft_ln(table);
+    bu_tbl_style(table, BU_TBL_ROW_END);
 
     // Have what we need - clean up
     bu_free_external(&ext);
@@ -1130,43 +1126,165 @@ _bot_cmd_stat(void *bs, int argc, const char **argv)
     int path_cnt = db_ls(gb->gedp->dbip, DB_LS_HIDDEN, argv[0], &paths);
 
     // Set up table
-    ft_table_t *table = ft_create_table();
-    ft_set_border_style(table, FT_SIMPLE_STYLE);
+    struct bu_tbl *table = bu_tbl_create();
+    bu_tbl_style(table, BU_TBL_STYLE_LIST);
 
-    ft_write(table, "Object Path");
-    ft_write(table, "Disk Size");
-    ft_write(table, "Verts");
-    ft_write(table, "Faces");
-    ft_write(table, "Face Normals");
-    ft_write(table, "Surf Normals");
-    ft_write(table, "Orientation");
-    ft_write(table, "Mode");
-    ft_write(table, "UV Vert Cnt");
-    ft_write(table, "UV Face Cnt");
-    ft_write(table, "Attr Size");
-    ft_ln(table);
-    ft_add_separator(table);
+    bu_tbl_write(table, "Object Path");
+    bu_tbl_write(table, "Disk Size");
+    bu_tbl_write(table, "Verts");
+    bu_tbl_write(table, "Faces");
+    bu_tbl_write(table, "Face Normals");
+    bu_tbl_write(table, "Surf Normals");
+    bu_tbl_write(table, "Orientation");
+    bu_tbl_write(table, "Mode");
+    bu_tbl_write(table, "UV Vert Cnt");
+    bu_tbl_write(table, "UV Face Cnt");
+    bu_tbl_write(table, "Attr Size");
+    bu_tbl_style(table, BU_TBL_ROW_END);
+    bu_tbl_style(table, BU_TBL_ROW_SEPARATOR);
 
     for (int i = 0; i < path_cnt; i++) {
 	bot_output(table, gb->gedp->dbip, paths[i]);
     }
 
-    bu_vls_printf(gb->gedp->ged_result_str, "%s\n", ft_to_string(table));
-    ft_destroy_table(table);
+    struct bu_vls tstr = BU_VLS_INIT_ZERO;
+    bu_tbl_vls(&tstr, table);
+    bu_vls_printf(gb->gedp->ged_result_str, "%s\n", bu_vls_cstr(&tstr));
+    bu_vls_free(&tstr);
+    bu_tbl_destroy(table);
     bu_free(paths, "paths");
     return ret;
 }
+
+extern "C" int
+_bot_cmd_pick(void *bs, int argc, const char **argv)
+{
+    const char *usage_string = "bot [options] <objname> pick F|V|E [px py pz dx dy dz]";
+    const char *purpose_string = "graphically identify components of the BoT object";
+    if (_bot_cmd_msgs(bs, argc, argv, usage_string, purpose_string)) {
+	return BRLCAD_OK;
+    }
+
+    struct _ged_bot_info *gb = (struct _ged_bot_info *)bs;
+
+    argc--; argv++;
+
+    if (!argc) {
+	bu_vls_printf(gb->gedp->ged_result_str, "%s\n", usage_string);
+	return BRLCAD_ERROR;
+    }
+
+    if (_bot_obj_setup(gb, argv[0]) & BRLCAD_ERROR) {
+	return BRLCAD_ERROR;
+    }
+
+    argc--; argv++;
+
+    return bot_pick(gb, argc, argv);
+}
+
+
+extern "C" int
+_bot_cmd_vertex(void *bs, int argc, const char **argv)
+{
+    const char *usage_string = "bot [options] <objname> vertex [idx ...]";
+    const char *purpose_string = "translate vertex indices to 3D point coordinates";
+    if (_bot_cmd_msgs(bs, argc, argv, usage_string, purpose_string)) {
+	return BRLCAD_OK;
+    }
+
+    struct _ged_bot_info *gb = (struct _ged_bot_info *)bs;
+    struct ged *gedp = gb->gedp;
+
+    argc--; argv++;
+
+    if (!argc) {
+	bu_vls_printf(gedp->ged_result_str, "%s\n", usage_string);
+	return BRLCAD_ERROR;
+    }
+
+    if (_bot_obj_setup(gb, argv[0]) & BRLCAD_ERROR) {
+	return BRLCAD_ERROR;
+    }
+
+    argc--; argv++;
+
+    struct rt_bot_internal *bot = (struct rt_bot_internal *)(gb->intern->idb_ptr);
+
+    if (!argc) {
+	/* No indices given - list all vertices */
+	for (size_t i = 0; i < bot->num_vertices; i++) {
+	    bu_vls_printf(gedp->ged_result_str, "%zu: %g %g %g\n", i,
+			 bot->vertices[3*i+0],
+			 bot->vertices[3*i+1],
+			 bot->vertices[3*i+2]);
+	}
+	return BRLCAD_OK;
+    }
+
+    /* Print coordinates for the specified vertex indices */
+    for (int i = 0; i < argc; i++) {
+	int idx = 0;
+	if (bu_opt_int(NULL, 1, &argv[i], (void *)&idx) < 0
+	    || idx < 0
+	    || (size_t)idx >= bot->num_vertices)
+	{
+	    bu_vls_printf(gedp->ged_result_str,
+			 "invalid vertex index: %s (valid range 0..%zu)\n",
+			 argv[i], bot->num_vertices - 1);
+	    return BRLCAD_ERROR;
+	}
+	bu_vls_printf(gedp->ged_result_str, "%d: %g %g %g\n", idx,
+		      bot->vertices[3*idx+0],
+		      bot->vertices[3*idx+1],
+		      bot->vertices[3*idx+2]);
+    }
+
+    return BRLCAD_OK;
+}
+
+
+extern "C" int
+_bot_cmd_info(void *bs, int argc, const char **argv)
+{
+    const char *usage_string = "bot [options] <objname> info [V|F] [index ...]";
+    const char *purpose_string = "report detailed information about BoT vertices and faces";
+    if (_bot_cmd_msgs(bs, argc, argv, usage_string, purpose_string)) {
+	return BRLCAD_OK;
+    }
+
+    struct _ged_bot_info *gb = (struct _ged_bot_info *)bs;
+
+    argc--; argv++;
+
+    if (!argc) {
+	bu_vls_printf(gb->gedp->ged_result_str, "%s\n", usage_string);
+	return BRLCAD_ERROR;
+    }
+
+    if (_bot_obj_setup(gb, argv[0]) & BRLCAD_ERROR) {
+	return BRLCAD_ERROR;
+    }
+
+    argc--; argv++;
+
+    return bot_info(gb, argc, argv);
+}
+
 
 const struct bu_cmdtab _bot_cmds[] = {
     { "check",      _bot_cmd_check},
     { "chull",      _bot_cmd_chull},
     { "decimate",   _bot_cmd_decimate},
     { "dump",       _bot_cmd_dump},
+    { "exterior",   _bot_cmd_exterior},
     { "extrude",    _bot_cmd_extrude},
     { "flip",       _bot_cmd_flip},
     { "get",        _bot_cmd_get},
+    { "info",       _bot_cmd_info},
     { "isect",      _bot_cmd_isect},
     { "pca",        _bot_cmd_pca},
+    { "pick",       _bot_cmd_pick},
     { "plot",       _bot_cmd_plot},
     { "remesh",     _bot_cmd_remesh},
     { "repair",     _bot_cmd_repair},
@@ -1177,6 +1295,7 @@ const struct bu_cmdtab _bot_cmds[] = {
     { "strip",      _bot_cmd_strip},
     { "subd",       _bot_cmd_subd},
     { "sync",       _bot_cmd_sync},
+    { "vertex",     _bot_cmd_vertex},
     { (char *)NULL,      NULL}
 };
 

@@ -1,7 +1,7 @@
 /*                         3 P T A R B . C
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -250,7 +250,7 @@ ged_3ptarb_core(struct ged *gedp, int argc, const char *argv[])
 
     GED_DB_DIRADD(gedp, dp, argv[1], RT_DIR_PHONY_ADDR, 0, RT_DIR_SOLID, (void *)&internal.idb_type, BRLCAD_ERROR);
 
-    GED_DB_PUT_INTERNAL(gedp, dp, &internal, &rt_uniresource, BRLCAD_ERROR);
+    GED_DB_PUT_INTERN(gedp, dp, &internal, BRLCAD_ERROR);
 
     return BRLCAD_OK;
 }

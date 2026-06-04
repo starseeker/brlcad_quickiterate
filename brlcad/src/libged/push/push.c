@@ -1,7 +1,7 @@
 /*                         P U S H . C
  * BRL-CAD
  *
- * Copyright (c) 2008-2025 United States Government as represented by
+ * Copyright (c) 2008-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This library is free software; you can redistribute it and/or
@@ -72,7 +72,7 @@ identitize(struct directory *dp,
 
     if (dp->d_flags & RT_DIR_SOLID)
 	return;
-    if (rt_db_get_internal(&intern, dp, dbip, (fastf_t *)NULL, &rt_uniresource) < 0) {
+    if (rt_db_get_internal(&intern, dp, dbip, (fastf_t *)NULL) < 0) {
 	bu_vls_printf(msg, "Database read error, aborting\n");
 	return;
     }
@@ -80,7 +80,7 @@ identitize(struct directory *dp,
     if (comb->tree) {
 	db_tree_funcleaf(dbip, comb, comb->tree, do_identitize,
 			 (void *)msg, (void *)NULL, (void *)NULL, (void *)NULL);
-	if (rt_db_put_internal(dp, dbip, &intern, &rt_uniresource) < 0) {
+	if (rt_db_put_internal(dp, dbip, &intern) < 0) {
 	    bu_vls_printf(msg, "Cannot write modified combination (%s) to database\n", dp->d_namep);
 	    return;
 	}
@@ -110,7 +110,6 @@ push_leaf(struct db_tree_state *tsp,
 
     BG_CK_TESS_TOL(tsp->ts_ttol);
     BN_CK_TOL(tsp->ts_tol);
-    RT_CK_RESOURCE(tsp->ts_resp);
 
     dp = pathp->fp_names[pathp->fp_len-1];
 
@@ -273,14 +272,14 @@ ged_push_core(struct ged *gedp, int argc, const char *argv[])
  * the matrix we've stored for each solid.
  */
     FOR_ALL_PUSH_SOLIDS(gpip, gpdp->pi_head) {
-	if (rt_db_get_internal(&es_int, gpip->pi_dir, gedp->dbip, gpip->pi_mat, &rt_uniresource) < 0) {
+	if (rt_db_get_internal(&es_int, gpip->pi_dir, gedp->dbip, gpip->pi_mat) < 0) {
 	    bu_vls_printf(gedp->ged_result_str, "ged_push_core: Read error fetching '%s'\n", gpip->pi_dir->d_namep);
 	    gpdp->push_error = -1;
 	    continue;
 	}
 	RT_CK_DB_INTERNAL(&es_int);
 
-	if (rt_db_put_internal(gpip->pi_dir, gedp->dbip, &es_int, &rt_uniresource) < 0) {
+	if (rt_db_put_internal(gpip->pi_dir, gedp->dbip, &es_int) < 0) {
 	    bu_vls_printf(gedp->ged_result_str, "ged_push_core(%s): solid export failure\n", gpip->pi_dir->d_namep);
 	}
 	rt_db_free_internal(&es_int);

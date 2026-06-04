@@ -1,7 +1,7 @@
 /*                           S E T . C
  * BRL-CAD
  *
- * Copyright (c) 1990-2025 United States Government as represented by
+ * Copyright (c) 1990-2026 United States Government as represented by
  * the U.S. Army Research Laboratory.
  *
  * This program is free software; you can redistribute it and/or
@@ -279,6 +279,30 @@ mged_variable_setup(struct mged_state *s)
 		     (Tcl_VarTraceProc *)write_var, (ClientData)sp);
 	Tcl_TraceVar(interp, sp->sp_name, TCL_TRACE_UNSETS|TCL_GLOBAL_ONLY,
 		     (Tcl_VarTraceProc *)unset_var, (ClientData)sp);
+    }
+}
+
+
+void
+mged_variable_teardown(struct mged_state *s)
+{
+    Tcl_Interp *interp;
+    struct bu_structparse *sp;
+
+    if (!s || !s->interp)
+	return;
+
+    interp = s->interp;
+    for (sp = &mged_vparse[0]; sp->sp_name != NULL; sp++) {
+	/* Reverse the registrations from mged_variable_setup(): the traces are
+	 * registered with distinct callbacks, so remove each callback with the
+	 * same flag set used at registration time. */
+	Tcl_UntraceVar(interp, sp->sp_name, TCL_TRACE_READS|TCL_GLOBAL_ONLY,
+		       (Tcl_VarTraceProc *)read_var, (ClientData)sp);
+	Tcl_UntraceVar(interp, sp->sp_name, TCL_TRACE_WRITES|TCL_GLOBAL_ONLY,
+		       (Tcl_VarTraceProc *)write_var, (ClientData)sp);
+	Tcl_UntraceVar(interp, sp->sp_name, TCL_TRACE_UNSETS|TCL_GLOBAL_ONLY,
+		       (Tcl_VarTraceProc *)unset_var, (ClientData)sp);
     }
 }
 
