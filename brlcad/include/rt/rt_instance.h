@@ -131,27 +131,9 @@ struct rt_i {
     /* THESE ITEMS SHOULD BE CONSIDERED OPAQUE, AND SUBJECT TO CHANGE */
     struct bu_list      HeadRegion;     /**< @brief  ptr of list of regions in model */
     struct bu_ptbl      rti_resources;  /**< @brief  list of 'struct resource's encountered */
-<<<<<<< HEAD
 
     /* PRIVATE librt-internal state; see src/librt/librt_private.h */
     struct rt_i_internal *i;
-=======
-    size_t              rti_cutlen;     /**< @brief  goal for # solids per boxnode */
-    size_t              rti_cutdepth;   /**< @brief  goal for depth of NUBSPT cut tree */
-    /* Parameters required for rt_submodel */
-    char *              rti_treetop;    /**< @brief  bu_strduped, for rt_submodel rti's only */
-    size_t              rti_uses;       /**< @brief  for rt_submodel */
-    /* Parameters for accelerating "pieces" of solids */
-    size_t              rti_nsolids_with_pieces; /**< @brief  # solids using pieces */
-    /* Parameters for dynamic geometry */
-    int                 rti_add_to_new_solids_list;
-    struct bu_ptbl      rti_new_solids;
-    /* Parameters for HLBVH scene acceleration (RT_PART_HLBVH mode) */
-    void *              rti_hlbvh_root;   /**< @brief flat HLBVH tree of finite solids; cast to struct bvh_flat_node* */
-    struct soltab **    rti_hlbvh_prims;  /**< @brief ordered primitive array matching HLBVH leaf order */
-    long                rti_hlbvh_nprims; /**< @brief number of entries in rti_hlbvh_prims */
-    long                rti_hlbvh_nnodes; /**< @brief number of flat BVH nodes in rti_hlbvh_root array */
->>>>>>> origin/hlbvh
 };
 
 

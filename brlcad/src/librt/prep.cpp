@@ -160,16 +160,9 @@ rt_i_init(struct rt_i *rtip, struct db_i *dbip)
     rtip->rti_ttol.rel = 0.01;
     rtip->rti_ttol.norm = 0;
 
-<<<<<<< HEAD
-    /* This sets the space partitioning algorithm to Mike's original
-     * non-uniform binary space partitioning tree.
-     */
-    rtip->rti_space_partition = RT_PART_NUBSPT;
-=======
     /* Default scene acceleration for CPU tracing is HLBVH; may be
      * auto-switched to NUBSP for dense scenes by rt_prep_parallel(). */
     rtip->rti_space_partition = RT_PART_HLBVH;
->>>>>>> origin/hlbvh
 
     /*
      * Zero the solid instancing counters in dbip database instance.
@@ -1006,9 +999,6 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
      * respected — the HLBVH build and quality check are skipped entirely.
      * RT_FORCE_HLBVH=1 env var overrides the SAH quality check (benchmarking).
      */
-<<<<<<< HEAD
-    for (i=1; i<=CUT_MAXIMUM; i++) rtip->stats.rti_ncut_by_type[i] = 0;
-=======
     if (rtip->rti_space_partition == RT_PART_HLBVH) {
 	long n_unique;
 	double d_overlap;
@@ -1024,20 +1014,19 @@ rt_prep_parallel(struct rt_i *rtip, int ncpu)
 	if (!rt_hlbvh_is_good(rtip, n_unique, d_overlap) && !getenv("RT_FORCE_HLBVH")) {
 	    if (RT_G_DEBUG & RT_DEBUG_CUT)
 		bu_log("rt_prep_parallel: HLBVH degenerate, falling back to NUBSP\n");
-	    bu_free(rtip->rti_hlbvh_root, "rti_hlbvh_root");
-	    rtip->rti_hlbvh_root = NULL;
-	    bu_free(rtip->rti_hlbvh_prims, "rti_hlbvh_prims");
-	    rtip->rti_hlbvh_prims = NULL;
-	    rtip->rti_hlbvh_nprims = 0;
-	    rtip->rti_hlbvh_nnodes = 0;
+	    bu_free(rtip->i->rti_hlbvh_root, "rti_hlbvh_root");
+	    rtip->i->rti_hlbvh_root = NULL;
+	    bu_free(rtip->i->rti_hlbvh_prims, "rti_hlbvh_prims");
+	    rtip->i->rti_hlbvh_prims = NULL;
+	    rtip->i->rti_hlbvh_nprims = 0;
+	    rtip->i->rti_hlbvh_nnodes = 0;
 	    rtip->rti_space_partition = RT_PART_NUBSPT;
 	}
     }
-    for (i=1; i<=CUT_MAXIMUM; i++) rtip->rti_ncut_by_type[i] = 0;
+    for (i=1; i<=CUT_MAXIMUM; i++) rtip->stats.rti_ncut_by_type[i] = 0;
     /* Populate rti_inf_box with infinite solids; also builds full NUBSP cut
      * tree when rti_space_partition == RT_PART_NUBSPT.
      */
->>>>>>> origin/hlbvh
     rt_cut_it(rtip, ncpu);
 
     /* Release storage used for bounding RPPs of solid "pieces" */
@@ -1637,15 +1626,9 @@ rt_clean_resource_basic(struct rt_i *rtip, struct resource *resp)
 	resp->re_boolslen = 0;
     }
 
-<<<<<<< HEAD
-    /* Release the HLBVH per-thread primitive index buffer */
-    if (resp->re_hlbvh_prims) {
-	bu_free(resp->re_hlbvh_prims, "re_hlbvh_prims");
-=======
     /* 're_hlbvh_prims' is a simple pointer */
     if (resp->re_hlbvh_prims) {
 	bu_free((void *)resp->re_hlbvh_prims, "hlbvh prim buf");
->>>>>>> origin/hlbvh
 	resp->re_hlbvh_prims = NULL;
 	resp->re_hlbvh_prims_len = 0;
     }
@@ -1800,8 +1783,9 @@ rt_clean(struct rt_i *rtip)
 	rtip->i->Regions = (struct region **)0;
 
 	/* Free space partitions */
-<<<<<<< HEAD
-	rt_fr_cut(rtip, &(rtip->i->rti_CutHead));
+	/* Only free the NUBSP cut tree if it was actually built */
+	if (rtip->i->rti_CutHead.cut_type != 0)
+	    rt_fr_cut(rtip, &(rtip->i->rti_CutHead));
 	memset((char *)&(rtip->i->rti_CutHead), 0, sizeof(union cutter));
 	rt_fr_cut(rtip, &(rtip->i->rti_inf_box));
 	memset((char *)&(rtip->i->rti_inf_box), 0, sizeof(union cutter));
@@ -1817,26 +1801,6 @@ rt_clean(struct rt_i *rtip)
 	}
 	rtip->i->rti_hlbvh_nprims = 0;
 	rtip->i->rti_hlbvh_nnodes = 0;
-=======
-	/* Only free the NUBSP cut tree if it was actually built */
-	if (rtip->rti_CutHead.cut_type != 0)
-	    rt_fr_cut(rtip, &(rtip->rti_CutHead));
-	memset((char *)&(rtip->rti_CutHead), 0, sizeof(union cutter));
-	rt_fr_cut(rtip, &(rtip->rti_inf_box));
-	memset((char *)&(rtip->rti_inf_box), 0, sizeof(union cutter));
-
-	/* Free HLBVH scene tree if present */
-	if (rtip->rti_hlbvh_root) {
-	    bu_free(rtip->rti_hlbvh_root, "rti_hlbvh_root");
-	    rtip->rti_hlbvh_root = NULL;
-	}
-	if (rtip->rti_hlbvh_prims) {
-	    bu_free(rtip->rti_hlbvh_prims, "rti_hlbvh_prims");
-	    rtip->rti_hlbvh_prims = NULL;
-	}
-	rtip->rti_hlbvh_nprims = 0;
-	rtip->rti_hlbvh_nnodes = 0;
->>>>>>> origin/hlbvh
     }
     rt_cut_clean(rtip);
 
@@ -2319,17 +2283,11 @@ unprep_leaf(struct db_tree_state *tsp,
 		}
 		if (stp->st_uses <= 1) {
 		    /* soltab structure will actually be freed */
-<<<<<<< HEAD
 		    remove_from_bsp(stp, &rtip->i->rti_inf_box, &rtip->rti_tol);
-		    remove_from_bsp(stp, &rtip->i->rti_CutHead, &rtip->rti_tol);
-		    rtip->i->rti_Solids[bit] = (struct soltab *)NULL;
-=======
-		    remove_from_bsp(stp, &rtip->rti_inf_box, &rtip->rti_tol);
 		    /* In HLBVH-only mode rti_CutHead may remain zeroed. */
-		    if (rtip->rti_CutHead.cut_type != 0)
-			remove_from_bsp(stp, &rtip->rti_CutHead, &rtip->rti_tol);
-		    rtip->rti_Solids[bit] = (struct soltab *)NULL;
->>>>>>> origin/hlbvh
+		    if (rtip->i->rti_CutHead.cut_type != 0)
+			remove_from_bsp(stp, &rtip->i->rti_CutHead, &rtip->rti_tol);
+		    rtip->i->rti_Solids[bit] = (struct soltab *)NULL;
 		}
 		rt_free_soltab(stp);
 		return (union tree *)NULL;
@@ -2628,41 +2586,24 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
     for (i=0; i<BU_PTBL_LEN(&rtip->i->rti_new_solids); i++) {
 	stp = (struct soltab *)BU_PTBL_GET(&rtip->i->rti_new_solids, i);
 	if (stp->st_aradius >= INFINITY) {
-<<<<<<< HEAD
 	    insert_in_bsp(stp, &rtip->i->rti_inf_box);
-	} else {
-	    insert_in_bsp(stp, &rtip->i->rti_CutHead);
-=======
-	    insert_in_bsp(stp, &rtip->rti_inf_box);
->>>>>>> origin/hlbvh
 	}
     }
 
     bu_ptbl_free(&rtip->i->rti_new_solids);
 
-<<<<<<< HEAD
-    if (!VNEAR_EQUAL(rtip->mdl_min, old_min, SMALL_FASTF)
-	|| !VNEAR_EQUAL(rtip->mdl_max, old_max, SMALL_FASTF))
-    {
-	/* fill out BSP, it must completely fill the model BB */
-	fastf_t bb[6];
-
-	VSETALL(bb, INFINITY);
-	VSETALL(&bb[3], -INFINITY);
-	nfill_out_bsp(rtip, &rtip->i->rti_CutHead, bb);
-=======
     if (rtip->rti_space_partition == RT_PART_HLBVH) {
 	long n_unique = rt_hlbvh_prep(rtip);
 	double d_overlap = rt_scene_bbox_overlap(rtip);
 	if (!rt_hlbvh_is_good(rtip, n_unique, d_overlap)) {
 	    if (RT_G_DEBUG & RT_DEBUG_CUT)
 		bu_log("rt_reprep: HLBVH degenerate, rebuilding as NUBSP\n");
-	    bu_free(rtip->rti_hlbvh_root, "rti_hlbvh_root");
-	    rtip->rti_hlbvh_root = NULL;
-	    bu_free(rtip->rti_hlbvh_prims, "rti_hlbvh_prims");
-	    rtip->rti_hlbvh_prims = NULL;
-	    rtip->rti_hlbvh_nprims = 0;
-	    rtip->rti_hlbvh_nnodes = 0;
+	    bu_free(rtip->i->rti_hlbvh_root, "rti_hlbvh_root");
+	    rtip->i->rti_hlbvh_root = NULL;
+	    bu_free(rtip->i->rti_hlbvh_prims, "rti_hlbvh_prims");
+	    rtip->i->rti_hlbvh_prims = NULL;
+	    rtip->i->rti_hlbvh_nprims = 0;
+	    rtip->i->rti_hlbvh_nnodes = 0;
 	    rtip->rti_space_partition = RT_PART_NUBSPT;
 	    /* Full NUBSP rebuild over all solids */
 	    rt_cut_it(rtip, 1);
@@ -2674,12 +2615,11 @@ rt_reprep(struct rt_i *rtip, struct rt_reprep_obj_list *objs, struct resource *r
 	    struct resource *re;
 
 	    re = (struct resource *)BU_PTBL_GET(&rtip->rti_resources, i);
-	    if (re && rtip->rti_nsolids_with_pieces)
+	    if (re && rtip->i->rti_nsolids_with_pieces)
 		rt_res_pieces_init(re, rtip);
 	}
-    } else if (rtip->rti_nsolids_with_pieces) {
+    } else if (rtip->i->rti_nsolids_with_pieces) {
 	rt_res_pieces_init(&rt_uniresource, rtip);
->>>>>>> origin/hlbvh
     }
 
     return 0;

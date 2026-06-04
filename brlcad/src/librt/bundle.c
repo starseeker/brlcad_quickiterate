@@ -46,11 +46,6 @@ struct shootrays_data {
 /*
  * rt_shootray_bundle_hlbvh - HLBVH-only bundle ray shooting path.
  *
-<<<<<<< HEAD
- * See rt_shootray_hlbvh() in shoot.c for the performance rationale.
- * Keeping HLBVH bundle traversal in a separate function avoids polluting
- * the NUBSP rt_shootray_bundle i-cache footprint with dead HLBVH code.
-=======
  * See rt_shootray_hlbvh() in shoot.c for the full performance rationale.
  * Adding the HLBVH block inline to rt_shootray_bundle inflates that function
  * with ~130 lines of HLBVH code that is dead in the NUBSP case, polluting
@@ -63,25 +58,10 @@ struct shootrays_data {
  *
  * dist_corr is always 0.0 at the point the HLBVH block executes in the
  * original function; this is made explicit here via a named constant.
->>>>>>> origin/hlbvh
  */
 static int
 rt_shootray_bundle_hlbvh(struct application *ap, struct xray *rays, int nrays)
 {
-<<<<<<< HEAD
-    struct seg new_segs;
-    struct seg waiting_segs;
-    struct seg finished_segs;
-    struct bu_bitv *solidbits;
-    struct bu_ptbl *regionbits;
-    const char *status;
-    struct partition InitialPart;
-    struct partition FinalPart;
-    struct soltab **stpp;
-    struct resource *resp;
-    struct rt_i *rtip;
-    fastf_t inv_dir[3];
-=======
     struct seg new_segs;	/* from solid intersections */
     struct seg waiting_segs;	/* awaiting rt_boolweave() */
     struct seg finished_segs;	/* processed by rt_boolweave() */
@@ -94,7 +74,6 @@ rt_shootray_bundle_hlbvh(struct application *ap, struct xray *rays, int nrays)
     struct resource *resp;
     struct rt_i *rtip;
     fastf_t inv_dir[3];		/* inverse of center-ray direction */
->>>>>>> origin/hlbvh
     const int debug_shoot = RT_G_DEBUG & RT_DEBUG_SHOOT;
 
     RT_AP_CHECK(ap);
@@ -144,11 +123,7 @@ rt_shootray_bundle_hlbvh(struct application *ap, struct xray *rays, int nrays)
 	BU_ASSERT(BU_PTBL_GET(&rtip->rti_resources, resp->re_cpu) != NULL);
     }
 
-<<<<<<< HEAD
     solidbits = rt_get_solidbitv(rtip->stats.nsolids, resp);
-=======
-    solidbits = rt_get_solidbitv(rtip->nsolids, resp);
->>>>>>> origin/hlbvh
 
     if (BU_LIST_IS_EMPTY(&resp->re_region_ptbl)) {
 	BU_ALLOC(regionbits, struct bu_ptbl);
@@ -202,11 +177,7 @@ rt_shootray_bundle_hlbvh(struct application *ap, struct xray *rays, int nrays)
     /* Quick model RPP check; sets r_min/r_max on ap->a_ray */
     if (!rt_in_rpp(&ap->a_ray, inv_dir, rtip->mdl_min, rtip->mdl_max) ||
 	ap->a_ray.r_max < 0.0) {
-<<<<<<< HEAD
 	if (rtip->i->rti_inf_box.bn.bn_len <= 0) {
-=======
-	if (rtip->rti_inf_box.bn.bn_len <= 0) {
->>>>>>> origin/hlbvh
 	    resp->re_nmiss_model++;
 	    if (ap->a_miss)
 		ap->a_return = ap->a_miss(ap);
@@ -218,19 +189,11 @@ rt_shootray_bundle_hlbvh(struct application *ap, struct xray *rays, int nrays)
     }
 
     /*
-<<<<<<< HEAD
-     * HLBVH BVH traversal: collect candidate primitive indices, then
-     * shoot each candidate against each bundle ray.
-     */
-    {
-	struct bvh_flat_node *hlbvh_root = (struct bvh_flat_node *)rtip->i->rti_hlbvh_root;
-=======
      * HLBVH BVH traversal: collect candidate primitive indices.
      * dist_corr is always 0.0 at this call level (no recursive adjustment).
      */
     {
-	struct bvh_flat_node *hlbvh_root = (struct bvh_flat_node *)rtip->rti_hlbvh_root;
->>>>>>> origin/hlbvh
+	struct bvh_flat_node *hlbvh_root = (struct bvh_flat_node *)rtip->i->rti_hlbvh_root;
 	long *check_prims = NULL;
 	size_t num_check_prims = 0;
 	size_t pi;
@@ -239,13 +202,8 @@ rt_shootray_bundle_hlbvh(struct application *ap, struct xray *rays, int nrays)
 	if (hlbvh_root) {
 	    hlbvh_shot_flat_reuse(hlbvh_root, &ap->a_ray, &check_prims, &num_check_prims,
 				  &resp->re_hlbvh_prims, &resp->re_hlbvh_prims_len);
-<<<<<<< HEAD
 	} else if (rtip->i->rti_hlbvh_prims && rtip->i->rti_hlbvh_nprims > 0) {
 	    num_check_prims = (size_t)rtip->i->rti_hlbvh_nprims;
-=======
-	} else if (rtip->rti_hlbvh_prims && rtip->rti_hlbvh_nprims > 0) {
-	    num_check_prims = (size_t)rtip->rti_hlbvh_nprims;
->>>>>>> origin/hlbvh
 	    if (resp->re_hlbvh_prims_len < num_check_prims) {
 		resp->re_hlbvh_prims = (long *)bu_realloc(resp->re_hlbvh_prims,
 							  num_check_prims * sizeof(long),
@@ -258,11 +216,7 @@ rt_shootray_bundle_hlbvh(struct application *ap, struct xray *rays, int nrays)
 	}
 
 	for (pi = 0; pi < num_check_prims; pi++) {
-<<<<<<< HEAD
 	    struct soltab *stp = rtip->i->rti_hlbvh_prims[check_prims[pi]];
-=======
-	    struct soltab *stp = rtip->rti_hlbvh_prims[check_prims[pi]];
->>>>>>> origin/hlbvh
 
 	    if (BU_BITTEST(solidbits, stp->st_bit)) {
 		resp->re_ndup++;
@@ -275,11 +229,7 @@ rt_shootray_bundle_hlbvh(struct application *ap, struct xray *rays, int nrays)
 		int ret;
 
 		VMOVE(ss2_newray.r_dir, rays[ray].r_dir);
-<<<<<<< HEAD
-		VMOVE(ss2_newray.r_pt, rays[ray].r_pt);
-=======
 		VMOVE(ss2_newray.r_pt, rays[ray].r_pt);	/* dist_corr == 0.0 */
->>>>>>> origin/hlbvh
 
 		if (OBJ[stp->st_id].ft_use_rpp) {
 		    if (!rt_in_rpp(&ss2_newray, inv_dir, stp->st_min, stp->st_max)) {
@@ -307,10 +257,7 @@ rt_shootray_bundle_hlbvh(struct application *ap, struct xray *rays, int nrays)
 		    register struct seg *s2;
 		    while (BU_LIST_WHILE(s2, seg, &(new_segs.l))) {
 			BU_LIST_DEQUEUE(&(s2->l));
-<<<<<<< HEAD
-=======
 			/* dist_corr == 0.0, so hit_dist needs no adjustment */
->>>>>>> origin/hlbvh
 			s2->seg_in.hit_rayp = s2->seg_out.hit_rayp = &rays[ray];
 			BU_LIST_INSERT(&(waiting_segs.l), &(s2->l));
 		    }
@@ -323,15 +270,9 @@ rt_shootray_bundle_hlbvh(struct application *ap, struct xray *rays, int nrays)
     }
 
     /* Also shoot any infinite solids */
-<<<<<<< HEAD
     if (rtip->i->rti_inf_box.bn.bn_len > 0) {
 	stpp = &(rtip->i->rti_inf_box.bn.bn_list[rtip->i->rti_inf_box.bn.bn_len - 1]);
 	for (; stpp >= rtip->i->rti_inf_box.bn.bn_list; stpp--) {
-=======
-    if (rtip->rti_inf_box.bn.bn_len > 0) {
-	stpp = &(rtip->rti_inf_box.bn.bn_list[rtip->rti_inf_box.bn.bn_len - 1]);
-	for (; stpp >= rtip->rti_inf_box.bn.bn_list; stpp--) {
->>>>>>> origin/hlbvh
 	    register struct soltab *stp = *stpp;
 	    int ray;
 
@@ -373,10 +314,7 @@ rt_shootray_bundle_hlbvh(struct application *ap, struct xray *rays, int nrays)
 	}
     }
 
-<<<<<<< HEAD
-=======
     /* Single boolweave + boolfinal pass (see rt_shootray_hlbvh for rationale) */
->>>>>>> origin/hlbvh
     if (BU_LIST_NON_EMPTY(&(waiting_segs.l)))
 	rt_boolweave(&finished_segs, &waiting_segs, &InitialPart, ap);
 
@@ -496,13 +434,10 @@ rt_shootray_bundle(struct application *ap, struct xray *rays, int nrays)
 	ap->a_magic = RT_AP_MAGIC;
     }
 
-<<<<<<< HEAD
-=======
     /*
      * Dispatch to the HLBVH-specific path before any NUBSP setup.
      * See rt_shootray_bundle_hlbvh() for the performance rationale.
      */
->>>>>>> origin/hlbvh
     if (ap->a_rt_i->rti_space_partition == RT_PART_HLBVH)
 	return rt_shootray_bundle_hlbvh(ap, rays, nrays);
 

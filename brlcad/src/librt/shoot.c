@@ -30,10 +30,7 @@
 #include "raytrace.h"
 #include "bv/plot3.h"
 #include "cut_hlbvh.h"
-<<<<<<< HEAD
 #include "librt_private.h"
-=======
->>>>>>> origin/hlbvh
 
 
 #define V3PT_DEPARTING_RPP(_step, _lo, _hi, _pt)			\
@@ -531,18 +528,6 @@ rt_plot_cell(const union cutter *cutp, const struct rt_shootray_status *ssp, str
 }
 
 
-<<<<<<< HEAD
-/*
- * rt_shootray_hlbvh - HLBVH-only single-ray shooting path.
- *
- * Performance rationale: keeping HLBVH traversal in a separate function
- * avoids polluting the NUBSP rt_shootray i-cache footprint with ~117 lines
- * of dead code when running in NUBSP mode.
- *
- * Relative to rt_shootray this path omits:
- *   - struct rt_shootray_status / cut-tree traversal
- *   - solid-pieces infrastructure (backbits, re_pieces_pending, etc.)
-=======
 
 /*
  * rt_shootray_hlbvh - HLBVH-only single-ray shooting path.
@@ -567,26 +552,10 @@ rt_plot_cell(const union cutter *cutp, const struct rt_shootray_status *ssp, str
  * a_ray_length culling: when a_ray_length > 0 (finite-length shadow rays),
  * any candidate whose bbox tmin exceeds a_ray_length is discarded before
  * shooting, eliminating primitives entirely behind the shadow ray endpoint.
->>>>>>> origin/hlbvh
  */
 static int
 rt_shootray_hlbvh(register struct application *ap)
 {
-<<<<<<< HEAD
-    struct seg new_segs;
-    struct seg waiting_segs;
-    struct seg finished_segs;
-    struct bu_bitv *solidbits;
-    struct bu_ptbl *regionbits;
-    char *status;
-    struct partition InitialPart;
-    struct partition FinalPart;
-    struct soltab **stpp;
-    struct resource *resp;
-    struct rt_i *rtip;
-    fastf_t inv_dir[3];
-    fastf_t last_bool_start;
-=======
     struct seg new_segs;	/* from solid intersections */
     struct seg waiting_segs;	/* awaiting rt_boolweave() */
     struct seg finished_segs;	/* processed by rt_boolweave() */
@@ -600,7 +569,6 @@ rt_shootray_hlbvh(register struct application *ap)
     struct rt_i *rtip;
     fastf_t inv_dir[3];		/* inverse of ray direction components */
     fastf_t last_bool_start;	/* lower bound for next rt_boolfinal call */
->>>>>>> origin/hlbvh
     const int debug_shoot = RT_G_DEBUG & RT_DEBUG_SHOOT;
 
     RT_AP_CHECK(ap);
@@ -661,11 +629,7 @@ rt_shootray_hlbvh(register struct application *ap)
     if (resp != &rt_uniresource)
 	BU_ASSERT(BU_PTBL_GET(&rtip->rti_resources, resp->re_cpu) != NULL);
 
-<<<<<<< HEAD
     solidbits = rt_get_solidbitv(rtip->stats.nsolids, resp);
-=======
-    solidbits = rt_get_solidbitv(rtip->nsolids, resp);
->>>>>>> origin/hlbvh
 
     if (BU_LIST_IS_EMPTY(&resp->re_region_ptbl)) {
 	BU_ALLOC(regionbits, struct bu_ptbl);
@@ -692,14 +656,10 @@ rt_shootray_hlbvh(register struct application *ap)
 
     resp->re_nshootray++;
 
-<<<<<<< HEAD
-    /* Compute inverse direction cosines (same clamping as rt_shootray). */
-=======
     /*
      * Compute inverse direction cosines for RPP intersection tests.
      * Same clamping logic as rt_shootray to handle near-axis-aligned rays.
      */
->>>>>>> origin/hlbvh
     if (ap->a_ray.r_dir[X] < -SQRT_SMALL_FASTF) {
 	inv_dir[X] = 1.0/ap->a_ray.r_dir[X];
     } else if (ap->a_ray.r_dir[X] > SQRT_SMALL_FASTF) {
@@ -726,12 +686,6 @@ rt_shootray_hlbvh(register struct application *ap)
     }
     VMOVE(ap->a_inv_dir, inv_dir);
 
-<<<<<<< HEAD
-    /* Quick model RPP check; sets r_min/r_max on the ray. */
-    if (!rt_in_rpp(&ap->a_ray, inv_dir, rtip->mdl_min, rtip->mdl_max) ||
-	ap->a_ray.r_max < 0.0) {
-	if (rtip->i->rti_inf_box.bn.bn_len <= 0) {
-=======
     /*
      * Quick model RPP check.  Sets r_min/r_max on the ray, which some
      * ft_shot implementations read.  If the ray misses the model and
@@ -739,8 +693,7 @@ rt_shootray_hlbvh(register struct application *ap)
      */
     if (!rt_in_rpp(&ap->a_ray, inv_dir, rtip->mdl_min, rtip->mdl_max) ||
 	ap->a_ray.r_max < 0.0) {
-	if (rtip->rti_inf_box.bn.bn_len <= 0) {
->>>>>>> origin/hlbvh
+	if (rtip->i->rti_inf_box.bn.bn_len <= 0) {
 	    resp->re_nmiss_model++;
 	    if (ap->a_miss)
 		ap->a_return = ap->a_miss(ap);
@@ -749,17 +702,6 @@ rt_shootray_hlbvh(register struct application *ap)
 	    status = "MISS model";
 	    goto out;
 	}
-<<<<<<< HEAD
-    }
-
-    /*
-     * HLBVH BVH traversal: collect candidate primitive indices into the
-     * per-resource reuse buffer, then shoot each candidate.
-     */
-    {
-	struct bvh_flat_node *hlbvh_root = (struct bvh_flat_node *)rtip->i->rti_hlbvh_root;
-=======
-	/* Fall through: no finite geometry hit, but infinite solids present */
     }
 
     /*
@@ -770,8 +712,7 @@ rt_shootray_hlbvh(register struct application *ap)
      * a_ray_length culling is applied inside the RPP check.
      */
     {
-	struct bvh_flat_node *hlbvh_root = (struct bvh_flat_node *)rtip->rti_hlbvh_root;
->>>>>>> origin/hlbvh
+	struct bvh_flat_node *hlbvh_root = (struct bvh_flat_node *)rtip->i->rti_hlbvh_root;
 	long *check_prims = NULL;
 	size_t num_check_prims = 0;
 	size_t pi;
@@ -779,15 +720,9 @@ rt_shootray_hlbvh(register struct application *ap)
 	if (hlbvh_root) {
 	    hlbvh_shot_flat_reuse(hlbvh_root, &ap->a_ray, &check_prims, &num_check_prims,
 				  &resp->re_hlbvh_prims, &resp->re_hlbvh_prims_len);
-<<<<<<< HEAD
 	} else if (rtip->i->rti_hlbvh_prims && rtip->i->rti_hlbvh_nprims > 0) {
-	    /* Degenerate case: no BVH tree; shoot all prims */
-	    num_check_prims = (size_t)rtip->i->rti_hlbvh_nprims;
-=======
-	} else if (rtip->rti_hlbvh_prims && rtip->rti_hlbvh_nprims > 0) {
 	    /* Degenerate case: BVH build produced no tree, shoot all prims */
-	    num_check_prims = (size_t)rtip->rti_hlbvh_nprims;
->>>>>>> origin/hlbvh
+	    num_check_prims = (size_t)rtip->i->rti_hlbvh_nprims;
 	    if (resp->re_hlbvh_prims_len < num_check_prims) {
 		resp->re_hlbvh_prims = (long *)bu_realloc(resp->re_hlbvh_prims,
 							  num_check_prims * sizeof(long),
@@ -802,11 +737,7 @@ rt_shootray_hlbvh(register struct application *ap)
 	last_bool_start = BACKING_DIST;
 
 	for (pi = 0; pi < num_check_prims; pi++) {
-<<<<<<< HEAD
 	    struct soltab *stp = rtip->i->rti_hlbvh_prims[check_prims[pi]];
-=======
-	    struct soltab *stp = rtip->rti_hlbvh_prims[check_prims[pi]];
->>>>>>> origin/hlbvh
 	    int ret;
 
 	    if (BU_BITTEST(solidbits, stp->st_bit)) {
@@ -849,15 +780,9 @@ rt_shootray_hlbvh(register struct application *ap)
     }
 
     /* Also shoot any infinite solids */
-<<<<<<< HEAD
     if (rtip->i->rti_inf_box.bn.bn_len > 0) {
 	stpp = &(rtip->i->rti_inf_box.bn.bn_list[rtip->i->rti_inf_box.bn.bn_len - 1]);
 	for (; stpp >= rtip->i->rti_inf_box.bn.bn_list; stpp--) {
-=======
-    if (rtip->rti_inf_box.bn.bn_len > 0) {
-	stpp = &(rtip->rti_inf_box.bn.bn_list[rtip->rti_inf_box.bn.bn_len - 1]);
-	for (; stpp >= rtip->rti_inf_box.bn.bn_list; stpp--) {
->>>>>>> origin/hlbvh
 	    struct soltab *stp = *stpp;
 	    int ret;
 
@@ -890,13 +815,9 @@ rt_shootray_hlbvh(register struct application *ap)
 	}
     }
 
-<<<<<<< HEAD
-    /* Weave any remaining segments into partitions and evaluate boolean CSG. */
-=======
     /*
      * Weave any remaining segments into partitions and evaluate boolean CSG.
      */
->>>>>>> origin/hlbvh
     if (BU_LIST_NON_EMPTY(&(waiting_segs.l)))
 	rt_boolweave(&finished_segs, &waiting_segs, &InitialPart, ap);
 
@@ -944,15 +865,10 @@ rt_shootray_hlbvh(register struct application *ap)
 out:
     BU_CK_BITV(solidbits);
     BU_LIST_APPEND(&resp->re_solid_bitv, &solidbits->l);
-<<<<<<< HEAD
-    BU_CK_PTBL(regionbits);
-    BU_LIST_APPEND(&resp->re_region_ptbl, &regionbits->l);
-=======
     /* No backbits: HLBVH does not use the pieces-backing-distance mechanism */
     BU_CK_PTBL(regionbits);
     BU_LIST_APPEND(&resp->re_region_ptbl, &regionbits->l);
     /* No re_pieces_pending: HLBVH never enqueues piece hits */
->>>>>>> origin/hlbvh
 
     if (RT_G_DEBUG&(RT_DEBUG_ALLRAYS|RT_DEBUG_SHOOT|RT_DEBUG_PARTITION|RT_DEBUG_ALLHITS)) {
 	bu_log_indent_delta(-2);
@@ -996,14 +912,9 @@ rt_shootray(register struct application *ap)
 
     /*
      * Dispatch to the HLBVH-specific path before any NUBSP setup.
-<<<<<<< HEAD
-     * Keeping these two paths separate preserves the NUBSP i-cache
-     * footprint (see rt_shootray_hlbvh for the full performance rationale).
-=======
      * This keeps the NUBSP instruction footprint in this function
      * identical to BRL-CAD main; see rt_shootray_hlbvh() for the
      * full performance rationale.
->>>>>>> origin/hlbvh
      */
     if (ap->a_rt_i->rti_space_partition == RT_PART_HLBVH)
 	return rt_shootray_hlbvh(ap);
@@ -1198,11 +1109,7 @@ rt_shootray(register struct application *ap)
     ss.box_start = ss.model_start = ap->a_ray.r_min;
     ss.box_end = ss.model_end = ap->a_ray.r_max;
 
-<<<<<<< HEAD
-    if (ss.box_start < BACKING_DIST)
-	ss.box_start = BACKING_DIST; /* Only look a little bit behind */
-=======
-    if (rtip->rti_nsolids_with_pieces > 0) {
+    if (rtip->i->rti_nsolids_with_pieces > 0) {
 	/* pieces are present */
 	if (ss.box_start < BACKING_DIST) {
 	    /* the first ray intersection with the model bounding box
@@ -1214,7 +1121,7 @@ rt_shootray(register struct application *ap)
 	     * having bounding boxes extending behind the ray start
 	     * point and using pieces)
 	     */
-	    backbits = rt_get_solidbitv(rtip->nsolids, resp);
+	    backbits = rt_get_solidbitv(rtip->stats.nsolids, resp);
 
 	    /* call "rt_find_backing_dist()" to calculate the required
 	     * start point for calculation, and to fill in the
@@ -1227,7 +1134,6 @@ rt_shootray(register struct application *ap)
 	if (ss.box_start < BACKING_DIST)
 	    ss.box_start = BACKING_DIST; /* Only look a little bit behind */
     }
->>>>>>> origin/hlbvh
 
     ss.lastcut = CUTTER_NULL;
     ss.old_status = (struct rt_shootray_status *)NULL;

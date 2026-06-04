@@ -145,42 +145,31 @@ rt_cut_it(register struct rt_i *rtip, int ncpu)
 	}
     } RT_VISIT_ALL_SOLTABS_END;
 
-<<<<<<< HEAD
-    switch (rtip->rti_space_partition) {
-	case RT_PART_NUBSPT:
-	    rt_cut_nubsp_build(rtip, finp, ncpu);
-	    break;
-	case RT_PART_NULL:
-	    rt_cut_null_build(rtip, finp, ncpu);
-	    break;
-	case RT_PART_HLBVH:
-	    rt_cut_hlbvh_build(rtip, finp, ncpu);
-=======
     /* Dynamic decisions on tree limits.  Note that there will be
-     * (2**rtip->rti_cutdepth)*rtip->rti_cutlen potential leaf slots.
+     * (2**rtip->i->rti_cutdepth)*rtip->i->rti_cutlen potential leaf slots.
      * Also note that solids will typically span several leaves.
      */
-    rtip->rti_cutlen = lrint(floor(log((double)(rtip->nsolids+1))));  /* ln ~= log2, nsolids+1 to avoid log(0) */
-    rtip->rti_cutdepth = 2 * rtip->rti_cutlen;
-    if (rtip->rti_cutlen < 3) rtip->rti_cutlen = 3;
-    if (rtip->rti_cutdepth < 12) rtip->rti_cutdepth = 12;
-    if (rtip->rti_cutdepth > 24) rtip->rti_cutdepth = 24;     /* !! */
+    rtip->i->rti_cutlen = lrint(floor(log((double)(rtip->stats.nsolids+1))));  /* ln ~= log2, nsolids+1 to avoid log(0) */
+    rtip->i->rti_cutdepth = 2 * rtip->i->rti_cutlen;
+    if (rtip->i->rti_cutlen < 3) rtip->i->rti_cutlen = 3;
+    if (rtip->i->rti_cutdepth < 12) rtip->i->rti_cutdepth = 12;
+    if (rtip->i->rti_cutdepth > 24) rtip->i->rti_cutdepth = 24;     /* !! */
     if (RT_G_DEBUG&RT_DEBUG_CUT)
 	bu_log("Before Space Partitioning: Max Tree Depth=%zu, Cutoff primitive count=%zu\n",
-	       rtip->rti_cutdepth, rtip->rti_cutlen);
+	       rtip->i->rti_cutdepth, rtip->i->rti_cutlen);
 
-    bu_ptbl_init(&rtip->rti_cuts_waiting, rtip->nsolids,
+    bu_ptbl_init(&rtip->i->rti_cuts_waiting, rtip->stats.nsolids,
 		 "rti_cuts_waiting ptbl");
 
     if (rtip->rti_hasty_prep)
-	rtip->rti_cutdepth = 6;
+	rtip->i->rti_cutdepth = 6;
 
     switch (rtip->rti_space_partition) {
 	case RT_PART_NUBSPT: {
-	    rtip->rti_CutHead = *finp;	/* union copy */
-	    rt_ct_optim(rtip, &rtip->rti_CutHead, 0);
+	    rtip->i->rti_CutHead = *finp;	/* union copy */
+	    rt_ct_optim(rtip, &rtip->i->rti_CutHead, 0);
 	    /* one more pass to find cells that are mostly empty */
-	    num_splits = split_mostly_empty_cells(rtip,  &rtip->rti_CutHead);
+	    num_splits = split_mostly_empty_cells(rtip,  &rtip->i->rti_CutHead);
 
 	    if (RT_G_DEBUG&RT_DEBUG_CUT) {
 		bu_log("split_mostly_empty_cells(): split %zu cells\n", num_splits);
@@ -194,7 +183,6 @@ rt_cut_it(register struct rt_i *rtip, int ncpu)
 	     * rti_CutHead is left zeroed; rt_clean checks cut_type before
 	     * calling rt_fr_cut on it.
 	     */
->>>>>>> origin/hlbvh
 	    break;
 	default:
 	    bu_bomb("rt_cut_it: unknown space partitioning method\n");
@@ -204,34 +192,21 @@ rt_cut_it(register struct rt_i *rtip, int ncpu)
 
     /* Measure the depth of tree, find max # of RPPs in a cut node */
 
-<<<<<<< HEAD
     bu_hist_init(&rtip->i->rti_hist_cellsize, 0.0, 400.0, 400);
     bu_hist_init(&rtip->i->rti_hist_cell_pieces, 0.0, 400.0, 400);
     bu_hist_init(&rtip->i->rti_hist_cutdepth, 0.0,
 		 (fastf_t)rtip->i->rti_cutdepth+1, rtip->i->rti_cutdepth+1);
     memset(rtip->stats.rti_ncut_by_type, 0, sizeof(rtip->stats.rti_ncut_by_type));
-    rt_ct_measure(rtip, &rtip->i->rti_CutHead, 0);
-=======
-    bu_hist_init(&rtip->rti_hist_cellsize, 0.0, 400.0, 400);
-    bu_hist_init(&rtip->rti_hist_cell_pieces, 0.0, 400.0, 400);
-    bu_hist_init(&rtip->rti_hist_cutdepth, 0.0,
-		 (fastf_t)rtip->rti_cutdepth+1, rtip->rti_cutdepth+1);
-    memset(rtip->rti_ncut_by_type, 0, sizeof(rtip->rti_ncut_by_type));
-    if (rtip->rti_CutHead.cut_type != 0)
-	rt_ct_measure(rtip, &rtip->rti_CutHead, 0);
->>>>>>> origin/hlbvh
+    if (rtip->i->rti_CutHead.cut_type != 0)
+	rt_ct_measure(rtip, &rtip->i->rti_CutHead, 0);
     if (RT_G_DEBUG&RT_DEBUG_CUT) {
 	rt_pr_cut_info(rtip, "Cut");
     }
 
     if (RT_G_DEBUG&RT_DEBUG_CUTDETAIL) {
 	/* Produce a voluminous listing of the cut tree */
-<<<<<<< HEAD
-	rt_pr_cut(&rtip->i->rti_CutHead, 0);
-=======
-	if (rtip->rti_CutHead.cut_type != 0)
-	    rt_pr_cut(&rtip->rti_CutHead, 0);
->>>>>>> origin/hlbvh
+	if (rtip->i->rti_CutHead.cut_type != 0)
+	    rt_pr_cut(&rtip->i->rti_CutHead, 0);
     }
 
     if (RT_G_DEBUG&RT_DEBUG_PL_BOX) {
@@ -639,18 +614,10 @@ rt_pr_cut_info(const struct rt_i *rtip, const char *str)
 
     bu_log("%s %s: %zu cut, %zu box (%zu empty)\n",
 	   str,
-<<<<<<< HEAD
 	   rt_cut_method_name(rtip->rti_space_partition),
 	   rtip->stats.rti_ncut_by_type[CUT_CUTNODE],
 	   rtip->stats.rti_ncut_by_type[CUT_BOXNODE],
 	   rtip->stats.nempty_cells);
-=======
-	   rtip->rti_space_partition == RT_PART_NUBSPT ? "NUBSP" :
-	   (rtip->rti_space_partition == RT_PART_HLBVH ? "HLBVH" : "unknown"),
-	   rtip->rti_ncut_by_type[CUT_CUTNODE],
-	   rtip->rti_ncut_by_type[CUT_BOXNODE],
-	   rtip->nempty_cells);
->>>>>>> origin/hlbvh
     bu_log("Cut: maxdepth=%zu, nbins=%zu, maxlen=%zu, avg=%g\n",
 	   rtip->stats.rti_cut_maxdepth,
 	   rtip->stats.rti_ncut_by_type[CUT_BOXNODE],

@@ -179,16 +179,10 @@ fastf_t rt_perp_tol = (fastf_t)0.0;     /* Value for rti_tol.perp */
 char *framebuffer = NULL;       /* desired framebuffer */
 
 /**
-<<<<<<< HEAD
- * Space partitioning algorithm to use.  The default is the
- * non-uniform binary spatial partitioning tree; librt prep may override
- * this at runtime via LIBRT_SPACE_PARTITION.
-=======
  * Space partitioning algorithm to use.  Defaults to -1 (unset) so that
  * librt's automatic selection logic (build HLBVH, fall back to NUBSP for
  * degenerate scenes) runs unimpeded.  Explicitly overridden via the -,
  * command-line option.
->>>>>>> origin/hlbvh
  */
 int space_partition = -1;
 
@@ -1067,14 +1061,9 @@ get_args(int argc, const char *argv[])
     struct bu_vls msgs = BU_VLS_INIT_ZERO;
     const char **opt_argv = NULL;
 
-<<<<<<< HEAD
     /* Reset per-call state (supports re-entrant calls from cm_opt in do.c) */
     want_help = 0;
     bu_optind = 1; /* restore compat: callers read bu_optind after return */
-=======
-#define GETOPT_STR	\
-    ".:,:@:a:b:c:d:e:f:g:m:ij:k:l:n:o:p:q:rs:tu:v::w:x:z:A:BC:D:E:F:G:H:I:J:K:MN:O:P:Q:RST:U:V:WX:!:+:h?"
->>>>>>> origin/hlbvh
 
     if (argc < 2) {
 	/* Nothing to parse; leave bu_optind at 1 (== argc for argc==1) */

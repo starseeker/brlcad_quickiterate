@@ -20,12 +20,10 @@
 
 #include "common.h"
 
-<<<<<<< HEAD
 #ifndef CUT_HLBVH_H
 #define CUT_HLBVH_H
 
-=======
->>>>>>> origin/hlbvh
+
 struct bvh_build_node {
     fastf_t bounds[6];
     struct bvh_build_node *children[2];
@@ -71,11 +69,8 @@ hlbvh_shot_flat_reuse(struct bvh_flat_node *root, struct xray *rp,
 __END_DECLS
 
 #endif /* HLBVH_IMPLEMENTATION */
-<<<<<<< HEAD
 
 #endif /* CUT_HLBVH_H */
-=======
->>>>>>> origin/hlbvh
 
 
 /*

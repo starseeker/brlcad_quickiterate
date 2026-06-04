@@ -771,21 +771,11 @@ do_prep(struct rt_i *rtip)
     memory_summary();
     if (rt_verbosity & VERBOSE_STATS) {
 	bu_log("%s: %zu cut, %zu box (%zu empty)\n",
-<<<<<<< HEAD
-	       rtip->rti_space_partition == RT_PART_NUBSPT ?
-	       "NUBSP" :
-	       rtip->rti_space_partition == RT_PART_NULL ?
-	       "NULL" : "unknown",
+	       rtip->rti_space_partition == RT_PART_NUBSPT ? "NUBSP" :
+	       (rtip->rti_space_partition == RT_PART_HLBVH ? "HLBVH" : "unknown"),
 	       rtip->stats.rti_ncut_by_type[CUT_CUTNODE],
 	       rtip->stats.rti_ncut_by_type[CUT_BOXNODE],
 	       rtip->stats.nempty_cells);
-=======
-	       rtip->rti_space_partition == RT_PART_NUBSPT ? "NUBSP" :
-	       (rtip->rti_space_partition == RT_PART_HLBVH ? "HLBVH" : "unknown"),
-	       rtip->rti_ncut_by_type[CUT_CUTNODE],
-	       rtip->rti_ncut_by_type[CUT_BOXNODE],
-	       rtip->nempty_cells);
->>>>>>> origin/hlbvh
     }
 }
 
