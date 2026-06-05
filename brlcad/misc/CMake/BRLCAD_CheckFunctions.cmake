@@ -63,14 +63,17 @@ endfunction(BRLCAD_DEFERRED_DEFINE)
 ###
 # Register a compile/link probe into a named batch.
 #
-# Probes are accumulated until _brlcad_run_probe_batch() is called.  Only
-# probes whose result variable is not yet defined (i.e. not yet cached) are
-# registered — already-cached variables are silently skipped.
+# Probes are ALWAYS added to the batch list so that deferred #defines are
+# emitted on every configure run (config.h is regenerated from scratch each
+# time CMake runs).  The probe is only built/tested if its result variable is
+# not yet cached; already-cached variables skip the build step but still emit
+# their deferred define when the batch runs.
 #
 # The source file must already exist at
 #   ${CMAKE_BINARY_DIR}/CMakeTmp/<BATCH>_sources/<VAR>.c
-# before this macro is invoked.  Use _brlcad_include_probe() or
-# _brlcad_func_probe() to write the file and register in one step.
+# before this macro is invoked *for probes that need building*.  Probes that
+# are already cached do not need the source file.  Use _brlcad_include_probe()
+# or _brlcad_func_probe() to write the file and register in one step.
 #
 # Usage:
 #   _brlcad_register_probe(
@@ -86,8 +89,11 @@ endfunction(BRLCAD_DEFERRED_DEFINE)
 ###
 macro(_brlcad_register_probe)
   cmake_parse_arguments(_BRP "" "BATCH;VAR" "LIBS;DEPENDS" ${ARGN})
-  if(NOT DEFINED ${_BRP_VAR})
-    get_property(_brp_list GLOBAL PROPERTY "BRLCAD_PROBE_BATCH_${_BRP_BATCH}")
+  # Always add to the batch list (deduplicating) so run_probe_batch can
+  # emit the deferred define even when the result comes from another module.
+  get_property(_brp_list GLOBAL PROPERTY "BRLCAD_PROBE_BATCH_${_BRP_BATCH}")
+  list(FIND _brp_list "${_BRP_VAR}" _brp_idx)
+  if(_brp_idx EQUAL -1)
     list(APPEND _brp_list "${_BRP_VAR}")
     set_property(GLOBAL PROPERTY "BRLCAD_PROBE_BATCH_${_BRP_BATCH}" "${_brp_list}")
     if(_BRP_LIBS)
@@ -98,6 +104,7 @@ macro(_brlcad_register_probe)
     endif()
   endif()
   unset(_brp_list)
+  unset(_brp_idx)
   unset(_BRP_BATCH)
   unset(_BRP_VAR)
   unset(_BRP_LIBS)
@@ -257,14 +264,16 @@ endfunction()
 # Usage: _brlcad_include_probe(<header_path> <VAR>)
 ###
 macro(_brlcad_include_probe HEADER VAR)
+  set(_bip_src_dir "${CMAKE_BINARY_DIR}/CMakeTmp/INCLUDE_PROBE_sources")
+  file(MAKE_DIRECTORY "${_bip_src_dir}")
+  # Write source only when not yet cached; build won't run for cached probes.
   if(NOT DEFINED ${VAR})
-    set(_bip_src_dir "${CMAKE_BINARY_DIR}/CMakeTmp/INCLUDE_PROBE_sources")
-    file(MAKE_DIRECTORY "${_bip_src_dir}")
     file(WRITE "${_bip_src_dir}/${VAR}.c"
       "#include <${HEADER}>\nint main(void) { return 0; }\n")
-    _brlcad_register_probe(BATCH INCLUDE_PROBE VAR ${VAR})
-    unset(_bip_src_dir)
   endif()
+  # Always register so the deferred #define is emitted every configure run.
+  _brlcad_register_probe(BATCH INCLUDE_PROBE VAR ${VAR})
+  unset(_bip_src_dir)
 endmacro()
 
 ###
@@ -276,16 +285,17 @@ endmacro()
 ###
 macro(_brlcad_func_probe)
   cmake_parse_arguments(_BFP "" "FUNC;VAR" "LIBS" ${ARGN})
+  set(_bfp_src_dir "${CMAKE_BINARY_DIR}/CMakeTmp/FUNC_EXISTS_sources")
+  file(MAKE_DIRECTORY "${_bfp_src_dir}")
   if(NOT DEFINED ${_BFP_VAR})
-    set(_bfp_src_dir "${CMAKE_BINARY_DIR}/CMakeTmp/FUNC_EXISTS_sources")
-    file(MAKE_DIRECTORY "${_bfp_src_dir}")
     file(WRITE "${_bfp_src_dir}/${_BFP_VAR}.c"
       "#ifdef __cplusplus\nextern \"C\"\n#endif\nchar ${_BFP_FUNC}();\nint main(void) { return ${_BFP_FUNC}(); }\n")
-    if(_BFP_LIBS)
-      _brlcad_register_probe(BATCH FUNC_EXISTS VAR ${_BFP_VAR} LIBS ${_BFP_LIBS})
-    else()
-      _brlcad_register_probe(BATCH FUNC_EXISTS VAR ${_BFP_VAR})
-    endif()
+  endif()
+  # Always register so the deferred #define is emitted every configure run.
+  if(_BFP_LIBS)
+    _brlcad_register_probe(BATCH FUNC_EXISTS VAR ${_BFP_VAR} LIBS ${_BFP_LIBS})
+  else()
+    _brlcad_register_probe(BATCH FUNC_EXISTS VAR ${_BFP_VAR})
   endif()
   unset(_bfp_src_dir)
   unset(_BFP_FUNC)
@@ -301,13 +311,14 @@ endmacro()
 ###
 macro(_brlcad_struct_probe)
   cmake_parse_arguments(_BSP "" "STRUCT;MEMBER;HEADER;VAR" "" ${ARGN})
+  set(_bsp_src_dir "${CMAKE_BINARY_DIR}/CMakeTmp/STRUCT_PROBE_sources")
+  file(MAKE_DIRECTORY "${_bsp_src_dir}")
   if(NOT DEFINED ${_BSP_VAR})
-    set(_bsp_src_dir "${CMAKE_BINARY_DIR}/CMakeTmp/STRUCT_PROBE_sources")
-    file(MAKE_DIRECTORY "${_bsp_src_dir}")
     file(WRITE "${_bsp_src_dir}/${_BSP_VAR}.c"
       "#include <${_BSP_HEADER}>\nint main(void) { ${_BSP_STRUCT} _s; (void)_s.${_BSP_MEMBER}; return 0; }\n")
-    _brlcad_register_probe(BATCH STRUCT_PROBE VAR ${_BSP_VAR})
   endif()
+  # Always register so the deferred #define is emitted every configure run.
+  _brlcad_register_probe(BATCH STRUCT_PROBE VAR ${_BSP_VAR})
   unset(_bsp_src_dir)
   unset(_BSP_STRUCT)
   unset(_BSP_MEMBER)
