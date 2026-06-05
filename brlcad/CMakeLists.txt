@@ -589,6 +589,23 @@ clear_build_flags()
 set(CMAKE_C_FLAGS "${C_STANDARD_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CXX_STANDARD_FLAGS}")
 
+# --- Compiler Flag Batch A (registration only) ---
+# Register early, unconditionally-applicable flags.  These are all hard-fail
+# (-f*) flags that do not require -Werror to detect unsupported variants.
+# The batch run is deferred until Block B below so both C and CXX probes share
+# only two mini-project invocations (once -Werror support is known).
+foreach(_brlcad_early_flag IN ITEMS
+    pipe fvisibility=hidden fno-strict-aliasing fno-common fexceptions
+    g ggdb3
+    m64 "arch x86_64" 64 "mabi=64" q64
+    m32 "arch i686" 32 "mabi=32" q32
+  )
+  _brlcad_register_flag_probe(C "${_brlcad_early_flag}")
+  _brlcad_register_flag_probe(CXX "${_brlcad_early_flag}")
+endforeach()
+_brlcad_register_flag_probe(CXX ftemplate-depth-128)
+# --- End Compiler Flag Batch A registration ---
+
 # try to use -pipe to speed up the compiles
 check_c_flag(pipe)
 check_cxx_flag(pipe)
@@ -1009,6 +1026,35 @@ endif(HAVE_WARN_UNUSED_RESULT_ATTRIBUTE)
 if(HAVE_FLATTEN_ATTRIBUTE)
   brlcad_deferred_define("HAVE_FLATTEN_ATTRIBUTE 1")
 endif(HAVE_FLATTEN_ATTRIBUTE)
+
+# --- Compiler Flag Batch B ---
+# Register warning, optimisation, sanitizer, and coverage flags for parallel
+# pre-testing.  ERROR_FLAG ("-Werror" if supported) is forwarded so that
+# unrecognised -Wno-* variants are detected correctly.  Conditional-fallback
+# pairs (flto=auto→flto, Winline→Wno-inline, etc.) are both registered;
+# the application logic in the individual check_c_flag calls below still
+# determines which variant is actually appended to the build flags.
+foreach(_brlcad_bulk_flag IN ITEMS
+    Qunused-arguments
+    O3 fipa-pta fstrength-reduce fexpensive-optimizations finline-functions
+    fomit-frame-pointer fno-omit-frame-pointer
+    fstack-protector-all qstackprotect
+    "fsanitize=address" "fsanitize-address-use-after-return=always"
+    fsanitize-address-use-after-scope
+    "fsanitize=thread"
+    pedantic Wall Wextra Wundef Wfloat-equal Wshadow
+    Wbad-function-cast "Wc++-compat" Winline Wno-inline
+    Wno-error=long-long Wno-long-long
+    Wno-error=variadic-macros Wno-variadic-macros
+    Wdocumentation ftest-coverage Werror
+    "flto=auto" flto
+  )
+  _brlcad_register_flag_probe(C "${_brlcad_bulk_flag}")
+  _brlcad_register_flag_probe(CXX "${_brlcad_bulk_flag}")
+endforeach()
+_brlcad_run_flag_batch(C WERROR "${ERROR_FLAG}")
+_brlcad_run_flag_batch(CXX WERROR "${ERROR_FLAG}")
+# --- End Compiler Flag Batch B ---
 
 # Silence check for unused arguments (used to silence clang warnings about
 # unused options on the command line). By default clang generates a lot of
