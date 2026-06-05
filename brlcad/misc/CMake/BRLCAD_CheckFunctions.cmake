@@ -60,6 +60,261 @@ function(BRLCAD_DEFERRED_DEFINE LINE)
   set_property(GLOBAL PROPERTY BRLCAD_CONFIG_H_DEFERRED_DEFINES "${_existing}")
 endfunction(BRLCAD_DEFERRED_DEFINE)
 
+###
+# Register a compile/link probe into a named batch.
+#
+# Probes are accumulated until _brlcad_run_probe_batch() is called.  Only
+# probes whose result variable is not yet defined (i.e. not yet cached) are
+# registered — already-cached variables are silently skipped.
+#
+# The source file must already exist at
+#   ${CMAKE_BINARY_DIR}/CMakeTmp/<BATCH>_sources/<VAR>.c
+# before this macro is invoked.  Use _brlcad_include_probe() or
+# _brlcad_func_probe() to write the file and register in one step.
+#
+# Usage:
+#   _brlcad_register_probe(
+#     BATCH  <batch_name>
+#     VAR    <HAVE_FOO_H>
+#     [LIBS  lib1 lib2 ...]
+#     [DEPENDS dep_var1 dep_var2 ...]
+#   )
+#
+# LIBS are extra libraries passed to target_link_libraries() in the generated
+# mini-project.  DEPENDS lists other probe VAR names in the same batch that
+# must be built before this one (creates add_dependencies() entries).
+###
+macro(_brlcad_register_probe)
+  cmake_parse_arguments(_BRP "" "BATCH;VAR" "LIBS;DEPENDS" ${ARGN})
+  if(NOT DEFINED ${_BRP_VAR})
+    get_property(_brp_list GLOBAL PROPERTY "BRLCAD_PROBE_BATCH_${_BRP_BATCH}")
+    list(APPEND _brp_list "${_BRP_VAR}")
+    set_property(GLOBAL PROPERTY "BRLCAD_PROBE_BATCH_${_BRP_BATCH}" "${_brp_list}")
+    if(_BRP_LIBS)
+      set_property(GLOBAL PROPERTY "BRLCAD_PROBE_${_BRP_BATCH}_${_BRP_VAR}_LIBS" "${_BRP_LIBS}")
+    endif()
+    if(_BRP_DEPENDS)
+      set_property(GLOBAL PROPERTY "BRLCAD_PROBE_${_BRP_BATCH}_${_BRP_VAR}_DEPS" "${_BRP_DEPENDS}")
+    endif()
+  endif()
+  unset(_brp_list)
+  unset(_BRP_BATCH)
+  unset(_BRP_VAR)
+  unset(_BRP_LIBS)
+  unset(_BRP_DEPENDS)
+endmacro()
+
+###
+# Execute all probes registered in a named batch.
+#
+# A single cmake configure is performed for the whole batch, then all targets
+# are built in parallel (-j <ncpus>).  Each per-target result is confirmed
+# individually afterward (fast, since targets are already up-to-date or their
+# failure is deterministic).
+#
+# After execution each probe VAR is a CACHE INTERNAL variable:
+#   "1"  — compiled and linked successfully
+#   ""   — compilation or link failed
+# When CONFIG_H_FILE is set, brlcad_deferred_define is called for every
+# successful probe (whether newly tested or restored from cache).
+#
+# Usage:
+#   _brlcad_run_probe_batch(<batch_name> [C_FLAGS <flags>])
+###
+function(_brlcad_run_probe_batch BATCH_NAME)
+  cmake_parse_arguments(_BRPB "" "C_FLAGS" "" ${ARGN})
+
+  get_property(_batch_vars GLOBAL PROPERTY "BRLCAD_PROBE_BATCH_${BATCH_NAME}")
+  if(NOT _batch_vars)
+    return()
+  endif()
+
+  # Determine which probes have not yet been cached.
+  set(_pending_vars)
+  foreach(_var IN LISTS _batch_vars)
+    if(NOT DEFINED ${_var})
+      list(APPEND _pending_vars "${_var}")
+    endif()
+  endforeach()
+
+  # Default: configure failed (used only when _pending_vars is non-empty).
+  set(_cfg_result 1)
+  set(_build_dir "${CMAKE_BINARY_DIR}/CMakeTmp/${BATCH_NAME}_build")
+
+  if(_pending_vars)
+    set(_src_dir "${CMAKE_BINARY_DIR}/CMakeTmp/${BATCH_NAME}_sources")
+    file(MAKE_DIRECTORY "${_src_dir}")
+
+    # Write the mini CMakeLists.txt for the batch project.
+    set(_cml "${_src_dir}/CMakeLists.txt")
+    file(WRITE "${_cml}"
+      "cmake_minimum_required(VERSION 3.22)\n"
+      "project(BRLCAD${BATCH_NAME}Batch C)\n"
+    )
+    foreach(_var IN LISTS _pending_vars)
+      file(APPEND "${_cml}" "add_executable(${_var} \"${_src_dir}/${_var}.c\")\n")
+      get_property(_libs GLOBAL PROPERTY "BRLCAD_PROBE_${BATCH_NAME}_${_var}_LIBS")
+      if(_libs)
+        string(REPLACE ";" " " _libs_str "${_libs}")
+        file(APPEND "${_cml}" "target_link_libraries(${_var} PRIVATE ${_libs_str})\n")
+      endif()
+      get_property(_deps GLOBAL PROPERTY "BRLCAD_PROBE_${BATCH_NAME}_${_var}_DEPS")
+      if(_deps)
+        string(REPLACE ";" " " _deps_str "${_deps}")
+        file(APPEND "${_cml}" "add_dependencies(${_var} ${_deps_str})\n")
+      endif()
+    endforeach()
+
+    # Build the configure command, mirroring the parent project's toolchain.
+    set(_cfg_cmd
+      "${CMAKE_COMMAND}"
+      "-S" "${_src_dir}"
+      "-B" "${_build_dir}"
+      "-G" "${CMAKE_GENERATOR}"
+      "-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}"
+    )
+    if(CMAKE_GENERATOR_PLATFORM)
+      list(APPEND _cfg_cmd "-A" "${CMAKE_GENERATOR_PLATFORM}")
+    endif()
+    if(CMAKE_GENERATOR_TOOLSET)
+      list(APPEND _cfg_cmd "-T" "${CMAKE_GENERATOR_TOOLSET}")
+    endif()
+    if(CMAKE_MAKE_PROGRAM)
+      list(APPEND _cfg_cmd "-DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}")
+    endif()
+    if(CMAKE_BUILD_TYPE)
+      list(APPEND _cfg_cmd "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
+    endif()
+    if(_BRPB_C_FLAGS)
+      list(APPEND _cfg_cmd "-DCMAKE_C_FLAGS=${_BRPB_C_FLAGS}")
+    endif()
+
+    # Configure once for the whole batch.
+    execute_process(
+      COMMAND ${_cfg_cmd}
+      RESULT_VARIABLE _cfg_result
+      OUTPUT_QUIET
+      ERROR_QUIET
+    )
+
+    # Build all probes in parallel to amortise per-target overhead.
+    if(_cfg_result EQUAL 0)
+      cmake_host_system_information(RESULT _ncpus QUERY NUMBER_OF_PHYSICAL_CORES)
+      if(NOT _ncpus OR _ncpus LESS 1)
+        set(_ncpus 1)
+      endif()
+      set(_build_all "${CMAKE_COMMAND}" "--build" "${_build_dir}" "-j" "${_ncpus}")
+      if(CMAKE_BUILD_TYPE)
+        list(APPEND _build_all "--config" "${CMAKE_BUILD_TYPE}")
+      endif()
+      # Ignore the aggregate result; individual targets are verified below.
+      execute_process(
+        COMMAND ${_build_all}
+        RESULT_VARIABLE _ignored_result
+        OUTPUT_QUIET
+        ERROR_QUIET
+      )
+    endif()
+  endif() # _pending_vars
+
+  # Report per-probe results.  For already-built (or failed) targets the
+  # individual --target call is nearly instantaneous.
+  foreach(_var IN LISTS _batch_vars)
+    if(NOT DEFINED ${_var})
+      message(CHECK_START "Performing Test ${_var}")
+      set(_tgt_result 1)
+      if(_cfg_result EQUAL 0)
+        set(_tgt_cmd "${CMAKE_COMMAND}" "--build" "${_build_dir}" "--target" "${_var}")
+        if(CMAKE_BUILD_TYPE)
+          list(APPEND _tgt_cmd "--config" "${CMAKE_BUILD_TYPE}")
+        endif()
+        execute_process(
+          COMMAND ${_tgt_cmd}
+          RESULT_VARIABLE _tgt_result
+          OUTPUT_QUIET
+          ERROR_QUIET
+        )
+      endif()
+      if(_tgt_result EQUAL 0)
+        set(${_var} 1 CACHE INTERNAL "Test ${_var}" FORCE)
+        message(CHECK_PASS "Success")
+      else()
+        set(${_var} "" CACHE INTERNAL "Test ${_var}" FORCE)
+        message(CHECK_FAIL "Failed")
+      endif()
+    endif()
+    # Emit the deferred #define for any successful probe (cached or new).
+    if(${_var} AND CONFIG_H_FILE)
+      brlcad_deferred_define("${_var} 1")
+    endif()
+  endforeach()
+endfunction()
+
+###
+# Register a single-header include probe in the INCLUDE_PROBE batch.
+# Writes the test source and calls _brlcad_register_probe().
+#
+# Usage: _brlcad_include_probe(<header_path> <VAR>)
+###
+macro(_brlcad_include_probe HEADER VAR)
+  if(NOT DEFINED ${VAR})
+    set(_bip_src_dir "${CMAKE_BINARY_DIR}/CMakeTmp/INCLUDE_PROBE_sources")
+    file(MAKE_DIRECTORY "${_bip_src_dir}")
+    file(WRITE "${_bip_src_dir}/${VAR}.c"
+      "#include <${HEADER}>\nint main(void) { return 0; }\n")
+    _brlcad_register_probe(BATCH INCLUDE_PROBE VAR ${VAR})
+    unset(_bip_src_dir)
+  endif()
+endmacro()
+
+###
+# Register a function existence probe in the FUNC_EXISTS batch.
+# Writes a link-level test source (matching CMake's check_function_exists
+# pattern) and calls _brlcad_register_probe().
+#
+# Usage: _brlcad_func_probe(FUNC <funcname> VAR <HAVE_FUNCNAME> [LIBS lib...])
+###
+macro(_brlcad_func_probe)
+  cmake_parse_arguments(_BFP "" "FUNC;VAR" "LIBS" ${ARGN})
+  if(NOT DEFINED ${_BFP_VAR})
+    set(_bfp_src_dir "${CMAKE_BINARY_DIR}/CMakeTmp/FUNC_EXISTS_sources")
+    file(MAKE_DIRECTORY "${_bfp_src_dir}")
+    file(WRITE "${_bfp_src_dir}/${_BFP_VAR}.c"
+      "#ifdef __cplusplus\nextern \"C\"\n#endif\nchar ${_BFP_FUNC}();\nint main(void) { return ${_BFP_FUNC}(); }\n")
+    if(_BFP_LIBS)
+      _brlcad_register_probe(BATCH FUNC_EXISTS VAR ${_BFP_VAR} LIBS ${_BFP_LIBS})
+    else()
+      _brlcad_register_probe(BATCH FUNC_EXISTS VAR ${_BFP_VAR})
+    endif()
+  endif()
+  unset(_bfp_src_dir)
+  unset(_BFP_FUNC)
+  unset(_BFP_VAR)
+  unset(_BFP_LIBS)
+endmacro()
+
+###
+# Register a struct-member probe in the STRUCT_PROBE batch.
+# Writes a test source and calls _brlcad_register_probe().
+#
+# Usage: _brlcad_struct_probe(STRUCT <"struct name"> MEMBER <member> HEADER <header.h> VAR <VAR>)
+###
+macro(_brlcad_struct_probe)
+  cmake_parse_arguments(_BSP "" "STRUCT;MEMBER;HEADER;VAR" "" ${ARGN})
+  if(NOT DEFINED ${_BSP_VAR})
+    set(_bsp_src_dir "${CMAKE_BINARY_DIR}/CMakeTmp/STRUCT_PROBE_sources")
+    file(MAKE_DIRECTORY "${_bsp_src_dir}")
+    file(WRITE "${_bsp_src_dir}/${_BSP_VAR}.c"
+      "#include <${_BSP_HEADER}>\nint main(void) { ${_BSP_STRUCT} _s; (void)_s.${_BSP_MEMBER}; return 0; }\n")
+    _brlcad_register_probe(BATCH STRUCT_PROBE VAR ${_BSP_VAR})
+  endif()
+  unset(_bsp_src_dir)
+  unset(_BSP_STRUCT)
+  unset(_BSP_MEMBER)
+  unset(_BSP_HEADER)
+  unset(_BSP_VAR)
+endmacro()
+
 set(
   standard_header_template
   "
