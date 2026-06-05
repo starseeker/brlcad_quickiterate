@@ -772,157 +772,240 @@ if(ERROR_FLAG)
   set(CMAKE_REQUIRED_FLAGS "-Werror")
 endif(ERROR_FLAG)
 
+# Batch independent compiler-attribute probes to amortize try-compile setup
+set(_brlcad_attr_probe_vars)
+set(_brlcad_attr_probe_sources_dir "${CMAKE_BINARY_DIR}/CMakeTmp/attr_probe_sources")
+set(_brlcad_attr_probe_build_dir "${CMAKE_BINARY_DIR}/CMakeTmp/attr_probe_build")
+file(MAKE_DIRECTORY "${_brlcad_attr_probe_sources_dir}")
+
+macro(_brlcad_add_attr_probe probe_var probe_src)
+  if(NOT DEFINED ${probe_var})
+    file(WRITE "${_brlcad_attr_probe_sources_dir}/${probe_var}.c" "${probe_src}\n")
+    list(APPEND _brlcad_attr_probe_vars "${probe_var}")
+  endif()
+endmacro()
+
 # Check whether the compiler supports __attribute__((format (__printf__, 1, 2)))
-check_c_source_compiles(
-  "int pf(const char *f, ...) __attribute__((format (__printf__, 1, 2))); int pf(const char *f, ...){return 1;} int main(int argc, char *argv[]) {return pf(\"%c\",'a');}"
+_brlcad_add_attr_probe(
   HAVE_PRINTF12_ATTRIBUTE
+  "int pf(const char *f, ...) __attribute__((format (__printf__, 1, 2))); int pf(const char *f, ...){return 1;} int main(int argc, char *argv[]) {return pf(\"%c\",'a');}"
 )
+
+# Check whether the compiler supports __attribute__((format (__printf__, 2, 3)))
+_brlcad_add_attr_probe(
+  HAVE_PRINTF23_ATTRIBUTE
+  "int pf(void *o, const char *f, ...) __attribute__((format (__printf__, 2, 3))); int pf(void *o, const char *f, ...){return 1;} int main(int argc, char *argv[]) {return pf((void *)0, \"%c\",'a');}"
+)
+
+# Check whether the compiler supports __attribute__((format (__scanf__, 2, 3)))
+_brlcad_add_attr_probe(
+  HAVE_SCANF23_ATTRIBUTE
+  "int sf(void *o, const char *f, ...) __attribute__((format (__scanf__, 2, 3))); int sf(void *o, const char *f, ...){return 1;} int main(int argc, char *argv[]) {int i = 1; return sf((void *)0, \"%d\", &i);}"
+)
+
+# Check whether the compiler supports __attribute__((deprecated))
+_brlcad_add_attr_probe(
+  HAVE_DEPRECATED_ATTRIBUTE
+  "__attribute__((deprecated)) void func(void); void func(void){} void func2(void){} int main(int argc, char *argv[]) {func2(); return 0;}"
+)
+
+# Check whether the compiler supports __declspec(deprecated())
+_brlcad_add_attr_probe(
+  HAVE_DEPRECATED_DECLSPEC
+  "__declspec(deprecated(\"DEPRECATED\")) void func(void); void func(void){} void func2(void){} int main(int argc, char *argv[]) {func2(); return 0;}"
+)
+
+# Check whether the compiler supports __attribute__((__noreturn__))
+_brlcad_add_attr_probe(
+  HAVE_NORETURN_ATTRIBUTE
+  "#include <stdlib.h>
+__attribute__((__noreturn__)) void noret(void); void noret(void){exit(1);} int main(int argc, char *argv[]) {noret(); return 0;}"
+)
+
+# Check whether the compiler supports __declspec(noreturn)
+_brlcad_add_attr_probe(
+  HAVE_NORETURN_DECLSPEC
+  "#include <stdlib.h>
+__declspec(noreturn) void noret(void) {exit(1);} int main(int argc, char *argv[]) {noret(); return 0;}"
+)
+
+# Check whether the compiler supports __attribute__((analyzer_noreturn))
+_brlcad_add_attr_probe(
+  HAVE_ANALYZER_NORETURN_ATTRIBUTE
+  "__attribute__((analyzer_noreturn)) void anoret(void); void anoret(void){return;} int main(int argc, char *argv[]) {anoret(); return 0;}"
+)
+
+# Check whether the compiler supports __attribute__((always_inline))
+_brlcad_add_attr_probe(
+  HAVE_ALWAYS_INLINE_ATTRIBUTE
+  "__attribute__((always_inline)) inline void always_inline(void); inline void always_inline(void){return;} int main(int argc, char *argv[]) {always_inline(); return 0;}"
+)
+
+# Check whether the compiler supports __forceinline
+_brlcad_add_attr_probe(
+  HAVE_FORCEINLINE
+  "__forceinline inline void always_inline(void); inline void always_inline(void){return;} int main(int argc, char *argv[]) {always_inline(); return 0;}"
+)
+
+# Check whether the compiler supports __attribute__((const))
+_brlcad_add_attr_probe(
+  HAVE_CONST_ATTRIBUTE
+  "__attribute__((const)) void func(void); void func(void){return;} int main(int argc, char *argv[]) {func(); return 0;}"
+)
+
+# Check whether the compiler supports __attribute__((pure))
+_brlcad_add_attr_probe(
+  HAVE_PURE_ATTRIBUTE
+  "__attribute__((pure)) void func(void); void func(void){return;} int main(int argc, char *argv[]) {func(); return 0;}"
+)
+
+# Check whether the compiler supports __attribute__((cold))
+_brlcad_add_attr_probe(
+  HAVE_COLD_ATTRIBUTE
+  "__attribute__((cold)) void func(void); void func(void){return;} int main(int argc, char *argv[]) {func(); return 0;}"
+)
+
+# Check whether the compiler supports __attribute__((hot))
+_brlcad_add_attr_probe(
+  HAVE_HOT_ATTRIBUTE
+  "__attribute__((hot)) void func(void); void func(void){return;} int main(int argc, char *argv[]) {func(); return 0;}"
+)
+
+# Check whether the compiler supports __attribute__((nonnull))
+_brlcad_add_attr_probe(
+  HAVE_NONNULL_ATTRIBUTE
+  "__attribute__((nonnull)) int *func(int *); int *func(int *v){(*v)-=1; return v;} int main(int argc, char *argv[]) {int v = 1; int *vp = func(&v); return *vp;}"
+)
+
+# Check whether the compiler supports __attribute__((warn_unused_result))
+_brlcad_add_attr_probe(
+  HAVE_WARN_UNUSED_RESULT_ATTRIBUTE
+  "__attribute__((warn_unused_result)) int *func(int *); int *func(int *v){(*v)-=1; return v;} int main(int argc, char *argv[]) {int v = 1; int *vp = func(&v); return *vp;}"
+)
+
+# Check whether the compiler supports __attribute__((flatten))
+_brlcad_add_attr_probe(
+  HAVE_FLATTEN_ATTRIBUTE
+  "__attribute__((flatten)) int *func(int *v){(*v)-=1; return v;} __attribute((flatten)) int main(int argc, char *argv[]) {int v = 1; int *vp = func(&v); return *vp;}"
+)
+
+if(_brlcad_attr_probe_vars)
+  set(_brlcad_attr_probe_cmakelists "${_brlcad_attr_probe_sources_dir}/CMakeLists.txt")
+  file(WRITE "${_brlcad_attr_probe_cmakelists}" "cmake_minimum_required(VERSION 3.22)\nproject(BRLCADAttrProbeBatch C)\n")
+  file(APPEND "${_brlcad_attr_probe_cmakelists}" "set(_brlcad_attr_probe_required_flags [==[${CMAKE_REQUIRED_FLAGS}]==])\n")
+  file(APPEND "${_brlcad_attr_probe_cmakelists}" "if(_brlcad_attr_probe_required_flags)\n  separate_arguments(_brlcad_attr_probe_required_flags NATIVE_COMMAND \"\\${_brlcad_attr_probe_required_flags}\")\nendif()\n")
+  foreach(_probe_var IN LISTS _brlcad_attr_probe_vars)
+    file(APPEND "${_brlcad_attr_probe_cmakelists}" "add_executable(${_probe_var} \"${_brlcad_attr_probe_sources_dir}/${_probe_var}.c\")\n")
+    file(APPEND "${_brlcad_attr_probe_cmakelists}" "if(_brlcad_attr_probe_required_flags)\n  target_compile_options(${_probe_var} PRIVATE ${_brlcad_attr_probe_required_flags})\nendif()\n")
+  endforeach()
+
+  set(_brlcad_attr_probe_cfg_cmd "${CMAKE_COMMAND}" "-S" "${_brlcad_attr_probe_sources_dir}" "-B" "${_brlcad_attr_probe_build_dir}" "-G" "${CMAKE_GENERATOR}" "-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}")
+  if(CMAKE_GENERATOR_PLATFORM)
+    list(APPEND _brlcad_attr_probe_cfg_cmd "-A" "${CMAKE_GENERATOR_PLATFORM}")
+  endif()
+  if(CMAKE_GENERATOR_TOOLSET)
+    list(APPEND _brlcad_attr_probe_cfg_cmd "-T" "${CMAKE_GENERATOR_TOOLSET}")
+  endif()
+  if(CMAKE_MAKE_PROGRAM)
+    list(APPEND _brlcad_attr_probe_cfg_cmd "-DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}")
+  endif()
+  if(CMAKE_BUILD_TYPE)
+    list(APPEND _brlcad_attr_probe_cfg_cmd "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
+  endif()
+
+  execute_process(
+    COMMAND ${_brlcad_attr_probe_cfg_cmd}
+    RESULT_VARIABLE _brlcad_attr_probe_cfg_result
+    OUTPUT_QUIET
+    ERROR_QUIET
+  )
+
+  foreach(_probe_var IN LISTS _brlcad_attr_probe_vars)
+    message(CHECK_START "Performing Test ${_probe_var}")
+    if(_brlcad_attr_probe_cfg_result EQUAL 0)
+      set(_brlcad_attr_probe_build_cmd "${CMAKE_COMMAND}" "--build" "${_brlcad_attr_probe_build_dir}" "--target" "${_probe_var}")
+      if(CMAKE_BUILD_TYPE)
+        list(APPEND _brlcad_attr_probe_build_cmd "--config" "${CMAKE_BUILD_TYPE}")
+      endif()
+      execute_process(
+        COMMAND ${_brlcad_attr_probe_build_cmd}
+        RESULT_VARIABLE _brlcad_attr_probe_build_result
+        OUTPUT_QUIET
+        ERROR_QUIET
+      )
+    else()
+      set(_brlcad_attr_probe_build_result 1)
+    endif()
+
+    if(_brlcad_attr_probe_build_result EQUAL 0)
+      set(${_probe_var} 1 CACHE INTERNAL "Test ${_probe_var}" FORCE)
+      message(CHECK_PASS "Success")
+    else()
+      set(${_probe_var} "" CACHE INTERNAL "Test ${_probe_var}" FORCE)
+      message(CHECK_FAIL "Failed")
+    endif()
+  endforeach()
+endif()
+
+unset(_brlcad_add_attr_probe)
+unset(_brlcad_attr_probe_build_cmd)
+unset(_brlcad_attr_probe_build_dir)
+unset(_brlcad_attr_probe_build_result)
+unset(_brlcad_attr_probe_cfg_cmd)
+unset(_brlcad_attr_probe_cfg_result)
+unset(_brlcad_attr_probe_cmakelists)
+unset(_brlcad_attr_probe_sources_dir)
+unset(_brlcad_attr_probe_vars)
+unset(_probe_var)
+
 if(HAVE_PRINTF12_ATTRIBUTE)
   brlcad_deferred_define("HAVE_PRINTF12_ATTRIBUTE 1")
 endif(HAVE_PRINTF12_ATTRIBUTE)
-
-# Check whether the compiler supports __attribute__((format (__printf__, 2, 3)))
-check_c_source_compiles(
-  "int pf(void *o, const char *f, ...) __attribute__((format (__printf__, 2, 3))); int pf(void *o, const char *f, ...){return 1;} int main(int argc, char *argv[]) {return pf((void *)0, \"%c\",'a');}"
-  HAVE_PRINTF23_ATTRIBUTE
-)
 if(HAVE_PRINTF23_ATTRIBUTE)
   brlcad_deferred_define("HAVE_PRINTF23_ATTRIBUTE 1")
 endif(HAVE_PRINTF23_ATTRIBUTE)
-
-# Check whether the compiler supports __attribute__((format (__scanf__, 2, 3)))
-check_c_source_compiles(
-  "int sf(void *o, const char *f, ...) __attribute__((format (__scanf__, 2, 3))); int sf(void *o, const char *f, ...){return 1;} int main(int argc, char *argv[]) {int i = 1; return sf((void *)0, \"%d\", &i);}"
-  HAVE_SCANF23_ATTRIBUTE
-)
 if(HAVE_SCANF23_ATTRIBUTE)
   brlcad_deferred_define("HAVE_SCANF23_ATTRIBUTE 1")
 endif(HAVE_SCANF23_ATTRIBUTE)
-
-# Check whether the compiler supports __attribute__((deprecated))
-check_c_source_compiles(
-  "__attribute__((deprecated)) void func(void); void func(void){} void func2(void){} int main(int argc, char *argv[]) {func2(); return 0;}"
-  HAVE_DEPRECATED_ATTRIBUTE
-)
 if(HAVE_DEPRECATED_ATTRIBUTE)
   brlcad_deferred_define("HAVE_DEPRECATED_ATTRIBUTE 1")
 endif(HAVE_DEPRECATED_ATTRIBUTE)
-
-# Check whether the compiler supports __declspec(deprecated())
-check_c_source_compiles(
-  "__declspec(deprecated(\"DEPRECATED\")) void func(void); void func(void){} void func2(void){} int main(int argc, char *argv[]) {func2(); return 0;}"
-  HAVE_DEPRECATED_DECLSPEC
-)
 if(HAVE_DEPRECATED_DECLSPEC)
   brlcad_deferred_define("HAVE_DEPRECATED_DECLSPEC 1")
 endif(HAVE_DEPRECATED_DECLSPEC)
-
-# Check whether the compiler supports __attribute__((__noreturn__))
-check_c_source_compiles(
-  "#include <stdlib.h>
-__attribute__((__noreturn__)) void noret(void); void noret(void){exit(1);} int main(int argc, char *argv[]) {noret(); return 0;}"
-  HAVE_NORETURN_ATTRIBUTE
-)
 if(HAVE_NORETURN_ATTRIBUTE)
   brlcad_deferred_define("HAVE_NORETURN_ATTRIBUTE 1")
 endif(HAVE_NORETURN_ATTRIBUTE)
-
-# Check whether the compiler supports __declspec(noreturn)
-check_c_source_compiles(
-  "#include <stdlib.h>
-__declspec(noreturn) void noret(void) {exit(1);} int main(int argc, char *argv[]) {noret(); return 0;}"
-  HAVE_NORETURN_DECLSPEC
-)
 if(HAVE_NORETURN_DECLSPEC)
   brlcad_deferred_define("HAVE_NORETURN_DECLSPEC 1")
 endif(HAVE_NORETURN_DECLSPEC)
-
-# Check whether the compiler supports __attribute__((analyzer_noreturn))
-check_c_source_compiles(
-  "__attribute__((analyzer_noreturn)) void anoret(void); void anoret(void){return;} int main(int argc, char *argv[]) {anoret(); return 0;}"
-  HAVE_ANALYZER_NORETURN_ATTRIBUTE
-)
 if(HAVE_ANALYZER_NORETURN_ATTRIBUTE)
   brlcad_deferred_define("HAVE_ANALYZER_NORETURN_ATTRIBUTE 1")
 endif(HAVE_ANALYZER_NORETURN_ATTRIBUTE)
-
-# Check whether the compiler supports __attribute__((always_inline))
-check_c_source_compiles(
-  "__attribute__((always_inline)) inline void always_inline(void); inline void always_inline(void){return;} int main(int argc, char *argv[]) {always_inline(); return 0;}"
-  HAVE_ALWAYS_INLINE_ATTRIBUTE
-)
 if(HAVE_ALWAYS_INLINE_ATTRIBUTE)
   brlcad_deferred_define("HAVE_ALWAYS_INLINE_ATTRIBUTE 1")
 endif(HAVE_ALWAYS_INLINE_ATTRIBUTE)
-
-# Check whether the compiler supports __forceinline
-check_c_source_compiles(
-  "__forceinline inline void always_inline(void); inline void always_inline(void){return;} int main(int argc, char *argv[]) {always_inline(); return 0;}"
-  HAVE_FORCEINLINE
-)
 if(HAVE_FORCEINLINE)
   brlcad_deferred_define("HAVE_FORCEINLINE 1")
 endif(HAVE_FORCEINLINE)
-
-# Check whether the compiler supports __attribute__((const))
-check_c_source_compiles(
-  "__attribute__((const)) void func(void); void func(void){return;} int main(int argc, char *argv[]) {func(); return 0;}"
-  HAVE_CONST_ATTRIBUTE
-)
 if(HAVE_CONST_ATTRIBUTE)
   brlcad_deferred_define("HAVE_CONST_ATTRIBUTE 1")
 endif(HAVE_CONST_ATTRIBUTE)
-
-# Check whether the compiler supports __attribute__((pure))
-check_c_source_compiles(
-  "__attribute__((pure)) void func(void); void func(void){return;} int main(int argc, char *argv[]) {func(); return 0;}"
-  HAVE_PURE_ATTRIBUTE
-)
 if(HAVE_PURE_ATTRIBUTE)
   brlcad_deferred_define("HAVE_PURE_ATTRIBUTE 1")
 endif(HAVE_PURE_ATTRIBUTE)
-
-# Check whether the compiler supports __attribute__((cold))
-check_c_source_compiles(
-  "__attribute__((cold)) void func(void); void func(void){return;} int main(int argc, char *argv[]) {func(); return 0;}"
-  HAVE_COLD_ATTRIBUTE
-)
 if(HAVE_COLD_ATTRIBUTE)
   brlcad_deferred_define("HAVE_COLD_ATTRIBUTE 1")
 endif(HAVE_COLD_ATTRIBUTE)
-
-# Check whether the compiler supports __attribute__((hot))
-check_c_source_compiles(
-  "__attribute__((hot)) void func(void); void func(void){return;} int main(int argc, char *argv[]) {func(); return 0;}"
-  HAVE_HOT_ATTRIBUTE
-)
 if(HAVE_HOT_ATTRIBUTE)
   brlcad_deferred_define("HAVE_HOT_ATTRIBUTE 1")
 endif(HAVE_HOT_ATTRIBUTE)
-
-# Check whether the compiler supports __attribute__((nonnull))
-check_c_source_compiles(
-  "__attribute__((nonnull)) int *func(int *); int *func(int *v){(*v)-=1; return v;} int main(int argc, char *argv[]) {int v = 1; int *vp = func(&v); return *vp;}"
-  HAVE_NONNULL_ATTRIBUTE
-)
 if(HAVE_NONNULL_ATTRIBUTE)
   brlcad_deferred_define("HAVE_NONNULL_ATTRIBUTE 1")
 endif(HAVE_NONNULL_ATTRIBUTE)
-
-# Check whether the compiler supports __attribute__((warn_unused_result))
-check_c_source_compiles(
-  "__attribute__((warn_unused_result)) int *func(int *); int *func(int *v){(*v)-=1; return v;} int main(int argc, char *argv[]) {int v = 1; int *vp = func(&v); return *vp;}"
-  HAVE_WARN_UNUSED_RESULT_ATTRIBUTE
-)
 if(HAVE_WARN_UNUSED_RESULT_ATTRIBUTE)
   brlcad_deferred_define("HAVE_WARN_UNUSED_RESULT_ATTRIBUTE 1")
 endif(HAVE_WARN_UNUSED_RESULT_ATTRIBUTE)
-
-# Check whether the compiler supports __attribute__((flatten))
-check_c_source_compiles(
-  "__attribute__((flatten)) int *func(int *v){(*v)-=1; return v;} __attribute((flatten)) int main(int argc, char *argv[]) {int v = 1; int *vp = func(&v); return *vp;}"
-  HAVE_FLATTEN_ATTRIBUTE
-)
 if(HAVE_FLATTEN_ATTRIBUTE)
   brlcad_deferred_define("HAVE_FLATTEN_ATTRIBUTE 1")
 endif(HAVE_FLATTEN_ATTRIBUTE)
