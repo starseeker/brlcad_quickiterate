@@ -7,6 +7,7 @@ set(
   test_avs.c
   test_b64.c
   test_backtrace.c
+  test_bomb.c
   test_badmagic.c
   test_basename.c
   test_bitv.c
@@ -21,6 +22,7 @@ set(
   test_endian.c
   test_env.c
   test_escape.c
+  test_fchmod.cpp
   test_file.c
   test_file_mime.c
   test_heap.c
@@ -74,10 +76,16 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../..)
 configure_file(bu_test.cpp.in "${CMAKE_CURRENT_BINARY_DIR}/bu_test.cpp" @ONLY)
 distclean("${CMAKE_CURRENT_BINARY_DIR}/bu_test.cpp")
 brlcad_addexec(bu_test "${CMAKE_CURRENT_BINARY_DIR}/bu_test.cpp" "libbu;Threads::Threads" TEST)
+if(TARGET bu_test)
+  set_property(TARGET bu_test PROPERTY ENABLE_EXPORTS ON)
+endif()
 
 # The uuid code doesn't mix with C++ compilers - make a separate
 # C-only executable for this case
+set_source_files_properties(test_uuid.c PROPERTIES NO_CXX_COMPILE TRUE)
 brlcad_addexec(bu_test_uuid "test_uuid.c" libbu TEST)
+
+# Benchmark-only target: build it, but don't schedule it under CTest.
 brlcad_addexec(test_bitv_benchmark "test_bitv_benchmark.c" libbu TEST)
 
 # Housekeeping for included source files
@@ -90,6 +98,15 @@ validate_style("${bu_test_srcs}" bu_test)
 
 brlcad_addexec(bu_sscanf test_sscanf.c libbu TEST)
 brlcad_addexec(bu_gethostname test_gethostname.c libbu TEST)
+brlcad_add_test(NAME bu_argv COMMAND bu_test test_argv)
+brlcad_add_test(NAME bu_backtrace COMMAND bu_test test_backtrace)
+brlcad_add_test(NAME bu_bomb COMMAND bu_test test_bomb "$<TARGET_FILE:bu_test>")
+brlcad_add_test(NAME bu_dir COMMAND bu_test test_dir)
+brlcad_add_test(NAME bu_list_empty COMMAND bu_test test_list 0)
+brlcad_add_test(NAME bu_list_single COMMAND bu_test test_list 1)
+brlcad_add_test(NAME bu_list_many COMMAND bu_test test_list 16)
+brlcad_add_test(NAME bu_sscanf_compare COMMAND bu_sscanf)
+brlcad_add_test(NAME bu_gethostname_lookup COMMAND bu_gethostname)
 
 
 #
@@ -765,7 +782,8 @@ brlcad_add_test(NAME bu_hook_saverestore COMMAND bu_test test_hook saverestore)
 
 # Make a binary to launch as a subprocess, and add it as
 # dependency of bu_test to make sure it is present when
-# bu_test runs its process tests
+# bu_test runs its process tests.  This helper is exercised
+# indirectly by bu_process_all rather than as a standalone CTest case.
 brlcad_addexec(bu_subprocess test_subprocess.cpp libbu TEST)
 if(TARGET bu_test)
   add_dependencies(bu_test bu_subprocess)
@@ -798,10 +816,6 @@ if(TARGET bu_mappedfile_parallel_16384)
   set_tests_properties(bu_mappedfile_parallel_16384 PROPERTIES TIMEOUT 3000)
 endif()
 
-if(BUILD_TESTING)
-  brlcad_addexec(perm_test test_perm.cpp libbu TEST)
-  set_target_properties(perm_test PROPERTIES FOLDER "BRL-CAD Executables/Test Programs")
-endif(BUILD_TESTING)
 
 #
 #  *********** test_realpath.c tests ************
@@ -843,7 +857,6 @@ cmakefiles(
   path_match.in
   tests_bitv.cmake
   tests_vls.cmake
-  test_perm.cpp
   test_semchk.cpp
 )
 

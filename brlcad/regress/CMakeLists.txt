@@ -68,6 +68,9 @@ add_subdirectory(mged)
 # moss.g Regression Tests
 add_subdirectory(moss)
 
+# NACA 4/5/6 wing generator Regression Tests
+add_subdirectory(naca456)
+
 # NIRT Regression Tests
 add_subdirectory(nirt)
 
@@ -100,6 +103,9 @@ add_subdirectory(rtwizard)
 
 # Simulation of a 3rd party BRL-CAD library client code
 add_subdirectory(user)
+
+# Procedural tree shape generator Regression Tests
+add_subdirectory(tree)
 
 # solids Regression Tests
 add_subdirectory(solids)

@@ -112,13 +112,6 @@
 #endif
 
 
-extern struct fb *fbp;	/* Framebuffer handle */
-extern fastf_t viewsize;
-extern int lightmodel;
-extern size_t width, height;
-extern int per_processor_chunk;
-extern int default_background;
-
 static int pixsize = 0;	/* bytes per pixel in scanline */
 
 struct cell {
@@ -278,7 +271,7 @@ struct bu_structparse view_parse[] = {
 };
 
 
-const char title[] = "RT Hidden-Line Renderer";
+EXTERNCPP const char title[] = "RT Hidden-Line Renderer";
 
 
 int handle_main_ray(struct application *ap, register struct partition *PartHeadp, struct seg *segp);
@@ -1542,7 +1535,8 @@ handle_main_ray(struct application *ap, register struct partition *PartHeadp,
 }
 
 
-void application_init(void) {
+C_DECL void
+application_init(void) {
     bu_vls_trunc(&occlusion_objects, 0);
 
     /* Set the byte offsets at run time */

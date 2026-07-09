@@ -18,6 +18,9 @@ tasks as they are completed.
 THESE TASKS SHOULD HAPPEN BEFORE THE NEXT RELEASE
 -------------------------------------------------
 
+* rm foo bar vs rm -C foo bar and a safety guard that prevents
+  deleting foo accidentially.
+
 * verify MGED exit behavior on Windows - reports of non-zero exit
   being returned.
 
@@ -38,26 +41,22 @@ THESE TASKS SHOULD HAPPEN WITHIN TWO RELEASE ITERATIONS
 * fix ARB8 promotion to BoT, so calls between prep and shot don't get
   inconsistent data (soltab needs to match).
 
-* Adjust bext patching to use file copying for cases where we are
-  adding our own files wholesale
-
 * verify arb6 editing in cheese wedge tutorial
 
 * rtarea is sometimes missing regions on summary reporting, at least
   on Windows, possibly a threading issue setting up the results
   container.
 
-* Create EXPORT targets for BRL-CAD libraries to support newer CMake
-  find_package style.  If possible, try to also support older style
-  variables in FindBRLCAD.cmake
-
-* Wire arb lint check into edit as a preliminary step - if we have
-  non-standard point ordering, it's all too likely strange things
-  could happen editing the arb.
-
 
 THESE ARE UNSCHEDULED BACKLOG TASKS
 -----------------------------------
+
+* Add two-tiered option handling to tire, propeller and naca456
+  For most uses we'll want a few pre-baked high level settings -
+  those can be command line flags.  For full control of the complex
+  settings, we should take a JSON file that holds detailed settings.
+  Idea is more general than those 3 tools, but they are low risk
+  experimental targets that would all benefit from the approach.
 
 * write meshing/remeshing/decimation guide
 
@@ -75,6 +74,14 @@ THESE ARE UNSCHEDULED BACKLOG TASKS
   number of threads or to more aggressively abort when more that
   supported are dispatched.  currently supporting 64x64 threads and
   still with some potential for race conditions on the book-keeping.
+
+  [HARD] Concurrency heisenbug cluster: hard-coded 64x64 thread limits
+  plus ID/bookkeeping races (IDs exceeding MAX_PSW).  Fixes must be
+  provably correct under contention across pthreads/C++11/Windows.  See
+  BUGS "recursive bu_parallel() failure", "race condition causing bus
+  errors on exit", and the gqa semaphore-contention item.
+  [FAN-OUT: yes for the audit -- one agent per bu_parallel() call site
+  / semaphore user -- but the actual race fix needs one careful hand.]
 
 * Teach lint command to look for comb instance paths with non-uniform
   scaling matrices that have tor primitives as leaves - those will not
@@ -105,23 +112,13 @@ THESE ARE UNSCHEDULED BACKLOG TASKS
   worth considering whether shader related functionality should go
   under a "mater shader" subcommand.
 
-* user request for a way to scan arbs in a .g looking for invalid
-  definitions (non-convex, non-planar faces, etc.)
-
 * implement nirt flag to report a secondary ray fired in the direction
   of the hit point surface normal.
 
 * calculate maximum/minimum presented area az/el for a given model
 
-* optimize mged/libged init and exit performance.  profiling shows
-  over 90% of entire execution time to run a single command is
-  dominated by libged's dlopen/dlclose.  cumulatively about 1sec on
-  Mac, but likely extrapolates to all platforms.
-
 * convert non-planar arb's to brep objects for ray-tracing.  see how
   well it works to see if we can remove an arb limitation.
-
-* combine solid_report with the "who" command (subcommand options)
 
 * explore c++ fastf_t class.  compile-time support for using GMP or CLN
   for arbitrary exact precision arithmetic computation support
@@ -138,6 +135,11 @@ THESE ARE UNSCHEDULED BACKLOG TASKS
 
 * Look into https://www.kitware.com/really-fast-isocontouring/ to see
   if those algorithms could be useful for BRL-CAD
+
+* Investigate https://github.com/zeux/meshoptimizer to see if its
+  algorithms would be useful for our BoTs - unless there's a reason
+  not to, writing out optimized meshes might help performance in
+  a few graphical display cases.
 
 * There are probably a number of algorithms in our code where
   we should check to see if the GTE implementation would be better
@@ -247,6 +249,13 @@ lookup check to ensure none are missing.
 
   https://keramida.wordpress.com/2009/07/05/fts3-or-avoiding-to-reinvent-the-wheel/
 
+  [HARD] Needs a full-path-aware, stack-based replacement for the
+  recursive db_walk_tree with general-graph cycle detection; touches
+  every hierarchy-traversing command.  See BUGS "Recursive submodel
+  predictably goes infinite" and the clone-1M-never-returns case.
+  [FAN-OUT: yes -- audit all recursive-traversal call sites in
+  parallel; the new walker is written once and rolled out.]
+
 * bounding box reduction command
 
 * consolidate dbconcat, clone, make_name, and any other .g I/O
@@ -307,17 +316,6 @@ lookup check to ensure none are missing.
 * default tops to undecorated, deprecate -n, add tops -p
 
 * default ls to undecorated, deprecate -n, add ls -p
-
-* make mv and mvall not accept slashes on destination:
-
-  mged> mv sph.r sph.r/R
-  db_lookup(R) failed: R does not exist
-  db_string_to_path() of 'sph.r/R' failed on 'R'
-  mged> tops
-  sph.r/R/R
-  mged> mv sph.r/R sph.r
-  mged> tops
-  sph.r/R
 
 * consider not using spaces in the default installer path on Windows
   for simplified scripting usage (e.g., when installed to C:\)
@@ -380,25 +378,15 @@ lookup check to ensure none are missing.
   3. Shoot rays from outside at exterior vertices, retain all mesh faces
      and objects encountered (i.e., not reconstructed, but extracted)
 
+* look into using Manifold::Hull() to replace our copy of QuickHull -
+  manifold made some robustness improvements and we rely on them anyway,
+  so we should probably just leverage them.
+
+* latest Manifold has a Contains(vec3) method - that's likely quite
+  robust and may be worth using in our code for "point in mesh" tests
+  if it is performant enough.
+
 * RTAREA
-
-  * add an option to rtarea for onehit.  this is probably best as an
-    option that reports the requested objects only and then has a
-    verbose option for the more detailed hierarchical report that is
-    currently produced.
-
-  * verify rtarea.  There are reports that the rtarea
-    command may have a bug in its calculations.  This needs to be
-    investigated.
-
-  * review and fix rtarea's taxonomy for describing
-    presented/projected areas.  users expect presented area to
-    represent what is currently referred to as exposed area.  may make
-    more sense to introduce a different terms for other shotline
-    encounters.
-
-  * make rtarea display a cross-hair and perhaps coordinates for the
-    center of area if run from within mged.
 
   * add an option to rtarea for onehit.  this is probably best as an
     option that reports the requested objects only and then has a
@@ -537,6 +525,13 @@ lookup check to ensure none are missing.
   routines gracefully from application code. A quick initial attempt
   at this didn't succeed very well (r71644 has what was tried).
 
+  [HARD] Safely interrupting arbitrary in-flight library code means
+  unwinding across allocations and held locks, cross-platform -- and it
+  was already attempted once without success (r71644).  One of the
+  hardest "small-sounding" items.
+  [FAN-OUT: poor -- a single mechanism needing one careful design, not
+  parallel coverage.]
+
 * cppclean audit
 
 * add a multiview rt script to regression testing (e.g., see rtwalk
@@ -575,6 +570,13 @@ lookup check to ensure none are missing.
   https://cvsweb.openbsd.org/cgi-bin/cvsweb/src/include/glob.h
   https://cvsweb.openbsd.org/cgi-bin/cvsweb/src/lib/libc/gen/glob.c
 
+  [HARD] Foundational design whose decisions cascade everywhere; the
+  combs<->directories analogy breaks on boolean trees with no clean
+  answer.  Relates to the geometry-URL/VFS, symbolic-links, and
+  filesystem-backed-collections items.
+  [FAN-OUT: yes -- parallel survey of URI/VFS prior art plus a
+  use-case/edge-case catalog before committing to a spec.]
+
 * replace guts of bu_ptbl to see if we can improve performance -
   implications for removal if an appropriate substitute is found,
   needs to be deprecated if we remove all API but we can update guts.
@@ -612,6 +614,13 @@ lookup check to ensure none are missing.
 * sync tgc/rec shot() behavior, sort results for proper normal.
   inspect t62 grazing with r653,r735 (tgc on an arb8) looking at ae0,0
   and z=1524 (was hit/overlap, now misses).
+
+  [HARD] Numerically delicate primitive-intersection edge cases (t62
+  grazing, ae 0,0 hit/overlap -> miss).  Couples with "fix ARB8
+  promotion to BoT" (prep/shot soltab mismatch) and the global grazing
+  policy in the OVERLAP TOOLS section.
+  [FAN-OUT: partial -- a fan-out can generate the ray/primitive-pair
+  test matrix; the fix itself is serial and tolerance-sensitive.]
 
 * havoc.g s.nos5g reliably exhibits the grazing edge bug where only
   one hit point is being returned.  to reproduce: e s.nos5g ; ae 35 25
@@ -785,14 +794,19 @@ lookup check to ensure none are missing.
   (e.g., similar to preprocessing, compilation, AST reduction,
   optimization, encoding transformation, etc.).  name ideas: bcg, cg
 
+  [HARD] Two new subsystems (with the geometry debugger below).  The
+  compiler needs real CSG optimization (tree contraction, null-object
+  detection -- hard in itself); the debugger demands a dependency-free
+  re-implementation of .g parsing to inspect corrupt files.
+  [FAN-OUT: yes -- catalog candidate CSG optimizations and the on-disk
+  .g layout in parallel; the cores are then implemented serially.]
+
 * geometry debugger.  low-level geometry database tool with minimal/no
   run-time dependencies on our own libraries.  the idea is a tool that
   can inspect/repair a potentially corrupted/invalid .g file or help
   debug library robustness issues.  using headers for identifiers and
   codes in the implementation is okay (as are library functions, but
   just don't rely on any).  name ideas: gdbg, dbadmin, dbtool, dbmaint
-
-* BU_SETJUMP/BU_UNSETJUMP into macros
 
 * convert all calls to BU_SETJUMP/BU_UNSETJUMP into familiar try/catch
   logic layout using if/else.
@@ -806,8 +820,6 @@ lookup check to ensure none are missing.
 * investigate INFINITY spatial partitioning issue.
 
 * kill material_head static global in src/librt/mater.c
-
-* add an mk_extrude() routine to libwdb.
 
 * Teach CMake to respect and use user-defined CMAKE_C_FLAGS and other
   options supplied at the command line and in environment variables.
@@ -828,6 +840,13 @@ lookup check to ensure none are missing.
 
 * decouple libwdb from librt, particularly the headers and relevant
   structures that cross over to both such as the rtgeom.h types.
+
+  [HARD] Untangling circular core dependencies without breaking ABI for
+  downstream; pairs with "refactor ... nmg processing ... into its own
+  library" below.  Measured blast radius: 671 files include raytrace.h;
+  231 reference nmg_*.
+  [FAN-OUT: yes -- parallel dependency mapping (per header/symbol)
+  first; the moves themselves must be serialized.]
 
 * Translate logic from clipper polygon clipping library
   (http://www.angusj.com/delphi/clipper.php) into libbg and use it as
@@ -869,10 +888,6 @@ lookup check to ensure none are missing.
 
 * investigate integrating Pixar's OpenSubdiv for subdivision surfaces:
   http://graphics.pixar.com/opensubdiv/
-
-* the scale structure in bn_cmd_noise_slice (bn_tcl.c) was never
-  initialized. it looks like somebody has planned to extend the
-  function but never carried out
 
 * implement a null spatial partitioning method so we can determine
   what other intersection hits are being masked (and what impact a
@@ -968,6 +983,12 @@ lookup check to ensure none are missing.
 * struct rt_bot_internal should be using "size_t *" instead of "int *"
   for the faces and face_normals members
 
+  [HARD] Looks mechanical but touches BoT serialization, libtie, and
+  every converter, with subtle signedness/32-bit landmines on huge
+  meshes.  ~72 files reference the faces/face_normals members.
+  [FAN-OUT: yes -- per-file/per-converter sweep with a verification
+  pass.]
+
 * pixdiff reports bytes, but reports incorrect (off-by-one) bytes for
   .bw input files.  cause is due to tool assuming input is rgb
   triplets (even though output is bytes, wtf?).  should probably
@@ -1000,8 +1021,6 @@ lookup check to ensure none are missing.
   src/libged/glob.c code, very similar.
 
 * update g-xxx_facets to use libgcv
-
-* bu_cv_optimize() should be using bu_byteorder().
 
 * render annotated images to the OpenDocument format.  this is
   particularly useful for rtedge-style renderings with object
@@ -1110,8 +1129,6 @@ lookup check to ensure none are missing.
 
 * refactor mged/bwish/g_diff initialization to all use the same routine
 
-* deprecate either orot or rotobj
-
 * refactor mged's signal handling to make it possible to safely
   interrupt long-running commands
 
@@ -1154,6 +1171,12 @@ lookup check to ensure none are missing.
 
 * remove hit_normal and hit_point from struct hit.  add RT_HIT_POINT
   macro.  refactor all callers as needed.
+
+  [HARD] Surgery on the hottest struct in the ray-tracer: ABI break,
+  perf-critical, every primitive's shot() must be re-audited.  Measured
+  blast radius: 107 files reference hit_normal/hit_point.
+  [FAN-OUT: yes -- strong mechanical sweep; one agent per
+  file/primitive to migrate to RT_HIT_POINT, then verify.]
 
 * make bombardier actually send the report somewhere
 
@@ -1237,6 +1260,13 @@ lookup check to ensure none are missing.
 * geometry viewing commands/visualizations of exploded levels
 
 * librt-based path tracer
+
+  [HARD] A global-illumination engine: importance sampling,
+  convergence/denoise, integration with the existing shader stack and
+  framebuffers.  Couples with "Integrate ADRT into Archer" and the
+  automatic-anti-aliasing item.  A whole rendering subsystem.
+  [FAN-OUT: partial -- parallel component research (samplers, denoise,
+  ADRT bridge); the integrator core is serial.]
 
 * system identifier application with sysctl-style information
   database, with some back-end functionality placed into libbu.
@@ -1378,6 +1408,15 @@ OVERLAP TOOLS
   grazing hits, but mark them as grazing, and let rt_shootray() sort
   it out by sampling a 3x3 pattern that determines if we're grazing
   the "top/left" or "bottom/right" side of a surface.
+
+  [HARD] Needs one grazing convention that is simultaneously solid,
+  deterministic, view-independent (bidirectional) and overlap-free
+  across every primitive; the text above concedes a valid edge/face
+  graze normal is "difficult for some objects."  Governs global
+  raytrace correctness; see also the s.nos5g grazing-edge bug and the
+  tgc/rec shot() item.  A fully-correct solution may not exist.
+  [FAN-OUT: yes -- one agent per primitive to characterize graze
+  behavior, plus an adversarial bank of bidirectional ray test cases.]
 
 * implement quasi-random unbiased iterative spherical ray sampling.
   requires devising an algorithm whereby we obtain a set of points on
@@ -1541,9 +1580,6 @@ LIBGED
   needs to be handled in a generalized way so that most/all commands
   have a notion of operating on the currently 'selected' object(s).
 
-* fix !!! in src/libged/tables.c where a temporary file is getting
-  used.  needs to call bu_temp_file().
-
 * refactor the libtclcad go_*() functions and invocation wrappers
   (also in mged) into libged where appropriate. the 'png' command
   comes to mind.
@@ -1592,9 +1628,6 @@ LIBGED
   make s sph; make a arb8; sed a; e a; tra 0 0 500; r hemi u s - a; tol norm 1 ; facetize hemi.bot hemi
   # compared to tol norm 2, # triangles is up ~20% but facetize is >200%
 
-* translate lc command to libged (discovered in Feb. 2015 to have already
-  been done -- need information regarding when this was done and committed).
-
 * BoT mesh editing command.  Subtasks:
 
   - enumerate functions desirable
@@ -1639,9 +1672,6 @@ LIBGED
 * add option to 'mirror' command to delete the source object.  support
   specification of a plane as the view plane, 3 points, XY, YZ, XZ.
 
-* killall command reports db_lookup failures if the target object
-  doesn't exist (maybe we only care about refs).  should keep quiet.
-
 * replace sed and oed commands: functionality provided by new 'edit'
   command, but requires testing (unit tests) to make sure it's working
   correctly.
@@ -1650,10 +1680,6 @@ LIBGED
 
 * add support for a custom unit conversion factor to the units command
   (e.g. 'units 9.3120223' or 'units metertons 9.3120223')
-
-* deprecate dbfind - ensure functionality is fully captured by the
-  search and ls commands, make it report a deprecation statement on
-  use and utilize ls under the hood.
 
 * implement some sort of archive/backup command in mged in order to
   save the currently open database out to a file.
@@ -2106,8 +2132,6 @@ CONVERTERS
 * integrate the submitted x3d-g (Web3D, VRML successor) importer
   (pending patch on sf)
 
-* add support to x3d-g for NURBS entities
-
 * compare libIGES (lgpl, https://github.com/cbernardo/libIGES) as
   potential replacement for our complex IGES conversion logic.
   appropriate time for review when IGES gets added to libGCV.
@@ -2223,6 +2247,13 @@ BREP/NURBS
   the same subdivisions unnecessarily, but avoids locks entirely in
   the common case and minimizes lock contention.
 
+  [HARD] Combines lock-free concurrency (sentinel array fill), numeric
+  derivative-convergence heuristics, and a cache-coherent
+  kd-tree/extent-array layout -- all in the hot path at once.
+  Research-grade on all three fronts.
+  [FAN-OUT: poor for the core algorithm (one expert design); fan-out
+  only to prototype/benchmark competing subdivision heuristics.]
+
 * create a BC_Brep class that inherits from ON_Brep so we can cleanly
   extend and implement functions that were intentionally removed from
   openNURBS.
@@ -2241,6 +2272,14 @@ BREP/NURBS
   the old NURBS code.
 
 * implement boolean evaluation of nurbs surfaces
+
+  [HARD] The canonical open problem in solid modeling: robust
+  surface-surface intersection, trim-curve generation, and topology
+  stitching are what took ACIS/Parasolid teams decades.  No ground
+  truth, no shortcut; couples with "implement tessellation support" and
+  the trimmed-surface bbox item.
+  [FAN-OUT: design only -- a judge panel of independent SSI/trimming
+  approaches helps; the implementation itself is serial.]
 
 * NURBS editing command, let you interactively
   add/update/join/split/remove component points, edges, surfaces.
@@ -2277,6 +2316,14 @@ NMG/BoT
   on large BoT models) during prep.
 
 * ensure robust and fast nmg->bot conversion
+
+  [HARD] NMG is famously fragile; "make it robust" is a perennial that
+  resists closed-form fixes, and the tessellation crashes (ETO /
+  metaball / DSP infinite recursion + stack smashing in BUGS) are
+  geometry-dependent.  ~231 files reference nmg_*.  See also the NMG
+  ray-tracing malloc-per-shot item below.
+  [FAN-OUT: yes -- one agent per failing primitive/tess path to build a
+  reproducible failure corpus; repairs land serially.]
 
 * facetize creates BoTs crappily by only looking at first region,
   first shell, instead of the whole nmg model.
@@ -2375,6 +2422,13 @@ THESE BREAK PROTOCOL OR ARE BACKWARDS-INCOMPATIBLE
   coordinate system even after pushed matrices.  this also will allow
   primitives like the torus to support non-uniform scaling.
 
+  [HARD] On-disk format change rippling through every primitive's
+  import/export/xform/raytrace -- and the non-uniform-tor raytrace it
+  is meant to enable is itself unsolved.  Requires a v5->v6 migration
+  plus full revalidation.
+  [FAN-OUT: yes -- one agent per primitive for the import/export/xform
+  changes; the format/migration design stays central.]
+
 * change convention of using 'u', '+', and '-' for unions,
   intersections, and subtractions respectively to symbols that
   unambiguously describe the underlying CSG operation.
@@ -2414,8 +2468,12 @@ THESE BREAK PROTOCOL OR ARE BACKWARDS-INCOMPATIBLE
 * add database support for constraints, expressions, parametric
   values, construction history, and timestamping.
 
-* see the CHANGES file for items that have been marked as deprecated
-  or available to be removed as obsolete items.
+  [HARD] Effectively "make BRL-CAD parametric": a new
+  evaluation/dependency engine, construction history, and selectable
+  subtree representation baked into the format.  Enormous; assumes the
+  ambitious reading (a real parametric kernel, not just storage).
+  [FAN-OUT: poor for the kernel; useful only for parallel design
+  exploration of competing parametric/constraint models.]
 
 * make struct rt_functab's ft_label bigger and/or dynamic (e.g., vls)
 
@@ -2444,6 +2502,13 @@ THESE BREAK PROTOCOL OR ARE BACKWARDS-INCOMPATIBLE
   shortened/empty string, but record a larger attribute/object size,
   allowing for binary data beyond the attribute value '\0' termination.
 
+  [HARD] BSON/CBOR encoding smuggled into the v5 spec's size fields for
+  backward compat, plus (paired with the libbu mime-API retirement)
+  replacing the static enum mime API with a runtime-populated
+  libmagic-style engine.  Format + API redesign with compat traps.
+  [FAN-OUT: partial -- parallel survey of encodings and an audit of all
+  mime-enum users; the spec/compat work is central.]
+
 * change format of related programs (especially filters) so the
   input/output files are handled identically. two examples of
   different handling:
@@ -2456,6 +2521,14 @@ THESE BREAK PROTOCOL OR ARE BACKWARDS-INCOMPATIBLE
 
 FUNCTIONALITY NEEDED TO SPEED UP RAYTRACING
 -------------------------------------------
+
+  [HARD] Re-architecting the ray-primitive interface for bundled/SIMD
+  traversal means rewriting every primitive's intersection routine and
+  the partitioning core while preserving exact results -- broad,
+  perf-critical, and easy to get subtly wrong.  (Applies to this whole
+  section: merge shot/vshot, bundles, SIMD, SAH, kdtree.)
+  [FAN-OUT: yes -- one agent per primitive to convert shot()->bundle
+  with a result-equivalence harness; the kdtree core stays central.]
 
 * merge shot and vshot
 
@@ -2501,10 +2574,6 @@ DOCUMENTATION
   docs and/or clean presentation layout with overview, tutorials, and
   reference.
 
-* "apropos man" does not exist
-
-* "help man" does not exist
-
 * Need ability to search manual pages
 
 * rename MGED Help->Apropos to Help->Search Commands (apropos)
@@ -2529,51 +2598,6 @@ DOCUMENTATION
 
 * document the new NURBS/BREP primitive, capabilities and limitations
 
-* Low-hanging fruit, add missing manual pages:
-
-    archer
-    bombardier
-    damdf
-    dauto
-    dauto2
-    dconv
-    ddisp
-    dfft
-    dmod
-    dpeak
-    dsel
-    dstats
-    dwin
-    gcv
-    ihist
-    imod
-    isst
-    istats
-    lowp
-    pix3filter
-    pixcount
-    pixelswap
-    pixembed
-    plot3stat
-    rtsil
-    rtsrv
-    smod
-    step-g
-    umod
-    ustats
-
-  Shape tools installed without docs.  may absorb into ged as plugins
-  or may rename, but still need docs:
-
-    bolt
-    fence
-    gastank
-    handle
-    human
-    picket_fence
-    window
-    window_frame
-    wire
 
   Need to revisit utility of spherical mapping, used by sh_spm and
   sh_points, used for environment mapping (e.g., stars):

@@ -50,7 +50,7 @@ extern "C" {
     extern void rt_##name##_norm(struct hit *hitp, struct soltab *stp, struct xray *rp); \
     extern void rt_##name##_uv(struct application *ap, struct soltab *stp, struct hit *hitp, struct uvcoord *uvp); \
     extern void rt_##name##_curve(struct curvature *cvp, struct hit *hitp, struct soltab *stp); \
-    extern int rt_##name##_class(const struct soltab *, const vect_t *, const vect_t *, const struct bn_tol *); \
+    extern int rt_##name##_class(const struct soltab *, const vect_t, const vect_t, const struct bn_tol *); \
     extern void rt_##name##_free(struct soltab *stp); \
     extern int rt_##name##_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const struct bview *info); \
     extern int rt_##name##_adaptive_plot(struct bu_list *vhead, struct rt_db_internal *ip, const struct bn_tol *tol, const struct bview *v, fastf_t s_size); \
@@ -130,6 +130,7 @@ RT_DECLARE_INTERFACE(brep);
 RT_DECLARE_INTERFACE(joint);
 RT_DECLARE_INTERFACE(script);
 
+extern "C" {
 
 /* generics for object manipulation, in generic.c */
 extern int rt_generic_get(struct bu_vls *, const struct rt_db_internal *, const char *);
@@ -141,12 +142,10 @@ extern int rt_generic_scene_obj(struct bv_scene_obj *s, struct directory *dp, st
 
 /* from primitives/crofton.cpp - Cauchy-Crofton SA/volume functab callbacks
  * (internal to librt; not exported via the public header)              */
-extern "C" {
 extern void rt_crofton_surf_area(fastf_t *area, const struct rt_db_internal *ip);
 extern void rt_crofton_volume(fastf_t *vol, const struct rt_db_internal *ip);
 extern void rt_crofton_surf_area_implicit(fastf_t *area, const struct rt_db_internal *ip);
 extern void rt_crofton_volume_implicit(fastf_t *vol, const struct rt_db_internal *ip);
-}
 
 /* from primitives/poly/poly.c - analytic polysolid measure functions */
 extern void rt_pg_volume(fastf_t *volume, const struct rt_db_internal *ip);
@@ -177,11 +176,14 @@ extern void rt_comb_volume(fastf_t *vol, const struct rt_db_internal *ip);
 extern int rt_annot_form(struct bu_vls *logstr, const struct rt_functab *ftp);
 extern int rt_bot_form(struct bu_vls *logstr, const struct rt_functab *ftp);
 extern int rt_cline_form(struct bu_vls *logstr, const struct rt_functab *ftp);
+extern int rt_datum_form(struct bu_vls *logstr, const struct rt_functab *ftp);
 extern int rt_ebm_form(struct bu_vls *logstr, const struct rt_functab *ftp);
 extern int rt_extrude_form(struct bu_vls *logstr, const struct rt_functab *ftp);
 extern int rt_metaball_form(struct bu_vls *logstr, const struct rt_functab *ftp);
 extern int rt_script_form(struct bu_vls *logstr, const struct rt_functab *ftp);
 extern int rt_sketch_form(struct bu_vls *logstr, const struct rt_functab *ftp);
+
+} // extern "C"
 
 
 const struct rt_functab OBJ[] = {
@@ -1496,8 +1498,8 @@ const struct rt_functab OBJ[] = {
 	RTFUNCTAB_FUNC_MAKE_CAST(rt_dsp_make),
 	RTFUNCTAB_FUNC_PARAMS_CAST(rt_dsp_params),
 	RTFUNCTAB_FUNC_BBOX_CAST(rt_dsp_bbox),
-	RTFUNCTAB_FUNC_VOLUME_CAST(rt_crofton_volume),
-	RTFUNCTAB_FUNC_SURF_AREA_CAST(rt_crofton_surf_area),
+	RTFUNCTAB_FUNC_VOLUME_CAST(rt_dsp_volume),
+	RTFUNCTAB_FUNC_SURF_AREA_CAST(rt_dsp_surf_area),
 	NULL, /* centroid */
 	NULL, /* oriented_bbox */
 	NULL, /* find_selections */
@@ -2285,15 +2287,15 @@ const struct rt_functab OBJ[] = {
 	RT_FUNCTAB_MAGIC, "ID_PNTS", "pnts",
 	0,
 	RTFUNCTAB_FUNC_PREP_CAST(rt_pnts_prep),
-	NULL, /* shot */
+	RTFUNCTAB_FUNC_SHOT_CAST(rt_pnts_shot),
 	RTFUNCTAB_FUNC_PRINT_CAST(rt_pnts_print),
-	NULL, /* norm */
+	RTFUNCTAB_FUNC_NORM_CAST(rt_pnts_norm),
 	NULL, /* piece_shot */
 	NULL, /* piece_hitsegs */
-	NULL, /* uv */
+	RTFUNCTAB_FUNC_UV_CAST(rt_pnts_uv),
 	NULL, /* curve */
 	NULL, /* class */
-	NULL, /* free */
+	RTFUNCTAB_FUNC_FREE_CAST(rt_pnts_free),
 	RTFUNCTAB_FUNC_PLOT_CAST(rt_pnts_plot),
 	NULL, /* adaptive_plot */
 	NULL, /* vshot */
@@ -2464,9 +2466,9 @@ const struct rt_functab OBJ[] = {
 	NULL, /* parse */
 	sizeof(struct rt_datum_internal),
 	RT_DATUM_INTERNAL_MAGIC,
-	RTFUNCTAB_FUNC_GET_CAST(rt_generic_get),
-	RTFUNCTAB_FUNC_ADJUST_CAST(rt_generic_adjust),
-	RTFUNCTAB_FUNC_FORM_CAST(rt_generic_form),
+	RTFUNCTAB_FUNC_GET_CAST(rt_datum_get),
+	RTFUNCTAB_FUNC_ADJUST_CAST(rt_datum_adjust),
+	RTFUNCTAB_FUNC_FORM_CAST(rt_datum_form),
 	NULL, /* make */
 	NULL, /* params */
 	NULL, /* bbox */

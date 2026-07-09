@@ -43,6 +43,13 @@ brlcad_addexec(wdb_example wdb_example.c "${PROC_DB_WDB_LIBS}" NO_INSTALL) # NOT
 # and impact our perceived quality and complexity.
 
 brlcad_addexec(brickwall brickwall.c "${PROC_DB_WDB_LIBS}" NO_INSTALL)
+brlcad_addexec(gears gears.c "${PROC_DB_WDB_LIBS}" NO_STRICT NO_INSTALL)
+brlcad_addexec(helicoil helicoil.c "${PROC_DB_WDB_LIBS}" NO_STRICT NO_INSTALL)
+brlcad_addexec(lattice lattice.c "${PROC_DB_WDB_LIBS}" NO_STRICT NO_INSTALL)
+brlcad_addexec(loftwing loftwing.c "${PROC_DB_WDB_LIBS}" NO_STRICT NO_INSTALL)
+brlcad_addexec(specimen specimen.c "${PROC_DB_WDB_LIBS}" NO_STRICT NO_INSTALL)
+brlcad_addexec(terragen terragen.c "${PROC_DB_WDB_LIBS}" NO_STRICT NO_INSTALL)
+brlcad_addexec(voxelize voxelize.c "${PROC_DB_WDB_LIBS}" NO_STRICT NO_INSTALL)
 brlcad_addexec(cchannel cchannel.c "libwdb;${M_LIBRARY}" NO_INSTALL)
 brlcad_addexec(clutter "clutter.c;common.c" "libwdb;${M_LIBRARY}" NO_INSTALL)
 brlcad_addexec(globe globe.c "${PROC_DB_WDB_LIBS}" NO_INSTALL)
@@ -59,6 +66,7 @@ brlcad_addexec(pipe pipe.c "libwdb;${M_LIBRARY}" NO_INSTALL)
 brlcad_addexec(pix2g pix2g.c "${PROC_DB_WDB_LIBS}" NO_INSTALL)
 brlcad_addexec(pyramid pyramid.c "libwdb;${M_LIBRARY}" NO_INSTALL)
 brlcad_addexec(ringworld ringworld.c "${PROC_DB_WDB_LIBS}" NO_INSTALL)
+brlcad_addexec(seashell seashell.c "${PROC_DB_WDB_LIBS}" NO_STRICT NO_INSTALL)
 brlcad_addexec(sketch sketch.c "${PROC_DB_WDB_LIBS}" NO_INSTALL)
 brlcad_addexec(sphflake sphflake.c "libwdb;${M_LIBRARY}" NO_INSTALL)
 brlcad_addexec(tea tea.c "${PROC_DB_WDB_NMG_LIBS}" NO_INSTALL)
@@ -74,6 +82,7 @@ set(proc-db_ignore_files
   caffeine.pdb
   metaballs.pl
   mkbuilding.h
+  mol-cube.dat
   sgi.sh
   spiral.pl
   surfaceintersect.h

@@ -59,7 +59,7 @@ _hrt_validate(struct rt_edit *s, const struct rt_hrt_internal *h)
     return BRLCAD_OK;
 }
 
-void
+C_DECL void
 rt_edit_hrt_set_edit_mode(struct rt_edit *s, int mode)
 {
     rt_edit_set_edflag(s, mode);
@@ -96,13 +96,13 @@ struct rt_edit_menu_item hrt_menu[] = {
     { "", NULL, 0 }
 };
 
-struct rt_edit_menu_item *
+C_DECL struct rt_edit_menu_item *
 rt_edit_hrt_menu_item(const struct bn_tol *UNUSED(tol))
 {
     return hrt_menu;
 }
 
-const char *
+C_DECL const char *
 rt_edit_hrt_keypoint(point_t *pt,
 	const char *UNUSED(keystr),
 	const mat_t mat,
@@ -117,7 +117,7 @@ rt_edit_hrt_keypoint(point_t *pt,
     return strp;
 }
 
-int
+C_DECL int
 rt_edit_hrt_edit(struct rt_edit *s)
 {
     struct rt_hrt_internal *h = (struct rt_hrt_internal *)s->es_int.idb_ptr;
@@ -176,7 +176,7 @@ rt_edit_hrt_edit(struct rt_edit *s)
     }
 }
 
-int
+C_DECL int
 rt_edit_hrt_edit_xy(struct rt_edit *s, const vect_t mousevec)
 {
     return edit_generic_xy(s, mousevec);
@@ -198,24 +198,26 @@ static const struct rt_edit_param_desc hrt_d_param[] = {
 };
 
 static const struct rt_edit_cmd_desc hrt_cmds[] = {
-    { ECMD_HRT_SET_CENTER, "Set Center",        "geometry", 1, hrt_point_param, 1, 10 },
-    { ECMD_HRT_SET_XDIR,   "Set X Direction",   "axes",     1, hrt_vec_param,   1, 20 },
-    { ECMD_HRT_SET_YDIR,   "Set Y Direction",   "axes",     1, hrt_vec_param,   1, 30 },
-    { ECMD_HRT_SET_ZDIR,   "Set Z Direction",   "axes",     1, hrt_vec_param,   1, 40 },
-    { ECMD_HRT_SET_D,      "Set Cusp Distance", "shape",    1, hrt_d_param,     1, 50 }
+    { ECMD_HRT_SET_CENTER, "Set Center",        "geometry", 1, hrt_point_param, 1, 10, NULL },
+    { ECMD_HRT_SET_XDIR,   "Set X Direction",   "axes",     1, hrt_vec_param,   1, 20, NULL },
+    { ECMD_HRT_SET_YDIR,   "Set Y Direction",   "axes",     1, hrt_vec_param,   1, 30, NULL },
+    { ECMD_HRT_SET_ZDIR,   "Set Z Direction",   "axes",     1, hrt_vec_param,   1, 40, NULL },
+    { ECMD_HRT_SET_D,      "Set Cusp Distance", "shape",    1, hrt_d_param,     1, 50, NULL }
 };
 
 static const struct rt_edit_prim_desc hrt_prim_desc = {
-    "hrt", "Heart", 5, hrt_cmds
+    "hrt", "Heart", 5, hrt_cmds,
+    0,                    /* nopt         */
+    NULL                  /* opts         */
 };
 
-const struct rt_edit_prim_desc *
+C_DECL const struct rt_edit_prim_desc *
 rt_edit_hrt_edit_desc(void)
 {
     return &hrt_prim_desc;
 }
 
-int
+C_DECL int
 rt_edit_hrt_get_params(struct rt_edit *s, int cmd_id, fastf_t *vals)
 {
     if (!s || !vals)

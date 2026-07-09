@@ -29,6 +29,8 @@ build_cfg_hdr("${BU_MIME_TYPES_H_FILE}" ${INCLUDE_DIR}/brlcad/bu)
 # failure if it hasn't been built yet.
 add_subdirectory(brledit)
 
+brlcad_check_library(EXECINFO execinfo backtrace)
+
 set(
   LIBBU_SOURCES
   affinity.c
@@ -86,6 +88,7 @@ set(
   observer.c
   opt.c
   parallel.c
+  parallel_cpp11thread.cpp
   parse.c
   path.c
   path_normalize.c
@@ -124,10 +127,15 @@ set(
   xdr.c
 )
 
-if(NOT CMAKE_CXX_STANDARD EQUAL 98)
-  set(LIBBU_SOURCES ${LIBBU_SOURCES} parallel_cpp11thread.cpp)
-else(NOT CMAKE_CXX_STANDARD EQUAL 98)
-endif(NOT CMAKE_CXX_STANDARD EQUAL 98)
+# bitv is C only - keep it that way even when we are compiling
+# the rest of the sources as C++
+set_source_files_properties(bitv.c PROPERTIES NO_CXX_COMPILE TRUE)
+
+# UUID static arrays use C99 array-parameter syntax, which is not
+# valid C++. bu/uuid.h is thus C only - flag the two libbu files
+# that use it accordingly.
+set_source_files_properties(uuid.c PROPERTIES NO_CXX_COMPILE TRUE)
+set_source_files_properties(vls.c PROPERTIES NO_CXX_COMPILE TRUE)
 
 # Note - libbu_deps is defined by ${BRLCAD_SOURCE_DIR}/src/source_dirs.cmake
 set(
@@ -141,6 +149,7 @@ set(
   ${BSON_LIBRARIES}
   LMDB::LMDB
   ${UUID_LIBRARIES}
+  ${EXECINFO_LIBRARY}
   ${M_LIBRARY}
 )
 
@@ -170,7 +179,7 @@ brlcad_addlib(libbu "${LIBBU_SOURCES}" "${BU_INCLUDE_DIRS}" "${BU_LOCAL_INCLUDE_
 set_target_properties(libbu PROPERTIES VERSION 20.0.1 SOVERSION 20)
 
 set(bu_atgts)
-set(bu_targets libbu-obj libbu libbu-static)
+set(bu_targets libbu-obj libbu-brlcad-obj libbu libbu-static)
 foreach(bt ${bu_targets})
   if(TARGET ${bt})
     list(APPEND bu_atgts ${bt})

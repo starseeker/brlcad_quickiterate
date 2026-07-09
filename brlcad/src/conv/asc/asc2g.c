@@ -72,8 +72,8 @@ static size_t ars_curve = 0;
 static size_t ars_pt = 0;
 static char *ars_name = NULL;
 static fastf_t **ars_curves = NULL;
-static char *slave_name = "safe_interp";
-static char *db_name = "_db";
+static const char *slave_name = "safe_interp";
+static const char *db_name = "_db";
 
 static int linecnt = 0;
 static char usage[] = "\
@@ -81,7 +81,7 @@ Usage: asc2g file.asc file.g\n\
  Convert an ASCII BRL-CAD database to binary form\n\
 ";
 
-char *aliases[] = {
+const char *aliases[] = {
     "attr",
     "color",
     "put",
@@ -1580,7 +1580,6 @@ main(int argc, char *argv[])
     if (!bu_vls_strncmp(&line, &str_title, 5) || !bu_vls_strncmp(&line, &str_put, 4)) {
 	Tcl_Interp *interp;
 	Tcl_Interp *safe_interp;
-	struct bu_vls msg = BU_VLS_INIT_ZERO;
 	int tret = 0;
 
 	/* this is a Tcl script */
@@ -1589,11 +1588,13 @@ main(int argc, char *argv[])
 	bu_vls_trunc(&line, 0);
 
 	interp = Tcl_CreateInterp();
-	tret = tclcad_init(interp, 0, &msg);
+	tret = Ged_Init(interp);
 	if (tret == TCL_ERROR) {
-	    bu_log("tclcad_init error: %s\n", bu_vls_cstr(&msg));
+	    bu_log("Ged_Init error: %s\n", Tcl_GetStringResult(interp));
+	    fclose(ifp);
+	    db_close(ofp->dbip);
+	    Tcl_Exit(1);
 	}
-	bu_vls_free(&msg);
 	db_close(ofp->dbip);
 
 	{

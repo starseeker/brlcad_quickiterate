@@ -306,7 +306,7 @@ ecmd_arbn_plane_del(struct rt_edit *s)
  * Public interface                                                    *
  * ================================================================== */
 
-void *
+C_DECL void *
 rt_edit_arbn_prim_edit_create(struct rt_edit *UNUSED(s))
 {
     struct rt_arbn_edit *e;
@@ -315,7 +315,7 @@ rt_edit_arbn_prim_edit_create(struct rt_edit *UNUSED(s))
     return (void *)e;
 }
 
-void
+C_DECL void
 rt_edit_arbn_prim_edit_destroy(void *ptr)
 {
     struct rt_arbn_edit *e = (struct rt_arbn_edit *)ptr;
@@ -323,14 +323,14 @@ rt_edit_arbn_prim_edit_destroy(void *ptr)
     BU_PUT(e, struct rt_arbn_edit);
 }
 
-void
+C_DECL void
 rt_edit_arbn_prim_edit_reset(struct rt_edit *s)
 {
     struct rt_arbn_edit *e = (struct rt_arbn_edit *)s->ipe_ptr;
     e->plane_index = -1;
 }
 
-void
+C_DECL void
 rt_edit_arbn_set_edit_mode(struct rt_edit *s, int mode)
 {
     rt_edit_set_edflag(s, mode);
@@ -351,7 +351,7 @@ rt_edit_arbn_set_edit_mode(struct rt_edit *s, int mode)
     if (f) (*f)(0, NULL, d, &flag);
 }
 
-int
+C_DECL int
 rt_edit_arbn_edit(struct rt_edit *s)
 {
     switch (s->edit_flag) {
@@ -387,8 +387,8 @@ rt_edit_arbn_edit(struct rt_edit *s)
     return 0;
 }
 
-int
-rt_edit_arbn_edit_xy(struct rt_edit *s, vect_t mousevec)
+C_DECL int
+rt_edit_arbn_edit_xy(struct rt_edit *s, const vect_t mousevec)
 {
     vect_t pos_view = VINIT_ZERO;
 
@@ -445,26 +445,28 @@ static const struct rt_edit_param_desc arbn_plane_param[] = {
 };
 
 static const struct rt_edit_cmd_desc arbn_cmds[] = {
-    { ECMD_ARBN_PLANE_SELECT,   "Select Plane",      "plane", 1, arbn_index_param,  0, 10 },
-    { ECMD_ARBN_PLANE_SET_DIST, "Set Plane Distance","plane", 1, arbn_dist_param,   1, 20 },
-    { ECMD_ARBN_PLANE_SET_NORM, "Set Plane Normal",  "plane", 1, arbn_normal_param, 1, 30 },
-    { ECMD_ARBN_PLANE_ROTATE,   "Rotate Plane Normal","plane",1, arbn_angles_param, 1, 40 },
-    { ECMD_ARBN_PLANE_ADD,      "Add Plane",         "plane", 4, arbn_plane_param,  1, 50 },
-    { ECMD_ARBN_PLANE_DEL,      "Delete Plane",      "plane", 0, NULL,              0, 60 }
+    { ECMD_ARBN_PLANE_SELECT,   "Select Plane",      "plane", 1, arbn_index_param,  0, 10, NULL },
+    { ECMD_ARBN_PLANE_SET_DIST, "Set Plane Distance","plane", 1, arbn_dist_param,   1, 20, NULL },
+    { ECMD_ARBN_PLANE_SET_NORM, "Set Plane Normal",  "plane", 1, arbn_normal_param, 1, 30, NULL },
+    { ECMD_ARBN_PLANE_ROTATE,   "Rotate Plane Normal","plane",1, arbn_angles_param, 1, 40, NULL },
+    { ECMD_ARBN_PLANE_ADD,      "Add Plane",         "plane", 4, arbn_plane_param,  1, 50, NULL },
+    { ECMD_ARBN_PLANE_DEL,      "Delete Plane",      "plane", 0, NULL,              0, 60, NULL }
 };
 
 static const struct rt_edit_prim_desc arbn_prim_desc = {
-    "arbn", "ARBN", 6, arbn_cmds
+    "arbn", "ARBN", 6, arbn_cmds,
+    0,                    /* nopt         */
+    NULL                  /* opts         */
 };
 
-const struct rt_edit_prim_desc *
+C_DECL const struct rt_edit_prim_desc *
 rt_edit_arbn_edit_desc(void)
 {
     return &arbn_prim_desc;
 }
 
 
-int
+C_DECL int
 rt_edit_arbn_get_params(struct rt_edit *s, int cmd_id, fastf_t *vals)
 {
     if (!s || !vals) return 0;

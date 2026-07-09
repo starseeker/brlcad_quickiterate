@@ -25,6 +25,7 @@
 
 #include "common.h"
 
+#include <cmath>
 #include <string.h>
 
 #include <iostream>
@@ -34,6 +35,7 @@
 #include "bu/path.h"
 #include "bu/ptbl.h"
 #include "rt/search.h"
+#include "rt/calc.h"
 #include "rt/db_instance.h"
 #include "rt/primitives/bot.h"
 #include "wdb.h"
@@ -67,12 +69,120 @@ facetize_log(struct _ged_facetize_state *s, int msg_level, const char *fmt, ...)
     bu_vls_free(&output);
 }
 
+void
+facetize_failure_clear(struct _ged_facetize_state *s)
+{
+    if (!s || !s->failure_msg)
+	return;
+
+    bu_vls_trunc(s->failure_msg, 0);
+}
+
+void
+facetize_failure(struct _ged_facetize_state *s, const char *fmt, ...)
+{
+    va_list ap;
+
+    if (!s || !s->failure_msg)
+	return;
+    if (UNLIKELY(!fmt || strlen(fmt) == 0))
+	return;
+
+    /* Preserve the first concrete failure cause.  Later cleanup/write errors
+     * are usually consequences, and replacing the first cause makes reports
+     * less actionable. */
+    if (bu_vls_strlen(s->failure_msg))
+	return;
+
+    va_start(ap, fmt);
+    bu_vls_vprintf(s->failure_msg, fmt, ap);
+    va_end(ap);
+}
+
+void
+facetize_tolerated_failure(struct _ged_facetize_state *s, const char *fmt, ...)
+{
+    va_list ap;
+    struct bu_vls detail = BU_VLS_INIT_ZERO;
+
+    if (!s || !s->tolerate_failures)
+	return;
+    if (UNLIKELY(!fmt || strlen(fmt) == 0))
+	return;
+
+    s->tolerated_failures++;
+
+    va_start(ap, fmt);
+    bu_vls_vprintf(&detail, fmt, ap);
+    va_end(ap);
+
+    if (s->lfile) {
+	fprintf(s->lfile, "TOLERATED FAILURE: %s\n", bu_vls_cstr(&detail));
+	fflush(s->lfile);
+    }
+
+    if (s->tolerated_failure_log) {
+	bu_vls_printf(s->tolerated_failure_log, "  - %s\n", bu_vls_cstr(&detail));
+	s->tolerated_failure_details++;
+    } else {
+	s->tolerated_failure_omitted++;
+    }
+
+    bu_vls_free(&detail);
+}
+
+void
+facetize_tolerated_summary(struct _ged_facetize_state *s)
+{
+    if (!s || !s->tolerate_failures || s->tolerated_failures <= 0)
+	return;
+
+    facetize_log(s, 0, "\nFACETIZE WARNING: --tolerate-failures generated partial output; %d component failure(s) were omitted from the result.\n", s->tolerated_failures);
+    facetize_log(s, 0, "Output is not a complete representation of the input.  Re-run without --tolerate-failures to stop at the first failure.\n");
+
+    if (s->tolerated_failure_log && bu_vls_strlen(s->tolerated_failure_log)) {
+	facetize_log(s, 0, "\nTolerated failure details:\n%s", bu_vls_cstr(s->tolerated_failure_log));
+    }
+
+    if (s->tolerated_failure_omitted > 0) {
+	facetize_log(s, 0, "  ... %d additional tolerated failure(s) omitted from this summary; see %s for full context.\n",
+		s->tolerated_failure_omitted,
+		(s->log_file && bu_vls_strlen(s->log_file)) ? bu_vls_cstr(s->log_file) : "the facetize log");
+    }
+}
+
 int
 _db_uniq_test(struct bu_vls *n, void *data)
 {
     struct db_i *dbip = (struct db_i *)data;
     if (db_lookup(dbip, bu_vls_addr(n), LOOKUP_QUIET) == RT_DIR_NULL) return 1;
     return 0;
+}
+
+int
+_ged_facetize_csg_bbox(struct db_i *dbip, const char *obj_name, point_t rpp_min, point_t rpp_max)
+{
+    if (!dbip || !obj_name || !rpp_min || !rpp_max)
+	return BRLCAD_ERROR;
+
+    struct directory *dp = db_lookup(dbip, obj_name, LOOKUP_QUIET);
+    if (dp == RT_DIR_NULL)
+	return BRLCAD_ERROR;
+
+    if (rt_bound_internal(dbip, dp, rpp_min, rpp_max) != 0)
+	return BRLCAD_ERROR;
+
+    vect_t d;
+    VSUB2(d, rpp_max, rpp_min);
+    if (d[X] <= 0.0 || d[Y] <= 0.0 || d[Z] <= 0.0)
+	return BRLCAD_ERROR;
+
+    for (int i = 0; i < 3; i++) {
+	if (!std::isfinite(rpp_min[i]) || !std::isfinite(rpp_max[i]))
+	    return BRLCAD_ERROR;
+    }
+
+    return BRLCAD_OK;
 }
 
 int

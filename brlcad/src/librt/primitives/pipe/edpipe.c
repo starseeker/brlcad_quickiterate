@@ -81,7 +81,7 @@ pipe_apply_cedit(struct rt_edit *s, const struct rt_constraint_edit_op *op)
     return ret;
 }
 
-void *
+C_DECL void *
 rt_edit_pipe_prim_edit_create(struct rt_edit *UNUSED(s))
 {
     struct rt_pipe_edit *p;
@@ -92,7 +92,7 @@ rt_edit_pipe_prim_edit_create(struct rt_edit *UNUSED(s))
     return (void *)p;
 }
 
-void
+C_DECL void
 rt_edit_pipe_prim_edit_destroy(struct rt_pipe_edit *p)
 {
     if (!p)
@@ -104,7 +104,7 @@ rt_edit_pipe_prim_edit_destroy(struct rt_pipe_edit *p)
     BU_PUT(p, struct rt_pipe_edit);
 }
 
-void
+C_DECL void
 rt_edit_pipe_prim_edit_reset(struct rt_edit *s)
 {
     struct rt_pipe_edit *p = (struct rt_pipe_edit *)s->ipe_ptr;
@@ -112,7 +112,7 @@ rt_edit_pipe_prim_edit_reset(struct rt_edit *s)
 }
 
 
-void
+C_DECL void
 rt_edit_pipe_set_edit_mode(struct rt_edit *s, int mode)
 {
     struct rt_pipe_edit *p = (struct rt_pipe_edit *)s->ipe_ptr;
@@ -223,7 +223,7 @@ struct rt_edit_menu_item pipe_menu[] = {
     { "", NULL, 0 }
 };
 
-struct rt_edit_menu_item *
+C_DECL struct rt_edit_menu_item *
 rt_edit_pipe_menu_item(const struct bn_tol *UNUSED(tol))
 {
     return pipe_menu;
@@ -300,7 +300,8 @@ static const struct rt_edit_cmd_desc pipe_cmds[] = {
 	1,                    /* nparam       */
 	pipe_point_params,    /* params       */
 	1,                    /* interactive  */
-	5                     /* display_order */
+	5                     /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_PIPE_NEXT_PT,    /* cmd_id       */
@@ -309,7 +310,8 @@ static const struct rt_edit_cmd_desc pipe_cmds[] = {
 	0,                    /* nparam       */
 	NULL,                 /* params       */
 	0,                    /* interactive  */
-	6                     /* display_order */
+	6                     /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_PIPE_PREV_PT,    /* cmd_id       */
@@ -318,7 +320,8 @@ static const struct rt_edit_cmd_desc pipe_cmds[] = {
 	0,                    /* nparam       */
 	NULL,                 /* params       */
 	0,                    /* interactive  */
-	7                     /* display_order */
+	7                     /* display_order */,
+	NULL                  /* req_types */
     },
     /* --- point geometry manipulation --------------------------------- */
     {
@@ -328,7 +331,8 @@ static const struct rt_edit_cmd_desc pipe_cmds[] = {
 	1,                    /* nparam       */
 	pipe_point_params,    /* params       */
 	1,                    /* interactive  */
-	8                     /* display_order */
+	8                     /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_PIPE_PT_DEL,     /* cmd_id       */
@@ -337,7 +341,8 @@ static const struct rt_edit_cmd_desc pipe_cmds[] = {
 	0,                    /* nparam       */
 	NULL,                 /* params       */
 	0,                    /* interactive  */
-	9                     /* display_order */
+	9                     /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_PIPE_PT_ADD,     /* cmd_id       */
@@ -346,7 +351,8 @@ static const struct rt_edit_cmd_desc pipe_cmds[] = {
 	1,                    /* nparam       */
 	pipe_point_params,    /* params       */
 	1,                    /* interactive  */
-	10                    /* display_order */
+	10                    /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_PIPE_PT_INS,     /* cmd_id       */
@@ -355,7 +361,8 @@ static const struct rt_edit_cmd_desc pipe_cmds[] = {
 	1,                    /* nparam       */
 	pipe_point_params,    /* params       */
 	1,                    /* interactive  */
-	11                    /* display_order */
+	11                    /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_PIPE_SPLIT,      /* cmd_id       */
@@ -364,7 +371,8 @@ static const struct rt_edit_cmd_desc pipe_cmds[] = {
 	1,                    /* nparam       */
 	pipe_point_params,    /* params       */
 	1,                    /* interactive  */
-	12                    /* display_order */
+	12                    /* display_order */,
+	NULL                  /* req_types */
     },
     /* --- per-point cross-section dimensions -------------------------- */
     {
@@ -374,7 +382,8 @@ static const struct rt_edit_cmd_desc pipe_cmds[] = {
 	1,                    /* nparam       */
 	pipe_pt_od_params,    /* params       */
 	1,                    /* interactive  */
-	20                    /* display_order */
+	20                    /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_PIPE_PT_ID,      /* cmd_id       */
@@ -383,7 +392,8 @@ static const struct rt_edit_cmd_desc pipe_cmds[] = {
 	1,                    /* nparam       */
 	pipe_pt_id_params,    /* params       */
 	1,                    /* interactive  */
-	30                    /* display_order */
+	30                    /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_PIPE_PT_RADIUS,  /* cmd_id       */
@@ -392,7 +402,8 @@ static const struct rt_edit_cmd_desc pipe_cmds[] = {
 	1,                    /* nparam       */
 	pipe_pt_radius_params, /* params      */
 	1,                    /* interactive  */
-	40                    /* display_order */
+	40                    /* display_order */,
+	NULL                  /* req_types */
     },
     /* --- whole-pipe cross-section dimensions ------------------------- */
     {
@@ -402,7 +413,8 @@ static const struct rt_edit_cmd_desc pipe_cmds[] = {
 	1,                    /* nparam       */
 	pipe_pt_od_params,    /* params       */
 	1,                    /* interactive  */
-	50                    /* display_order */
+	50                    /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_PIPE_SCALE_ID,   /* cmd_id       */
@@ -411,7 +423,8 @@ static const struct rt_edit_cmd_desc pipe_cmds[] = {
 	1,                    /* nparam       */
 	pipe_pt_id_params,    /* params       */
 	1,                    /* interactive  */
-	60                    /* display_order */
+	60                    /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_PIPE_SCALE_RADIUS, /* cmd_id     */
@@ -420,7 +433,8 @@ static const struct rt_edit_cmd_desc pipe_cmds[] = {
 	1,                    /* nparam       */
 	pipe_pt_radius_params, /* params      */
 	1,                    /* interactive  */
-	70                    /* display_order */
+	70                    /* display_order */,
+	NULL                  /* req_types */
     }
 };
 
@@ -428,10 +442,12 @@ static const struct rt_edit_prim_desc pipe_prim_desc = {
     "pipe",               /* prim_type    */
     "Pipe",               /* prim_label   */
     14,                   /* ncmd         */
-    pipe_cmds             /* cmds         */
+    pipe_cmds             /* cmds         */,
+    0,                    /* nopt         */
+    NULL                  /* opts         */
 };
 
-const struct rt_edit_prim_desc *
+C_DECL const struct rt_edit_prim_desc *
 rt_edit_pipe_edit_desc(void)
 {
     return &pipe_prim_desc;
@@ -896,7 +912,7 @@ pipe_move_pnt(struct rt_edit *s, struct rt_pipe_internal *pipeip, struct wdb_pip
     }
 }
 
-const char *
+C_DECL const char *
 rt_edit_pipe_keypoint(
 	point_t *pt,
 	const char *UNUSED(keystr),
@@ -922,7 +938,7 @@ rt_edit_pipe_keypoint(
     return strp;
 }
 
-void
+C_DECL void
 rt_edit_pipe_labels(
 	int *UNUSED(num_lines),
 	point_t *UNUSED(lines),
@@ -1451,7 +1467,7 @@ rt_edit_pipe_pscale(struct rt_edit *s)
     return 0;
 }
 
-int
+C_DECL int
 rt_edit_pipe_edit(struct rt_edit *s)
 {
     struct rt_pipe_edit *p = (struct rt_pipe_edit *)s->ipe_ptr;
@@ -1546,7 +1562,7 @@ rt_edit_pipe_edit(struct rt_edit *s)
     return 0;
 }
 
-int
+C_DECL int
 rt_edit_pipe_edit_xy(
 	struct rt_edit *s,
 	const vect_t mousevec

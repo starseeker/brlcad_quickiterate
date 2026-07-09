@@ -2188,7 +2188,10 @@ mged_finish(struct mged_state *s, int exitcode)
     }
 #endif
 
-    Tcl_Exit(exitcode);
+    /* Avoid calling Tcl_Exit here as it may touch channels and OS handles
+     * that were already torn down, leading to crash-on-exit.
+     */
+    exit(exitcode);
 }
 
 /*
@@ -2997,7 +3000,11 @@ main(int argc, char *argv[])
 	    if (old_mged_gui) {
 		if (attach && strlen(attach) > 0) {
 		    Tcl_SetVar2(s->interp, "mged_default", "dm_type", attach, TCL_GLOBAL_ONLY);
+		    if (BU_STR_EQUAL(attach, "tkswrast")) {
+			bu_vls_printf(&vls, "gui -dt %s -config g", attach);
+		    } else {
 			bu_vls_printf(&vls, "gui -dt %s", attach);
+		    }
 		} else {
 		    bu_vls_strcpy(&vls, "gui");
 		}

@@ -38,7 +38,7 @@
 #define ECMD_EPA_R1		19051
 #define ECMD_EPA_R2		19052
 
-void
+C_DECL void
 rt_edit_epa_set_edit_mode(struct rt_edit *s, int mode)
 {
     rt_edit_set_edflag(s, mode);
@@ -76,7 +76,7 @@ struct rt_edit_menu_item epa_menu[] = {
     { "", NULL, 0 }
 };
 
-struct rt_edit_menu_item *
+C_DECL struct rt_edit_menu_item *
 rt_edit_epa_menu_item(const struct bn_tol *UNUSED(tol))
 {
     return epa_menu;
@@ -135,7 +135,8 @@ static const struct rt_edit_cmd_desc epa_cmds[] = {
 	1,                    /* nparam       */
 	epa_h_params,         /* params       */
 	1,                    /* interactive  */
-	10                    /* display_order */
+	10                    /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_EPA_R1,          /* cmd_id       */
@@ -144,7 +145,8 @@ static const struct rt_edit_cmd_desc epa_cmds[] = {
 	1,                    /* nparam       */
 	epa_r1_params,        /* params       */
 	1,                    /* interactive  */
-	20                    /* display_order */
+	20                    /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_EPA_R2,          /* cmd_id       */
@@ -153,7 +155,8 @@ static const struct rt_edit_cmd_desc epa_cmds[] = {
 	1,                    /* nparam       */
 	epa_r2_params,        /* params       */
 	1,                    /* interactive  */
-	30                    /* display_order */
+	30                    /* display_order */,
+	NULL                  /* req_types */
     }
 };
 
@@ -161,10 +164,12 @@ static const struct rt_edit_prim_desc epa_prim_desc = {
     "epa",                /* prim_type    */
     "Elliptical Paraboloid", /* prim_label */
     3,                    /* ncmd         */
-    epa_cmds              /* cmds         */
+    epa_cmds              /* cmds         */,
+    0,                    /* nopt         */
+    NULL                  /* opts         */
 };
 
-const struct rt_edit_prim_desc *
+C_DECL const struct rt_edit_prim_desc *
 rt_edit_epa_edit_desc(void)
 {
     return &epa_prim_desc;
@@ -172,7 +177,7 @@ rt_edit_epa_edit_desc(void)
 
 #define V3BASE2LOCAL(_pt) (_pt)[X]*base2local, (_pt)[Y]*base2local, (_pt)[Z]*base2local
 
-void
+C_DECL void
 rt_edit_epa_write_params(
 	struct bu_vls *p,
        	const struct rt_db_internal *ip,
@@ -199,7 +204,7 @@ rt_edit_epa_write_params(
     if (ln) *ln = '\0'; \
     while (lc && strchr(lc, ':')) lc++
 
-int
+C_DECL int
 rt_edit_epa_read_params(
 	struct rt_db_internal *ip,
 	const char *fc,
@@ -363,7 +368,7 @@ rt_edit_epa_pscale(struct rt_edit *s)
     return 0;
 }
 
-int
+C_DECL int
 rt_edit_epa_edit(struct rt_edit *s)
 {
     switch (s->edit_flag) {
@@ -376,7 +381,7 @@ rt_edit_epa_edit(struct rt_edit *s)
     }
 }
 
-int
+C_DECL int
 rt_edit_epa_edit_xy(
         struct rt_edit *s,
         const vect_t mousevec

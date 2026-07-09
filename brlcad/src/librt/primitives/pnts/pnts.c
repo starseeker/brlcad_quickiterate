@@ -26,6 +26,7 @@
 #include "common.h"
 
 /* system headers */
+#include <math.h>
 #include "bnetwork.h"
 
 /* common headers */
@@ -37,8 +38,21 @@
 #include "vmath.h"
 
 
-extern int rt_ell_plot(struct bu_list *, struct rt_db_internal *, const struct bg_tess_tol *, const struct bn_tol *, const struct bview *);
+/**
+ * Per-soltab data computed at prep time, used to ray-trace the point
+ * cloud as a collection of spheres.  Values are copied out of the
+ * rt_db_internal so they remain valid after the internal is freed.
+ */
+struct pnts_specific {
+    size_t count;		/* number of renderable spheres */
+    point_t *centers;		/* [count] sphere centers (model space) */
+    fastf_t *radii;		/* [count] sphere radii */
+};
 
+
+__BEGIN_DECLS
+extern int rt_ell_plot(struct bu_list *, struct rt_db_internal *, const struct bg_tess_tol *, const struct bn_tol *, const struct bview *);
+__END_DECLS
 
 static unsigned char *
 pnts_pack_double(unsigned char *buf, unsigned char *data, unsigned int count)
@@ -83,7 +97,7 @@ _pnts_calc_bbox(point_t *min, point_t *max, point_t *v, fastf_t scale)
 /**
  * Calculate a bounding box for a set of points
  */
-int
+C_DECL int
 rt_pnts_bbox(struct rt_db_internal *ip, point_t *min, point_t *max, const struct bn_tol *UNUSED(tol)) {
     struct rt_pnts_internal *pnts;
     struct bu_list *head;
@@ -171,10 +185,12 @@ rt_pnts_bbox(struct rt_db_internal *ip, point_t *min, point_t *max, const struct
     return 0;
 }
 
-int
+C_DECL int
 rt_pnts_prep(struct soltab *stp, struct rt_db_internal *ip, struct rt_i *rtip)
 {
     struct rt_pnts_internal *pnts_ip;
+    struct pnts_specific *spec;
+    struct bu_list *head;
 
     RT_CK_DB_INTERNAL(ip);
     pnts_ip = (struct rt_pnts_internal *)ip->idb_ptr;
@@ -197,14 +213,225 @@ rt_pnts_prep(struct soltab *stp, struct rt_db_internal *ip, struct rt_i *rtip)
 	stp->st_bradius = MAGNITUDE(work);
     }
 
+    /* Build the renderable sphere list.  Each point with a positive
+     * radius (per-point scale where available, otherwise the global
+     * scale) becomes a sphere.  We copy values out of ip since the RT
+     * pipeline frees the internal after prep.
+     */
+    BU_GET(spec, struct pnts_specific);
+    spec->count = 0;
+    spec->centers = NULL;
+    spec->radii = NULL;
+
+    if (pnts_ip->count > 0) {
+	spec->centers = (point_t *)bu_malloc(pnts_ip->count * sizeof(point_t), "pnts centers");
+	spec->radii = (fastf_t *)bu_malloc(pnts_ip->count * sizeof(fastf_t), "pnts radii");
+
+	switch (pnts_ip->type) {
+	    case RT_PNT_TYPE_PNT: {
+		struct pnt *point = (struct pnt *)pnts_ip->point;
+		head = &point->l;
+		for (BU_LIST_FOR(point, pnt, head)) {
+		    if (pnts_ip->scale > 0) {
+			VMOVE(spec->centers[spec->count], point->v);
+			spec->radii[spec->count] = pnts_ip->scale;
+			spec->count++;
+		    }
+		}
+		break;
+	    }
+	    case RT_PNT_TYPE_COL: {
+		struct pnt_color *point = (struct pnt_color *)pnts_ip->point;
+		head = &point->l;
+		for (BU_LIST_FOR(point, pnt_color, head)) {
+		    if (pnts_ip->scale > 0) {
+			VMOVE(spec->centers[spec->count], point->v);
+			spec->radii[spec->count] = pnts_ip->scale;
+			spec->count++;
+		    }
+		}
+		break;
+	    }
+	    case RT_PNT_TYPE_SCA: {
+		struct pnt_scale *point = (struct pnt_scale *)pnts_ip->point;
+		head = &point->l;
+		for (BU_LIST_FOR(point, pnt_scale, head)) {
+		    if (point->s > 0) {
+			VMOVE(spec->centers[spec->count], point->v);
+			spec->radii[spec->count] = point->s;
+			spec->count++;
+		    }
+		}
+		break;
+	    }
+	    case RT_PNT_TYPE_NRM: {
+		struct pnt_normal *point = (struct pnt_normal *)pnts_ip->point;
+		head = &point->l;
+		for (BU_LIST_FOR(point, pnt_normal, head)) {
+		    if (pnts_ip->scale > 0) {
+			VMOVE(spec->centers[spec->count], point->v);
+			spec->radii[spec->count] = pnts_ip->scale;
+			spec->count++;
+		    }
+		}
+		break;
+	    }
+	    case RT_PNT_TYPE_COL_SCA: {
+		struct pnt_color_scale *point = (struct pnt_color_scale *)pnts_ip->point;
+		head = &point->l;
+		for (BU_LIST_FOR(point, pnt_color_scale, head)) {
+		    if (point->s > 0) {
+			VMOVE(spec->centers[spec->count], point->v);
+			spec->radii[spec->count] = point->s;
+			spec->count++;
+		    }
+		}
+		break;
+	    }
+	    case RT_PNT_TYPE_COL_NRM: {
+		struct pnt_color_normal *point = (struct pnt_color_normal *)pnts_ip->point;
+		head = &point->l;
+		for (BU_LIST_FOR(point, pnt_color_normal, head)) {
+		    if (pnts_ip->scale > 0) {
+			VMOVE(spec->centers[spec->count], point->v);
+			spec->radii[spec->count] = pnts_ip->scale;
+			spec->count++;
+		    }
+		}
+		break;
+	    }
+	    case RT_PNT_TYPE_SCA_NRM: {
+		struct pnt_scale_normal *point = (struct pnt_scale_normal *)pnts_ip->point;
+		head = &point->l;
+		for (BU_LIST_FOR(point, pnt_scale_normal, head)) {
+		    if (point->s > 0) {
+			VMOVE(spec->centers[spec->count], point->v);
+			spec->radii[spec->count] = point->s;
+			spec->count++;
+		    }
+		}
+		break;
+	    }
+	    case RT_PNT_TYPE_COL_SCA_NRM: {
+		struct pnt_color_scale_normal *point = (struct pnt_color_scale_normal *)pnts_ip->point;
+		head = &point->l;
+		for (BU_LIST_FOR(point, pnt_color_scale_normal, head)) {
+		    if (point->s > 0) {
+			VMOVE(spec->centers[spec->count], point->v);
+			spec->radii[spec->count] = point->s;
+			spec->count++;
+		    }
+		}
+		break;
+	    }
+	    default:
+		break;
+	}
+    }
+
+    stp->st_specific = (void *)spec;
+
     return 0;
+}
+
+
+/**
+ * Intersect a ray with the point cloud, treating each scaled point as
+ * a sphere.  Tests every sphere against the ray (O(n) per ray).
+ *
+ * Returns -
+ * 0 MISS
+ * >0 HIT (number of segments)
+ */
+C_DECL int
+rt_pnts_shot(struct soltab *stp, struct xray *rp, struct application *ap, struct seg *seghead)
+{
+    struct pnts_specific *spec = (struct pnts_specific *)stp->st_specific;
+    struct seg *segp;
+    size_t i;
+    int nseg = 0;
+
+    if (!spec || spec->count == 0) return 0;
+
+    for (i = 0; i < spec->count; i++) {
+	vect_t oc;		/* ray origin to sphere center */
+	fastf_t b, c, disc, s;
+	fastf_t t_in, t_out;
+
+	VSUB2(oc, rp->r_pt, spec->centers[i]);
+	b = VDOT(oc, rp->r_dir);
+	c = VDOT(oc, oc) - spec->radii[i] * spec->radii[i];
+	disc = b * b - c;
+	if (disc < 0) continue;
+
+	s = sqrt(disc);
+	t_in = -b - s;
+	t_out = -b + s;
+	if (t_out < 1.0e-6) continue;
+
+	RT_GET_SEG(segp, ap->a_resource);
+	segp->seg_stp = stp;
+	segp->seg_in.hit_dist = t_in;
+	segp->seg_in.hit_surfno = (int)i;
+	segp->seg_out.hit_dist = t_out;
+	segp->seg_out.hit_surfno = (int)i;
+	BU_LIST_INSERT(&(seghead->l), &(segp->l));
+	nseg++;
+    }
+
+    return nseg;
+}
+
+
+/**
+ * Given ONE ray distance, return the normal and entry/exit point for
+ * the sphere that was hit.
+ */
+C_DECL void
+rt_pnts_norm(struct hit *hitp, struct soltab *stp, struct xray *rp)
+{
+    struct pnts_specific *spec = (struct pnts_specific *)stp->st_specific;
+    size_t i = (size_t)hitp->hit_surfno;
+
+    VJOIN1(hitp->hit_point, rp->r_pt, hitp->hit_dist, rp->r_dir);
+    VSUB2(hitp->hit_normal, hitp->hit_point, spec->centers[i]);
+    VUNITIZE(hitp->hit_normal);
+}
+
+
+/**
+ * Trivial UV mapping for the point cloud.
+ */
+C_DECL void
+rt_pnts_uv(struct application *UNUSED(ap), struct soltab *UNUSED(stp), struct hit *UNUSED(hitp), struct uvcoord *uvp)
+{
+    uvp->uv_u = 0.0;
+    uvp->uv_v = 0.0;
+    uvp->uv_du = 0.0;
+    uvp->uv_dv = 0.0;
+}
+
+
+/**
+ * Free the prep-time sphere list.
+ */
+C_DECL void
+rt_pnts_free(struct soltab *stp)
+{
+    struct pnts_specific *spec = (struct pnts_specific *)stp->st_specific;
+
+    if (spec) {
+	if (spec->centers) bu_free(spec->centers, "pnts centers");
+	if (spec->radii) bu_free(spec->radii, "pnts radii");
+	BU_PUT(spec, struct pnts_specific);
+    }
 }
 
 /**
  * Export a pnts collection from the internal structure to the
  * database format
  */
-int
+C_DECL int
 rt_pnts_export5(struct bu_external *external, const struct rt_db_internal *internal, double local2mm, const struct db_i *dbip)
 {
     struct rt_pnts_internal *pnts = NULL;
@@ -442,7 +669,7 @@ rt_pnts_export5(struct bu_external *external, const struct rt_db_internal *inter
     return 0;
 }
 
-int
+C_DECL int
 rt_pnts_mat(struct rt_db_internal *rop, const mat_t mat, const struct rt_db_internal *ip)
 {
     if (!rop || !mat)
@@ -546,7 +773,7 @@ rt_pnts_mat(struct rt_db_internal *rop, const mat_t mat, const struct rt_db_inte
  * Import a pnts collection from the database format to the internal
  * structure and apply modeling transformations.
  */
-int
+C_DECL int
 rt_pnts_import5(struct rt_db_internal *internal, const struct bu_external *external, const fastf_t *mat, const struct db_i *dbip)
 {
     struct rt_pnts_internal *pnts = NULL;
@@ -610,7 +837,7 @@ rt_pnts_import5(struct rt_db_internal *internal, const struct bu_external *exter
 		buf = pnts_unpack_double(buf, (unsigned char *)v, ELEMENTS_PER_POINT);
 		VMOVE(point->v, v);
 
-		BU_LIST_PUSH(head, &point->l);
+		BU_LIST_INSERT(head, &point->l);
 	    }
 
 	    break;
@@ -639,7 +866,7 @@ rt_pnts_import5(struct rt_db_internal *internal, const struct bu_external *exter
 		VMOVE(cf, c);
 		bu_color_from_rgb_floats(&point->c, cf);
 
-		BU_LIST_PUSH(head, &point->l);
+		BU_LIST_INSERT(head, &point->l);
 	    }
 
 	    break;
@@ -666,7 +893,7 @@ rt_pnts_import5(struct rt_db_internal *internal, const struct bu_external *exter
 		buf = pnts_unpack_double(buf, (unsigned char *)s, 1);
 		point->s = s[0];
 
-		BU_LIST_PUSH(head, &point->l);
+		BU_LIST_INSERT(head, &point->l);
 	    }
 
 	    break;
@@ -693,7 +920,7 @@ rt_pnts_import5(struct rt_db_internal *internal, const struct bu_external *exter
 		buf = pnts_unpack_double(buf, (unsigned char *)n, ELEMENTS_PER_VECT);
 		VMOVE(point->n, n);
 
-		BU_LIST_PUSH(head, &point->l);
+		BU_LIST_INSERT(head, &point->l);
 	    }
 
 	    break;
@@ -727,7 +954,7 @@ rt_pnts_import5(struct rt_db_internal *internal, const struct bu_external *exter
 		buf = pnts_unpack_double(buf, (unsigned char *)s, 1);
 		point->s = s[0];
 
-		BU_LIST_PUSH(head, &point->l);
+		BU_LIST_INSERT(head, &point->l);
 	    }
 
 	    break;
@@ -761,7 +988,7 @@ rt_pnts_import5(struct rt_db_internal *internal, const struct bu_external *exter
 		buf = pnts_unpack_double(buf, (unsigned char *)n, ELEMENTS_PER_VECT);
 		VMOVE(point->n, n);
 
-		BU_LIST_PUSH(head, &point->l);
+		BU_LIST_INSERT(head, &point->l);
 	    }
 
 	    break;
@@ -793,7 +1020,7 @@ rt_pnts_import5(struct rt_db_internal *internal, const struct bu_external *exter
 		buf = pnts_unpack_double(buf, (unsigned char *)n, ELEMENTS_PER_VECT);
 		VMOVE(point->n, n);
 
-		BU_LIST_PUSH(head, &point->l);
+		BU_LIST_INSERT(head, &point->l);
 	    }
 
 	    break;
@@ -832,7 +1059,7 @@ rt_pnts_import5(struct rt_db_internal *internal, const struct bu_external *exter
 		buf = pnts_unpack_double(buf, (unsigned char *)n, ELEMENTS_PER_VECT);
 		VMOVE(point->n, n);
 
-		BU_LIST_PUSH(head, &point->l);
+		BU_LIST_INSERT(head, &point->l);
 	    }
 
 	    break;
@@ -854,7 +1081,7 @@ rt_pnts_import5(struct rt_db_internal *internal, const struct bu_external *exter
  * points as a bu_list instead of calling up a switching table for
  * each point type.
  */
-void
+C_DECL void
 rt_pnts_ifree(struct rt_db_internal *internal)
 {
     struct rt_pnts_internal *pnts;
@@ -888,81 +1115,22 @@ rt_pnts_ifree(struct rt_db_internal *internal)
 }
 
 
-void
+C_DECL void
 rt_pnts_print(register const struct soltab *stp)
 {
-    register struct rt_pnts_internal *pnts;
+    register const struct pnts_specific *spec =
+	(struct pnts_specific *)stp->st_specific;
 
-    pnts = (struct rt_pnts_internal *)stp->st_specific;
-    RT_PNTS_CK_MAGIC(pnts);
+    if (!spec) return;
 
-    switch (pnts->type) {
-	case RT_PNT_TYPE_PNT: {
-	    register struct pnt *point;
-	    for (BU_LIST_FOR(point, pnt, &(((struct pnt *)pnts->point)->l))) {
-	    }
-
-	    break;
-	}
-	case RT_PNT_TYPE_COL: {
-	    register struct pnt_color *point;
-	    for (BU_LIST_FOR(point, pnt_color, &(((struct pnt_color *)pnts->point)->l))) {
-	    }
-
-	    break;
-	}
-	case RT_PNT_TYPE_SCA: {
-	    register struct pnt_scale *point;
-	    for (BU_LIST_FOR(point, pnt_scale, &(((struct pnt_scale *)pnts->point)->l))) {
-	    }
-
-	    break;
-	}
-	case RT_PNT_TYPE_NRM: {
-	    register struct pnt_normal *point;
-	    for (BU_LIST_FOR(point, pnt_normal, &(((struct pnt_normal *)pnts->point)->l))) {
-	    }
-
-	    break;
-	}
-	case RT_PNT_TYPE_COL_SCA: {
-	    register struct pnt_color_scale *point;
-	    for (BU_LIST_FOR(point, pnt_color_scale, &(((struct pnt_color_scale *)pnts->point)->l))) {
-	    }
-
-	    break;
-	}
-	case RT_PNT_TYPE_COL_NRM: {
-	    register struct pnt_color_normal *point;
-	    for (BU_LIST_FOR(point, pnt_color_normal, &(((struct pnt_color_normal *)pnts->point)->l))) {
-	    }
-
-	    break;
-	}
-	case RT_PNT_TYPE_SCA_NRM: {
-	    register struct pnt_scale_normal *point;
-	    for (BU_LIST_FOR(point, pnt_scale_normal, &(((struct pnt_scale_normal *)pnts->point)->l))) {
-	    }
-
-	    break;
-	}
-	case RT_PNT_TYPE_COL_SCA_NRM: {
-	    register struct pnt_color_scale_normal *point;
-	    for (BU_LIST_FOR(point, pnt_color_scale_normal, &(((struct pnt_color_scale_normal *)pnts->point)->l))) {
-	    }
-
-	    break;
-	}
-	default:
-	    bu_log("ERROR: unknown points primitive type (type=%d)\n", pnts->type);
-    }
+    bu_log("pnts: %zu renderable sphere(s)\n", spec->count);
 }
 
 
 /**
  * Plot pnts collection as axes or spheres.
  */
-int
+C_DECL int
 rt_pnts_plot(struct bu_list *vhead, struct rt_db_internal *internal, const struct bg_tess_tol *ttol, const struct bn_tol *tol, const struct bview *UNUSED(info))
 {
     struct rt_pnts_internal *pnts;
@@ -1040,7 +1208,7 @@ rt_pnts_plot(struct bu_list *vhead, struct rt_db_internal *internal, const struc
  * line describes type of solid.  Additional lines are indented one
  * tab, and give parameter values.
  */
-int
+C_DECL int
 rt_pnts_describe(struct bu_vls *str, const struct rt_db_internal *intern, int verbose, double mm2local)
 {
     const struct rt_pnts_internal *pnts;

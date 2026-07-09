@@ -26,6 +26,7 @@ endif()
 set(
   LIBICV_SOURCES
   PImgHash.cpp
+  anim.cpp
   asciiart.cpp
   bw.c
   color_space.c
@@ -58,6 +59,12 @@ set_target_properties(libicv PROPERTIES VERSION 20.0.1 SOVERSION 20)
 
 if(HIDE_INTERNAL_SYMBOLS)
   set_property(TARGET libicv APPEND PROPERTY COMPILE_DEFINITIONS NETPBM_DLL_IMPORTS)
+  if(TARGET libicv-obj)
+    set_property(TARGET libicv-obj APPEND PROPERTY COMPILE_DEFINITIONS NETPBM_DLL_IMPORTS)
+  endif(TARGET libicv-obj)
+  if(TARGET libicv-brlcad-obj)
+    set_property(TARGET libicv-brlcad-obj APPEND PROPERTY COMPILE_DEFINITIONS NETPBM_DLL_IMPORTS)
+  endif(TARGET libicv-brlcad-obj)
   # Anyone who needs to import libicv will also need to import the library defines
   set_property(TARGET libicv APPEND PROPERTY INTERFACE_COMPILE_DEFINITIONS NETPBM_DLL_IMPORTS)
 endif(HIDE_INTERNAL_SYMBOLS)
@@ -66,10 +73,11 @@ add_subdirectory(tests)
 
 cmakefiles(
   CMakeLists.txt
-  TODO
   PImgHash.h
-  pixcii.hpp
+  TODO
+  apngmini.hpp
   icv_private.h
+  pixcii.hpp
   rle.hpp
 )
 

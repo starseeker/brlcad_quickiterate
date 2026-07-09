@@ -46,6 +46,7 @@
 #include "bsocket.h"
 
 #include "bu/app.h"
+#include "bu/file.h"
 /* bu/ipc.h removed - transport handled by libpkg */
 #include "bu/str.h"
 #include "bu/process.h"
@@ -55,6 +56,7 @@
 #include "bn.h"
 #include "raytrace.h"
 #include "optical/debug.h"
+#include "optical/light.h"
 #include "pkg.h"
 #include "dm.h"
 #include "icv.h"
@@ -67,6 +69,7 @@
 #define REMRT_TLS_IMPL
 #include "./tls_wrap.h"
 
+__BEGIN_DECLS
 
 struct bu_list WorkHead;
 
@@ -89,16 +92,13 @@ unsigned char *scanbuf = NULL;
 extern int grid_setup(struct bu_vls *err);
 extern void worker(int, void *);
 extern void application_init(void);
-extern void light_cleanup(void); /* from liboptical/sh_light.c */
+/* light_cleanup() is declared in optical/light.h */
 
 /***** variables shared with worker() ******/
 struct application APP;
 int report_progress = 0;	/* !0 = user wants progress report */
 /***** end variables shared with worker() *****/
 
-/* Variables shared elsewhere */
-extern fastf_t rt_dist_tol;	/* Value for rti_tol.dist */
-extern fastf_t rt_perp_tol;	/* Value for rti_tol.perp */
 static char idbuf[132] = {0};		/* First ID record info */
 
 /* State flags */
@@ -180,6 +180,7 @@ static int rtsrv_log_hook(void *clientdata, void *str);
 static int rtsrv_bomb_hook(void *clientdata, void *str);
 static void rtsrv_install_log_hook(void);
 
+__END_DECLS
 
 int
 main(int argc, char **argv)
@@ -378,17 +379,11 @@ main(int argc, char **argv)
 
 	/* Close off the world */
 
-#ifdef HAVE_WINDOWS_H
-#  define DEVNULL "\\\\.\\NUL"
-#else
-#  define DEVNULL "/dev/null"
-#endif
-
-	fp = freopen(DEVNULL, "r", stdin);
+	fp = freopen(bu_file_null(), "r", stdin);
 	if (fp == NULL)
 	    perror("freopen STDIN");
 
-	fp = freopen(DEVNULL, "w", stdout);
+	fp = freopen(bu_file_null(), "w", stdout);
 	if (fp == NULL)
 	    perror("freopen STDOUT");
 
@@ -402,7 +397,7 @@ main(int argc, char **argv)
 	}
 #endif
 
-	fp = freopen(DEVNULL, "w", stderr);
+	fp = freopen(bu_file_null(), "w", stderr);
 	if (fp == NULL)
 	    perror("freopen STDERR");
     }
@@ -715,8 +710,6 @@ process_cmd(char *buf)
     char *sp;
     char *ep;
     int len;
-    extern struct command_tab rt_do_tab[];	/* from do.c */
-
     /* Parse the string */
     len = strlen(buf);
     ep = buf+len;

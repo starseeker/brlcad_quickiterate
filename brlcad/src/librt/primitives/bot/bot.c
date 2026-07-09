@@ -298,7 +298,7 @@ clt_bot_pack(struct bu_pool *pool, struct soltab *stp)
 /**
  * Calculate an RPP for a BoT
  */
-int
+C_DECL int
 rt_bot_bbox(struct rt_db_internal *ip, point_t *min, point_t *max, const struct bn_tol *UNUSED(tol)) {
 
     RT_CK_DB_INTERNAL(ip);
@@ -470,7 +470,7 @@ copy_bot_tri(triangle_s* tris, fastf_t* tri_norms, const struct rt_bot_internal 
  * A struct bot_specific is created, and its address is stored in
  * stp->st_specific for use by bot_shot().
  */
-int
+C_DECL int
 rt_bot_prep(struct soltab *stp, struct rt_db_internal *ip, struct rt_i *rtip)
 {
     RT_CK_DB_INTERNAL(ip);
@@ -685,7 +685,7 @@ rt_bot_prep(struct soltab *stp, struct rt_db_internal *ip, struct rt_i *rtip)
 }
 
 
-void
+C_DECL void
 rt_bot_print(const struct soltab *UNUSED(stp))
 {
 }
@@ -832,8 +832,7 @@ bot_shot_hlbvh_flat(struct bvh_flat_node *root, struct xray* rp, triangle_s *tri
 		fastf_t dist = VDOT(wxb, wn) / dn;
 
 		// Fill out hitdata
-		struct hit cur_hit = {0};
-		cur_hit.hit_magic = RT_HIT_MAGIC;
+		struct hit cur_hit = RT_HIT_INIT_ZERO;
 		cur_hit.hit_dist = dist;
 		cur_hit.hit_vpriv[X] = VDOT(tri->face_norm, rp->r_dir);
 		cur_hit.hit_vpriv[Y] = gamma / abs_dn;
@@ -859,7 +858,7 @@ bot_shot_hlbvh_flat(struct bvh_flat_node *root, struct xray* rp, triangle_s *tri
 }
 
 
-THREADLOCAL hit_da hits_per_cpu = {0};
+THREADLOCAL hit_da hits_per_cpu = {0, 0, NULL};
 
 
 /**
@@ -876,7 +875,7 @@ THREADLOCAL hit_da hits_per_cpu = {0};
  * 0 MISS
  * >0 HIT
  */
-int
+C_DECL int
 rt_bot_shot(struct soltab *stp, struct xray *rp, struct application *ap, struct seg *seghead)
 {
     if (UNLIKELY(!stp || !ap || !seghead))
@@ -932,7 +931,7 @@ rt_bot_shot(struct soltab *stp, struct xray *rp, struct application *ap, struct 
 /**
  * Given ONE ray distance, return the normal and entry/exit point.
  */
-void
+C_DECL void
 rt_bot_norm(struct hit *hitp, struct soltab *stp, struct xray *rp)
 {
     struct bot_specific *bot=(struct bot_specific *)stp->st_specific;
@@ -996,7 +995,7 @@ rt_bot_norm(struct hit *hitp, struct soltab *stp, struct xray *rp)
 /**
  * Return the curvature of the bot.
  */
-void
+C_DECL void
 rt_bot_curve(struct curvature *cvp, struct hit *hitp, struct soltab *stp)
 {
     if (stp) RT_CK_SOLTAB(stp);
@@ -1016,7 +1015,7 @@ rt_bot_curve(struct curvature *cvp, struct hit *hitp, struct soltab *stp)
  * u = azimuth
  * v = elevation
  */
-void
+C_DECL void
 rt_bot_uv(struct application *ap, struct soltab *stp, struct hit *hitp, struct uvcoord *uvp)
 {
     struct bot_specific *bot;
@@ -1047,7 +1046,7 @@ rt_bot_uv(struct application *ap, struct soltab *stp, struct hit *hitp, struct u
 }
 
 
-void
+C_DECL void
 rt_bot_free(struct soltab *stp)
 {
     struct bot_specific *bot = (struct bot_specific *)stp->st_specific;
@@ -1704,7 +1703,7 @@ rt_bot_makesegs(hit_da *hits, struct soltab *stp, struct xray *rp, struct applic
     return rt_bot_oriented_segs(hits, stp, ap, seghead, psp);
 }
 
-void
+C_DECL void
 rt_bot_centroid(point_t *cent, const struct rt_db_internal *ip)
 {
     size_t i;
@@ -1857,7 +1856,7 @@ rt_bot_tess(struct nmgregion **r, struct model *m, struct rt_db_internal *ip, co
  * Import an BOT from the database format to the internal format.
  * Apply modeling transformations as well.
  */
-int
+C_DECL int
 rt_bot_import4(struct rt_db_internal *ip, const struct bu_external *ep, const fastf_t *mat, const struct db_i *dbip)
 {
     struct rt_bot_internal *bot_ip;
@@ -1934,7 +1933,7 @@ rt_bot_import4(struct rt_db_internal *ip, const struct bu_external *ep, const fa
 /**
  * The name is added by the caller, in the usual place.
  */
-int
+C_DECL int
 rt_bot_export4(struct bu_external *ep, const struct rt_db_internal *ip, double local2mm, const struct db_i *dbip)
 {
     struct rt_bot_internal *bot_ip;
@@ -2031,7 +2030,7 @@ rt_bot_export4(struct bu_external *ep, const struct rt_db_internal *ip, double l
     return 0;
 }
 
-int
+C_DECL int
 rt_bot_mat(struct rt_db_internal *rop, const mat_t mat, const struct rt_db_internal *ip)
 {
     if (!rop || !ip || !mat)
@@ -2083,7 +2082,7 @@ rt_bot_mat(struct rt_db_internal *rop, const mat_t mat, const struct rt_db_inter
 }
 
 
-int
+C_DECL int
 rt_bot_import5(struct rt_db_internal *ip, const struct bu_external *ep, const fastf_t *mat, const struct db_i *dbip)
 {
     struct rt_bot_internal *bip;
@@ -2257,7 +2256,7 @@ rt_bot_import5(struct rt_db_internal *ip, const struct bu_external *ep, const fa
 }
 
 
-int
+C_DECL int
 rt_bot_export5(struct bu_external *ep, const struct rt_db_internal *ip, double local2mm, const struct db_i *dbip)
 {
     struct rt_bot_internal *bip;
@@ -2451,28 +2450,28 @@ rt_bot_export5(struct bu_external *ep, const struct rt_db_internal *ip, double l
 }
 
 
-static char *unoriented="unoriented";
-static char *ccw="counter-clockwise";
-static char *cw="clockwise";
-static char *unknown_orientation="unknown orientation";
-static char *surface="\tThis is a surface with no volume\n";
-static char *solid="\tThis is a solid object (not just a surface)\n";
-static char *plate="\tThis is a FASTGEN plate mode solid\n";
-static char *nocos="\tThis is a plate mode solid with no obliquity angle effect\n";
-static char *unknown_mode="\tunknown mode\n";
+static const char *unoriented="unoriented";
+static const char *ccw="counter-clockwise";
+static const char *cw="clockwise";
+static const char *unknown_orientation="unknown orientation";
+static const char *surface="\tThis is a surface with no volume\n";
+static const char *solid="\tThis is a solid object (not just a surface)\n";
+static const char *plate="\tThis is a FASTGEN plate mode solid\n";
+static const char *nocos="\tThis is a plate mode solid with no obliquity angle effect\n";
+static const char *unknown_mode="\tunknown mode\n";
 
 /**
  * Make human-readable formatted presentation of this solid.  First
  * line describes type of solid.  Additional lines are indented one
  * tab, and give parameter values.
  */
-int
+C_DECL int
 rt_bot_describe(struct bu_vls *str, const struct rt_db_internal *ip, int verbose, double mm2local)
 {
     struct rt_bot_internal *bot_ip =
 	(struct rt_bot_internal *)ip->idb_ptr;
     char buf[256];
-    char *orientation, *mode;
+    const char *orientation, *mode;
     size_t i;
 
     size_t badVertexCount = 0;
@@ -2570,7 +2569,7 @@ rt_bot_describe(struct bu_vls *str, const struct rt_db_internal *ip, int verbose
 	    bu_vls_strcat(str, "\n");
 	}
 	if (bot_ip->mode == RT_BOT_PLATE || bot_ip->mode == RT_BOT_PLATE_NOCOS) {
-	    char *face_mode;
+	    const char *face_mode;
 
 	    if (BU_BITTEST(bot_ip->face_mode, i))
 		face_mode = "appended to hit point";
@@ -2637,7 +2636,7 @@ rt_bot_internal_free(struct rt_bot_internal *bot_ip)
  * Free the storage associated with the rt_db_internal version of this
  * solid.
  */
-void
+C_DECL void
 rt_bot_ifree(struct rt_db_internal *ip)
 {
     struct rt_bot_internal *bot_ip;
@@ -2652,7 +2651,7 @@ rt_bot_ifree(struct rt_db_internal *ip)
 }
 
 
-int
+C_DECL int
 rt_bot_xform(struct rt_db_internal *op, const fastf_t *mat, struct rt_db_internal *ip, const int release, struct db_i *dbip)
 {
     struct rt_bot_internal *botip, *botop;
@@ -2912,7 +2911,7 @@ rt_bot_find_e_nearest_pt2(
 }
 
 
-static char *modes[]={
+static const char *modes[]={
     "ERROR: Unrecognized mode",
     "surf",
     "volume",
@@ -2921,7 +2920,7 @@ static char *modes[]={
 };
 
 
-static char *orientation[]={
+static const char *orientation[]={
     "ERROR: Unrecognized orientation",
     "no",
     "rh",
@@ -2929,7 +2928,7 @@ static char *orientation[]={
 };
 
 
-static char *los[]={
+static const char *los[]={
     "center",
     "append"
 };
@@ -2959,7 +2958,7 @@ static char *los[]={
  * db get name orient	get orientation (no, rh, lh)
  * db get name flags	get BOT flags
  */
-int
+C_DECL int
 rt_bot_get(struct bu_vls *logstr, const struct rt_db_internal *intern, const char *attr)
 {
     struct rt_bot_internal *bot=(struct rt_bot_internal *)intern->idb_ptr;
@@ -3256,7 +3255,7 @@ bot_check_vertex_indices(struct bu_vls *logstr, struct rt_bot_internal *bot)
  * db adjust name orient	set orientation (no, rh, lh)
  * db adjust name flags		set flags
  */
-int
+C_DECL int
 rt_bot_adjust(struct bu_vls *logstr, struct rt_db_internal *intern, int argc, const char **argv)
 {
     struct rt_bot_internal *bot;
@@ -3838,7 +3837,7 @@ rt_bot_adjust(struct bu_vls *logstr, struct rt_db_internal *intern, int argc, co
 }
 
 
-int
+C_DECL int
 rt_bot_form(struct bu_vls *logstr, const struct rt_functab *ftp)
 {
     RT_CK_FUNCTAB(ftp);
@@ -3850,7 +3849,7 @@ rt_bot_form(struct bu_vls *logstr, const struct rt_functab *ftp)
 }
 
 
-int
+C_DECL int
 rt_bot_params(struct pc_pc_set *ps, const struct rt_db_internal *ip)
 {
     if (!ps) return 0;
@@ -5713,7 +5712,7 @@ rt_bot_list_free(struct rt_bot_list *headRblp, int fbflag)
 }
 
 
-void
+C_DECL void
 rt_bot_volume(fastf_t *volume, const struct rt_db_internal *ip)
 {
     /* contains information used to analyze a polygonal face */
@@ -5781,7 +5780,7 @@ rt_bot_volume(fastf_t *volume, const struct rt_db_internal *ip)
     bu_free((char *)face.pts, "rt_bot_volume: pts");
 }
 
-void
+C_DECL void
 rt_bot_surf_area(fastf_t *area, const struct rt_db_internal *ip)
 {
     typedef point_t triangle[3];
@@ -6022,7 +6021,7 @@ rt_bot_merge(size_t num_bots, const struct rt_bot_internal * const *bots)
     return result;
 }
 
-const char *
+C_DECL const char *
 rt_bot_keypoint(point_t *pt, const char *keystr, const mat_t mat, const struct rt_db_internal *ip, const struct bn_tol *UNUSED(tol))
 {
     if (!pt || !ip)

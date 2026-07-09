@@ -51,7 +51,7 @@ struct rt_metaball_edit {
     struct wdb_metaball_pnt *es_metaball_pnt; /* Currently selected METABALL Point */
 };
 
-void *
+C_DECL void *
 rt_edit_metaball_prim_edit_create(struct rt_edit *UNUSED(s))
 {
     struct rt_metaball_edit *m;
@@ -62,7 +62,7 @@ rt_edit_metaball_prim_edit_create(struct rt_edit *UNUSED(s))
     return (void *)m;
 }
 
-void
+C_DECL void
 rt_edit_metaball_prim_edit_destroy(struct rt_metaball_edit *m)
 {
     if (!m)
@@ -74,14 +74,14 @@ rt_edit_metaball_prim_edit_destroy(struct rt_metaball_edit *m)
     BU_PUT(m, struct rt_metaball_edit);
 }
 
-void
+C_DECL void
 rt_edit_metaball_prim_edit_reset(struct rt_edit *s)
 {
     struct rt_metaball_edit *m = (struct rt_metaball_edit *)s->ipe_ptr;
     m->es_metaball_pnt = NULL;
 }
 
-void
+C_DECL void
 rt_edit_metaball_set_edit_mode(struct rt_edit *s, int mode)
 {
     struct rt_metaball_edit *m = (struct rt_metaball_edit *)s->ipe_ptr;
@@ -268,7 +268,7 @@ struct rt_edit_menu_item metaball_menu[] = {
     { "", NULL, 0 }
 };
 
-struct rt_edit_menu_item *
+C_DECL struct rt_edit_menu_item *
 rt_edit_metaball_menu_item(const struct bn_tol *UNUSED(tol))
 {
     return metaball_menu;
@@ -362,7 +362,8 @@ static const struct rt_edit_cmd_desc metaball_cmds[] = {
 	1,                    /* nparam       */
 	metaball_threshold_params, /* params  */
 	1,                    /* interactive  */
-	10                    /* display_order */
+	10                    /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_METABALL_SET_METHOD,    /* cmd_id  */
@@ -371,7 +372,8 @@ static const struct rt_edit_cmd_desc metaball_cmds[] = {
 	1,                    /* nparam       */
 	metaball_method_params, /* params     */
 	1,                    /* interactive  */
-	20                    /* display_order */
+	20                    /* display_order */,
+	NULL                  /* req_types */
     },
     /* --- point selection / navigation -------------------------------- */
     {
@@ -381,7 +383,8 @@ static const struct rt_edit_cmd_desc metaball_cmds[] = {
 	1,                    /* nparam       */
 	metaball_point_params, /* params      */
 	1,                    /* interactive  */
-	30                    /* display_order */
+	30                    /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_METABALL_PT_NEXT,       /* cmd_id  */
@@ -390,7 +393,8 @@ static const struct rt_edit_cmd_desc metaball_cmds[] = {
 	0,                    /* nparam       */
 	NULL,                 /* params       */
 	0,                    /* interactive  */
-	31                    /* display_order */
+	31                    /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_METABALL_PT_PREV,       /* cmd_id  */
@@ -399,7 +403,8 @@ static const struct rt_edit_cmd_desc metaball_cmds[] = {
 	0,                    /* nparam       */
 	NULL,                 /* params       */
 	0,                    /* interactive  */
-	32                    /* display_order */
+	32                    /* display_order */,
+	NULL                  /* req_types */
     },
     /* --- point geometry manipulation --------------------------------- */
     {
@@ -409,7 +414,8 @@ static const struct rt_edit_cmd_desc metaball_cmds[] = {
 	1,                    /* nparam       */
 	metaball_point_params, /* params      */
 	1,                    /* interactive  */
-	40                    /* display_order */
+	40                    /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_METABALL_PT_ADD,        /* cmd_id  */
@@ -418,7 +424,8 @@ static const struct rt_edit_cmd_desc metaball_cmds[] = {
 	1,                    /* nparam       */
 	metaball_point_params, /* params      */
 	1,                    /* interactive  */
-	50                    /* display_order */
+	50                    /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_METABALL_PT_DEL,        /* cmd_id  */
@@ -427,7 +434,8 @@ static const struct rt_edit_cmd_desc metaball_cmds[] = {
 	0,                    /* nparam       */
 	NULL,                 /* params       */
 	0,                    /* interactive  */
-	60                    /* display_order */
+	60                    /* display_order */,
+	NULL                  /* req_types */
     },
     /* --- per-point scalar parameters --------------------------------- */
     {
@@ -437,7 +445,8 @@ static const struct rt_edit_cmd_desc metaball_cmds[] = {
 	1,                    /* nparam       */
 	metaball_field_strength_params, /* params */
 	1,                    /* interactive  */
-	70                    /* display_order */
+	70                    /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_METABALL_PT_SCALE_BLOBBINESS, /* cmd_id */
@@ -446,7 +455,8 @@ static const struct rt_edit_cmd_desc metaball_cmds[] = {
 	1,                    /* nparam       */
 	metaball_blobbiness_params, /* params */
 	1,                    /* interactive  */
-	80                    /* display_order */
+	80                    /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_METABALL_PT_SET_BLOBBINESS, /* cmd_id */
@@ -455,7 +465,8 @@ static const struct rt_edit_cmd_desc metaball_cmds[] = {
 	1,                    /* nparam       */
 	metaball_blobbiness_params, /* params */
 	1,                    /* interactive  */
-	90                    /* display_order */
+	90                    /* display_order */,
+	NULL                  /* req_types */
     }
 };
 
@@ -463,10 +474,12 @@ static const struct rt_edit_prim_desc metaball_prim_desc = {
     "metaball",           /* prim_type    */
     "Metaball",           /* prim_label   */
     11,                   /* ncmd         */
-    metaball_cmds         /* cmds         */
+    metaball_cmds         /* cmds         */,
+    0,                    /* nopt         */
+    NULL                  /* opts         */
 };
 
-const struct rt_edit_prim_desc *
+C_DECL const struct rt_edit_prim_desc *
 rt_edit_metaball_edit_desc(void)
 {
     return &metaball_prim_desc;
@@ -474,7 +487,7 @@ rt_edit_metaball_edit_desc(void)
 
 
 /* get_params: return current value(s) for the given cmd_id */
-int
+C_DECL int
 rt_edit_metaball_get_params(struct rt_edit *s, int cmd_id, fastf_t *vals)
 {
     struct rt_metaball_internal *ball;
@@ -519,7 +532,7 @@ rt_edit_metaball_get_params(struct rt_edit *s, int cmd_id, fastf_t *vals)
 
 #define V3BASE2LOCAL(_pt) (_pt)[X]*base2local, (_pt)[Y]*base2local, (_pt)[Z]*base2local
 
-void
+C_DECL void
 rt_edit_metaball_write_params(
 	struct bu_vls *p,
 	const struct rt_db_internal *ip,
@@ -555,7 +568,7 @@ rt_edit_metaball_write_params(
     if (ln) *ln = '\0'; \
     while (lc && strchr(lc, ':')) lc++
 
-int
+C_DECL int
 rt_edit_metaball_read_params(
 	struct rt_db_internal *ip,
 	const char *fc,
@@ -639,7 +652,7 @@ rt_edit_metaball_read_params(
 }
 
 
-void
+C_DECL void
 rt_edit_metaball_labels(
 	int *UNUSED(num_lines),
 	point_t *UNUSED(lines),
@@ -675,7 +688,7 @@ rt_edit_metaball_labels(
     pl[npl].str[0] = '\0';	/* Mark ending */
 }
 
-const char *
+C_DECL const char *
 rt_edit_metaball_keypoint(
 	point_t *pt,
 	const char *UNUSED(keystr),
@@ -960,7 +973,7 @@ rt_edit_metaball_pscale(struct rt_edit *s)
     return 0;
 }
 
-int
+C_DECL int
 rt_edit_metaball_edit(struct rt_edit *s)
 {
     struct rt_metaball_edit *m = (struct rt_metaball_edit *)s->ipe_ptr;
@@ -1004,7 +1017,7 @@ rt_edit_metaball_edit(struct rt_edit *s)
     return 0;
 }
 
-int
+C_DECL int
 rt_edit_metaball_edit_xy(
 	struct rt_edit *s,
 	const vect_t mousevec

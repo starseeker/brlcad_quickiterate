@@ -107,7 +107,7 @@ struct RemrtDetected {
     std::condition_variable cv;
     int port = 0;
     std::string token;
-    bool ready = false;   /* port AND token found */
+    bool ready = false;   /* token found */
 
     void reset() {
 	port = 0;
@@ -193,15 +193,10 @@ read_remrt_stderr(struct bu_process *proc, RemrtDetected *det, std::string *log_
 	    if (tok[0] != '\0') {
 		std::lock_guard<std::mutex> lk(det->mtx);
 		det->token = tok;
-	    }
-	}
-
-	/* Signal once both are available. */
-	{
-	    std::lock_guard<std::mutex> lk(det->mtx);
-	    if (det->port && !det->token.empty() && !det->ready) {
-		det->ready = true;
-		det->cv.notify_all();
+		if (!det->ready) {
+		    det->ready = true;
+		    det->cv.notify_all();
+		}
 	    }
 	}
     }
@@ -402,19 +397,10 @@ run_ipc_subtest(const TestOptions &opts,
     std::thread stderr_read_thr(read_remrt_stderr, remrt_proc,
 				&det, &remrt_stderr_log);
 
-    {
-	std::unique_lock<std::mutex> lk(det.mtx);
-	bool ok = det.cv.wait_for(lk,
-				  std::chrono::seconds(PORT_TOKEN_WAIT_SEC),
-				  [&det] { return det.ready; });
-	if (!ok)
-	    fprintf(stderr,
-		    "regress_remrt [%s]: timeout waiting for remrt startup\n",
-		    label);
-    }
-
-    /* If using -M, pipe the view script to remrt's stdin now that remrt
-     * has started.  This unblocks eat_script() so do_work() can begin.   */
+    /* If using -M, pipe the view script to remrt's stdin immediately.
+     * remrt reads it after startup reaches eat_script(); writing it now
+     * avoids a parent/child ordering dependency on any diagnostic banner
+     * arriving first through stderr. */
     if (use_script) {
 	FILE *fin = bu_process_file_open(remrt_proc, BU_PROCESS_STDIN);
 	if (fin) {
@@ -424,6 +410,18 @@ run_ipc_subtest(const TestOptions &opts,
 	    fprintf(stderr, "regress_remrt [%s]: cannot open remrt stdin\n",
 		    label);
 	}
+    }
+
+    {
+	std::unique_lock<std::mutex> lk(det.mtx);
+	bool ok = det.cv.wait_for(lk,
+				  std::chrono::seconds(PORT_TOKEN_WAIT_SEC),
+				  [&det] { return det.ready; });
+	if (!ok)
+	    fprintf(stderr,
+		    "regress_remrt [%s]: timeout waiting for remrt startup\n"
+		    "  stderr so far:\n%s\n",
+		    label, remrt_stderr_log.c_str());
     }
 
     /* Wait for remrt to complete the render and exit. */

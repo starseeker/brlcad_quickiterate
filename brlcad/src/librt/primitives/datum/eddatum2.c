@@ -192,23 +192,23 @@ ecmd_datum_set_w(struct rt_edit *s)
  * ================================================================== */
 
 /* No per-edit state needed for datum (no selection). */
-void *
+C_DECL void *
 rt_edit_datum_prim_edit_create(struct rt_edit *UNUSED(s))
 {
     return NULL;
 }
 
-void
+C_DECL void
 rt_edit_datum_prim_edit_destroy(void *UNUSED(ptr))
 {
 }
 
-void
+C_DECL void
 rt_edit_datum_prim_edit_reset(struct rt_edit *UNUSED(s))
 {
 }
 
-void
+C_DECL void
 rt_edit_datum_set_edit_mode(struct rt_edit *s, int mode)
 {
     rt_edit_set_edflag(s, mode);
@@ -221,7 +221,7 @@ rt_edit_datum_set_edit_mode(struct rt_edit *s, int mode)
     if (f) (*f)(0, NULL, d, &flag);
 }
 
-int
+C_DECL int
 rt_edit_datum_edit(struct rt_edit *s)
 {
     switch (s->edit_flag) {
@@ -251,8 +251,8 @@ rt_edit_datum_edit(struct rt_edit *s)
     return 0;
 }
 
-int
-rt_edit_datum_edit_xy(struct rt_edit *s, vect_t mousevec)
+C_DECL int
+rt_edit_datum_edit_xy(struct rt_edit *s, const vect_t mousevec)
 {
     vect_t pos_view = VINIT_ZERO;
 
@@ -306,24 +306,26 @@ static const struct rt_edit_param_desc datum_w_param[] = {
 };
 
 static const struct rt_edit_cmd_desc datum_cmds[] = {
-    { ECMD_DATUM_SET_TYPE, "Set Type",      "datum", 1, datum_type_param, 1, 10 },
-    { ECMD_DATUM_SET_PNT,  "Set Point",     "datum", 1, datum_pnt_param,  1, 20 },
-    { ECMD_DATUM_SET_DIR,  "Set Direction", "datum", 1, datum_dir_param,  1, 30 },
-    { ECMD_DATUM_SET_W,    "Set W",         "datum", 1, datum_w_param,    1, 40 }
+    { ECMD_DATUM_SET_TYPE, "Set Type",      "datum", 1, datum_type_param, 1, 10, NULL },
+    { ECMD_DATUM_SET_PNT,  "Set Point",     "datum", 1, datum_pnt_param,  1, 20, NULL },
+    { ECMD_DATUM_SET_DIR,  "Set Direction", "datum", 1, datum_dir_param,  1, 30, NULL },
+    { ECMD_DATUM_SET_W,    "Set W",         "datum", 1, datum_w_param,    1, 40, NULL }
 };
 
 static const struct rt_edit_prim_desc datum_prim_desc = {
-    "datum", "Datum", 4, datum_cmds
+    "datum", "Datum", 4, datum_cmds,
+    0,                    /* nopt         */
+    NULL                  /* opts         */
 };
 
-const struct rt_edit_prim_desc *
+C_DECL const struct rt_edit_prim_desc *
 rt_edit_datum_edit_desc(void)
 {
     return &datum_prim_desc;
 }
 
 
-int
+C_DECL int
 rt_edit_datum_get_params(struct rt_edit *s, int cmd_id, fastf_t *vals)
 {
     if (!s || !vals) return 0;

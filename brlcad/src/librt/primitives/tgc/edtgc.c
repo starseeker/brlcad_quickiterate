@@ -29,7 +29,9 @@
 #include "vmath.h"
 #include "nmg.h"
 #include "raytrace.h"
+#include "rt/db4.h"
 #include "rt/geom.h"
+#include "rt/primitives/tgc.h"
 #include "wdb.h"
 
 #include "../edit_private.h"
@@ -52,7 +54,7 @@
 #define ECMD_TGC_SCALE_H_V	2028
 #define ECMD_TGC_SCALE_H_V_AB	2112
 
-void
+C_DECL void
 rt_edit_tgc_set_edit_mode(struct rt_edit *s, int mode)
 {
     // Most of the commands are scale, so set those flags by default.  That
@@ -112,7 +114,7 @@ struct rt_edit_menu_item tgc_menu[] = {
     { "", NULL, 0 }
 };
 
-struct rt_edit_menu_item *
+C_DECL struct rt_edit_menu_item *
 rt_edit_tgc_menu_item(const struct bn_tol *UNUSED(tol))
 {
     return tgc_menu;
@@ -272,7 +274,7 @@ static const struct rt_edit_cmd_desc tgc_cmds[] = {
 	1,                    /* nparam       */
 	tgc_h_params,         /* params       */
 	1,                    /* interactive  */
-	10                    /* display_order */
+	10 /* display_order */, "tgc,trc,tec,rec,rcc" /* req_types */
     },
     {
 	ECMD_TGC_SCALE_H_V,   /* cmd_id       */
@@ -281,7 +283,7 @@ static const struct rt_edit_cmd_desc tgc_cmds[] = {
 	1,                    /* nparam       */
 	tgc_h_params,         /* params       */
 	1,                    /* interactive  */
-	20                    /* display_order */
+	20 /* display_order */, "tgc,trc,tec,rec,rcc" /* req_types */
     },
     {
 	ECMD_TGC_SCALE_H_CD,  /* cmd_id       */
@@ -290,7 +292,7 @@ static const struct rt_edit_cmd_desc tgc_cmds[] = {
 	1,                    /* nparam       */
 	tgc_h_params,         /* params       */
 	1,                    /* interactive  */
-	30                    /* display_order */
+	30 /* display_order */, "tgc,trc,tec,rec,rcc" /* req_types */
     },
     {
 	ECMD_TGC_SCALE_H_V_AB, /* cmd_id      */
@@ -299,7 +301,7 @@ static const struct rt_edit_cmd_desc tgc_cmds[] = {
 	1,                    /* nparam       */
 	tgc_h_params,         /* params       */
 	1,                    /* interactive  */
-	40                    /* display_order */
+	40 /* display_order */, "tgc,trc,tec,rec,rcc" /* req_types */
     },
     {
 	ECMD_TGC_SCALE_A,     /* cmd_id       */
@@ -308,7 +310,7 @@ static const struct rt_edit_cmd_desc tgc_cmds[] = {
 	1,                    /* nparam       */
 	tgc_a_params,         /* params       */
 	1,                    /* interactive  */
-	50                    /* display_order */
+	50 /* display_order */, "tgc,tec,rec" /* req_types */
     },
     {
 	ECMD_TGC_SCALE_B,     /* cmd_id       */
@@ -317,7 +319,7 @@ static const struct rt_edit_cmd_desc tgc_cmds[] = {
 	1,                    /* nparam       */
 	tgc_b_params,         /* params       */
 	1,                    /* interactive  */
-	60                    /* display_order */
+	60 /* display_order */, "tgc,tec,rec" /* req_types */
     },
     {
 	ECMD_TGC_SCALE_C,     /* cmd_id       */
@@ -326,7 +328,7 @@ static const struct rt_edit_cmd_desc tgc_cmds[] = {
 	1,                    /* nparam       */
 	tgc_c_params,         /* params       */
 	1,                    /* interactive  */
-	70                    /* display_order */
+	70 /* display_order */, "tgc,tec" /* req_types */
     },
     {
 	ECMD_TGC_SCALE_D,     /* cmd_id       */
@@ -335,7 +337,7 @@ static const struct rt_edit_cmd_desc tgc_cmds[] = {
 	1,                    /* nparam       */
 	tgc_d_params,         /* params       */
 	1,                    /* interactive  */
-	80                    /* display_order */
+	80 /* display_order */, "tgc,tec" /* req_types */
     },
     {
 	ECMD_TGC_SCALE_AB,    /* cmd_id       */
@@ -344,7 +346,7 @@ static const struct rt_edit_cmd_desc tgc_cmds[] = {
 	1,                    /* nparam       */
 	tgc_ab_params,        /* params       */
 	1,                    /* interactive  */
-	90                    /* display_order */
+	90 /* display_order */, "tgc,trc,tec,rec,rcc" /* req_types */
     },
     {
 	ECMD_TGC_SCALE_CD,    /* cmd_id       */
@@ -353,7 +355,7 @@ static const struct rt_edit_cmd_desc tgc_cmds[] = {
 	1,                    /* nparam       */
 	tgc_cd_params,        /* params       */
 	1,                    /* interactive  */
-	100                   /* display_order */
+	100 /* display_order */, "tgc,trc,tec" /* req_types */
     },
     {
 	ECMD_TGC_SCALE_ABCD,  /* cmd_id       */
@@ -362,7 +364,7 @@ static const struct rt_edit_cmd_desc tgc_cmds[] = {
 	1,                    /* nparam       */
 	tgc_abcd_params,      /* params       */
 	1,                    /* interactive  */
-	110                   /* display_order */
+	110 /* display_order */, "tgc,trc,tec,rec,rcc" /* req_types */
     },
     {
 	ECMD_TGC_MV_H,        /* cmd_id       */
@@ -371,7 +373,7 @@ static const struct rt_edit_cmd_desc tgc_cmds[] = {
 	1,                    /* nparam       */
 	tgc_endpoint_params,  /* params       */
 	1,                    /* interactive  */
-	120                   /* display_order */
+	120 /* display_order */, "tgc,trc,tec,rec,rcc" /* req_types */
     },
     {
 	ECMD_TGC_MV_HH,       /* cmd_id       */
@@ -380,7 +382,7 @@ static const struct rt_edit_cmd_desc tgc_cmds[] = {
 	1,                    /* nparam       */
 	tgc_endpoint_params,  /* params       */
 	1,                    /* interactive  */
-	130                   /* display_order */
+	130 /* display_order */, "tgc,trc,tec,rec,rcc" /* req_types */
     },
     {
 	ECMD_TGC_MV_H_CD,     /* cmd_id       */
@@ -389,7 +391,7 @@ static const struct rt_edit_cmd_desc tgc_cmds[] = {
 	1,                    /* nparam       */
 	tgc_endpoint_params,  /* params       */
 	1,                    /* interactive  */
-	140                   /* display_order */
+	140 /* display_order */, "tgc,trc,tec,rec,rcc" /* req_types */
     },
     {
 	ECMD_TGC_MV_H_V_AB,   /* cmd_id       */
@@ -398,7 +400,7 @@ static const struct rt_edit_cmd_desc tgc_cmds[] = {
 	1,                    /* nparam       */
 	tgc_endpoint_params,  /* params       */
 	1,                    /* interactive  */
-	150                   /* display_order */
+	150 /* display_order */, "tgc,trc,tec,rec,rcc" /* req_types */
     },
     {
 	ECMD_TGC_ROT_H,       /* cmd_id       */
@@ -407,7 +409,7 @@ static const struct rt_edit_cmd_desc tgc_cmds[] = {
 	1,                    /* nparam       */
 	tgc_rot_deg_params,   /* params       */
 	1,                    /* interactive  */
-	160                   /* display_order */
+	160 /* display_order */, "tgc,trc,tec,rec,rcc" /* req_types */
     },
     {
 	ECMD_TGC_ROT_AB,      /* cmd_id       */
@@ -416,24 +418,30 @@ static const struct rt_edit_cmd_desc tgc_cmds[] = {
 	1,                    /* nparam       */
 	tgc_rot_deg_params,   /* params       */
 	1,                    /* interactive  */
-	170                   /* display_order */
+	170 /* display_order */, "tgc,trc,tec,rec,rcc" /* req_types */
     }
+};
+
+static const struct rt_edit_opt_desc tgc_opts[] = {
+    { "type", "Type Override", "Set primitive type override (e.g. type=rcc)", RT_EDIT_PARAM_STRING }
 };
 
 static const struct rt_edit_prim_desc tgc_prim_desc = {
     "tgc",                /* prim_type    */
     "Truncated General Cone", /* prim_label */
     17,                   /* ncmd         */
-    tgc_cmds              /* cmds         */
+    tgc_cmds,             /* cmds         */
+    1,                    /* nopt         */
+    tgc_opts              /* opts         */
 };
 
-const struct rt_edit_prim_desc *
+C_DECL const struct rt_edit_prim_desc *
 rt_edit_tgc_edit_desc(void)
 {
     return &tgc_prim_desc;
 }
 
-void
+C_DECL void
 rt_edit_tgc_e_axes_pos(
 	struct rt_edit *s,
 	const struct rt_db_internal *ip,
@@ -455,7 +463,7 @@ rt_edit_tgc_e_axes_pos(
 
 #define V3BASE2LOCAL(_pt) (_pt)[X]*base2local, (_pt)[Y]*base2local, (_pt)[Z]*base2local
 
-void
+C_DECL void
 rt_edit_tgc_write_params(
 	struct bu_vls *p,
        	const struct rt_db_internal *ip,
@@ -483,7 +491,7 @@ rt_edit_tgc_write_params(
     if (ln) *ln = '\0'; \
     while (lc && strchr(lc, ':')) lc++
 
-int
+C_DECL int
 rt_edit_tgc_read_params(
 	struct rt_db_internal *ip,
 	const char *fc,
@@ -1149,7 +1157,7 @@ rt_edit_tgc_pscale(struct rt_edit *s)
     return 0;
 }
 
-int
+C_DECL int
 rt_edit_tgc_edit(struct rt_edit *s)
 {
     int ret = 0;
@@ -1194,7 +1202,7 @@ rt_edit_tgc_edit(struct rt_edit *s)
     return ret;
 }
 
-int
+C_DECL int
 rt_edit_tgc_edit_xy(
 	struct rt_edit *s,
 	const vect_t mousevec
@@ -1254,3 +1262,24 @@ rt_edit_tgc_edit_xy(
  * End:
  * ex: shiftwidth=4 tabstop=8
  */
+
+RT_EXPORT int
+rt_tgc_std_type(const struct rt_db_internal *ip, const struct bn_tol *tol)
+{
+    struct rt_tgc_internal *tgc = (struct rt_tgc_internal *)ip->idb_ptr;
+    int nat_type = TGC;
+    double a = MAGNITUDE(tgc->a);
+    double b = MAGNITUDE(tgc->b);
+    double c = MAGNITUDE(tgc->c);
+    double d = MAGNITUDE(tgc->d);
+    
+    if (NEAR_EQUAL(a, b, tol->dist) && NEAR_EQUAL(c, d, tol->dist)) {
+        if (NEAR_EQUAL(a, c, tol->dist)) nat_type = RCC;
+        else nat_type = TRC;
+    } else {
+        if (NEAR_EQUAL(a, c, tol->dist) && NEAR_EQUAL(b, d, tol->dist)) nat_type = REC;
+        else nat_type = TEC;
+    }
+
+    return nat_type;
+}

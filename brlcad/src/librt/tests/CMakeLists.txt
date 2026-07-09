@@ -7,12 +7,15 @@ distclean("${CMAKE_CURRENT_BINARY_DIR}/bundle.plot3")
 
 brlcad_addexec(rt_pattern rt_pattern.c "${RT_TEST_LIBS}" TEST)
 brlcad_add_test(NAME rt_pattern_5 COMMAND rt_pattern 5)
+brlcad_add_test(NAME rt_pattern_6 COMMAND rt_pattern 6)
 set_property(
   DIRECTORY
   APPEND
   PROPERTY ADDITIONAL_MAKE_CLEAN_FILES "${CMAKE_CURRENT_BINARY_DIR}/rt_pattern_test_5.plot3"
+           "${CMAKE_CURRENT_BINARY_DIR}/rt_pattern_test_6.plot3"
 )
 distclean("${CMAKE_CURRENT_BINARY_DIR}/rt_pattern_test_5.plot3")
+distclean("${CMAKE_CURRENT_BINARY_DIR}/rt_pattern_test_6.plot3")
 
 brlcad_addexec(rt_dvec dvec.cpp "${RT_TEST_LIBS}" NO_STRICT TEST)
 brlcad_add_test(NAME rt_dvec COMMAND rt_dvec)
@@ -40,6 +43,9 @@ endif(USING_MATERIALX)
 
 # diff testing
 brlcad_addexec(rt_diff diff.c "${RT_TEST_LIBS}" TEST)
+
+brlcad_addexec(rt_default_object default_object.c "librt;libwdb;libbu;${M_LIBRARY}" TEST)
+brlcad_add_test(NAME rt_default_object COMMAND rt_default_object)
 
 if(BRLCAD_ENABLE_BINARY_ATTRIBUTES)
   brlcad_addexec(rt_binary_attribute binary_attribute.c "${RT_TEST_LIBS}" TEST)
@@ -78,7 +84,7 @@ brlcad_addexec(rt_bv_poly_sketch bv_poly_sketch.c "librt;libbv;${M_LIBRARY}" TES
 
 # arb8 testing
 brlcad_addexec(rt_arb8 arb8_tests.c "librt;libwdb;libbg;libbu;${M_LIBRARY}" TEST)
-#brlcad_add_test(NAME rt_arb8_tests COMMAND rt_arb8)
+brlcad_add_test(NAME rt_arb8_tests COMMAND rt_arb8)
 
 # search stress and correctness testing
 brlcad_addexec(rt_search_stress search_stress.c "librt;libwdb;libbu;${M_LIBRARY}" TEST)
@@ -92,16 +98,31 @@ brlcad_addexec(bot_match bot_match.cpp "librt;libbg;${M_LIBRARY}" TEST)
 # boolweave testing
 brlcad_addexec(rt_boolweave rt_boolweave.c "${RT_TEST_LIBS}" TEST)
 
+# ft_shot vs ft_vshot: validates the sph vectorized shot matches the
+# scalar shot, and times the vector callback (short 0.1s/phase budget)
+brlcad_addexec(rt_vshot vshot_test.cpp "${RT_TEST_LIBS}" TEST)
+brlcad_add_test(NAME rt_vshot COMMAND rt_vshot 0.1)
+
 # Tests for primitive editing
 add_subdirectory(edit)
 
 # prim_tess: NMG tessellation quality tests
 brlcad_addexec(rt_prim_tess prim_tess.c "librt;libnmg;libwdb;libbg;libbu;${M_LIBRARY}" TEST)
-#brlcad_add_test(NAME rt_prim_tess COMMAND rt_prim_tess)
+brlcad_add_test(NAME rt_prim_tess COMMAND rt_prim_tess)
 
 # stand-alone Crofton estimator tests
 brlcad_addexec(rt_crofton crofton.c "librt;libwdb;libbu;${M_LIBRARY}" TEST)
 brlcad_add_test(NAME rt_crofton COMMAND rt_crofton)
+
+# standalone DSP surface area + volume checks
+brlcad_addexec(rt_dsp_sa_vol_check dsp_sa_vol_check.c "librt;libbu" TEST)
+brlcad_add_test(NAME rt_dsp_sa_vol_check COMMAND rt_dsp_sa_vol_check)
+# "-c" compares against Crofton
+brlcad_add_test(NAME rt_dsp_sa_vol_compare COMMAND rt_dsp_sa_vol_check -c)
+
+# DSP raytrace consistency + timing check (HBB+DDA path)
+brlcad_addexec(rt_dsp_raytrace_check dsp_raytrace_check.c "librt;libwdb;libbu;${M_LIBRARY}" TEST)
+brlcad_add_test(NAME rt_dsp_raytrace_check COMMAND rt_dsp_raytrace_check)
 
 set(
   distcheck_files
@@ -109,6 +130,9 @@ set(
   arb_intersect.g
   binary_attribute.c
   crofton.c
+  default_object.c
+  dsp_raytrace_check.c
+  dsp_sa_vol_check.c
   brep_boolean_tests.g
   cyclic_tests.g
   extreme_ssi_test.g

@@ -135,7 +135,8 @@ static const struct rt_edit_cmd_desc rec_cmds[] = {
 	1,                          /* nparam */
 	rec_v_params,               /* params */
 	0,                          /* interactive */
-	10                          /* display_order */
+	10                          /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_REC_SET_H,             /* cmd_id */
@@ -144,7 +145,8 @@ static const struct rt_edit_cmd_desc rec_cmds[] = {
 	1,                          /* nparam */
 	rec_h_params,               /* params */
 	0,                          /* interactive */
-	20                          /* display_order */
+	20                          /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_REC_SCALE_R1,          /* cmd_id */
@@ -153,7 +155,8 @@ static const struct rt_edit_cmd_desc rec_cmds[] = {
 	1,                          /* nparam */
 	rec_r1_params,              /* params */
 	0,                          /* interactive */
-	30                          /* display_order */
+	30                          /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_REC_SCALE_R2,          /* cmd_id */
@@ -162,7 +165,8 @@ static const struct rt_edit_cmd_desc rec_cmds[] = {
 	1,                          /* nparam */
 	rec_r2_params,              /* params */
 	0,                          /* interactive */
-	40                          /* display_order */
+	40                          /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_REC_SCALE_R,           /* cmd_id */
@@ -171,7 +175,8 @@ static const struct rt_edit_cmd_desc rec_cmds[] = {
 	1,                          /* nparam */
 	rec_r_params,               /* params */
 	0,                          /* interactive */
-	50                          /* display_order */
+	50                          /* display_order */,
+	NULL                  /* req_types */
     }
 };
 
@@ -179,16 +184,18 @@ static const struct rt_edit_prim_desc rec_prim_desc = {
     "rec",                          /* prim_type */
     "Right Elliptic Cylinder",      /* prim_label */
     5,                              /* ncmd */
-    rec_cmds                        /* cmds */
+    rec_cmds                        /* cmds */,
+    0,                    /* nopt         */
+    NULL                  /* opts         */
 };
 
-const struct rt_edit_prim_desc *
+C_DECL const struct rt_edit_prim_desc *
 rt_edit_rec_edit_desc(void)
 {
     return &rec_prim_desc;
 }
 
-void
+C_DECL void
 rt_edit_rec_set_edit_mode(struct rt_edit *s, int mode)
 {
     rt_edit_set_edflag(s, mode);
@@ -209,10 +216,12 @@ rt_edit_rec_set_edit_mode(struct rt_edit *s, int mode)
 }
 
 /* Forward declare TGC functions used by REC as fallback */
+__BEGIN_DECLS
 extern int rt_edit_tgc_edit(struct rt_edit *s);
 extern int rt_edit_tgc_edit_xy(struct rt_edit *s, const vect_t mousevec);
+__END_DECLS
 
-int
+C_DECL int
 rt_edit_rec_edit(struct rt_edit *s)
 {
     struct rt_tgc_internal *tgc;
@@ -328,13 +337,13 @@ rt_edit_rec_edit(struct rt_edit *s)
     return rt_edit_tgc_edit(s);
 }
 
-int
+C_DECL int
 rt_edit_rec_edit_xy(struct rt_edit *s, const vect_t mousevec)
 {
     return rt_edit_tgc_edit_xy(s, mousevec);
 }
 
-int
+C_DECL int
 rt_edit_rec_get_params(struct rt_edit *s, int cmd_id, fastf_t *vals)
 {
     struct rt_tgc_internal *tgc;

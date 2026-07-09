@@ -10,14 +10,6 @@ set(
   polygon_op.cpp
   polygon_fill.cpp
   snap.c
-  tig/axis.c
-  tig/list.c
-  tig/marker.c
-  tig/scale.c
-  tig/symbol.c
-  tig/tplot.c
-  tig/vectfont.c
-  tig/vector.c
   util.cpp
   vlist.c
   view_sets.cpp
@@ -42,6 +34,9 @@ if(HIDE_INTERNAL_SYMBOLS)
   if(TARGET libbv-obj)
     set_property(TARGET libbv-obj APPEND PROPERTY COMPILE_DEFINITIONS "PLOT3_DLL_EXPORTS")
   endif(TARGET libbv-obj)
+  if(TARGET libbv-brlcad-obj)
+    set_property(TARGET libbv-brlcad-obj APPEND PROPERTY COMPILE_DEFINITIONS "PLOT3_DLL_EXPORTS")
+  endif(TARGET libbv-brlcad-obj)
 endif(HIDE_INTERNAL_SYMBOLS)
 
 add_subdirectory(tests)

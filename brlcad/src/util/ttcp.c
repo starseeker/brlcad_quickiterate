@@ -140,6 +140,61 @@ int b_flag = 0;			/* use mread() */
 
 double cput, realt;		/* user, real time (seconds) */
 
+static int
+parse_option_int_arg(const char *arg, int min_value, int max_value, const char *label, int *out_value)
+{
+    char *end = NULL;
+    long int value;
+
+    errno = 0;
+    value = strtol(arg, &end, 10);
+    if (errno != 0 || end == arg || *end != '\0' || value < min_value || value > max_value) {
+        fprintf(stderr, "ttcp: invalid %s '%s'\n", label, arg);
+        return 0;
+    }
+
+    *out_value = (int)value;
+    return 1;
+}
+
+static int
+is_numeric_host(const char *host_name)
+{
+    const char *segment = host_name;
+    int octets = 0;
+
+    if (host_name == NULL || *host_name == '\0')
+        return 0;
+
+    while (*segment != '\0') {
+        char *end = NULL;
+        unsigned long value;
+
+        if (!isdigit((unsigned char)*segment))
+            return 0;
+
+        errno = 0;
+        value = strtoul(segment, &end, 10);
+        if (errno != 0 || end == segment || value > 255)
+            return 0;
+
+        octets++;
+        if (octets > 4)
+            return 0;
+
+        if (*end == '\0')
+            return octets == 4;
+        if (*end != '.')
+            return 0;
+
+        segment = end + 1;
+        if (*segment == '\0')
+            return 0;
+    }
+
+    return 0;
+}
+
 /*
  * This function performs the function of a read(II) but will
  * call read(II) multiple times in order to get the requested
@@ -408,38 +463,19 @@ main(int argc, char **argv)
 #endif
             break;
         case 'n':
-            nbuf = atoi(&argv[0][2]);
-            if (nbuf < 0) {
-                printf("Negative buffer count.\n");
+            if (!parse_option_int_arg(&argv[0][2], 0, INT_MAX - 1, "buffer count", &nbuf))
                 return -1;
-            }
-            if (nbuf >= INT_MAX) {
-                printf("Too many buffers specified.\n");
-                return -1;
-            }
             break;
         case 'l':
-            buflen = atoi(&argv[0][2]);
-            if (buflen <= 0) {
-                printf("Invalid buffer length.\n");
+            if (!parse_option_int_arg(&argv[0][2], 1, INT_MAX - 1, "buffer length", &buflen))
                 return -1;
-            }
-            if (buflen >= INT_MAX) {
-                printf("Buffer length too large.\n");
-                return -1;
-            }
             break;
         case 's':
             sinkmode = 1;	/* source or sink, really */
             break;
         case 'p':
-            port = atoi(&argv[0][2]);
-            if (port < 0) {
-                port = 0;
-            }
-            if (port > 65535) {
-                port = 65535;
-            }
+            if (!parse_option_int_arg(&argv[0][2], 0, 65535, "port", &port))
+                return -1;
             break;
         case 'u':
             udp = 1;
@@ -454,7 +490,7 @@ main(int argc, char **argv)
         if (argc != 1) goto usage;
         memset((char *)&sinhim, 0, sizeof(sinhim));
         host = argv[0];
-        if (atoi(host) > 0) {
+        if (is_numeric_host(host)) {
             /* Numeric */
             sinhim.sin_family = AF_INET;
             sinhim.sin_addr.s_addr = inet_addr(host);

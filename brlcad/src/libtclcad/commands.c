@@ -41,9 +41,6 @@
 #include "png.h"
 
 #include "tcl.h"
-#ifdef HAVE_TK
-#  include "tk.h"
-#endif
 
 #include "bio.h"
 
@@ -60,6 +57,13 @@
 #include "ged.h"
 #include "tclcad.h"
 
+// tclcad.h pulls in OpenNURBS in C++ compilation mode, which defines None,
+// which will conflict with Tk.h's Xlib None if we include tk.h before tclcad.h
+#include "tcl.h"
+#ifdef HAVE_TK
+#  include "tk.h"
+#endif
+
 #include "bv/defines.h"
 #include "dm.h"
 #include "bv/util.h"
@@ -69,10 +73,6 @@
 #include "icv/ops.h"
 #include "icv/crop.h"
 #include "dm.h"
-
-#ifdef HAVE_GL_GL_H
-#  include <GL/gl.h>
-#endif
 
 /* For the moment call internal libged functions - a cleaner
  * solution will be needed eventually */
@@ -374,7 +374,6 @@ static int to_paint_rect_area(struct ged *gedp,
 	ged_func_ptr func,
 	const char *usage,
 	int maxargs);
-#ifdef HAVE_GL_GL_H
 static int to_pix(struct ged *gedp,
 	int argc,
 	const char *argv[],
@@ -387,7 +386,6 @@ static int to_png(struct ged *gedp,
 	ged_func_ptr func,
 	const char *usage,
 	int maxargs);
-#endif
 static int to_rect_mode(struct ged *gedp,
 	int argc,
 	const char *argv[],
@@ -904,10 +902,8 @@ struct to_cmdtab to_cmds[] = {
     {"otranslate_mode",	"obj x y", TO_UNLIMITED, to_otranslate_mode, GED_FUNC_PTR_NULL},
     {"paint_rect_area",	"vname", TO_UNLIMITED, to_paint_rect_area, GED_FUNC_PTR_NULL},
     {"pipe_pnt_mode",	"obj seg_i mx my", TO_UNLIMITED, to_pipe_move_pnt_mode, GED_FUNC_PTR_NULL},
-#ifdef HAVE_GL_GL_H
     {"pix",	"file", TO_UNLIMITED, to_pix, GED_FUNC_PTR_NULL},
     {"png",	"file", TO_UNLIMITED, to_png, GED_FUNC_PTR_NULL},
-#endif
     {"poly_circ_mode",	"x y", TO_UNLIMITED, to_poly_circ_mode, GED_FUNC_PTR_NULL},
     {"poly_cont_build",	"x y", TO_UNLIMITED, to_poly_cont_build, GED_FUNC_PTR_NULL},
     {"poly_cont_build_end",	"y", TO_UNLIMITED, to_poly_cont_build_end, GED_FUNC_PTR_NULL},
@@ -955,7 +951,7 @@ struct to_cmdtab to_cmds[] = {
  * @brief create the Tcl command for to_open
  *
  */
-int
+TCLCAD_EXPORT int
 Ged_Init(Tcl_Interp *interp)
 {
 
@@ -4786,7 +4782,6 @@ to_paint_rect_area(struct ged *gedp,
 }
 
 
-#ifdef HAVE_GL_GL_H
 static int
 to_pix(struct ged *gedp,
 	int argc,
@@ -4973,8 +4968,6 @@ to_png(struct ged *gedp,
 
     return BRLCAD_OK;
 }
-#endif
-
 
 static int
 to_rect_mode(struct ged *gedp,

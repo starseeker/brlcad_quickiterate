@@ -13,13 +13,39 @@ changes made.  See document footer for additional details.
 --- 20XX-XX-XX  Release 7.44.0                                     ---
 ----------------------------------------------------------------------
 
+* rt -l8 rendering time heat graphs - Stephen Kennedy, Sean Morrison
+* added 'icv anim' for APNG and MJPEG animation files - Clifford Yapp
+* added BREP/NURBS import support to gcv x3d importer - Sean Morrison
+* added new documentation on adrt rendering - Sean Morrison
+* added snail & seashell procedural geometry generator - Sean Morrison
+* additional 3D geometry model examples - Csanyi Pal, Lee Butler
+* fixed fbgamma bug specifying three channel values - Sean Morrison
+* fixed fbgrid -o old grid mode uninitialized data bug - Sean Morrison
+* added gcv import support for VTK's ascii file format - Sean Morrison
+* improved ray tracing performance on opaque objects - Sean Morrison
+* expanded autoview command with support for objects - Sean Morrison
+* added new rt -c "autoview object1 object2" option - Sean Morrison
+* killall no longer outputs kill lookup failures - Sean Morrison
+* added new manual pages for over 30 tools & utilities - Sean Morrison
+* fixed mged/rt/gui apps on Mac w/ ogl device windows - Sean Morrison
+* modified gist long title printing to maximally fit - Sean Morrison
+* fixed gist hierarchy bug with matrix on top subcombs - Sean Morrison
+* modified gist hierarchy summary to include counts - Sean Morrison
+* gist hierarchy no longer displays air as black boxes - Sean Morrison
+* added get/put/adjust/g2asc support for datum objects - Sean Morrison
+* added gcv & g-obj color .mtl material export support - Sean Morrison
+* improved DSP raytrace consistency, robustness, & speed - Cliff Yapp
+* added arb repair command to fix various ARB8 issues - Cliff Yapp
+* fixed convex hull tolerance handling for thin shapes - Cliff Yapp
+* fixed vdeck truncating/overflowing long region names - Sean Morrison
+* fixed rtweight nan centroid for zero-density regions - Sean Morrison
+* fixed rt -l7 photon mapping-based rendering crashes - Sean Morrison
 * fixed mged instability/crash after mged help command - Sean Morrison
 * new mged 'near' command to find proximity objects - Sean Morrison
 * fixed sketch/view polygon coordinate offsets - Cliff Yapp
 * added new manual pages for over 110 GED commands - Sean Morrison
 * improved facetize tolerance and coplanar face handling - Cliff Yapp
 * added support for alternate plane forms to rt -k option - Cliff Yapp
-* added loadview manual page - Sean Morrison
 * improved ~85 manual page synopses, docs, & examples - Sean Morrison
 * fixed bug in gqa material object lookup - Cliff Yapp
 * fixed bug in rtweight material object lookup - Cliff Yapp
@@ -1154,7 +1180,7 @@ tracing infrastructure including CPU thread affinity locking for
 faster performance, more consistent grazing hit behavior, expanded
 volume and surface area calculations, numerous bug fixes, and more
 robust NURBS evaluation.  Following BRL-CAD's interface deprecation
-policy (see CHANGES file), the Jove text editor is no longer being
+policy (see CHANGES.adoc), the Jove text editor is no longer being
 bundled.  Numerous converters receive robustness improvements
 including the STEP, Patch, and 3DM importers.
 
@@ -3503,8 +3529,8 @@ future.  For those situations, developers using the BRL-CAD libraries
 may need to update to new API features in order to link with newer
 versions of BRL-CAD.
 
-See the CHANGES file for a transcript of features that are deprecated
-or have already become obsolete.
+See doc/changes/deprecated.adoc and doc/changes/obsoleted.adoc for
+features that are deprecated or have already become obsolete.
 
 ---
 See doc/history.txt for more historic information on BRL-CAD.  There

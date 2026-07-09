@@ -55,6 +55,10 @@ struct _ged_facetize_state {
     int no_fixup;
     int no_perturb;
     int use_variant_plan;
+    int tolerate_failures;
+    int tolerated_failures;
+    int tolerated_failure_details;
+    int tolerated_failure_omitted;
 
     /* Perturb validation thresholds (percentage, 0–100).
      * Trigger the perturb retry when the CSG–BoT difference exceeds these
@@ -67,6 +71,8 @@ struct _ged_facetize_state {
     struct bu_vls *bname;
     struct bu_vls *log_file;
     FILE *lfile;
+    struct bu_vls *failure_msg;
+    struct bu_vls *tolerated_failure_log;
 
     // Processing
     int regions;
@@ -100,6 +106,18 @@ struct _ged_facetize_state {
 extern void
 facetize_log(struct _ged_facetize_state *, int msg_level, const char *, ...) _BU_ATTR_PRINTF34;
 
+extern void
+facetize_failure_clear(struct _ged_facetize_state *);
+
+extern void
+facetize_failure(struct _ged_facetize_state *, const char *, ...) _BU_ATTR_PRINTF23;
+
+extern void
+facetize_tolerated_failure(struct _ged_facetize_state *, const char *, ...) _BU_ATTR_PRINTF23;
+
+extern void
+facetize_tolerated_summary(struct _ged_facetize_state *);
+
 extern int
 _db_uniq_test(struct bu_vls *n, void *data);
 
@@ -117,6 +135,9 @@ _ged_facetize_booleval(struct _ged_facetize_state *s, int argc, struct directory
 
 extern int
 _ged_facetize_write_bot(struct db_i *dbip, struct rt_bot_internal *bot, const char *name, int verbosity);
+
+extern int
+_ged_facetize_csg_bbox(struct db_i *dbip, const char *obj_name, point_t rpp_min, point_t rpp_max);
 
 extern int
 _ged_facetize_working_file_setup(struct _ged_facetize_state *s, struct bu_ptbl *leaf_dps);

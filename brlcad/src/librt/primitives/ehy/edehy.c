@@ -39,7 +39,7 @@
 #define ECMD_EHY_R2		20055
 #define ECMD_EHY_C		20056
 
-void
+C_DECL void
 rt_edit_ehy_set_edit_mode(struct rt_edit *s, int mode)
 {
     rt_edit_set_edflag(s, mode);
@@ -78,7 +78,7 @@ struct rt_edit_menu_item ehy_menu[] = {
     { "", NULL, 0 }
 };
 
-struct rt_edit_menu_item *
+C_DECL struct rt_edit_menu_item *
 rt_edit_ehy_menu_item(const struct bn_tol *UNUSED(tol))
 {
     return ehy_menu;
@@ -151,7 +151,8 @@ static const struct rt_edit_cmd_desc ehy_cmds[] = {
 	1,                    /* nparam       */
 	ehy_h_params,         /* params       */
 	1,                    /* interactive  */
-	10                    /* display_order */
+	10                    /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_EHY_R1,          /* cmd_id       */
@@ -160,7 +161,8 @@ static const struct rt_edit_cmd_desc ehy_cmds[] = {
 	1,                    /* nparam       */
 	ehy_r1_params,        /* params       */
 	1,                    /* interactive  */
-	20                    /* display_order */
+	20                    /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_EHY_R2,          /* cmd_id       */
@@ -169,7 +171,8 @@ static const struct rt_edit_cmd_desc ehy_cmds[] = {
 	1,                    /* nparam       */
 	ehy_r2_params,        /* params       */
 	1,                    /* interactive  */
-	30                    /* display_order */
+	30                    /* display_order */,
+	NULL                  /* req_types */
     },
     {
 	ECMD_EHY_C,           /* cmd_id       */
@@ -178,7 +181,8 @@ static const struct rt_edit_cmd_desc ehy_cmds[] = {
 	1,                    /* nparam       */
 	ehy_c_params,         /* params       */
 	1,                    /* interactive  */
-	40                    /* display_order */
+	40                    /* display_order */,
+	NULL                  /* req_types */
     }
 };
 
@@ -186,10 +190,12 @@ static const struct rt_edit_prim_desc ehy_prim_desc = {
     "ehy",                /* prim_type    */
     "Elliptical Hyperboloid", /* prim_label */
     4,                    /* ncmd         */
-    ehy_cmds              /* cmds         */
+    ehy_cmds              /* cmds         */,
+    0,                    /* nopt         */
+    NULL                  /* opts         */
 };
 
-const struct rt_edit_prim_desc *
+C_DECL const struct rt_edit_prim_desc *
 rt_edit_ehy_edit_desc(void)
 {
     return &ehy_prim_desc;
@@ -197,7 +203,7 @@ rt_edit_ehy_edit_desc(void)
 
 #define V3BASE2LOCAL(_pt) (_pt)[X]*base2local, (_pt)[Y]*base2local, (_pt)[Z]*base2local
 
-void
+C_DECL void
 rt_edit_ehy_write_params(
 	struct bu_vls *p,
        	const struct rt_db_internal *ip,
@@ -225,7 +231,7 @@ rt_edit_ehy_write_params(
     if (ln) *ln = '\0'; \
     while (lc && strchr(lc, ':')) lc++
 
-int
+C_DECL int
 rt_edit_ehy_read_params(
 	struct rt_db_internal *ip,
 	const char *fc,
@@ -414,7 +420,7 @@ rt_edit_ehy_pscale(struct rt_edit *s)
     return 0;
 }
 
-int
+C_DECL int
 rt_edit_ehy_edit(struct rt_edit *s)
 {
     switch (s->edit_flag) {
@@ -428,7 +434,7 @@ rt_edit_ehy_edit(struct rt_edit *s)
     }
 }
 
-int
+C_DECL int
 rt_edit_ehy_edit_xy(
         struct rt_edit *s,
         const vect_t mousevec
