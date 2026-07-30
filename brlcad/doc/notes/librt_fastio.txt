@@ -1,0 +1,418 @@
+Parallel librt Fast I/O Design Notes
+====================================
+
+Goal
+----
+
+Define a new ``g_io`` API for librt that can implement high performance v5
+database I/O paths in parallel with the existing ``db_io``/``rt_db_*`` logic.
+The new API must make it possible to:
+
+1. run the legacy path and the new path for the same operation;
+2. compare the resulting serialized bytes exactly;
+3. preserve the legacy path as the authoritative behavior during testing; and
+4. enable shadow execution under a dedicated RT debug flag so real workloads
+   can validate correctness before any production cutover.
+
+
+Why a Parallel API
+------------------
+
+The existing librt database I/O entry points are the current behavioral
+baseline.  They are deeply exercised, and many callers depend on their exact
+serialization behavior, including corner cases that may not be obvious from
+the high level API alone.
+
+For that reason, the new fast path should not initially replace the old API in
+place.  The safer strategy is to introduce a sibling API whose outputs can be
+compared against the existing implementation until the new code has been
+validated under real application workloads.
+
+The key correctness criterion is serialized byte equivalence.  For v5 objects,
+the external representation is the final contract with the database.  If the
+new logic produces bytes different from the legacy implementation, that is a
+signal to investigate whether the difference is a bug, an intentional format
+improvement, or an unspecified legacy quirk that callers have come to rely on.
+
+
+Existing APIs to Mirror
+-----------------------
+
+The new API should parallel the current public and semi-public entry points in
+``include/rt/db_io.h`` that define the major v5 object flows:
+
+* ``db_get_external``           - read serialized object bytes
+* ``db_put_external``           - write serialized object bytes
+* ``rt_db_get_internal5``       - import object into ``rt_db_internal``
+* ``rt_db_put_internal_v5``     - export ``rt_db_internal`` and write it
+* ``db5_get_raw_internal_ptr``  - validate and walk raw v5 object bytes
+* ``db_update_ident`` /
+  ``db5_update_ident``          - update the ``_GLOBAL`` object
+
+There is already precedent in librt for byte-for-byte external comparison:
+``db_diff_external`` in ``src/librt/db_diff.c`` compares two
+``struct bu_external`` values by checking byte count and ``memcmp`` on the
+payload.  That behavior should be reused as the validation baseline for the new
+API.
+
+
+Design Principles
+-----------------
+
+1. Legacy behavior remains authoritative during the validation phase.
+
+2. The new API must be explicit.  Callers should never "accidentally" invoke a
+   shadow path.
+
+3. Read and write validation must be separated from database mutation.  During
+   testing, both implementations may compute candidate bytes, but only one path
+   should commit them.
+
+4. Comparison should happen at the serialized byte level whenever possible.
+   Internal structure equality is not a sufficient correctness criterion.
+
+5. The new API should make room for zero-copy and borrowed-buffer techniques,
+   but those optimizations must not weaken validation or error reporting.
+
+6. The comparison framework must support deployment under real workloads
+   without aborting the process unless explicitly requested.
+
+
+Proposed Top-Level Architecture
+-------------------------------
+
+The ``g_io`` work should be divided into three layers:
+
+1. Raw serialized-object layer
+   Validates v5 object headers, exposes spans/slices into object bytes, and
+   supports fast walkers over raw combination/attribute payloads without first
+   materializing a full ``rt_db_internal``.
+
+2. Semantic import/export layer
+   Converts between serialized v5 bytes and ``struct rt_db_internal`` while
+   preserving compatibility with the legacy behavior.
+
+3. Shadow/compare layer
+   Runs legacy and ``g_io`` operations in parallel, gathers candidate outputs,
+   compares bytes, and reports mismatches in a controlled fashion.
+
+
+Core API Shape
+--------------
+
+The API should be context-based rather than controlled by scattered globals.
+The context keeps policy, statistics, callbacks, and scratch state associated
+with a specific ``db_i`` instance.
+
+Suggested public types:
+
+* ``struct rt_gio_ctx``
+* ``struct rt_gio_objview``
+* ``struct rt_gio_compare``
+* ``enum rt_gio_mode``
+* ``enum rt_gio_op``
+* ``enum rt_gio_diff_type``
+
+Suggested mode values:
+
+* ``RT_GIO_MODE_LEGACY``
+* ``RT_GIO_MODE_NEW``
+* ``RT_GIO_MODE_SHADOW_READ``
+* ``RT_GIO_MODE_SHADOW_WRITE``
+* ``RT_GIO_MODE_STRICT_SHADOW``
+* ``RT_GIO_MODE_NEW_AUTHORITATIVE``
+
+Suggested operation identifiers:
+
+* ``RT_GIO_OP_GET_EXTERNAL``
+* ``RT_GIO_OP_PUT_EXTERNAL``
+* ``RT_GIO_OP_GET_INTERNAL``
+* ``RT_GIO_OP_PUT_INTERNAL``
+* ``RT_GIO_OP_UPDATE_IDENT``
+* ``RT_GIO_OP_RAW_VIEW``
+
+
+Suggested Header Layout
+-----------------------
+
+Create a new public header:
+
+``include/rt/g_io.h``
+
+This header should not alter the signatures in ``db_io.h``.  Instead, it
+should define parallel entry points whose names make the dual-path design
+obvious.  For example:
+
+* ``rt_gio_ctx_create(struct db_i *dbip)``
+* ``rt_gio_ctx_destroy(struct rt_gio_ctx *ctx)``
+* ``rt_gio_ctx_mode_set(struct rt_gio_ctx *ctx, enum rt_gio_mode mode)``
+* ``rt_gio_ctx_callback_set(struct rt_gio_ctx *ctx, ...)``
+
+* ``rt_gio_get_external(struct rt_gio_ctx *ctx, struct bu_external *ep,
+  const struct directory *dp, const struct db_i *dbip)``
+
+* ``rt_gio_put_external(struct rt_gio_ctx *ctx, struct bu_external *ep,
+  struct directory *dp, struct db_i *dbip)``
+
+* ``rt_gio_get_internal5(struct rt_gio_ctx *ctx, struct rt_db_internal *ip,
+  const struct directory *dp, const struct db_i *dbip, const mat_t mat)``
+
+* ``rt_gio_put_internal_v5(struct rt_gio_ctx *ctx, struct directory *dp,
+  struct db_i *dbip, struct rt_db_internal *ip, int major)``
+
+* ``rt_gio_raw_view(struct rt_gio_ctx *ctx, struct rt_gio_objview *ov,
+  const struct bu_external *ep)``
+
+* ``rt_gio_compare_external(struct rt_gio_compare *cmp,
+  const struct bu_external *legacy, const struct bu_external *candidate)``
+
+Initially, the implementation can be thin wrappers around legacy code plus the
+shadow framework.  Over time, the wrappers can be replaced with specialized
+fast-path implementations behind the same API.
+
+
+Raw Object View API
+-------------------
+
+The raw layer should provide a validated, read-only view over an on-disk v5
+object.  The emphasis is on fast inspection without forcing a full import.
+
+Suggested properties of ``rt_gio_objview``:
+
+* points at the original bytes when borrowing is safe;
+* records the total object length and header length;
+* exposes object type, major/minor type, name span, attribute span, and body
+  span;
+* records whether the bytes are borrowed, owned, or mmapped;
+* records validation status and the first parse error, if any.
+
+This object should be sufficient to support future direct readers for:
+
+* combination trees;
+* attributes;
+* headers and free-space objects; and
+* primitive-specific metadata that can be inspected without full import.
+
+
+Shadow Execution API
+--------------------
+
+The shadow framework is the key feature of the design.  Its purpose is to run
+legacy and new code for the same logical operation and compare the results while
+allowing existing applications to continue using the legacy answer.
+
+The framework should support the following behavior:
+
+``LEGACY``
+    Run only the existing implementation.
+
+``NEW``
+    Run only the new implementation.  Intended for focused tests and eventually
+    production use once validated.
+
+``SHADOW_READ``
+    Run the legacy read path, also run the ``g_io`` read path, normalize both
+    to comparable outputs, log mismatches, and return the legacy result.
+
+``SHADOW_WRITE``
+    Run both write-preparation paths to obtain serialized candidate bytes,
+    compare them, commit only the legacy bytes, and report mismatches.
+
+``STRICT_SHADOW``
+    Same as shadow mode, but a mismatch escalates to a hard failure.
+
+``NEW_AUTHORITATIVE``
+    Run the ``g_io`` path as the committed result, optionally run legacy as the
+    comparison path.  This mode should come only after the previous stages have
+    established confidence.
+
+
+Canonical Comparison Strategy
+-----------------------------
+
+Comparison should be defined in terms of canonical serialized bytes.
+
+Read path rules:
+
+* If both paths naturally return ``struct bu_external``, compare them directly.
+* If both paths return ``rt_db_internal``, export both back to v5 external form
+  and compare those bytes.
+* If one path produces a raw validated view and the other produces an imported
+  internal form, convert both to external bytes before comparison.
+
+Write path rules:
+
+* The legacy and new paths both generate a candidate external representation.
+* The candidate external results are compared before any object allocation,
+  reallocation, or disk commit occurs.
+* Only the authoritative mode performs the actual write.
+
+This design deliberately avoids using internal-memory equality as the canonical
+validation criterion.  Two implementations may use different temporary storage
+or import details while still being externally equivalent.
+
+
+Mismatch Reporting
+------------------
+
+The compare layer should produce a structured mismatch record rather than just a
+boolean result.
+
+Suggested fields:
+
+* operation type
+* object name
+* object address and length, if available
+* legacy byte count
+* new byte count
+* first differing byte offset
+* mismatch classification:
+  size mismatch, content mismatch, parse failure mismatch, export failure
+  mismatch, attribute ordering mismatch, unsupported fast-path fallback, etc.
+* optional hex dump windows around the first difference
+* legacy status code and new status code
+* whether the mismatch was ignored, logged, or escalated
+
+Suggested callback model:
+
+* user-supplied function pointer on ``rt_gio_ctx``;
+* default callback logs via ``bu_log`` when enabled;
+* callback may increment counters, store samples, or trigger test failures.
+
+
+Debug Flag Integration
+----------------------
+
+The runtime opt-in should be controlled by an RT debug flag.  ``include/rt/debug.h``
+already defines ``RT_DEBUG_DB`` and ``RT_DEBUG_TESTING``.  A dedicated new bit is
+preferable to overloading either existing flag, because the shadow framework is
+neither ordinary database logging nor a one-off test hook.
+
+Suggested new flag:
+
+* ``RT_DEBUG_GIO_SHADOW``
+
+Its intended semantics:
+
+* enable dual execution of the selected ``g_io``-aware entry points;
+* enable byte-compare mismatch reporting;
+* optionally enable verbose dump output when combined with ``RT_DEBUG_DB``.
+
+If adding a new bit is not immediately feasible, ``RT_DEBUG_TESTING`` can serve
+as a short-term gate, but the long-term design should reserve a dedicated bit.
+
+
+Interception Points
+-------------------
+
+The shadow framework should be integrated at the existing public librt
+entry points so real callers can exercise the comparison logic without source
+changes.
+
+The initial interception set should be:
+
+* ``db_get_external``
+* ``db_put_external``
+* ``rt_db_get_internal5``
+* ``rt_db_put_internal_v5``
+* ``db5_update_ident``
+
+In shadow mode, these functions continue to implement the legacy semantics they
+already provide today, but they additionally invoke the corresponding ``g_io``
+operation and perform the comparison.
+
+
+Staged Implementation Plan
+--------------------------
+
+Phase 1 - Comparison framework only
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Add ``g_io.h``, context objects, compare structures, and wrappers that call the
+legacy code from both sides.  This phase establishes the API shape and the test
+infrastructure before any fast-path logic exists.
+
+Phase 2 - Raw validated object view
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Implement ``rt_gio_raw_view`` and the supporting validation/parsing routines
+parallel to ``db5_get_raw_internal_ptr``.
+
+Phase 3 - Fast read paths
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Implement ``rt_gio_get_external`` and selective raw-to-semantic readers that
+avoid unnecessary copies and imports for high-value cases.
+
+Phase 4 - Fast export paths
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Implement ``rt_gio_put_internal_v5`` serialization helpers that generate
+candidate external bytes without committing them.
+
+Phase 5 - Fast commit paths
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Once serialization behavior has been proven byte-identical, extend the new path
+to perform object allocation/reallocation and database mutation under controlled
+testing.
+
+Phase 6 - Authoritative cutover
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Only after shadow mismatch rates are understood and acceptable should the new
+path become authoritative for selected operations.
+
+
+Testing Strategy
+----------------
+
+The testing plan should combine focused unit coverage with runtime shadow
+coverage:
+
+1. Unit tests for:
+   * exact-match external comparisons on representative primitive and
+     combination objects;
+   * malformed/truncated object handling;
+   * mismatched status-code reporting;
+   * ``_GLOBAL`` update serialization;
+   * zero-copy borrowed-buffer cases.
+
+2. Regression tests that:
+   * run legacy and ``g_io`` on the same object set;
+   * assert identical external bytes;
+   * verify mismatch reporting for intentionally perturbed bytes.
+
+3. Real workload shadowing that:
+   * enables the debug flag in existing tools and applications;
+   * records mismatch counts and representative differences;
+   * keeps legacy results authoritative during the evaluation period.
+
+
+Important Safety Rules
+----------------------
+
+* In shadow mode, never let both implementations commit writes.
+* Treat byte mismatches as correctness failures until explained.
+* Do not require identical internal allocation/layout behavior between legacy
+  and new code.
+* Preserve all legacy error codes and failure behavior at the public boundary
+  while the legacy path remains authoritative.
+* Keep the new API parallel and opt-in until real workload validation supports
+  promotion.
+
+
+Recommended First Deliverable
+-----------------------------
+
+The first implementation milestone should include only:
+
+* ``include/rt/g_io.h`` with the context/mode/compare types;
+* shadow wrappers for the existing top-level I/O entry points;
+* byte-for-byte external comparison support;
+* mismatch reporting hooks; and
+* RT debug gating for real workload validation.
+
+That is enough to start collecting evidence about whether the new fast-path
+logic is "getting it right" before committing to any deeper behavioral changes
+in the database write path itself.
